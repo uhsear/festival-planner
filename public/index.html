@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#080810">
+<meta name="description" content="Plan your sets, sync with your crew, and stay coordinated live at the festival.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Festie">
+<meta property="og:description" content="Plan your sets, sync with your crew, and stay coordinated live at the festival.">
+<meta property="og:url" content="https://festie.us">
+<meta property="og:image" content="https://festie.us/icons/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Festie">
+<meta name="twitter:description" content="Plan your sets, sync with your crew, stay coordinated.">
+<title>Festie</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+<link rel="preload" href="/styles/tokens.css?v=1776342458439" as="style">
+<link rel="preload" href="/app.css?v=1776342458439" as="style">
+<link rel="preload" href="/app.js?v=1776342458439" as="script" crossorigin>
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syncopate:wght@400;700&display=swap" as="style">
+<link rel="stylesheet" href="/styles/tokens.css?v=1776342458439">
+<link rel="stylesheet" href="/app.css?v=1776342458439">
+</head>
+<body>
+<a href="#main-content" class="skip-link">Skip to content</a>
+<div id="app"></div>
+<div class="toast-container" id="toasts" role="status" aria-live="polite"></div>
+<div id="cookie-consent" class="cookie-banner" role="dialog" aria-label="Cookie consent" aria-describedby="cookie-desc" hidden>
+<div class="cookie-banner-inner">
+<p id="cookie-desc" class="cookie-banner-text">We use essential cookies for authentication and functionality. No tracking or advertising cookies. <a href="/privacy.html" class="cookie-banner-link">Privacy Policy</a></p>
+<button id="cookie-accept" class="cookie-banner-btn" type="button">Accept</button>
+</div>
+</div>
+<noscript>FESTIVAL PLANNER requires JavaScript.</noscript>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(function(){if(localStorage.getItem('fp_cookie_consent'))return;var b=document.getElementById('cookie-consent');if(b){b.hidden=false;document.getElementById('cookie-accept').addEventListener('click',function(){localStorage.setItem('fp_cookie_consent','1');b.hidden=true})}})();
+</script>
+<script type="module" src="/app.js?v=1776342458439"></script></body></html>

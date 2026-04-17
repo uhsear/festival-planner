@@ -1,0 +1,44 @@
+import React from 'react';
+import Button from '../ui/Button';
+import { cn } from '@/lib/utils';
+
+interface GuestTeaserProps {
+  mode: 'picks' | 'crew' | 'grid';
+  className?: string;
+}
+
+const CONFIG = {
+  picks: {
+    icon: '★',
+    title: 'Save your festival picks',
+    description: 'Sign in to mark artists as Must See, Want to See, or Maybe — sync across devices and share with your crew.',
+    cta: 'Sign Up Free',
+  },
+  crew: {
+    icon: '👥',
+    title: 'Plan with your crew',
+    description: 'Create a crew, invite friends, compare picks, and find sets you all want to see. Sign up to get started.',
+    cta: 'Sign Up Free',
+  },
+  grid: {
+    icon: '⏱',
+    title: 'See the whole schedule at a glance',
+    description: 'Grid view shows every stage and set across the festival. Sign in to track conflicts and plan your day.',
+    cta: 'Sign Up Free',
+  },
+};
+
+export default function GuestTeaser({ mode, className }: GuestTeaserProps) {
+  const config = CONFIG[mode];
+
+  return (
+    <div className={cn('flex flex-col items-center justify-center py-16 px-4', className)}>
+      <div className="text-6xl mb-6">{config.icon}</div>
+      <h2 className="text-2xl font-display font-bold text-text-primary mb-3 text-center">{config.title}</h2>
+      <p className="text-center text-text-secondary mb-8 max-w-sm text-sm leading-relaxed">{config.description}</p>
+      <Button variant="primary" onClick={() => window.location.href = '/register'}>
+        {config.cta}
+      </Button>
+    </div>
+  );
+}

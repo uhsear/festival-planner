@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Whitepaper - Festie</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            line-height: 1.7;
+            min-height: 100vh;
+        }
+        header {
+            margin-bottom: 3rem;
+        }
+        h1 {
+            color: #fff;
+            font-size: 2.5rem;
+            margin: 1rem 0;
+            background: linear-gradient(135deg, #fff 0%, #00e5a0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .document-meta {
+            color: #888;
+            font-size: 0.9rem;
+            margin: 1rem 0;
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .document-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        h2 {
+            color: #00e5a0;
+            font-size: 1.4rem;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid rgba(0, 229, 160, 0.3);
+            padding-bottom: 0.75rem;
+        }
+        h3 {
+            color: #a8d8ea;
+            font-size: 1.1rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        a {
+            color: #00e5a0;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        a:hover {
+            color: #a8d8ea;
+            text-decoration: underline;
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            min-height: 44px;
+            padding: 10px 16px;
+            margin-bottom: 2rem;
+            margin-left: -16px;
+            color: #00e5a0;
+            font-size: 0.95rem;
+            border-radius: 8px;
+            text-decoration: none;
+        }
+        .back-link:hover { background: rgba(0,229,160,0.08); }
+        .back-link:focus-visible { outline: 2px solid #00e5a0; outline-offset: 2px; }
+        .section {
+            margin-bottom: 2.5rem;
+        }
+        ul, ol {
+            margin: 1rem 0 1rem 1.5rem;
+        }
+        li {
+            margin-bottom: 0.75rem;
+        }
+        strong {
+            color: #fff;
+        }
+        code {
+            background: rgba(0, 229, 160, 0.1);
+            border: 1px solid rgba(0, 229, 160, 0.2);
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            color: #00e5a0;
+            font-size: 0.9rem;
+        }
+        .info-box {
+            background: rgba(0, 229, 160, 0.08);
+            border-left: 4px solid #00e5a0;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+            backdrop-filter: blur(10px);
+        }
+        .info-box strong {
+            color: #00e5a0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.95rem;
+        }
+        table thead {
+            background: rgba(0, 229, 160, 0.1);
+        }
+        table th {
+            color: #00e5a0;
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 2px solid rgba(0, 229, 160, 0.3);
+            font-weight: 600;
+        }
+        table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        table tr:hover {
+            background: rgba(0, 229, 160, 0.05);
+        }
+        .highlight {
+            background: rgba(0, 229, 160, 0.15);
+            padding: 0.1rem 0.3rem;
+            border-radius: 2px;
+        }
+        .toc {
+            background: rgba(168, 216, 234, 0.05);
+            border: 1px solid rgba(168, 216, 234, 0.2);
+            padding: 1.5rem;
+            border-radius: 6px;
+            margin: 2rem 0;
+        }
+        .toc h3 {
+            color: #a8d8ea;
+            margin-top: 0;
+        }
+        .toc ol {
+            margin-left: 1.5rem;
+        }
+        .toc li {
+            margin-bottom: 0.5rem;
+        }
+        .toc a {
+            color: #a8d8ea;
+        }
+        .security-feature {
+            background: rgba(0, 229, 160, 0.08);
+            border: 1px solid rgba(0, 229, 160, 0.2);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+        .security-feature strong {
+            color: #00e5a0;
+        }
+        .disclaimer {
+            background: rgba(255, 193, 7, 0.08);
+            border-left: 4px solid rgba(255, 193, 7, 0.5);
+            padding: 1.25rem;
+            margin: 2rem 0;
+            border-radius: 4px;
+        }
+        .contact-info {
+            background: rgba(0, 229, 160, 0.08);
+            border: 1px solid rgba(0, 229, 160, 0.2);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 6px;
+            backdrop-filter: blur(10px);
+        }
+        .contact-info p {
+            margin: 0.5rem 0;
+        }
+        footer {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(0, 229, 160, 0.2);
+            color: #888;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-link">← Back to Festie</a>
+
+    <header>
+        <h1>Security Whitepaper</h1>
+        <p class="document-meta">
+            <span><strong>Version:</strong> 1.0</span>
+            <span><strong>Last Updated:</strong> March 2026</span>
+        </p>
+    </header>
+
+    <main>
+        <section class="section">
+            <h2>Table of Contents</h2>
+            <div class="toc">
+                <ol>
+                    <li><a href="#infrastructure">Infrastructure Overview</a></li>
+                    <li><a href="#authentication">Authentication & Session Management</a></li>
+                    <li><a href="#input-validation">Input Validation & Injection Prevention</a></li>
+                    <li><a href="#rate-limiting">Rate Limiting & DDoS Mitigation</a></li>
+                    <li><a href="#data-protection">Data Protection</a></li>
+                    <li><a href="#audit-logging">Audit Logging</a></li>
+                    <li><a href="#backup-recovery">Backup & Recovery</a></li>
+                    <li><a href="#dependency-management">Dependency Management</a></li>
+                    <li><a href="#incident-response">Incident Response</a></li>
+                    <li><a href="#scope">What This Document Does Not Cover</a></li>
+                </ol>
+            </div>
+        </section>
+
+        <section class="section" id="infrastructure">
+            <h2>1. Infrastructure Overview</h2>
+            <p>Festie is deployed on <strong>self-hosted on-premise infrastructure</strong> with a robust, production-grade architecture designed for reliability and security.</p>
+
+            <h3>Core Architecture</h3>
+            <div class="security-feature">
+                <strong>Application Servers:</strong> PM2 cluster mode with 4 Node.js instances for horizontal scalability, automatic failover, and zero-downtime deployments
+            </div>
+            <div class="security-feature">
+                <strong>Database:</strong> PostgreSQL 16 with replication support, transaction logging, and ACID compliance for data integrity
+            </div>
+            <div class="security-feature">
+                <strong>Caching Layer:</strong> Redis 7 (optional) for session storage, rate limit counters, and real-time data
+            </div>
+            <div class="security-feature">
+                <strong>Reverse Proxy:</strong> nginx with SSL/TLS termination, request routing, and DDoS mitigation
+            </div>
+
+            <h3>Transport Layer Security</h3>
+            <ul>
+                <li><strong>Minimum TLS Version:</strong> TLS 1.2 with support for TLS 1.3 where supported</li>
+                <li><strong>Cipher Suites:</strong> Modern, authenticated encryption algorithms (AEAD) excluding weak or deprecated ciphers</li>
+                <li><strong>Certificate Management:</strong> Automated SSL/TLS certificate provisioning with renewal mechanisms</li>
+                <li><strong>HSTS Headers:</strong> Strict-Transport-Security enforced to prevent downgrade attacks</li>
+                <li><strong>Service Worker Integrity:</strong> Offline-capable PWA with cache-first strategy and version-controlled updates</li>
+            </ul>
+
+            <h3>Network Segmentation</h3>
+            <p>The application infrastructure is segmented to isolate components and limit the attack surface. Database servers operate in restricted network zones with firewall rules limiting access to application servers only. Redis instances (if used) are accessible exclusively from the application layer.</p>
+        </section>
+
+        <section class="section" id="authentication">
+            <h2>2. Authentication & Session Management</h2>
+            <p>Authentication and session management are critical components of the security architecture, employing industry-standard practices and timing-safe implementations.</p>
+
+            <h3>Password Hashing & Storage</h3>
+            <div class="security-feature">
+                <strong>Algorithm:</strong> Scrypt key derivation function with memory-hard properties resistant to GPU-accelerated brute-force attacks
+            </div>
+            <div class="security-feature">
+                <strong>Parameters:</strong> 64-byte derived key length, cryptographically random salt per password, high cost factor to increase computation time
+            </div>
+            <div class="security-feature">
+                <strong>Timing Safety:</strong> Password comparison uses constant-time string comparison to prevent timing-based attacks
+            </div>
+            <p>Passwords are never stored in plaintext and cannot be recovered or reset by administrators. Users requesting a forgotten password receive a time-limited reset token instead.</p>
+
+            <h3>Session Tokens & Authentication Cookies</h3>
+            <ul>
+                <li><strong>Token Format:</strong> Cryptographically random tokens (minimum 256 bits entropy)</li>
+                <li><strong>Storage:</strong> Tokens are hashed using SHA-256 before database storage; raw tokens never stored on disk</li>
+                <li><strong>Cookie Configuration:</strong> HTTP-only flag prevents JavaScript access, Secure flag enforced on HTTPS connections, SameSite=Strict prevents CSRF</li>
+                <li><strong>Session Duration:</strong> 24-hour absolute timeout, sliding window renewal on activity</li>
+            </ul>
+
+            <h3>Refresh Token Rotation</h3>
+            <p>Refresh tokens implement automatic rotation to mitigate token replay attacks:</p>
+            <ul>
+                <li><strong>TTL:</strong> 90-day maximum lifetime</li>
+                <li><strong>Rotation:</strong> Automatic issuance of new refresh token on each use; previous token invalidated</li>
+                <li><strong>Reuse Detection:</strong> Rotation family tracking to detect potential token theft</li>
+                <li><strong>Revocation:</strong> Bulk invalidation of refresh tokens on password change or logout-all operations</li>
+            </ul>
+
+            <h3>Account Lockout & Brute-Force Protection</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Threshold</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Consecutive failed login attempts</td>
+                        <td>10</td>
+                        <td>Account locked for 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td>Lockout duration</td>
+                        <td>15 minutes</td>
+                        <td>Automatic unlock; user can unlock via email</td>
+                    </tr>
+                    <tr>
+                        <td>Failed attempts reset</td>
+                        <td>After successful login</td>
+                        <td>Counter resets to zero</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Rate Limiting on Authentication Endpoints</h3>
+            <div class="security-feature">
+                <strong>Login Endpoint:</strong> 10 requests per 5-minute window per IP address
+            </div>
+            <div class="security-feature">
+                <strong>Password Reset:</strong> 5 requests per 15-minute window per email address
+            </div>
+            <div class="security-feature">
+                <strong>Registration:</strong> 5 requests per hour per IP address
+            </div>
+            <p>Rate limiting is enforced at the reverse proxy layer with per-IP and per-user tracking. Attempts to bypass rate limiting via distributed requests are mitigated through adaptive thresholds.</p>
+
+            <h3>Multi-Device Session Management</h3>
+            <p>Users can maintain multiple concurrent sessions across devices. Session invalidation can be triggered by:</p>
+            <ul>
+                <li>User-initiated logout (single device)</li>
+                <li>Logout from all devices (invalidates all active sessions)</li>
+                <li>Password change (auto-invalidates all sessions for security)</li>
+                <li>Administrator action (in case of security incident)</li>
+            </ul>
+        </section>
+
+        <section class="section" id="input-validation">
+            <h2>3. Input Validation & Injection Prevention</h2>
+            <p>Comprehensive input validation is implemented across all API endpoints to prevent injection attacks and enforce data consistency.</p>
+
+            <h3>Schema Validation</h3>
+            <div class="security-feature">
+                <strong>Framework:</strong> Zod runtime schema validation on all API request bodies, query parameters, and path parameters
+            </div>
+            <div class="security-feature">
+                <strong>Coverage:</strong> 100% of API endpoints validate inputs before processing
+            </div>
+            <div class="security-feature">
+                <strong>Type Safety:</strong> TypeScript types derived from Zod schemas ensure consistency between runtime and compile-time validation
+            </div>
+            <p>Invalid requests are rejected with 400 Bad Request responses before reaching business logic. Validation errors are logged for intrusion detection.</p>
+
+            <h3>SQL Injection Prevention</h3>
+            <ul>
+                <li><strong>Parameterized Queries:</strong> All database queries use parameterized queries (prepared statements) exclusively</li>
+                <li><strong>ORM Usage:</strong> Database access through query builders and ORMs that enforce parameterization</li>
+                <li><strong>Dynamic Query Prevention:</strong> Raw SQL queries prohibited; code reviews and linting detect violations</li>
+                <li><strong>Zero Surface:</strong> No SQL injection surface despite handling user-controlled data in filters, sorting, and pagination</li>
+            </ul>
+
+            <h3>Cross-Site Scripting (XSS) Prevention</h3>
+            <ul>
+                <li><strong>Output Encoding:</strong> All user-generated content is HTML-escaped before rendering in templates</li>
+                <li><strong>Content Security Policy:</strong> CSP headers enforce strict policies against inline scripts and unauthorized resource loading</li>
+                <li><strong>Per-Request Nonces:</strong> Script execution nonces generated per-request and validated, preventing execution of injected scripts</li>
+                <li><strong>React/JSX:</strong> Client-side rendering with React automatically escapes content, providing XSS protection by default</li>
+            </ul>
+
+            <h3>Content Security Policy (CSP)</h3>
+            <p>The application implements a restrictive CSP policy limiting script execution, style loading, and resource origins:</p>
+            <ul>
+                <li><strong>Script-Src:</strong> <code>'self'</code> with per-request nonce for inline scripts</li>
+                <li><strong>Style-Src:</strong> <code>'self'</code> and Google Fonts for web fonts</li>
+                <li><strong>Img-Src:</strong> <code>data:</code>, <code>blob:</code>, <code>'self'</code>, and whitelisted CDNs</li>
+                <li><strong>Connect-Src:</strong> Limited to same origin for API calls</li>
+                <li><strong>Frame-Ancestors:</strong> <code>'none'</code> prevents clickjacking via frame embedding</li>
+            </ul>
+
+            <h3>CSRF Protection</h3>
+            <div class="security-feature">
+                <strong>Origin Enforcement:</strong> State-changing requests (POST, PUT, DELETE) require valid Origin and Referer headers matching the application domain
+            </div>
+            <div class="security-feature">
+                <strong>Token-Based Protection:</strong> Optional CSRF tokens for additional protection on sensitive operations
+            </div>
+            <div class="security-feature">
+                <strong>SameSite Cookies:</strong> Session cookies enforced with SameSite=Strict preventing cross-site cookie transmission
+            </div>
+
+            <h3>Other Injection Attacks</h3>
+            <ul>
+                <li><strong>Header Injection:</strong> HTTP headers validated to prevent CRLF injection attacks</li>
+                <li><strong>Path Traversal:</strong> File operations validated to prevent directory traversal attacks</li>
+                <li><strong>Command Injection:</strong> External command execution avoided; commands use parameterized APIs instead of shell interpolation</li>
+            </ul>
+        </section>
+
+        <section class="section" id="rate-limiting">
+            <h2>4. Rate Limiting & DDoS Mitigation</h2>
+            <p>Multi-layered rate limiting protects against brute-force attacks, DDoS, and resource exhaustion attacks.</p>
+
+            <h3>Rate Limiting Tiers</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Endpoint Category</th>
+                        <th>Rate Limit</th>
+                        <th>Window</th>
+                        <th>Tracking</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>General API</td>
+                        <td>120 requests</td>
+                        <td>1 minute</td>
+                        <td>Per IP + Per User</td>
+                    </tr>
+                    <tr>
+                        <td>Authentication</td>
+                        <td>10 requests</td>
+                        <td>5 minutes</td>
+                        <td>Per IP</td>
+                    </tr>
+                    <tr>
+                        <td>WebSocket Connections</td>
+                        <td>30 messages</td>
+                        <td>1 minute</td>
+                        <td>Per User</td>
+                    </tr>
+                    <tr>
+                        <td>File Uploads</td>
+                        <td>10 uploads</td>
+                        <td>1 hour</td>
+                        <td>Per User</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Implementation Details</h3>
+            <div class="security-feature">
+                <strong>Storage Backend:</strong> Redis-backed rate limiting for distributed deployments with in-memory fallback for single-instance deployments
+            </div>
+            <div class="security-feature">
+                <strong>Sliding Window:</strong> Sliding window rate limiting prevents burst attacks at window boundaries
+            </div>
+            <div class="security-feature">
+                <strong>Distributed Coordination:</strong> All instances sync rate limit state via Redis, preventing limit bypass through load balancer switching
+            </div>
+
+            <h3>DDoS Mitigation</h3>
+            <ul>
+                <li><strong>nginx Rate Limiting:</strong> Reverse proxy enforces upstream rate limits before requests reach the application</li>
+                <li><strong>Connection Limits:</strong> Maximum concurrent connections per IP to prevent resource exhaustion</li>
+                <li><strong>Slowloris Mitigation:</strong> Request timeout enforcement and connection draining to prevent slow-read attacks</li>
+                <li><strong>Adaptive Thresholds:</strong> Rate limits adjusted based on traffic patterns to identify and isolate attack sources</li>
+                <li><strong>Cloudflare DDoS Protection:</strong> Optional integration with Cloudflare for Layer 3-7 DDoS mitigation</li>
+            </ul>
+
+            <h3>Response Headers</h3>
+            <p>Rate-limited responses include headers informing clients of their current limits:</p>
+            <ul>
+                <li><code>RateLimit-Limit</code>: Maximum requests allowed in the window</li>
+                <li><code>RateLimit-Remaining</code>: Number of requests remaining before limit</li>
+                <li><code>RateLimit-Reset</code>: Unix timestamp when limit resets</li>
+                <li><code>Retry-After</code>: Seconds to wait before retrying (when limit exceeded)</li>
+            </ul>
+        </section>
+
+        <section class="section" id="data-protection">
+            <h2>5. Data Protection</h2>
+            <p>Data protection encompasses encryption, hashing, retention policies, and compliance with privacy regulations.</p>
+
+            <h3>Encryption in Transit</h3>
+            <div class="security-feature">
+                <strong>Protocol:</strong> TLS 1.2 minimum (TLS 1.3 preferred) for all data transmission
+            </div>
+            <div class="security-feature">
+                <strong>Coverage:</strong> All API endpoints, WebSocket connections, and file transfers require HTTPS
+            </div>
+            <div class="security-feature">
+                <strong>Enforcement:</strong> HSTS headers enforce TLS for minimum 1 year; preload list inclusion prevents initial insecure connections
+            </div>
+
+            <h3>Encryption at Rest</h3>
+            <p>User passwords and authentication tokens are never stored in plaintext:</p>
+            <ul>
+                <li><strong>Passwords:</strong> Hashed with Scrypt (memory-hard KDF); hashes cannot be reversed to plaintext</li>
+                <li><strong>Tokens:</strong> Hashed with SHA-256 before storage; tokens not recoverable from database</li>
+                <li><strong>Session Data:</strong> Stored in Redis (encrypted if TLS is used) or encrypted at rest in PostgreSQL</li>
+            </ul>
+
+            <h3>Data Retention Policy</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data Category</th>
+                        <th>Retention Period</th>
+                        <th>Deletion Method</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>User Account Data</td>
+                        <td>Lifetime of account</td>
+                        <td>30-day soft delete with reactivation option</td>
+                    </tr>
+                    <tr>
+                        <td>Backups</td>
+                        <td>7 daily + 4 weekly cycles (28 days)</td>
+                        <td>Automatic purge after retention period</td>
+                    </tr>
+                    <tr>
+                        <td>Audit Logs</td>
+                        <td>12 months</td>
+                        <td>Automatic archival and deletion</td>
+                    </tr>
+                    <tr>
+                        <td>Session Data</td>
+                        <td>24 hours</td>
+                        <td>Automatic expiration and invalidation</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>GDPR Compliance</h3>
+            <div class="security-feature">
+                <strong>Article 15 (Right of Access):</strong> Data export API endpoint returns user data in JSON format
+            </div>
+            <div class="security-feature">
+                <strong>Article 17 (Right to Erasure):</strong> Account deletion initiates soft-delete with 30-day grace period; permanent deletion after grace period expires
+            </div>
+            <div class="security-feature">
+                <strong>Article 20 (Data Portability):</strong> Exported data in standard, machine-readable format enables transfer to other services
+            </div>
+            <p>Data subject requests are processed within 30 days (up to 60 days for complex requests). Identity verification required before processing.</p>
+
+            <h3>Soft-Delete & Account Reactivation</h3>
+            <p>User deletion requests are not immediately permanent to prevent accidental data loss:</p>
+            <ul>
+                <li><strong>Grace Period:</strong> 30 days after deletion request before permanent removal</li>
+                <li><strong>Reactivation:</strong> Users can reactivate accounts by logging in with credentials during grace period</li>
+                <li><strong>Data Accessibility:</strong> Data inaccessible to user but retained for recovery during grace period</li>
+                <li><strong>Irreversible Deletion:</strong> After 30 days, data permanently deleted and unrecoverable</li>
+            </ul>
+
+            <h3>Terms of Service & Consent Versioning</h3>
+            <p>Account creation requires acceptance of current Terms of Service and Privacy Policy. Versions are tracked:</p>
+            <ul>
+                <li>Each user record stores accepted ToS/Privacy version and acceptance timestamp</li>
+                <li>Material changes require explicit re-acceptance before continued service use</li>
+                <li>30-day notice period for material policy changes with continued-use-as-acceptance</li>
+            </ul>
+        </section>
+
+        <section class="section" id="audit-logging">
+            <h2>6. Audit Logging</h2>
+            <p>Comprehensive audit logging enables security monitoring, investigation of incidents, and compliance with regulatory requirements.</p>
+
+            <h3>Logged Events</h3>
+            <p>The following events are logged for audit purposes:</p>
+            <ul>
+                <li><strong>Authentication:</strong> Login attempts (successful and failed), password changes, token generation</li>
+                <li><strong>Data Mutations:</strong> All create, update, delete operations on user data with before/after states</li>
+                <li><strong>Permission Changes:</strong> Role assignments, crew membership changes, permission grants</li>
+                <li><strong>Administrative Actions:</strong> Admin operations, configuration changes, user account modifications</li>
+                <li><strong>Security Events:</strong> Rate limit violations, failed validations, suspicious patterns</li>
+            </ul>
+
+            <h3>Log Contents</h3>
+            <div class="security-feature">
+                <strong>Actor:</strong> User ID or system component responsible for the action
+            </div>
+            <div class="security-feature">
+                <strong>Action:</strong> Type of operation (create, update, delete, login, etc.)
+            </div>
+            <div class="security-feature">
+                <strong>Resource:</strong> Entity affected by the action and its ID
+            </div>
+            <div class="security-feature">
+                <strong>IP Address:</strong> Source IP address of the request
+            </div>
+            <div class="security-feature">
+                <strong>Timestamp:</strong> UTC timestamp with millisecond precision
+            </div>
+            <div class="security-feature">
+                <strong>Request ID:</strong> Correlation ID for tracing related requests
+            </div>
+            <div class="security-feature">
+                <strong>Result:</strong> Success/failure status and error messages if applicable
+            </div>
+
+            <h3>Log Storage & Access</h3>
+            <ul>
+                <li><strong>Storage:</strong> PostgreSQL with tamper-evident checksums</li>
+                <li><strong>Retention:</strong> 12-month retention policy with automatic archival and deletion</li>
+                <li><strong>Access Control:</strong> Restricted to administrators; all log access logged</li>
+                <li><strong>Query Interface:</strong> Admin panel with filtering by user, action, date range, result status</li>
+                <li><strong>Export:</strong> Bulk export capabilities for security investigations and audits</li>
+            </ul>
+
+            <h3>Request Tracing</h3>
+            <p>Request IDs enable correlation of logs across multiple services and instances:</p>
+            <ul>
+                <li>Unique request ID generated on HTTP request entry</li>
+                <li>ID propagated through all downstream requests and logs</li>
+                <li>Request ID included in API response headers for client-side tracing</li>
+                <li>Enables reconstruction of complete request flow for security analysis</li>
+            </ul>
+        </section>
+
+        <section class="section" id="backup-recovery">
+            <h2>7. Backup & Recovery</h2>
+            <p>Automated backup and disaster recovery procedures ensure business continuity and data preservation.</p>
+
+            <h3>Backup Schedule</h3>
+            <div class="security-feature">
+                <strong>Frequency:</strong> PostgreSQL full backup every 6 hours (4 backups per day)
+            </div>
+            <div class="security-feature">
+                <strong>Compression:</strong> Gzip compression reduces backup size by 70-80%
+            </div>
+            <div class="security-feature">
+                <strong>Retention:</strong> 7 daily backups + 4 weekly backups (28-day rolling window)
+            </div>
+
+            <h3>Retention Policy</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Backup Type</th>
+                        <th>Age</th>
+                        <th>Quantity</th>
+                        <th>Total Retention</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Daily Backups</td>
+                        <td>Last 7 days</td>
+                        <td>7 backups</td>
+                        <td>7 days</td>
+                    </tr>
+                    <tr>
+                        <td>Weekly Backups</td>
+                        <td>Last 4 weeks</td>
+                        <td>4 backups</td>
+                        <td>4 weeks</td>
+                    </tr>
+                    <tr>
+                        <td>Oldest Backup</td>
+                        <td>Previous weekly</td>
+                        <td>1 backup</td>
+                        <td>~28 days total</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Backup Integrity</h3>
+            <ul>
+                <li><strong>Checksums:</strong> SHA-256 checksums computed on all backups for integrity verification</li>
+                <li><strong>Test Restores:</strong> Monthly restoration tests validate backup integrity and recovery procedures</li>
+                <li><strong>Encryption:</strong> Backups encrypted at rest using AES-256 encryption</li>
+                <li><strong>Offsite Replication:</strong> Backups replicated to geographically distributed storage for disaster recovery</li>
+            </ul>
+
+            <h3>Recovery Procedures</h3>
+            <p>Tested and documented procedures enable rapid recovery from data loss or system failures:</p>
+            <ul>
+                <li><strong>RTO (Recovery Time Objective):</strong> 1-2 hours maximum downtime for full restoration</li>
+                <li><strong>RPO (Recovery Point Objective):</strong> 6 hours maximum data loss in worst-case scenario</li>
+                <li><strong>Partial Recovery:</strong> Point-in-time recovery to specific timestamps for ransomware or data corruption scenarios</li>
+                <li><strong>Verification:</strong> Post-recovery integrity checks confirm data consistency before serving</li>
+            </ul>
+
+            <h3>Transaction Logging</h3>
+            <p>PostgreSQL Write-Ahead Logging (WAL) enables point-in-time recovery beyond backup snapshots:</p>
+            <ul>
+                <li>WAL files retained for 7 days enabling recovery to any point within the window</li>
+                <li>Continuous archival of WAL files to separate storage for extended recovery window</li>
+                <li>Prevents data loss from the last backup snapshot to the point of failure</li>
+            </ul>
+        </section>
+
+        <section class="section" id="dependency-management">
+            <h2>8. Dependency Management</h2>
+            <p>Third-party dependencies are carefully managed and monitored for security vulnerabilities.</p>
+
+            <h3>Vulnerability Scanning</h3>
+            <div class="security-feature">
+                <strong>npm audit:</strong> Automated dependency vulnerability scanning in CI/CD pipeline on every commit
+            </div>
+            <div class="security-feature">
+                <strong>GitHub Security:</strong> Automated Dependabot alerts for vulnerable dependencies with auto-remediation PRs
+            </div>
+            <div class="security-feature">
+                <strong>CI Pipeline:</strong> Builds fail if high or critical vulnerabilities detected; manual override permitted only for false positives
+            </div>
+
+            <h3>Dependency Updates</h3>
+            <ul>
+                <li><strong>Update Frequency:</strong> Minor and patch updates applied within 7 days of release</li>
+                <li><strong>Major Versions:</strong> Evaluated for breaking changes; updated quarterly or as needed</li>
+                <li><strong>Security Patches:</strong> Applied immediately upon release regardless of version constraints</li>
+                <li><strong>Testing:</strong> Automated tests run on updated dependencies to catch regressions</li>
+            </ul>
+
+            <h3>Dependency Lockfile</h3>
+            <p>Exact dependency versions locked to prevent unintended upgrades:</p>
+            <ul>
+                <li>Lockfile committed to version control ensuring reproducible builds</li>
+                <li>Production deployments use locked versions exclusively</li>
+                <li>Regular lockfile updates maintain security and patch levels</li>
+            </ul>
+
+            <h3>Direct Dependency Audit</h3>
+            <p>Direct dependencies (not transitive) are reviewed annually for:</p>
+            <ul>
+                <li>Maintenance status and community activity</li>
+                <li>Security track record and vulnerability history</li>
+                <li>License compatibility with project requirements</li>
+                <li>Deprecation status and roadmap</li>
+            </ul>
+        </section>
+
+        <section class="section" id="incident-response">
+            <h2>9. Incident Response</h2>
+            <p>A comprehensive incident response program enables rapid detection, investigation, and resolution of security incidents.</p>
+
+            <h3>Vulnerability Disclosure</h3>
+            <p>Festie follows responsible vulnerability disclosure practices per RFC 9116:</p>
+            <div class="info-box">
+                <p><strong>Security.txt File:</strong> <code>/.well-known/security.txt</code> published with vulnerability disclosure contact and policy</p>
+            </div>
+
+            <h3>Reporting Vulnerabilities</h3>
+            <div class="security-feature">
+                <strong>Email:</strong> <a href="mailto:uhsear@gmail.com">uhsear@gmail.com</a>
+            </div>
+            <div class="security-feature">
+                <strong>Response Commitment:</strong> 48-hour acknowledgment of vulnerability reports
+            </div>
+            <div class="security-feature">
+                <strong>Disclosure Timeline:</strong> 90-day coordinated disclosure window for remediation before public disclosure
+            </div>
+
+            <h3>Response Process</h3>
+            <ol>
+                <li><strong>Triage:</strong> Severity assessment and impact analysis within 24 hours</li>
+                <li><strong>Investigation:</strong> Technical investigation to understand vulnerability scope and root cause</li>
+                <li><strong>Remediation:</strong> Development of fix with priority based on severity and exploitability</li>
+                <li><strong>Testing:</strong> Comprehensive testing of fix in production-like environment</li>
+                <li><strong>Deployment:</strong> Rapid deployment of fix to production; emergency updates if necessary</li>
+                <li><strong>Disclosure:</strong> Coordinated disclosure with researcher and public notice after fix is deployed</li>
+            </ol>
+
+            <h3>Severity Classification</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Severity</th>
+                        <th>Description</th>
+                        <th>Fix Timeline</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="highlight">Critical</span></td>
+                        <td>Remote code execution, data exfiltration, complete system compromise</td>
+                        <td>&lt; 24 hours</td>
+                    </tr>
+                    <tr>
+                        <td><span class="highlight">High</span></td>
+                        <td>Authentication bypass, privilege escalation, significant data exposure</td>
+                        <td>&lt; 72 hours</td>
+                    </tr>
+                    <tr>
+                        <td>Medium</td>
+                        <td>Information disclosure, limited impact vulnerabilities</td>
+                        <td>&lt; 2 weeks</td>
+                    </tr>
+                    <tr>
+                        <td>Low</td>
+                        <td>Minor security issues with minimal impact</td>
+                        <td>Next release cycle</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Post-Incident Process</h3>
+            <ul>
+                <li>Root cause analysis to identify systemic issues</li>
+                <li>Security review of related components for similar vulnerabilities</li>
+                <li>Process improvements to prevent recurrence</li>
+                <li>Transparency communication with affected users if data exposed</li>
+            </ul>
+        </section>
+
+        <section class="section" id="scope">
+            <h2>10. What This Document Does Not Cover</h2>
+            <p>This whitepaper focuses on application-layer security and infrastructure. The following are intentionally excluded for operational security:</p>
+
+            <h3>Infrastructure-Specific Information</h3>
+            <ul>
+                <li>Specific server IP addresses and network topology</li>
+                <li>Detailed firewall rules and network configuration</li>
+                <li>Physical data center locations and disaster recovery sites</li>
+                <li>Server hostnames or internal domain names</li>
+            </ul>
+
+            <h3>Tool & Version Information</h3>
+            <ul>
+                <li>Specific versions of security tools and vulnerability scanners used</li>
+                <li>Names and versions of WAF (Web Application Firewall) rules</li>
+                <li>Intrusion detection system configurations</li>
+                <li>Specific monitoring and alerting tool versions</li>
+            </ul>
+
+            <h3>Incident Details</h3>
+            <ul>
+                <li>Details of past security incidents or breaches</li>
+                <li>Specific vulnerability remediation timelines from past incidents</li>
+                <li>Names of users or systems affected by security events</li>
+                <li>Attack vectors or techniques observed in production</li>
+            </ul>
+
+            <h3>Operational Procedures</h3>
+            <ul>
+                <li>Detailed incident response runbooks</li>
+                <li>Administrator access procedures and credential management</li>
+                <li>Deployment procedures and release processes</li>
+                <li>On-call rotation and escalation procedures</li>
+            </ul>
+
+            <h3>Why These Are Excluded</h3>
+            <p>Specific infrastructure and procedural details are withheld to prevent providing roadmaps for potential attackers. Security assessments requiring this level of detail are conducted under NDA through separate vendor security assessments.</p>
+        </section>
+
+        <section class="section">
+            <h2>Conclusion</h2>
+            <p>Festie implements a comprehensive, defense-in-depth security architecture addressing authentication, data protection, injection prevention, rate limiting, audit logging, and incident response. The application is designed to be resilient against common web application attacks while maintaining usability and performance.</p>
+            <p>This whitepaper documents existing security practices as of March 2026. Security is an ongoing process requiring continuous improvement, monitoring, and adaptation to emerging threats. For vendor security assessments or specific security questions, contact <a href="mailto:uhsear@gmail.com">uhsear@gmail.com</a>.</p>
+        </section>
+
+        <section class="section">
+            <h2>Contact & Questions</h2>
+            <div class="contact-info">
+                <p><strong>Security Issues:</strong> <a href="mailto:uhsear@gmail.com">uhsear@gmail.com</a></p>
+                <p><strong>Vulnerability Disclosure:</strong> <a href="mailto:uhsear@gmail.com">uhsear@gmail.com</a></p>
+                <p><strong>Service URL:</strong> <a href="https://festie.us">https://festie.us</a></p>
+                <p><strong>Security Policy:</strong> <code>/.well-known/security.txt</code></p>
+            </div>
+            <p>For additional information regarding the security of Festie, please contact our security team. Inquiries are responded to within 48 hours during business days.</p>
+        </section>
+    </main>
+
+    <footer>
+        <p>Festie Security Whitepaper | Version 1.0 | Last Updated March 2026</p>
+    </footer>
+</body>
+</html>

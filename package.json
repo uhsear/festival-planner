@@ -1,0 +1,68 @@
+{
+  "name": "festie",
+  "version": "3.0.0",
+  "description": "Interactive festival set schedule planner with group coordination",
+  "main": "server.js",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/uhsear/festival-planner.git"
+  },
+  "homepage": "https://festie.us",
+  "bugs": {
+    "url": "https://github.com/uhsear/festival-planner/issues"
+  },
+  "author": "Asir Khan <uhsear@gmail.com>",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test --test-force-exit --test-concurrency=1 tests/unit.test.js tests/integration-auth.test.js tests/integration-festivals.test.js tests/integration-picks.test.js tests/integration-crews.test.js tests/integration-notifications.test.js tests/integration-admin.test.js tests/integration-export.test.js tests/integration-sockets.test.js tests/critical-paths.test.js tests/hardening.test.js tests/coverage-auth.test.js tests/coverage-routes.test.js tests/coverage-edges.test.js tests/notifications.test.js tests/response-shapes.test.js tests/tech-debt-fixes.test.js tests/phase1-features.test.js tests/export.test.js tests/share.test.js tests/lineup-import.test.js tests/email-auth.test.js tests/profiles.test.js tests/crew-features.test.js tests/crews.test.js tests/account.test.js tests/export-utils.test.js tests/notifications-factory.test.js",
+    "test:unit": "node --test --test-force-exit tests/unit.test.js",
+    "test:coverage": "c8 --reporter=text --reporter=lcov --reporter=json-summary node --test --test-force-exit --test-concurrency=1 tests/unit.test.js tests/integration-auth.test.js tests/integration-festivals.test.js tests/integration-picks.test.js tests/integration-crews.test.js tests/integration-notifications.test.js tests/integration-admin.test.js tests/integration-export.test.js tests/integration-sockets.test.js tests/critical-paths.test.js tests/hardening.test.js tests/coverage-auth.test.js tests/coverage-routes.test.js tests/coverage-edges.test.js tests/notifications.test.js tests/response-shapes.test.js tests/tech-debt-fixes.test.js tests/export.test.js tests/share.test.js tests/lineup-import.test.js tests/email-auth.test.js tests/profiles.test.js tests/crew-features.test.js tests/crews.test.js tests/account.test.js tests/export-utils.test.js tests/notifications-factory.test.js",
+    "test:e2e": "playwright test",
+    "test:all": "npm test && npm run test:e2e",
+    "lint": "eslint lib/ routes/ server.js",
+    "lint:fix": "eslint --fix lib/ routes/ server.js",
+    "lint:check": "node --check server.js && node --check lib/*.js && node --check routes/*.js",
+    "db:backup": "bash scripts/backup-pg.sh",
+    "db:migrate-legacy": "node scripts/migrate-sqlite-to-pg.js",
+    "lhci": "bash scripts/lhci-run.sh",
+    "lhci:localhost": "bash scripts/lhci-run.sh localhost",
+    "test:visual": "playwright test tests/e2e/visual-regression.spec.js --project=chromium",
+    "test:visual:update": "playwright test tests/e2e/visual-regression.spec.js --project=chromium --update-snapshots",
+    "test:visual:auth": "playwright test --project=visreg-auth",
+    "test:visual:auth:update": "playwright test --project=visreg-auth --update-snapshots"
+  },
+  "dependencies": {
+    "@sentry/node": "^10.48.0",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "compression": "^1.8.1",
+    "dotenv": "^17.4.0",
+    "express": "^5.2.1",
+    "firebase-admin": "~13.8.0",
+    "helmet": "~8.1.0",
+    "ioredis": "^5.10.0",
+    "multer": "^2.1.1",
+    "pg": "~8.20.0",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "pino-pretty": "^13.1.3",
+    "prom-client": "^15.1.3",
+    "resend": "^6.10.0",
+    "sharp": "^0.34.5",
+    "socket.io": "~4.8.3",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.59.1",
+    "c8": "^11.0.0",
+    "eslint": "^10.1.0",
+    "globals": "^17.4.0",
+    "socket.io-client": "^4.8.1",
+    "supertest": "^7.2.2"
+  }
+}

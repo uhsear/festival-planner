@@ -1,0 +1,192 @@
+[
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/picks",
+    "severity": "HIGH",
+    "axis": "D",
+    "issue": "axe: color-contrast — Elements must meet minimum color contrast ratio thresholds",
+    "selector": "button[aria-label=\"[IVY] — Saturday TBA\"] > .pick-stage",
+    "detail": "<span class=\"pick-stage\" style=\"background: rgba(106, 27, 154, 0.145); color: rgb(106, 27, 154);\">The Mystic Garden</spa"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/timeline",
+    "severity": "MEDIUM",
+    "axis": "B",
+    "issue": "tap target 36x36 < 44px",
+    "selector": "timeline-pick-btn active-must",
+    "detail": "Must See (selected)"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/timeline",
+    "severity": "MEDIUM",
+    "axis": "B",
+    "issue": "tap target 36x36 < 44px",
+    "selector": "timeline-pick-btn",
+    "detail": "Want to See"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/timeline",
+    "severity": "MEDIUM",
+    "axis": "B",
+    "issue": "tap target 36x36 < 44px",
+    "selector": "timeline-pick-btn",
+    "detail": "Maybe"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/timeline",
+    "severity": "MEDIUM",
+    "axis": "B",
+    "issue": "tap target 36x36 < 44px",
+    "selector": "timeline-pick-btn active-must",
+    "detail": "Must See (selected)"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/timeline",
+    "severity": "MEDIUM",
+    "axis": "B",
+    "issue": "tap target 36x36 < 44px",
+    "selector": "timeline-pick-btn",
+    "detail": "Want to See"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/timeline",
+    "severity": "MEDIUM",
+    "axis": "B",
+    "issue": "tap target 36x36 < 44px",
+    "selector": "timeline-pick-btn",
+    "detail": "Maybe"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/timeline",
+    "severity": "MEDIUM",
+    "axis": "B",
+    "issue": "tap target 36x36 < 44px",
+    "selector": "timeline-pick-btn",
+    "detail": "Must See"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/timeline",
+    "severity": "MEDIUM",
+    "axis": "B",
+    "issue": "tap target 36x36 < 44px",
+    "selector": "timeline-pick-btn",
+    "detail": "Want to See"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/timeline",
+    "severity": "MEDIUM",
+    "axis": "B",
+    "issue": "tap target 36x36 < 44px",
+    "selector": "timeline-pick-btn",
+    "detail": "Maybe"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/timeline",
+    "severity": "MEDIUM",
+    "axis": "B",
+    "issue": "tap target 36x36 < 44px",
+    "selector": "timeline-pick-btn",
+    "detail": "Must See"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-se",
+    "route": "/timeline",
+    "severity": "HIGH",
+    "axis": "D",
+    "issue": "axe: nested-interactive — Interactive controls must not be nested",
+    "selector": ".priority-must.timeline-tba-card[role=\"button\"]:nth-child(1)",
+    "detail": "<div class=\"timeline-tba-card priority-must\" role=\"button\" tabindex=\"0\" aria-label=\"[IVY] at The Mystic Garden, time TBA"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-14",
+    "route": "/picks",
+    "severity": "HIGH",
+    "axis": "D",
+    "issue": "axe: color-contrast — Elements must meet minimum color contrast ratio thresholds",
+    "selector": "button[aria-label=\"[IVY] — Saturday TBA\"] > .pick-stage",
+    "detail": "<span class=\"pick-stage\" style=\"background: rgba(106, 27, 154, 0.145); color: rgb(106, 27, 154);\">The Mystic Garden</spa"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-14",
+    "route": "/timeline",
+    "severity": "HIGH",
+    "axis": "D",
+    "issue": "axe: nested-interactive — Interactive controls must not be nested",
+    "selector": ".priority-must.timeline-tba-card[role=\"button\"]:nth-child(1)",
+    "detail": "<div class=\"timeline-tba-card priority-must\" role=\"button\" tabindex=\"0\" aria-label=\"[IVY] at The Mystic Garden, time TBA"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-14-pro-max",
+    "route": "/picks",
+    "severity": "HIGH",
+    "axis": "D",
+    "issue": "axe: color-contrast — Elements must meet minimum color contrast ratio thresholds",
+    "selector": "button[aria-label=\"[IVY] — Saturday TBA\"] > .pick-stage",
+    "detail": "<span class=\"pick-stage\" style=\"background: rgba(106, 27, 154, 0.145); color: rgb(106, 27, 154);\">The Mystic Garden</spa"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-14-pro-max",
+    "route": "/timeline",
+    "severity": "HIGH",
+    "axis": "D",
+    "issue": "axe: nested-interactive — Interactive controls must not be nested",
+    "selector": ".priority-must.timeline-tba-card[role=\"button\"]:nth-child(1)",
+    "detail": "<div class=\"timeline-tba-card priority-must\" role=\"button\" tabindex=\"0\" aria-label=\"[IVY] at The Mystic Garden, time TBA"
+  },
+  {
+    "persona": "admin",
+    "device": "iphone-14-pro-max",
+    "route": "/admin",
+    "severity": "HIGH",
+    "axis": "D",
+    "issue": "axe: color-contrast — Elements must meet minimum color contrast ratio thresholds",
+    "selector": ".py-1\\.5.rounded-md.px-3:nth-child(2)",
+    "detail": "<button class=\"px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap text-text-secondary hover:"
+  },
+  {
+    "persona": "admin",
+    "device": "pixel-7",
+    "route": "/picks",
+    "severity": "HIGH",
+    "axis": "D",
+    "issue": "axe: color-contrast — Elements must meet minimum color contrast ratio thresholds",
+    "selector": "button[aria-label=\"[IVY] — Saturday TBA\"] > .pick-stage",
+    "detail": "<span class=\"pick-stage\" style=\"background: rgba(106, 27, 154, 0.145); color: rgb(106, 27, 154);\">The Mystic Garden</spa"
+  },
+  {
+    "persona": "admin",
+    "device": "pixel-7",
+    "route": "/timeline",
+    "severity": "HIGH",
+    "axis": "D",
+    "issue": "axe: nested-interactive — Interactive controls must not be nested",
+    "selector": ".priority-must.timeline-tba-card[role=\"button\"]:nth-child(1)",
+    "detail": "<div class=\"timeline-tba-card priority-must\" role=\"button\" tabindex=\"0\" aria-label=\"[IVY] at The Mystic Garden, time TBA"
+  }
+]

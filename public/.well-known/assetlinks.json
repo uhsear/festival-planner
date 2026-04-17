@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.asirkhan.rave.twa",
+    "sha256_cert_fingerprints": [
+      "45:58:2D:04:22:13:D8:C7:CA:90:AF:19:FA:59:CD:24:67:9E:EC:F4:50:B4:CA:33:DB:81:88:4F:98:AE:A3:1F"
+    ]
+  }
+}]

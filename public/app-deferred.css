@@ -1,0 +1,9 @@
+@media (hover: hover) {
+  .set-card:hover { transform: translateY(-1px); }
+  .btn:hover:not(:disabled) { filter: brightness(1.1); }
+  .online-pill:hover { background: rgba(255,255,255,.08); }
+  .crew-pill:hover { background: rgba(255,255,255,.06); }
+  .admin-tab:hover { background: rgba(255,255,255,.04); }
+  .day-tab:hover:not(.active) { background: rgba(255,255,255,.04); }
+  .stage-chip:hover { filter: brightness(1.15); }
+}

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITLE__</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Syncopate:wght@700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#080810;--bg2:#0e0e1a;--bg3:rgba(20,20,38,.65);--border:rgba(255,255,255,.06);--border-light:rgba(255,255,255,.1);--text:#eaeaf2;--text2:#8888a8;--accent-coral:#ff3366;--accent-aqua:#00e8d0;--accent-amber:#ffb020;--accent-green:#39ff14}
+body{font-family:'Space Grotesk',system-ui,sans-serif;background:var(--bg);color:var(--text);padding:20px;max-width:760px;margin:0 auto}
+h1{font-family:'Syncopate',sans-serif;font-size:18px;text-align:center;margin-bottom:4px;letter-spacing:3px;text-transform:uppercase;color:#ff3366}
+.subtitle{text-align:center;color:var(--text2);font-size:14px;margin-bottom:24px;letter-spacing:.3px}
+.overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px}
+.overview-card,.snapshot-card{background:var(--bg3);border:1px solid var(--border-light);border-radius:16px;padding:14px}
+.overview-card strong{display:block;font-size:24px;font-weight:700;letter-spacing:-.4px;margin-bottom:4px}
+.overview-label,.snapshot-kicker{display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:8px}
+.overview-meta,.snapshot-meta{font-size:12px;color:var(--text2);line-height:1.4}
+.snapshot-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.snapshot-card h3{font-size:17px;font-weight:700;letter-spacing:-.2px;margin-bottom:6px}
+.snapshot-card p{font-size:13px;color:var(--text2);line-height:1.45}
+.snapshot-meta{margin-top:10px}
+.snapshot-chips,.set-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text2)}
+.chip-accent{color:var(--accent-aqua);border-color:rgba(0,232,208,.28)}
+.chip-must{color:var(--accent-coral);border-color:rgba(255,51,102,.28)}
+.chip-want{color:var(--accent-aqua);border-color:rgba(0,232,208,.28)}
+.chip-maybe{color:var(--accent-amber);border-color:rgba(255,176,32,.28)}
+.chip-reminder{color:var(--accent-amber);border-color:rgba(255,176,32,.28)}
+.section{margin-bottom:28px}
+.section-title{font-family:'Syncopate',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:3px;padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid var(--border-light);display:flex;align-items:center;gap:10px}
+.section-title .dot{width:10px;height:10px;border-radius:50%}
+.set-row{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--bg3);border:1px solid var(--border-light);border-radius:12px;margin-bottom:6px;font-size:14px;flex-wrap:wrap}
+.set-row .time{min-width:160px;font-size:12px;color:var(--text2);font-weight:600;font-variant-numeric:tabular-nums}
+.set-row .artist{font-weight:700;flex:1}
+.set-row .stage{font-size:10px;padding:3px 8px;border-radius:8px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.set-row .friends{display:flex;gap:3px}
+.set-row .mini-avatar{width:22px;height:22px;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;color:#fff}
+.reminder-list{display:flex;flex-direction:column;gap:8px}
+.reminder-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border-light);border-radius:12px}
+.reminder-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.reminder-copy strong{font-size:14px}
+.reminder-copy span{font-size:12px;color:var(--text2)}
+.note{font-size:12px;color:var(--text2);font-style:italic;margin:-2px 0 8px;padding-left:130px}
+.solo{font-size:11px;color:var(--text2);font-style:italic;margin-left:auto}
+.empty-state{text-align:center;padding:40px;color:var(--text2)}
+.empty-icon{font-size:48px;margin-bottom:16px}
+.exported{text-align:center;font-size:11px;color:var(--text2);margin-top:30px;padding-top:16px;border-top:1px solid var(--border-light);letter-spacing:.5px}
+@media(max-width:680px){.overview-grid,.snapshot-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:500px){body{padding:12px}.overview-grid,.snapshot-grid{grid-template-columns:1fr}.set-row{padding:10px;gap:6px}.set-row .time{min-width:100%;font-size:12px;order:-1}.set-row .artist{font-size:14px;width:auto;flex:none}.set-row .stage{font-size:10px}.note{padding-left:0;font-size:12px}.set-row .mini-avatar{width:20px;height:20px;font-size:8px}.reminder-item{align-items:flex-start;flex-direction:column}.reminder-copy{width:100%}h1{font-size:14px;letter-spacing:2px}}
+
+.crew-member-section{margin-bottom:20px;border:1px solid #333;border-radius:8px;padding:14px;background:#1a1a2e}
+.crew-member-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #333}
+.crew-member-header strong{font-size:15px}
+.crew-meta{font-size:12px;color:#aaa;margin-left:auto}
+.chip-must{background:#ff336630;color:#ff3366;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.chip-want{background:#00e8d030;color:#00e8d0;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.chip-maybe{background:#ffb02030;color:#ffb020;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+</style>
+</head>
+<body>
+<h1>__TITLE__</h1>
+<div class="subtitle">__SUBTITLE__</div>
+__OVERVIEW__
+__LIVE__
+__REMINDERS__
+__SECTIONS__
+<div class="exported">Exported __EXPORTED_AT__ - Festie</div>
+</body>
+</html>

@@ -1,0 +1,103 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices",
+    ":semanticCommits",
+    ":dependencyDashboard"
+  ],
+  "timezone": "America/New_York",
+  "schedule": ["after 9pm every weekday", "every weekend"],
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "postUpdateOptions": ["npmDedupe"],
+  "minimumReleaseAge": "3 days",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am on monday"]
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"],
+    "schedule": ["at any time"],
+    "prPriority": 10,
+    "minimumReleaseAge": "0 days"
+  },
+  "packageRules": [
+    {
+      "description": "Group minor and patch updates for stable deps",
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": "!/^0/",
+      "groupName": "minor & patch",
+      "automerge": false
+    },
+    {
+      "description": "Express major: manual review required",
+      "matchPackageNames": ["express"],
+      "matchUpdateTypes": ["major"],
+      "enabled": true,
+      "automerge": false,
+      "labels": ["dependencies", "breaking-review"]
+    },
+    {
+      "description": "Postgres client group",
+      "matchPackageNames": ["pg", "pg-pool"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "postgres client"
+    },
+    {
+      "description": "Socket.IO ecosystem",
+      "matchPackageNames": ["socket.io", "socket.io-client", "@socket.io/redis-adapter"],
+      "groupName": "socket.io"
+    },
+    {
+      "description": "Observability group",
+      "matchPackageNames": ["pino", "pino-http", "pino-pretty", "prom-client", "@sentry/node"],
+      "groupName": "observability"
+    },
+    {
+      "description": "Playwright group",
+      "matchPackageNames": ["@playwright/test", "playwright"],
+      "groupName": "playwright"
+    },
+    {
+      "description": "Redis client group",
+      "matchPackageNames": ["ioredis", "redis"],
+      "groupName": "redis"
+    },
+    {
+      "description": "Security packages: priority bump",
+      "matchPackageNames": ["helmet", "zod"],
+      "prPriority": 5
+    },
+    {
+      "description": "Lint and format: low priority",
+      "matchPackageNames": ["eslint", "@eslint/js", "globals"],
+      "groupName": "linting",
+      "prPriority": -5
+    },
+    {
+      "description": "Image processing",
+      "matchPackageNames": ["sharp", "multer"],
+      "groupName": "image processing"
+    },
+    {
+      "description": "Pin devDependencies",
+      "matchDepTypes": ["devDependencies"],
+      "rangeStrategy": "pin"
+    }
+  ],
+  "dockerfile": {
+    "enabled": true,
+    "fileMatch": ["(^|/)Dockerfile$", "monitoring/docker-compose\\.yml$"]
+  },
+  "docker-compose": {
+    "enabled": true,
+    "fileMatch": ["monitoring/docker-compose\\.yml$"]
+  },
+  "ignoreDeps": [],
+  "node": {
+    "enabled": false
+  }
+}

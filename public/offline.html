@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080810">
+<title>Offline — Festie</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<style>
+:root{
+  --bg-primary:#080810;
+  --bg-elev:#11111c;
+  --fg-primary:#f2f2f7;
+  --fg-muted:#9a9ab0;
+  --accent-aqua:#00e8d0;
+  --border:rgba(255,255,255,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg-primary);color:var(--fg-primary);min-height:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Space Grotesk","Segoe UI",Roboto,sans-serif;
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;min-height:100dvh;padding:1.5rem;line-height:1.5;
+}
+main{
+  max-width:420px;width:100%;text-align:center;
+  background:var(--bg-elev);border:1px solid var(--border);
+  border-radius:16px;padding:2rem 1.5rem;
+}
+.dot{
+  width:14px;height:14px;border-radius:50%;
+  background:var(--accent-aqua);margin:0 auto 1rem;
+  box-shadow:0 0 24px var(--accent-aqua);
+  animation:pulse 2s ease-in-out infinite;
+}
+h1{
+  font-family:"Syncopate",sans-serif;font-weight:700;
+  font-size:1.5rem;letter-spacing:.05em;text-transform:uppercase;
+  margin:0 0 .75rem;color:var(--fg-primary);
+}
+p{color:var(--fg-muted);margin:0 0 1.5rem;font-size:.95rem}
+button{
+  background:var(--accent-aqua);color:var(--bg-primary);
+  border:0;border-radius:10px;padding:.75rem 1.5rem;
+  font-weight:600;font-size:.95rem;cursor:pointer;
+  font-family:inherit;min-height:44px;min-width:120px;
+  transition:transform .15s ease,opacity .15s ease;
+}
+button:hover{opacity:.9}
+button:active{transform:scale(.97)}
+button:focus-visible{outline:2px solid var(--fg-primary);outline-offset:2px}
+@keyframes pulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.5;transform:scale(.9)}
+}
+@media(prefers-reduced-motion:reduce){
+  .dot{animation:none}
+  button{transition:none}
+}
+</style>
+</head>
+<body>
+<main>
+<div class="dot" aria-hidden="true"></div>
+<h1>You're offline</h1>
+<p>We couldn't reach Festie. Once you're back online, the app will load your schedule automatically.</p>
+<button type="button" onclick="window.location.reload()">Retry</button>
+</main>
+</body>
+</html>

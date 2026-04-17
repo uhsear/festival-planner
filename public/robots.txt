@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /s/
+Allow: /privacy.html
+Allow: /terms.html
+Allow: /security-whitepaper.html
+Disallow: /api/
+Disallow: /socket.io/
+Disallow: /uploads/
+Disallow: /admin
+Disallow: /reset-password
+Disallow: /reset/
+
+Sitemap: https://festie.us/sitemap.xml

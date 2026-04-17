@@ -1,0 +1,553 @@
+import React, { useMemo } from 'react';
+import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
+import { useUIStore } from '@festie/shared/stores/uiStore';
+import { usePicks, useFestival } from '@festie/shared/hooks';
+import { FestivalSet, Priority, Stage, Profile, Festival } from '@festie/shared/types';
+import {
+  formatTime,
+  timeToMinutes,
+  artistDisplayName,
+  getConflictingSetIds,
+} from '@festie/shared/utils';
+import RefreshableView from '../components/layout/RefreshableView';
+
+const SLOT_MINUTES = 15;
+
+const PRI_MAP: Record<string, string> = {
+  must: 'must',
+  'want-to-see': 'want',
+  maybe: 'maybe',
+};
+
+export default function TimelineView() {
+  const user = useAuthStore((state) => state.user);
+  const currentProfile = useFestivalStore((state) => state.currentProfile);
+  const currentFestival = useFestivalStore((state) => state.currentFestival);
+  const sets = useFestivalStore((state) => state.sets);
+  const stages = useFestivalStore((state) => state.stages);
+  const days = useFestivalStore((state) => state.days);
+  const selectedDay = useFestivalStore((state) => state.selectedDay);
+  const activeStages = useFestivalStore((state) => state.activeStages);
+  const setSelectedDay = useFestivalStore((state) => state.setSelectedDay);
+  const setActiveStages = useFestivalStore((state) => state.setActiveStages);
+
+  const setDetailSet = useUIStore((state) => state.setDetailSet);
+  const { getMyPick, getOtherPicks, savePick } = usePicks();
+  const { getStageColor, getStageName } = useFestival();
+
+  // Ensure all stages are active if none selected
+  const effectiveActiveStages = useMemo(() => {
+    if (!activeStages || activeStages.length === 0) {
+      return stages.map((st) => st.id);
+    }
+    return activeStages;
+  }, [activeStages, stages]);
+
+  const visibleStages = useMemo(() => {
+    return stages.filter((st) => effectiveActiveStages.includes(st.id));
+  }, [stages, effectiveActiveStages]);
+
+  // Filter sets for the selected day using dayIndex
+  const allDaySets = useMemo(() => {
+    let filtered = sets.filter((s) => s.dayIndex === selectedDay);
+    // Filter by active stages — only when some but not all are selected
+    if (effectiveActiveStages.length > 0 && effectiveActiveStages.length < stages.length) {
+      filtered = filtered.filter((s) => effectiveActiveStages.includes(s.stageId));
+    }
+    return filtered;
+  }, [sets, selectedDay, stages, effectiveActiveStages]);
+
+  const timedSets = useMemo(
+    () => allDaySets.filter((s) => s.startTime && s.endTime),
+    [allDaySets],
+  );
+
+  const timelessSets = useMemo(
+    () =>
+      allDaySets
+        .filter((s) => !s.startTime || !s.endTime)
+        .sort((a, b) =>
+          artistDisplayName(a, currentFestival?.b2bSeparator).localeCompare(
+            artistDisplayName(b, currentFestival?.b2bSeparator),
+            undefined,
+            { sensitivity: 'base' },
+          ),
+        ),
+    [allDaySets, currentFestival?.b2bSeparator],
+  );
+
+  // Conflict detection
+  const conflictIds = useMemo(
+    () => getConflictingSetIds(allDaySets, getMyPick),
+    [allDaySets, getMyPick],
+  );
+
+  // Calculate time bounds
+  const timeBounds = useMemo(() => {
+    if (timedSets.length === 0) return null;
+
+    let minMin = 24 * 60;
+    let maxMin = 0;
+
+    timedSets.forEach((s) => {
+      const start = timeToMinutes(s.startTime!);
+      let end = timeToMinutes(s.endTime!);
+      if (end <= start) end += 24 * 60;
+      if (start < minMin) minMin = start;
+      if (end > maxMin) maxMin = end;
+    });
+
+    minMin = Math.floor(minMin / SLOT_MINUTES) * SLOT_MINUTES;
+    maxMin = Math.ceil(maxMin / SLOT_MINUTES) * SLOT_MINUTES;
+    const totalSlots = (maxMin - minMin) / SLOT_MINUTES;
+
+    return { minMin, maxMin, totalSlots };
+  }, [timedSets]);
+
+  // Now-indicator calculation
+  const nowIndicator = useMemo(() => {
+    if (!timeBounds) return null;
+    const now = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    if (nowMins >= timeBounds.minMin && nowMins <= timeBounds.maxMin) {
+      const pct = ((nowMins - timeBounds.minMin) / (timeBounds.maxMin - timeBounds.minMin)) * 100;
+      return pct;
+    }
+    return null;
+  }, [timeBounds]);
+
+  const handleSavePick = async (setId: string, priority: string | null) => {
+    if (currentFestival) {
+      await savePick(currentFestival.id, setId, priority as Priority | null);
+    }
+  };
+
+  if (!currentFestival) {
+    return (
+      <div className="no-festival" role="status" aria-live="polite">
+        <p>No festival selected. Choose a festival from the top menu.</p>
+      </div>
+    );
+  }
+
+  // TBA-only fallback (no timed sets but there are timeless sets)
+  if (timedSets.length === 0 && timelessSets.length > 0) {
+    return (
+      <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
+        <div className="timeline-container" role="region" aria-label="Timeline view">
+          <TBASection
+            sets={timelessSets}
+            stages={stages}
+            getMyPick={getMyPick}
+            getOtherPicks={getOtherPicks}
+            conflictIds={conflictIds}
+            currentProfile={currentProfile}
+            currentFestival={currentFestival}
+            getStageColor={getStageColor}
+            onSavePick={handleSavePick}
+            onOpenDetail={setDetailSet}
+          />
+        </div>
+      </RefreshableView>
+    );
+  }
+
+  if (!allDaySets.length) {
+    return (
+      <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
+        <div className="no-festival">
+          <p>No sets to display.</p>
+        </div>
+      </RefreshableView>
+    );
+  }
+
+  if (!visibleStages.length) {
+    return (
+      <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
+        <div className="no-festival">
+          <p>No stages selected.</p>
+        </div>
+      </RefreshableView>
+    );
+  }
+
+  if (!timeBounds || timeBounds.totalSlots <= 0 || timeBounds.totalSlots > 200) {
+    return (
+      <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
+        <div className="no-festival">
+          <p>Invalid time range.</p>
+        </div>
+      </RefreshableView>
+    );
+  }
+
+  return (
+    <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
+      <div className="timeline-container" role="region" aria-label="Timeline view">
+        <div
+          className="timeline-grid"
+          role="grid"
+          aria-label="Timeline view of festival sets by stage and time"
+          style={{
+            gridTemplateColumns: `70px repeat(${visibleStages.length}, minmax(140px, 1fr))`,
+            gridTemplateRows: `auto repeat(${timeBounds.totalSlots}, 36px)`,
+            position: 'relative',
+          }}
+        >
+          {/* Empty top-left corner header cell */}
+          <div
+            className="timeline-header-cell"
+            style={{ background: 'var(--bg-primary)' }}
+            role="columnheader"
+          />
+
+          {/* Stage headers */}
+          {visibleStages.map((st) => {
+            const color = getStageColor(st.id);
+            return (
+              <div
+                key={st.id}
+                className="timeline-header-cell"
+                style={{ borderBottom: `3px solid ${color}`, color }}
+                role="columnheader"
+              >
+                {st.name}
+              </div>
+            );
+          })}
+
+          {/* Time labels on left axis */}
+          {Array.from({ length: timeBounds.totalSlots }, (_, i) => {
+            const mins = timeBounds.minMin + i * SLOT_MINUTES;
+            const hh = Math.floor(mins / 60) % 24;
+            const mm = mins % 60;
+            const show = mm === 0 || mm === 30;
+            return (
+              <div
+                key={`time-${i}`}
+                className="timeline-time-cell"
+                style={{
+                  gridRow: i + 2,
+                  gridColumn: 1,
+                  borderBottom:
+                    mm === 0
+                      ? '1px solid var(--border-light)'
+                      : '1px solid var(--border)',
+                }}
+              >
+                {show
+                  ? formatTime(
+                      `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`,
+                    )
+                  : ''}
+              </div>
+            );
+          })}
+
+          {/* Background cells for each stage column */}
+          {visibleStages.map((st, ci) =>
+            Array.from({ length: timeBounds.totalSlots }, (_, i) => {
+              const mins = timeBounds.minMin + i * SLOT_MINUTES;
+              const mm = mins % 60;
+              return (
+                <div
+                  key={`cell-${st.id}-${i}`}
+                  className="timeline-cell"
+                  style={{
+                    gridRow: i + 2,
+                    gridColumn: ci + 2,
+                    borderBottom:
+                      mm === 0
+                        ? '1px solid var(--border-light)'
+                        : '1px solid var(--border)',
+                  }}
+                />
+              );
+            }),
+          )}
+
+          {/* Set blocks */}
+          {visibleStages.map((st, ci) => {
+            const color = getStageColor(st.id);
+            return timedSets
+              .filter((s) => s.stageId === st.id)
+              .map((s) => {
+                const startMin = timeToMinutes(s.startTime!);
+                let endMin = timeToMinutes(s.endTime!);
+                if (endMin <= startMin) endMin += 24 * 60;
+                const topSlot = (startMin - timeBounds.minMin) / SLOT_MINUTES;
+                const spanSlots = (endMin - startMin) / SLOT_MINUTES;
+
+                const myPick = getMyPick(s.id);
+                const others = getOtherPicks(s.id);
+                const priClass = myPick ? ' priority-' + (PRI_MAP[myPick] || '') : '';
+                const conflictClass =
+                  myPick && conflictIds.has(s.id) ? ' has-conflict' : '';
+                const dn = artistDisplayName(s, currentFestival?.b2bSeparator);
+
+                return (
+                  <div
+                    key={s.id}
+                    className={'timeline-set' + priClass + conflictClass}
+                    style={{
+                      gridRow: `${Math.floor(topSlot) + 2} / span ${Math.max(1, Math.ceil(spanSlots))}`,
+                      gridColumn: ci + 2,
+                      background: color + '20',
+                      position: 'relative',
+                      top: '1px',
+                      left: '2px',
+                      right: '2px',
+                      minHeight: 'auto',
+                      height: 'calc(100% - 2px)',
+                    }}
+                    data-set-id={s.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${dn} at ${st.name}, ${formatTime(s.startTime!)}-${formatTime(s.endTime!)}${myPick ? ', priority: ' + myPick : ''}`}
+                    onClick={() => setDetailSet(s)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setDetailSet(s);
+                      }
+                    }}
+                  >
+                    <div className="set-artist" title={dn}>
+                      {dn}
+                    </div>
+                    {spanSlots >= 2 && (
+                      <div className="set-time">
+                        {formatTime(s.startTime!)} - {formatTime(s.endTime!)}
+                      </div>
+                    )}
+
+                    {/* Priority pick buttons */}
+                    {currentProfile && spanSlots >= 2 && (
+                      <div className="timeline-pick-group">
+                        {([['must', '★'], ['want-to-see', '◆'], ['maybe', '●']] as const).map(
+                          ([p, icon]) => {
+                            const active = myPick === p;
+                            return (
+                              <button
+                                key={p}
+                                className={
+                                  'timeline-pick-btn' +
+                                  (active ? ' active-' + PRI_MAP[p] : '')
+                                }
+                                type="button"
+                                aria-pressed={active ? 'true' : 'false'}
+                                aria-label={
+                                  (p === 'must'
+                                    ? 'Must See'
+                                    : p === 'want-to-see'
+                                      ? 'Want to See'
+                                      : 'Maybe') + (active ? ' (selected)' : '')
+                                }
+                                title={
+                                  p === 'must'
+                                    ? 'Must See'
+                                    : p === 'want-to-see'
+                                      ? 'Want to See'
+                                      : 'Maybe'
+                                }
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleSavePick(s.id, active ? null : p);
+                                }}
+                              >
+                                {icon}
+                              </button>
+                            );
+                          },
+                        )}
+                      </div>
+                    )}
+
+                    {/* Crew overlap avatars */}
+                    {others.length > 0 && (
+                      <div className="set-overlap">
+                        {others.slice(0, 3).map((o) => (
+                          <div
+                            key={o.profileId}
+                            className="mini-avatar"
+                            title={`${o.profileId} (${o.priority})`}
+                            style={{ width: 16, height: 16, fontSize: 7 }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              });
+          })}
+
+          {/* Now-indicator line */}
+          {nowIndicator !== null && (
+            <div
+              className="timeline-now-line"
+              style={{ top: `calc(${nowIndicator}% + 38px)` }}
+            >
+              <div className="timeline-now-dot" />
+            </div>
+          )}
+        </div>
+
+        {/* TBA section for sets without times */}
+        {timelessSets.length > 0 && (
+          <TBASection
+            sets={timelessSets}
+            stages={stages}
+            getMyPick={getMyPick}
+            getOtherPicks={getOtherPicks}
+            conflictIds={conflictIds}
+            currentProfile={currentProfile}
+            currentFestival={currentFestival}
+            getStageColor={getStageColor}
+            onSavePick={handleSavePick}
+            onOpenDetail={setDetailSet}
+          />
+        )}
+      </div>
+    </RefreshableView>
+  );
+}
+
+/* ---- TBA Section sub-component ---- */
+
+interface TBASectionProps {
+  sets: FestivalSet[];
+  stages: Stage[];
+  getMyPick: (setId: string) => Priority | null | undefined;
+  getOtherPicks: (setId: string) => Array<{ profileId: string; priority: Priority }>;
+  conflictIds: Set<string>;
+  currentProfile: Profile | null;
+  currentFestival: Festival | null;
+  getStageColor: (stageId: string) => string;
+  onSavePick: (setId: string, priority: string | null) => void;
+  onOpenDetail: (set: FestivalSet) => void;
+}
+
+function TBASection({
+  sets,
+  stages,
+  getMyPick,
+  getOtherPicks,
+  conflictIds,
+  currentProfile,
+  currentFestival,
+  getStageColor,
+  onSavePick,
+  onOpenDetail,
+}: TBASectionProps) {
+  return (
+    <div className="timeline-tba-section">
+      <div className="timeline-tba-header">TBA — Times Not Yet Announced</div>
+      <div className="timeline-tba-grid">
+        {sets.map((s) => {
+          const myPick = getMyPick(s.id);
+          const others = getOtherPicks(s.id);
+          const stage = stages.find((st) => st.id === s.stageId);
+          const stageColor = stage ? getStageColor(stage.id) : undefined;
+          const priClass = myPick ? ' priority-' + (PRI_MAP[myPick] || '') : '';
+          const dn = artistDisplayName(s, currentFestival?.b2bSeparator);
+
+          return (
+            <div
+              key={s.id}
+              className={'timeline-tba-card' + priClass}
+              style={stageColor ? { borderLeft: `3px solid ${stageColor}`, position: 'relative' } : { position: 'relative' }}
+            >
+              {/* Positioned click overlay — keeps outer div non-interactive so
+                  priority buttons inside don't trigger nested-interactive. */}
+              <button
+                type="button"
+                className="tba-card-click-target"
+                aria-label={`${dn}${stage ? ' at ' + stage.name : ''}, time TBA${myPick ? ', priority: ' + myPick : ''}`}
+                onClick={() => onOpenDetail(s)}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'transparent',
+                  border: 0,
+                  padding: 0,
+                  margin: 0,
+                  cursor: 'pointer',
+                  zIndex: 1,
+                }}
+              />
+              <div className="set-artist" style={{ position: 'relative', zIndex: 2, pointerEvents: 'none' }}>{dn}</div>
+              {stage && stageColor && (
+                <span
+                  className="pick-stage"
+                  style={{
+                    background: 'rgba(10, 10, 20, 0.55)',
+                    color: stageColor,
+                    border: `1px solid ${stageColor}`,
+                    fontSize: '11px',
+                    position: 'relative',
+                    zIndex: 2,
+                    fontWeight: 700,
+                  }}
+                >
+                  {stage.name}
+                </span>
+              )}
+
+              {/* Priority pick buttons */}
+              {currentProfile && (
+                <div className="timeline-pick-group" style={{ position: 'relative', zIndex: 2 }}>
+                  {([['must', '★'], ['want-to-see', '◆'], ['maybe', '●']] as const).map(
+                    ([p, icon]) => {
+                      const active = myPick === p;
+                      return (
+                        <button
+                          key={p}
+                          className={
+                            'timeline-pick-btn' +
+                            (active ? ' active-' + PRI_MAP[p] : '')
+                          }
+                          type="button"
+                          aria-pressed={active ? 'true' : 'false'}
+                          aria-label={
+                            (p === 'must'
+                              ? 'Must See'
+                              : p === 'want-to-see'
+                                ? 'Want to See'
+                                : 'Maybe') + (active ? ' (selected)' : '')
+                          }
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onSavePick(s.id, active ? null : p);
+                          }}
+                        >
+                          {icon}
+                        </button>
+                      );
+                    },
+                  )}
+                </div>
+              )}
+
+              {/* Crew overlap */}
+              {others.length > 0 && (
+                <div className="set-overlap" style={{ position: 'relative', zIndex: 2 }}>
+                  {others.slice(0, 3).map((o) => (
+                    <div
+                      key={o.profileId}
+                      className="mini-avatar"
+                      title={`${o.profileId} (${o.priority})`}
+                      style={{ width: 16, height: 16, fontSize: 7 }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

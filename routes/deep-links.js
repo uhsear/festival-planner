@@ -1,0 +1,72 @@
+/**
+ * Copyright (c) 2026 Asir Khan. All rights reserved.
+ * Licensed under the Business Source License 1.1. See LICENSE file for details.
+ */
+/**
+ * Deep linking routes for iOS and Android universal links
+ * GET /.well-known/apple-app-site-association - iOS Universal Links
+ * GET /.well-known/assetlinks.json - Android App Links
+ */
+
+module.exports = function createDeepLinkRoutes(deps) {
+  const { express, config } = deps;
+  const router = express.Router();
+
+  // Apple App Site Association for universal links (iOS deep linking)
+  // NOTE: iOS configuration incomplete — APPLE_TEAM_ID must be set to a real value
+  // once an iOS build is created. To set up:
+  //   1. Build iOS app in Xcode with bundle ID matching appIDs below
+  //   2. Extract Team ID from Apple Developer account
+  //   3. Set environment variable: APPLE_TEAM_ID=10ABCDEFGH
+  //   4. Verify universal links work on iOS device: Settings > Developer > App Links
+  router.get('/apple-app-site-association', (req, res) => {
+    // SECURITY: Validate that APPLE_TEAM_ID is configured (not placeholder/default)
+    if (!config.APPLE_TEAM_ID || config.APPLE_TEAM_ID === 'TEAMID' || config.APPLE_TEAM_ID.trim() === '') {
+      res.status(503);
+      return res.json({ error: 'Apple Team ID not configured' });
+    }
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.json({
+      applinks: {
+        apps: [],
+        details: [{
+          appIDs: [
+            `${config.APPLE_TEAM_ID}.com.asirkhan.rave`,
+          ],
+          paths: ['/festival/*', '/profile/*', '/invite/*', '/join/*'],
+          components: [
+            { '/': '/festival/*' },
+            { '/': '/profile/*' },
+            { '/': '/join/*' },
+          ],
+        }],
+      },
+      webcredentials: {
+        apps: [`${config.APPLE_TEAM_ID}.com.asirkhan.rave`],
+      },
+    });
+  });
+
+  // Android asset links for App Links (Android deep linking)
+  router.get('/assetlinks.json', (req, res) => {
+    // SECURITY: Validate that ANDROID_CERT_FINGERPRINTS is configured (not empty/placeholder)
+    if (!config.ANDROID_CERT_FINGERPRINTS || config.ANDROID_CERT_FINGERPRINTS.trim() === '') {
+      res.status(503);
+      return res.json({ error: 'Android certificate fingerprints not configured' });
+    }
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.json([{
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: 'com.asirkhan.rave.twa',
+        sha256_cert_fingerprints: config.ANDROID_CERT_FINGERPRINTS
+          .split(',').map((s) => s.trim()),
+      },
+    }]);
+  });
+
+  return router;
+};

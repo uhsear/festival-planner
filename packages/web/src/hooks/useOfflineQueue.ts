@@ -1,0 +1,304 @@
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { useUIStore } from '@festie/shared/stores/uiStore';
+import { useAuthStore } from '@festie/shared/stores/authStore';
+
+const DB_NAME = 'festie-offline-queue';
+const DB_VERSION = 1;
+const STORE_NAME = 'mutations';
+const MAX_RETRIES = 5;
+const RETRY_BACKOFF_BASE = 1000;
+const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export interface QueuedMutation {
+  id?: number;
+  clientId: string;
+  type: 'api' | 'socket';
+  url?: string;
+  method?: string;
+  body?: any;
+  event?: string;
+  data?: any;
+  status: 'pending' | 'failed' | 'completed';
+  retries: number;
+  createdAt: number;
+}
+
+export interface UseOfflineQueueReturn {
+  queueMutation: (mutation: Omit<QueuedMutation, 'status' | 'retries' | 'createdAt'>) => Promise<string>;
+  pendingCount: number;
+  processQueue: (apiFn: any, socketEmitFn?: any) => Promise<void>;
+  clearQueue: () => Promise<void>;
+}
+
+let _db: IDBDatabase | null = null;
+let _processing = false;
+
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (_db) return resolve(_db);
+
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+
+    req.onupgradeneeded = (e: any) => {
+      const db = e.target.result as IDBDatabase;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('status', 'status', { unique: false });
+        store.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+    };
+
+    req.onsuccess = () => {
+      _db = req.result;
+      resolve(_db);
+    };
+
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function txStore(mode: IDBTransactionMode): IDBObjectStore {
+  if (!_db) throw new Error('Database not initialized');
+  return _db.transaction(STORE_NAME, mode).objectStore(STORE_NAME);
+}
+
+function idbRequest<T>(req: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function generateClientId(): string {
+  const arr = new Uint8Array(12);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function getPendingCount(): Promise<number> {
+  try {
+    await openDB();
+    const index = txStore('readonly').index('status');
+    return await idbRequest(index.count(IDBKeyRange.only('pending')));
+  } catch {
+    // Fallback to localStorage
+    const queue = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
+    return queue.filter((m: QueuedMutation) => m.status === 'pending').length;
+  }
+}
+
+async function getAll(): Promise<QueuedMutation[]> {
+  try {
+    await openDB();
+    const all = await idbRequest(txStore('readonly').getAll());
+    // Filter out stale mutations (older than 24h)
+    return all.filter((m) => Date.now() - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
+  } catch {
+    const queue = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
+    return queue.filter((m: QueuedMutation) => Date.now() - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
+  }
+}
+
+async function removeMutation(id: number): Promise<void> {
+  try {
+    await idbRequest(txStore('readwrite').delete(id));
+  } catch {
+    // Ignore
+  }
+}
+
+async function updateMutation(id: number, updates: Partial<QueuedMutation>): Promise<void> {
+  try {
+    const store = txStore('readwrite');
+    const existing = await idbRequest(store.get(id));
+    if (existing) {
+      Object.assign(existing, updates);
+      await idbRequest(store.put(existing));
+    }
+  } catch {
+    // Ignore
+  }
+}
+
+async function pruneStaleEntries(): Promise<void> {
+  try {
+    await openDB();
+    const now = Date.now();
+    const all = await idbRequest(txStore('readonly').getAll());
+    const tx = txStore('readwrite');
+    for (const entry of all) {
+      if (now - (entry.createdAt || 0) > MAX_QUEUE_AGE_MS) {
+        await idbRequest(tx.delete(entry.id));
+      }
+    }
+  } catch {
+    const queue = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
+    const now = Date.now();
+    const fresh = queue.filter((m: QueuedMutation) => now - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
+    localStorage.setItem('festie-offline-queue', JSON.stringify(fresh));
+  }
+}
+
+/**
+ * Hook for managing offline mutation queue with IndexedDB persistence
+ */
+export function useOfflineQueue(): UseOfflineQueueReturn {
+  const [pendingCount, setPendingCount] = useState(0);
+  const setPendingSync = useUIStore((state) => state.setPendingSync);
+  const user = useAuthStore((state) => state.user);
+
+  // Initialize on mount
+  useEffect(() => {
+    pruneStaleEntries().catch(console.error);
+    getPendingCount().then(setPendingCount).catch(console.error);
+  }, []);
+
+  // Update pending count whenever it changes
+  const updatePendingCount = useCallback(async () => {
+    const count = await getPendingCount();
+    setPendingCount(count);
+    setPendingSync(count);
+  }, [setPendingSync]);
+
+  const queueMutation = useCallback(
+    async (mutation: Omit<QueuedMutation, 'status' | 'retries' | 'createdAt'>): Promise<string> => {
+      const clientId = mutation.clientId || generateClientId();
+
+      try {
+        await openDB();
+        const entry: QueuedMutation = {
+          ...mutation,
+          clientId,
+          status: 'pending',
+          retries: 0,
+          createdAt: Date.now(),
+        };
+
+        await idbRequest(txStore('readwrite').add(entry));
+        await updatePendingCount();
+        return clientId;
+      } catch (err) {
+        // Fallback to localStorage
+        try {
+          const queue = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
+          queue.push({
+            ...mutation,
+            clientId,
+            status: 'pending',
+            retries: 0,
+            createdAt: Date.now(),
+          });
+          localStorage.setItem('festie-offline-queue', JSON.stringify(queue));
+          await updatePendingCount();
+          return clientId;
+        } catch {
+          console.error('Failed to queue mutation:', err);
+          return clientId;
+        }
+      }
+    },
+    [updatePendingCount],
+  );
+
+  const processQueue = useCallback(
+    async (apiFn: any, socketEmitFn?: any): Promise<void> => {
+      if (_processing) return;
+      _processing = true;
+
+      try {
+        const mutations = await getAll();
+        const pending = mutations
+          .filter((m) => m.status === 'pending')
+          .sort((a, b) => a.createdAt - b.createdAt);
+
+        for (const mutation of pending) {
+          try {
+            if (mutation.type === 'api' && mutation.url) {
+              if (!apiFn || typeof apiFn !== 'function') {
+                throw new Error('apiFn not provided');
+              }
+              await apiFn(mutation.url, {
+                method: mutation.method || 'POST',
+                body: mutation.body,
+              });
+              // Remove on success
+              if (mutation.id) {
+                await removeMutation(mutation.id);
+              }
+            } else if (mutation.type === 'socket' && mutation.event) {
+              if (!socketEmitFn || typeof socketEmitFn !== 'function') {
+                throw new Error('socketEmitFn not provided');
+              }
+
+              await new Promise<void>((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Socket ack timeout')), 10000);
+                try {
+                  socketEmitFn(mutation.event, { ...mutation.data, clientId: mutation.clientId }, (response: any) => {
+                    clearTimeout(timeout);
+                    if (response?.ok) resolve();
+                    else reject(new Error(response?.error || 'Socket ack failed'));
+                  });
+                } catch (err) {
+                  clearTimeout(timeout);
+                  reject(err);
+                }
+              });
+
+              // Remove on success
+              if (mutation.id) {
+                await removeMutation(mutation.id);
+              }
+            }
+          } catch (err: any) {
+            const retries = (mutation.retries || 0) + 1;
+            const isClientError = err.status && err.status >= 400 && err.status < 500;
+            const isConflict = err.status === 409;
+
+            if (isConflict) {
+              // Conflict: mark for manual review (remove from queue)
+              if (mutation.id) {
+                await removeMutation(mutation.id);
+              }
+            } else if (retries >= MAX_RETRIES || isClientError) {
+              // Permanent failure: remove from queue
+              if (mutation.id) {
+                await removeMutation(mutation.id);
+              }
+            } else {
+              // Temporary failure: retry with backoff
+              if (mutation.id) {
+                await updateMutation(mutation.id, { retries, status: 'pending' });
+              }
+              // Wait before next attempt
+              await new Promise((r) => setTimeout(r, RETRY_BACKOFF_BASE * Math.pow(2, retries - 1)));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Queue processing error:', err);
+      } finally {
+        _processing = false;
+        await updatePendingCount();
+      }
+    },
+    [updatePendingCount],
+  );
+
+  const clearQueue = useCallback(async (): Promise<void> => {
+    try {
+      await openDB();
+      await idbRequest(txStore('readwrite').clear());
+    } catch {
+      localStorage.removeItem('festie-offline-queue');
+    }
+    setPendingCount(0);
+    setPendingSync(0);
+  }, [setPendingSync]);
+
+  return {
+    queueMutation,
+    pendingCount,
+    processQueue,
+    clearQueue,
+  };
+}

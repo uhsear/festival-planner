@@ -1,0 +1,5 @@
+Contact: mailto:uhsear@gmail.com
+Expires: 2027-03-20T23:59:59.000Z
+Preferred-Languages: en
+Canonical: https://festie.us/.well-known/security.txt
+Policy: https://github.com/uhsear/festival-planner/blob/main/SECURITY.md
