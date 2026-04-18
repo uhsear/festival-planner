@@ -7,17 +7,52 @@ import { useAuthStore } from '@festie/shared';
 const isAuthenticated = () => !!useAuthStore.getState().user;
 const isAdmin = () => useAuthStore.getState().user?.isAdmin || false;
 
-// Lazy load route components
-const CardsView = lazy(() => import('./routes/cards'));
-const TimelineView = lazy(() => import('./routes/timeline'));
-const PicksView = lazy(() => import('./routes/picks'));
-const CrewView = lazy(() => import('./routes/crew'));
-const GridView = lazy(() => import('./routes/grid'));
-const AdminPanel = lazy(() => import('./routes/admin'));
-const LoginPage = lazy(() => import('./routes/login'));
-const RegisterPage = lazy(() => import('./routes/register'));
-const ForgotPasswordPage = lazy(() => import('./routes/forgot-password'));
-const AccountPage = lazy(() => import('./routes/account'));
+// Lazy load route components — import promises are cached, so exposing the
+// import factories as named loaders lets us prefetch a chunk before the user
+// taps its nav button. AppShell calls these on idle after first paint so
+// /grid + /timeline etc. are ready the moment the user switches tabs — no
+// more "tab switch → wait for chunk → scroll feels laggy" pattern.
+const loadCards         = () => import('./routes/cards');
+const loadTimeline      = () => import('./routes/timeline');
+const loadPicks         = () => import('./routes/picks');
+const loadCrew          = () => import('./routes/crew');
+const loadGrid          = () => import('./routes/grid');
+const loadFestivalMode  = () => import('./routes/festival-mode');
+const loadWrap          = () => import('./routes/wrap');
+const loadAdmin         = () => import('./routes/admin');
+const loadLogin         = () => import('./routes/login');
+const loadRegister      = () => import('./routes/register');
+const loadForgot        = () => import('./routes/forgot-password');
+const loadAccount       = () => import('./routes/account');
+
+const CardsView        = lazy(loadCards);
+const TimelineView     = lazy(loadTimeline);
+const PicksView        = lazy(loadPicks);
+const CrewView         = lazy(loadCrew);
+const GridView         = lazy(loadGrid);
+const FestivalModeView = lazy(loadFestivalMode);
+const WrapView         = lazy(loadWrap);
+const AdminPanel       = lazy(loadAdmin);
+const LoginPage        = lazy(loadLogin);
+const RegisterPage     = lazy(loadRegister);
+const ForgotPasswordPage = lazy(loadForgot);
+const AccountPage      = lazy(loadAccount);
+
+/**
+ * Prefetch all authenticated main-tab chunks. Called from AppShell on idle
+ * after first paint. Each import() is cached by the bundler — calling it
+ * again later is a no-op. Keeps the initial bundle small while eliminating
+ * the chunk-load pause on tab switch.
+ */
+export function prefetchMainRoutes() {
+  const loaders = [loadCards, loadTimeline, loadGrid, loadFestivalMode, loadPicks, loadCrew, loadAccount, loadWrap];
+  const run = () => loaders.forEach((fn) => fn().catch(() => {}));
+  if (typeof (window as any).requestIdleCallback === 'function') {
+    (window as any).requestIdleCallback(run, { timeout: 2000 });
+  } else {
+    setTimeout(run, 500);
+  }
+}
 
 // Root route with AppShell layout
 const rootRoute = new RootRoute({
@@ -53,6 +88,21 @@ const gridRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/grid',
   component: GridView,
+});
+
+const festivalModeRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: '/festival-mode',
+  component: FestivalModeView,
+});
+
+const wrapRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: '/wrap',
+  component: WrapView,
+  beforeLoad: async () => {
+    if (!isAuthenticated()) throw redirect({ to: '/login' });
+  },
 });
 
 // ── Auth routes ─────────────────────────────────────────────────────
@@ -114,6 +164,8 @@ const routeTree = rootRoute.addChildren([
   picksRoute,
   crewRoute,
   gridRoute,
+  festivalModeRoute,
+  wrapRoute,
   accountRoute,
   adminRoute,
 ]);

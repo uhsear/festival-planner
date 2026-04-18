@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from '@tanstack/react-router';
 import { useFestivalStore, useAuthStore } from '@festie/shared';
 import FestivalSelector from './FestivalSelector';
 import UserMenu from './UserMenu';
+import FestivalModeToggle from '../features/FestivalModeToggle';
 
 export default function Header() {
   const [showSearch, setShowSearch] = useState(false);
@@ -60,7 +61,7 @@ export default function Header() {
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault();
-      (window as any).__festieInstallPrompt = e;
+      window.__festieInstallPrompt = e as BeforeInstallPromptEvent;
     };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -86,9 +87,9 @@ export default function Header() {
             <button
               className="util-btn util-install"
               type="button"
-              data-testid="header-install-btn"
+              data-testid="install-app-btn"
               onClick={async () => {
-                const evt = (window as any).__festieInstallPrompt;
+                const evt = window.__festieInstallPrompt;
                 if (!evt) return;
                 try {
                   await evt.prompt();
@@ -96,7 +97,7 @@ export default function Header() {
                 } catch {
                   /* user dismissed or prompt already consumed */
                 }
-                (window as any).__festieInstallPrompt = null;
+                window.__festieInstallPrompt = null;
               }}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -143,8 +144,11 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Right section: theme toggle + admin badge + profile badge */}
+      {/* Right section: festival mode + theme toggle + admin badge + profile badge */}
       <div className="header-right">
+        {/* Festival Mode toggle — flips store flag + navigates to /festival-mode */}
+        <FestivalModeToggle />
+
         {/* Theme toggle */}
         <button
           className="btn btn-ghost btn-sm theme-toggle"

@@ -13,6 +13,9 @@ import {
   detectConflicts,
 } from '@festie/shared/utils';
 import { api } from '@festie/shared/services/api';
+import { Drawer } from 'vaul';
+import RatingButtons from './RatingButtons';
+import { hasSetStarted } from '../../utils/festivalTime';
 
 const PLATFORM_LABELS: Record<string, string> = {
   spotify: 'Spotify',
@@ -26,10 +29,12 @@ const PLATFORM_LABELS: Record<string, string> = {
 interface DetailPanelProps {
   set: FestivalSet;
   onClose: () => void;
+  autoOpenSpotify?: boolean;
 }
 
-export default function DetailPanel({ set, onClose }: DetailPanelProps) {
+export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: DetailPanelProps) {
   const currentFestival = useFestivalStore((s) => s.currentFestival);
+  const festivalDays = useFestivalStore((s) => s.days);
   const currentProfile = useFestivalStore((s) => s.currentProfile);
   const allProfiles = useFestivalStore((s) => s.allProfiles);
   const sets = useFestivalStore((s) => s.sets);
@@ -53,7 +58,6 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
   const [priorityBusy, setPriorityBusy] = useState<Priority | null | 'clear'>(
     null,
   );
-  const [exiting, setExiting] = useState(false);
 
   const personalNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const crewNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -127,25 +131,14 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
       : 'Nobody else going yet';
   }, [activeCrew, others.length]);
 
-  // Close with animation
+  // Close directly — let vaul own the dismiss animation. The legacy
+  // .panel-exiting slideDown (225–400 ms) was stacking on top of vaul's own
+  // drawer-close transition, producing the multi-second perceived delay on
+  // mobile. Removing the manual animation chain (and the uncleared 400 ms
+  // fallback that double-invoked onClose) restores an instant close.
   const handleClose = useCallback(() => {
-    if (exiting) return;
-    setExiting(true);
-    const panel = panelRef.current;
-    if (panel) {
-      panel.classList.remove('panel-entering');
-      panel.classList.add('panel-exiting');
-      const onAnimEnd = () => {
-        panel.removeEventListener('animationend', onAnimEnd);
-        onClose();
-      };
-      panel.addEventListener('animationend', onAnimEnd);
-      // Fallback: if animation doesn't fire within 400ms, close anyway
-      setTimeout(() => onClose(), 400);
-    } else {
-      onClose();
-    }
-  }, [onClose, exiting]);
+    onClose();
+  }, [onClose]);
 
   // Escape key
   useEffect(() => {
@@ -173,6 +166,7 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
         );
         if (!cancelled && preview?.embedType) {
           setSpotifyPreview(preview);
+          if (autoOpenSpotify) setSpotifyVisible(true);
         }
       } catch {
         // No Spotify preview available
@@ -181,7 +175,7 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [set.id]);
+  }, [set.id, autoOpenSpotify]);
 
   // Debounced personal note save
   const handlePersonalNoteChange = useCallback(
@@ -258,16 +252,26 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
   ];
 
   return (
-    <div
-      className="detail-overlay open"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="detail-panel-title"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
-      }}
+    <Drawer.Root
+      open
+      onOpenChange={(o) => { if (!o) handleClose(); }}
+      dismissible
+      handleOnly
     >
-      <div className={`detail-panel${exiting ? '' : ' panel-entering'}`} ref={panelRef}>
+      <Drawer.Portal>
+        <Drawer.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+        <Drawer.Content
+          className="fixed bottom-0 inset-x-0 z-50 max-h-[92vh] flex flex-col
+                     rounded-t-2xl bg-bg-primary border-t border-border-light
+                     shadow-2xl outline-none"
+        >
+          {/* Drag handle — vaul handles the drag physics; this is visual. */}
+          <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0" />
+          {/* Accessible title — the artist name is the semantic title; keep it
+              sr-only here because the visible "detail-artist" heading inside
+              duplicates it with stage-color styling. */}
+          <Drawer.Title className="sr-only">{artistDisplayName(set, currentFestival?.b2bSeparator)}</Drawer.Title>
+          <div className="detail-panel detail-panel--drawer" ref={panelRef}>
         {/* Close button */}
         <button
           className="detail-close"
@@ -508,6 +512,19 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
           </div>
         )}
 
+        {/* Rate the set — shown only after the set has started so users rate
+            what they actually saw. Auth-gated via currentProfile (guests see
+            nothing here; they see the Join CTA above instead). */}
+        {currentProfile && set && currentFestival && hasSetStarted(set as any, currentFestival as any, festivalDays) && (
+          <div className="detail-rating" style={{ margin: '14px 0 10px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
+                          color: 'var(--color-text-muted)', marginBottom: 8 }}>
+              Rate this set
+            </div>
+            <RatingButtons setId={set.id} festivalId={currentFestival.id} />
+          </div>
+        )}
+
         {/* Crew overlap / friends section */}
         <div className="detail-friends">
           <div className="detail-friends-title">{whoTitle}</div>
@@ -636,6 +653,8 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
           </div>
         )}
       </div>
-    </div>
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
   );
 }

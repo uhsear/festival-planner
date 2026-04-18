@@ -1,12 +1,29 @@
 import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared';
+import { useFestivalStore } from '@festie/shared/stores';
+import { isFestivalOver } from '../../utils/festivalTime';
 
 interface NavTab {
   label: string;
   href: string;
   icon: React.ReactNode;
+  /** Trigger to warm this tab's lazy chunk before the user taps. */
+  prefetch?: () => Promise<unknown>;
 }
+
+// Per-tab chunk prefetchers. Called from onPointerDown so the tap-up navigation
+// happens with the chunk already loaded — no chunk-load pause that made the
+// first scroll after tab switch feel laggy.
+const prefetchers: Record<string, () => Promise<unknown>> = {
+  '/cards':    () => import('../../routes/cards'),
+  '/timeline': () => import('../../routes/timeline'),
+  '/grid':     () => import('../../routes/grid'),
+  '/picks':    () => import('../../routes/picks'),
+  '/crew':     () => import('../../routes/crew'),
+  '/wrap':     () => import('../../routes/wrap'),
+  '/account':  () => import('../../routes/account'),
+};
 
 /** Schedule icon — matches legacy createSvgIcon('cards') */
 const ScheduleIcon = () => (
@@ -59,6 +76,24 @@ const CrewIcon = () => (
   </svg>
 );
 
+/** Profile icon — user silhouette. Mobile needs a direct entry to /account
+   because the header profile badge can get clipped off-screen at 390 px when
+   the util-strip (Install App + Support Me) hogs .header-left width. */
+const ProfileIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+/** Wrap icon — sparkles (shown only after the festival ends) */
+const WrapIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <path d="M12 3l2.09 5.26L19 9.27l-4 3.87L15.82 19 12 16.77 8.18 19 9 13.14l-4-3.87 4.91-1.01L12 3z" />
+    <path d="M5 3l1 2M19 3l-1 2M5 21l1-2M19 21l-1-2" strokeLinecap="round" />
+  </svg>
+);
+
 const baseTabs: NavTab[] = [
   { label: 'Schedule', href: '/cards', icon: <ScheduleIcon /> },
   { label: 'Timeline', href: '/timeline', icon: <TimelineIcon /> },
@@ -68,23 +103,26 @@ const baseTabs: NavTab[] = [
 const authTabs: NavTab[] = [
   { label: 'My Picks', href: '/picks', icon: <PicksIcon /> },
   { label: 'Crew', href: '/crew', icon: <CrewIcon /> },
+  { label: 'Me', href: '/account', icon: <ProfileIcon /> },
 ];
+
+const wrapTab: NavTab = { label: 'Wrap', href: '/wrap', icon: <WrapIcon /> };
 
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
+  const currentFestival = useFestivalStore((state) => state.currentFestival);
+  const days = useFestivalStore((state) => state.days);
 
-  // Show picks/crew tabs when user is logged in. They'll render their own
-  // empty state if the user hasn't joined the festival yet. This is more
-  // reliable than gating on currentProfile, which depends on a timing-
-  // sensitive chain of API calls that can leave the tabs missing on reload.
+  // Show picks/crew tabs when user is logged in. Show Wrap tab ONLY after
+  // the festival has ended — otherwise it's noise. Empty-state inside /wrap
+  // handles the "coming soon" case for a direct URL visit before then.
   const tabs = useMemo(() => {
-    if (user) {
-      return [...baseTabs, ...authTabs];
-    }
-    return baseTabs;
-  }, [user]);
+    if (!user) return baseTabs;
+    const wrapUnlocked = isFestivalOver(currentFestival as any, days);
+    return wrapUnlocked ? [...baseTabs, ...authTabs, wrapTab] : [...baseTabs, ...authTabs];
+  }, [user, currentFestival, days]);
 
   const isActive = (href: string) => {
     if (href === '/cards') return location.pathname === '/' || location.pathname === '/cards';
@@ -105,6 +143,8 @@ export default function BottomNav() {
               tabIndex={active ? 0 : -1}
               aria-label={`View ${tab.label}`}
               className={active ? 'active' : ''}
+              onPointerEnter={() => prefetchers[tab.href]?.().catch(() => {})}
+              onPointerDown={() => prefetchers[tab.href]?.().catch(() => {})}
               onClick={() => navigate({ to: tab.href })}
             >
               {tab.icon}
