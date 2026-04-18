@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
@@ -10,6 +10,7 @@ import {
   getConflictingSetIds,
 } from '@festie/shared/utils';
 import RefreshableView from '../components/layout/RefreshableView';
+import StageBadge from '../components/ui/StageBadge';
 
 const SLOT_MINUTES = 15;
 
@@ -104,6 +105,27 @@ export default function TimelineView() {
     return { minMin, maxMin, totalSlots };
   }, [timedSets]);
 
+  // Track viewport so we can size the 15-min timeline row to fit the day in
+  // one screen on mobile. Desktop keeps the fixed 36 px row so artists remain
+  // touch-comfortable; mobile computes `(availableH - header) / totalSlots`
+  // with a 22 px floor (minimum legible height for a pill-style label).
+  const [vpH, setVpH] = useState(() => typeof window === 'undefined' ? 900 : window.innerHeight);
+  const [vpW, setVpW] = useState(() => typeof window === 'undefined' ? 1024 : window.innerWidth);
+  useEffect(() => {
+    const onResize = () => { setVpH(window.innerHeight); setVpW(window.innerWidth); };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const rowHeight = useMemo(() => {
+    if (vpW > 430) return 36; // desktop/tablet stays dense
+    // Reserve: header+bottom nav+sub-header collapsed ≈ 160 px + stage header 40 px
+    const reserved = 160 + 40;
+    const avail = Math.max(280, vpH - reserved);
+    const slots = timeBounds?.totalSlots ?? 20;
+    return Math.max(22, Math.min(36, Math.floor(avail / slots)));
+  }, [vpH, vpW, timeBounds?.totalSlots]);
+
   // Now-indicator calculation
   const nowIndicator = useMemo(() => {
     if (!timeBounds) return null;
@@ -134,7 +156,7 @@ export default function TimelineView() {
   if (timedSets.length === 0 && timelessSets.length > 0) {
     return (
       <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
-        <div className="timeline-container" role="region" aria-label="Timeline view">
+        <div className="timeline-container" role="region" aria-label="Timeline view" data-scroll-sentinel>
           <TBASection
             sets={timelessSets}
             stages={stages}
@@ -184,14 +206,46 @@ export default function TimelineView() {
 
   return (
     <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
-      <div className="timeline-container" role="region" aria-label="Timeline view">
+      <div className="timeline-container" role="region" aria-label="Timeline view" data-scroll-sentinel>
+        {/* Legend — the small circles in each set block are crew-overlap
+            indicators (friends who also picked the set). Collapsible so it
+            doesn't steal mobile viewport space after the first visit. */}
+        <details className="timeline-legend" aria-label="Timeline legend">
+          <summary>Legend</summary>
+          <ul className="timeline-legend-list">
+            <li>
+              <span className="legend-swatch" style={{ background: 'var(--color-accent-coral, #ff6b6b)' }} aria-hidden="true" />
+              Must See (your pick)
+            </li>
+            <li>
+              <span className="legend-swatch" style={{ background: 'var(--color-accent-aqua, #00d4aa)' }} aria-hidden="true" />
+              Want to See (your pick)
+            </li>
+            <li>
+              <span className="legend-swatch" style={{ background: 'var(--color-accent-amber, #f59e0b)' }} aria-hidden="true" />
+              Maybe (your pick)
+            </li>
+            <li>
+              <span className="legend-dot" aria-hidden="true" />
+              Crew pick — a friend in your crew also picked this set
+            </li>
+            <li>
+              <span aria-hidden="true">⚠</span>
+              Schedule conflict with another of your picks
+            </li>
+            <li>
+              <span className="legend-now-line" aria-hidden="true" />
+              Current time
+            </li>
+          </ul>
+        </details>
         <div
           className="timeline-grid"
           role="grid"
           aria-label="Timeline view of festival sets by stage and time"
           style={{
-            gridTemplateColumns: `70px repeat(${visibleStages.length}, minmax(140px, 1fr))`,
-            gridTemplateRows: `auto repeat(${timeBounds.totalSlots}, 36px)`,
+            gridTemplateColumns: `${vpW <= 430 ? '52px' : '70px'} repeat(${visibleStages.length}, minmax(${vpW <= 430 ? '0' : '140px'}, 1fr))`,
+            gridTemplateRows: `auto repeat(${timeBounds.totalSlots}, ${rowHeight}px)`,
             position: 'relative',
           }}
         >
@@ -479,20 +533,12 @@ function TBASection({
               />
               <div className="set-artist" style={{ position: 'relative', zIndex: 2, pointerEvents: 'none' }}>{dn}</div>
               {stage && stageColor && (
-                <span
-                  className="pick-stage"
-                  style={{
-                    background: 'rgba(10, 10, 20, 0.55)',
-                    color: stageColor,
-                    border: `1px solid ${stageColor}`,
-                    fontSize: '11px',
-                    position: 'relative',
-                    zIndex: 2,
-                    fontWeight: 700,
-                  }}
-                >
-                  {stage.name}
-                </span>
+                <StageBadge
+                  variant="pick"
+                  stageName={stage.name}
+                  stageColor={stageColor}
+                  style={{ fontSize: '11px', position: 'relative', zIndex: 2 }}
+                />
               )}
 
               {/* Priority pick buttons */}

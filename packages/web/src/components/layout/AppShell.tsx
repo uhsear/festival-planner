@@ -104,12 +104,28 @@ export default function AppShell() {
     };
   }, []);
 
-  // Restore sub-header and reset scroll position on every route change
+  // Restore sub-header and reset scroll position on every route change.
+  // Reset twice on rAF boundaries because lazy-loaded routes mount AFTER the
+  // first effect fires — a plain `scrollTop = 0` lands on an empty Suspense
+  // placeholder and the newly-mounted content (esp. pages with min-h-screen)
+  // can restore a previous scroll offset. Two rAFs ensure the reset sticks
+  // after Suspense commits and layout settles.
   useEffect(() => {
     setSubHeaderHidden(false);
     lastScrollY.current = 0;
     const scrollEl = document.getElementById('main-content');
-    if (scrollEl) scrollEl.scrollTop = 0;
+    if (!scrollEl) return;
+    scrollEl.scrollTop = 0;
+    const r1 = requestAnimationFrame(() => {
+      scrollEl.scrollTop = 0;
+      const r2 = requestAnimationFrame(() => { scrollEl.scrollTop = 0; });
+      (scrollEl as any).__rafScrollReset = r2;
+    });
+    return () => {
+      cancelAnimationFrame(r1);
+      const r2 = (scrollEl as any).__rafScrollReset;
+      if (r2) cancelAnimationFrame(r2);
+    };
   }, [location.pathname]);
 
   // Initialize real-time sync

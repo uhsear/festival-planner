@@ -1,14 +1,20 @@
 import { useEffect, useCallback, useState } from 'react';
 import { api } from '@festie/shared/services/api';
 import { useAuthStore } from '@festie/shared/stores/authStore';
+import { useToast } from '../lib/toastContext';
 
 const VAPID_PUBLIC_KEY =
   import.meta.env.VITE_VAPID_PUBLIC_KEY ||
   'BALNPV05RWu4564kGyCoIkL238AgM4u6_zMOJ7m7EwPHFcBp4HeXSVZ-iH-EgF4bqMpc1QPWGONavgw2xAXhKvs';
 
+export type PushPermissionState = 'granted' | 'denied' | 'default' | 'unsupported';
+export type UnsupportedReason = 'browser' | 'ios-needs-install' | null;
+
 export interface UsePushNotificationsReturn {
   isSupported: boolean;
+  unsupportedReason: UnsupportedReason;
   permission: NotificationPermission | 'default';
+  permissionState: PushPermissionState;
   requestPermission: () => Promise<NotificationPermission | 'default' | null>;
   registerToken: () => Promise<void>;
   unregisterToken: () => Promise<void>;
@@ -29,17 +35,50 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 export function usePushNotifications(): UsePushNotificationsReturn {
   const [isSupported, setIsSupported] = useState(false);
+  const [unsupportedReason, setUnsupportedReason] = useState<UnsupportedReason>(null);
   const [permission, setPermission] = useState<NotificationPermission | 'default'>('default');
   const user = useAuthStore((state) => state.user);
+  const { toast } = useToast();
+
+  const permissionState: PushPermissionState = !isSupported
+    ? 'unsupported'
+    : (permission as PushPermissionState);
 
   useEffect(() => {
-    const supported =
-      'serviceWorker' in navigator && 'PushManager' in window;
-    setIsSupported(supported);
+    // iOS Safari quirk: `PushManager` exists in regular tabs since iOS 16.4,
+    // but `subscribe()` only works when the PWA is launched from the Home
+    // Screen (standalone mode). We distinguish three states:
+    //   1. No push APIs → reason='browser' (truly unsupported)
+    //   2. iOS Safari tab → reason='ios-needs-install' (prompt Add to Home)
+    //   3. Standalone PWA or non-iOS browser with APIs → supported=true
+    const hasApis =
+      'serviceWorker' in navigator &&
+      'PushManager' in window &&
+      'Notification' in window;
 
-    if (supported && 'Notification' in window) {
-      setPermission(Notification.permission);
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    // iPadOS 13+ reports as Mac; ontouchend presence disambiguates.
+    const isIOS =
+      /iPad|iPhone|iPod/.test(ua) ||
+      (ua.includes('Mac') && typeof document !== 'undefined' && 'ontouchend' in document);
+    const isStandalone =
+      (typeof navigator !== 'undefined' && (navigator as any).standalone === true) ||
+      (typeof window !== 'undefined' &&
+        window.matchMedia?.('(display-mode: standalone)').matches === true);
+
+    if (!hasApis) {
+      setIsSupported(false);
+      setUnsupportedReason('browser');
+      return;
     }
+    if (isIOS && !isStandalone) {
+      setIsSupported(false);
+      setUnsupportedReason('ios-needs-install');
+      return;
+    }
+    setIsSupported(true);
+    setUnsupportedReason(null);
+    setPermission(Notification.permission);
   }, []);
 
   const requestPermission = useCallback(async (): Promise<
@@ -95,9 +134,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       Notification.permission === 'granted' &&
       user
     ) {
-      registerToken().catch(console.error);
+      registerToken().catch((err) => {
+        console.error(err);
+        toast("Couldn't enable notifications", 'error');
+      });
     }
-  }, [isSupported, user, registerToken]);
+  }, [isSupported, user, registerToken, toast]);
 
   // Clean up on logout
   useEffect(() => {
@@ -108,7 +150,9 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   return {
     isSupported,
+    unsupportedReason,
     permission,
+    permissionState,
     requestPermission,
     registerToken,
     unregisterToken,

@@ -260,13 +260,21 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     >
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+        {/* Responsive positioning: mobile = bottom sheet (vaul default).
+            Desktop (>=1024px) = centered modal with a sensible max width so
+            content doesn't pin to the left of a 1400 px viewport. The `lg:`
+            classes cancel vaul's `fixed bottom-0 inset-x-0` and recenter. */}
         <Drawer.Content
           className="fixed bottom-0 inset-x-0 z-50 max-h-[92vh] flex flex-col
                      rounded-t-2xl bg-bg-primary border-t border-border-light
-                     shadow-2xl outline-none"
+                     shadow-2xl outline-none
+                     lg:bottom-auto lg:inset-x-auto lg:top-1/2 lg:left-1/2
+                     lg:-translate-x-1/2 lg:-translate-y-1/2
+                     lg:w-[min(640px,calc(100vw-2rem))] lg:max-h-[85vh]
+                     lg:rounded-2xl lg:border lg:border-border-light lg:border-t-0"
         >
-          {/* Drag handle — vaul handles the drag physics; this is visual. */}
-          <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0" />
+          {/* Drag handle — mobile only (desktop has no drag affordance). */}
+          <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0 lg:hidden" />
           {/* Accessible title — the artist name is the semantic title; keep it
               sr-only here because the visible "detail-artist" heading inside
               duplicates it with stage-color styling. */}
