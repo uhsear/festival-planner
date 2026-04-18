@@ -254,7 +254,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
   return (
     <Drawer.Root
       open
-      onOpenChange={(o) => { if (!o) handleClose(); }}
+      onOpenChange={(o: boolean) => { if (!o) handleClose(); }}
       dismissible
       handleOnly
     >

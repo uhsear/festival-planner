@@ -157,7 +157,7 @@ export default function Header() {
           aria-label="Toggle light/dark theme"
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          {theme === 'dark' ? '\u2600' : '\uD83C\uDF19'}
+          <span aria-hidden="true">{theme === 'dark' ? '\u2600' : '\uD83C\uDF19'}</span>
         </button>
 
         {/* User menu / profile badge */}

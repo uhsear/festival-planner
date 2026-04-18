@@ -5,6 +5,29 @@ import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
 export default defineConfig({
+  build: {
+    target: 'es2022',
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // Split the vendor bundle into logical chunks so the 697 KB index chunk
+        // becomes a small shell + cacheable vendor groups. Parallel HTTP/2 load
+        // plus cache longevity (react-core rarely changes; export-tools only
+        // loads on Share/Export tap). Matches the bundle-viz treemap groupings.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.match(/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/)) return 'react-core';
+          if (id.includes('@tanstack')) return 'router';
+          if (id.includes('zustand') || id.includes('socket.io-client') || id.includes('/zod/')) return 'data';
+          if (id.includes('vaul') || id.includes('@radix-ui') || id.includes('/motion/') || id.includes('@use-gesture')) return 'ui-motion';
+          if (id.includes('lucide-react')) return 'icons';
+          if (id.includes('html-to-image')) return 'export-tools';
+          if (id.includes('web-vitals') || id.includes('workbox')) return 'telemetry';
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -21,9 +44,9 @@ export default defineConfig({
         orientation: 'portrait',
         start_url: '/',
         icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
@@ -31,6 +54,10 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
+        // Custom push + notificationclick handlers live here. Workbox's
+        // generated SW `importScripts()`-es these so our listeners register
+        // at SW script-eval time (before the browser dispatches events).
+        importScripts: ['/push-handler.js'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/festie\.us\/api\/v1\//,

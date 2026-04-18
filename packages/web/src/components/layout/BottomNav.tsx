@@ -130,8 +130,8 @@ export default function BottomNav() {
   };
 
   return (
-    <footer className="bottom-nav" role="contentinfo">
-      <div className="bottom-nav-inner" role="tablist" aria-label="Main navigation">
+    <footer className="bottom-nav">
+      <div className="bottom-nav-inner" role="tablist" aria-label="Mobile navigation">
         {tabs.map((tab) => {
           const active = isActive(tab.href);
           return (

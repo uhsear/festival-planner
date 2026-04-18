@@ -350,6 +350,24 @@ export default function AppShell() {
   // App shell layout — matches legacy #app > .header + .main-content + .guest-banner + .bottom-nav + #toasts
   return (
     <div id="app">
+        {/* Skip link — WCAG 2.4.1 Bypass Blocks. Hidden until keyboard focus
+            lands on it so sighted users don't see it, but screen-reader and
+            keyboard-only users get a one-tab route past the 20+ chrome tabs. */}
+        <a
+          href="#main-content"
+          className="skip-link"
+          onClick={(e) => {
+            // Ensure programmatic focus lands on main after the anchor jump.
+            const main = document.getElementById('main-content');
+            if (main) {
+              main.setAttribute('tabindex', '-1');
+              main.focus({ preventScroll: false });
+            }
+          }}
+        >
+          Skip to main content
+        </a>
+
         {/* Offline banner */}
         <OfflineBanner />
 

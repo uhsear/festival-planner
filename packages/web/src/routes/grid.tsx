@@ -1,193 +1,339 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react';
+// html-to-image is dynamic-imported inside exportPng so it only loads when the
+// user taps Export (saves ~50 KB gzipped from the initial grid-route chunk).
+import { Download } from 'lucide-react';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
-import { formatTime, artistDisplayName } from '@festie/shared/utils';
+import { artistDisplayName } from '@festie/shared/utils';
 
-const COLOR_MAP: Record<string, string> = {
-  must: 'var(--accent-coral)',
-  'want-to-see': 'var(--accent-aqua)',
-  maybe: 'var(--accent-amber)',
-  none: 'var(--bg-secondary)',
+// PX_PER_MIN adapts to viewport width: narrower mobile → denser (1.6 px/min)
+// so a 7-hour day fits in ≤ 680 px and the user still sees most of the day at
+// once. On tablet/desktop we keep 2 px/min (120 px/hr) for readability.
+function getPxPerMin(viewportW: number): number {
+  if (viewportW <= 360) return 1.4;
+  if (viewportW <= 430) return 1.6;
+  return 2;
+}
+
+const PICK_COLOR: Record<string, string> = {
+  must: 'var(--color-accent-coral)',
+  'want-to-see': 'var(--color-accent-aqua)',
+  maybe: 'var(--color-accent-amber)',
 };
 
-function timeToMinutes(time: string): number {
-  if (!time) return 0;
-  const [h, m] = time.split(':').map(Number);
+function toMin(t: string): number {
+  const [h, m] = t.split(':').map(Number);
   return h * 60 + m;
 }
 
+function fmtHour(totalMin: number): string {
+  const h = Math.floor(totalMin / 60) % 24;
+  return `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`;
+}
+
+function fmtShort(t: string): string {
+  const [h, m] = t.split(':').map(Number);
+  return `${h % 12 || 12}${m ? ':' + String(m).padStart(2, '0') : ''}${h < 12 ? 'am' : 'pm'}`;
+}
+
+function getGutterW(viewportW: number): number {
+  if (viewportW <= 430) return 38;
+  return 52;
+}
+
 export default function GridView() {
-  const currentFestival = useFestivalStore((state) => state.currentFestival);
-  const sets = useFestivalStore((state) => state.sets);
-  const stages = useFestivalStore((state) => state.stages);
-  const selectedDay = useFestivalStore((state) => state.selectedDay);
-  const activeStages = useFestivalStore((state) => state.activeStages);
-
-  const setDetailSet = useUIStore((state) => state.setDetailSet);
-  const { getMyPick } = usePicks();
+  const currentFestival = useFestivalStore((s) => s.currentFestival);
+  const sets            = useFestivalStore((s) => s.sets);
+  const stages          = useFestivalStore((s) => s.stages);
+  const selectedDay     = useFestivalStore((s) => s.selectedDay);
+  const activeStages    = useFestivalStore((s) => s.activeStages);
+  const setDetailSet    = useUIStore((s) => s.setDetailSet);
+  const { getMyPick }   = usePicks();
   const { getStageColor, getStageName } = useFestival();
+  const gridRef = useRef<HTMLDivElement>(null);
 
-  // Filter sets by day using dayIndex
-  const daySets = useMemo(() => {
-    let filtered = sets.filter((s) => s.dayIndex === selectedDay);
-    // Only filter stages when some but not all selected
-    if (activeStages.length > 0 && activeStages.length < stages.length) {
-      filtered = filtered.filter((s) => activeStages.includes(s.stageId));
+  // Track viewport width so PX_PER_MIN + GUTTER_W can adapt on rotate/resize.
+  const [vw, setVw] = useState(() => (typeof window === 'undefined' ? 1024 : window.innerWidth));
+  useEffect(() => {
+    const onResize = () => setVw(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const PX_PER_MIN = getPxPerMin(vw);
+  const GUTTER_W = getGutterW(vw);
+
+  // Export the FULL grid (not just the visible viewport). The grid's scroll
+  // container (.fk-grid__body) normally clips with overflow: auto/hidden; we
+  // temporarily strip that + expand to scrollWidth/scrollHeight so html-to-image
+  // captures every set block. pixelRatio is device-aware: 3x on high-DPR phones
+  // for crisp text, 2x on desktop. Restore on a try/finally so a failure never
+  // leaves the UI in the expanded state.
+  const exportPng = useCallback(async () => {
+    if (!gridRef.current) return;
+    const dayName = selectedDay === 0 ? 'saturday' : 'sunday';
+    const el = gridRef.current;
+    const body = el.querySelector<HTMLElement>('.fk-grid__body');
+    const cols = el.querySelector<HTMLElement>('.fk-grid__cols');
+    const head = el.querySelector<HTMLElement>('.fk-grid__head');
+    if (!body || !cols || !head) return;
+
+    const dpr = Math.min(Math.max(Math.ceil(window.devicePixelRatio || 1), 2), 3);
+    const saved = {
+      elOverflow: el.style.overflow,
+      elHeight: el.style.height,
+      bodyOverflow: body.style.overflow,
+      bodyHeight: body.style.height,
+      bodyWidth: body.style.width,
+      headWidth: head.style.width,
+      colsMinWidth: cols.style.minWidth,
+    };
+    try {
+      // Measure full content
+      const fullW = Math.max(cols.scrollWidth + (el.querySelector<HTMLElement>('.fk-grid__gutter')?.offsetWidth || 0), el.clientWidth);
+      const fullH = Math.max(cols.scrollHeight + head.offsetHeight + (el.querySelector<HTMLElement>('.fk-grid__toolbar')?.offsetHeight || 0), el.clientHeight);
+
+      // Expand for capture
+      el.style.overflow = 'visible';
+      el.style.height = fullH + 'px';
+      body.style.overflow = 'visible';
+      body.style.height = (cols.scrollHeight) + 'px';
+      body.style.width = fullW + 'px';
+      head.style.width = fullW + 'px';
+      cols.style.minWidth = fullW - (el.querySelector<HTMLElement>('.fk-grid__gutter')?.offsetWidth || 0) + 'px';
+
+      // Small delay so layout settles
+      await new Promise(r => setTimeout(r, 50));
+
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(el, {
+        backgroundColor: '#080810',
+        pixelRatio: dpr,
+        width: fullW,
+        height: fullH,
+        cacheBust: true,
+      });
+      const a = document.createElement('a');
+      a.download = `fk2026-${dayName}-grid.png`;
+      a.href = dataUrl;
+      a.click();
+    } catch (err) {
+      console.error('Export failed', err);
+    } finally {
+      el.style.overflow = saved.elOverflow;
+      el.style.height = saved.elHeight;
+      body.style.overflow = saved.bodyOverflow;
+      body.style.height = saved.bodyHeight;
+      body.style.width = saved.bodyWidth;
+      head.style.width = saved.headWidth;
+      cols.style.minWidth = saved.colsMinWidth;
     }
-    return filtered;
-  }, [sets, selectedDay, stages, activeStages]);
+  }, [selectedDay]);
 
-  // Visible stages
   const visibleStages = useMemo(() => {
-    if (activeStages.length > 0 && activeStages.length < stages.length) {
+    if (activeStages.length > 0 && activeStages.length < stages.length)
       return stages.filter((st) => activeStages.includes(st.id));
-    }
     return stages;
   }, [stages, activeStages]);
 
-  // Timed sets only for the grid
-  const timedSets = useMemo(() => daySets.filter((s) => s.startTime && s.endTime), [daySets]);
+  const timedSets = useMemo(
+    () =>
+      sets.filter(
+        (s) =>
+          s.dayIndex === selectedDay &&
+          s.startTime &&
+          s.endTime &&
+          (activeStages.length === 0 ||
+            activeStages.length === stages.length ||
+            activeStages.includes(s.stageId)),
+      ),
+    [sets, selectedDay, activeStages, stages],
+  );
 
-  // Calculate time bounds
-  const timeBounds = useMemo(() => {
-    if (timedSets.length === 0) return null;
-    let earliestMin = 24 * 60;
-    let latestMin = 0;
-    timedSets.forEach((s) => {
-      const start = timeToMinutes(s.startTime!);
-      let end = timeToMinutes(s.endTime!);
-      if (end <= start) end += 24 * 60;
-      if (start < earliestMin) earliestMin = start;
-      if (end > latestMin) latestMin = end;
-    });
-    // Round to 30-min boundaries
-    earliestMin = Math.floor(earliestMin / 30) * 30;
-    latestMin = Math.ceil(latestMin / 30) * 30;
-    const totalSlots = Math.ceil((latestMin - earliestMin) / 30);
-    return { earliestMin, latestMin, totalSlots };
+  // Pre-compute stageId → sets map once per render instead of filtering inside
+  // every column .map() iteration. With 4 stages × 33 sets the filter ran 132×
+  // before; now it's O(n) once.
+  const setsByStage = useMemo(() => {
+    const m = new Map<string, typeof timedSets>();
+    for (const s of timedSets) {
+      const arr = m.get(s.stageId) || [];
+      arr.push(s);
+      m.set(s.stageId, arr);
+    }
+    return m;
   }, [timedSets]);
 
-  // Generate time slot labels
-  const timeSlots = useMemo(() => {
-    if (!timeBounds) return [];
-    const slots: string[] = [];
-    for (let i = 0; i < timeBounds.totalSlots; i++) {
-      const min = timeBounds.earliestMin + i * 30;
-      const h = Math.floor(min / 60) % 24;
-      const m = min % 60;
-      slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  const bounds = useMemo(() => {
+    if (!timedSets.length) return null;
+    let lo = Infinity, hi = 0;
+    for (const s of timedSets) {
+      const a = toMin(s.startTime!);
+      const b = toMin(s.endTime!);
+      lo = Math.min(lo, a);
+      hi = Math.max(hi, b <= a ? b + 1440 : b);
     }
-    return slots;
-  }, [timeBounds]);
+    lo = Math.floor(lo / 60) * 60;
+    hi = Math.ceil(hi / 60) * 60;
+    return { lo, hi, span: hi - lo };
+  }, [timedSets]);
 
-  if (!currentFestival) {
+  const hours = useMemo(() => {
+    if (!bounds) return [];
+    const out: { m: number; px: number }[] = [];
+    for (let m = bounds.lo; m <= bounds.hi; m += 60)
+      out.push({ m, px: (m - bounds.lo) * PX_PER_MIN });
+    return out;
+  }, [bounds]);
+
+  const nowPx = useMemo(() => {
+    if (!bounds) return null;
+    const now = new Date();
+    const nm = now.getHours() * 60 + now.getMinutes();
+    if (nm < bounds.lo || nm > bounds.hi) return null;
+    return (nm - bounds.lo) * PX_PER_MIN;
+  }, [bounds]);
+
+  if (!currentFestival)
     return (
-      <div className="no-festival" role="status" aria-live="polite">
-        <p>No festival selected. Choose a festival from the top menu.</p>
+      <div className="no-festival" role="status">
+        <p>No festival selected.</p>
       </div>
     );
-  }
-
-  if (!timedSets.length || !visibleStages.length) {
+  if (!timedSets.length || !bounds)
     return (
-      <div className="no-festival" role="status" aria-live="polite">
-        <p>No sets or stages to display.</p>
+      <div className="no-festival" role="status">
+        <p>No timed sets to display.</p>
       </div>
     );
-  }
 
-  if (!timeBounds) return null;
+  const totalH = bounds.span * PX_PER_MIN;
 
   return (
-    <div className="grid-view-container" role="region" aria-label="Festival set grid">
+    <div className="fk-grid" ref={gridRef}>
+      {/* ── Toolbar ── */}
+      <div className="fk-grid__toolbar">
+        <button
+          className="fk-grid__export-btn"
+          onClick={exportPng}
+          title="Export as PNG"
+          aria-label="Export grid as PNG image"
+          type="button"
+        >
+          <Download size={13} aria-hidden="true" />
+          <span>Export PNG</span>
+        </button>
+      </div>
+      {/* ── Sticky stage-header row ── */}
       <div
-        className="grid-schedule"
-        aria-label="Schedule by stage and time"
+        className="fk-grid__head"
         style={{
-          display: 'grid',
-          gridTemplateColumns: `60px repeat(${visibleStages.length}, 1fr)`,
-          gap: '1px',
-          background: 'var(--border)',
-          padding: '10px',
-          overflowX: 'auto',
+          gridTemplateColumns: `${GUTTER_W}px repeat(${visibleStages.length}, 1fr)`,
         }}
       >
-        {/* Header row: empty time corner + stage names */}
-        <div className="grid-stage-header" role="columnheader" aria-label="Time" />
-        {visibleStages.map((stage) => (
-          <div
-            key={stage.id}
-            className="grid-stage-header"
-            role="columnheader"
-            style={{ background: (getStageColor(stage.id)) + '15' }}
-          >
-            {getStageName(stage.id)}
-          </div>
-        ))}
-
-        {/* Grid rows: time label + cells per stage */}
-        {timeSlots.map((timeStr, slotIdx) => (
-          <React.Fragment key={timeStr}>
-            {/* Time label */}
-            <div className="grid-time-col" role="rowheader">
-              {formatTime(timeStr)}
+        <div />
+        {visibleStages.map((st) => {
+          const c = getStageColor(st.id);
+          return (
+            <div
+              key={st.id}
+              className="fk-grid__col-head"
+              style={{ '--stage-c': c } as React.CSSProperties}
+            >
+              {getStageName(st.id)}
             </div>
+          );
+        })}
+      </div>
 
-            {/* Stage cells */}
-            {visibleStages.map((stage) => {
-              // Find sets starting at this slot for this stage
-              const cellSets = timedSets.filter((s) => {
-                if (s.stageId !== stage.id || !s.startTime) return false;
-                const setSlotIdx = Math.floor(
-                  (timeToMinutes(s.startTime) - timeBounds.earliestMin) / 30,
-                );
-                return setSlotIdx === slotIdx;
-              });
+      {/* ── Scrollable body ── */}
+      <div className="fk-grid__body" data-scroll-sentinel>
+        {/* Time gutter */}
+        <div className="fk-grid__gutter" style={{ height: totalH }}>
+          {hours.map(({ m, px }) => (
+            <span key={m} className="fk-grid__hour-label" style={{ top: px }}>
+              {fmtHour(m)}
+            </span>
+          ))}
+        </div>
 
-              return (
-                <div key={`${stage.id}-${slotIdx}`} className="grid-cell" role="gridcell">
-                  {cellSets.map((set) => {
-                    const myPick = getMyPick(set.id) || 'none';
-                    const pickColor = COLOR_MAP[myPick] || COLOR_MAP.none;
-                    const durationSlots = Math.max(
-                      1,
-                      Math.ceil(
-                        (timeToMinutes(set.endTime!) - timeToMinutes(set.startTime!)) / 30,
-                      ),
-                    );
-                    const dn = artistDisplayName(set, currentFestival?.b2bSeparator);
+        {/* Columns wrapper */}
+        <div className="fk-grid__cols">
+          {/* Now overlay */}
+          {nowPx != null && (
+            <div className="fk-grid__now-overlay" style={{ top: nowPx }}>
+              <span className="fk-grid__now-label" aria-hidden="true">▶ NOW</span>
+              <div className="fk-grid__now-line" />
+            </div>
+          )}
 
-                    return (
-                      <div
-                        key={set.id}
-                        className="grid-set"
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`${dn} at ${getStageName(stage.id)}, ${formatTime(set.startTime!)}${set.endTime ? ' to ' + formatTime(set.endTime) : ''}${myPick !== 'none' ? ', ' + myPick : ''}`}
-                        style={{
-                          background: pickColor + '40',
-                          borderLeftColor: pickColor,
-                          top: '2px',
-                          height: `${durationSlots * 40 - 4}px`,
-                        }}
-                        onClick={() => setDetailSet(set)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setDetailSet(set);
-                          }
-                        }}
-                      >
-                        {dn}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </React.Fragment>
-        ))}
+          {/* Stage columns */}
+          {visibleStages.map((st) => {
+            const c = getStageColor(st.id);
+            const stageSets = setsByStage.get(st.id) || [];
+
+            return (
+              <div
+                key={st.id}
+                className="fk-grid__col"
+                style={{ height: totalH, '--stage-c': c } as React.CSSProperties}
+              >
+                {hours.map(({ m, px }) => (
+                  <div key={m} className="fk-grid__line--hour" style={{ top: px }} />
+                ))}
+                {hours.slice(0, -1).map(({ m, px }) => (
+                  <div key={`h-${m}`} className="fk-grid__line--half" style={{ top: px + 30 * PX_PER_MIN }} />
+                ))}
+
+                {stageSets.map((set) => {
+                  const a = toMin(set.startTime!);
+                  let b = toMin(set.endTime!);
+                  if (b <= a) b += 1440;
+                  const top    = (a - bounds.lo) * PX_PER_MIN;
+                  // WCAG 2.5.5 — tap targets should be ≥44px. A 15-min set at
+                  // PX_PER_MIN=1.6 is only 24px, so bump to 44 even if it
+                  // overlaps slightly with the next slot (they're side-by-side
+                  // in separate stage columns so no actual overlap happens).
+                  const height = Math.max((b - a) * PX_PER_MIN, 44);
+                  const pick   = getMyPick(set.id);
+                  const pc     = pick ? PICK_COLOR[pick] : c;
+                  const dn     = artistDisplayName(set, currentFestival.b2bSeparator);
+
+                  return (
+                    <button
+                      key={set.id}
+                      className={`fk-grid__set${pick ? ' fk-grid__set--picked' : ''}`}
+                      style={
+                        {
+                          top,
+                          height,
+                          '--set-c': pc,
+                          borderLeftColor: pc,
+                          background: pick
+                            ? `color-mix(in srgb, ${pc} 28%, #0d0d1a)`
+                            : pc + '15',
+                        } as React.CSSProperties
+                      }
+                      onClick={() => setDetailSet(set)}
+                      aria-label={`${dn} at ${getStageName(st.id) || st.id}, ${fmtShort(set.startTime!)} to ${fmtShort(set.endTime!)}${pick ? ', ' + pick : ''}`}
+                    >
+                      {pick && (
+                        <span className="fk-grid__pick-heart" style={{ color: pc }} aria-hidden="true">
+                          ♥
+                        </span>
+                      )}
+                      <span className="fk-grid__set-name">{dn}</span>
+                      {height >= 48 && (
+                        <span className="fk-grid__set-time">
+                          {fmtShort(set.startTime!)}–{fmtShort(set.endTime!)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
