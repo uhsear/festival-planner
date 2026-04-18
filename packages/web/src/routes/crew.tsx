@@ -143,7 +143,11 @@ export default function CrewView() {
   const isOwner = (meMember?.role === 'owner') || (activeCrew as any)?.createdBy === user.id || activeCrew?.owner === user.id;
 
   return (
-    <div className="crew-page space-y-4 pb-24">
+    // max-w-2xl matches /account's comfortable reading width on desktop —
+    // before this, the crew tabs + invite bar stretched the full 1400px and
+    // the member list cards ran all the way to the edges, which read as
+    // under-designed rather than immersive.
+    <div className="crew-page space-y-4 pb-24 max-w-2xl mx-auto">
       {crews.length > 0 && (
         <CrewSelector crews={crews} selectedCrewId={activeCrew?.id}
           onSelectCrew={handleSelectCrew} onCreateCrew={handleCreateCrew} onJoinCrew={handleJoinCrew} />

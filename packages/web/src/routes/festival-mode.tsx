@@ -6,7 +6,7 @@ import { useFestival } from '@festie/shared/hooks';
 import { artistDisplayName } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import EmptyState from '../components/ui/EmptyState';
-import { CalendarX } from 'lucide-react';
+import { CalendarX, SkipForward } from 'lucide-react';
 
 // Countdown flips to coral + bolder when a set is ≤ this many minutes away,
 // so a user scanning the view in a crowd can grok "run, now" at a glance.
@@ -147,7 +147,10 @@ export default function FestivalModeView() {
 
       <section className="fm-section" aria-labelledby="fm-next-title">
         <h2 id="fm-next-title" className="fm-section-title">
-          <span aria-hidden="true">⏭</span> UP NEXT
+          {/* Swapped unicode ⏭ for the lucide icon so both section titles
+              (NOW dot + UP NEXT) share the same icon system used elsewhere
+              in the app (Trophy, Clock, Sparkles on /wrap, etc). */}
+          <SkipForward className="w-3.5 h-3.5 inline-block -mt-0.5" aria-hidden="true" /> UP NEXT
         </h2>
         {upcoming.length > 0 ? (
           upcoming.map(({ set: s, start }) => {

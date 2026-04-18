@@ -145,13 +145,19 @@ export default function WrapPage() {
   const totalHours = stats.totalHours ?? 0;
 
   return (
-    <div className="space-y-6 px-4 pt-4 pb-20">
+    // max-w-lg + centered mirrors /account so the wrap doesn't stretch
+    // 1400px wide on desktop (stats grid went 2-col × ~650px each before,
+    // reading as sparse placeholder chrome rather than a dense highlight page).
+    <div className="max-w-lg mx-auto space-y-6 px-4 pt-4 pb-20">
       <header className="text-center space-y-1">
         <div className="inline-flex items-center gap-2 text-accent-aqua text-xs uppercase tracking-widest">
           <Sparkles className="w-4 h-4" aria-hidden="true" />
           Your Festival Wrap
         </div>
-        <h1 className="text-2xl font-extrabold text-text-primary">{currentFestival.name}</h1>
+        {/* h1 matches /account (font-display bold 2xl) — previously used
+            font-extrabold w/ default sans, which visually broke from the
+            rest of the app's display-font headings. */}
+        <h1 className="text-2xl font-display font-bold text-text-primary">{currentFestival.name}</h1>
       </header>
 
       {/* Stats grid */}

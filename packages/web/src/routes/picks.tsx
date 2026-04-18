@@ -6,7 +6,10 @@ import { usePicks, useFestival } from '@festie/shared/hooks';
 import { Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName } from '@festie/shared/utils';
 import StageBadge from '../components/ui/StageBadge';
+import EmptyState from '../components/ui/EmptyState';
+import GuestTeaser from '../components/features/GuestTeaser';
 import RefreshableView from '../components/layout/RefreshableView';
+import { Star } from 'lucide-react';
 
 const PRIORITY_SECTIONS: Array<[Priority, string, string]> = [
   ['must', 'Must See', 'var(--priority-must)'],
@@ -66,38 +69,13 @@ export default function PicksView() {
     return groups;
   }, [daySets, getMyPick, currentFestival?.b2bSeparator]);
 
-  // Guest teaser — matches legacy
+  // Guest teaser — was a bespoke inline-styled block that didn't match the
+  // shared GuestTeaser used on /crew + /wrap (different h1 size, raw <button>
+  // instead of <Button>, legacy .guest-teaser class on a React surface that
+  // has no matching rule in the React-package CSS). Using the shared
+  // component keeps all three guest routes visually identical.
   if (!user) {
-    return (
-      <div className="picks-container" role="region" aria-label="My picks">
-        <div className="guest-teaser">
-          <div className="empty-state-icon" aria-hidden="true">
-            ★
-          </div>
-          <h2 style={{ margin: '12px 0 8px', fontSize: '18px', color: 'var(--text-primary)' }}>
-            Save your festival picks
-          </h2>
-          <p
-            style={{
-              color: 'var(--text-secondary)',
-              fontSize: '14px',
-              maxWidth: '280px',
-              margin: '0 auto 16px',
-            }}
-          >
-            Sign in to mark artists as Must See, Want to See, or Maybe — sync across devices and
-            share with your crew.
-          </p>
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={() => (window.location.href = '/register')}
-          >
-            Sign Up Free
-          </button>
-        </div>
-      </div>
-    );
+    return <GuestTeaser mode="picks" />;
   }
 
   if (!currentFestival) {
@@ -132,28 +110,19 @@ export default function PicksView() {
   // at /cards, rather than three stacked "Tap X on…" hint blocks which looked
   // like broken/stuck UI on first visit.
   if (totalPicksThisDay === 0) {
+    // Was a bespoke inline-styled block referencing legacy classes
+    // (.empty-state-guide / .empty-state-icon) that have no CSS rule in
+    // the React package — rendered as an un-styled stack of text on this
+    // route. EmptyState matches /crew + /wrap + /timeline empty surfaces.
     return (
       <RefreshableView queryKeys={[['picks'], ['profiles']]} className="picks-container h-full">
         <div role="region" aria-label="My picks">
-          <div className="empty-state-guide" style={{ margin: '32px auto', maxWidth: 320, textAlign: 'center' }}>
-            <div className="empty-state-icon" aria-hidden="true" style={{ fontSize: 32, marginBottom: 8 }}>
-              ★
-            </div>
-            <h2 style={{ margin: '8px 0', fontSize: 18, color: 'var(--text-primary)' }}>
-              No picks yet{days[selectedDay]?.label ? ` for ${days[selectedDay].label}` : ''}
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16 }}>
-              Browse artists and tap <strong>★ Must</strong>, <strong>◆ Want</strong>, or{' '}
-              <strong>● Maybe</strong> to build your plan.
-            </p>
-            <button
-              className="btn btn-primary"
-              type="button"
-              onClick={() => navigate({ to: '/cards' })}
-            >
-              Browse Artists
-            </button>
-          </div>
+          <EmptyState
+            icon={<Star className="w-12 h-12" aria-hidden="true" />}
+            title={`No picks yet${days[selectedDay]?.label ? ` for ${days[selectedDay].label}` : ''}`}
+            description="Browse artists and tap Must, Want, or Maybe to build your plan."
+            cta={{ label: 'Browse Artists', onClick: () => navigate({ to: '/cards' }) }}
+          />
         </div>
       </RefreshableView>
     );
