@@ -315,7 +315,15 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             loaded hero image swaps in; artist press photos are ~square, so
             1/1 matches the common case while object-cover handles drift. */}
         {primaryArtist && (primaryArtist as any).photo && (
-          <div className="detail-artist-photo-wrap" style={{ aspectRatio: '1 / 1' }}>
+          <div
+            className="detail-artist-photo-wrap"
+            style={{
+              aspectRatio: '1 / 1',
+              // Placeholder tint while the image decodes — picks up the stage
+              // color so the empty frame feels intentional rather than broken.
+              background: stageColor + '18',
+            }}
+          >
             <img
               src={(primaryArtist as any).photo}
               alt={primaryArtist.name || set.artist || ''}
@@ -324,6 +332,8 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
               decoding="async"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               onError={(e) => {
+                // Broken-image fallback: drop the whole wrapper so the layout
+                // reflows without a broken-glyph placeholder lingering.
                 const wrap = (e.target as HTMLElement).parentElement;
                 if (wrap) wrap.remove();
               }}
@@ -411,7 +421,10 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
               {spotifyVisible ? '\u25B2 Hide Player' : '\u25B6 Listen on Spotify'}
             </button>
             {spotifyVisible && (
-              <div className="detail-spotify-embed">
+              <div
+                className="detail-spotify-embed"
+                style={{ marginTop: 8, borderRadius: 12, overflow: 'hidden' }}
+              >
                 <iframe
                   src={spotifyPreview.embedUrl}
                   width="100%"
@@ -420,6 +433,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
                   allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                   loading="lazy"
                   title={'Spotify: ' + spotifyPreview.label}
+                  style={{ display: 'block', borderRadius: 12 }}
                 />
               </div>
             )}

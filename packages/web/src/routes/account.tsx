@@ -266,6 +266,8 @@ export default function AccountPage() {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Display name"
               className="flex-1"
+              autoComplete="username"
+              maxLength={40}
             />
             <Button
               type="submit"
@@ -295,6 +297,7 @@ export default function AccountPage() {
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="Current password"
+              autoComplete="current-password"
             />
             <Input
               label="New password"
@@ -303,13 +306,20 @@ export default function AccountPage() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="New password (min. 8 characters)"
+              autoComplete="new-password"
+              aria-describedby="pw-hint"
             />
+            {newPassword.length > 0 && newPassword.length < 8 && (
+              <p id="pw-hint" className="text-xs text-accent-coral">
+                {8 - newPassword.length} more character{8 - newPassword.length === 1 ? '' : 's'} needed
+              </p>
+            )}
             <Button
               type="submit"
               variant="primary"
               fullWidth
               isLoading={savingPassword}
-              disabled={!currentPassword || !newPassword}
+              disabled={!currentPassword || !newPassword || newPassword.length < 8}
               className="min-h-[44px]"
             >
               Update Password
@@ -407,7 +417,13 @@ export default function AccountPage() {
               Delete My Account
             </Button>
           ) : (
-            <div className="space-y-3">
+            <form
+              className="space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (deletePassword && !deleting) handleDelete();
+              }}
+            >
               <Input
                 label="Enter your password to confirm"
                 type="password"
@@ -415,10 +431,13 @@ export default function AccountPage() {
                 value={deletePassword}
                 onChange={(e) => setDeletePassword(e.target.value)}
                 placeholder="Password"
+                autoComplete="current-password"
+                autoFocus
               />
 
               <div className="flex gap-2">
                 <Button
+                  type="button"
                   variant="ghost"
                   onClick={() => {
                     setShowDeleteConfirm(false);
@@ -429,8 +448,8 @@ export default function AccountPage() {
                   Cancel
                 </Button>
                 <Button
+                  type="submit"
                   variant="danger"
-                  onClick={handleDelete}
                   isLoading={deleting}
                   disabled={!deletePassword}
                   className="flex-1 min-h-[44px]"
@@ -438,7 +457,7 @@ export default function AccountPage() {
                   Confirm Delete
                 </Button>
               </div>
-            </div>
+            </form>
           )}
         </section>
       </div>

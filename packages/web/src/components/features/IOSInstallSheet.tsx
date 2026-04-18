@@ -23,10 +23,15 @@ export default function IOSInstallSheet() {
         <Drawer.Content
           className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl bg-bg-primary
                      border-t border-border-light shadow-2xl p-5 pb-8 space-y-4
-                     max-h-[90vh] flex flex-col outline-none"
+                     max-h-[90vh] flex flex-col outline-none
+                     lg:bottom-auto lg:inset-x-auto lg:top-1/2 lg:left-1/2
+                     lg:-translate-x-1/2 lg:-translate-y-1/2
+                     lg:w-[min(420px,calc(100vw-2rem))]
+                     lg:rounded-2xl lg:border lg:border-border-light lg:border-t-0"
         >
-          {/* Drag handle — visual affordance; vaul does the physics. */}
-          <div className="mx-auto -mt-2 mb-2 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0" />
+          {/* Drag handle — visual affordance; vaul does the physics.
+              Hidden on desktop where there's no drag affordance. */}
+          <div className="mx-auto -mt-2 mb-2 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0 lg:hidden" />
 
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">

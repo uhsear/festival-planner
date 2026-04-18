@@ -44,7 +44,10 @@ export default function ForgotPasswordPage() {
       setSubmitted(true);
       toast('Password reset link sent to your email', 'success');
     } catch (err) {
-      toast(error || 'Failed to send reset link', 'error');
+      const msg = error && !/^\s*5\d\d/.test(error)
+        ? error
+        : "We couldn't send the reset link right now. Please try again in a moment.";
+      toast(msg, 'error');
     }
   };
 
@@ -92,7 +95,11 @@ export default function ForgotPasswordPage() {
           </form>
         ) : (
           // Success message
-          <div className="glass rounded-lg p-6 text-center space-y-4">
+          <div
+            className="glass rounded-lg p-6 text-center space-y-4 animate-in fade-in zoom-in-95 duration-300"
+            role="status"
+            aria-live="polite"
+          >
             <div className="flex justify-center">
               <CheckCircle className="w-12 h-12 text-accent-green" />
             </div>

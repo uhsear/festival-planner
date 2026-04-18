@@ -72,12 +72,20 @@ export default function AdminCrews() {
   };
 
   const handleDelete = async (crewId: string) => {
-    if (!confirm('Are you sure you want to delete this crew?')) return;
+    const target = crews.find((c) => c.id === crewId);
+    const name = target?.name || 'this crew';
+    if (
+      !confirm(
+        `Delete ${name}?\n\nThis removes the crew and all ${target?.memberCount ?? ''} member link${target?.memberCount === 1 ? '' : 's'}. Members will lose access to shared picks.`,
+      )
+    ) {
+      return;
+    }
 
     try {
       await api.delete<void>(`/admin/crews/${crewId}`);
       setCrews(crews.filter((c) => c.id !== crewId));
-      toast('Crew deleted', 'success');
+      toast(`Deleted ${name}`, 'success');
     } catch (err: any) {
       toast(err.message || 'Failed to delete crew', 'error');
     }

@@ -52,12 +52,20 @@ export default function AdminUsers() {
   };
 
   const handleDelete = async (userId: string) => {
-    if (!confirm('Are you sure? This action cannot be undone.')) return;
+    const target = users.find((u) => u.id === userId);
+    const name = target?.username || 'this user';
+    if (
+      !confirm(
+        `Delete ${name}?\n\nThis permanently removes their account, picks, and crew memberships. This action cannot be undone.`,
+      )
+    ) {
+      return;
+    }
 
     try {
       await api.delete<void>(`/admin/users/${userId}`);
       setUsers(users.filter((u) => u.id !== userId));
-      toast('User deleted', 'success');
+      toast(`Deleted ${name}`, 'success');
     } catch (err: any) {
       toast(err.message || 'Failed to delete user', 'error');
     }
@@ -119,7 +127,7 @@ export default function AdminUsers() {
                       {user.roles.includes('admin') && <span className="text-xs font-bold text-accent-coral">ADMIN</span>}
                     </td>
                     <td className="px-4 py-3 text-text-muted text-xs">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {new Date(user.createdAt).toISOString().slice(0, 10)}
                     </td>
                     <td className="px-4 py-3 text-right space-x-2">
                       <button

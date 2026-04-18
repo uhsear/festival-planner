@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { cn } from '../../lib/utils';
 
@@ -23,7 +23,6 @@ export default function AdminLayout({
   children,
 }: AdminLayoutProps) {
   const navigate = useNavigate();
-  const [sideNavOpen, setSideNavOpen] = useState(false);
 
   return (
     <div className="flex flex-col h-screen bg-bg-primary">
@@ -44,26 +43,17 @@ export default function AdminLayout({
             </div>
           </div>
 
-          {/* Mobile menu toggle */}
-          <button
-            onClick={() => setSideNavOpen(!sideNavOpen)}
-            className="admin-mobile-only text-text-secondary hover:text-text-primary p-2"
-            aria-label="Toggle menu"
-          >
-            ☰
-          </button>
         </div>
 
-        {/* Mobile tabs */}
+        {/* Mobile tabs — horizontally scrollable tab strip. The previous
+            hamburger toggle set state that was never rendered; removed. */}
         <div className="admin-mobile-only overflow-x-auto border-t border-glass-border">
           <div className="flex gap-1 px-4 py-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => {
-                  onTabChange(tab.id);
-                  setSideNavOpen(false);
-                }}
+                onClick={() => onTabChange(tab.id)}
+                aria-current={activeTab === tab.id ? 'page' : undefined}
                 className={cn(
                   'px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap',
                   activeTab === tab.id
@@ -86,6 +76,7 @@ export default function AdminLayout({
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
+                aria-current={activeTab === tab.id ? 'page' : undefined}
                 className={cn(
                   'w-full text-left px-3 py-2.5 rounded-lg transition-colors',
                   'font-medium text-sm',
@@ -101,12 +92,14 @@ export default function AdminLayout({
           </div>
         </nav>
 
-        {/* Content area */}
-        <main className="flex-1 overflow-y-auto">
+        {/* Content area — <section> rather than <main> because AppShell's
+            #main-content is already the page's <main>. Using two main
+            landmarks violates `landmark-no-duplicate-main`. */}
+        <section className="flex-1 overflow-y-auto" aria-label="Admin content">
           <div className="px-4 py-6 md:px-6 max-w-6xl mx-auto">
             {children}
           </div>
-        </main>
+        </section>
       </div>
     </div>
   );

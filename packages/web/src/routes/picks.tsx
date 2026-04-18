@@ -1,9 +1,12 @@
 import React, { useMemo } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import { Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName } from '@festie/shared/utils';
+import StageBadge from '../components/ui/StageBadge';
+import RefreshableView from '../components/layout/RefreshableView';
 
 const PRIORITY_SECTIONS: Array<[Priority, string, string]> = [
   ['must', 'Must See', 'var(--priority-must)'],
@@ -12,6 +15,7 @@ const PRIORITY_SECTIONS: Array<[Priority, string, string]> = [
 ];
 
 export default function PicksView() {
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const currentProfile = useFestivalStore((state) => state.currentProfile);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
@@ -96,7 +100,7 @@ export default function PicksView() {
     );
   }
 
-  if (!currentFestival || !currentProfile) {
+  if (!currentFestival) {
     return (
       <div className="picks-container" role="region" aria-label="My picks">
         <div className="no-festival">
@@ -106,8 +110,58 @@ export default function PicksView() {
     );
   }
 
+  if (!currentProfile) {
+    return (
+      <div className="picks-container" role="region" aria-label="My picks">
+        <div className="no-festival">
+          <p>Join this festival to start saving picks.</p>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginTop: 8 }}>
+            Open the Schedule tab and tap <strong>Join festival</strong>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalPicksThisDay =
+    picksGrouped.must.length +
+    picksGrouped['want-to-see'].length +
+    picksGrouped.maybe.length;
+
+  // Global empty state: zero picks on this day → single friendly CTA pointing
+  // at /cards, rather than three stacked "Tap X on…" hint blocks which looked
+  // like broken/stuck UI on first visit.
+  if (totalPicksThisDay === 0) {
+    return (
+      <RefreshableView queryKeys={[['picks'], ['profiles']]} className="picks-container h-full">
+        <div role="region" aria-label="My picks">
+          <div className="empty-state-guide" style={{ margin: '32px auto', maxWidth: 320, textAlign: 'center' }}>
+            <div className="empty-state-icon" aria-hidden="true" style={{ fontSize: 32, marginBottom: 8 }}>
+              ★
+            </div>
+            <h2 style={{ margin: '8px 0', fontSize: 18, color: 'var(--text-primary)' }}>
+              No picks yet{days[selectedDay]?.label ? ` for ${days[selectedDay].label}` : ''}
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16 }}>
+              Browse artists and tap <strong>★ Must</strong>, <strong>◆ Want</strong>, or{' '}
+              <strong>● Maybe</strong> to build your plan.
+            </p>
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={() => navigate({ to: '/cards' })}
+            >
+              Browse Artists
+            </button>
+          </div>
+        </div>
+      </RefreshableView>
+    );
+  }
+
   return (
-    <div className="picks-container" role="region" aria-label="My picks">
+    <RefreshableView queryKeys={[['picks'], ['profiles']]} className="picks-container h-full">
+      <div role="region" aria-label="My picks">
       {/* Priority sections */}
       {PRIORITY_SECTIONS.map(([pri, label, color]) => {
         const items = picksGrouped[pri];
@@ -121,7 +175,7 @@ export default function PicksView() {
 
             {items.map((set) => {
               const sc = getStageColor(set.stageId);
-              const sn = getStageName(set.stageId);
+              const sn = getStageName(set.stageId) || '';
               const dn = artistDisplayName(set, currentFestival?.b2bSeparator);
               const dayLabel = days[set.dayIndex ?? 0]?.label || '';
 
@@ -138,17 +192,7 @@ export default function PicksView() {
                     {set.startTime ? ' ' + formatTime(set.startTime) : ' TBA'}
                   </div>
                   <div className="pick-artist">{dn}</div>
-                  <span
-                    className="pick-stage"
-                    style={{
-                      background: sc,
-                      color: '#fff',
-                      fontWeight: 700,
-                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.35)',
-                    }}
-                  >
-                    {sn}
-                  </span>
+                  <StageBadge variant="pick" stageName={sn} stageColor={sc} />
                 </button>
               );
             })}
@@ -170,6 +214,7 @@ export default function PicksView() {
           </div>
         );
       })}
-    </div>
+      </div>
+    </RefreshableView>
   );
 }

@@ -155,7 +155,7 @@ export default function LineupImport({ festivalId, onSuccess }: LineupImportProp
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-text-primary mb-3">Import Lineup from CSV/TSV</h3>
+        <h2 className="text-lg font-semibold text-text-primary mb-3">Import Lineup from CSV/TSV</h2>
 
         <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4 mb-4">
           <p className="text-sm text-text-muted mb-3">
@@ -248,9 +248,15 @@ export default function LineupImport({ festivalId, onSuccess }: LineupImportProp
             <button
               onClick={handleImport}
               disabled={loading}
-              className="px-4 py-2 rounded-lg bg-accent-aqua text-bg-primary hover:opacity-80 disabled:opacity-50 transition-opacity text-sm font-medium"
+              className="px-4 py-2 rounded-lg bg-accent-aqua text-bg-primary hover:opacity-80 disabled:opacity-50 transition-opacity text-sm font-medium inline-flex items-center gap-2"
             >
-              {loading ? 'Importing...' : 'Import Sets'}
+              {loading && (
+                <span
+                  aria-hidden="true"
+                  className="inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"
+                />
+              )}
+              {loading ? `Importing ${preview.length} sets…` : `Import ${preview.length} Set${preview.length === 1 ? '' : 's'}`}
             </button>
           </div>
         </div>
