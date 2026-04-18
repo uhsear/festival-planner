@@ -4,6 +4,8 @@ import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useFestival } from '@festie/shared/hooks';
 import { artistDisplayName } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
+import EmptyState from '../components/ui/EmptyState';
+import { CalendarX } from 'lucide-react';
 
 function fmtClock(d: Date): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -94,7 +96,11 @@ export default function FestivalModeView() {
   if (!currentFestival) {
     return (
       <div className="festival-mode-view">
-        <div className="fm-empty" role="status">No festival loaded.</div>
+        <EmptyState
+          icon={<CalendarX className="w-12 h-12" aria-hidden="true" />}
+          title="No festival loaded"
+          description="Pick a festival from the top menu to see what's playing now and next."
+        />
       </div>
     );
   }

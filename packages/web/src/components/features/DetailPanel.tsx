@@ -16,6 +16,7 @@ import { api } from '@festie/shared/services/api';
 import { Drawer } from 'vaul';
 import RatingButtons from './RatingButtons';
 import { hasSetStarted } from '../../utils/festivalTime';
+import { useHaptics } from '../../hooks/useHaptics';
 
 const PLATFORM_LABELS: Record<string, string> = {
   spotify: 'Spotify',
@@ -43,6 +44,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
   const { getMyPick, getMyNote, savePick, saveNote, getOtherPicks } = usePicks();
   const { getStageColor, getStageName } = useFestival();
   const { getCrewScopedOtherPicks } = useCrew();
+  const { select: selectHaptic, success: successHaptic, warning: warningHaptic } = useHaptics();
 
   const [personalNote, setPersonalNote] = useState(getMyNote(set.id) || '');
   const [crewNote, setCrewNote] = useState(
@@ -177,18 +179,23 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     };
   }, [set.id, autoOpenSpotify]);
 
-  // Debounced personal note save
+  // Debounced personal note save — fire success haptic + warning on failure
+  // AFTER the debounce completes so rapid typing doesn't vibrate per-keystroke.
   const handlePersonalNoteChange = useCallback(
     (value: string) => {
       setPersonalNote(value);
       if (personalNoteTimer.current) clearTimeout(personalNoteTimer.current);
-      personalNoteTimer.current = setTimeout(() => {
-        if (currentFestival) {
-          saveNote(currentFestival.id, set.id, value);
+      personalNoteTimer.current = setTimeout(async () => {
+        if (!currentFestival) return;
+        try {
+          await saveNote(currentFestival.id, set.id, value);
+          successHaptic();
+        } catch {
+          warningHaptic();
         }
       }, 500);
     },
-    [currentFestival, set.id, saveNote],
+    [currentFestival, set.id, saveNote, successHaptic, warningHaptic],
   );
 
   // Debounced crew note save
@@ -196,13 +203,17 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     (value: string) => {
       setCrewNote(value);
       if (crewNoteTimer.current) clearTimeout(crewNoteTimer.current);
-      crewNoteTimer.current = setTimeout(() => {
-        if (currentFestival) {
-          saveNote(currentFestival.id, 'crew:' + set.id, value);
+      crewNoteTimer.current = setTimeout(async () => {
+        if (!currentFestival) return;
+        try {
+          await saveNote(currentFestival.id, 'crew:' + set.id, value);
+          successHaptic();
+        } catch {
+          warningHaptic();
         }
       }, 500);
     },
-    [currentFestival, set.id, saveNote],
+    [currentFestival, set.id, saveNote, successHaptic, warningHaptic],
   );
 
   // Cleanup timers
@@ -217,9 +228,10 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
   const handlePriorityClick = useCallback(
     async (priority: Priority | null) => {
       if (!currentFestival) return;
+      selectHaptic();
       await savePick(currentFestival.id, set.id, priority);
     },
-    [currentFestival, set.id, savePick],
+    [currentFestival, set.id, savePick, selectHaptic],
   );
 
   // Spotify toggle
@@ -299,14 +311,18 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
           {stageName}
         </div>
 
-        {/* Artist photo */}
+        {/* Artist photo — reserved aspect ratio prevents CLS when the lazy-
+            loaded hero image swaps in; artist press photos are ~square, so
+            1/1 matches the common case while object-cover handles drift. */}
         {primaryArtist && (primaryArtist as any).photo && (
-          <div className="detail-artist-photo-wrap">
+          <div className="detail-artist-photo-wrap" style={{ aspectRatio: '1 / 1' }}>
             <img
               src={(primaryArtist as any).photo}
               alt={primaryArtist.name || set.artist || ''}
               className="detail-artist-photo"
               loading="lazy"
+              decoding="async"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               onError={(e) => {
                 const wrap = (e.target as HTMLElement).parentElement;
                 if (wrap) wrap.remove();
@@ -555,6 +571,10 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
                   <img
                     src={o.avatar}
                     alt={o.name}
+                    width={28}
+                    height={28}
+                    loading="lazy"
+                    decoding="async"
                     style={{
                       width: 28,
                       height: 28,

@@ -11,6 +11,8 @@ import {
 } from '@festie/shared/utils';
 import RefreshableView from '../components/layout/RefreshableView';
 import StageBadge from '../components/ui/StageBadge';
+import EmptyState from '../components/ui/EmptyState';
+import { CalendarX, Music } from 'lucide-react';
 
 const SLOT_MINUTES = 15;
 
@@ -146,9 +148,11 @@ export default function TimelineView() {
 
   if (!currentFestival) {
     return (
-      <div className="no-festival" role="status" aria-live="polite">
-        <p>No festival selected. Choose a festival from the top menu.</p>
-      </div>
+      <EmptyState
+        icon={<CalendarX className="w-12 h-12" aria-hidden="true" />}
+        title="No festival loaded"
+        description="Choose a festival from the top menu to see the timeline."
+      />
     );
   }
 

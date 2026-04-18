@@ -3,6 +3,7 @@ import { Crew } from '@festie/shared/types';
 import { ChevronDown, Plus, LogIn } from 'lucide-react';
 import Button from '../ui/Button';
 import { cn } from '@/lib/utils';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface CrewSelectorProps {
   crews: Crew[];
@@ -21,11 +22,12 @@ export default function CrewSelector({
 }: CrewSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const selectedCrew = crews.find((c) => c.id === selectedCrewId) || crews[0];
+  const { tap, select } = useHaptics();
 
   return (
     <div className="relative px-4 py-3">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => { tap(); setIsOpen(!isOpen); }}
         className={cn(
           'w-full px-4 py-3 rounded-lg font-semibold transition-colors',
           'bg-bg-card border border-border text-text-primary',
@@ -45,11 +47,15 @@ export default function CrewSelector({
           'shadow-lg'
         )}>
           {crews.length > 0 && (
-            <div className="max-h-48 overflow-y-auto">
+            <div
+              className="max-h-48 overflow-y-auto"
+              style={{ overscrollBehavior: 'contain' }}
+            >
               {crews.map((crew) => (
                 <button
                   key={crew.id}
                   onClick={() => {
+                    select();
                     onSelectCrew(crew.id);
                     setIsOpen(false);
                   }}

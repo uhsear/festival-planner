@@ -5,6 +5,9 @@ import { usePicks, useFestival } from '@festie/shared/hooks';
 import { artistDisplayName, getSetHotness, getConflictingSetIds } from '@festie/shared/utils';
 import { formatTime } from '@festie/shared/utils';
 import SetCard from '../components/features/SetCard';
+import EmptyState from '../components/ui/EmptyState';
+import CardsSkeleton from '../components/ui/skeletons/CardsSkeleton';
+import { Music, SearchX } from 'lucide-react';
 
 export default function CardsView() {
   const currentProfile = useFestivalStore((state) => state.currentProfile);
@@ -17,6 +20,7 @@ export default function CardsView() {
   const activeStages = useFestivalStore((state) => state.activeStages);
 
   const setDetailSet = useUIStore((state) => state.setDetailSet);
+  const setDetailAutoSpotify = useUIStore((state) => state.setDetailAutoSpotify);
   const { getMyPick, getOtherPicks } = usePicks();
   const { getStageColor, getStageName } = useFestival();
 
@@ -65,28 +69,26 @@ export default function CardsView() {
     return getConflictingSetIds(filteredSets, getMyPick);
   }, [filteredSets, getMyPick]);
 
-  // Show loading skeleton while festivals are being fetched on boot
+  // Show layout-matched skeleton while festivals are being fetched on boot
+  // — same component the router uses for the chunk-load fallback so the
+  // visual is continuous across route-transition → data-fetch.
   if (!currentFestival) {
-    return (
-      <div className="loading-skeleton" aria-busy="true" aria-label="Loading festival data">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="skeleton-card">
-            <div className="skeleton-line skeleton-title" />
-            <div className="skeleton-line skeleton-time" />
-            <div className="skeleton-line skeleton-stage" />
-          </div>
-        ))}
-      </div>
-    );
+    return <CardsSkeleton />;
   }
 
   return (
     <>
       {/* Card grid */}
       {filteredSets.length === 0 ? (
-        <div className="no-festival" role="status" aria-live="polite" style={{ gridColumn: '1 / -1' }}>
-          <p>{searchQuery ? 'No artists match your search.' : 'No sets for this day.'}</p>
-        </div>
+        <EmptyState
+          icon={searchQuery
+            ? <SearchX className="w-12 h-12" aria-hidden="true" />
+            : <Music    className="w-12 h-12" aria-hidden="true" />}
+          title={searchQuery ? 'No artists match your search' : 'No sets for this day'}
+          description={searchQuery
+            ? 'Try a different spelling or clear the search to see the full lineup.'
+            : 'Pick another day from the day selector to browse the schedule.'}
+        />
       ) : (
         <div className="card-grid" role="region" aria-label="Card view">
           {filteredSets.map((set, idx) => {
@@ -106,6 +108,7 @@ export default function CardsView() {
                 <SetCard
                   set={set}
                   onTap={() => setDetailSet(set)}
+                  onPreview={() => { setDetailAutoSpotify(true); setDetailSet(set); }}
                   showPicks={!!currentProfile}
                   stageName={sn}
                   stageColor={sc}

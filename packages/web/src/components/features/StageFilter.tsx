@@ -1,6 +1,7 @@
 import React from 'react';
 import { Stage } from '@festie/shared/types';
 import { cn } from '@/lib/utils';
+import { useHaptics } from '@/hooks/useHaptics';
 
 interface StageFilterProps {
   stages: Stage[];
@@ -17,7 +18,9 @@ const DEFAULT_COLORS: Record<string, string> = {
 };
 
 export default function StageFilter({ stages, activeStages, onStagesChange, stageColors }: StageFilterProps) {
+  const { select } = useHaptics();
   const toggleStage = (stageId: string) => {
+    select();
     const updated = activeStages.includes(stageId)
       ? activeStages.filter((id) => id !== stageId)
       : [...activeStages, stageId];
@@ -27,7 +30,7 @@ export default function StageFilter({ stages, activeStages, onStagesChange, stag
   const colors = stageColors || DEFAULT_COLORS;
 
   return (
-    <div className="px-4 overflow-x-auto pb-2">
+    <div className="px-4 overflow-x-auto pb-2 stage-filter-row">
       <div className="flex gap-2 min-w-min">
         {stages.map((stage) => {
           const isActive = activeStages.includes(stage.id);

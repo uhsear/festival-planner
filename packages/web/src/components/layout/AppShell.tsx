@@ -20,6 +20,7 @@ import { getStageBadgeStyle } from '../ui/StageBadge';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useSwipeDays } from '../../hooks/useSwipeDays';
+import { useHaptics } from '../../hooks/useHaptics';
 import { useOffline } from '@festie/shared/hooks';
 import { useOfflineQueue } from '../../hooks/useOfflineQueue';
 import { prefetchMainRoutes } from '../../router';
@@ -322,9 +323,13 @@ export default function AppShell() {
     [selectFestival],
   );
 
+  // Haptic shell — same instance for day-tab taps + stage-chip toggles.
+  const { select: selectHaptic } = useHaptics();
+
   // Stage chip toggle handler (legacy behavior: toggle individual, show all when empty)
   const handleStageToggle = useCallback(
     (stageId: string) => {
+      selectHaptic();
       const isActive = activeStages.includes(stageId);
       if (isActive) {
         const updated = activeStages.filter((id) => id !== stageId);
@@ -333,7 +338,7 @@ export default function AppShell() {
         setActiveStages([...activeStages, stageId]);
       }
     },
-    [activeStages, setActiveStages],
+    [activeStages, setActiveStages, selectHaptic],
   );
 
   // Auth routes don't use app shell layout
@@ -433,7 +438,7 @@ export default function AppShell() {
                     aria-selected={selectedDay === i}
                     aria-controls="main-content"
                     tabIndex={selectedDay === i ? 0 : -1}
-                    onClick={() => setSelectedDay(i)}
+                    onClick={() => { selectHaptic(); setSelectedDay(i); }}
                   >
                     {day.label || day.date}
                   </button>
