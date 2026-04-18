@@ -54,11 +54,12 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
-        {/* Logo */}
+        {/* Logo — matches Header (FESTIE all-caps, Syncopate display font)
+           and /login + /register, both of which use the .logo-big class.
+           Title-case "Festie" drifted from the brand wordmark everywhere
+           else in the app. */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-accent-aqua mb-2" style={{ fontFamily: 'var(--font-family-display)' }}>
-            Festie
-          </h1>
+          <h1 className="logo-big">FESTIE</h1>
           <p className="text-text-muted">Reset your password</p>
         </div>
 

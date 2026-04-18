@@ -1,7 +1,6 @@
 import { useEffect, useCallback, useState } from 'react';
 import { api } from '@festie/shared/services/api';
 import { useAuthStore } from '@festie/shared/stores/authStore';
-import { useToast } from '../lib/toastContext';
 
 const VAPID_PUBLIC_KEY =
   import.meta.env.VITE_VAPID_PUBLIC_KEY ||
@@ -38,7 +37,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const [unsupportedReason, setUnsupportedReason] = useState<UnsupportedReason>(null);
   const [permission, setPermission] = useState<NotificationPermission | 'default'>('default');
   const user = useAuthStore((state) => state.user);
-  const { toast } = useToast();
 
   const permissionState: PushPermissionState = !isSupported
     ? 'unsupported'
@@ -126,20 +124,28 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     _currentToken = null;
   }, []);
 
-  // Auto-register when permission is already granted and user is logged in
+  // Auto-register when permission is already granted and user is logged in.
+  // Guest guard: `user !== null` must be checked FIRST — without this the
+  // effect would POST /notifications/token with no session cookie, which the
+  // server rejects as 400 "Invalid push token" / 429 "Too many token
+  // registrations" on every guest page load and popped a red toast that
+  // guests have no way to action.
   useEffect(() => {
     if (
+      user !== null &&
       isSupported &&
       'Notification' in window &&
-      Notification.permission === 'granted' &&
-      user
+      Notification.permission === 'granted'
     ) {
       registerToken().catch((err) => {
+        // Swallow silently — the auto-register path is best-effort and
+        // firing a red toast for a background registration failure the
+        // user never initiated is more confusing than helpful. The manual
+        // requestPermission flow still surfaces errors via its own return.
         console.error(err);
-        toast("Couldn't enable notifications", 'error');
       });
     }
-  }, [isSupported, user, registerToken, toast]);
+  }, [isSupported, user, registerToken]);
 
   // Clean up on logout
   useEffect(() => {

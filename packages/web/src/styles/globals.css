@@ -682,6 +682,12 @@ button {
   min-height: 0;
   overflow-y: auto;
   overflow-x: auto;
+  /* Hour labels are absolutely positioned with transform: translateY(-50%)
+     so the first label at top:0 renders with its top half above the
+     container's content box — clipping the baseline against the fk-grid
+     toolbar border. 8px of top padding gives the first label vertical
+     room without visibly shifting the rest of the grid. */
+  padding-top: 8px;
 }
 
 /* Time gutter — left axis with hour labels */

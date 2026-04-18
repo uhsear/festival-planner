@@ -1,4 +1,4 @@
-import React, { useMemo, Component, ReactNode } from 'react';
+import React, { useMemo, useEffect, Component, ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
@@ -7,7 +7,6 @@ import { Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName } from '@festie/shared/utils';
 import StageBadge from '../components/ui/StageBadge';
 import EmptyState from '../components/ui/EmptyState';
-import GuestTeaser from '../components/features/GuestTeaser';
 import RefreshableView from '../components/layout/RefreshableView';
 import { Star } from 'lucide-react';
 
@@ -116,14 +115,15 @@ function PicksViewInner() {
     return groups;
   }, [daySets, getMyPick, currentFestival?.b2bSeparator]);
 
-  // Guest teaser — was a bespoke inline-styled block that didn't match the
-  // shared GuestTeaser used on /crew + /wrap (different h1 size, raw <button>
-  // instead of <Button>, legacy .guest-teaser class on a React surface that
-  // has no matching rule in the React-package CSS). Using the shared
-  // component keeps all three guest routes visually identical.
-  if (!user) {
-    return <GuestTeaser mode="picks" />;
-  }
+  // /picks is a logged-in-only surface. Router `beforeLoad` normally catches
+  // this and redirects; this useEffect is a belt-and-suspenders fallback for
+  // the case where the user logs out while already sitting on /picks (no
+  // new `beforeLoad` fires on auth-state change). Render null while the
+  // redirect is in-flight so we never flash the picks UI to a guest.
+  useEffect(() => {
+    if (!user) navigate({ to: '/login' }).catch(() => {});
+  }, [user, navigate]);
+  if (!user) return null;
 
   if (!currentFestival) {
     return (

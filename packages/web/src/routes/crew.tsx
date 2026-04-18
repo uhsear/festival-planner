@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useCrewStore } from '@festie/shared/stores';
 import { useAuthStore } from '@festie/shared/stores';
 import { useFestivalStore } from '@festie/shared/stores';
 import { api } from '@festie/shared/services';
-import GuestTeaser from '../components/features/GuestTeaser';
 import CrewSelector from '../components/features/CrewSelector';
 import EmptyState from '../components/ui/EmptyState';
 import Avatar from '../components/ui/Avatar';
@@ -16,7 +16,7 @@ import ActivityTab from '../components/crew/ActivityTab';
 import { useToast } from '../lib/toastContext';
 import PromptDialog from '../components/ui/PromptDialog';
 import {
-  Users, Copy, UserPlus, MapPin, BarChart3, DollarSign, Activity,
+  Users, Copy, UserPlus, MapPin, BarChart3, DollarSign, Activity, Columns3,
 } from 'lucide-react';
 
 type TabKey = 'members' | 'meeting' | 'polls' | 'expenses' | 'activity';
@@ -30,6 +30,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
 ];
 
 export default function CrewView() {
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const crews = useCrewStore((state) => state.crews);
   const activeCrew = useCrewStore((state) => state.activeCrew);
@@ -74,7 +75,13 @@ export default function CrewView() {
     }
   }, [user?.id, crews, activeCrew, selectCrew]);
 
-  if (!user) return <GuestTeaser mode="crew" />;
+  // /crew is a logged-in-only surface — see router.tsx beforeLoad guard.
+  // This effect catches the logged-out-while-on-route edge case so we never
+  // render the page to a guest after an in-session logout.
+  useEffect(() => {
+    if (!user) navigate({ to: '/login' }).catch(() => {});
+  }, [user, navigate]);
+  if (!user) return null;
 
   const handleSelectCrew = (crewId: string) => { selectCrew(crewId).catch(console.error); };
 
@@ -155,9 +162,13 @@ export default function CrewView() {
 
       {!activeCrew ? (
         <div className="px-4">
+          {/* EmptyState renders without a cta prop — the paired
+             "Create Crew / Join by Code" row below is the primary + secondary
+             action pair. Having both the EmptyState's lone CTA AND the row
+             underneath showed two identical "Create Crew" buttons stacked on
+             top of each other, which read as a rendering glitch. */}
           <EmptyState icon={<Users className="w-12 h-12" />} title="No crew yet"
-            description="Create a crew or join an existing one to coordinate with friends"
-            cta={{ label: 'Create Crew', onClick: handleCreateCrew }} />
+            description="Create a crew or join an existing one to coordinate with friends" />
           {crews.length === 0 && (
             <div className="mt-6 flex gap-3">
               <Button variant="primary" onClick={handleCreateCrew} className="flex-1 min-h-11">Create Crew</Button>
@@ -191,6 +202,21 @@ export default function CrewView() {
               {copiedCode ? '✓ Copied' : 'Copy'}
             </Button>
           </div>
+
+          {/* Compare-schedules entry point — deep-links to /compare, which
+             shows the side-by-side per-day table of who picked what. This
+             replaces the legacy renderCrewSchedule view in public/views/crew.js. */}
+          <Link
+            to="/compare"
+            className="flex items-center gap-3 p-3 rounded-lg bg-accent-aqua/10 border border-accent-aqua/30 hover:bg-accent-aqua/15 transition-colors min-h-11"
+          >
+            <Columns3 className="w-5 h-5 text-accent-aqua" aria-hidden="true" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-text-primary">Compare schedules</div>
+              <div className="text-xs text-text-secondary">See everyone's picks side by side</div>
+            </div>
+            <span className="text-accent-aqua text-sm">→</span>
+          </Link>
 
           {/* Tab nav — horizontal scroll on narrow screens, 5 tabs fit on 390+ */}
           <div className="flex gap-1 overflow-x-auto -mx-1 px-1 scrollbar-hide" role="tablist" aria-label="Crew tabs">

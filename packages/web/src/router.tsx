@@ -117,6 +117,13 @@ const picksRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/picks',
   component: PicksView,
+  // Guests were seeing an inline <GuestTeaser> on /picks while /crew, /wrap,
+  // /compare, /account all redirected to /login — inconsistent and the
+  // Playwright sweep flagged /picks as the odd one out. Match the rest:
+  // redirect at the router layer so the login flow is reached in one hop.
+  beforeLoad: async () => {
+    if (!isAuthenticated()) throw redirect({ to: '/login' });
+  },
 });
 
 const gridRoute = new Route({
