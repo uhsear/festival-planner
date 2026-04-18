@@ -1,469 +1,280 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
-import { Expense, CrewMember } from '@festie/shared/types';
 import { useToast } from '../../lib/toastContext';
 import { cn } from '@/lib/utils';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import Avatar from '../ui/Avatar';
 import EmptyState from '../ui/EmptyState';
 import Skeleton from '../ui/Skeleton';
-import {
-  DollarSign,
-  Plus,
-  Trash2,
-  HandCoins,
-  ChevronDown,
-  ChevronUp,
-  X,
-  Users,
-} from 'lucide-react';
+import { DollarSign, Plus, Trash2, HandCoins, X } from 'lucide-react';
+import IconButton from '../ui/IconButton';
 
-interface ExpensesTabProps {
+// Server shape (snake_case from routes/expenses.js + expenses store).
+interface RawExpense {
+  id: string;
+  crew_id: string;
+  paid_by: string;
+  paid_by_name: string;
+  description: string;
+  amount: string | number; // numeric(10,2) comes back as string in pg
+  split_with: string[];
+  category: string;
+  created_at: string;
+}
+
+interface Balance { userId: string; username: string; balance: number }
+
+// Crew member shape from /crews/:id (serializeCrewWithMembers).
+interface CrewMemberLite { userId: string; username?: string; name?: string }
+
+interface Props {
   crewId: string;
-  members: CrewMember[];
+  members: CrewMemberLite[];
   currentUserId: string;
 }
 
-type SplitMode = 'equal' | 'custom';
+const CATEGORIES = [
+  { key: 'food',     emoji: '🍔', label: 'Food'   },
+  { key: 'drinks',   emoji: '🍺', label: 'Drinks' },
+  { key: 'transport',emoji: '🚗', label: 'Ride'   },
+  { key: 'hotel',    emoji: '🏨', label: 'Hotel'  },
+  { key: 'tickets',  emoji: '🎫', label: 'Tickets'},
+  { key: 'other',    emoji: '💸', label: 'Other'  },
+] as const;
 
-interface BalanceEntry {
-  memberId: string;
-  name: string;
-  balance: number;
-}
-
-function computeBalances(expenses: Expense[], members: CrewMember[]): BalanceEntry[] {
-  const balanceMap: Record<string, number> = {};
-  const nameMap: Record<string, string> = {};
-
-  for (const m of members) {
-    balanceMap[m.userId] = 0;
-    nameMap[m.userId] = m.name || 'User';
-  }
-
-  for (const exp of expenses) {
-    const splitCount = exp.sharedWith.length || 1;
-    const perPerson = exp.amount / splitCount;
-
-    // Payer is owed money
-    if (balanceMap[exp.paidBy] !== undefined) {
-      balanceMap[exp.paidBy] += exp.amount - perPerson;
-    }
-
-    // Each person who shares owes their portion
-    for (const uid of exp.sharedWith) {
-      if (uid !== exp.paidBy && balanceMap[uid] !== undefined) {
-        balanceMap[uid] -= perPerson;
-      }
-    }
-  }
-
-  return Object.entries(balanceMap).map(([memberId, balance]) => ({
-    memberId,
-    name: nameMap[memberId] || 'User',
-    balance,
-  }));
-}
-
-export default function ExpensesTab({ crewId, members, currentUserId }: ExpensesTabProps) {
+export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Form state
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [paidBy, setPaidBy] = useState(currentUserId);
-  const [splitMode, setSplitMode] = useState<SplitMode>('equal');
-  const [selectedMembers, setSelectedMembers] = useState<string[]>(() =>
-    members.map((m) => m.userId),
-  );
+  const [category, setCategory] = useState<string>('other');
+  const [splitWith, setSplitWith] = useState<string[]>(() => members.map((m) => m.userId));
 
-  const {
-    data: expenses = [],
-    isLoading,
-    isError,
-  } = useQuery<Expense[]>({
+  const { data: expenses = [], isLoading, isError } = useQuery<RawExpense[]>({
     queryKey: ['expenses', crewId],
-    queryFn: () => api.get<Expense[]>(`/api/v1/expenses/${crewId}`),
+    queryFn: async () => {
+      const res = await api.get<RawExpense[]>(`/crews/${crewId}/expenses`);
+      return Array.isArray(res) ? res : [];
+    },
+    enabled: !!crewId,
+  });
+
+  const { data: balances = [] } = useQuery<Balance[]>({
+    queryKey: ['expense-balances', crewId],
+    queryFn: async () => {
+      const res = await api.get<Balance[] | { balances: Balance[] }>(
+        `/crews/${crewId}/expenses/balances`,
+      );
+      return Array.isArray(res) ? res : (res?.balances || []);
+    },
     enabled: !!crewId,
   });
 
   const addExpense = useMutation({
-    mutationFn: (newExpense: {
-      description: string;
-      amount: number;
-      paidBy: string;
-      sharedWith: string[];
-    }) => api.post(`/api/v1/expenses/${crewId}`, newExpense),
+    mutationFn: (payload: { description: string; amount: number; splitWith: string[]; category: string }) =>
+      api.post(`/crews/${crewId}/expenses`, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses', crewId] });
+      qc.invalidateQueries({ queryKey: ['expenses', crewId] });
+      qc.invalidateQueries({ queryKey: ['expense-balances', crewId] });
       toast('Expense added', 'success');
-      resetForm();
+      reset();
     },
-    onError: () => {
-      toast("Couldn't add expense. Try again.", 'error');
-    },
+    onError: (e) => toast(e instanceof Error ? e.message : 'Failed to add', 'error'),
   });
 
-  const deleteExpense = useMutation({
-    mutationFn: (expenseId: string) =>
-      api.delete(`/api/v1/expenses/${crewId}/${expenseId}`),
+  const removeExpense = useMutation({
+    mutationFn: (id: string) => api.delete(`/crews/${crewId}/expenses/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses', crewId] });
-      toast('Expense removed', 'success');
+      qc.invalidateQueries({ queryKey: ['expenses', crewId] });
+      qc.invalidateQueries({ queryKey: ['expense-balances', crewId] });
+      toast('Removed', 'success');
     },
-    onError: () => {
-      toast("Couldn't delete expense. Try again.", 'error');
-    },
+    onError: () => toast('Failed to remove', 'error'),
   });
 
-  const settleUp = useMutation({
-    mutationFn: () => api.post(`/api/v1/expenses/${crewId}/settle`),
+  const settle = useMutation({
+    mutationFn: (payload: { toUserId: string; amount: number }) =>
+      api.post(`/crews/${crewId}/expenses/settle`, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses', crewId] });
-      toast('All settled up!', 'success');
+      qc.invalidateQueries({ queryKey: ['expenses', crewId] });
+      qc.invalidateQueries({ queryKey: ['expense-balances', crewId] });
+      toast('Settled up', 'success');
     },
-    onError: () => {
-      toast("Couldn't settle up. Try again.", 'error');
-    },
+    onError: (e) => toast(e instanceof Error ? e.message : 'Failed to settle', 'error'),
   });
 
-  const balances = useMemo(() => computeBalances(expenses, members), [expenses, members]);
-  const totalSpent = useMemo(
-    () => expenses.reduce((sum, e) => sum + e.amount, 0),
-    [expenses],
-  );
-
-  function resetForm() {
+  function reset() {
     setDescription('');
     setAmount('');
-    setPaidBy(currentUserId);
-    setSplitMode('equal');
-    setSelectedMembers(members.map((m) => m.userId));
+    setCategory('other');
+    setSplitWith(members.map((m) => m.userId));
     setShowForm(false);
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const parsedAmount = parseFloat(amount);
-    if (!description.trim() || isNaN(parsedAmount) || parsedAmount <= 0) return;
-    if (selectedMembers.length === 0) return;
+  function toggleMember(uid: string) {
+    setSplitWith((prev) => (prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]));
+  }
 
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const amt = Number(amount);
+    if (!description.trim() || !Number.isFinite(amt) || amt <= 0) return;
     addExpense.mutate({
       description: description.trim(),
-      amount: parsedAmount,
-      paidBy,
-      sharedWith: splitMode === 'equal' ? members.map((m) => m.userId) : selectedMembers,
+      amount: amt,
+      splitWith,
+      category,
     });
   }
 
-  function toggleMemberSelection(userId: string) {
-    setSelectedMembers((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
-    );
-  }
+  const memberName = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const u of members) m[u.userId] = u.name || u.username || 'User';
+    return m;
+  }, [members]);
 
-  function getMemberName(userId: string): string {
-    return members.find((m) => m.userId === userId)?.name || 'User';
-  }
+  const myBalance = balances.find((b) => b.userId === currentUserId)?.balance ?? 0;
+  const totalSpent = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
-  if (isLoading) {
-    return (
-      <div className="space-y-3 px-4">
-        <Skeleton variant="card" />
-        <Skeleton variant="card" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="px-4">
-        <EmptyState
-          icon={<DollarSign className="w-12 h-12" />}
-          title="Couldn't load expenses"
-          description="Try again later."
-        />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="px-4 space-y-2"><Skeleton variant="card" /><Skeleton variant="card" /></div>;
+  if (isError) return <div className="px-4"><EmptyState icon={<DollarSign className="w-12 h-12" />} title="Couldn't load expenses" description="Try again later." /></div>;
 
   return (
-    <div className="space-y-4 px-4">
-      {/* Balance summary */}
+    <div className="space-y-3 px-4">
+      {/* Summary */}
       {expenses.length > 0 && (
-        <div className="p-4 rounded-lg bg-bg-card border border-border">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-text-primary flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Balances
-            </h3>
-            <span className="text-sm text-text-secondary">
-              Total: ${totalSpent.toFixed(2)}
-            </span>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="p-3 rounded-lg bg-bg-card border border-border">
+            <div className="text-xs text-text-muted uppercase tracking-wide">Total spent</div>
+            <div className="text-lg font-bold text-text-primary">${totalSpent.toFixed(2)}</div>
           </div>
-
-          <div className="space-y-2">
-            {balances.map((entry) => (
-              <div
-                key={entry.memberId}
-                className="flex items-center justify-between py-1"
-              >
-                <div className="flex items-center gap-2">
-                  <Avatar name={entry.name} size="xs" />
-                  <span className="text-sm text-text-primary">{entry.name}</span>
-                </div>
-                <span
-                  className={cn(
-                    'text-sm font-medium',
-                    entry.balance > 0.01
-                      ? 'text-accent-green'
-                      : entry.balance < -0.01
-                        ? 'text-accent-coral'
-                        : 'text-text-muted',
-                  )}
-                >
-                  {entry.balance > 0.01
-                    ? `+$${entry.balance.toFixed(2)}`
-                    : entry.balance < -0.01
-                      ? `-$${Math.abs(entry.balance).toFixed(2)}`
-                      : '$0.00'}
-                </span>
-              </div>
-            ))}
+          <div className="p-3 rounded-lg bg-bg-card border border-border">
+            <div className="text-xs text-text-muted uppercase tracking-wide">Your balance</div>
+            <div className={cn('text-lg font-bold',
+              myBalance > 0.01 ? 'text-accent-aqua' : myBalance < -0.01 ? 'text-accent-coral' : 'text-text-primary')}>
+              {myBalance > 0.01 ? `+$${myBalance.toFixed(2)}` : myBalance < -0.01 ? `-$${Math.abs(myBalance).toFixed(2)}` : '$0.00'}
+            </div>
           </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => settleUp.mutate()}
-            isLoading={settleUp.isPending}
-            className="w-full mt-3 min-h-11"
-          >
-            <HandCoins className="w-4 h-4" />
-            Settle Up
-          </Button>
         </div>
       )}
 
-      {/* Add expense button / form */}
+      {/* Balances w/ settle button */}
+      {balances.filter((b) => Math.abs(b.balance) > 0.01).length > 0 && (
+        <div className="p-3 rounded-lg bg-bg-card border border-border space-y-2">
+          <div className="text-xs text-text-muted uppercase tracking-wide">Who owes what</div>
+          {balances.filter((b) => Math.abs(b.balance) > 0.01).map((b) => {
+            const owesMe = b.userId !== currentUserId && b.balance < -0.01 && myBalance > 0.01;
+            const iOwe = b.userId !== currentUserId && b.balance > 0.01 && myBalance < -0.01;
+            return (
+              <div key={b.userId} className="flex items-center justify-between gap-2">
+                <span className="text-sm text-text-primary">
+                  {b.userId === currentUserId ? 'You' : b.username}
+                  {' '}
+                  <span className={b.balance > 0 ? 'text-accent-aqua' : 'text-accent-coral'}>
+                    {b.balance > 0 ? `+$${b.balance.toFixed(2)}` : `-$${Math.abs(b.balance).toFixed(2)}`}
+                  </span>
+                </span>
+                {iOwe && (
+                  <Button variant="outline" onClick={() => settle.mutate({ toUserId: b.userId, amount: Math.min(Math.abs(myBalance), b.balance) })}
+                    className="!py-1 !px-3 text-xs min-h-11">
+                    <HandCoins className="w-3.5 h-3.5" /> Settle up
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add form / toggle */}
       {!showForm ? (
-        <Button
-          variant="primary"
-          onClick={() => setShowForm(true)}
-          className="w-full min-h-11"
-        >
-          <Plus className="w-4 h-4" />
-          Add Expense
+        <Button variant="primary" onClick={() => setShowForm(true)} className="w-full min-h-11">
+          <Plus className="w-4 h-4" /> Add Expense
         </Button>
       ) : (
-        <form
-          onSubmit={handleSubmit}
-          className="p-4 rounded-lg bg-bg-card border border-border space-y-3"
-        >
+        <form onSubmit={submit} className="p-3 rounded-lg bg-bg-card border border-border space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-text-primary">New Expense</h3>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="min-h-11 min-w-11 flex items-center justify-center text-text-muted hover:text-text-primary transition-colors"
-              aria-label="Cancel"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <IconButton label="Cancel" icon={<X className="w-5 h-5" />} onClick={reset} />
           </div>
-
-          <Input
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="What was this for?"
-            required
-          />
-
-          <Input
-            label="Amount"
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
-            min="0.01"
-            step="0.01"
-            required
-          />
-
-          {/* Paid by */}
+          <Input label="Description" value={description} onChange={(e) => setDescription(e.target.value)}
+            placeholder="Dinner at the food truck" required maxLength={200} />
+          <Input label="Amount" type="number" inputMode="decimal" step="0.01" min="0.01"
+            value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required />
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
-              Paid by
-            </label>
-            <select
-              value={paidBy}
-              onChange={(e) => setPaidBy(e.target.value)}
-              className="input-base w-full min-h-11"
-            >
-              {members.map((m) => (
-                <option key={m.userId} value={m.userId}>
-                  {m.name || 'User'}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Split mode */}
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
-              Split
-            </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setSplitMode('equal');
-                  setSelectedMembers(members.map((m) => m.userId));
-                }}
-                className={cn(
-                  'flex-1 min-h-11 rounded-lg text-sm font-medium transition-colors border',
-                  splitMode === 'equal'
-                    ? 'bg-accent-aqua text-bg-primary border-accent-aqua'
-                    : 'bg-transparent text-text-secondary border-border hover:border-border-light',
-                )}
-              >
-                Equal
-              </button>
-              <button
-                type="button"
-                onClick={() => setSplitMode('custom')}
-                className={cn(
-                  'flex-1 min-h-11 rounded-lg text-sm font-medium transition-colors border',
-                  splitMode === 'custom'
-                    ? 'bg-accent-aqua text-bg-primary border-accent-aqua'
-                    : 'bg-transparent text-text-secondary border-border hover:border-border-light',
-                )}
-              >
-                Custom
-              </button>
-            </div>
-          </div>
-
-          {/* Custom member picker */}
-          {splitMode === 'custom' && (
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-text-primary mb-1">
-                Split between
-              </label>
-              {members.map((m) => (
-                <button
-                  key={m.userId}
-                  type="button"
-                  onClick={() => toggleMemberSelection(m.userId)}
-                  className={cn(
-                    'w-full min-h-11 flex items-center gap-3 px-3 rounded-lg transition-colors border',
-                    selectedMembers.includes(m.userId)
-                      ? 'bg-accent-aqua bg-opacity-10 border-accent-aqua border-opacity-40'
-                      : 'bg-transparent border-border hover:border-border-light',
-                  )}
-                >
-                  <Avatar name={m.name || 'User'} size="xs" />
-                  <span className="text-sm text-text-primary">{m.name || 'User'}</span>
+            <label className="block text-sm font-medium text-text-primary mb-2">Category</label>
+            <div className="grid grid-cols-3 gap-2">
+              {CATEGORIES.map((c) => (
+                <button key={c.key} type="button" onClick={() => setCategory(c.key)}
+                  className={cn('min-h-11 px-2 py-2 rounded-lg border text-xs flex flex-col items-center gap-1',
+                    category === c.key
+                      ? 'bg-accent-aqua/15 border-accent-aqua text-accent-aqua'
+                      : 'bg-bg-card border-border text-text-secondary hover:border-border-light')}>
+                  <span aria-hidden="true">{c.emoji}</span>{c.label}
                 </button>
               ))}
             </div>
-          )}
-
-          <Button
-            type="submit"
-            variant="primary"
-            isLoading={addExpense.isPending}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-2">Split between</label>
+            <div className="flex flex-wrap gap-2">
+              {members.map((m) => {
+                const active = splitWith.includes(m.userId);
+                return (
+                  <button key={m.userId} type="button" onClick={() => toggleMember(m.userId)}
+                    className={cn('min-h-11 px-3 rounded-full border text-sm',
+                      active
+                        ? 'bg-accent-aqua/15 border-accent-aqua text-accent-aqua'
+                        : 'bg-bg-card border-border text-text-secondary')}>
+                    {m.name || m.username}
+                  </button>
+                );
+              })}
+            </div>
+            {splitWith.length > 0 && amount && (
+              <div className="text-xs text-text-muted mt-1">
+                ${(Number(amount) / splitWith.length).toFixed(2)}/person × {splitWith.length}
+              </div>
+            )}
+          </div>
+          <Button type="submit" variant="primary" isLoading={addExpense.isPending}
             className="w-full min-h-11"
-            disabled={!description.trim() || !amount || selectedMembers.length === 0}
-          >
-            Add Expense
+            disabled={!description.trim() || !amount || Number(amount) <= 0}>
+            Add
           </Button>
         </form>
       )}
 
       {/* Expense list */}
       {expenses.length === 0 ? (
-        <EmptyState
-          icon={<DollarSign className="w-12 h-12" />}
-          title="No expenses yet"
-          description="Add an expense to start tracking who owes what"
-        />
+        <EmptyState icon={<DollarSign className="w-12 h-12" />} title="No expenses yet"
+          description="Track shared costs so everyone knows where they stand." />
       ) : (
         <div className="space-y-2">
-          {expenses.map((expense) => {
-            const isExpanded = expandedId === expense.id;
-            const perPerson =
-              expense.sharedWith.length > 0
-                ? expense.amount / expense.sharedWith.length
-                : expense.amount;
-
+          {expenses.map((e) => {
+            const cat = CATEGORIES.find((c) => c.key === e.category) || CATEGORIES[CATEGORIES.length - 1];
+            const paidByMe = e.paid_by === currentUserId;
             return (
-              <div
-                key={expense.id}
-                className="rounded-lg bg-bg-card border border-border overflow-hidden"
-              >
-                <button
-                  onClick={() => setExpandedId(isExpanded ? null : expense.id)}
-                  className="w-full min-h-11 p-3 flex items-center justify-between text-left"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-text-primary truncate">
-                      {expense.description}
-                    </div>
-                    <div className="text-xs text-text-secondary mt-0.5">
-                      {getMemberName(expense.paidBy)} paid
-                    </div>
+              <div key={e.id} className="crew-list-enter p-3 rounded-lg bg-bg-card border border-border flex items-start gap-3">
+                <span className="text-xl leading-none" aria-hidden="true">{cat.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-text-primary">{e.description}</div>
+                  <div className="text-xs text-text-secondary">
+                    ${Number(e.amount).toFixed(2)} · {paidByMe ? 'You' : e.paid_by_name} paid
+                    {e.split_with.length > 0 && ` · split ${e.split_with.length} ways`}
                   </div>
-
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                    <span className="font-semibold text-text-primary">
-                      ${expense.amount.toFixed(2)}
-                    </span>
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-text-muted" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-text-muted" />
-                    )}
-                  </div>
-                </button>
-
-                {isExpanded && (
-                  <div className="px-3 pb-3 border-t border-border pt-3 space-y-2">
-                    <div className="text-xs text-text-muted">
-                      ${perPerson.toFixed(2)} per person
-                    </div>
-
-                    <div className="flex flex-wrap gap-1">
-                      {expense.sharedWith.map((uid) => (
-                        <span
-                          key={uid}
-                          className="text-xs px-2 py-0.5 rounded-full bg-bg-primary border border-border text-text-secondary"
-                        >
-                          {getMemberName(uid)}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="text-xs text-text-muted">
-                      {new Date(expense.createdAt).toLocaleDateString()}
-                    </div>
-
-                    <button
-                      onClick={() => deleteExpense.mutate(expense.id)}
-                      disabled={deleteExpense.isPending}
-                      className="min-h-11 min-w-11 flex items-center gap-2 text-sm text-accent-coral hover:opacity-80 transition-opacity"
-                      aria-label="Delete expense"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Delete
-                    </button>
-                  </div>
+                </div>
+                {paidByMe && (
+                  <IconButton
+                    label="Remove expense"
+                    variant="danger"
+                    icon={<Trash2 className="w-4 h-4" />}
+                    onClick={() => removeExpense.mutate(e.id)}
+                    disabled={removeExpense.isPending}
+                  />
                 )}
               </div>
             );

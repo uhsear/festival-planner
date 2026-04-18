@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
@@ -128,17 +128,44 @@ export default function TimelineView() {
     return Math.max(22, Math.min(36, Math.floor(avail / slots)));
   }, [vpH, vpW, timeBounds?.totalSlots]);
 
+  // Minute-tick so the now-indicator advances without a parent rerender. Using
+  // a 30 s interval keeps the line visibly alive at 1 px/min on dense grids.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 30 * 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
   // Now-indicator calculation
   const nowIndicator = useMemo(() => {
     if (!timeBounds) return null;
-    const now = new Date();
+    const now = new Date(nowTick);
     const nowMins = now.getHours() * 60 + now.getMinutes();
     if (nowMins >= timeBounds.minMin && nowMins <= timeBounds.maxMin) {
       const pct = ((nowMins - timeBounds.minMin) / (timeBounds.maxMin - timeBounds.minMin)) * 100;
       return pct;
     }
     return null;
-  }, [timeBounds]);
+  }, [timeBounds, nowTick]);
+
+  // Auto-scroll-to-now once per day switch so the user lands at the action.
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const scrollToNow = useCallback(() => {
+    const el = gridRef.current;
+    if (!el || nowIndicator === null) return;
+    const target = el.querySelector<HTMLElement>('.timeline-now-line');
+    if (!target) return;
+    const offset = target.offsetTop - Math.max(80, window.innerHeight * 0.25);
+    window.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' });
+  }, [nowIndicator]);
+
+  useEffect(() => {
+    if (nowIndicator === null) return;
+    // Defer one frame so the grid lays out before we measure.
+    const id = window.requestAnimationFrame(() => scrollToNow());
+    return () => window.cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDay]);
 
   const handleSavePick = async (setId: string, priority: string | null) => {
     if (currentFestival) {
@@ -244,9 +271,11 @@ export default function TimelineView() {
           </ul>
         </details>
         <div
+          ref={gridRef}
           className="timeline-grid"
           role="grid"
           aria-label="Timeline view of festival sets by stage and time"
+          data-day={selectedDay}
           style={{
             gridTemplateColumns: `${vpW <= 430 ? '52px' : '70px'} repeat(${visibleStages.length}, minmax(${vpW <= 430 ? '0' : '140px'}, 1fr))`,
             gridTemplateRows: `auto repeat(${timeBounds.totalSlots}, ${rowHeight}px)`,
@@ -358,6 +387,10 @@ export default function TimelineView() {
                       right: '2px',
                       minHeight: 'auto',
                       height: 'calc(100% - 2px)',
+                      // Per-column stagger: blocks fade/slide in column-by-column
+                      // on day switch. Keyed off `selectedDay` via data-day on
+                      // the grid so the CSS animation replays.
+                      ['--tl-stagger' as any]: `${Math.min(ci, 5) * 40}ms`,
                     }}
                     data-set-id={s.id}
                     role="button"
@@ -371,6 +404,15 @@ export default function TimelineView() {
                       }
                     }}
                   >
+                    {conflictClass && (
+                      <span
+                        className="timeline-conflict-badge"
+                        aria-hidden="true"
+                        title="Schedule conflict with another of your picks"
+                      >
+                        ⚠
+                      </span>
+                    )}
                     <div className="set-artist" title={dn}>
                       {dn}
                     </div>
@@ -451,6 +493,21 @@ export default function TimelineView() {
             </div>
           )}
         </div>
+
+        {/* Jump-to-now FAB — only when today's timeline is active and the line
+            exists. Anchored to the container so it stays reachable as the user
+            scrolls through a dense day. */}
+        {nowIndicator !== null && (
+          <button
+            type="button"
+            className="timeline-jump-now"
+            aria-label="Scroll to current time"
+            onClick={scrollToNow}
+          >
+            <Music aria-hidden="true" className="w-4 h-4" />
+            <span>Now</span>
+          </button>
+        )}
 
         {/* TBA section for sets without times */}
         {timelessSets.length > 0 && (

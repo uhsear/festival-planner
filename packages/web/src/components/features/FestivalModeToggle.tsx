@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Flame } from 'lucide-react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
 import { useFestivalModeStore } from '@festie/shared';
@@ -20,6 +20,12 @@ export default function FestivalModeToggle() {
   const { select } = useHaptics();
   const navigate = useNavigate();
   const location = useLocation();
+  // motion/react drives animations via rAF — our `@media (prefers-reduced-motion)`
+  // rule in globals.css only clamps CSS `animation-duration` and has no effect
+  // on this JS-driven pulse. Gate it explicitly so vestibular-sensitive users
+  // actually get a still icon (infinite scale loop is exactly the kind of
+  // motion WCAG 2.3.3 flags).
+  const prefersReducedMotion = useReducedMotion();
 
   const handleToggle = () => {
     select();
@@ -49,11 +55,11 @@ export default function FestivalModeToggle() {
           : 'bg-glass text-text-secondary hover:text-text-primary',
       )}
     >
-      {isFestivalMode && (
+      {isFestivalMode && !prefersReducedMotion && (
         <motion.div
           className="absolute inset-0 rounded-lg bg-accent-coral"
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
+          animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.25, 0.6] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           style={{ zIndex: -1 }}
         />
       )}

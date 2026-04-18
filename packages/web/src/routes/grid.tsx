@@ -63,6 +63,11 @@ export default function GridView() {
   const PX_PER_MIN = getPxPerMin(vw);
   const GUTTER_W = getGutterW(vw);
 
+  // `exporting` drives the Export button's aria-busy + visual pending state.
+  // html-to-image is ~50 KB and the capture itself can take 300-800 ms on a
+  // mid-tier phone, so a loading state prevents double-taps.
+  const [exporting, setExporting] = useState(false);
+
   // Export the FULL grid (not just the visible viewport). The grid's scroll
   // container (.fk-grid__body) normally clips with overflow: auto/hidden; we
   // temporarily strip that + expand to scrollWidth/scrollHeight so html-to-image
@@ -70,7 +75,8 @@ export default function GridView() {
   // for crisp text, 2x on desktop. Restore on a try/finally so a failure never
   // leaves the UI in the expanded state.
   const exportPng = useCallback(async () => {
-    if (!gridRef.current) return;
+    if (!gridRef.current || exporting) return;
+    setExporting(true);
     const dayName = selectedDay === 0 ? 'saturday' : 'sunday';
     const el = gridRef.current;
     const body = el.querySelector<HTMLElement>('.fk-grid__body');
@@ -127,8 +133,9 @@ export default function GridView() {
       body.style.width = saved.bodyWidth;
       head.style.width = saved.headWidth;
       cols.style.minWidth = saved.colsMinWidth;
+      setExporting(false);
     }
-  }, [selectedDay]);
+  }, [selectedDay, exporting]);
 
   const visibleStages = useMemo(() => {
     if (activeStages.length > 0 && activeStages.length < stages.length)
@@ -193,6 +200,20 @@ export default function GridView() {
     return (nm - bounds.lo) * PX_PER_MIN;
   }, [bounds]);
 
+  // Auto-scroll to NOW on mount (only when NOW is within the day's bounds).
+  // Centers the line in the viewport so the user sees what's happening AND
+  // what's about to start. Guarded by a ref so day-switches don't re-pull
+  // the scroll after the user has already scrolled elsewhere.
+  const didAutoScroll = useRef(false);
+  useEffect(() => {
+    if (didAutoScroll.current || nowPx == null || !gridRef.current) return;
+    const body = gridRef.current.querySelector<HTMLElement>('.fk-grid__body');
+    if (!body) return;
+    const target = Math.max(0, nowPx - body.clientHeight / 2);
+    body.scrollTo({ top: target, behavior: 'auto' });
+    didAutoScroll.current = true;
+  }, [nowPx]);
+
   if (!currentFestival)
     return (
       <div className="no-festival" role="status">
@@ -217,10 +238,12 @@ export default function GridView() {
           onClick={exportPng}
           title="Export as PNG"
           aria-label="Export grid as PNG image"
+          aria-busy={exporting ? 'true' : 'false'}
+          disabled={exporting}
           type="button"
         >
           <Download size={13} aria-hidden="true" />
-          <span>Export PNG</span>
+          <span>{exporting ? 'Exporting…' : 'Export PNG'}</span>
         </button>
       </div>
       {/* ── Sticky stage-header row ── */}

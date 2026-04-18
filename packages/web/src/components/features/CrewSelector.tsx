@@ -42,7 +42,7 @@ export default function CrewSelector({
 
       {isOpen && (
         <div className={cn(
-          'absolute top-full mt-2 left-4 right-4 z-50',
+          'crew-selector-panel absolute top-full mt-2 left-4 right-4 z-50',
           'bg-bg-secondary border border-border rounded-lg overflow-hidden',
           'shadow-lg'
         )}>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useFestival } from '@festie/shared/hooks';
@@ -6,6 +7,10 @@ import { artistDisplayName } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import EmptyState from '../components/ui/EmptyState';
 import { CalendarX } from 'lucide-react';
+
+// Countdown flips to coral + bolder when a set is ≤ this many minutes away,
+// so a user scanning the view in a crowd can grok "run, now" at a glance.
+const IMMINENT_MIN = 5;
 
 function fmtClock(d: Date): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -49,6 +54,7 @@ export default function FestivalModeView() {
   const currentProfile = useFestivalStore((s) => s.currentProfile);
   const setDetailSet = useUIStore((s) => s.setDetailSet);
   const { getStageName } = useFestival();
+  const navigate = useNavigate();
 
   // 60s tick so Now/Next and countdowns refresh without reload. Matches legacy
   // cadence (public/app/festival-mode.js line 32).
@@ -114,7 +120,7 @@ export default function FestivalModeView() {
 
       <section className="fm-section" aria-labelledby="fm-now-title">
         <h2 id="fm-now-title" className="fm-section-title">
-          <span aria-hidden="true">🔴</span> NOW
+          <span className="fm-live-dot" aria-hidden="true" /> NOW
         </h2>
         {current.length > 0 ? (
           current.map(({ set: s, end }) => {
@@ -130,12 +136,12 @@ export default function FestivalModeView() {
               >
                 <div className="fm-set-name">{artistDisplayName(s, currentFestival.b2bSeparator)}</div>
                 {stageName && <div className="fm-set-stage">{stageName}</div>}
-                <div className="fm-set-time">until {fmtClock(new Date(end))}</div>
+                <div className="fm-set-time fm-now-until">until {fmtClock(new Date(end))}</div>
               </button>
             );
           })
         ) : (
-          <div className="fm-empty">Nothing right now</div>
+          <div className="fm-empty">Nothing playing right now — enjoy the walk.</div>
         )}
       </section>
 
@@ -147,6 +153,7 @@ export default function FestivalModeView() {
           upcoming.map(({ set: s, start }) => {
             const stageName = getStageName(s.stageId) || '';
             const mins = Math.round((start - now.getTime()) / 60_000);
+            const imminent = mins <= IMMINENT_MIN;
             return (
               <button
                 key={s.id}
@@ -160,13 +167,27 @@ export default function FestivalModeView() {
                 <div className="fm-set-info">
                   {stageName && <span className="fm-set-stage">{stageName}</span>}
                   <span className="fm-set-time">{fmtClock(new Date(start))}</span>
-                  <span className="fm-countdown">{fmtCountdown(mins)}</span>
+                  <span className={'fm-countdown' + (imminent ? ' fm-countdown--imminent' : '')}>
+                    {fmtCountdown(mins)}
+                  </span>
                 </div>
               </button>
             );
           })
+        ) : picks && Object.keys(picks).length === 0 ? (
+          <div className="fm-empty fm-empty--cta">
+            <span>No picks yet. </span>
+            <button
+              type="button"
+              className="fm-empty-link"
+              onClick={() => navigate({ to: '/cards' })}
+              data-testid="fm-empty-pick-cta"
+            >
+              Browse the lineup →
+            </button>
+          </div>
         ) : (
-          <div className="fm-empty">No upcoming picks</div>
+          <div className="fm-empty">No more picks today — rest those legs.</div>
         )}
       </section>
     </div>

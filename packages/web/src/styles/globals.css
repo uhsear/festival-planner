@@ -606,7 +606,11 @@ button {
 .sub-header-wrap {
   display: grid;
   grid-template-rows: 1fr;
-  transition: grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Token-driven so the collapse stays in sync if the easing curve is
+     retuned app-wide. 280ms > --duration-med because this collapse
+     traverses more pixels than a button hover and benefits from the
+     extra read time. */
+  transition: grid-template-rows 280ms var(--ease-standard);
 }
 .sub-header-wrap--hidden {
   grid-template-rows: 0fr;
@@ -664,16 +668,29 @@ button {
   z-index: 10;
 }
 
+/* Stage pill-style header. --stage-c drives a 3px bottom accent + a
+   20% tint background so the label sits on a coloured chip (good on the
+   dark body bg). Text is forced to --color-text-primary to guarantee
+   ≥ AA contrast regardless of how dark/saturated the raw stage colour
+   is — relying on --stage-c as text colour previously failed on darker
+   stage palettes. */
 .fk-grid__col-head {
-  padding: 10px 6px 8px;
+  padding: 8px 6px 6px;
+  margin: 6px 4px 6px;
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   text-align: center;
-  color: var(--stage-c, var(--color-text-secondary));
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--stage-c, var(--color-border-light)) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--stage-c, var(--color-border-light)) 40%, transparent);
   border-bottom: 3px solid var(--stage-c, var(--color-border-light));
+  border-radius: 999px;
   line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fk-grid__body {
@@ -770,6 +787,72 @@ button {
   height: 2px;
   background: var(--color-accent-coral);
   opacity: 0.8;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent-coral) 70%, transparent);
+  animation: fk-grid-now-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes fk-grid-now-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1;    }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fk-grid__now-line { animation: none; opacity: 0.85; }
+}
+
+/* Right-aligned toolbar. Sits above the sticky header and hosts Export. */
+.fk-grid__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 8px 10px 6px;
+  flex-shrink: 0;
+}
+
+/* Compact branded CTA — mirrors .btn sizing at the tight end so it fits
+   on a 360 px phone without wrapping the rest of the toolbar. */
+.fk-grid__export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  min-height: 32px;
+  font-size: var(--font-size-12, 0.75rem);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-accent-aqua) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent-aqua) 45%, transparent);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color var(--duration-med) var(--ease-standard),
+              border-color var(--duration-med) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-out);
+}
+.fk-grid__export-btn:hover {
+  background: color-mix(in srgb, var(--color-accent-aqua) 24%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-aqua) 65%, transparent);
+}
+.fk-grid__export-btn:active {
+  transform: scale(0.97);
+}
+.fk-grid__export-btn:focus-visible {
+  outline: 2px solid var(--color-accent-aqua);
+  outline-offset: 2px;
+}
+.fk-grid__export-btn[aria-busy="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+/* Pick heart — pinned top-right inside the set block so it never steals
+   horizontal space from the artist name (which line-clamps to 2 lines). */
+.fk-grid__pick-heart {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: 0.7rem;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.45));
 }
 
 /* Set block */
@@ -933,8 +1016,91 @@ button {
   font-weight: 600;
   margin-left: 6px;
   font-variant-numeric: tabular-nums;
+  transition: color var(--duration-med, 200ms) var(--ease-standard, ease);
   line-height: var(--line-height-tight);
   letter-spacing: var(--letter-spacing-body);
+}
+
+/* Imminent (≤ 5 min): flip the countdown chip to coral + bump one size so
+   the eye snaps to it in a scan. Same coral as the NOW accent keeps the
+   visual language consistent — coral = "now or near-now, move". */
+.fm-countdown--imminent {
+  color: var(--color-accent-coral, #ff6b6b);
+  font-size: var(--font-size-14);
+  font-weight: 700;
+}
+
+/* NOW card's "until HH:MM" wants more weight than the regular Up-Next time —
+   it's the single load-bearing time on the most important card in the view. */
+.fm-now-until {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+/* Live indicator — replaces the static 🔴 emoji (renders inconsistently
+   across platforms and never animates). A CSS dot + ::after halo gives the
+   "live broadcast" cue everywhere. The halo animation is pure transform +
+   opacity (compositor-only, no Paint), so the pulse is free at 60fps. The
+   reduced-motion block further down kills the animation for vestibular
+   users — the dot itself stays visible (just static). */
+.fm-live-dot {
+  position: relative;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-accent-coral, #ff6b6b);
+  vertical-align: middle;
+  margin-right: 6px;
+  margin-bottom: 2px;
+}
+.fm-live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--color-accent-coral, #ff6b6b);
+  will-change: transform, opacity;
+  animation: fm-live-pulse 2s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes fm-live-pulse {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* Gentle enter for Now/Up-Next cards so when the cadence shifts (a set ends
+   and the next one promotes) the new card fades + rises into place instead
+   of popping. 180ms stays responsive on the 60-second refresh cadence and
+   doesn't delay tap feedback (React-key-reuse means only actually new DOM
+   nodes replay this animation). */
+.fm-set-card {
+  animation: fm-card-enter 180ms var(--ease-out, ease-out) both;
+}
+@keyframes fm-card-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Empty-state CTA: when the user has zero picks, point them at /cards
+   instead of leaving a dead-end "No upcoming picks" message. */
+.fm-empty--cta { font-style: normal; }
+.fm-empty-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-accent-aqua, #00d4aa);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.fm-empty-link:hover { filter: brightness(1.15); }
+.fm-empty-link:focus-visible {
+  outline: 2px solid var(--color-accent-aqua, #00d4aa);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* Card grid dynamic width — override legacy `.card-grid` which uses
@@ -1266,4 +1432,390 @@ button {
   outline-color: var(--color-accent-aqua);
   outline-offset: 2px;
   border-radius: inherit;
+}
+
+/* ── Top-nav chrome polish (2026-04-18) ───────────────────────────────────
+   1) FESTIE logo: Syncopate is an all-caps display face that can render
+      its tracking tighter in some browsers. Pin letter-spacing so the
+      brand always reads as "F E S T I E" without feeling shouty. Dial
+      weight back at <=480px so the logo doesn't fight the page title
+      at 390px.
+   2) Theme toggle icon: rotate on hover + a bigger rotate-on-tap so
+      flipping light/dark feels intentional, not instant.
+   3) Day-tab active underline: a compositor-only ::after marker beneath
+      the .active pill that gives day switching a directional cue in
+      addition to the bg-color change.
+   ─────────────────────────────────────────────────────────────────────── */
+.header .logo,
+.header .logo a {
+  letter-spacing: 0.12em;
+  /* Syncopate's uppercase bowls are already dense — any thicker reads
+     as a wall. Medium weight stays crisp at 390px. */
+  font-weight: 500;
+}
+@media (max-width: 480px) {
+  .header .logo {
+    font-weight: 400;
+    letter-spacing: 0.08em;
+  }
+}
+
+.theme-toggle > span {
+  display: inline-block;
+  transition: transform var(--duration-med) var(--ease-out),
+              opacity var(--duration-med) var(--ease-out);
+}
+.theme-toggle:hover > span { transform: rotate(-8deg); }
+.theme-toggle:active > span { transform: rotate(30deg) scale(0.92); }
+
+.day-tab { position: relative; }
+.day-tab::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 0;
+  height: 2px;
+  background: var(--color-accent-aqua, #00d4aa);
+  border-radius: 2px;
+  transform: translateX(-50%);
+  transition: width var(--duration-med) var(--ease-out);
+  pointer-events: none;
+}
+.day-tab.active::after { width: 40%; }
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle > span { transition: none; }
+  .day-tab::after { transition: none; }
+}
+
+/* ── Crew route polish (2026-04-18) ───────────────────────────────────────
+   Safe, CSS-only polish for /crew:
+   - Subtab panels fade/slide on mount so switching tabs doesn't pop.
+   - Poll progress bars animate from 0 via @keyframes, not transition-all
+     (which only fires on state change, not first paint).
+   - Member / expense / meeting-point / activity rows stagger in with a
+     subtle rise, mirroring the existing card-in treatment used elsewhere.
+   - Crew selector dropdown inherits card-in for a smoother open.
+   - Tab-row buttons get a 97% press.
+   Reduced-motion users get instant paint (no transforms, no opacity ramp).
+   ─────────────────────────────────────────────────────────────────────── */
+.crew-page [role="tabpanel"],
+.crew-tab-panel {
+  animation: card-in 200ms var(--ease-out, ease-out) both;
+}
+
+/* Poll bar fill — use transform:scaleX instead of width so the paint is
+   composite-only (no layout/paint invalidation). The element still sizes
+   to the current pct via inline `width`; we just scale from 0→1 on mount. */
+@keyframes crew-bar-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.crew-poll-bar {
+  transform-origin: left center;
+  animation: crew-bar-fill 420ms var(--ease-out, ease-out) both;
+}
+
+.crew-list-enter {
+  animation: card-in 220ms var(--ease-out, ease-out) both;
+}
+
+/* ── Timeline deep polish (2026-04-18) ────────────────────────────────────
+   Per-axis refinements layered on top of the shared legacy app.css base.
+   See timeline.tsx audit 2026-04-18 for the axis-by-axis rationale.
+   ─────────────────────────────────────────────────────────────────────── */
+
+.timeline-container { position: relative; }
+
+/* Sticky stage header — pins `.timeline-header-cell` children of the grid
+   so column labels survive vertical scroll on dense days. */
+.timeline-grid .timeline-header-cell {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg-primary, #0d0d1a);
+  -webkit-backdrop-filter: saturate(140%) blur(4px);
+  backdrop-filter: saturate(140%) blur(4px);
+}
+
+/* Time-axis tabular digits so 9:00 / 10:00 / 11:30 share column widths. */
+.timeline-grid .timeline-time-cell {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+
+/* Set-block enter animation — per-column stagger via --tl-stagger set in
+   timeline.tsx. Keyed off [data-day] so the grid replays it on day swap. */
+@keyframes timeline-set-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.timeline-grid[data-day] .timeline-set {
+  animation: timeline-set-enter 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--tl-stagger, 0ms);
+  will-change: opacity, transform;
+}
+
+/* Press feedback for set blocks — compositor-only scale. */
+.timeline-set {
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 150ms ease-out;
+}
+.timeline-set:active { transform: scale(0.97); }
+@media (hover: hover) {
+  .timeline-set:hover { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28); }
+}
+
+/* Clamp long b2b artist names; full string stays in title attr. */
+.timeline-set .set-artist {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  min-width: 0;
+}
+
+/* Conflict badge — coral disc top-right, readable at 22 px row height. */
+.timeline-conflict-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--color-bg-primary, #0d0d1a);
+  background: var(--color-accent-coral, #ff6b6b);
+  box-shadow: 0 0 0 1.5px var(--bg-primary, #0d0d1a);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Now-indicator — breathing halo on the dot; smooth tween on line position. */
+@keyframes timeline-now-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.55); }
+  50%      { box-shadow: 0 0 0 6px rgba(255, 107, 107, 0); }
+}
+.timeline-now-dot { animation: timeline-now-pulse 1800ms ease-out infinite; }
+.timeline-now-line { transition: top 900ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Legend fade on open so the disclosure doesn't jump. */
+.timeline-legend[open] .timeline-legend-list {
+  animation: timeline-legend-fade 180ms ease-out both;
+}
+@keyframes timeline-legend-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.timeline-legend > summary { transition: background 120ms ease-out; }
+.timeline-legend > summary:hover {
+  background: var(--color-bg-glass-strong, rgba(20, 20, 40, 0.6));
+}
+
+/* Jump-to-now FAB — anchored above the bottom nav, coral to match now-line. */
+.timeline-jump-now {
+  position: fixed;
+  right: 16px;
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--color-accent-coral, #ff6b6b);
+  color: var(--color-bg-primary, #0d0d1a);
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow:
+    0 6px 20px rgba(255, 107, 107, 0.35),
+    0 1px 3px rgba(0, 0, 0, 0.25);
+  z-index: 30;
+  min-height: 44px;
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 200ms ease-out;
+}
+.timeline-jump-now:hover {
+  box-shadow:
+    0 8px 24px rgba(255, 107, 107, 0.45),
+    0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.timeline-jump-now:active { transform: scale(0.96); }
+
+/* TBA cards — hairline lift + section fade so the fallback looks intentional. */
+.timeline-tba-card {
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 150ms ease-out;
+}
+.timeline-tba-card:active { transform: scale(0.98); }
+@media (hover: hover) {
+  .timeline-tba-card:hover { box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24); }
+}
+.timeline-tba-section { animation: timeline-legend-fade 220ms ease-out both; }
+
+/* Strip decorative motion under reduced-motion; preserve functional jump. */
+@media (prefers-reduced-motion: reduce) {
+  .timeline-grid[data-day] .timeline-set,
+  .timeline-tba-section,
+  .timeline-legend[open] .timeline-legend-list,
+  .timeline-now-dot {
+    animation: none !important;
+  }
+  .timeline-now-line,
+  .timeline-set,
+  .timeline-tba-card {
+    transition: none !important;
+  }
+}
+
+.crew-page [role="tab"] {
+  transition: transform var(--duration-fast, 120ms) var(--ease-out, ease-out),
+              background-color var(--duration-med, 180ms) var(--ease-standard, ease),
+              border-color var(--duration-med, 180ms) var(--ease-standard, ease),
+              color var(--duration-med, 180ms) var(--ease-standard, ease);
+}
+.crew-page [role="tab"]:active {
+  transform: scale(0.97);
+}
+
+/* Crew selector dropdown — subtle fade-down on open. */
+.crew-selector-panel {
+  animation: card-in 180ms var(--ease-out, ease-out) both;
+  transform-origin: top center;
+}
+
+/* Copy-invite success pulse — the button swap to 'primary' variant is good,
+   a one-shot pulse makes the state change register. */
+@keyframes crew-copy-pulse {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+.crew-copy-success {
+  animation: crew-copy-pulse 260ms var(--ease-out, ease-out);
+}
+
+/* Activity feed timeline rail — thin aqua line connecting avatars so the
+   feed reads as chronological. Applied via data-attr so consumers opt in. */
+.crew-activity-item {
+  position: relative;
+}
+.crew-activity-item::before {
+  content: '';
+  position: absolute;
+  left: 24px; /* aligns with avatar center (sm avatar is ~32px + 12px gutter) */
+  top: 48px;
+  bottom: -8px;
+  width: 1px;
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--color-accent-aqua) 30%, transparent),
+    transparent);
+  pointer-events: none;
+}
+.crew-activity-item:last-child::before {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crew-page [role="tabpanel"],
+  .crew-tab-panel,
+  .crew-poll-bar,
+  .crew-list-enter,
+  .crew-selector-panel,
+  .crew-copy-success {
+    animation: none !important;
+  }
+  .crew-page [role="tab"]:active {
+    transform: none;
+  }
+}
+
+/* ── /cards route polish (2026-04-18) ─────────────────────────────────────
+   Surgical tweaks layered on top of legacy /app.css `.set-card` rules.
+   Scoped to `.card-grid .set-card` (and descendants) so nothing bleeds
+   into other card surfaces (fk-grid tiles, admin cards, festival-mode
+   sheets). globals.css loads after /app.css in index.html, so these
+   rules win cascade ties without !important.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* 1. Tap-to-open feedback. Legacy `.set-card:active` never fires because
+      the hit target is an absolute-positioned button inside the card —
+      :active lands on the button, not the outer div. Use :has() to
+      compress the whole card when the click-target is active so the
+      tap has a visible landing before DetailPanel mounts. */
+.card-grid .set-card:has(.set-card-click-target:active) {
+  transform: scale(0.985);
+  transition: transform 90ms var(--ease-standard);
+}
+.card-grid .set-card-click-target:focus-visible {
+  outline: 2px solid var(--color-accent-aqua);
+  outline-offset: -3px;
+  border-radius: 12px;
+}
+
+/* 2. Priority-button pick animation. Legacy defines a `pickPop` keyframe
+      gated on `.just-picked`, but the React SetCard never toggles that
+      class so picks feel instant-without-reward. Trigger a pop off
+      `aria-pressed="true"` — the animation re-runs each time the
+      attribute is (re)added to the DOM. No JSX change required. */
+@keyframes card-priority-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18); }
+  70%  { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+.card-grid .card-priority-btn[aria-pressed="true"] {
+  animation: card-priority-pop 260ms var(--ease-spring);
+}
+@media (hover: hover) and (pointer: fine) {
+  .card-grid .card-priority-btn:hover {
+    transform: translateY(-1px) scale(1.08);
+  }
+}
+.card-grid .card-priority-btn:active {
+  transform: scale(0.92);
+  transition: transform 60ms var(--ease-standard);
+}
+
+/* 3. Conflict badge — fade + drop so it doesn't pop abruptly when
+      conflicts recalc after a pick change. */
+@keyframes card-conflict-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card-grid .conflict-badge {
+  animation: card-conflict-in 220ms var(--ease-out) both;
+}
+
+/* 4. Crew overlap badge entrance — matches conflict-badge timing so a set
+      that gains both (friend-picked AND clashing) animates in sync. */
+@keyframes card-crew-in {
+  from { opacity: 0; transform: translateX(4px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.card-grid .card-overlap {
+  animation: card-crew-in 240ms var(--ease-out) both;
+}
+
+/* 5. prefers-reduced-motion — kill decorative animations for /cards. */
+@media (prefers-reduced-motion: reduce) {
+  .card-grid .card-priority-btn[aria-pressed="true"],
+  .card-grid .conflict-badge,
+  .card-grid .card-overlap {
+    animation: none;
+  }
+  .card-grid .card-priority-btn:hover,
+  .card-grid .card-priority-btn:active,
+  .card-grid .set-card:has(.set-card-click-target:active) {
+    transform: none;
+  }
 }

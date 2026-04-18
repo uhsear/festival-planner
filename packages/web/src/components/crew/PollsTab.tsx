@@ -193,7 +193,8 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
                               ? 'border-accent-aqua/40'
                               : 'border-border hover:border-border-light',
                         )}>
-                        <div className={cn('absolute inset-y-0 left-0 transition-all duration-300',
+                        <div key={`${p.id}-${i}-${pct}`}
+                          className={cn('crew-poll-bar absolute inset-y-0 left-0 transition-all duration-300',
                           mine ? 'bg-accent-aqua/25' : winning ? 'bg-accent-aqua/10' : 'bg-text-muted/10')}
                           style={{ width: `${pct}%` }} />
                         <div className="relative flex items-center justify-between px-3 py-2">

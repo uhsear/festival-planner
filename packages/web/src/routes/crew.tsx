@@ -183,7 +183,7 @@ export default function CrewView() {
               </div>
             </div>
             <Button variant={copiedCode ? 'primary' : 'outline'} onClick={handleCopyInviteCode}
-              className="!py-1.5 !px-3 text-xs min-h-11 flex-shrink-0">
+              className={`!py-1.5 !px-3 text-xs min-h-11 flex-shrink-0 ${copiedCode ? 'crew-copy-success' : ''}`}>
               {copiedCode ? '✓ Copied' : 'Copy'}
             </Button>
           </div>
@@ -204,8 +204,9 @@ export default function CrewView() {
             ))}
           </div>
 
-          {/* Tab content */}
-          <div className="-mx-4">
+          {/* Tab content — keyed by `tab` so switching restarts the mount-fade
+             defined in globals.css (.crew-tab-panel → card-in animation). */}
+          <div className="-mx-4 crew-tab-panel" key={tab} role="tabpanel">
             {tab === 'members' && (
               <div className="space-y-3 px-4">
                 {isAdmin && (
@@ -224,7 +225,7 @@ export default function CrewView() {
                 {members.length > 0 ? (
                   <div className="space-y-2">
                     {members.map((m: any) => (
-                      <div key={m.userId} className="p-3 rounded-lg bg-bg-card border border-border flex items-center gap-3">
+                      <div key={m.userId} className="crew-list-enter p-3 rounded-lg bg-bg-card border border-border flex items-center gap-3">
                         <Avatar name={m.name || m.username || 'User'} size="md" />
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-text-primary truncate">{m.name || m.username}</div>
@@ -236,9 +237,8 @@ export default function CrewView() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-text-muted">
-                    <p>No members yet. Invite friends to join!</p>
-                  </div>
+                  <EmptyState icon={<Users className="w-12 h-12" />} title="No members yet"
+                    description="Invite friends with the code above — they'll appear here the moment they join." />
                 )}
               </div>
             )}
