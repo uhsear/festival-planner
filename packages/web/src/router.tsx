@@ -48,6 +48,7 @@ const loadLogin         = () => import('./routes/login');
 const loadRegister      = () => import('./routes/register');
 const loadForgot        = () => import('./routes/forgot-password');
 const loadAccount       = () => import('./routes/account');
+const loadCompare       = () => import('./routes/compare');
 
 // Generic minimal fallback for auth/admin routes — these chunks are tiny and
 // a layout-matched skeleton isn't worth the bytes. Main-tab routes below get
@@ -66,6 +67,7 @@ const GridView         = withSkeleton(lazy(loadGrid),          GridSkeleton);
 const FestivalModeView = withSkeleton(lazy(loadFestivalMode),  FestivalModeSkeleton);
 const WrapView         = withSkeleton(lazy(loadWrap),          WrapSkeleton);
 const AccountPage      = withSkeleton(lazy(loadAccount),       AccountSkeleton);
+const CompareView      = withSkeleton(lazy(loadCompare),       MinimalFallback);
 const AdminPanel       = withSkeleton(lazy(loadAdmin),         MinimalFallback);
 const LoginPage        = withSkeleton(lazy(loadLogin),         MinimalFallback);
 const RegisterPage     = withSkeleton(lazy(loadRegister),      MinimalFallback);
@@ -176,6 +178,17 @@ const accountRoute = new Route({
   },
 });
 
+// /compare — side-by-side schedule compare with your crew.
+// Ported from the legacy `renderCrewSchedule` view in public/views/crew.js.
+const compareRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: '/compare',
+  component: CompareView,
+  beforeLoad: async () => {
+    if (!isAuthenticated()) throw redirect({ to: '/login' });
+  },
+});
+
 const adminRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/admin',
@@ -200,6 +213,7 @@ const routeTree = rootRoute.addChildren([
   festivalModeRoute,
   wrapRoute,
   accountRoute,
+  compareRoute,
   adminRoute,
 ]);
 

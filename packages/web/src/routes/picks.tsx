@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, Component, ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
@@ -17,7 +17,54 @@ const PRIORITY_SECTIONS: Array<[Priority, string, string]> = [
   ['maybe', 'Maybe', 'var(--priority-maybe)'],
 ];
 
-export default function PicksView() {
+/**
+ * Route-level error boundary for /picks. User reported the view "erroring
+ * out" without a reproducible stack. Rather than ship a blank page on a
+ * render throw, catch + render a helpful card that tells them what to try
+ * (reload, re-select festival, report). Also logs to console so production
+ * Sentry breadcrumbs pick it up. Defensive reads in usePicks already
+ * handle the known null-picks case — this is belt + suspenders for
+ * anything that slips through.
+ */
+class PicksErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    // eslint-disable-next-line no-console
+    console.error('[picks] render failed:', error, info.componentStack);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="picks-container" role="alert" aria-label="Picks view error">
+          <div className="no-festival" style={{ padding: 24 }}>
+            <h2 style={{ marginTop: 0 }}>Something went wrong loading your picks.</h2>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>
+              Try reloading the page. If this keeps happening, switch festivals
+              and back, or sign out and back in.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => window.location.reload()}
+              style={{ marginTop: 12 }}
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function PicksViewInner() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const currentProfile = useFestivalStore((state) => state.currentProfile);
@@ -185,5 +232,13 @@ export default function PicksView() {
       })}
       </div>
     </RefreshableView>
+  );
+}
+
+export default function PicksView() {
+  return (
+    <PicksErrorBoundary>
+      <PicksViewInner />
+    </PicksErrorBoundary>
   );
 }

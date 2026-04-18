@@ -20,16 +20,17 @@ export function usePicks(): UsePicksReturn {
 
   const handleSavePick = useCallback(
     async (festivalId: string, setId: string, priority: Priority | null) => {
+      // NOTE: SavePickRequest.updatedAt/etag are defined (optional) on the type
+      // but festivalStore.savePick ignores them — not populating avoids
+      // misleading optimistic-locking signals. Re-add if the store wires them.
       const request: SavePickRequest = {
         festivalId,
         setId,
         priority,
-        updatedAt: currentProfile?.updatedAt,
-        etag: currentProfile?.etag,
       };
       await savePick(request);
     },
-    [currentProfile?.updatedAt, currentProfile?.etag, savePick],
+    [savePick],
   );
 
   const handleRemovePick = useCallback(
@@ -47,10 +48,15 @@ export function usePicks(): UsePicksReturn {
     [saveNoteStore],
   );
 
+  // Defensive reads — `picks` / `notes` are typed as Record but API payloads
+  // have occasionally arrived as null when a profile has never had picks/
+  // notes written. Bare `currentProfile.picks[setId]` then throws
+  // "Cannot read properties of null (reading ...)" inside the /picks render.
   const getMyPick = useCallback(
     (setId: string): Priority | null | undefined => {
       if (!currentProfile) return undefined;
-      const value = currentProfile.picks[setId];
+      const picks = currentProfile.picks || {};
+      const value = picks[setId];
       return (value as Priority) || null;
     },
     [currentProfile],
@@ -59,7 +65,8 @@ export function usePicks(): UsePicksReturn {
   const getMyNote = useCallback(
     (setId: string): string | undefined => {
       if (!currentProfile) return undefined;
-      return currentProfile.notes[setId];
+      const notes = currentProfile.notes || {};
+      return notes[setId];
     },
     [currentProfile],
   );
@@ -68,10 +75,10 @@ export function usePicks(): UsePicksReturn {
     (setId: string): Array<{ profileId: string; priority: Priority }> => {
       if (!currentProfile) return [];
       return allProfiles
-        .filter((p) => p.id !== currentProfile.id && p.picks[setId])
+        .filter((p) => p.id !== currentProfile.id && (p.picks || {})[setId])
         .map((p) => ({
           profileId: p.id,
-          priority: p.picks[setId] as Priority,
+          priority: (p.picks || {})[setId] as Priority,
         }));
     },
     [currentProfile, allProfiles],

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, Suspense, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, Suspense, useCallback } from 'react';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared';
 import { useFestivalStore } from '@festie/shared/stores';
@@ -64,56 +64,22 @@ export default function AppShell() {
   const hideSubHeader = noSubHeaderRoutes.includes(location.pathname);
   const dayOnlySubHeader = dayOnlySubHeaderRoutes.includes(location.pathname);
 
-  // Scroll-aware sub-header: hide on scroll-down, restore on scroll-up or near top.
-  // Listens on BOTH #main-content and any nested scroll containers
-  // ([data-scroll-sentinel]) so pages like /grid — where the scroll happens inside
-  // .fk-grid__body rather than on main-content — still collapse the sub-header.
-  // Threshold lowered from 6 → 3 px and near-top from 40 → 20 for more
-  // responsive hiding on short mobile scroll gestures.
-  const [subHeaderHidden, setSubHeaderHidden] = useState(false);
-  const lastScrollY = useRef(0);
-  useEffect(() => {
-    const main = document.getElementById('main-content');
-    if (!main) return;
-    const collectNested = () => Array.from(
-      document.querySelectorAll<HTMLElement>('[data-scroll-sentinel]'),
-    );
-    const onScroll = (e: Event) => {
-      const el = e.currentTarget as HTMLElement;
-      const y = el.scrollTop;
-      if (y < 20) { setSubHeaderHidden(false); lastScrollY.current = y; return; }
-      const delta = y - lastScrollY.current;
-      lastScrollY.current = y;
-      if (delta > 3) setSubHeaderHidden(true);
-      else if (delta < -3) setSubHeaderHidden(false);
-    };
-    main.addEventListener('scroll', onScroll, { passive: true });
-    // Observe nested scroll containers — re-attach when DOM changes (route change).
-    let attached: HTMLElement[] = [];
-    const attachNested = () => {
-      attached.forEach(el => el.removeEventListener('scroll', onScroll));
-      attached = collectNested();
-      attached.forEach(el => el.addEventListener('scroll', onScroll, { passive: true }));
-    };
-    attachNested();
-    const mo = new MutationObserver(() => attachNested());
-    mo.observe(main, { childList: true, subtree: true });
-    return () => {
-      main.removeEventListener('scroll', onScroll);
-      attached.forEach(el => el.removeEventListener('scroll', onScroll));
-      mo.disconnect();
-    };
-  }, []);
+  // Sub-header is now a regular block in the document flow: it scrolls away
+  // with the page when the user scrolls down, and they have to scroll back
+  // up to reach the festival / day / stage controls again. Previously this
+  // used a scroll listener + `sub-header-wrap--hidden` toggle to auto-hide
+  // on scroll-down and auto-restore on any upward scroll, which the user
+  // reported as jarring ("shows back up as soon as you scroll up even a
+  // little bit"). No listener, no state — the wrap stays for layout but is
+  // always visible.
 
-  // Restore sub-header and reset scroll position on every route change.
-  // Reset twice on rAF boundaries because lazy-loaded routes mount AFTER the
-  // first effect fires — a plain `scrollTop = 0` lands on an empty Suspense
-  // placeholder and the newly-mounted content (esp. pages with min-h-screen)
-  // can restore a previous scroll offset. Two rAFs ensure the reset sticks
-  // after Suspense commits and layout settles.
+  // Reset scroll position on every route change. Two rAF ticks because
+  // lazy-loaded routes mount AFTER the first effect fires — a plain
+  // `scrollTop = 0` lands on an empty Suspense placeholder and the newly
+  // mounted content (esp. pages with min-h-screen) can restore a previous
+  // scroll offset. Two rAFs ensure the reset sticks after Suspense commits
+  // and layout settles.
   useEffect(() => {
-    setSubHeaderHidden(false);
-    lastScrollY.current = 0;
     const scrollEl = document.getElementById('main-content');
     if (!scrollEl) return;
     scrollEl.scrollTop = 0;
@@ -395,36 +361,33 @@ export default function AppShell() {
               scroll-down; grid-template-rows: 0fr crushes the nav to 0 height
               without layout reflow on the content area below. */}
           {!hideSubHeader && (
-          <div className={`sub-header-wrap${subHeaderHidden ? ' sub-header-wrap--hidden' : ''}`}>
+          <div className="sub-header-wrap">
           <nav className="sub-header" aria-label="Festival view controls">
-            {/* Festival selector — hidden on day-only routes (/timeline, /grid, /picks)
-                where the festival is already fixed for the current view and the
-                extra chrome just eats mobile viewport space. Still visible on
-                /cards (Schedule) + /crew where picking a festival makes sense. */}
-            {!dayOnlySubHeader && (
-              <>
-                <label
-                  htmlFor="festival-select-input"
-                  style={{ fontSize: '12px', color: 'var(--text-secondary)', marginRight: '6px', display: 'inline-block', fontWeight: '600' }}
-                >
-                  Festival:
-                </label>
-                <select
-                  id="festival-select-input"
-                  className="festival-select"
-                  data-testid="festival-select"
-                  value={currentFestival?.id || ''}
-                  onChange={handleFestivalChange}
-                >
-                  <option value="">Select Festival</option>
-                  {festivals.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
+            {/* Festival selector — always rendered when the sub-header is
+                visible. Day-only routes (/timeline, /grid, /picks) still
+                show festival + day tabs so the user can swap festivals
+                without backing out to /cards. Only stage chips + artist
+                search are suppressed on those routes. */}
+            <label
+              htmlFor="festival-select-input"
+              style={{ fontSize: '12px', color: 'var(--text-secondary)', marginRight: '6px', display: 'inline-block', fontWeight: '600' }}
+            >
+              Festival:
+            </label>
+            <select
+              id="festival-select-input"
+              className="festival-select"
+              data-testid="festival-select"
+              value={currentFestival?.id || ''}
+              onChange={handleFestivalChange}
+            >
+              <option value="">Select Festival</option>
+              {festivals.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
 
             {/* Day tabs */}
             {currentFestival && days.length > 0 && (

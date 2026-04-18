@@ -125,7 +125,10 @@ export default function TimelineView() {
     const reserved = 160 + 40;
     const avail = Math.max(280, vpH - reserved);
     const slots = timeBounds?.totalSlots ?? 20;
-    return Math.max(22, Math.min(36, Math.floor(avail / slots)));
+    // 26 px floor keeps a 12.5 px / 1.15-line-height artist name legible inside
+    // a single 15-min slot (was 22 px — mid-descender clip over colored bg).
+    // Grid may scroll past one screen when slots × 26 > avail; that's fine.
+    return Math.max(26, Math.min(36, Math.floor(avail / slots)));
   }, [vpH, vpW, timeBounds?.totalSlots]);
 
   // Minute-tick so the now-indicator advances without a parent rerender. Using
@@ -373,6 +376,13 @@ export default function TimelineView() {
                   myPick && conflictIds.has(s.id) ? ' has-conflict' : '';
                 const dn = artistDisplayName(s, currentFestival?.b2bSeparator);
 
+                // "Short" = block height < 2 text lines + 4 px padding. At
+                // 26 px rowHeight that's anything < 2 slots (30 min); at 36 px
+                // anything < 2 slots too. Short blocks drop time + single-line
+                // ellipsis so the artist name wins.
+                const blockPx = Math.max(1, Math.ceil(spanSlots)) * rowHeight;
+                const isShort = blockPx < 44;
+
                 return (
                   <div
                     key={s.id}
@@ -393,6 +403,7 @@ export default function TimelineView() {
                       ['--tl-stagger' as any]: `${Math.min(ci, 5) * 40}ms`,
                     }}
                     data-set-id={s.id}
+                    data-short={isShort ? '1' : '0'}
                     role="button"
                     tabIndex={0}
                     aria-label={`${dn} at ${st.name}, ${formatTime(s.startTime!)}-${formatTime(s.endTime!)}${myPick ? ', priority: ' + myPick : ''}`}
@@ -416,14 +427,14 @@ export default function TimelineView() {
                     <div className="set-artist" title={dn}>
                       {dn}
                     </div>
-                    {spanSlots >= 2 && (
+                    {!isShort && (
                       <div className="set-time">
                         {formatTime(s.startTime!)} - {formatTime(s.endTime!)}
                       </div>
                     )}
 
                     {/* Priority pick buttons */}
-                    {currentProfile && spanSlots >= 2 && (
+                    {currentProfile && !isShort && blockPx >= 60 && (
                       <div className="timeline-pick-group">
                         {([['must', '★'], ['want-to-see', '◆'], ['maybe', '●']] as const).map(
                           ([p, icon]) => {
