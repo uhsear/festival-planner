@@ -45,8 +45,9 @@ root.render(
 );
 
 // Real User Monitoring — only in production to avoid dev-noise.
-// NOTE: the backend route POST /api/v1/metrics/web-vitals does not yet
-// exist. Beacons will 404 silently until it's implemented.
+// Backend: POST /api/v1/metrics/web-vitals (routes/client-metrics.js) records
+// into prom histogram fp_web_vitals_seconds{metric,nav}. Offline-queued in
+// localStorage (cap 50) and flushed on `online` + visibilitychange-hidden.
 if (import.meta.env.PROD) {
   initWebVitals();
 }

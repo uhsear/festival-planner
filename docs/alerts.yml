@@ -1,0 +1,86 @@
+# Festie Prometheus alert rules — starter set.
+#
+# Scraped from 127.0.0.1:9400-9403 (per PM2 worker). Metric names come from
+# lib/metrics.js (festie_* for server-side HTTP/pg, fp_* for web-vitals and
+# new auth/db/rate-limit series). Thresholds are intentionally conservative —
+# tune after one week of production data.
+#
+# Drop into your Prometheus rule_files path, e.g.
+#   rule_files: ["/etc/prometheus/festie-alerts.yml"]
+
+groups:
+  - name: festie-availability
+    interval: 30s
+    rules:
+      - alert: FestieHigh5xxRate
+        expr: |
+          sum(rate(festie_http_requests_total{status=~"5.."}[5m]))
+            /
+          sum(rate(festie_http_requests_total[5m])) > 0.02
+        for: 5m
+        labels:
+          severity: critical
+          service: festie
+        annotations:
+          summary: "Festie 5xx rate above 2% (5m avg)"
+          description: |
+            More than 2% of HTTP responses returned 5xx over the last 5 minutes.
+            Check PM2 logs: `pm2 logs festie --lines 200` and Sentry issues.
+
+      - alert: FestieP95LatencyHigh
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(festie_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          service: festie
+        annotations:
+          summary: "Festie p95 HTTP latency >1.5s for 10m"
+          description: |
+            p95 HTTP request duration is above 1.5s. Check pg pool saturation,
+            Redis latency, and slow-query logs.
+
+  - name: festie-infra
+    interval: 30s
+    rules:
+      - alert: FestiePgPoolNearEmpty
+        expr: (festie_pg_pool_idle / festie_pg_pool_total) < 0.15
+        for: 3m
+        labels:
+          severity: warning
+          service: festie
+        annotations:
+          summary: "Postgres pool <15% idle for 3m"
+          description: |
+            Fewer than 15% of pg connections are idle. Queries will start
+            waiting. Check festie_pg_pool_waiting and slow queries.
+
+      - alert: FestieRedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: festie
+        annotations:
+          summary: "Redis scrape target down"
+          description: |
+            Redis exporter is unreachable. Sessions, rate limiting, and
+            Socket.IO adapter are degraded. SSH to REDACTED and
+            `systemctl status redis`.
+
+      - alert: FestieDiskLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"}
+            / node_filesystem_size_bytes{mountpoint="/"}) < 0.10
+        for: 10m
+        labels:
+          severity: critical
+          service: festie
+        annotations:
+          summary: "Root filesystem <10% free on festie host"
+          description: |
+            Less than 10% free on /. PM2 logs, Postgres WAL, or uploads may
+            be filling up. Check `du -sh /home/asir/festival-planner/logs`
+            and postgres data dir.
