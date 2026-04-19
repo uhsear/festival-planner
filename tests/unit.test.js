@@ -541,7 +541,7 @@ describe('CSP Building', () => {
     assert(csp.includes("'sha256-def456'"));
   });
 
-  test('buildContentSecurityPolicy includes inline style hashes', () => {
+  test('buildContentSecurityPolicy uses unsafe-inline for styles (hashes omitted to avoid nullifying it)', () => {
     const config = loadConfig({
       PUBLIC_ORIGIN: '',
       ADMIN_USER: 'admin',
@@ -554,7 +554,8 @@ describe('CSP Building', () => {
     };
     const csp = buildContentSecurityPolicy(config, inlineHashes);
 
-    assert(csp.includes("'sha256-xyz789'"));
+    assert(!csp.includes("'sha256-xyz789'"), 'style hashes must be omitted so unsafe-inline is not nullified');
+    assert(csp.includes("'unsafe-inline'"), 'unsafe-inline required for motion/react dynamic styles');
     assert(csp.includes('https://fonts.googleapis.com'));
   });
 
@@ -828,7 +829,7 @@ describe('Config Loading - Additional Cases', () => {
       DATA_DIR: '/custom/data',
     });
 
-    assert(config.DATA_DIR.endsWith('custom/data'));
+    assert(config.DATA_DIR.endsWith('custom' + path.sep + 'data') || config.DATA_DIR.endsWith('custom/data'));
     assert(path.isAbsolute(config.DATA_DIR));
   });
 

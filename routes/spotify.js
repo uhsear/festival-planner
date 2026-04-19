@@ -1,134 +1,120 @@
-'use strict';
+"use strict";
 
 module.exports = function createSpotifyRoutes(deps) {
   const { express, config, log, rateLimit, sendSuccess, sendError, ErrorCodes } = deps;
   const router = express.Router();
-  const { getToken } = require('../lib/spotify');
+  const { getToken } = require("../lib/spotify");
 
-  // In-memory cache with TTL
   const previewCache = new Map();
-  const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+  const CACHE_TTL = 24 * 60 * 60 * 1000;
   const MAX_CACHE_SIZE = 500;
 
   function getCachedPreview(setId) {
     const entry = previewCache.get(setId);
-    if (entry && Date.now() < entry.expiresAt) {
-      return entry.data;
-    }
+    if (entry && Date.now() < entry.expiresAt) return entry.data;
     if (entry) previewCache.delete(setId);
     return null;
   }
 
   function setCachedPreview(setId, data) {
     if (previewCache.size >= MAX_CACHE_SIZE) {
-      const firstKey = previewCache.keys().next().value;
-      previewCache.delete(firstKey);
+      previewCache.delete(previewCache.keys().next().value);
     }
-    previewCache.set(setId, {
-      data,
-      expiresAt: Date.now() + CACHE_TTL,
-    });
+    previewCache.set(setId, { data, expiresAt: Date.now() + CACHE_TTL });
   }
 
-  /**
-   * GET /spotify/preview/:setId
-   * Get Spotify embed data (artistId, trackId) for a set
-   */
-  // PUBLIC endpoint (no userAuth) so guests see the Spotify play button in set detail
-  // 2026-04-14: userAuth was removed; traffic capped via per-IP rate limit (60/min). Response
-  // is purely derived from public festival_sets.artists data — no user-scoped info leaks.
-  router.get('/spotify/preview/:setId', rateLimit(60, 'spotify-preview'), async (req, res) => {
+  function artistEmbed(artistId, artistName) {
+    return {
+      embedType: "artist",
+      artistId,
+      artistName,
+      embedUrl: "https://open.spotify.com/embed/artist/" + artistId + "?utm_source=generator&theme=0",
+    };
+  }
+
+  function trackEmbed(track, artistId, artistName) {
+    return {
+      embedType: "track",
+      trackId: track.id,
+      trackName: track.name,
+      albumArt: track.album?.images?.[0]?.url || null,
+      artistId,
+      artistName: track.artists?.[0]?.name || artistName,
+      url: track.preview_url || null,
+      embedUrl: "https://open.spotify.com/embed/track/" + track.id + "?utm_source=generator&theme=0",
+    };
+  }
+
+  // PUBLIC — no userAuth; rate-limited 60/min per IP.
+  router.get("/spotify/preview/:setId", rateLimit(60, "spotify-preview"), async (req, res) => {
     try {
       const { setId } = req.params;
       const { pool } = deps.stores;
 
-      // Check cache first
       const cached = getCachedPreview(setId);
       if (cached) return sendSuccess(res, cached);
 
-      // Query set from database
       const result = await pool.query(
-        'SELECT id, artists FROM festival_sets WHERE id = $1',
-        [setId]
-      );
+        `SELECT fs.id, fs.artists FROM festival_sets fs
+         JOIN festivals f ON fs.festival_id = f.id AND f.deleted_at IS NULL
+         WHERE fs.id = $1`, [setId]);
+      if (!result.rows.length) return sendError(res, 404, "Set not found", ErrorCodes.NOT_FOUND);
 
-      if (!result.rows.length) {
-        return sendError(res, 404, 'Set not found', ErrorCodes.NOT_FOUND);
-      }
-
-      const set = result.rows[0];
-      const artists = set.artists || [];
-
+      const artists = result.rows[0].artists || [];
       if (!artists.length) {
-        const response = { embedType: null };
-        setCachedPreview(setId, response);
-        return sendSuccess(res, response);
+        const r = { embedType: null };
+        setCachedPreview(setId, r);
+        return sendSuccess(res, r);
       }
 
-      // Find first artist with a Spotify link (handles b2b and multi-artist sets)
+      // Find first artist with a Spotify link
       let artistId = null;
       let artistName = null;
       for (const a of artists) {
         const url = a.links?.spotify;
         if (!url) continue;
         const m = url.match(/\/artist\/([a-zA-Z0-9]+)/);
-        if (m) { artistId = m[1]; artistName = a.name || 'Unknown'; break; }
+        if (m) { artistId = m[1]; artistName = a.name || "Unknown"; break; }
       }
       if (!artistId) {
-        const response = { embedType: null };
-        setCachedPreview(setId, response);
-        return sendSuccess(res, response);
+        const r = { embedType: null };
+        setCachedPreview(setId, r);
+        return sendSuccess(res, r);
       }
+
       const token = await getToken(config.SPOTIFY_CLIENT_ID, config.SPOTIFY_CLIENT_SECRET);
 
-      // Get top tracks for artist
-      const tracksRes = await fetch(
-        'https://api.spotify.com/v1/artists/' + artistId + '/top-tracks?market=US',
-        {
-          headers: { 'Authorization': 'Bearer ' + token },
-        }
+      // Search for tracks by artist — search API works with client credentials.
+      // Prefer a track that has a preview_url (30-sec clip); fall back to first result.
+      const searchRes = await fetch(
+        "https://api.spotify.com/v1/search?q=artist%3A" + encodeURIComponent(artistName) +
+        "&type=track&market=US&limit=10",
+        { headers: { "Authorization": "Bearer " + token } }
       );
 
-      if (!tracksRes.ok) {
-        // Fallback to artist embed if top-tracks fails
-        const response = {
-          embedType: 'artist',
-          artistId,
-          artistName: artistName || artists[0]?.name || 'Unknown',
-        };
-        setCachedPreview(setId, response);
-        return sendSuccess(res, response);
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        const tracks = searchData.tracks?.items || [];
+        // Filter to tracks actually by this artist (search can return loose matches)
+        const byArtist = tracks.filter(t =>
+          t.artists?.some(a => a.id === artistId || a.name?.toLowerCase() === artistName?.toLowerCase())
+        );
+        const pool2 = byArtist.length ? byArtist : tracks;
+        const track = pool2.find(t => t.preview_url) || pool2[0];
+        if (track) {
+          const r = trackEmbed(track, artistId, artistName);
+          setCachedPreview(setId, r);
+          return sendSuccess(res, r);
+        }
       }
 
-      const tracksData = await tracksRes.json();
-      const tracks = tracksData.tracks || [];
-
-      // Use the first track for embed (most popular)
-      if (tracks.length > 0) {
-        const track = tracks[0];
-        const response = {
-          embedType: 'track',
-          trackId: track.id,
-          trackName: track.name,
-          albumArt: track.album?.images?.[0]?.url || null,
-          artistId,
-          artistName: track.artists?.[0]?.name || artists[0].name || 'Unknown',
-        };
-        setCachedPreview(setId, response);
-        return sendSuccess(res, response);
-      }
-
-      // No tracks — fall back to artist embed
-      const response = {
-        embedType: 'artist',
-        artistId,
-        artistName: artistName || artists[0]?.name || 'Unknown',
-      };
-      setCachedPreview(setId, response);
-      sendSuccess(res, response);
+      // Fallback: artist embed
+      const r = artistEmbed(artistId, artistName);
+      setCachedPreview(setId, r);
+      sendSuccess(res, r);
     } catch (err) {
-      log.error('spotify preview error', { error: err.message, setId: req.params.setId });
-      sendError(res, 500, 'Failed to fetch preview', ErrorCodes.INTERNAL_ERROR);
+      log.error("spotify preview error", { error: err.message, setId: req.params.setId });
+      sendError(res, 500, "Failed to fetch preview", ErrorCodes.INTERNAL_ERROR);
     }
   });
 

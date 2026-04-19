@@ -25,12 +25,15 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
       }
 
       // Verify set exists
-      const setCheck = await stores.pool.query('SELECT id, festival_id FROM festival_sets WHERE id = $1', [setId]);
+      const setCheck = await stores.pool.query(
+        `SELECT fs.id, fs.festival_id FROM festival_sets fs
+         JOIN festivals f ON fs.festival_id = f.id AND f.deleted_at IS NULL
+         WHERE fs.id = $1`, [setId]);
       if (setCheck.rows.length === 0) {
         return sendError(res, 404, 'Set not found', ErrorCodes.NOT_FOUND);
       }
 
-      const result = await stores.ratings.upsert(req.user.id, setId, rating, (note || '').slice(0, 500));
+      const result = await stores.ratings.upsert(req.user.userId, setId, rating, (note || '').slice(0, 500));
       sendSuccess(res, result);
     } catch (err) {
       sendError(res, 500, err.message);
@@ -40,7 +43,7 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
   // Delete a rating
   router.delete('/:setId', userAuth, writeLimit, async (req, res) => {
     try {
-      await stores.ratings.delete(req.user.id, req.params.setId);
+      await stores.ratings.delete(req.user.userId, req.params.setId);
       sendSuccess(res, { deleted: true });
     } catch (err) {
       sendError(res, 500, err.message);
@@ -50,7 +53,7 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
   // Get my ratings for a festival
   router.get('/festival/:festivalId', userAuth, readLimit, async (req, res) => {
     try {
-      const ratings = await stores.ratings.getByUser(req.user.id, req.params.festivalId);
+      const ratings = await stores.ratings.getByUser(req.user.userId, req.params.festivalId);
       sendSuccess(res, { ratings });
     } catch (err) {
       sendError(res, 500, err.message);
@@ -81,8 +84,8 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
   router.get('/wrap/:festivalId', userAuth, readLimit, async (req, res) => {
     try {
       const [stats, ratings] = await Promise.all([
-        stores.ratings.getWrapStats(req.user.id, req.params.festivalId),
-        stores.ratings.getByUser(req.user.id, req.params.festivalId),
+        stores.ratings.getWrapStats(req.user.userId, req.params.festivalId),
+        stores.ratings.getByUser(req.user.userId, req.params.festivalId),
       ]);
       const topSets = ratings.filter(r => r.rating >= 4).slice(0, 5);
       sendSuccess(res, { stats, topSets, allRatings: ratings });

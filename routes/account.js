@@ -163,6 +163,8 @@ module.exports = function createAccountRoutes(deps) {
       // Revoke all sessions and refresh tokens immediately
       await invalidateUserSessions(req.user.userId);
       if (stores.refreshTokens) await stores.refreshTokens.revokeAll(req.user.userId);
+      if (stores.deviceTokens) await stores.deviceTokens.deleteByUser(req.user.userId);
+      if (stores.profiles) await stores.profiles.deleteByUserId(req.user.userId);
       disconnectUserSockets(req.user.userId, io);
 
       log.warn('account:soft-delete', { userId: req.user.userId, username: currentUser.username, ip: getRequestIp(req) });
