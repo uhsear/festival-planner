@@ -30,7 +30,7 @@ describe('Integration — Festivals', { concurrency: 1 }, () => {
     assert.equal(response.headers['cache-control'], 'no-store');
     assert.ok(csp.includes("script-src 'self'"));
     assert.ok(!csp.includes("script-src 'self' 'unsafe-inline'"));
-    assert.ok(csp.includes("style-src 'self' https://fonts.googleapis.com"));
+    assert.ok(csp.includes("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com"));
     assert.ok(csp.includes("style-src-attr 'unsafe-inline'"));
     assert.ok(csp.includes("connect-src 'self' wss://rave.example.com"));
     assert.ok(!csp.includes("connect-src 'self' ws: wss:"));
