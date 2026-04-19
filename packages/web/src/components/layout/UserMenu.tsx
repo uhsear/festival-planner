@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore, useFestivalStore } from '@festie/shared';
+import { getAvatarColor, getInitials } from '@festie/shared/utils';
 import { useNavigate } from '@tanstack/react-router';
+import { useToast } from '../../lib/toastContext';
 
 interface UserMenuProps {
   user: {
@@ -15,25 +17,19 @@ interface UserMenuProps {
   };
 }
 
-function getAvatarColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  const hue = ((hash % 360) + 360) % 360;
-  return `hsl(${hue}, 55%, 50%)`;
-}
-
-function getInitials(name: string): string {
-  return name.split(/\s+/).map(w => w[0]).join('').toUpperCase().substring(0, 2) || '?';
-}
-
 export default function UserMenu({ user }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const logout = useAuthStore((state) => state.logout);
   const uploadAvatar = useAuthStore((state) => state.uploadAvatar);
   const removeAvatar = useAuthStore((state) => state.removeAvatar);
+  const changePassword = useAuthStore((state) => state.changePassword);
   const isLoading = useAuthStore((state) => state.isLoading);
 
   const currentFestival = useFestivalStore((state) => state.currentFestival);
@@ -60,15 +56,37 @@ export default function UserMenu({ user }: UserMenuProps) {
 
   const close = useCallback(() => setIsOpen(false), []);
 
-  // Close on Escape key
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+      if (e.key === 'Escape') { close(); return; }
+      if (e.key === 'Tab' && menuRef.current) {
+        const focusable = menuRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [isOpen, close]);
+
+  useEffect(() => {
+    if (isOpen && menuRef.current) {
+      const first = menuRef.current.querySelector<HTMLElement>('button, [href], input');
+      first?.focus();
+    }
+    if (!isOpen) triggerRef.current?.focus();
+  }, [isOpen]);
 
   const handleLogout = async () => {
     close();
@@ -100,9 +118,12 @@ export default function UserMenu({ user }: UserMenuProps) {
     <>
       {/* Trigger — profile badge in the header */}
       <button
+        ref={triggerRef}
         className="profile-badge"
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
+        aria-expanded={isOpen ? 'true' : 'false'}
+        aria-haspopup="dialog"
         aria-label="Open user menu"
         data-testid="profile-badge"
       >
@@ -110,6 +131,10 @@ export default function UserMenu({ user }: UserMenuProps) {
           <img
             src={user.avatarUrl}
             alt={avatarName}
+            width={32}
+            height={32}
+            loading="lazy"
+            decoding="async"
             style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
           />
         ) : (
@@ -140,13 +165,17 @@ export default function UserMenu({ user }: UserMenuProps) {
             if (e.target === e.currentTarget) close();
           }}
         >
-          <div className="user-menu">
+          <div className="user-menu" ref={menuRef} role="dialog" aria-modal="true" aria-label="User menu">
             {/* ── Profile card ───────────────────────────────── */}
             <div className="user-menu-profile-card" data-testid="user-menu-profile">
               {user.avatarUrl ? (
                 <img
                   src={user.avatarUrl}
                   alt={avatarName}
+                  width={52}
+                  height={52}
+                  loading="lazy"
+                  decoding="async"
                   style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover' }}
                 />
               ) : (
@@ -284,7 +313,10 @@ export default function UserMenu({ user }: UserMenuProps) {
                     type="button"
                     onClick={() => {
                       close();
-                      // TODO: wire up showChangeEmail modal
+                      // No /auth/change-email endpoint exists yet — stub
+                      // until the backend route lands so we don't ship a
+                      // broken button.
+                      toast('Email change coming soon', 'info');
                     }}
                   >
                     {user.email ? 'Change' : 'Add'}
@@ -304,7 +336,7 @@ export default function UserMenu({ user }: UserMenuProps) {
                     type="button"
                     onClick={() => {
                       close();
-                      // TODO: wire up showChangePassword modal
+                      setShowChangePassword(true);
                     }}
                   >
                     Change
@@ -338,6 +370,151 @@ export default function UserMenu({ user }: UserMenuProps) {
           </div>
         </div>
       )}
+
+      {showChangePassword && (
+        <ChangePasswordModal
+          onClose={() => setShowChangePassword(false)}
+          onSubmit={async (currentPassword, newPassword) => {
+            try {
+              await changePassword({ currentPassword, newPassword });
+              toast('Password changed', 'success');
+              setShowChangePassword(false);
+            } catch (err) {
+              const msg =
+                err instanceof Error ? err.message : "Couldn't change password.";
+              toast(msg, 'error');
+            }
+          }}
+        />
+      )}
     </>
+  );
+}
+
+// ── Change Password modal ─────────────────────────────────────────────────
+// Inline sub-component so the UserMenu stays a single-file unit. Submits
+// to /auth/change-password via authStore.changePassword. The email-change
+// counterpart is intentionally a toast stub (no backend route yet).
+
+interface ChangePasswordModalProps {
+  onClose: () => void;
+  onSubmit: (currentPassword: string, newPassword: string) => Promise<void>;
+}
+
+function ChangePasswordModal({ onClose, onSubmit }: ChangePasswordModalProps) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (newPassword.length < 8) {
+      setError('New password must be at least 8 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    setBusy(true);
+    try {
+      await onSubmit(currentPassword, newPassword);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="user-menu-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="user-menu" role="dialog" aria-modal="true" aria-label="Change password">
+        <section className="user-menu-section">
+          <div className="user-menu-section-title">Change Password</div>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="account-setting-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+              <label className="account-setting-key" htmlFor="cp-current">
+                Current password
+              </label>
+              <input
+                id="cp-current"
+                type="password"
+                autoComplete="current-password"
+                className="input-base"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="account-setting-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+              <label className="account-setting-key" htmlFor="cp-new">
+                New password
+              </label>
+              <input
+                id="cp-new"
+                type="password"
+                autoComplete="new-password"
+                className="input-base"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                minLength={8}
+                required
+              />
+            </div>
+            <div className="account-setting-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+              <label className="account-setting-key" htmlFor="cp-confirm">
+                Confirm new password
+              </label>
+              <input
+                id="cp-confirm"
+                type="password"
+                autoComplete="new-password"
+                className="input-base"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                minLength={8}
+                required
+              />
+            </div>
+            {error && (
+              <div role="alert" className="account-setting-value" style={{ color: 'var(--color-accent-coral)' }}>
+                {error}
+              </div>
+            )}
+            <div className="user-menu-actions">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={onClose}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary btn-sm"
+                disabled={busy || !currentPassword || !newPassword || !confirmPassword}
+              >
+                {busy ? 'Saving...' : 'Update Password'}
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>
   );
 }

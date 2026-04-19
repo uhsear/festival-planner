@@ -1,322 +1,212 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
-import { Poll, CrewMember } from '@festie/shared/types';
 import { useToast } from '../../lib/toastContext';
+import { useHaptics } from '../../hooks/useHaptics';
 import { cn } from '@/lib/utils';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import EmptyState from '../ui/EmptyState';
 import Skeleton from '../ui/Skeleton';
-import {
-  BarChart3,
-  Plus,
-  X,
-  Check,
-  Trash2,
-  ChevronDown,
-  ChevronUp,
-} from 'lucide-react';
+import IconButton from '../ui/IconButton';
+import { BarChart3, Plus, X, Check, Trash2 } from 'lucide-react';
 
-interface PollsTabProps {
+// Server returns (polls store listByCrew):
+//   { id, crew_id, created_by, question, options: string[],
+//     votes: [{option: number, user_id: string}], vote_count, closes_at, closed, created_at }
+// Response envelope: { data: { polls: [...] } }
+interface RawVote { option: number; user_id: string | null }
+interface RawPoll {
+  id: string;
+  crew_id: string;
+  created_by: string;
+  question: string;
+  options: string[];
+  votes: RawVote[];
+  closes_at: string | null;
+  closed: boolean;
+  created_at: string;
+}
+
+interface Props {
   crewId: string;
-  members: CrewMember[];
   currentUserId: string;
   isOwner: boolean;
 }
 
-export default function PollsTab({ crewId, members, currentUserId, isOwner }: PollsTabProps) {
+export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { select, success, warning } = useHaptics();
+  const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  // Create form state
   const [question, setQuestion] = useState('');
-  const [options, setOptions] = useState<string[]>(['', '']);
+  const optIdCounter = useRef(2);
+  const [options, setOptions] = useState<{ id: number; text: string }[]>([{ id: 0, text: '' }, { id: 1, text: '' }]);
 
-  const {
-    data: polls = [],
-    isLoading,
-    isError,
-  } = useQuery<Poll[]>({
+  const { data: polls = [], isLoading, isError } = useQuery<RawPoll[]>({
     queryKey: ['polls', crewId],
-    queryFn: () => api.get<Poll[]>(`/api/v1/crews/${crewId}/polls`),
+    queryFn: async () => {
+      const res = await api.get<{ polls: RawPoll[] } | RawPoll[]>(`/crews/${crewId}/polls`);
+      const list = Array.isArray(res) ? res : res?.polls || [];
+      return list.map((p) => ({
+        ...p,
+        // Nulls inside the LEFT JOIN become {option: null, user_id: null} — drop those.
+        votes: (p.votes || []).filter((v) => v && v.user_id && typeof v.option === 'number'),
+      }));
+    },
     enabled: !!crewId,
   });
 
   const createPoll = useMutation({
     mutationFn: (payload: { question: string; options: string[] }) =>
-      api.post(`/api/v1/crews/${crewId}/polls`, payload),
+      api.post(`/crews/${crewId}/polls`, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['polls', crewId] });
+      qc.invalidateQueries({ queryKey: ['polls', crewId] });
       toast('Poll created', 'success');
-      resetForm();
+      reset();
     },
-    onError: () => {
-      toast("Couldn't create poll. Try again.", 'error');
-    },
+    onError: (e) => toast(e instanceof Error ? e.message : 'Failed to create', 'error'),
   });
 
-  const votePoll = useMutation({
+  const vote = useMutation({
     mutationFn: ({ pollId, optionIndex }: { pollId: string; optionIndex: number }) =>
-      api.post(`/api/v1/crews/${crewId}/polls/${pollId}/vote`, { optionIndex }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['polls', crewId] });
-    },
-    onError: () => {
-      toast("Couldn't submit vote. Try again.", 'error');
-    },
+      api.post(`/crews/${crewId}/polls/${pollId}/vote`, { optionIndex }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['polls', crewId] }),
+    onError: (e) => { warning(); toast(e instanceof Error ? e.message : 'Failed to vote', 'error'); },
   });
 
-  const closePoll = useMutation({
-    mutationFn: (pollId: string) =>
-      api.delete(`/api/v1/crews/${crewId}/polls/${pollId}`),
+  const close = useMutation({
+    mutationFn: (pollId: string) => api.delete(`/crews/${crewId}/polls/${pollId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['polls', crewId] });
+      qc.invalidateQueries({ queryKey: ['polls', crewId] });
       toast('Poll closed', 'success');
     },
-    onError: () => {
-      toast("Couldn't close poll. Try again.", 'error');
-    },
+    onError: () => toast("Couldn't close poll", 'error'),
   });
 
-  function resetForm() {
+  function reset() {
     setQuestion('');
-    setOptions(['', '']);
+    optIdCounter.current = 2;
+    setOptions([{ id: 0, text: '' }, { id: 1, text: '' }]);
     setShowForm(false);
   }
+  function addOpt() { setOptions((prev) => prev.length < 4 ? [...prev, { id: optIdCounter.current++, text: '' }] : prev); }
+  function removeOpt(i: number) { setOptions((prev) => prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev); }
+  function updateOpt(i: number, v: string) { setOptions((prev) => prev.map((o, idx) => (idx === i ? { ...o, text: v } : o))); }
 
-  function addOption() {
-    if (options.length >= 10) return;
-    setOptions((prev) => [...prev, '']);
-  }
-
-  function removeOption(index: number) {
-    if (options.length <= 2) return;
-    setOptions((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function updateOption(index: number, value: string) {
-    setOptions((prev) => prev.map((opt, i) => (i === index ? value : opt)));
-  }
-
-  function handleSubmit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
-    const trimmedQuestion = question.trim();
-    const trimmedOptions = options.map((o) => o.trim()).filter(Boolean);
-
-    if (!trimmedQuestion || trimmedOptions.length < 2) return;
-
-    createPoll.mutate({ question: trimmedQuestion, options: trimmedOptions });
+    const q = question.trim();
+    const opts = options.map((o) => o.text.trim()).filter(Boolean);
+    // Server requires 2–4 options (routes/crew-features.js:161)
+    if (!q || opts.length < 2 || opts.length > 4) return;
+    createPoll.mutate({ question: q, options: opts });
   }
 
-  function getTotalVotes(poll: Poll): number {
-    return poll.options.reduce((sum, opt) => sum + opt.votes, 0);
-  }
-
-  function getVotePercent(votes: number, total: number): number {
-    if (total === 0) return 0;
-    return Math.round((votes / total) * 100);
-  }
-
-  if (isLoading) {
-    return (
-      <div className="space-y-3 px-4">
-        <Skeleton variant="card" />
-        <Skeleton variant="card" />
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="px-4">
-        <EmptyState
-          icon={<BarChart3 className="w-12 h-12" />}
-          title="Couldn't load polls"
-          description="Try again later."
-        />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="px-4 space-y-2"><Skeleton variant="card" /><Skeleton variant="card" /></div>;
+  if (isError) return <div className="px-4"><EmptyState icon={<BarChart3 className="w-12 h-12" />} title="Couldn't load polls" description="Try again later." /></div>;
 
   return (
-    <div className="space-y-4 px-4">
-      {/* Create poll button / form */}
+    <div className="space-y-3 px-4">
       {!showForm ? (
-        <Button
-          variant="primary"
-          onClick={() => setShowForm(true)}
-          className="w-full min-h-11"
-        >
-          <Plus className="w-4 h-4" />
-          Create Poll
+        <Button variant="primary" onClick={() => setShowForm(true)} className="w-full min-h-11">
+          <Plus className="w-4 h-4" /> Create Poll
         </Button>
       ) : (
-        <form
-          onSubmit={handleSubmit}
-          className="p-4 rounded-lg bg-bg-card border border-border space-y-3"
-        >
+        <form onSubmit={submit} className="p-3 rounded-lg bg-bg-card border border-border space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-text-primary">New Poll</h3>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="min-h-11 min-w-11 flex items-center justify-center text-text-muted hover:text-text-primary transition-colors"
-              aria-label="Cancel"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <IconButton label="Cancel" icon={<X className="w-5 h-5" />} onClick={reset} />
           </div>
-
-          <Input
-            label="Question"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="What should we decide?"
-            required
-          />
-
+          <Input label="Question" value={question} onChange={(e) => setQuestion(e.target.value)}
+            placeholder="What should we decide?" required />
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">
-              Options
-            </label>
+            <label className="block text-sm font-medium text-text-primary mb-2">Options (2–4)</label>
             <div className="space-y-2">
-              {options.map((opt, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    value={opt}
-                    onChange={(e) => updateOption(index, e.target.value)}
-                    placeholder={`Option ${index + 1}`}
-                    className="input-base flex-1 min-h-11"
-                    required
-                  />
+              {options.map((o, i) => (
+                <div key={o.id} className="flex items-center gap-2">
+                  <input className="input-base flex-1 min-h-11" value={o.text}
+                    onChange={(e) => updateOpt(i, e.target.value)} placeholder={`Option ${i + 1}`} required />
                   {options.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => removeOption(index)}
-                      className="min-h-11 min-w-11 flex items-center justify-center text-text-muted hover:text-accent-coral transition-colors"
-                      aria-label={`Remove option ${index + 1}`}
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                    <IconButton
+                      label="Remove option"
+                      variant="danger"
+                      icon={<X className="w-4 h-4" />}
+                      onClick={() => removeOpt(i)}
+                    />
                   )}
                 </div>
               ))}
             </div>
-
-            {options.length < 10 && (
-              <button
-                type="button"
-                onClick={addOption}
-                className="min-h-11 mt-2 text-sm text-accent-aqua hover:opacity-80 transition-opacity flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" />
-                Add option
+            {options.length < 4 && (
+              <button type="button" onClick={addOpt}
+                className="min-h-11 mt-2 text-sm text-accent-aqua hover:opacity-80 flex items-center gap-1">
+                <Plus className="w-4 h-4" /> Add option
               </button>
             )}
           </div>
-
-          <Button
-            type="submit"
-            variant="primary"
-            isLoading={createPoll.isPending}
+          <Button type="submit" variant="primary" isLoading={createPoll.isPending}
             className="w-full min-h-11"
-            disabled={!question.trim() || options.filter((o) => o.trim()).length < 2}
-          >
-            Create Poll
+            disabled={!question.trim() || options.filter((o) => o.text.trim()).length < 2}>
+            Create
           </Button>
         </form>
       )}
 
-      {/* Poll list */}
       {polls.length === 0 ? (
-        <EmptyState
-          icon={<BarChart3 className="w-12 h-12" />}
-          title="No polls yet"
-          description="Create a poll to help your crew decide things together"
-        />
+        <EmptyState icon={<BarChart3 className="w-12 h-12" />} title="No polls yet"
+          description="Create a poll to help your crew decide things together." />
       ) : (
         <div className="space-y-3">
-          {polls.map((poll) => {
-            const totalVotes = getTotalVotes(poll);
-            const isExpanded = expandedId === poll.id;
-            const winningVotes = Math.max(...poll.options.map((o) => o.votes));
+          {polls.map((p) => {
+            // Aggregate votes[{option, user_id}] into counts per option index.
+            const counts = new Array<number>(p.options.length).fill(0);
+            let myVote: number | null = null;
+            for (const v of p.votes) {
+              if (v.option >= 0 && v.option < counts.length) counts[v.option]++;
+              if (v.user_id === currentUserId) myVote = v.option;
+            }
+            const total = counts.reduce((a, b) => a + b, 0);
+            const maxCount = Math.max(0, ...counts);
 
             return (
-              <div
-                key={poll.id}
-                className="rounded-lg bg-bg-card border border-border overflow-hidden"
-              >
-                {/* Poll header */}
-                <button
-                  onClick={() => setExpandedId(isExpanded ? null : poll.id)}
-                  className="w-full min-h-11 p-4 flex items-start justify-between text-left"
-                >
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-text-primary">
-                      {poll.question}
-                    </h4>
-                    <div className="text-xs text-text-secondary mt-1">
-                      {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}
-                    </div>
-                  </div>
-                  <div className="flex-shrink-0 ml-3 mt-1">
-                    {isExpanded ? (
-                      <ChevronUp className="w-4 h-4 text-text-muted" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-text-muted" />
-                    )}
-                  </div>
-                </button>
+              <div key={p.id} className="rounded-lg bg-bg-card border border-border p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <h4 className="font-semibold text-text-primary flex-1">{p.question}</h4>
+                  <span className="text-xs text-text-secondary flex-shrink-0">{total} {total === 1 ? 'vote' : 'votes'}</span>
+                </div>
 
-                {/* Poll options (always visible) */}
-                <div className="px-4 pb-4 space-y-2">
-                  {poll.options.map((option, index) => {
-                    const percent = getVotePercent(option.votes, totalVotes);
-                    const isWinning = option.votes === winningVotes && option.votes > 0;
-
+                <div className="space-y-2">
+                  {p.options.map((text, i) => {
+                    const votes = counts[i];
+                    const pct = total > 0 ? Math.round((votes / total) * 100) : 0;
+                    const winning = votes === maxCount && votes > 0;
+                    const mine = myVote === i;
                     return (
-                      <button
-                        key={option.id}
-                        onClick={() =>
-                          votePoll.mutate({ pollId: poll.id, optionIndex: index })
-                        }
-                        disabled={votePoll.isPending}
+                      <button key={i} onClick={() => { select(); vote.mutate({ pollId: p.id, optionIndex: i }); }}
+                        disabled={vote.isPending}
+                        aria-pressed={mine ? 'true' : 'false'}
+                        aria-busy={vote.isPending ? 'true' : 'false'}
                         className={cn(
                           'w-full min-h-11 relative rounded-lg border transition-colors text-left overflow-hidden',
-                          isWinning
-                            ? 'border-accent-aqua border-opacity-50'
-                            : 'border-border hover:border-border-light',
-                        )}
-                      >
-                        {/* Progress bar background */}
-                        <div
-                          className={cn(
-                            'absolute inset-y-0 left-0 transition-all duration-300',
-                            isWinning
-                              ? 'bg-accent-aqua bg-opacity-15'
-                              : 'bg-text-muted bg-opacity-10',
-                          )}
-                          style={{ width: `${percent}%` }}
-                        />
-
-                        {/* Content */}
+                          mine
+                            ? 'border-accent-aqua'
+                            : winning
+                              ? 'border-accent-aqua/40'
+                              : 'border-border hover:border-border-light',
+                        )}>
+                        <div key={`${p.id}-${i}-${pct}`}
+                          className={cn('crew-poll-bar absolute inset-y-0 left-0 transition-all duration-300',
+                          mine ? 'bg-accent-aqua/25' : winning ? 'bg-accent-aqua/10' : 'bg-text-muted/10')}
+                          style={{ width: `${pct}%` }} />
                         <div className="relative flex items-center justify-between px-3 py-2">
-                          <span className="text-sm text-text-primary flex items-center gap-2">
-                            {isWinning && option.votes > 0 && (
-                              <Check className="w-3.5 h-3.5 text-accent-aqua flex-shrink-0" />
-                            )}
-                            {option.text}
+                          <span className="text-sm text-text-primary flex items-center gap-2 truncate">
+                            {mine && <Check className="w-3.5 h-3.5 text-accent-aqua flex-shrink-0" />}
+                            <span className="truncate">{text}</span>
                           </span>
-                          <span
-                            className={cn(
-                              'text-xs font-medium flex-shrink-0 ml-2',
-                              isWinning ? 'text-accent-aqua' : 'text-text-secondary',
-                            )}
-                          >
-                            {percent}%
+                          <span className={cn('text-xs font-medium flex-shrink-0 ml-2',
+                            mine ? 'text-accent-aqua' : 'text-text-secondary')}>
+                            {pct}%
                           </span>
                         </div>
                       </button>
@@ -324,25 +214,11 @@ export default function PollsTab({ crewId, members, currentUserId, isOwner }: Po
                   })}
                 </div>
 
-                {/* Expanded details */}
-                {isExpanded && (
-                  <div className="px-4 pb-4 border-t border-border pt-3 space-y-3">
-                    <div className="text-xs text-text-muted">
-                      Created {new Date(poll.createdAt).toLocaleDateString()}
-                    </div>
-
-                    {isOwner && (
-                      <button
-                        onClick={() => closePoll.mutate(poll.id)}
-                        disabled={closePoll.isPending}
-                        className="min-h-11 min-w-11 flex items-center gap-2 text-sm text-accent-coral hover:opacity-80 transition-opacity"
-                        aria-label="Close poll"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Close Poll
-                      </button>
-                    )}
-                  </div>
+                {(p.created_by === currentUserId || isOwner) && (
+                  <button onClick={() => close.mutate(p.id)} disabled={close.isPending}
+                    className="min-h-11 flex items-center gap-2 text-xs text-accent-coral hover:opacity-80">
+                    <Trash2 className="w-3.5 h-3.5" /> Close poll
+                  </button>
                 )}
               </div>
             );

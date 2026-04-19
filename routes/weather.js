@@ -6,11 +6,11 @@ const { Router } = require('express');
 const weatherCache = new Map();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 
-function createWeatherRoutes({ stores, sendSuccess, sendError }) {
+function createWeatherRoutes({ stores, sendSuccess, sendError, ErrorCodes, rateLimit }) {
   const router = Router();
 
   // GET /weather/:festivalId — returns weather for festival's coordinates
-  router.get('/:festivalId', async (req, res) => {
+  router.get('/:festivalId', rateLimit(30, 'weather'), async (req, res) => {
     try {
       const { festivalId } = req.params;
 
@@ -82,7 +82,7 @@ function createWeatherRoutes({ stores, sendSuccess, sendError }) {
       if (err.name === 'AbortError') {
         return sendSuccess(res, { available: false, reason: 'Weather request timed out' });
       }
-      sendError(res, 500, err.message);
+      sendError(res, 500, 'Failed to fetch weather data', ErrorCodes.INTERNAL_ERROR);
     }
   });
 

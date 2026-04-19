@@ -19,6 +19,12 @@ echo "[$(date -Iseconds)] Deploying: $LOCAL -> $REMOTE"
 git pull origin main --quiet
 
 # --- PRE-DEPLOY VALIDATION ---
+if ! npm test --silent 2>&1 | tail -5; then
+  echo "[$(date -Iseconds)] ABORT: Test suite failed. Not deploying."
+  git checkout "$LOCAL" -- .
+  exit 1
+fi
+
 if ! node scripts/validate-imports.js; then
   echo "[$(date -Iseconds)] ABORT: Import validation failed. Rolling back."
   git checkout "$LOCAL" -- public/

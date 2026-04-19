@@ -97,6 +97,7 @@ function createFestivalPlanner(overrides = {}) {
     ...ctx,
     io: null, // Set after Socket.IO creation
     metrics: state.metrics,
+    promMetrics: metrics,
   };
 
   // 4. Create HTTP server + Socket.IO
@@ -142,6 +143,7 @@ function createFestivalPlanner(overrides = {}) {
   const calendarSyncRoutes = createCalendarSyncRoutes(deps);
   const createAnalyticsInstallRoutes = require('./routes/analytics-install');
   const analyticsInstallRoutes = createAnalyticsInstallRoutes(deps);
+  const clientMetricsRoutes = require('./routes/client-metrics')(deps);
   const { createCalendarFeedRoute } = require('./routes/calendar-sync');
   const calendarFeedRoutes = createCalendarFeedRoute(deps);
   const spotifyRoutes = require('./routes/spotify')(deps);
@@ -153,8 +155,8 @@ function createFestivalPlanner(overrides = {}) {
   app.use('/api/v1/auth', emailAuthRoutes);
   app.use('/api/v1/account', accountRoutes);
   app.use('/api/v1/admin', adminRoutes);
-  app.use('/api/v1/admin/festivals', festivalRoutes);
-  app.use('/api/v1/admin/festivals', lineupImportRoutes);
+  app.use('/api/v1/admin/festivals', deps.adminAuth, festivalRoutes);
+  app.use('/api/v1/admin/festivals', deps.adminAuth, lineupImportRoutes);
   app.use('/api/v1/festivals', festivalRoutes);
   app.use('/api/v1/profiles', profileRoutes);
   app.use('/api/v1', exportRoutes);
@@ -168,6 +170,7 @@ function createFestivalPlanner(overrides = {}) {
   app.use('/api/v1', activityRoutes);
   app.use('/api/v1', calendarSyncRoutes);
   app.use('/api/v1/analytics', analyticsInstallRoutes);
+  app.use('/api/v1/metrics', deps.express.text({ type: '*/*', limit: '2kb' }), clientMetricsRoutes);
   app.use(calendarFeedRoutes);
 
   // Health & metrics (available at both /api/v1 and /api for load balancer probes)
@@ -273,7 +276,7 @@ function createFestivalPlanner(overrides = {}) {
   const close = createCloseHandler({
     server, io, config, state, log, pool, redis, cacheBus, emitter,
     clearPresenceTimers: ctx.clearPresenceTimers,
-    avatarPool, inFlightRequests,
+    avatarPool, inFlightRequests, sentry,
   });
 
   return { app, server, io, config, state, close, setHealthReady };

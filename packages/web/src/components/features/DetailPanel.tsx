@@ -8,11 +8,17 @@ import {
   artistDisplayName,
   artistSubtitle,
   getSetLinks,
-  getAvatarColor,
-  getInitials,
   detectConflicts,
 } from '@festie/shared/utils';
 import { api } from '@festie/shared/services/api';
+import { Drawer } from 'vaul';
+import RatingButtons from './RatingButtons';
+import DetailSpotifySection from './DetailSpotifySection';
+import DetailConflictWarning from './DetailConflictWarning';
+import DetailCrewSection from './DetailCrewSection';
+import DetailNotesSection from './DetailNotesSection';
+import { hasSetStarted } from '../../utils/festivalTime';
+import { useHaptics } from '../../hooks/useHaptics';
 
 const PLATFORM_LABELS: Record<string, string> = {
   spotify: 'Spotify',
@@ -26,10 +32,12 @@ const PLATFORM_LABELS: Record<string, string> = {
 interface DetailPanelProps {
   set: FestivalSet;
   onClose: () => void;
+  autoOpenSpotify?: boolean;
 }
 
-export default function DetailPanel({ set, onClose }: DetailPanelProps) {
+export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: DetailPanelProps) {
   const currentFestival = useFestivalStore((s) => s.currentFestival);
+  const festivalDays = useFestivalStore((s) => s.days);
   const currentProfile = useFestivalStore((s) => s.currentProfile);
   const allProfiles = useFestivalStore((s) => s.allProfiles);
   const sets = useFestivalStore((s) => s.sets);
@@ -38,6 +46,7 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
   const { getMyPick, getMyNote, savePick, saveNote, getOtherPicks } = usePicks();
   const { getStageColor, getStageName } = useFestival();
   const { getCrewScopedOtherPicks } = useCrew();
+  const { select: selectHaptic, success: successHaptic, warning: warningHaptic } = useHaptics();
 
   const [personalNote, setPersonalNote] = useState(getMyNote(set.id) || '');
   const [crewNote, setCrewNote] = useState(
@@ -53,7 +62,7 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
   const [priorityBusy, setPriorityBusy] = useState<Priority | null | 'clear'>(
     null,
   );
-  const [exiting, setExiting] = useState(false);
+  const [priorityAnnounce, setPriorityAnnounce] = useState('');
 
   const personalNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const crewNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -127,25 +136,14 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
       : 'Nobody else going yet';
   }, [activeCrew, others.length]);
 
-  // Close with animation
+  // Close directly — let vaul own the dismiss animation. The legacy
+  // .panel-exiting slideDown (225–400 ms) was stacking on top of vaul's own
+  // drawer-close transition, producing the multi-second perceived delay on
+  // mobile. Removing the manual animation chain (and the uncleared 400 ms
+  // fallback that double-invoked onClose) restores an instant close.
   const handleClose = useCallback(() => {
-    if (exiting) return;
-    setExiting(true);
-    const panel = panelRef.current;
-    if (panel) {
-      panel.classList.remove('panel-entering');
-      panel.classList.add('panel-exiting');
-      const onAnimEnd = () => {
-        panel.removeEventListener('animationend', onAnimEnd);
-        onClose();
-      };
-      panel.addEventListener('animationend', onAnimEnd);
-      // Fallback: if animation doesn't fire within 400ms, close anyway
-      setTimeout(() => onClose(), 400);
-    } else {
-      onClose();
-    }
-  }, [onClose, exiting]);
+    onClose();
+  }, [onClose]);
 
   // Escape key
   useEffect(() => {
@@ -173,6 +171,7 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
         );
         if (!cancelled && preview?.embedType) {
           setSpotifyPreview(preview);
+          if (autoOpenSpotify) setSpotifyVisible(true);
         }
       } catch {
         // No Spotify preview available
@@ -181,20 +180,25 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [set.id]);
+  }, [set.id, autoOpenSpotify]);
 
-  // Debounced personal note save
+  // Debounced personal note save — fire success haptic + warning on failure
+  // AFTER the debounce completes so rapid typing doesn't vibrate per-keystroke.
   const handlePersonalNoteChange = useCallback(
     (value: string) => {
       setPersonalNote(value);
       if (personalNoteTimer.current) clearTimeout(personalNoteTimer.current);
-      personalNoteTimer.current = setTimeout(() => {
-        if (currentFestival) {
-          saveNote(currentFestival.id, set.id, value);
+      personalNoteTimer.current = setTimeout(async () => {
+        if (!currentFestival) return;
+        try {
+          await saveNote(currentFestival.id, set.id, value);
+          successHaptic();
+        } catch {
+          warningHaptic();
         }
       }, 500);
     },
-    [currentFestival, set.id, saveNote],
+    [currentFestival, set.id, saveNote, successHaptic, warningHaptic],
   );
 
   // Debounced crew note save
@@ -202,13 +206,17 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
     (value: string) => {
       setCrewNote(value);
       if (crewNoteTimer.current) clearTimeout(crewNoteTimer.current);
-      crewNoteTimer.current = setTimeout(() => {
-        if (currentFestival) {
-          saveNote(currentFestival.id, 'crew:' + set.id, value);
+      crewNoteTimer.current = setTimeout(async () => {
+        if (!currentFestival) return;
+        try {
+          await saveNote(currentFestival.id, 'crew:' + set.id, value);
+          successHaptic();
+        } catch {
+          warningHaptic();
         }
       }, 500);
     },
-    [currentFestival, set.id, saveNote],
+    [currentFestival, set.id, saveNote, successHaptic, warningHaptic],
   );
 
   // Cleanup timers
@@ -223,9 +231,10 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
   const handlePriorityClick = useCallback(
     async (priority: Priority | null) => {
       if (!currentFestival) return;
+      selectHaptic();
       await savePick(currentFestival.id, set.id, priority);
     },
-    [currentFestival, set.id, savePick],
+    [currentFestival, set.id, savePick, selectHaptic],
   );
 
   // Spotify toggle
@@ -258,16 +267,34 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
   ];
 
   return (
-    <div
-      className="detail-overlay open"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="detail-panel-title"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
-      }}
+    <Drawer.Root
+      open
+      onOpenChange={(o: boolean) => { if (!o) handleClose(); }}
+      dismissible
+      handleOnly
     >
-      <div className={`detail-panel${exiting ? '' : ' panel-entering'}`} ref={panelRef}>
+      <Drawer.Portal>
+        <Drawer.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+        {/* Responsive positioning: mobile = bottom sheet (vaul default).
+            Desktop (>=1024px) = centered modal with a sensible max width so
+            content doesn't pin to the left of a 1400 px viewport. The `lg:`
+            classes cancel vaul's `fixed bottom-0 inset-x-0` and recenter. */}
+        <Drawer.Content
+          className="fixed bottom-0 inset-x-0 z-50 max-h-[92vh] flex flex-col
+                     rounded-t-2xl bg-bg-primary border-t border-border-light
+                     shadow-2xl outline-none
+                     lg:bottom-auto lg:inset-x-auto lg:top-1/2 lg:left-1/2
+                     lg:-translate-x-1/2 lg:-translate-y-1/2
+                     lg:w-[min(640px,calc(100vw-2rem))] lg:max-h-[85vh]
+                     lg:rounded-2xl lg:border lg:border-border-light lg:border-t-0"
+        >
+          {/* Drag handle — mobile only (desktop has no drag affordance). */}
+          <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0 lg:hidden" />
+          {/* Accessible title — the artist name is the semantic title; keep it
+              sr-only here because the visible "detail-artist" heading inside
+              duplicates it with stage-color styling. */}
+          <Drawer.Title className="sr-only">{artistDisplayName(set, currentFestival?.b2bSeparator)}</Drawer.Title>
+          <div className="detail-panel detail-panel--drawer" ref={panelRef}>
         {/* Close button */}
         <button
           className="detail-close"
@@ -287,15 +314,29 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
           {stageName}
         </div>
 
-        {/* Artist photo */}
+        {/* Artist photo — reserved aspect ratio prevents CLS when the lazy-
+            loaded hero image swaps in; artist press photos are ~square, so
+            1/1 matches the common case while object-cover handles drift. */}
         {primaryArtist && (primaryArtist as any).photo && (
-          <div className="detail-artist-photo-wrap">
+          <div
+            className="detail-artist-photo-wrap"
+            style={{
+              aspectRatio: '1 / 1',
+              // Placeholder tint while the image decodes — picks up the stage
+              // color so the empty frame feels intentional rather than broken.
+              background: stageColor + '18',
+            }}
+          >
             <img
               src={(primaryArtist as any).photo}
               alt={primaryArtist.name || set.artist || ''}
               className="detail-artist-photo"
               loading="lazy"
+              decoding="async"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               onError={(e) => {
+                // Broken-image fallback: drop the whole wrapper so the layout
+                // reflows without a broken-glyph placeholder lingering.
                 const wrap = (e.target as HTMLElement).parentElement;
                 if (wrap) wrap.remove();
               }}
@@ -371,124 +412,71 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
             : 'TBA'}
         </div>
 
-        {/* Spotify embed section */}
         {spotifyPreview && (
-          <div className="detail-spotify-section" style={{ margin: '10px 0' }}>
-            <button
-              className="btn btn-ghost btn-sm"
-              type="button"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-              onClick={handleSpotifyToggle}
-            >
-              {spotifyVisible ? '\u25B2 Hide Player' : '\u25B6 Listen on Spotify'}
-            </button>
-            {spotifyVisible && (
-              <div className="detail-spotify-embed">
-                <iframe
-                  src={spotifyPreview.embedUrl}
-                  width="100%"
-                  height="152"
-                  frameBorder="0"
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  loading="lazy"
-                  title={'Spotify: ' + spotifyPreview.label}
-                />
-              </div>
-            )}
-          </div>
+          <DetailSpotifySection
+            preview={spotifyPreview}
+            visible={spotifyVisible}
+            onToggle={handleSpotifyToggle}
+          />
         )}
 
-        {/* Conflict warning */}
-        {conflicts.length > 0 && (
-          <div className="detail-conflict-warning">
-            <div>
-              {'\u26A0 Time conflict with: ' +
-                conflicts
-                  .map((c) => artistDisplayName(c, b2bSeparator))
-                  .join(', ')}
-            </div>
-            <div className="detail-conflict-compare">
-              {conflicts.map((c) => {
-                const cOthers = getOtherPicks(c.id);
-                return (
-                  <div key={c.id} className="conflict-compare-card">
-                    <div className="conflict-compare-artist">
-                      {artistDisplayName(c, b2bSeparator)}
-                    </div>
-                    <div className="conflict-compare-meta">
-                      {formatTime(c.startTime) +
-                        ' - ' +
-                        formatTime(c.endTime) +
-                        ' \u00B7 ' +
-                        (getStageName(c.stageId) || 'Unknown')}
-                    </div>
-                    <div className="conflict-compare-crew">
-                      {cOthers.length
-                        ? cOthers.length + ' crew going'
-                        : 'No crew'}
-                    </div>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!currentFestival) return;
-                        savePick(currentFestival.id, set.id, null);
-                        savePick(
-                          currentFestival.id,
-                          c.id,
-                          myPick || 'want-to-see',
-                        );
-                      }}
-                    >
-                      Switch to this
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <DetailConflictWarning
+          conflicts={conflicts}
+          currentSetId={set.id}
+          myPick={myPick ?? null}
+          b2bSeparator={b2bSeparator}
+          getStageName={getStageName}
+          getOtherPicks={getOtherPicks}
+          onSwitch={(fromId, toSet, priority) => {
+            if (!currentFestival) return;
+            savePick(currentFestival.id, fromId, null);
+            savePick(currentFestival.id, toSet.id, priority);
+          }}
+        />
 
         {/* Priority picker (logged in + joined) */}
         {currentProfile ? (
-          <div className="detail-priority-group">
-            {priorityOptions.map(([p, icon, label, cls]) => {
-              const active = myPick === p;
-              const key: Priority | 'clear' = p ?? 'clear';
-              const isThisBusy = priorityBusy === key;
-              const anyBusy = priorityBusy !== null;
-              return (
-                <button
-                  key={label}
-                  className={
-                    'detail-priority-option' + (active ? ' ' + cls : '')
-                  }
-                  type="button"
-                  aria-pressed={active ? 'true' : 'false'}
-                  aria-label={label + (active ? ' (selected)' : '')}
-                  aria-busy={isThisBusy ? 'true' : 'false'}
-                  disabled={anyBusy}
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (priorityBusy !== null) return;
-                    setPriorityBusy(key);
-                    try {
-                      await handlePriorityClick(p);
-                    } catch {
-                      // Save failed — store already surfaces error; just clear busy.
-                    } finally {
-                      setPriorityBusy(null);
+          <>
+            <div className="detail-priority-group">
+              {priorityOptions.map(([p, icon, label, cls]) => {
+                const active = myPick === p;
+                const key: Priority | 'clear' = p ?? 'clear';
+                const isThisBusy = priorityBusy === key;
+                const anyBusy = priorityBusy !== null;
+                return (
+                  <button
+                    key={label}
+                    className={
+                      'detail-priority-option' + (active ? ' ' + cls : '')
                     }
-                  }}
-                >
-                  <div style={{ fontSize: '20px' }}>{icon}</div>
-                  <div className="priority-label">{label}</div>
-                </button>
-              );
-            })}
-          </div>
+                    type="button"
+                    aria-pressed={active ? 'true' : 'false'}
+                    aria-label={label + (active ? ' (selected)' : '')}
+                    aria-busy={isThisBusy ? 'true' : 'false'}
+                    disabled={anyBusy}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (priorityBusy !== null) return;
+                      setPriorityBusy(key);
+                      try {
+                        await handlePriorityClick(p);
+                        setPriorityAnnounce(p ? `Saved as ${label}` : 'Priority cleared');
+                      } catch {
+                        setPriorityAnnounce('Failed to save priority');
+                      } finally {
+                        setPriorityBusy(null);
+                      }
+                    }}
+                  >
+                    <div style={{ fontSize: '20px' }}>{icon}</div>
+                    <div className="priority-label">{label}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <div aria-live="polite" className="sr-only">{priorityAnnounce}</div>
+          </>
         ) : (
           /* Join CTA (guest) */
           <div className="detail-join-cta">
@@ -508,134 +496,32 @@ export default function DetailPanel({ set, onClose }: DetailPanelProps) {
           </div>
         )}
 
-        {/* Crew overlap / friends section */}
-        <div className="detail-friends">
-          <div className="detail-friends-title">{whoTitle}</div>
-          {others.map((o) => {
-            const priLabels: Record<string, string> = {
-              must: 'Must See',
-              'want-to-see': 'Want to See',
-              maybe: 'Maybe',
-            };
-            const priColors: Record<string, string> = {
-              must: 'var(--priority-must)',
-              'want-to-see': 'var(--priority-want)',
-              maybe: 'var(--priority-maybe)',
-            };
-            const avatarColor = getAvatarColor(o.name);
-            const initials = getInitials(o.name);
-            return (
-              <div key={o.profileId} className="detail-friend-item">
-                {o.avatar ? (
-                  <img
-                    src={o.avatar}
-                    alt={o.name}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      flexShrink: 0,
-                    }}
-                    title={o.name + ' (' + o.priority + ')'}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: '50%',
-                      background: avatarColor,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: '#fff',
-                      flexShrink: 0,
-                    }}
-                    title={o.name + ' (' + o.priority + ')'}
-                  >
-                    {initials}
-                  </div>
-                )}
-                <span>{o.name}</span>
-                <span
-                  className="friend-priority"
-                  style={{ color: priColors[o.priority] }}
-                >
-                  {priLabels[o.priority]}
-                </span>
-              </div>
-            );
-          })}
-
-          {/* Crew notes from others */}
-          {crewNotes.length > 0 && (
-            <div
-              style={{
-                padding: '8px 0',
-                borderTop: '1px solid var(--border)',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: 'var(--accent-aqua)',
-                  marginBottom: '6px',
-                }}
-              >
-                Crew Notes
-              </div>
-              {crewNotes.map((cn, i) => (
-                <div key={i} style={{ fontSize: '13px', padding: '4px 0' }}>
-                  <strong style={{ color: 'var(--text-secondary)' }}>
-                    {cn.name + ': '}
-                  </strong>
-                  {cn.note}
-                </div>
-              ))}
+        {/* Rate the set — shown only after the set has started so users rate
+            what they actually saw. Auth-gated via currentProfile (guests see
+            nothing here; they see the Join CTA above instead). */}
+        {currentProfile && set && currentFestival && hasSetStarted(set as any, currentFestival as any, festivalDays) && (
+          <div className="detail-rating" style={{ margin: '14px 0 10px', textAlign: 'center' }}>
+            <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
+                          color: 'var(--color-text-muted)', marginBottom: 8 }}>
+              Rate this set
             </div>
-          )}
-        </div>
-
-        {/* Notes (logged in only) */}
-        {currentProfile && (
-          <div className="detail-notes">
-            <div className="detail-notes-title" id="notes-label">
-              Personal Notes
-            </div>
-            <textarea
-              placeholder='Add notes (e.g., "meet at the rail")...'
-              aria-labelledby="notes-label"
-              value={personalNote}
-              onChange={(e) => handlePersonalNoteChange(e.target.value)}
-            />
-
-            {/* Crew note */}
-            <div className="detail-notes" style={{ marginTop: '8px' }}>
-              <div
-                className="detail-notes-title"
-                style={{ color: 'var(--accent-aqua)' }}
-                id="crew-notes-label"
-              >
-                Crew Note (visible to your crew)
-              </div>
-              <textarea
-                placeholder="Share a note with your crew..."
-                aria-labelledby="crew-notes-label"
-                style={{
-                  borderColor: 'var(--accent-aqua)',
-                  borderWidth: '1px',
-                }}
-                value={crewNote}
-                onChange={(e) => handleCrewNoteChange(e.target.value)}
-              />
-            </div>
+            <RatingButtons setId={set.id} festivalId={currentFestival.id} />
           </div>
         )}
+
+        <DetailCrewSection title={whoTitle} others={others} crewNotes={crewNotes} />
+
+        {currentProfile && (
+          <DetailNotesSection
+            personalNote={personalNote}
+            crewNote={crewNote}
+            onPersonalChange={handlePersonalNoteChange}
+            onCrewChange={handleCrewNoteChange}
+          />
+        )}
       </div>
-    </div>
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
   );
 }

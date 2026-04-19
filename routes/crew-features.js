@@ -14,7 +14,7 @@ module.exports = function mountCrewFeatures(router, deps) {
   } = deps;
 
   // ── PUT /:crewId/home-base — set crew meeting point ─────────────
-  router.put('/:crewId/home-base', userAuth, rateLimit(10, 'crew-homebase'), async (req, res) => {
+  router.put('/:crewId/home-base', userAuth, rateLimit(10, 'crew-homebase'), validate(schemas.crewHomeBase), async (req, res) => {
     try {
       const crewId = sanitizeIdentifier(req.params.crewId);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
@@ -22,9 +22,10 @@ module.exports = function mountCrewFeatures(router, deps) {
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
       if (member.role !== 'owner') return sendError(res, 403, 'Only owner can set home base', ErrorCodes.FORBIDDEN);
 
-      const { location, time } = req.body;
+      const { location, time } = req.validatedBody;
       const updated = await stores.crews.updateHomeBase(crewId, { location, time });
       io.to('crew:' + crewId).emit('crew:home-base-updated', { crewId, location, time });
+      await stores.activity.log({ crewId, userId: req.user.userId, type: 'home-base-updated', detail: location || null }).catch(()=>{});
       return sendSuccess(res, { crew: updated });
     } catch (err) {
       log.error('set home base failed', { error: err.message });
@@ -176,6 +177,7 @@ module.exports = function mountCrewFeatures(router, deps) {
       io.to('crew:' + crewId).emit('crew:poll-created', {
         pollId: poll.id, question: poll.question, options: poll.options, createdBy: userId,
       });
+      await stores.activity.log({ crewId, userId, type: 'poll-created', detail: poll.question.slice(0, 100) }).catch(()=>{});
       sendSuccess(res, { poll });
     } catch (err) {
       log.error('create poll error', { error: err.message });
@@ -202,6 +204,7 @@ module.exports = function mountCrewFeatures(router, deps) {
 
       await stores.polls.vote(pollId, userId, optionIndex);
       io.to('crew:' + crewId).emit('crew:poll-voted', { pollId, userId, optionIndex });
+      await stores.activity.log({ crewId, userId, type: 'poll-voted', detail: poll.options[optionIndex] || null }).catch(()=>{});
       sendSuccess(res, { voted: true });
     } catch (err) {
       log.error('vote error', { error: err.message });

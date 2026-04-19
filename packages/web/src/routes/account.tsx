@@ -1,13 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, Link } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared/stores/authStore';
 import { api, getApiBase } from '@festie/shared/services/api';
 import { useToast } from '../lib/toastContext';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Avatar from '../components/ui/Avatar';
-import { Camera, Trash2, User, Lock, Download, AlertTriangle } from 'lucide-react';
+import { Camera, Trash2, User, Lock, Download, Shield, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import AccountNotifications from '../components/account/AccountNotifications';
+import AccountDangerZone from '../components/account/AccountDangerZone';
 
 export default function AccountPage() {
   const navigate = useNavigate();
@@ -28,11 +30,6 @@ export default function AccountPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
-
-  // Delete
-  const [deletePassword, setDeletePassword] = useState('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   // Avatar
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -140,31 +137,61 @@ export default function AccountPage() {
     }
   };
 
-  // --- Delete account ---
-  const handleDelete = async () => {
-    if (!deletePassword) return;
-
-    setDeleting(true);
-    try {
-      await api.delete<void>('/account/', {
-        body: { password: deletePassword },
-      });
-      await logout();
-      toast('Account deleted', 'info');
-      navigate({ to: '/login' });
-    } catch {
-      toast("Couldn't delete account. Try again.", 'error');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-bg-primary pb-24">
+    <div className="bg-bg-primary pb-24">
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <h1 className="text-2xl font-display font-bold text-text-primary">
-          Account Settings
-        </h1>
+        {/* Profile identity card */}
+        <section className="p-4 rounded-lg bg-bg-card border border-border flex items-center gap-4">
+          <Avatar name={user.name || 'User'} image={user.avatar} size="lg" />
+          <div className="flex-1 min-w-0">
+            <div className="text-lg font-semibold text-text-primary truncate">
+              {user.name || user.username || 'User'}
+            </div>
+            {user.email && (
+              <div className="text-sm text-text-secondary truncate">{user.email}</div>
+            )}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-accent-aqua/15 text-accent-aqua font-medium">
+                Account
+              </span>
+              {user.isAdmin && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-accent-amber/15 text-accent-amber font-medium">
+                  Admin
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Admin + Logout quick actions */}
+        <div className="flex gap-3">
+          {user.isAdmin && (
+            <Link
+              to="/admin"
+              className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg bg-accent-amber/10 border border-accent-amber/30 hover:bg-accent-amber/15 transition-colors text-sm font-semibold text-accent-amber min-h-[44px]"
+            >
+              <Shield className="w-4 h-4" />
+              Admin Panel
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await logout();
+              } catch {}
+              navigate({ to: '/login' });
+            }}
+            className={cn(
+              'flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors text-sm font-semibold min-h-[44px]',
+              'bg-accent-coral/10 border-accent-coral/30 hover:bg-accent-coral/15 text-accent-coral',
+              user.isAdmin ? 'flex-1' : 'w-full',
+            )}
+          >
+            <LogOut className="w-4 h-4" />
+            Log Out
+          </button>
+        </div>
 
         {/* Avatar section */}
         <section className="p-4 rounded-lg bg-bg-card border border-border space-y-4">
@@ -206,6 +233,7 @@ export default function AccountPage() {
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
             className="hidden"
+            aria-label="Upload new avatar"
             onChange={handleAvatarUpload}
           />
         </section>
@@ -223,6 +251,8 @@ export default function AccountPage() {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Display name"
               className="flex-1"
+              autoComplete="username"
+              maxLength={40}
             />
             <Button
               type="submit"
@@ -252,6 +282,7 @@ export default function AccountPage() {
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               placeholder="Current password"
+              autoComplete="current-password"
             />
             <Input
               label="New password"
@@ -260,19 +291,28 @@ export default function AccountPage() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="New password (min. 8 characters)"
+              autoComplete="new-password"
+              aria-describedby="pw-hint"
             />
+            {newPassword.length > 0 && newPassword.length < 8 && (
+              <p id="pw-hint" className="text-xs text-accent-coral">
+                {8 - newPassword.length} more character{8 - newPassword.length === 1 ? '' : 's'} needed
+              </p>
+            )}
             <Button
               type="submit"
               variant="primary"
               fullWidth
               isLoading={savingPassword}
-              disabled={!currentPassword || !newPassword}
+              disabled={!currentPassword || !newPassword || newPassword.length < 8}
               className="min-h-[44px]"
             >
               Update Password
             </Button>
           </form>
         </section>
+
+        <AccountNotifications />
 
         {/* GDPR export section */}
         <section className="p-4 rounded-lg bg-bg-card border border-border space-y-4">
@@ -296,66 +336,7 @@ export default function AccountPage() {
           </Button>
         </section>
 
-        {/* Delete account section */}
-        <section
-          className={cn(
-            'p-4 rounded-lg border space-y-4',
-            'bg-accent-coral/5 border-accent-coral/30',
-          )}
-        >
-          <h2 className="text-sm font-semibold text-accent-coral flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4" />
-            Delete Account
-          </h2>
-
-          <p className="text-sm text-text-muted">
-            This will permanently delete your account and all associated data. This action cannot be undone.
-          </p>
-
-          {!showDeleteConfirm ? (
-            <Button
-              variant="danger"
-              fullWidth
-              onClick={() => setShowDeleteConfirm(true)}
-              className="min-h-[44px]"
-            >
-              Delete My Account
-            </Button>
-          ) : (
-            <div className="space-y-3">
-              <Input
-                label="Enter your password to confirm"
-                type="password"
-                isPassword
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                placeholder="Password"
-              />
-
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowDeleteConfirm(false);
-                    setDeletePassword('');
-                  }}
-                  className="flex-1 min-h-[44px]"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="danger"
-                  onClick={handleDelete}
-                  isLoading={deleting}
-                  disabled={!deletePassword}
-                  className="flex-1 min-h-[44px]"
-                >
-                  Confirm Delete
-                </Button>
-              </div>
-            </div>
-          )}
-        </section>
+        <AccountDangerZone />
       </div>
     </div>
   );

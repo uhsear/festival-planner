@@ -17,6 +17,7 @@ export default function AdminAudit() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [hasMore, setHasMore] = useState<boolean | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [page, setPage] = useState(0);
   const [actionFilter, setActionFilter] = useState('');
   const [userFilter, setUserFilter] = useState('');
@@ -33,20 +34,25 @@ export default function AdminAudit() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      params.set('page', String(page));
+      params.set('offset', String(page * 50));
       params.set('limit', '50');
       if (actionFilter) params.set('action', actionFilter);
       if (userFilter) params.set('user', userFilter);
       if (dateFrom) params.set('from', dateFrom);
       if (dateTo) params.set('to', dateTo);
 
-      const result = await api.get<any>(`/admin/audit?${params.toString()}`);
-      setEntries(Array.isArray(result.entries) ? result.entries : []);
-      setHasMore(typeof result.hasMore === 'boolean' ? result.hasMore : undefined);
+      // Fetch raw so we can read `meta` for pagination — the api wrapper
+      // strips everything but `data`.
+      const result = await api.get<AuditEntry[]>(`/admin/audit?${params.toString()}`);
+      const list = Array.isArray(result) ? result : [];
+      setEntries(list);
+      // Server doesn't currently return hasMore; infer from page size.
+      setHasMore(list.length >= 50);
     } catch (err: any) {
       toast(err.message || 'Failed to load audit log', 'error');
     } finally {
       setLoading(false);
+      setHasLoadedOnce(true);
     }
   };
 
@@ -58,19 +64,23 @@ export default function AdminAudit() {
     return `${Math.floor(diff / 86400)}d ago`;
   };
 
-  if (loading) {
+  // Only show the full-page spinner on first load. Subsequent filter/page
+  // changes keep the table visible and dim it via aria-busy so the view
+  // doesn't flash to "Loading..." every keystroke.
+  if (loading && !hasLoadedOnce) {
     return <div className="text-center py-12 text-text-muted">Loading audit log...</div>;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" aria-busy={loading}>
       {/* Filters */}
       <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4">
-        <h3 className="font-semibold text-text-primary mb-3">Filters</h3>
+        <h2 className="text-base font-semibold text-text-primary mb-3">Filters</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <input
             type="text"
             placeholder="Action type..."
+            aria-label="Filter by action type"
             value={actionFilter}
             onChange={(e) => {
               setActionFilter(e.target.value);
@@ -81,6 +91,7 @@ export default function AdminAudit() {
           <input
             type="text"
             placeholder="Username..."
+            aria-label="Filter by username"
             value={userFilter}
             onChange={(e) => {
               setUserFilter(e.target.value);
@@ -90,6 +101,7 @@ export default function AdminAudit() {
           />
           <input
             type="date"
+            aria-label="Filter: date from"
             value={dateFrom}
             onChange={(e) => {
               setDateFrom(e.target.value);
@@ -99,6 +111,7 @@ export default function AdminAudit() {
           />
           <input
             type="date"
+            aria-label="Filter: date to"
             value={dateTo}
             onChange={(e) => {
               setDateTo(e.target.value);
@@ -119,7 +132,11 @@ export default function AdminAudit() {
               <div
                 key={entry.id}
                 className="px-6 py-4 hover:bg-bg-primary/20 transition-colors cursor-pointer"
+                role="button"
+                tabIndex={0}
+                aria-expanded={expandedId === entry.id ? 'true' : 'false'}
                 onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(expandedId === entry.id ? null : entry.id); } }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">

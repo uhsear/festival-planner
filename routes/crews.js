@@ -67,6 +67,11 @@ module.exports = function createCrewRoutes(deps) {
       maxMembers: crew.maxMembers,
       createdAt: crew.createdAt,
       updatedAt: crew.updatedAt,
+      // Home base fields — exposed to all crew members so everyone sees
+      // the meeting location after the owner sets it.
+      homeBaseLocation: crew.homeBaseLocation || crew.home_base_location || null,
+      homeBaseTime: crew.homeBaseTime || crew.home_base_time || null,
+      homeBaseUpdatedAt: crew.homeBaseUpdatedAt || crew.home_base_updated_at || null,
     };
     if (membership) {
       result.role = membership.role || crew.role;
@@ -86,6 +91,7 @@ module.exports = function createCrewRoutes(deps) {
     result.members = members.map((m) => ({
       userId: m.userId,
       username: m.username,
+      name: m.username,
       avatarKey: m.avatarKey || null,
       avatarVersion: m.avatarVersion || null,
       role: m.role,
