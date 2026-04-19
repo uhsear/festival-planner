@@ -1,9 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, Component, ReactNode } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import { Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName } from '@festie/shared/utils';
+import StageBadge from '../components/ui/StageBadge';
+import EmptyState from '../components/ui/EmptyState';
+import RefreshableView from '../components/layout/RefreshableView';
+import { Star } from 'lucide-react';
 
 const PRIORITY_SECTIONS: Array<[Priority, string, string]> = [
   ['must', 'Must See', 'var(--priority-must)'],
@@ -11,7 +16,55 @@ const PRIORITY_SECTIONS: Array<[Priority, string, string]> = [
   ['maybe', 'Maybe', 'var(--priority-maybe)'],
 ];
 
-export default function PicksView() {
+/**
+ * Route-level error boundary for /picks. User reported the view "erroring
+ * out" without a reproducible stack. Rather than ship a blank page on a
+ * render throw, catch + render a helpful card that tells them what to try
+ * (reload, re-select festival, report). Also logs to console so production
+ * Sentry breadcrumbs pick it up. Defensive reads in usePicks already
+ * handle the known null-picks case — this is belt + suspenders for
+ * anything that slips through.
+ */
+class PicksErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    // eslint-disable-next-line no-console
+    console.error('[picks] render failed:', error, info.componentStack);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="picks-container" role="alert" aria-label="Picks view error">
+          <div className="no-festival" style={{ padding: 24 }}>
+            <h2 style={{ marginTop: 0 }}>Something went wrong loading your picks.</h2>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>
+              Try reloading the page. If this keeps happening, switch festivals
+              and back, or sign out and back in.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => window.location.reload()}
+              style={{ marginTop: 12 }}
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function PicksViewInner() {
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const currentProfile = useFestivalStore((state) => state.currentProfile);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
@@ -62,41 +115,17 @@ export default function PicksView() {
     return groups;
   }, [daySets, getMyPick, currentFestival?.b2bSeparator]);
 
-  // Guest teaser — matches legacy
-  if (!user) {
-    return (
-      <div className="picks-container" role="region" aria-label="My picks">
-        <div className="guest-teaser">
-          <div className="empty-state-icon" aria-hidden="true">
-            ★
-          </div>
-          <h2 style={{ margin: '12px 0 8px', fontSize: '18px', color: 'var(--text-primary)' }}>
-            Save your festival picks
-          </h2>
-          <p
-            style={{
-              color: 'var(--text-secondary)',
-              fontSize: '14px',
-              maxWidth: '280px',
-              margin: '0 auto 16px',
-            }}
-          >
-            Sign in to mark artists as Must See, Want to See, or Maybe — sync across devices and
-            share with your crew.
-          </p>
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={() => (window.location.href = '/register')}
-          >
-            Sign Up Free
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // /picks is a logged-in-only surface. Router `beforeLoad` normally catches
+  // this and redirects; this useEffect is a belt-and-suspenders fallback for
+  // the case where the user logs out while already sitting on /picks (no
+  // new `beforeLoad` fires on auth-state change). Render null while the
+  // redirect is in-flight so we never flash the picks UI to a guest.
+  useEffect(() => {
+    if (!user) navigate({ to: '/login' }).catch(() => {});
+  }, [user, navigate]);
+  if (!user) return null;
 
-  if (!currentFestival || !currentProfile) {
+  if (!currentFestival) {
     return (
       <div className="picks-container" role="region" aria-label="My picks">
         <div className="no-festival">
@@ -106,8 +135,49 @@ export default function PicksView() {
     );
   }
 
+  if (!currentProfile) {
+    return (
+      <div className="picks-container" role="region" aria-label="My picks">
+        <div className="no-festival">
+          <p>Join this festival to start saving picks.</p>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginTop: 8 }}>
+            Open the Schedule tab and tap <strong>Join festival</strong>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalPicksThisDay =
+    picksGrouped.must.length +
+    picksGrouped['want-to-see'].length +
+    picksGrouped.maybe.length;
+
+  // Global empty state: zero picks on this day → single friendly CTA pointing
+  // at /cards, rather than three stacked "Tap X on…" hint blocks which looked
+  // like broken/stuck UI on first visit.
+  if (totalPicksThisDay === 0) {
+    // Was a bespoke inline-styled block referencing legacy classes
+    // (.empty-state-guide / .empty-state-icon) that have no CSS rule in
+    // the React package — rendered as an un-styled stack of text on this
+    // route. EmptyState matches /crew + /wrap + /timeline empty surfaces.
+    return (
+      <RefreshableView queryKeys={[['picks'], ['profiles']]} className="picks-container h-full">
+        <div role="region" aria-label="My picks">
+          <EmptyState
+            icon={<Star className="w-12 h-12" aria-hidden="true" />}
+            title={`No picks yet${days[selectedDay]?.label ? ` for ${days[selectedDay].label}` : ''}`}
+            description="Browse artists and tap Must, Want, or Maybe to build your plan."
+            cta={{ label: 'Browse Artists', onClick: () => navigate({ to: '/cards' }) }}
+          />
+        </div>
+      </RefreshableView>
+    );
+  }
+
   return (
-    <div className="picks-container" role="region" aria-label="My picks">
+    <RefreshableView queryKeys={[['picks'], ['profiles']]} className="picks-container h-full">
+      <div role="region" aria-label="My picks">
       {/* Priority sections */}
       {PRIORITY_SECTIONS.map(([pri, label, color]) => {
         const items = picksGrouped[pri];
@@ -121,7 +191,7 @@ export default function PicksView() {
 
             {items.map((set) => {
               const sc = getStageColor(set.stageId);
-              const sn = getStageName(set.stageId);
+              const sn = getStageName(set.stageId) || '';
               const dn = artistDisplayName(set, currentFestival?.b2bSeparator);
               const dayLabel = days[set.dayIndex ?? 0]?.label || '';
 
@@ -138,17 +208,7 @@ export default function PicksView() {
                     {set.startTime ? ' ' + formatTime(set.startTime) : ' TBA'}
                   </div>
                   <div className="pick-artist">{dn}</div>
-                  <span
-                    className="pick-stage"
-                    style={{
-                      background: sc,
-                      color: '#fff',
-                      fontWeight: 700,
-                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.35)',
-                    }}
-                  >
-                    {sn}
-                  </span>
+                  <StageBadge variant="pick" stageName={sn} stageColor={sc} />
                 </button>
               );
             })}
@@ -170,6 +230,15 @@ export default function PicksView() {
           </div>
         );
       })}
-    </div>
+      </div>
+    </RefreshableView>
+  );
+}
+
+export default function PicksView() {
+  return (
+    <PicksErrorBoundary>
+      <PicksViewInner />
+    </PicksErrorBoundary>
   );
 }

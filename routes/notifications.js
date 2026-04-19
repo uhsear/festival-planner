@@ -17,46 +17,12 @@ module.exports = function createNotificationRoutes(deps) {
   const DEVICE_NAME_MAX = 60;
   const MAX_TOKENS_PER_USER = 10;
 
-  // Per-user rate limit for token registration (5 per minute)
-  const tokenRegRateLimits = new Map();
-  const TOKEN_REG_WINDOW = 60_000;
-  const TOKEN_REG_MAX = 5;
-
-  // Periodic cleanup of token registration rate limit map
-  const _tokenRegCleanup = setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of tokenRegRateLimits) {
-      if (now - entry.start > TOKEN_REG_WINDOW * 2) tokenRegRateLimits.delete(key);
-    }
-  }, 120_000);
-  _tokenRegCleanup.unref();
-  // Track cleanup interval for graceful shutdown
-  if (deps.state && deps.state.timers) {
-    deps.state.timers.push(_tokenRegCleanup);
-  }
-
-  function consumeTokenRegLimit(userId) {
-    const now = Date.now();
-    let entry = tokenRegRateLimits.get(userId);
-    if (!entry || now - entry.start > TOKEN_REG_WINDOW) {
-      entry = { start: now, count: 0 };
-      tokenRegRateLimits.set(userId, entry);
-      if (tokenRegRateLimits.size > 1000) {
-        const oldest = tokenRegRateLimits.keys().next().value;
-        tokenRegRateLimits.delete(oldest);
-      }
-    }
-    entry.count += 1;
-    return entry.count <= TOKEN_REG_MAX;
-  }
-
   // ── POST /token — register a device push token ──────────────────────
-  router.post('/token', userAuth, validate(schemas.pushToken), async (req, res) => {
+  // Rate limit routed through the shared Redis-backed `rl()` helper so limits
+  // apply cluster-wide (in-memory limits under PM2 cluster mode multiply the
+  // effective cap by the worker count).
+  router.post('/token', userAuth, rl(5, 'notif-token-reg'), validate(schemas.pushToken), async (req, res) => {
     try {
-      if (!consumeTokenRegLimit(req.user.userId)) {
-        return sendError(res, 429, 'Too many token registrations, try again later', ErrorCodes.RATE_LIMITED);
-      }
-
       const { token, platform, deviceName } = req.validatedBody;
       if (!token || typeof token !== 'string' || token.length < TOKEN_MIN_LENGTH || token.length > TOKEN_MAX_LENGTH) {
         return sendError(res, 400, 'Invalid push token', ErrorCodes.INVALID_INPUT);

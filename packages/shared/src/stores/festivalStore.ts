@@ -2,6 +2,23 @@ import { create, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { api } from '../services/api';
 import { useAuthStore } from './authStore';
+
+// Offline helper — when `window.__festieQueue` is present AND the browser
+// reports offline, queue the mutation via the bridge instead of calling the
+// API. clientId is deterministic so multiple offline toggles of the same
+// field collapse to one replayed PUT (useOfflineQueue.queueMutation upserts
+// by clientId). Falls back to direct API call if the bridge is missing or
+// we're online.
+async function offlinePut(url: string, body: unknown, clientId: string): Promise<void> {
+  if (typeof window !== 'undefined' && !navigator.onLine) {
+    const bridge = (window as any).__festieQueue;
+    if (bridge?.queueMutation) {
+      await bridge.queueMutation({ type: 'api', clientId, url, method: 'PUT', body });
+      return;
+    }
+  }
+  await api.put(url, body);
+}
 import {
   Festival,
   FestivalSet,
@@ -87,9 +104,11 @@ const festivalStore: StateCreator<FestivalStore> = (set, get) => ({
       // Festival detail is public; profiles require auth (401 for guests).
       const detail = await api.get<FestivalDetailResponse>(`/festivals/${festivalId}`);
       let profiles: Profile[] = [];
-      try {
-        profiles = await api.get<Profile[]>(`/profiles/${festivalId}`);
-      } catch (_) { /* guest — no profiles, that's fine */ }
+      if (useAuthStore.getState().user) {
+        try {
+          profiles = await api.get<Profile[]>(`/profiles/${festivalId}`);
+        } catch (_) { /* session expired mid-flight — ignore */ }
+      }
 
       const { stages, days: rawDays, ...festival } = detail;
 
@@ -171,14 +190,20 @@ const festivalStore: StateCreator<FestivalStore> = (set, get) => ({
         delete mergedPicks[request.setId];
       }
 
-      await api.put(`/profiles/${currentProfile.id}`, { picks: mergedPicks });
-
+      // Optimistic: update local state BEFORE the network call so the star
+      // fills immediately even if we're offline and the real PUT is queued.
       set({
         currentProfile: {
           ...currentProfile,
           picks: mergedPicks,
         },
       });
+
+      await offlinePut(
+        `/profiles/${currentProfile.id}`,
+        { picks: mergedPicks },
+        `pick-${currentProfile.id}-${request.setId}`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save pick';
       set({ error: message });
@@ -200,14 +225,20 @@ const festivalStore: StateCreator<FestivalStore> = (set, get) => ({
         Object.entries(currentProfile.picks).filter(([id]) => id !== setId),
       );
 
-      await api.put(`/profiles/${currentProfile.id}`, { picks: mergedPicks });
-
       set({
         currentProfile: {
           ...currentProfile,
           picks: mergedPicks,
         },
       });
+
+      // Same clientId as savePick so a toggle-on-then-off offline sequence
+      // collapses to one PUT whose body is the latest map.
+      await offlinePut(
+        `/profiles/${currentProfile.id}`,
+        { picks: mergedPicks },
+        `pick-${currentProfile.id}-${setId}`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to remove pick';
       set({ error: message });
@@ -230,14 +261,18 @@ const festivalStore: StateCreator<FestivalStore> = (set, get) => ({
         [request.setId]: request.note,
       };
 
-      await api.put(`/profiles/${currentProfile.id}`, { notes: mergedNotes });
-
       set({
         currentProfile: {
           ...currentProfile,
           notes: mergedNotes,
         },
       });
+
+      await offlinePut(
+        `/profiles/${currentProfile.id}`,
+        { notes: mergedNotes },
+        `note-${currentProfile.id}-${request.setId}`,
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save note';
       set({ error: message });

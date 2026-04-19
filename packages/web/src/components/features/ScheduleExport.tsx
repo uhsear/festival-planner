@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Button from '../ui/Button';
 import { Download, Share2, Calendar, Link2, Image } from 'lucide-react';
+import { useToast } from '../../lib/toastContext';
 
 interface ScheduleExportProps {
   festivalId: string;
@@ -10,6 +11,7 @@ interface ScheduleExportProps {
 export default function ScheduleExport({ festivalId, profileId }: ScheduleExportProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const handleExportPDF = async () => {
     if (!profileId) return;
@@ -26,6 +28,7 @@ export default function ScheduleExport({ festivalId, profileId }: ScheduleExport
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
+      toast('Export failed — try again', 'error');
       console.error('Failed to export PDF', error);
     } finally {
       setLoading(null);
@@ -47,6 +50,7 @@ export default function ScheduleExport({ festivalId, profileId }: ScheduleExport
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
+      toast('Export failed — try again', 'error');
       console.error('Failed to export calendar', error);
     } finally {
       setLoading(null);
@@ -73,6 +77,7 @@ export default function ScheduleExport({ festivalId, profileId }: ScheduleExport
         URL.revokeObjectURL(url);
       }
     } catch (error) {
+      toast('Export failed — try again', 'error');
       console.error('Failed to share image', error);
     } finally {
       setLoading(null);
@@ -94,6 +99,7 @@ export default function ScheduleExport({ festivalId, profileId }: ScheduleExport
         setTimeout(() => setCopyFeedback(null), 3000);
       }
     } catch (error) {
+      toast('Export failed — try again', 'error');
       console.error('Failed to generate calendar sync', error);
     } finally {
       setLoading(null);

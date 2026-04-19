@@ -46,6 +46,7 @@ module.exports = function createExpenseRoutes(deps) {
       });
 
       emitter.crewExpenseAdded({ crewId, expense });
+      await stores.activity.log({ crewId, userId: req.user.userId, type: 'expense-added', detail: `${expense.description} $${expense.amount}` }).catch(()=>{});
       return sendSuccess(res, expense, 201);
     } catch (err) {
       log.error('create expense failed', { error: err.message });

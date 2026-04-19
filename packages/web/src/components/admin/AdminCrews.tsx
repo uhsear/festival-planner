@@ -11,6 +11,14 @@ interface Crew {
   createdAt: string;
 }
 
+interface CrewMember {
+  userId: string;
+  username?: string;
+  role?: string;
+  avatar?: string;
+  joinedAt?: string;
+}
+
 /**
  * Crew management: list, search, delete, view members
  */
@@ -19,6 +27,8 @@ export default function AdminCrews() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [membersByCrew, setMembersByCrew] = useState<Record<string, CrewMember[]>>({});
+  const [membersLoading, setMembersLoading] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -37,13 +47,45 @@ export default function AdminCrews() {
     }
   };
 
+  const loadCrewMembers = async (crewId: string) => {
+    // Already cached — re-expand is instant.
+    if (membersByCrew[crewId]) return;
+    setMembersLoading((prev) => ({ ...prev, [crewId]: true }));
+    try {
+      const result = await api.get<CrewMember[]>(`/admin/crews/${crewId}/members`);
+      setMembersByCrew((prev) => ({ ...prev, [crewId]: Array.isArray(result) ? result : [] }));
+    } catch (err: any) {
+      toast(err.message || 'Failed to load members', 'error');
+    } finally {
+      setMembersLoading((prev) => ({ ...prev, [crewId]: false }));
+    }
+  };
+
+  const handleToggleExpand = (crewId: string) => {
+    if (expandedId === crewId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(crewId);
+    // Fire-and-forget; state drives UI.
+    void loadCrewMembers(crewId);
+  };
+
   const handleDelete = async (crewId: string) => {
-    if (!confirm('Are you sure you want to delete this crew?')) return;
+    const target = crews.find((c) => c.id === crewId);
+    const name = target?.name || 'this crew';
+    if (
+      !confirm(
+        `Delete ${name}?\n\nThis removes the crew and all ${target?.memberCount ?? ''} member link${target?.memberCount === 1 ? '' : 's'}. Members will lose access to shared picks.`,
+      )
+    ) {
+      return;
+    }
 
     try {
       await api.delete<void>(`/admin/crews/${crewId}`);
       setCrews(crews.filter((c) => c.id !== crewId));
-      toast('Crew deleted', 'success');
+      toast(`Deleted ${name}`, 'success');
     } catch (err: any) {
       toast(err.message || 'Failed to delete crew', 'error');
     }
@@ -77,43 +119,89 @@ export default function AdminCrews() {
         <p className="text-text-muted text-center py-8">No crews found</p>
       ) : (
         <div className="space-y-3">
-          {filteredCrews.map((crew) => (
-            <div
-              key={crew.id}
-              className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-text-primary">{crew.name}</h3>
-                  <p className="text-xs text-text-muted mt-1">
-                    {crew.memberCount} member{crew.memberCount !== 1 ? 's' : ''} • Created by {crew.createdBy} •{' '}
-                    {new Date(crew.createdAt).toLocaleDateString()}
-                  </p>
+          {filteredCrews.map((crew) => {
+            const isExpanded = expandedId === crew.id;
+            const members = membersByCrew[crew.id];
+            const isLoadingMembers = !!membersLoading[crew.id];
+            return (
+              <div
+                key={crew.id}
+                className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h2 className="text-base font-semibold text-text-primary">{crew.name}</h2>
+                    <p className="text-xs text-text-muted mt-1">
+                      {crew.memberCount} member{crew.memberCount !== 1 ? 's' : ''} • Created by {crew.createdBy} •{' '}
+                      {new Date(crew.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleToggleExpand(crew.id)}
+                      className="text-xs px-3 py-1.5 rounded-md bg-accent-aqua/20 text-accent-aqua hover:bg-accent-aqua/30 transition-colors"
+                    >
+                      {isExpanded ? 'Hide' : 'View'}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(crew.id)}
+                      className="text-xs px-3 py-1.5 rounded-md bg-accent-coral/20 text-accent-coral hover:bg-accent-coral/30 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setExpandedId(expandedId === crew.id ? null : crew.id)}
-                    className="text-xs px-3 py-1.5 rounded-md bg-accent-aqua/20 text-accent-aqua hover:bg-accent-aqua/30 transition-colors"
-                  >
-                    {expandedId === crew.id ? 'Hide' : 'View'}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(crew.id)}
-                    className="text-xs px-3 py-1.5 rounded-md bg-accent-coral/20 text-accent-coral hover:bg-accent-coral/30 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
 
-              {expandedId === crew.id && (
-                <div className="mt-3 pt-3 border-t border-glass-border">
-                  <p className="text-xs text-text-muted mb-2">Festival ID: {crew.festivalId}</p>
-                  <p className="text-xs text-text-muted">Crew ID: {crew.id}</p>
-                </div>
-              )}
-            </div>
-          ))}
+                {isExpanded && (
+                  <div className="mt-3 pt-3 border-t border-glass-border space-y-3">
+                    <div>
+                      <p className="text-xs text-text-muted">Festival ID: {crew.festivalId}</p>
+                      <p className="text-xs text-text-muted">Crew ID: {crew.id}</p>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-semibold text-text-primary mb-2">Members</h4>
+                      {isLoadingMembers && !members ? (
+                        <p className="text-xs text-text-muted italic">Loading members…</p>
+                      ) : !members || members.length === 0 ? (
+                        <p className="text-xs text-text-muted italic">No members.</p>
+                      ) : (
+                        <ul className="space-y-1.5">
+                          {members.map((m) => (
+                            <li
+                              key={m.userId}
+                              className="flex items-center gap-2 text-xs text-text-secondary"
+                            >
+                              {m.avatar ? (
+                                <img
+                                  src={m.avatar}
+                                  alt=""
+                                  width={24}
+                                  height={24}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="w-6 h-6 rounded-full object-cover bg-bg-primary"
+                                />
+                              ) : (
+                                <div
+                                  className="w-6 h-6 rounded-full bg-bg-primary border border-glass-border flex items-center justify-center text-[10px] text-text-muted"
+                                  aria-hidden="true"
+                                >
+                                  {(m.username || m.userId || '?').slice(0, 1).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="text-text-primary">{m.username || m.userId}</span>
+                              <span className="text-text-muted">· {m.role || 'member'}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

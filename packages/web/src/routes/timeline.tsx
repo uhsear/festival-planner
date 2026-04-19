@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
@@ -10,6 +10,9 @@ import {
   getConflictingSetIds,
 } from '@festie/shared/utils';
 import RefreshableView from '../components/layout/RefreshableView';
+import StageBadge from '../components/ui/StageBadge';
+import EmptyState from '../components/ui/EmptyState';
+import { CalendarX, Music } from 'lucide-react';
 
 const SLOT_MINUTES = 15;
 
@@ -104,17 +107,68 @@ export default function TimelineView() {
     return { minMin, maxMin, totalSlots };
   }, [timedSets]);
 
+  // Track viewport so we can size the 15-min timeline row to fit the day in
+  // one screen on mobile. Desktop keeps the fixed 36 px row so artists remain
+  // touch-comfortable; mobile computes `(availableH - header) / totalSlots`
+  // with a 22 px floor (minimum legible height for a pill-style label).
+  const [vpH, setVpH] = useState(() => typeof window === 'undefined' ? 900 : window.innerHeight);
+  const [vpW, setVpW] = useState(() => typeof window === 'undefined' ? 1024 : window.innerWidth);
+  useEffect(() => {
+    const onResize = () => { setVpH(window.innerHeight); setVpW(window.innerWidth); };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const rowHeight = useMemo(() => {
+    if (vpW > 430) return 36; // desktop/tablet stays dense
+    // Reserve: header+bottom nav+sub-header collapsed ≈ 160 px + stage header 40 px
+    const reserved = 160 + 40;
+    const avail = Math.max(280, vpH - reserved);
+    const slots = timeBounds?.totalSlots ?? 20;
+    // 26 px floor keeps a 12.5 px / 1.15-line-height artist name legible inside
+    // a single 15-min slot (was 22 px — mid-descender clip over colored bg).
+    // Grid may scroll past one screen when slots × 26 > avail; that's fine.
+    return Math.max(26, Math.min(36, Math.floor(avail / slots)));
+  }, [vpH, vpW, timeBounds?.totalSlots]);
+
+  // Minute-tick so the now-indicator advances without a parent rerender. Using
+  // a 30 s interval keeps the line visibly alive at 1 px/min on dense grids.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 30 * 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
   // Now-indicator calculation
   const nowIndicator = useMemo(() => {
     if (!timeBounds) return null;
-    const now = new Date();
+    const now = new Date(nowTick);
     const nowMins = now.getHours() * 60 + now.getMinutes();
     if (nowMins >= timeBounds.minMin && nowMins <= timeBounds.maxMin) {
       const pct = ((nowMins - timeBounds.minMin) / (timeBounds.maxMin - timeBounds.minMin)) * 100;
       return pct;
     }
     return null;
-  }, [timeBounds]);
+  }, [timeBounds, nowTick]);
+
+  // Auto-scroll-to-now once per day switch so the user lands at the action.
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const scrollToNow = useCallback(() => {
+    const el = gridRef.current;
+    if (!el || nowIndicator === null) return;
+    const target = el.querySelector<HTMLElement>('.timeline-now-line');
+    if (!target) return;
+    const offset = target.offsetTop - Math.max(80, window.innerHeight * 0.25);
+    window.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' });
+  }, [nowIndicator]);
+
+  useEffect(() => {
+    if (nowIndicator === null) return;
+    // Defer one frame so the grid lays out before we measure.
+    const id = window.requestAnimationFrame(() => scrollToNow());
+    return () => window.cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDay]);
 
   const handleSavePick = async (setId: string, priority: string | null) => {
     if (currentFestival) {
@@ -124,9 +178,11 @@ export default function TimelineView() {
 
   if (!currentFestival) {
     return (
-      <div className="no-festival" role="status" aria-live="polite">
-        <p>No festival selected. Choose a festival from the top menu.</p>
-      </div>
+      <EmptyState
+        icon={<CalendarX className="w-12 h-12" aria-hidden="true" />}
+        title="No festival loaded"
+        description="Choose a festival from the top menu to see the timeline."
+      />
     );
   }
 
@@ -134,7 +190,7 @@ export default function TimelineView() {
   if (timedSets.length === 0 && timelessSets.length > 0) {
     return (
       <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
-        <div className="timeline-container" role="region" aria-label="Timeline view">
+        <div className="timeline-container" role="region" aria-label="Timeline view" data-scroll-sentinel>
           <TBASection
             sets={timelessSets}
             stages={stages}
@@ -184,14 +240,48 @@ export default function TimelineView() {
 
   return (
     <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
-      <div className="timeline-container" role="region" aria-label="Timeline view">
+      <div className="timeline-container" role="region" aria-label="Timeline view" data-scroll-sentinel>
+        {/* Legend — the small circles in each set block are crew-overlap
+            indicators (friends who also picked the set). Collapsible so it
+            doesn't steal mobile viewport space after the first visit. */}
+        <details className="timeline-legend" aria-label="Timeline legend">
+          <summary>Legend</summary>
+          <ul className="timeline-legend-list">
+            <li>
+              <span className="legend-swatch" style={{ background: 'var(--color-accent-coral, #ff6b6b)' }} aria-hidden="true" />
+              Must See (your pick)
+            </li>
+            <li>
+              <span className="legend-swatch" style={{ background: 'var(--color-accent-aqua, #00d4aa)' }} aria-hidden="true" />
+              Want to See (your pick)
+            </li>
+            <li>
+              <span className="legend-swatch" style={{ background: 'var(--color-accent-amber, #f59e0b)' }} aria-hidden="true" />
+              Maybe (your pick)
+            </li>
+            <li>
+              <span className="legend-dot" aria-hidden="true" />
+              Crew pick — a friend in your crew also picked this set
+            </li>
+            <li>
+              <span aria-hidden="true">⚠</span>
+              Schedule conflict with another of your picks
+            </li>
+            <li>
+              <span className="legend-now-line" aria-hidden="true" />
+              Current time
+            </li>
+          </ul>
+        </details>
         <div
+          ref={gridRef}
           className="timeline-grid"
           role="grid"
           aria-label="Timeline view of festival sets by stage and time"
+          data-day={selectedDay}
           style={{
-            gridTemplateColumns: `70px repeat(${visibleStages.length}, minmax(140px, 1fr))`,
-            gridTemplateRows: `auto repeat(${timeBounds.totalSlots}, 36px)`,
+            gridTemplateColumns: `${vpW <= 430 ? '52px' : '70px'} repeat(${visibleStages.length}, minmax(${vpW <= 430 ? '0' : '140px'}, 1fr))`,
+            gridTemplateRows: `auto repeat(${timeBounds.totalSlots}, ${rowHeight}px)`,
             position: 'relative',
           }}
         >
@@ -286,6 +376,13 @@ export default function TimelineView() {
                   myPick && conflictIds.has(s.id) ? ' has-conflict' : '';
                 const dn = artistDisplayName(s, currentFestival?.b2bSeparator);
 
+                // "Short" = block height < 2 text lines + 4 px padding. At
+                // 26 px rowHeight that's anything < 2 slots (30 min); at 36 px
+                // anything < 2 slots too. Short blocks drop time + single-line
+                // ellipsis so the artist name wins.
+                const blockPx = Math.max(1, Math.ceil(spanSlots)) * rowHeight;
+                const isShort = blockPx < 44;
+
                 return (
                   <div
                     key={s.id}
@@ -300,8 +397,13 @@ export default function TimelineView() {
                       right: '2px',
                       minHeight: 'auto',
                       height: 'calc(100% - 2px)',
+                      // Per-column stagger: blocks fade/slide in column-by-column
+                      // on day switch. Keyed off `selectedDay` via data-day on
+                      // the grid so the CSS animation replays.
+                      ['--tl-stagger' as any]: `${Math.min(ci, 5) * 40}ms`,
                     }}
                     data-set-id={s.id}
+                    data-short={isShort ? '1' : '0'}
                     role="button"
                     tabIndex={0}
                     aria-label={`${dn} at ${st.name}, ${formatTime(s.startTime!)}-${formatTime(s.endTime!)}${myPick ? ', priority: ' + myPick : ''}`}
@@ -313,17 +415,26 @@ export default function TimelineView() {
                       }
                     }}
                   >
+                    {conflictClass && (
+                      <span
+                        className="timeline-conflict-badge"
+                        aria-hidden="true"
+                        title="Schedule conflict with another of your picks"
+                      >
+                        ⚠
+                      </span>
+                    )}
                     <div className="set-artist" title={dn}>
                       {dn}
                     </div>
-                    {spanSlots >= 2 && (
+                    {!isShort && (
                       <div className="set-time">
                         {formatTime(s.startTime!)} - {formatTime(s.endTime!)}
                       </div>
                     )}
 
                     {/* Priority pick buttons */}
-                    {currentProfile && spanSlots >= 2 && (
+                    {currentProfile && !isShort && blockPx >= 60 && (
                       <div className="timeline-pick-group">
                         {([['must', '★'], ['want-to-see', '◆'], ['maybe', '●']] as const).map(
                           ([p, icon]) => {
@@ -393,6 +504,21 @@ export default function TimelineView() {
             </div>
           )}
         </div>
+
+        {/* Jump-to-now FAB — only when today's timeline is active and the line
+            exists. Anchored to the container so it stays reachable as the user
+            scrolls through a dense day. */}
+        {nowIndicator !== null && (
+          <button
+            type="button"
+            className="timeline-jump-now"
+            aria-label="Scroll to current time"
+            onClick={scrollToNow}
+          >
+            <Music aria-hidden="true" className="w-4 h-4" />
+            <span>Now</span>
+          </button>
+        )}
 
         {/* TBA section for sets without times */}
         {timelessSets.length > 0 && (
@@ -479,20 +605,12 @@ function TBASection({
               />
               <div className="set-artist" style={{ position: 'relative', zIndex: 2, pointerEvents: 'none' }}>{dn}</div>
               {stage && stageColor && (
-                <span
-                  className="pick-stage"
-                  style={{
-                    background: 'rgba(10, 10, 20, 0.55)',
-                    color: stageColor,
-                    border: `1px solid ${stageColor}`,
-                    fontSize: '11px',
-                    position: 'relative',
-                    zIndex: 2,
-                    fontWeight: 700,
-                  }}
-                >
-                  {stage.name}
-                </span>
+                <StageBadge
+                  variant="pick"
+                  stageName={stage.name}
+                  stageColor={stageColor}
+                  style={{ fontSize: '11px', position: 'relative', zIndex: 2 }}
+                />
               )}
 
               {/* Priority pick buttons */}

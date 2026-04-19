@@ -1,0 +1,52 @@
+import React from 'react';
+import { cn } from '../../lib/utils';
+
+interface IconButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
+  /** lucide-react icon (or any ReactNode). Rendered inside a square touch target. */
+  icon: React.ReactNode;
+  /** Required — maps to aria-label. Falls back to title for tooltip. */
+  label: string;
+  /** default: muted → primary on hover; danger: muted → coral on hover; ghost: same as default, slightly lighter baseline. */
+  variant?: 'default' | 'ghost' | 'danger';
+  /** md = 44×44 (WCAG 2.5.5 AAA); sm = 36×36 (use only in dense lists). */
+  size?: 'sm' | 'md';
+}
+
+/**
+ * Icon-only square tap target. Enforces WCAG 2.5.5 touch target size +
+ * aria-label requirement. Replaces the 10 hand-rolled
+ * `min-h-11 min-w-11 flex items-center justify-center` button instances
+ * that were scattered across the app.
+ */
+const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+  { icon, label, variant = 'default', size = 'md', className, type = 'button', ...rest },
+  ref,
+) {
+  const sizeClass = size === 'sm' ? 'min-h-9 min-w-9' : 'min-h-11 min-w-11';
+  const variantClass =
+    variant === 'danger'
+      ? 'text-text-muted hover:text-accent-coral'
+      : 'text-text-muted hover:text-text-primary';
+
+  return (
+    <button
+      ref={ref}
+      type={type}
+      aria-label={label}
+      title={label}
+      className={cn(
+        'inline-flex items-center justify-center rounded-md transition-colors',
+        'disabled:opacity-50 disabled:cursor-not-allowed',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua',
+        sizeClass,
+        variantClass,
+        className,
+      )}
+      {...rest}
+    >
+      {icon}
+    </button>
+  );
+});
+
+export default IconButton;

@@ -35,9 +35,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="auth-screen" role="region" aria-label="Authentication">
-      <div className="logo-big">FESTIE</div>
-      <div className="tagline">Plan your sets. Sync with your crew.</div>
+    <main className="auth-screen" aria-label="Authentication">
+      <h1 className="logo-big">FESTIE</h1>
+      <p className="tagline">Plan your sets. Sync with your crew.</p>
 
       <div className="auth-tabs">
         <button className="auth-tab active">Login</button>
@@ -46,8 +46,9 @@ export default function LoginPage() {
         </Link>
       </div>
 
-      <form className="auth-form" onSubmit={handleSubmit}>
+      <form className="auth-form" onSubmit={handleSubmit} noValidate {...(isLoading ? { 'aria-busy': true } : {})}>
         <div
+          id="authFormError"
           className="auth-error"
           role="alert"
           aria-live="assertive"
@@ -72,6 +73,8 @@ export default function LoginPage() {
             }
           }}
           disabled={isLoading}
+          aria-invalid={Boolean(formError && !username)}
+          aria-describedby={formError ? 'authFormError' : undefined}
         />
 
         <label htmlFor="authPassword" className="sr-only">
@@ -88,12 +91,15 @@ export default function LoginPage() {
             if (e.key === 'Enter') handleSubmit(e);
           }}
           disabled={isLoading}
+          aria-invalid={Boolean(formError && !password)}
+          aria-describedby={formError ? 'authFormError' : undefined}
         />
 
         <button
           className="btn btn-primary"
           type="submit"
           disabled={isLoading}
+          {...(isLoading ? { 'aria-busy': true } : {})}
         >
           {isLoading ? 'Logging in...' : 'Login'}
         </button>
@@ -107,6 +113,6 @@ export default function LoginPage() {
           </Link>
         </div>
       </form>
-    </div>
+    </main>
   );
 }

@@ -27,7 +27,7 @@ export function createSocket(bearerToken?: string, baseUrl?: string): Socket {
   let url = baseUrl;
   if (!url && typeof window !== 'undefined') {
     try {
-      const apiBase = (window as any).__FP_API_BASE;
+      const apiBase = window.__FP_API_BASE;
       if (apiBase) {
         url = new URL(apiBase).origin;
       }

@@ -32,13 +32,21 @@ export default function GuestTeaser({ mode, className }: GuestTeaserProps) {
   const config = CONFIG[mode];
 
   return (
-    <div className={cn('flex flex-col items-center justify-center py-16 px-4', className)}>
-      <div className="text-6xl mb-6">{config.icon}</div>
-      <h2 className="text-2xl font-display font-bold text-text-primary mb-3 text-center">{config.title}</h2>
+    <section
+      aria-labelledby={`guest-teaser-${mode}-heading`}
+      className={cn('flex flex-col items-center justify-center py-16 px-4', className)}
+    >
+      <div aria-hidden="true" className="text-6xl mb-6">{config.icon}</div>
+      <h1
+        id={`guest-teaser-${mode}-heading`}
+        className="text-2xl font-display font-bold text-text-primary mb-3 text-center"
+      >
+        {config.title}
+      </h1>
       <p className="text-center text-text-secondary mb-8 max-w-sm text-sm leading-relaxed">{config.description}</p>
       <Button variant="primary" onClick={() => window.location.href = '/register'}>
         {config.cta}
       </Button>
-    </div>
+    </section>
   );
 }

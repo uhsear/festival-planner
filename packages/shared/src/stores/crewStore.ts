@@ -22,6 +22,7 @@ export interface CrewActions {
   regenerateInvite: (crewId: string) => Promise<string>;
   deleteCrew: (crewId: string) => Promise<void>;
   loadOverlap: (crewId: string, festivalId: string) => Promise<void>;
+  forceAddMember: (crewId: string, userId: string) => Promise<void>;
   setError: (error: string | null) => void;
 }
 
@@ -193,6 +194,25 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       set({ crewOverlap: overlap });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load overlap';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // POST /crews/:crewId/members — admin-only (server gates on global 'admin' role).
+  // Surfaces member conflict + "not found" errors unchanged so the caller can
+  // distinguish "already a member" from a real failure.
+  forceAddMember: async (crewId: string, userId: string) => {
+    set({ error: null });
+    try {
+      const updated = await api.post<Crew>(`/crews/${crewId}/members`, { userId });
+      set((state) => ({
+        activeCrew: state.activeCrew?.id === crewId ? updated : state.activeCrew,
+        crews: state.crews.map((c) => (c.id === crewId ? updated : c)),
+        crewMembers: updated.members || state.crewMembers,
+      }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to add member';
       set({ error: message });
       throw err;
     }

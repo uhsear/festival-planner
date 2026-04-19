@@ -1,8 +1,9 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSocket } from '@festie/shared/hooks/useSocket';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useFestivalStore } from '@festie/shared/stores/festivalStore';
+import { useCrewStore } from '@festie/shared/stores/crewStore';
 import { useAuthStore } from '@festie/shared/stores/authStore';
 
 export interface UseRealtimeSyncReturn {
@@ -11,9 +12,21 @@ export interface UseRealtimeSyncReturn {
 }
 
 /**
- * Bridge Socket.IO events to TanStack Query cache invalidation.
- * Listens for real-time updates and syncs local state.
- * Mount in AppShell to keep sync active across route changes.
+ * Bridge Socket.IO events to local state. Each event has ONE source of
+ * truth — either Zustand (when the data is mirrored in a store) or
+ * TanStack Query (for data not modeled in Zustand). We previously
+ * invalidated both for every event, causing double-fetches.
+ *
+ * Source-of-truth decisions:
+ *   - pick:updated / pick:removed / note:saved  -> festivalStore.loadProfiles
+ *   - profile:updated / profile:joined / profile:left -> festivalStore.loadProfiles
+ *   - crew:updated / crew:member-added / crew:member-removed -> crewStore
+ *   - festival:updated / festival:set-added / festival:set-updated
+ *       -> festivalStore.selectFestival (full reload of festival + sets + stages)
+ *   - presence:update -> uiStore (no refetch)
+ *
+ * Bursty events (festival/set bulk edits, rapid pick toggles) are
+ * debounced with a 300ms trailing guard so we issue one reload per burst.
  */
 export function useRealtimeSync(): UseRealtimeSyncReturn {
   const queryClient = useQueryClient();
@@ -25,6 +38,11 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
   const setOnlineUsers = useUIStore((state) => state.setOnlineUsers);
   const user = useAuthStore((state) => state.user);
 
+  // Debounce timers keyed by refetch path. setTimeout ids are numbers in
+  // the browser; we store them in a ref to survive re-renders without
+  // triggering effect restarts.
+  const debouncersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
   const { socket } = useSocket(currentFestivalId || undefined);
 
   // Set up Socket.IO event listeners
@@ -33,52 +51,65 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
 
     socketRef.current = socket;
 
-    const handlePicksUpdated = (data: any) => {
-      // Invalidate picks queries
-      queryClient.invalidateQueries({ queryKey: ['picks', currentFestivalId] });
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-      // Also refresh Zustand profiles so currentProfile.picks stays in sync
-      if (currentFestivalId) {
+    const schedule = (key: string, fn: () => void, delay = 300) => {
+      const timers = debouncersRef.current;
+      if (timers[key]) clearTimeout(timers[key]);
+      timers[key] = setTimeout(() => {
+        delete timers[key];
+        fn();
+      }, delay);
+    };
+
+    const reloadProfiles = () => {
+      if (!currentFestivalId) return;
+      schedule(`profiles:${currentFestivalId}`, () => {
         useFestivalStore.getState().loadProfiles(currentFestivalId).catch(() => {});
-      }
+      });
     };
 
-    const handleProfileJoined = (data: any) => {
-      // User joined the current festival
-      queryClient.invalidateQueries({ queryKey: ['profiles', currentFestivalId] });
-      if (currentFestivalId) {
-        useFestivalStore.getState().loadProfiles(currentFestivalId).catch(() => {});
-      }
-    };
-
-    const handleProfileLeft = (data: any) => {
-      // User left the current festival
-      queryClient.invalidateQueries({ queryKey: ['profiles', currentFestivalId] });
-      if (currentFestivalId) {
-        useFestivalStore.getState().loadProfiles(currentFestivalId).catch(() => {});
-      }
-    };
-
-    const handleCrewUpdated = (data: any) => {
-      // Crew membership or details changed
-      queryClient.invalidateQueries({ queryKey: ['crews', currentFestivalId] });
-    };
-
-    const handleFestivalUpdated = (data: any) => {
-      // Festival data changed (lineup, stages, etc.)
-      queryClient.invalidateQueries({ queryKey: ['festival', currentFestivalId] });
-      queryClient.invalidateQueries({ queryKey: ['sets', currentFestivalId] });
-      // Reload festival + days + sets + stages into Zustand
-      if (currentFestivalId) {
+    const reloadFestival = () => {
+      if (!currentFestivalId) return;
+      schedule(`festival:${currentFestivalId}`, () => {
         useFestivalStore.getState().selectFestival(currentFestivalId).catch(() => {});
-      }
+      });
     };
 
+    const reloadCrews = (crewId?: string) => {
+      schedule('crews', () => {
+        useCrewStore.getState().loadCrews().catch(() => {});
+        const activeId = useCrewStore.getState().activeCrew?.id;
+        const targetId = crewId || activeId;
+        if (targetId && targetId === activeId) {
+          useCrewStore.getState().selectCrew(targetId).catch(() => {});
+        }
+      });
+    };
+
+    // --- Picks / notes (festivalStore is authoritative) ---
+    const handlePickUpdated = (_data: any) => reloadProfiles();
+    const handlePickRemoved = (_data: any) => reloadProfiles();
+    const handleNoteSaved = (_data: any) => reloadProfiles();
+    // Legacy event name kept during transition (server still emits picks:updated).
+    const handlePicksUpdated = (_data: any) => reloadProfiles();
+
+    // --- Profiles (festivalStore is authoritative) ---
+    const handleProfileUpdated = (_data: any) => reloadProfiles();
+    const handleProfileJoined = (_data: any) => reloadProfiles();
+    const handleProfileLeft = (_data: any) => reloadProfiles();
+
+    // --- Crews (crewStore is authoritative) ---
+    const handleCrewUpdated = (data: any) => reloadCrews(data?.crewId);
+    const handleCrewMemberAdded = (data: any) => reloadCrews(data?.crewId);
+    const handleCrewMemberRemoved = (data: any) => reloadCrews(data?.crewId);
+
+    // --- Festival / sets (festivalStore selectFestival reloads everything) ---
+    const handleFestivalUpdated = (_data: any) => reloadFestival();
+    const handleSetAdded = (_data: any) => reloadFestival();
+    const handleSetUpdated = (_data: any) => reloadFestival();
+
+    // --- Presence (uiStore only; no refetch) ---
     const handlePresenceUpdate = (data: { users: any[] }) => {
-      // Update online users list
-      if (data.users) {
-        setOnlineUsers(data.users);
-      }
+      if (data.users) setOnlineUsers(data.users);
     };
 
     const handleConnect = () => {
@@ -93,24 +124,55 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     };
 
     // Register listeners
+    socket.on('pick:updated', handlePickUpdated);
+    socket.on('pick:removed', handlePickRemoved);
+    socket.on('note:saved', handleNoteSaved);
     socket.on('picks:updated', handlePicksUpdated);
+
+    socket.on('profile:updated', handleProfileUpdated);
     socket.on('profile:joined', handleProfileJoined);
     socket.on('profile:left', handleProfileLeft);
+
     socket.on('crew:updated', handleCrewUpdated);
+    socket.on('crew:member-added', handleCrewMemberAdded);
+    socket.on('crew:member-removed', handleCrewMemberRemoved);
+
     socket.on('festival:updated', handleFestivalUpdated);
+    socket.on('festival:set-added', handleSetAdded);
+    socket.on('festival:set-updated', handleSetUpdated);
+
     socket.on('presence:update', handlePresenceUpdate);
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
 
     return () => {
+      socket.off('pick:updated', handlePickUpdated);
+      socket.off('pick:removed', handlePickRemoved);
+      socket.off('note:saved', handleNoteSaved);
       socket.off('picks:updated', handlePicksUpdated);
+
+      socket.off('profile:updated', handleProfileUpdated);
       socket.off('profile:joined', handleProfileJoined);
       socket.off('profile:left', handleProfileLeft);
+
       socket.off('crew:updated', handleCrewUpdated);
+      socket.off('crew:member-added', handleCrewMemberAdded);
+      socket.off('crew:member-removed', handleCrewMemberRemoved);
+
       socket.off('festival:updated', handleFestivalUpdated);
+      socket.off('festival:set-added', handleSetAdded);
+      socket.off('festival:set-updated', handleSetUpdated);
+
       socket.off('presence:update', handlePresenceUpdate);
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);
+
+      // Cancel any pending debounced refetches so we don't fire after unmount.
+      const timers = debouncersRef.current;
+      for (const k of Object.keys(timers)) {
+        clearTimeout(timers[k]);
+        delete timers[k];
+      }
     };
   }, [socket, currentFestivalId, queryClient, setConnected, setOnlineUsers]);
 

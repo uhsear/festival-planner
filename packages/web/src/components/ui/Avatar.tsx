@@ -18,6 +18,17 @@ const sizeMap = {
   lg: 'w-14 h-14 text-lg',
 };
 
+// Intrinsic pixel dimensions that match sizeMap's Tailwind classes. Passed
+// as HTML width/height attrs on <img> so the browser reserves layout space
+// before the avatar URL resolves — eliminates avatar-pop CLS in crew lists
+// and member rows where 20+ avatars load in parallel.
+const sizePx = {
+  xs: 24,
+  sm: 32,
+  md: 40,
+  lg: 56,
+};
+
 const dotSizeMap = {
   xs: 'w-1.5 h-1.5',
   sm: 'w-2 h-2',
@@ -43,6 +54,10 @@ export default function Avatar({
         <img
           src={image}
           alt={normalizedName}
+          width={sizePx[size]}
+          height={sizePx[size]}
+          loading="lazy"
+          decoding="async"
           className={cn(
             'rounded-full object-cover',
             sizeMap[size]

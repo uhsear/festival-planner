@@ -53,8 +53,9 @@ export function useOfflineSnapshot(): UseOfflineSnapshotReturn {
       const item = localStorage.getItem(SNAPSHOT_KEY);
       if (!item) return null;
       const snapshot = JSON.parse(item) as OfflineSnapshot;
-      // Validate snapshot structure
-      if (!snapshot.user || !snapshot.festival) {
+      // Validate snapshot structure — only timestamp is required. user/festival
+      // are optional so fresh snapshots (pre-login) can still be restored.
+      if (typeof snapshot.timestamp !== 'number') {
         return null;
       }
       return snapshot;

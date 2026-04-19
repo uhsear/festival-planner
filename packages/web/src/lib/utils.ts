@@ -1,8 +1,6 @@
-/**
- * Simple class name utility for conditional Tailwind classes
- */
-export function cn(...classes: (string | boolean | undefined | null)[]): string {
-  return classes
-    .filter((cls) => typeof cls === 'string' && cls.length > 0)
-    .join(' ');
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs));
 }

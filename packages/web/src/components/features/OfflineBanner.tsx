@@ -38,39 +38,64 @@ export default function OfflineBanner() {
     }
   };
 
-  if (!offlineMode || dismissed) {
+  // Show when genuinely offline OR when back online with pending queue.
+  // The "syncing" state after reconnect is short-lived; offers a Flush Now
+  // button for users who see pending items stuck.
+  const showSyncing = !offlineMode && pendingSync > 0;
+  if ((!offlineMode || dismissed) && !showSyncing) {
     return null;
   }
+
+  const handleFlush = () => {
+    const q = (window as any).__festieQueue;
+    if (q?.processQueue) q.processQueue().catch(() => {});
+  };
 
   return (
     <div
       className={cn(
-        'fixed top-0 left-0 right-0 z-40 px-4 py-3 flex items-center justify-between',
-        'bg-accent-amber/90 backdrop-blur-xl border-b border-accent-amber/20',
-        'text-bg-primary',
+        'fixed top-0 left-0 right-0 z-40 px-4 py-3 flex items-center justify-between gap-3',
+        offlineMode
+          ? 'bg-accent-amber/90 border-b border-accent-amber/20 text-bg-primary'
+          : 'bg-accent-aqua/90 border-b border-accent-aqua/20 text-bg-primary',
+        'backdrop-blur-xl',
       )}
       role="alert"
       aria-live="polite"
     >
-      <div className="flex items-center gap-3">
-        <div className="w-2 h-2 rounded-full bg-bg-primary animate-pulse" />
-        <span className="text-sm font-medium">
-          You're offline — changes will sync when you reconnect
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-2 h-2 rounded-full bg-bg-primary animate-pulse flex-shrink-0" />
+        <span className="text-sm font-medium truncate">
+          {offlineMode
+            ? "You're offline — changes will sync when you reconnect"
+            : `Syncing ${pendingSync} pending change${pendingSync === 1 ? '' : 's'}…`}
         </span>
         {pendingSync > 0 && (
-          <span className="ml-2 px-2 py-0.5 rounded-full bg-bg-primary/20 text-xs font-medium">
-            {pendingSync} pending
+          <span className="ml-1 px-2 py-0.5 rounded-full bg-bg-primary/20 text-xs font-medium flex-shrink-0">
+            {pendingSync}
           </span>
         )}
       </div>
 
-      <button
-        onClick={handleDismiss}
-        className="text-bg-primary hover:opacity-70 transition-opacity p-1"
-        aria-label="Dismiss offline notice"
-      >
-        ×
-      </button>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {showSyncing && (
+          <button
+            onClick={handleFlush}
+            className="text-xs font-bold px-2 py-1 rounded bg-bg-primary/10 hover:bg-bg-primary/20"
+          >
+            Flush now
+          </button>
+        )}
+        {offlineMode && (
+          <button
+            onClick={handleDismiss}
+            className="text-bg-primary hover:opacity-70 transition-opacity p-1"
+            aria-label="Dismiss offline notice"
+          >
+            ×
+          </button>
+        )}
+      </div>
     </div>
   );
 }

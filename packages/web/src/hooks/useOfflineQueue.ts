@@ -57,9 +57,17 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-function txStore(mode: IDBTransactionMode): IDBObjectStore {
+/**
+ * Open a transaction and return both the tx and the store so callers can
+ * explicitly abort the tx if a request rejects. IDB transactions auto-close
+ * when the microtask queue drains, but an unhandled rejection between two
+ * awaits can leak the tx until GC. Explicitly aborting makes the contract
+ * clear and frees the tx immediately.
+ */
+function openTx(mode: IDBTransactionMode): { tx: IDBTransaction; store: IDBObjectStore } {
   if (!_db) throw new Error('Database not initialized');
-  return _db.transaction(STORE_NAME, mode).objectStore(STORE_NAME);
+  const tx = _db.transaction(STORE_NAME, mode);
+  return { tx, store: tx.objectStore(STORE_NAME) };
 }
 
 function idbRequest<T>(req: IDBRequest<T>): Promise<T> {
@@ -78,8 +86,14 @@ function generateClientId(): string {
 async function getPendingCount(): Promise<number> {
   try {
     await openDB();
-    const index = txStore('readonly').index('status');
-    return await idbRequest(index.count(IDBKeyRange.only('pending')));
+    const { tx, store } = openTx('readonly');
+    try {
+      const index = store.index('status');
+      return await idbRequest(index.count(IDBKeyRange.only('pending')));
+    } catch (err) {
+      try { tx.abort(); } catch { /* tx may already be finished */ }
+      throw err;
+    }
   } catch {
     // Fallback to localStorage
     const queue = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
@@ -90,9 +104,15 @@ async function getPendingCount(): Promise<number> {
 async function getAll(): Promise<QueuedMutation[]> {
   try {
     await openDB();
-    const all = await idbRequest(txStore('readonly').getAll());
-    // Filter out stale mutations (older than 24h)
-    return all.filter((m) => Date.now() - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
+    const { tx, store } = openTx('readonly');
+    try {
+      const all = await idbRequest<QueuedMutation[]>(store.getAll());
+      // Filter out stale mutations (older than 24h)
+      return all.filter((m) => Date.now() - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
+    } catch (err) {
+      try { tx.abort(); } catch { /* tx may already be finished */ }
+      throw err;
+    }
   } catch {
     const queue = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
     return queue.filter((m: QueuedMutation) => Date.now() - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
@@ -101,7 +121,13 @@ async function getAll(): Promise<QueuedMutation[]> {
 
 async function removeMutation(id: number): Promise<void> {
   try {
-    await idbRequest(txStore('readwrite').delete(id));
+    const { tx, store } = openTx('readwrite');
+    try {
+      await idbRequest(store.delete(id));
+    } catch (err) {
+      try { tx.abort(); } catch { /* tx may already be finished */ }
+      throw err;
+    }
   } catch {
     // Ignore
   }
@@ -109,11 +135,16 @@ async function removeMutation(id: number): Promise<void> {
 
 async function updateMutation(id: number, updates: Partial<QueuedMutation>): Promise<void> {
   try {
-    const store = txStore('readwrite');
-    const existing = await idbRequest(store.get(id));
-    if (existing) {
-      Object.assign(existing, updates);
-      await idbRequest(store.put(existing));
+    const { tx, store } = openTx('readwrite');
+    try {
+      const existing = await idbRequest(store.get(id));
+      if (existing) {
+        Object.assign(existing, updates);
+        await idbRequest(store.put(existing));
+      }
+    } catch (err) {
+      try { tx.abort(); } catch { /* tx may already be finished */ }
+      throw err;
     }
   } catch {
     // Ignore
@@ -124,12 +155,29 @@ async function pruneStaleEntries(): Promise<void> {
   try {
     await openDB();
     const now = Date.now();
-    const all = await idbRequest(txStore('readonly').getAll());
-    const tx = txStore('readwrite');
-    for (const entry of all) {
-      if (now - (entry.createdAt || 0) > MAX_QUEUE_AGE_MS) {
-        await idbRequest(tx.delete(entry.id));
+
+    // Read phase: snapshot existing entries in a readonly tx.
+    const readHandle = openTx('readonly');
+    let all: QueuedMutation[];
+    try {
+      all = await idbRequest<QueuedMutation[]>(readHandle.store.getAll());
+    } catch (err) {
+      try { readHandle.tx.abort(); } catch { /* tx may already be finished */ }
+      throw err;
+    }
+
+    // Write phase: delete stale entries in a single readwrite tx so if any
+    // delete rejects we can abort and unwind the whole batch.
+    const writeHandle = openTx('readwrite');
+    try {
+      for (const entry of all) {
+        if (now - (entry.createdAt || 0) > MAX_QUEUE_AGE_MS) {
+          await idbRequest(writeHandle.store.delete(entry.id!));
+        }
       }
+    } catch (err) {
+      try { writeHandle.tx.abort(); } catch { /* tx may already be finished */ }
+      throw err;
     }
   } catch {
     const queue = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
@@ -174,7 +222,21 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
           createdAt: Date.now(),
         };
 
-        await idbRequest(txStore('readwrite').add(entry));
+        // Upsert semantics: if a pending entry with the same clientId already
+        // exists, replace it. This is what lets the caller use deterministic
+        // client IDs like `pick-${profileId}-${setId}` to collapse N offline
+        // toggles of the same set into exactly one replayed mutation.
+        const existing = await getAll();
+        const match = existing.find((m) => m.clientId === clientId && m.status === 'pending' && m.id != null);
+        if (match?.id != null) await removeMutation(match.id);
+
+        const { tx, store } = openTx('readwrite');
+        try {
+          await idbRequest(store.add(entry));
+        } catch (err) {
+          try { tx.abort(); } catch { /* tx may already be finished */ }
+          throw err;
+        }
         await updatePendingCount();
         return clientId;
       } catch (err) {
@@ -287,7 +349,13 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
   const clearQueue = useCallback(async (): Promise<void> => {
     try {
       await openDB();
-      await idbRequest(txStore('readwrite').clear());
+      const { tx, store } = openTx('readwrite');
+      try {
+        await idbRequest(store.clear());
+      } catch (err) {
+        try { tx.abort(); } catch { /* tx may already be finished */ }
+        throw err;
+      }
     } catch {
       localStorage.removeItem('festie-offline-queue');
     }

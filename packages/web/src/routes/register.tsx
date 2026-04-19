@@ -56,9 +56,9 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="auth-screen" role="region" aria-label="Authentication">
-      <div className="logo-big">FESTIE</div>
-      <div className="tagline">Plan your sets. Sync with your crew.</div>
+    <main className="auth-screen" aria-label="Authentication">
+      <h1 className="logo-big">FESTIE</h1>
+      <p className="tagline">Plan your sets. Sync with your crew.</p>
 
       <div className="auth-tabs">
         <Link to="/login" className="auth-tab">
@@ -67,8 +67,8 @@ export default function RegisterPage() {
         <button className="auth-tab active">Create Account</button>
       </div>
 
-      <form className="auth-form" onSubmit={handleSubmit}>
-        <div className="auth-error" role="alert" aria-live="assertive">
+      <form className="auth-form" onSubmit={handleSubmit} noValidate {...(isLoading ? { 'aria-busy': true } : {})}>
+        <div id="authFormError" className="auth-error" role="alert" aria-live="assertive">
           {formError || '\u00A0'}
         </div>
 
@@ -127,7 +127,7 @@ export default function RegisterPage() {
         <input
           type="email"
           id="authEmail"
-          placeholder="Email (optional, for password reset)"
+          placeholder="Email — for password reset"
           autoComplete="email"
           maxLength={254}
           value={email}
@@ -177,10 +177,10 @@ export default function RegisterPage() {
           </span>
         </label>
 
-        <button className="btn btn-primary" type="submit" disabled={isLoading}>
+        <button className="btn btn-primary" type="submit" disabled={isLoading} {...(isLoading ? { 'aria-busy': true } : {})}>
           {isLoading ? 'Creating account...' : 'Create Account'}
         </button>
       </form>
-    </div>
+    </main>
   );
 }

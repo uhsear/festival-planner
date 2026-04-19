@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { createSocket } from '../services/socket';
 import { useAuthStore } from '../stores/authStore';
@@ -14,6 +14,14 @@ export interface UseSocketReturn {
 
 export function useSocket(festivalId?: string): UseSocketReturn {
   const socketRef = useRef<Socket | null>(null);
+  // Invariant: joinedFestivalIdRef.current holds the festivalId that the
+  // currently-live socket emitted `join-festival` for. Updated
+  // synchronously at the top of each effect run and read in the cleanup.
+  // Using a ref (rather than a closure-captured local) keeps the leave/
+  // join sides in lockstep even under rapid festivalId switches
+  // (A -> B -> C), so we never emit `leave-festival:A` against a socket
+  // that has since joined C.
+  const joinedFestivalIdRef = useRef<string | null>(null);
   const userToken = useAuthStore((state) => state.userToken);
   const connected = useUIStore((state) => state.connected);
   const setConnected = useUIStore((state) => state.setConnected);
@@ -26,11 +34,15 @@ export function useSocket(festivalId?: string): UseSocketReturn {
   useEffect(() => {
     const socket = createSocket(userToken || undefined);
     const joinedFestivalId = festivalId || currentFestivalId;
+    // Sync the ref BEFORE wiring handlers so handleConnect reads the
+    // right id and cleanup can leave the right room.
+    joinedFestivalIdRef.current = joinedFestivalId ?? null;
 
     const handleConnect = () => {
       setConnected(true);
-      if (joinedFestivalId) {
-        socket.emit('join-festival', { festivalId: joinedFestivalId });
+      const joinId = joinedFestivalIdRef.current;
+      if (joinId) {
+        socket.emit('join-festival', { festivalId: joinId });
       }
     };
 
@@ -52,7 +64,7 @@ export function useSocket(festivalId?: string): UseSocketReturn {
       removeOnlineUser(userId);
     };
 
-    const handleError = (error: any) => {
+    const handleError = (error: Error) => {
       console.error('Socket error:', error);
     };
 
@@ -67,9 +79,12 @@ export function useSocket(festivalId?: string): UseSocketReturn {
 
     return () => {
       // Leave the festival room before tearing down so the server stops
-      // broadcasting picks to a room we no longer care about.
-      if (joinedFestivalId && socket.connected) {
-        socket.emit('leave-festival', { festivalId: joinedFestivalId });
+      // broadcasting picks to a room we no longer care about. Read the
+      // ref rather than the closure-captured local to respect the
+      // invariant documented above.
+      const toLeave = joinedFestivalIdRef.current;
+      if (toLeave && socket.connected) {
+        socket.emit('leave-festival', { festivalId: toLeave });
       }
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);

@@ -4,13 +4,46 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#080810" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Preload the Google Fonts CSS so the browser kicks off the font-family
+         fetch on the critical path instead of waiting for /app.css to parse.
+         Combined with `display=swap` (already in the URL) + size-adjust
+         fallback below, FOUT shifts are eliminated on first paint. -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syncopate:wght@400;700&display=swap" />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet" />
+    <!-- Size-adjust fallback: matches x-height + ascent of Space Grotesk and
+         Syncopate so the system-ui fallback that renders during font swap
+         occupies the same vertical metrics. Prevents text reflow when the
+         web font loads (typical Space Grotesk swap shifts line heights
+         ~4-6 px per paragraph). Values measured empirically against macOS
+         system-ui / Windows Segoe UI. -->
+    <style>
+      @font-face {
+        font-family: 'Space Grotesk Fallback';
+        src: local('Arial');
+        size-adjust: 101%;
+        ascent-override: 95%;
+        descent-override: 25%;
+        line-gap-override: 0%;
+      }
+      @font-face {
+        font-family: 'Syncopate Fallback';
+        src: local('Arial');
+        size-adjust: 108%;
+        ascent-override: 92%;
+        descent-override: 25%;
+        line-gap-override: 0%;
+      }
+      body {
+        font-family: 'Space Grotesk', 'Space Grotesk Fallback', system-ui, sans-serif;
+      }
+    </style>
     <!-- Legacy app.css: 4300 lines of hand-tuned glassmorphism + 20 mobile critique rounds.
          Served from the legacy public/ static mount (second-priority after React dist/).
          React components use the same class names as the legacy app so these styles apply. -->

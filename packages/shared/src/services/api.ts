@@ -30,9 +30,9 @@ export function setAuthToken(token: string | null): void {
   _bearerToken = token;
   if (typeof window !== 'undefined') {
     if (token) {
-      (window as any).__FP_BEARER_TOKEN = token;
+      window.__FP_BEARER_TOKEN = token;
     } else {
-      delete (window as any).__FP_BEARER_TOKEN;
+      delete window.__FP_BEARER_TOKEN;
     }
   }
 }
@@ -44,7 +44,7 @@ export function getAuthToken(): string | null {
 export function clearAuthToken(): void {
   _bearerToken = null;
   if (typeof window !== 'undefined') {
-    delete (window as any).__FP_BEARER_TOKEN;
+    delete window.__FP_BEARER_TOKEN;
   }
 }
 

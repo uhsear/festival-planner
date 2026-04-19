@@ -19,6 +19,10 @@ export interface AuthState {
   adminToken: string | null;
   isLoading: boolean;
   error: string | null;
+  // Flips true once checkSession has run (success or failure). Consumers that
+  // fire authenticated requests on mount should wait for this to avoid racing
+  // hydrated-from-localStorage user state against /auth/me verification.
+  sessionChecked: boolean;
 }
 
 export interface AuthActions {
@@ -59,13 +63,14 @@ const defaultStorage: PersistStorage<AuthState> = {
   },
 };
 
-const authStore: StateCreator<AuthStore> = (set) => ({
+const authStore: StateCreator<AuthStore> = (set, get) => ({
   user: null,
   userToken: null,
   isAdmin: false,
   adminToken: null,
   isLoading: false,
   error: null,
+  sessionChecked: false,
 
   login: async (request: LoginRequest) => {
     set({ isLoading: true, error: null });
@@ -157,11 +162,13 @@ const authStore: StateCreator<AuthStore> = (set) => ({
       const response = await api.get<{ user: User; roles?: string[] }>('/auth/me');
       if (response && response.user) {
         const isAdmin = response.roles?.includes('admin') || response.user.isAdmin || false;
-        set({ user: { ...response.user, isAdmin }, isAdmin });
+        set({ user: { ...response.user, isAdmin }, isAdmin, sessionChecked: true });
         return true;
       }
+      set({ user: null, isAdmin: false, userToken: null, sessionChecked: true });
       return false;
     } catch {
+      set({ user: null, isAdmin: false, userToken: null, sessionChecked: true });
       return false;
     }
   },
@@ -191,6 +198,9 @@ const authStore: StateCreator<AuthStore> = (set) => ({
   },
 
   uploadAvatar: async (file: File | Blob) => {
+    // Capture the previous avatar up front so we can roll back on failure
+    // and avoid leaving a stale/broken URL in the store.
+    const previousAvatar = get().user?.avatar;
     set({ isLoading: true, error: null });
     try {
       const formData = new FormData();
@@ -211,6 +221,8 @@ const authStore: StateCreator<AuthStore> = (set) => ({
       if (!response.ok) {
         throw new Error('Upload failed');
       }
+      // Only update user.avatar after we've verified the upload succeeded
+      // and parsed the new URL from the response.
       const data = (await response.json()) as AvatarResponse;
       set((state) => ({
         user: state.user ? { ...state.user, avatar: data.url } : null,
@@ -218,8 +230,12 @@ const authStore: StateCreator<AuthStore> = (set) => ({
       }));
       return data;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Avatar upload failed';
-      set({ error: message, isLoading: false });
+      // Roll back any partial avatar change to the previous value.
+      set((state) => ({
+        user: state.user ? { ...state.user, avatar: previousAvatar } : null,
+        error: err instanceof Error ? err.message : 'Avatar upload failed',
+        isLoading: false,
+      }));
       throw err;
     }
   },

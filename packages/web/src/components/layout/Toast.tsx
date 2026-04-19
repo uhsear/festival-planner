@@ -4,7 +4,7 @@ import { useToast } from '../../lib/toastContext';
 import { cn } from '../../lib/utils';
 
 export default function Toast() {
-  const { toasts, removeToast } = useToast();
+  const { toasts, removeToast, pauseToast, resumeToast } = useToast();
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -33,14 +33,26 @@ export default function Toast() {
   };
 
   return (
-    <div className="fixed bottom-24 right-4 left-4 z-50 flex flex-col gap-2 pointer-events-none sm:left-auto sm:max-w-sm">
-      {toasts.map((t) => (
+    <div
+      className="fixed bottom-24 right-4 left-4 z-50 flex flex-col gap-2 pointer-events-none sm:left-auto sm:max-w-sm"
+      aria-live="polite"
+      aria-atomic="false"
+    >
+      {toasts.map((t) => {
+        const isAlert = t.type === 'error' || t.type === 'warning';
+        const roleAttr: { role: 'alert' | 'status' } = { role: isAlert ? 'alert' : 'status' };
+        return (
         <div
           key={t.id}
+          {...roleAttr}
           className={cn(
             'glass p-4 rounded-lg flex-between gap-3 pointer-events-auto toast-enter',
             getColorClasses(t.type)
           )}
+          onMouseEnter={() => pauseToast(t.id)}
+          onMouseLeave={() => resumeToast(t.id)}
+          onFocus={() => pauseToast(t.id)}
+          onBlur={() => resumeToast(t.id)}
         >
           <div className="flex gap-3 items-start flex-1">
             {getIcon(t.type)}
@@ -48,6 +60,7 @@ export default function Toast() {
               <p className="text-sm font-medium">{t.message}</p>
               {t.onUndo && (
                 <button
+                  type="button"
                   onClick={t.onUndo}
                   className="text-xs mt-1 opacity-75 hover:opacity-100 flex items-center gap-1 transition-opacity"
                 >
@@ -59,6 +72,7 @@ export default function Toast() {
           </div>
 
           <button
+            type="button"
             onClick={() => removeToast(t.id)}
             className="p-1 hover:bg-white hover:bg-opacity-10 rounded transition-colors flex-shrink-0"
             aria-label="Close"
@@ -66,7 +80,8 @@ export default function Toast() {
             <X className="w-4 h-4" />
           </button>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

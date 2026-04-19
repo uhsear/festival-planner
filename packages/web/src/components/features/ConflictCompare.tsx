@@ -55,6 +55,7 @@ export default function ConflictCompare({
         {/* Close button */}
         <button
           onClick={onClose}
+          aria-label="Close comparison"
           className="absolute top-4 right-4 z-20 p-2 hover:bg-bg-secondary rounded-lg transition-colors"
         >
           <X className="w-5 h-5 text-text-secondary" />

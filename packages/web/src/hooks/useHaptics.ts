@@ -30,9 +30,9 @@ export function useHaptics(): UseHapticsReturn {
     if (!isSupported) return;
     try {
       navigator.vibrate(pattern);
-    } catch (err) {
-      // Silently fail on unsupported browsers
-      console.debug('Vibration API failed:', err);
+    } catch {
+      // Silently fail on unsupported browsers (Safari iOS ignores silently,
+      // some Androids require prior user-gesture). Not observable to users.
     }
   };
 
