@@ -71,6 +71,7 @@ async function cleanupCreatedUsers() {
     // Delete BY EXACT ID
     await pool.query('DELETE FROM email_verification_tokens WHERE user_id = ANY($1)', [createdUserIds]);
     await pool.query('DELETE FROM password_reset_tokens WHERE user_id = ANY($1)', [createdUserIds]);
+    await pool.query('DELETE FROM refresh_tokens WHERE user_id = ANY($1)', [createdUserIds]);
     await pool.query('DELETE FROM user_sessions WHERE user_id = ANY($1)', [createdUserIds]);
     await pool.query('DELETE FROM users WHERE id = ANY($1)', [createdUserIds]);
   } finally {

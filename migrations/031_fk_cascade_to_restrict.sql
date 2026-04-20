@@ -89,6 +89,5 @@ ALTER TABLE notification_topic_subs DROP CONSTRAINT notification_topic_subs_fest
   ADD CONSTRAINT notification_topic_subs_festival_id_fkey FOREIGN KEY (festival_id) REFERENCES festivals(id) ON DELETE RESTRICT;
 
 INSERT INTO public.schema_migrations (version, name, applied_at)
-SELECT COALESCE(MAX(version), 0) + 1, '031_fk_cascade_to_restrict', NOW()
-FROM public.schema_migrations
-WHERE NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE name = '031_fk_cascade_to_restrict');
+VALUES (31, '031_fk_cascade_to_restrict', NOW())
+ON CONFLICT DO NOTHING;

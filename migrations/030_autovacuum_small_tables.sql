@@ -24,6 +24,5 @@ ALTER TABLE notification_topic_subs  SET (autovacuum_vacuum_threshold = 10, auto
 ALTER TABLE notification_log         SET (autovacuum_vacuum_threshold = 10, autovacuum_vacuum_scale_factor = 0.1, autovacuum_analyze_threshold = 10, autovacuum_analyze_scale_factor = 0.05);
 
 INSERT INTO public.schema_migrations (version, name, applied_at)
-SELECT COALESCE(MAX(version), 0) + 1, '030_autovacuum_small_tables', NOW()
-FROM public.schema_migrations
-WHERE NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE name = '030_autovacuum_small_tables');
+VALUES (30, '030_autovacuum_small_tables', NOW())
+ON CONFLICT DO NOTHING;
