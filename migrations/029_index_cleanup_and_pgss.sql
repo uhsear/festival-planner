@@ -53,6 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_festival_sets_festival_start
   ON public.festival_sets (festival_id, start_time);
 
 -- Register this migration
-INSERT INTO public.schema_migrations (name, applied_at)
-VALUES ('029_index_cleanup_and_pgss', NOW())
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.schema_migrations (version, name, applied_at)
+SELECT COALESCE(MAX(version), 0) + 1, '029_index_cleanup_and_pgss', NOW()
+FROM public.schema_migrations
+WHERE NOT EXISTS (SELECT 1 FROM public.schema_migrations WHERE name = '029_index_cleanup_and_pgss');
