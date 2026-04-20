@@ -286,7 +286,7 @@ module.exports = function createExportRoutes(deps) {
         icsLines.push(foldIcsLine(`SUMMARY:${escIcs(set.artist)}`));
         if (stage) icsLines.push(foldIcsLine(`LOCATION:${escIcs(stage.name)}${festival.location ? ' - ' + escIcs(festival.location) : ''}`));
         if (description) icsLines.push(foldIcsLine(`DESCRIPTION:${escIcs(description)}`));
-        icsLines.push(`UID:${set.id}-${festival.id}@${(config.PUBLIC_ORIGIN || 'festie.us').replace(/^https?:\/\//, '')}`);
+        icsLines.push(`UID:${set.id}-${festival.id}@${(config.PUBLIC_ORIGIN || 'localhost').replace(/^https?:\/\//, '')}`);
         icsLines.push(`STATUS:CONFIRMED`);
         icsLines.push('END:VEVENT');
       });

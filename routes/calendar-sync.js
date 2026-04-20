@@ -28,7 +28,7 @@ module.exports = function createCalendarSyncRoutes(deps) {
         profileId: profile.id,
       });
 
-      const origin = config.PUBLIC_ORIGIN || 'https://festie.us';
+      const origin = config.PUBLIC_ORIGIN || 'http://localhost:4000';
       const url = `${origin}/cal/${token.id}.ics`;
       return sendSuccess(res, { url, tokenId: token.id });
     } catch (err) {
@@ -92,7 +92,7 @@ module.exports.createCalendarFeedRoute = function createCalendarFeedRoute(deps) 
         return folded;
       }
 
-      const origin = (config.PUBLIC_ORIGIN || 'festie.us').replace(/^https?:\/\//, '');
+      const origin = (config.PUBLIC_ORIGIN || 'localhost').replace(/^https?:\/\//, '');
 
       const icsLines = [
         'BEGIN:VCALENDAR',

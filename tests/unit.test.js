@@ -43,7 +43,7 @@ describe('Config Loading', () => {
       assert.equal(config.ADMIN_USER, 'admin');
       assert.equal(config.ADMIN_PASSWORD, 'password123');
       assert.equal(config.PORT, 4000);
-      assert.equal(config.BIND_ADDRESS, '0.0.0.0');
+      assert.equal(config.BIND_ADDRESS, '127.0.0.1');
       assert.equal(config.NODE_ENV, 'development');
     } finally {
       restoreEnv();

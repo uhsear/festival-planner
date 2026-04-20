@@ -32,6 +32,17 @@ const queryClient = new QueryClient({
 });
 
 import { useAuthStore } from '@festie/shared';
+import { setOnUnauthorized } from '@festie/shared/services';
+
+setOnUnauthorized(async () => {
+  try {
+    await useAuthStore.getState().refreshToken();
+    return true;
+  } catch {
+    useAuthStore.getState().setUser(null);
+    return false;
+  }
+});
 
 let prevUserId: string | undefined;
 useAuthStore.subscribe((state) => {

@@ -13,6 +13,12 @@ interface ApiOptions {
 let _apiBase = API_BASE;
 let _authMode: AuthMode = 'cookie';
 let _bearerToken: string | null = null;
+let _onUnauthorized: (() => Promise<boolean>) | null = null;
+let _refreshPromise: Promise<boolean> | null = null;
+
+export function setOnUnauthorized(handler: () => Promise<boolean>): void {
+  _onUnauthorized = handler;
+}
 
 export function setApiBase(base: string): void {
   _apiBase = base;
@@ -78,6 +84,7 @@ export class ApiClientError extends Error implements ApiError {
 async function apiRequest<T>(
   path: string,
   options: ApiOptions = {},
+  _isRetry = false,
 ): Promise<T> {
   const method = String(options.method || 'GET').toUpperCase();
   const headers = { ...(options.headers || {}) };
@@ -104,6 +111,16 @@ async function apiRequest<T>(
     });
 
     if (!response.ok) {
+      if (response.status === 401 && _onUnauthorized && !_isRetry && !path.includes('/auth/')) {
+        if (!_refreshPromise) {
+          _refreshPromise = _onUnauthorized().finally(() => { _refreshPromise = null; });
+        }
+        const refreshed = await _refreshPromise;
+        if (refreshed) {
+          return apiRequest<T>(path, options, true);
+        }
+      }
+
       const errorBody = await response
         .json()
         .catch(() => ({ data: null, error: { message: response.statusText } }));

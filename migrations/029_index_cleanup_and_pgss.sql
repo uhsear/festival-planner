@@ -23,27 +23,27 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 -- Drop 13 redundant indexes. Each is fully covered by another unique/PK
 -- index on the same leading columns. Write path gets cheaper; reads are
 -- unaffected.
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_calendar_tokens_user;              -- covered by calendar_tokens_user_id_festival_id_key
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_crew_expenses_crew;                -- covered by idx_crew_expenses_category
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_crew_members_crew_id;              -- covered by crew_members_pkey
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_cpv_poll;                          -- covered by crew_poll_votes_pkey
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_crews_invite_code;                 -- covered by idx_crews_invite_expires
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_device_tokens_token;               -- covered by device_tokens_token_key
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_festival_days_festival_id;         -- covered by festival_days_pkey
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_festival_sets_festival_id;         -- covered by idx_festival_sets_festival_stage
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_notification_counts_user_id;       -- covered by notification_counts_pkey
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_notification_topic_subs_user_id;   -- covered by notification_topic_subs_pkey
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_refresh_tokens_token;              -- covered by refresh_tokens_pkey
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_set_ratings_user;                  -- covered by set_ratings_user_id_set_id_key
-DROP INDEX CONCURRENTLY IF EXISTS public.idx_user_roles_user_id;                -- covered by user_roles_pkey
+DROP INDEX IF EXISTS public.idx_calendar_tokens_user;              -- covered by calendar_tokens_user_id_festival_id_key
+DROP INDEX IF EXISTS public.idx_crew_expenses_crew;                -- covered by idx_crew_expenses_category
+DROP INDEX IF EXISTS public.idx_crew_members_crew_id;              -- covered by crew_members_pkey
+DROP INDEX IF EXISTS public.idx_cpv_poll;                          -- covered by crew_poll_votes_pkey
+DROP INDEX IF EXISTS public.idx_crews_invite_code;                 -- covered by idx_crews_invite_expires
+DROP INDEX IF EXISTS public.idx_device_tokens_token;               -- covered by device_tokens_token_key
+DROP INDEX IF EXISTS public.idx_festival_days_festival_id;         -- covered by festival_days_pkey
+DROP INDEX IF EXISTS public.idx_festival_sets_festival_id;         -- covered by idx_festival_sets_festival_stage
+DROP INDEX IF EXISTS public.idx_notification_counts_user_id;       -- covered by notification_counts_pkey
+DROP INDEX IF EXISTS public.idx_notification_topic_subs_user_id;   -- covered by notification_topic_subs_pkey
+DROP INDEX IF EXISTS public.idx_refresh_tokens_token;              -- covered by refresh_tokens_pkey
+DROP INDEX IF EXISTS public.idx_set_ratings_user;                  -- covered by set_ratings_user_id_set_id_key
+DROP INDEX IF EXISTS public.idx_user_roles_user_id;                -- covered by user_roles_pkey
 
 -- REMOVED: idx_fp_user_live was redundant with idx_festival_profiles_user_festival (same cols + WHERE, but UNIQUE).
 -- REMOVED: idx_audit_log_created_desc was redundant with idx_audit_log_created_at (btree scans both directions).
-DROP INDEX CONCURRENTLY IF EXISTS idx_fp_user_live;
-DROP INDEX CONCURRENTLY IF EXISTS idx_audit_log_created_desc;
+DROP INDEX IF EXISTS idx_fp_user_live;
+DROP INDEX IF EXISTS idx_audit_log_created_desc;
 
 -- "What's on now" live-status + grid/timeline lookups.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_festival_sets_festival_start
+CREATE INDEX IF NOT EXISTS idx_festival_sets_festival_start
   ON public.festival_sets (festival_id, start_time);
 
 -- Register this migration
