@@ -1,7 +1,6 @@
-import { createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
+import { RootRoute, Route, Router, redirect } from '@tanstack/react-router';
 import { lazy, Suspense, type ComponentType, type ReactElement } from 'react';
 import AppShell from './components/layout/AppShell';
-import RouteErrorBoundary from './components/layout/RouteErrorBoundary';
 import { useAuthStore } from '@festie/shared';
 import CardsSkeleton from './components/ui/skeletons/CardsSkeleton';
 import TimelineSkeleton from './components/ui/skeletons/TimelineSkeleton';
@@ -91,37 +90,33 @@ export function prefetchMainRoutes() {
 }
 
 // Root route with AppShell layout
-const rootRoute = createRootRoute({
+const rootRoute = new RootRoute({
   component: AppShell,
 });
 
 // ── Public routes (guests can browse the schedule) ──────────────────
-const indexRoute = createRoute({
+const indexRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/',
   component: () => <CardsView />,
-  errorComponent: RouteErrorBoundary,
 });
 
-const cardsRoute = createRoute({
+const cardsRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/cards',
   component: CardsView,
-  errorComponent: RouteErrorBoundary,
 });
 
-const timelineRoute = createRoute({
+const timelineRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/timeline',
   component: TimelineView,
-  errorComponent: RouteErrorBoundary,
 });
 
-const picksRoute = createRoute({
+const picksRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/picks',
   component: PicksView,
-  errorComponent: RouteErrorBoundary,
   // Guests were seeing an inline <GuestTeaser> on /picks while /crew, /wrap,
   // /compare, /account all redirected to /login — inconsistent and the
   // Playwright sweep flagged /picks as the odd one out. Match the rest:
@@ -131,68 +126,60 @@ const picksRoute = createRoute({
   },
 });
 
-const gridRoute = createRoute({
+const gridRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/grid',
   component: GridView,
-  errorComponent: RouteErrorBoundary,
 });
 
-const festivalModeRoute = createRoute({
+const festivalModeRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/festival-mode',
   component: FestivalModeView,
-  errorComponent: RouteErrorBoundary,
 });
 
-const wrapRoute = createRoute({
+const wrapRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/wrap',
   component: WrapView,
-  errorComponent: RouteErrorBoundary,
   beforeLoad: async () => {
     if (!isAuthenticated()) throw redirect({ to: '/login' });
   },
 });
 
 // ── Auth routes ─────────────────────────────────────────────────────
-const loginRoute = createRoute({
+const loginRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/login',
   component: LoginPage,
-  errorComponent: RouteErrorBoundary,
 });
 
-const registerRoute = createRoute({
+const registerRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/register',
   component: RegisterPage,
-  errorComponent: RouteErrorBoundary,
 });
 
-const forgotPasswordRoute = createRoute({
+const forgotPasswordRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/forgot-password',
   component: ForgotPasswordPage,
-  errorComponent: RouteErrorBoundary,
 });
 
 // ── Protected routes (redirect to /login if not authenticated) ──────
-const crewRoute = createRoute({
+const crewRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/crew',
   component: CrewView,
-  errorComponent: RouteErrorBoundary,
   beforeLoad: async () => {
     if (!isAuthenticated()) throw redirect({ to: '/login' });
   },
 });
 
-const accountRoute = createRoute({
+const accountRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/account',
   component: AccountPage,
-  errorComponent: RouteErrorBoundary,
   beforeLoad: async () => {
     if (!isAuthenticated()) throw redirect({ to: '/login' });
   },
@@ -200,21 +187,19 @@ const accountRoute = createRoute({
 
 // /compare — side-by-side schedule compare with your crew.
 // Ported from the legacy `renderCrewSchedule` view in public/views/crew.js.
-const compareRoute = createRoute({
+const compareRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/compare',
   component: CompareView,
-  errorComponent: RouteErrorBoundary,
   beforeLoad: async () => {
     if (!isAuthenticated()) throw redirect({ to: '/login' });
   },
 });
 
-const adminRoute = createRoute({
+const adminRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/admin',
   component: AdminPanel,
-  errorComponent: RouteErrorBoundary,
   beforeLoad: async () => {
     if (!isAuthenticated()) throw redirect({ to: '/login' });
     if (!isAdmin()) throw redirect({ to: '/' });
@@ -240,14 +225,23 @@ const routeTree = rootRoute.addChildren([
 ]);
 
 // Router instance
-export const router = createRouter({
+export const router = new Router({
   routeTree,
   notFoundMode: 'root',
   // Per-route Suspense fallbacks above handle the chunk-load skeleton; this
   // default only fires for beforeLoad redirects + route-level pending states.
   defaultPendingComponent: MinimalFallback,
   defaultPendingMs: 200,
-  defaultErrorComponent: RouteErrorBoundary,
+  defaultErrorComponent: ({ error, reset }) => (
+    <div className="no-festival" role="alert">
+      <p style={{ color: 'var(--accent-coral)', fontSize: '16px', marginBottom: '12px' }}>
+        Error loading page
+      </p>
+      <button onClick={() => reset()} className="btn btn-primary btn-sm">
+        Try Again
+      </button>
+    </div>
+  ),
 });
 
 declare module '@tanstack/react-router' {

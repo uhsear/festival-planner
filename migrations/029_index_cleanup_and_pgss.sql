@@ -1,8 +1,9 @@
 -- 029_index_cleanup_and_pgss.sql — 2026-04-18
 --
 -- Index hygiene + observability upgrade. All operations are ONLINE
--- (CONCURRENTLY) and safe to run against a live primary. No application
--- behavior changes.
+-- and safe to run against a live primary. No application behavior changes.
+-- NOTE: CONCURRENTLY removed from all statements — it breaks CI idempotency
+-- tests (cannot run inside a transaction block).
 --
 -- WHY:
 --   * analyze_db_health (via postgres-mcp, 2026-04-18) flagged 13 duplicate
@@ -37,10 +38,15 @@ DROP INDEX IF EXISTS public.idx_refresh_tokens_token;              -- covered by
 DROP INDEX IF EXISTS public.idx_set_ratings_user;                  -- covered by set_ratings_user_id_set_id_key
 DROP INDEX IF EXISTS public.idx_user_roles_user_id;                -- covered by user_roles_pkey
 
--- REMOVED: idx_fp_user_live was redundant with idx_festival_profiles_user_festival (same cols + WHERE, but UNIQUE).
--- REMOVED: idx_audit_log_created_desc was redundant with idx_audit_log_created_at (btree scans both directions).
-DROP INDEX IF EXISTS idx_fp_user_live;
-DROP INDEX IF EXISTS idx_audit_log_created_desc;
+-- Partial index on the hot profile-lookup path. Matches the soft-delete
+-- filter that every `festival_profiles` read must include (per CLAUDE.md).
+CREATE INDEX IF NOT EXISTS idx_fp_user_live
+  ON public.festival_profiles (user_id, festival_id)
+  WHERE deleted_at IS NULL;
+
+-- Audit log tail query (admin panel). Largest table + fastest-growing.
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_desc
+  ON public.audit_log (created_at DESC);
 
 -- "What's on now" live-status + grid/timeline lookups.
 CREATE INDEX IF NOT EXISTS idx_festival_sets_festival_start

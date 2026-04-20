@@ -108,33 +108,22 @@ export default function GridView() {
       head.style.width = fullW + 'px';
       cols.style.minWidth = fullW - (el.querySelector<HTMLElement>('.fk-grid__gutter')?.offsetWidth || 0) + 'px';
 
-      await document.fonts.ready;
+      // Small delay so layout settles
       await new Promise(r => setTimeout(r, 50));
 
-      const { toBlob } = await import('html-to-image');
-      const blob = await toBlob(el, {
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(el, {
         backgroundColor: '#080810',
         pixelRatio: dpr,
         width: fullW,
         height: fullH,
         cacheBust: true,
       });
-      if (!blob) throw new Error('Capture returned empty');
-      const fileName = `fk2026-${dayName}-grid.png`;
-      const file = new File([blob], fileName, { type: 'image/png' });
-
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file] });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
+      const a = document.createElement('a');
+      a.download = `fk2026-${dayName}-grid.png`;
+      a.href = dataUrl;
+      a.click();
+    } catch (err) {
       console.error('Export failed', err);
     } finally {
       el.style.overflow = saved.elOverflow;
@@ -247,14 +236,14 @@ export default function GridView() {
         <button
           className="fk-grid__export-btn"
           onClick={exportPng}
-          title="Save grid as image"
-          aria-label="Save grid as image"
+          title="Export as PNG"
+          aria-label="Export grid as PNG image"
           aria-busy={exporting ? 'true' : 'false'}
           disabled={exporting}
           type="button"
         >
           <Download size={13} aria-hidden="true" />
-          <span>{exporting ? 'Saving…' : 'Save'}</span>
+          <span>{exporting ? 'Exporting…' : 'Export PNG'}</span>
         </button>
       </div>
       {/* ── Sticky stage-header row ── */}

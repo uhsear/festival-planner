@@ -21,14 +21,6 @@ export interface UsePushNotificationsReturn {
 
 let _currentToken: string | null = null;
 
-// Tracks which user ID registered the push subscription currently held by the
-// browser. If a different user logs in on the same device, we must unsubscribe
-// the stale subscription before auto-registering — otherwise POST
-// /notifications/token fires with a subscription owned by the previous user
-// and the server's hijacking check returns 400 (visible in the browser's
-// network log even when caught by JS).
-const REGISTERED_USER_KEY = 'fp-push-registered-user';
-
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -45,7 +37,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const [unsupportedReason, setUnsupportedReason] = useState<UnsupportedReason>(null);
   const [permission, setPermission] = useState<NotificationPermission | 'default'>('default');
   const user = useAuthStore((state) => state.user);
-  const sessionChecked = useAuthStore((state) => state.sessionChecked);
 
   const permissionState: PushPermissionState = !isSupported
     ? 'unsupported'
@@ -105,41 +96,21 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   }, [isSupported]);
 
   const registerToken = useCallback(async (): Promise<void> => {
-    if (!isSupported || !user) return;
+    if (!isSupported) return;
 
     const registration = await navigator.serviceWorker.ready;
-
-    const prevUserId = localStorage.getItem(REGISTERED_USER_KEY);
-    if (prevUserId && prevUserId !== user.id) {
-      try {
-        const existing = await registration.pushManager.getSubscription();
-        if (existing) await existing.unsubscribe();
-      } catch { /* noop */ }
-      localStorage.removeItem(REGISTERED_USER_KEY);
-      return;
-    }
-
-    let subscription: PushSubscription;
-    try {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
-    } catch {
-      return;
-    }
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
 
     const token = JSON.stringify(subscription);
-    if (token === _currentToken) return;
 
-    try {
+    if (token !== _currentToken) {
       await api.post<void>('/notifications/token', { token, platform: 'web' });
-      localStorage.setItem(REGISTERED_USER_KEY, user.id);
-    } catch {
-      // Server rejected — still cache token locally to avoid retry loop
+      _currentToken = token;
     }
-    _currentToken = token;
-  }, [isSupported, user]);
+  }, [isSupported]);
 
   const unregisterToken = useCallback(async (): Promise<void> => {
     if (!_currentToken) return;
@@ -151,7 +122,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     }
 
     _currentToken = null;
-    localStorage.removeItem(REGISTERED_USER_KEY);
   }, []);
 
   // Auto-register when permission is already granted and user is logged in.
@@ -162,7 +132,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   // guests have no way to action.
   useEffect(() => {
     if (
-      sessionChecked &&
       user !== null &&
       isSupported &&
       'Notification' in window &&
@@ -176,7 +145,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         console.error(err);
       });
     }
-  }, [sessionChecked, isSupported, user, registerToken]);
+  }, [isSupported, user, registerToken]);
 
   // Clean up on logout
   useEffect(() => {

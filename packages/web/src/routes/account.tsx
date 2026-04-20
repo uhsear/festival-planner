@@ -1,15 +1,14 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate, Link } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared/stores/authStore';
 import { api, getApiBase } from '@festie/shared/services/api';
 import { useToast } from '../lib/toastContext';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Avatar from '../components/ui/Avatar';
-import { Camera, Trash2, User, Lock, Download, Shield, LogOut } from 'lucide-react';
+import { Camera, Trash2, User, Lock, Download, AlertTriangle, Bell, BellOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import AccountNotifications from '../components/account/AccountNotifications';
-import AccountDangerZone from '../components/account/AccountDangerZone';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 export default function AccountPage() {
   const navigate = useNavigate();
@@ -31,9 +30,55 @@ export default function AccountPage() {
   const [newPassword, setNewPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
 
+  // Delete
+  const [deletePassword, setDeletePassword] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   // Avatar
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [removingAvatar, setRemovingAvatar] = useState(false);
+
+  // Push notifications
+  const push = usePushNotifications();
+  const [pushBusy, setPushBusy] = useState(false);
+  const handleEnablePush = async () => {
+    if (!push.isSupported) {
+      if (push.unsupportedReason === 'ios-needs-install') {
+        toast('Add Festie to your Home Screen first — iOS needs the installed PWA to allow notifications.', 'info');
+      } else {
+        toast('Push notifications not supported on this browser', 'error');
+      }
+      return;
+    }
+    setPushBusy(true);
+    try {
+      const res = await push.requestPermission();
+      if (res === 'granted') {
+        await push.registerToken();
+        toast('Push notifications enabled', 'success');
+      } else if (res === 'denied') {
+        toast('Permission denied. Enable in browser settings to turn on.', 'error');
+      } else {
+        toast('Permission prompt dismissed.', 'info');
+      }
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Failed to enable notifications', 'error');
+    } finally {
+      setPushBusy(false);
+    }
+  };
+  const handleDisablePush = async () => {
+    setPushBusy(true);
+    try {
+      await push.unregisterToken();
+      toast('Push notifications disabled', 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Failed to disable', 'error');
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   // GDPR
   const [exporting, setExporting] = useState(false);
@@ -137,61 +182,31 @@ export default function AccountPage() {
     }
   };
 
+  // --- Delete account ---
+  const handleDelete = async () => {
+    if (!deletePassword) return;
+
+    setDeleting(true);
+    try {
+      await api.delete<void>('/account/', {
+        body: { password: deletePassword },
+      });
+      await logout();
+      toast('Account deleted', 'info');
+      navigate({ to: '/login' });
+    } catch {
+      toast("Couldn't delete account. Try again.", 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="bg-bg-primary pb-24">
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Profile identity card */}
-        <section className="p-4 rounded-lg bg-bg-card border border-border flex items-center gap-4">
-          <Avatar name={user.name || 'User'} image={user.avatar} size="lg" />
-          <div className="flex-1 min-w-0">
-            <div className="text-lg font-semibold text-text-primary truncate">
-              {user.name || user.username || 'User'}
-            </div>
-            {user.email && (
-              <div className="text-sm text-text-secondary truncate">{user.email}</div>
-            )}
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs px-2 py-0.5 rounded-full bg-accent-aqua/15 text-accent-aqua font-medium">
-                Account
-              </span>
-              {user.isAdmin && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-accent-amber/15 text-accent-amber font-medium">
-                  Admin
-                </span>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Admin + Logout quick actions */}
-        <div className="flex gap-3">
-          {user.isAdmin && (
-            <Link
-              to="/admin"
-              className="flex-1 flex items-center justify-center gap-2 p-3 rounded-lg bg-accent-amber/10 border border-accent-amber/30 hover:bg-accent-amber/15 transition-colors text-sm font-semibold text-accent-amber min-h-[44px]"
-            >
-              <Shield className="w-4 h-4" />
-              Admin Panel
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                await logout();
-              } catch {}
-              navigate({ to: '/login' });
-            }}
-            className={cn(
-              'flex items-center justify-center gap-2 p-3 rounded-lg border transition-colors text-sm font-semibold min-h-[44px]',
-              'bg-accent-coral/10 border-accent-coral/30 hover:bg-accent-coral/15 text-accent-coral',
-              user.isAdmin ? 'flex-1' : 'w-full',
-            )}
-          >
-            <LogOut className="w-4 h-4" />
-            Log Out
-          </button>
-        </div>
+        <h1 className="text-2xl font-display font-bold text-text-primary">
+          Account Settings
+        </h1>
 
         {/* Avatar section */}
         <section className="p-4 rounded-lg bg-bg-card border border-border space-y-4">
@@ -312,7 +327,47 @@ export default function AccountPage() {
           </form>
         </section>
 
-        <AccountNotifications />
+        {/* Notifications section */}
+        <section className="p-4 rounded-lg bg-bg-card border border-border space-y-4">
+          <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
+            {push.permission === 'granted' ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+            Push Notifications
+          </h2>
+          {!push.isSupported ? (
+            push.unsupportedReason === 'ios-needs-install' ? (
+              <p className="text-sm text-text-muted">
+                On iOS, notifications work only when Festie is installed to your Home Screen.
+                Tap the <span aria-hidden="true">Share</span> button in Safari and choose <strong>Add to Home Screen</strong>, then open Festie from the new icon to enable notifications.
+              </p>
+            ) : (
+              <p className="text-sm text-text-muted">
+                Not supported on this browser. Try Chrome, Edge, or Safari 16+ (iOS requires Add-to-Home-Screen install).
+              </p>
+            )
+          ) : push.permission === 'granted' ? (
+            <>
+              <p className="text-sm text-text-muted">
+                You'll get notified when your crew picks sets, sends polls, or updates the meeting point.
+              </p>
+              <Button variant="outline" fullWidth isLoading={pushBusy} onClick={handleDisablePush} className="min-h-[44px]">
+                Disable Notifications
+              </Button>
+            </>
+          ) : push.permission === 'denied' ? (
+            <p className="text-sm text-text-muted">
+              Permission blocked. Re-enable in your browser's site settings (lock icon in the address bar) and reload.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-text-muted">
+                Get notified when your crew picks sets, sends polls, or updates the meeting point.
+              </p>
+              <Button variant="primary" fullWidth isLoading={pushBusy} onClick={handleEnablePush} className="min-h-[44px]">
+                Enable Notifications
+              </Button>
+            </>
+          )}
+        </section>
 
         {/* GDPR export section */}
         <section className="p-4 rounded-lg bg-bg-card border border-border space-y-4">
@@ -336,7 +391,75 @@ export default function AccountPage() {
           </Button>
         </section>
 
-        <AccountDangerZone />
+        {/* Delete account section */}
+        <section
+          className={cn(
+            'p-4 rounded-lg border space-y-4',
+            'bg-accent-coral/5 border-accent-coral/30',
+          )}
+        >
+          <h2 className="text-sm font-semibold text-accent-coral flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            Delete Account
+          </h2>
+
+          <p className="text-sm text-text-muted">
+            This will permanently delete your account and all associated data. This action cannot be undone.
+          </p>
+
+          {!showDeleteConfirm ? (
+            <Button
+              variant="danger"
+              fullWidth
+              onClick={() => setShowDeleteConfirm(true)}
+              className="min-h-[44px]"
+            >
+              Delete My Account
+            </Button>
+          ) : (
+            <form
+              className="space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (deletePassword && !deleting) handleDelete();
+              }}
+            >
+              <Input
+                label="Enter your password to confirm"
+                type="password"
+                isPassword
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Password"
+                autoComplete="current-password"
+                autoFocus
+              />
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setDeletePassword('');
+                  }}
+                  className="flex-1 min-h-[44px]"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="danger"
+                  isLoading={deleting}
+                  disabled={!deletePassword}
+                  className="flex-1 min-h-[44px]"
+                >
+                  Confirm Delete
+                </Button>
+              </div>
+            </form>
+          )}
+        </section>
       </div>
     </div>
   );

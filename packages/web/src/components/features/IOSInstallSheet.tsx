@@ -12,11 +12,9 @@ import IconButton from '../ui/IconButton';
 export default function IOSInstallSheet() {
   const { shouldShow, dismiss } = useIOSInstall();
 
-  if (!shouldShow) return null;
-
   return (
     <Drawer.Root
-      open
+      open={shouldShow}
       onOpenChange={(open: boolean) => { if (!open) dismiss('scrim'); }}
       dismissible
     >

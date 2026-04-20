@@ -1,23 +1,26 @@
-import React, { useEffect, useMemo, Suspense } from 'react';
+import React, { useEffect, useMemo, useRef, Suspense, useCallback } from 'react';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useCrewStore } from '@festie/shared/stores/crewStore';
 import { useFestivalModeStore, isTodayFestivalDay } from '@festie/shared/stores/festivalModeStore';
+import { useFestival } from '@festie/shared/hooks';
 import { api } from '@festie/shared/services';
+import { useToast } from '../../lib/toastContext';
 import Header from './Header';
 import BottomNav from './BottomNav';
-import SubHeader from './SubHeader';
 import PageTransition from './PageTransition';
 import DetailPanel from '../features/DetailPanel';
 import OfflineBanner from '../features/OfflineBanner';
 import UpdatePrompt from '../features/UpdatePrompt';
 import IOSInstallSheet from '../features/IOSInstallSheet';
 import FestivalDayBanner from '../features/FestivalDayBanner';
+import { getStageBadgeStyle } from '../ui/StageBadge';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
-import { useCrewJoin } from '../../hooks/useCrewJoin';
+import { useSwipeDays } from '../../hooks/useSwipeDays';
+import { useHaptics } from '../../hooks/useHaptics';
 import { useOffline } from '@festie/shared/hooks';
 import { useOfflineQueue } from '../../hooks/useOfflineQueue';
 import { prefetchMainRoutes } from '../../router';
@@ -28,7 +31,7 @@ const authRoutes = ['/login', '/register', '/forgot-password'];
 // Also hide the sub-header on /crew — that view is crew-scoped, not
 // festival-schedule-scoped, so day tabs + artist search + stage chips are
 // noise + they eat mobile viewport space the user needs for the crew tabs.
-const noSubHeaderRoutes = ['/account', '/crew', '/festival-mode', '/admin'];
+const noSubHeaderRoutes = ['/account', '/crew', '/festival-mode'];
 // Routes that keep ONLY the day toggle (Sat/Sun). Festival selector, stage
 // chips, and artist search are removed because those views are either
 // already filtered by construction (picks/grid/timeline) or have their own
@@ -42,12 +45,21 @@ export default function AppShell() {
   const user = useAuthStore((state) => state.user);
   const loadFestivals = useFestivalStore((state) => state.loadFestivals);
   const selectFestival = useFestivalStore((state) => state.selectFestival);
+  const festivals = useFestivalStore((state) => state.festivals);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
+  const stages = useFestivalStore((state) => state.stages);
   const days = useFestivalStore((state) => state.days);
+  const selectedDay = useFestivalStore((state) => state.selectedDay);
+  const activeStages = useFestivalStore((state) => state.activeStages);
+  const searchQuery = useFestivalStore((state) => state.searchQuery);
+  const setSelectedDay = useFestivalStore((state) => state.setSelectedDay);
+  const setActiveStages = useFestivalStore((state) => state.setActiveStages);
+  const setSearchQuery = useFestivalStore((state) => state.setSearchQuery);
   const detailSet = useUIStore((state) => state.detailSet);
   const setDetailSet = useUIStore((state) => state.setDetailSet);
   const detailAutoSpotify = useUIStore((state) => state.detailAutoSpotify);
   const setDetailAutoSpotify = useUIStore((state) => state.setDetailAutoSpotify);
+  const { getStageColor } = useFestival();
   const isAuthRoute = authRoutes.includes(location.pathname);
   const hideSubHeader = noSubHeaderRoutes.includes(location.pathname);
   const dayOnlySubHeader = dayOnlySubHeaderRoutes.includes(location.pathname);
@@ -90,6 +102,15 @@ export default function AppShell() {
   // /picks, /crew is instant (no chunk-load pause that made first-scroll
   // feel laggy). Fires once per shell mount.
   useEffect(() => { prefetchMainRoutes(); }, []);
+
+  // Swipe-between-days gesture on the day-tabs row. Bound at shell level
+  // because the day-tabs row lives in the sub-header — users swipe the
+  // Sat/Sun pill strip to switch days instead of tapping.
+  const { bind: swipeDaysBind } = useSwipeDays({
+    days,
+    selectedDay,
+    onSelectDay: setSelectedDay,
+  });
 
   // Request push notification permission if user is logged in
   usePushNotifications();
@@ -148,8 +169,77 @@ export default function AppShell() {
     }
   }, [user?.id, loadCrews]);
 
-  // Crew join deep-link handler (?joinCrew=<inviteCode>)
-  useCrewJoin();
+  // ?joinCrew=<inviteCode> deep-link handler (ported from legacy public/app.js).
+  // Flow: GET /api/v1/crews/join/:code on the server returns an HTML landing
+  // page whose CTA links to /?joinCrew=<code>. If the user isn't signed in,
+  // stash the code and send them to /register; after register/login we replay.
+  // If they're signed in but haven't joined this festival yet, POST /profiles
+  // first (crew invite implies explicit intent to participate) and then POST
+  // /crews/join. Success + failure both surface as toasts — the legacy app
+  // swallowed errors into the console; we don't.
+  const joinByCode = useCrewStore((state) => state.joinByCode);
+  const currentProfile = useFestivalStore((state) => state.currentProfile);
+  const loadProfiles = useFestivalStore((state) => state.loadProfiles);
+  const { toast } = useToast();
+  const joinAttemptedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('joinCrew');
+    if (!code) return;
+    if (joinAttemptedRef.current === code) return;
+
+    // Unauthenticated: stash and redirect to /register with a return-to hint
+    if (!user) {
+      try { sessionStorage.setItem('fk.pendingJoinCrew', code); } catch (_) {}
+      joinAttemptedRef.current = code;
+      navigate({ to: '/register' });
+      return;
+    }
+    // Authenticated: wait for festival context to be ready
+    if (!currentFestival) return;
+
+    joinAttemptedRef.current = code;
+    (async () => {
+      try {
+        if (!currentProfile) {
+          await api.post('/profiles', { festivalId: currentFestival.id });
+          await loadProfiles(currentFestival.id);
+        }
+        await joinByCode({ inviteCode: code });
+        toast('Joined crew!', 'success');
+        // Drop the query param so a refresh doesn't retry.
+        const url = new URL(window.location.href);
+        url.searchParams.delete('joinCrew');
+        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+        navigate({ to: '/crew' });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Could not join crew';
+        if (/already/i.test(msg)) {
+          toast('You are already in this crew', 'info');
+        } else {
+          toast('Could not join crew: ' + msg, 'error');
+        }
+        // Clean URL anyway so we don't loop
+        const url = new URL(window.location.href);
+        url.searchParams.delete('joinCrew');
+        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+      }
+    })();
+  }, [user?.id, currentFestival?.id, currentProfile?.id, joinByCode, loadProfiles, navigate, toast]);
+
+  // Replay pending crew join after the user completes registration/login.
+  useEffect(() => {
+    if (!user) return;
+    let pending: string | null = null;
+    try { pending = sessionStorage.getItem('fk.pendingJoinCrew'); } catch (_) {}
+    if (!pending) return;
+    try { sessionStorage.removeItem('fk.pendingJoinCrew'); } catch (_) {}
+    const url = new URL(window.location.href);
+    url.searchParams.set('joinCrew', pending);
+    window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    // Bump a state so the handler above re-runs.
+    joinAttemptedRef.current = null;
+  }, [user?.id]);
 
   // Re-fetch festival profiles on login once a festival is selected so
   // currentProfile gets populated.
@@ -157,7 +247,7 @@ export default function AppShell() {
     if (user && currentFestival) {
       selectFestival(currentFestival.id).catch(() => {});
     }
-  }, [user?.id, currentFestival?.id, selectFestival]);
+  }, [user?.id, currentFestival?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-enable Festival Mode when today is a festival day, unless the user
   // manually opted out (that intent is preserved in the store's
@@ -180,12 +270,42 @@ export default function AppShell() {
     if (location.pathname === '/' || location.pathname === '/cards') {
       navigate({ to: '/festival-mode' });
     }
-  }, [isFestivalDayToday, fmManuallyDisabled, setFestivalMode, fmOn, location.pathname, navigate]);
+  }, [isFestivalDayToday, fmManuallyDisabled, setFestivalMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Show the day banner on festival days whenever the user has either
   // explicitly dismissed Festival Mode OR turned it off — and only on
   // non-mode routes (nudging on /festival-mode itself would be silly).
   const showDayBanner = isFestivalDayToday && !fmOn && location.pathname !== '/festival-mode';
+
+  // Festival select handler
+  const handleFestivalChange = useCallback(
+    async (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const id = e.target.value;
+      if (!id) return;
+      try {
+        await selectFestival(id);
+      } catch (_) {}
+    },
+    [selectFestival],
+  );
+
+  // Haptic shell — same instance for day-tab taps + stage-chip toggles.
+  const { select: selectHaptic } = useHaptics();
+
+  // Stage chip toggle handler (legacy behavior: toggle individual, show all when empty)
+  const handleStageToggle = useCallback(
+    (stageId: string) => {
+      selectHaptic();
+      const isActive = activeStages.includes(stageId);
+      if (isActive) {
+        const updated = activeStages.filter((id) => id !== stageId);
+        setActiveStages(updated);
+      } else {
+        setActiveStages([...activeStages, stageId]);
+      }
+    },
+    [activeStages, setActiveStages, selectHaptic],
+  );
 
   // Auth routes don't use app shell layout
   if (isAuthRoute) {
@@ -241,7 +361,100 @@ export default function AppShell() {
               scroll-down; grid-template-rows: 0fr crushes the nav to 0 height
               without layout reflow on the content area below. */}
           {!hideSubHeader && (
-            <SubHeader dayOnly={dayOnlySubHeader} />
+          <div className="sub-header-wrap">
+          <nav className="sub-header" aria-label="Festival view controls">
+            {/* Festival selector — always rendered when the sub-header is
+                visible. Day-only routes (/timeline, /grid, /picks) still
+                show festival + day tabs so the user can swap festivals
+                without backing out to /cards. Only stage chips + artist
+                search are suppressed on those routes. */}
+            <label
+              htmlFor="festival-select-input"
+              style={{ fontSize: '12px', color: 'var(--text-secondary)', marginRight: '6px', display: 'inline-block', fontWeight: '600' }}
+            >
+              Festival:
+            </label>
+            <select
+              id="festival-select-input"
+              className="festival-select"
+              data-testid="festival-select"
+              value={currentFestival?.id || ''}
+              onChange={handleFestivalChange}
+            >
+              <option value="">Select Festival</option>
+              {festivals.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Day tabs */}
+            {currentFestival && days.length > 0 && (
+              <div className="day-tabs" role="tablist" aria-label="Festival days"
+                {...swipeDaysBind()} style={{ touchAction: 'pan-y' }}>
+                {days.map((day, i) => (
+                  <button
+                    key={day.id || i}
+                    className={'day-tab' + (selectedDay === i ? ' active' : '')}
+                    role="tab"
+                    aria-selected={selectedDay === i}
+                    aria-controls="main-content"
+                    tabIndex={selectedDay === i ? 0 : -1}
+                    onClick={() => { selectHaptic(); setSelectedDay(i); }}
+                  >
+                    {day.label || day.date}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Stage filter chips + artist search — Schedule-scoped.
+                Hidden on /timeline, /grid, /picks (those views are either
+                already filtered by construction or have their own scoped
+                controls). Visible on /cards + /crew. */}
+            {!dayOnlySubHeader && currentFestival && stages.length > 0 && (
+              <div className="filter-stage" role="group" aria-label="Filter by stage">
+                {stages.map((stage) => {
+                  const color = getStageColor(stage.id);
+                  const isActive = activeStages.includes(stage.id);
+                  // Active: solid stage color + white text with text-shadow
+                  // (AA contrast on every palette color, incl. dark purples).
+                  // Inactive: faded stage-color tint + stage-color text on
+                  // dark bg for brand feel. See StageBadge for the shared
+                  // palette logic.
+                  const style = getStageBadgeStyle(color, 'chip', isActive);
+                  return (
+                    <button
+                      key={stage.id}
+                      className={'stage-chip' + (isActive ? ' active' : '')}
+                      style={style}
+                      aria-pressed={isActive}
+                      aria-label={stage.name + (isActive ? ' (selected)' : '')}
+                      onClick={() => handleStageToggle(stage.id)}
+                    >
+                      {stage.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Search — same scoping as stage filter */}
+            {!dayOnlySubHeader && (
+              <div className="search-box" role="search">
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="Search artist..."
+                  value={searchQuery}
+                  aria-label="Search festival artists"
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            )}
+          </nav>
+          </div>
           )}
 
           <main id="main-content" className="content-area">

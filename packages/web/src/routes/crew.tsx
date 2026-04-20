@@ -53,8 +53,21 @@ export default function CrewView() {
   const [adminOpen, setAdminOpen]       = useState(false);
 
   // Admin role check — drives both force-add visibility + poll close on any poll.
-  const isAdmin = useAuthStore((state) => state.isAdmin);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [adminAddBusy, setAdminAddBusy] = useState(false);
+  useEffect(() => {
+    if (!user) { setIsAdmin(false); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const me = await api.get<{ roles?: Array<string | { role?: string; name?: string }> }>('/auth/me');
+        const roles = (me?.roles ?? []) as Array<string | { role?: string; name?: string }>;
+        const admin = roles.some((r) => typeof r === 'string' ? r === 'admin' : r.role === 'admin' || r.name === 'admin');
+        if (!cancelled) setIsAdmin(admin);
+      } catch {/* ignore */}
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   useEffect(() => {
     if (user && crews.length > 0 && !activeCrew) {
@@ -94,16 +107,12 @@ export default function CrewView() {
     } finally { setJoinBusy(false); }
   };
 
-  const handleCopyInviteCode = async () => {
+  const handleCopyInviteCode = () => {
     if (activeCrew?.inviteCode) {
       const url = `${window.location.origin}/api/v1/crews/join/${activeCrew.inviteCode}`;
-      try {
-        await navigator.clipboard.writeText(url);
-        setCopiedCode(true);
-        setTimeout(() => setCopiedCode(false), 2000);
-      } catch {
-        toast('Could not copy link — try long-pressing instead', 'error');
-      }
+      navigator.clipboard?.writeText(url);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
     }
   };
 

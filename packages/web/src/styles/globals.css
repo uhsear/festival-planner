@@ -591,8 +591,8 @@ button {
 .input-base + button[aria-label="Hide password"],
 .relative > button[aria-label="Show password"],
 .relative > button[aria-label="Hide password"] {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 32px;
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -762,7 +762,7 @@ button {
 }
 
 .fk-grid__now-label {
-  font-size: 0.625rem;
+  font-size: 0.55rem;
   font-weight: 700;
   color: var(--color-accent-coral);
   letter-spacing: 0.08em;
@@ -804,7 +804,7 @@ button {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  min-height: 44px;
+  min-height: 32px;
   font-size: var(--font-size-12, 0.75rem);
   font-weight: 600;
   color: var(--color-text-primary);
@@ -1313,7 +1313,7 @@ button {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  min-height: 44px;
+  min-height: 36px;
 }
 .festival-mode-day-banner__enter:hover { filter: brightness(1.1); }
 .festival-mode-day-banner__close {
@@ -1325,8 +1325,8 @@ button {
   font-size: 20px;
   padding: 0 4px;
   line-height: 1;
-  min-height: 44px;
-  min-width: 44px;
+  min-height: 36px;
+  min-width: 36px;
 }
 .festival-mode-day-banner__close:hover { color: var(--color-text-primary, #f8fafc); }
 @keyframes fm-day-banner-slide {

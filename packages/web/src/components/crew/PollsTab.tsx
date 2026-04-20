@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
 import { useToast } from '../../lib/toastContext';
@@ -40,8 +40,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [question, setQuestion] = useState('');
-  const optIdCounter = useRef(2);
-  const [options, setOptions] = useState<{ id: number; text: string }[]>([{ id: 0, text: '' }, { id: 1, text: '' }]);
+  const [options, setOptions] = useState<string[]>(['', '']);
 
   const { data: polls = [], isLoading, isError } = useQuery<RawPoll[]>({
     queryKey: ['polls', crewId],
@@ -86,18 +85,17 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
 
   function reset() {
     setQuestion('');
-    optIdCounter.current = 2;
-    setOptions([{ id: 0, text: '' }, { id: 1, text: '' }]);
+    setOptions(['', '']);
     setShowForm(false);
   }
-  function addOpt() { setOptions((prev) => prev.length < 4 ? [...prev, { id: optIdCounter.current++, text: '' }] : prev); }
+  function addOpt() { setOptions((prev) => prev.length < 4 ? [...prev, ''] : prev); }
   function removeOpt(i: number) { setOptions((prev) => prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev); }
-  function updateOpt(i: number, v: string) { setOptions((prev) => prev.map((o, idx) => (idx === i ? { ...o, text: v } : o))); }
+  function updateOpt(i: number, v: string) { setOptions((prev) => prev.map((o, idx) => (idx === i ? v : o))); }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const q = question.trim();
-    const opts = options.map((o) => o.text.trim()).filter(Boolean);
+    const opts = options.map((o) => o.trim()).filter(Boolean);
     // Server requires 2–4 options (routes/crew-features.js:161)
     if (!q || opts.length < 2 || opts.length > 4) return;
     createPoll.mutate({ question: q, options: opts });
@@ -124,8 +122,8 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
             <label className="block text-sm font-medium text-text-primary mb-2">Options (2–4)</label>
             <div className="space-y-2">
               {options.map((o, i) => (
-                <div key={o.id} className="flex items-center gap-2">
-                  <input className="input-base flex-1 min-h-11" value={o.text}
+                <div key={i} className="flex items-center gap-2">
+                  <input className="input-base flex-1 min-h-11" value={o}
                     onChange={(e) => updateOpt(i, e.target.value)} placeholder={`Option ${i + 1}`} required />
                   {options.length > 2 && (
                     <IconButton
@@ -147,7 +145,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
           </div>
           <Button type="submit" variant="primary" isLoading={createPoll.isPending}
             className="w-full min-h-11"
-            disabled={!question.trim() || options.filter((o) => o.text.trim()).length < 2}>
+            disabled={!question.trim() || options.filter((o) => o.trim()).length < 2}>
             Create
           </Button>
         </form>

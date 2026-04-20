@@ -8,15 +8,13 @@ import {
   artistDisplayName,
   artistSubtitle,
   getSetLinks,
+  getAvatarColor,
+  getInitials,
   detectConflicts,
 } from '@festie/shared/utils';
 import { api } from '@festie/shared/services/api';
 import { Drawer } from 'vaul';
 import RatingButtons from './RatingButtons';
-import DetailSpotifySection from './DetailSpotifySection';
-import DetailConflictWarning from './DetailConflictWarning';
-import DetailCrewSection from './DetailCrewSection';
-import DetailNotesSection from './DetailNotesSection';
 import { hasSetStarted } from '../../utils/festivalTime';
 import { useHaptics } from '../../hooks/useHaptics';
 
@@ -62,7 +60,6 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
   const [priorityBusy, setPriorityBusy] = useState<Priority | null | 'clear'>(
     null,
   );
-  const [priorityAnnounce, setPriorityAnnounce] = useState('');
 
   const personalNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const crewNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -412,71 +409,128 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             : 'TBA'}
         </div>
 
+        {/* Spotify embed section */}
         {spotifyPreview && (
-          <DetailSpotifySection
-            preview={spotifyPreview}
-            visible={spotifyVisible}
-            onToggle={handleSpotifyToggle}
-          />
+          <div className="detail-spotify-section" style={{ margin: '10px 0' }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              type="button"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              onClick={handleSpotifyToggle}
+            >
+              {spotifyVisible ? '\u25B2 Hide Player' : '\u25B6 Listen on Spotify'}
+            </button>
+            {spotifyVisible && (
+              <div
+                className="detail-spotify-embed"
+                style={{ marginTop: 8, borderRadius: 12, overflow: 'hidden' }}
+              >
+                <iframe
+                  src={spotifyPreview.embedUrl}
+                  width="100%"
+                  height="152"
+                  frameBorder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  title={'Spotify: ' + spotifyPreview.label}
+                  style={{ display: 'block', borderRadius: 12 }}
+                />
+              </div>
+            )}
+          </div>
         )}
 
-        <DetailConflictWarning
-          conflicts={conflicts}
-          currentSetId={set.id}
-          myPick={myPick ?? null}
-          b2bSeparator={b2bSeparator}
-          getStageName={getStageName}
-          getOtherPicks={getOtherPicks}
-          onSwitch={(fromId, toSet, priority) => {
-            if (!currentFestival) return;
-            savePick(currentFestival.id, fromId, null);
-            savePick(currentFestival.id, toSet.id, priority);
-          }}
-        />
-
-        {/* Priority picker (logged in + joined) */}
-        {currentProfile ? (
-          <>
-            <div className="detail-priority-group">
-              {priorityOptions.map(([p, icon, label, cls]) => {
-                const active = myPick === p;
-                const key: Priority | 'clear' = p ?? 'clear';
-                const isThisBusy = priorityBusy === key;
-                const anyBusy = priorityBusy !== null;
+        {/* Conflict warning */}
+        {conflicts.length > 0 && (
+          <div className="detail-conflict-warning">
+            <div>
+              {'\u26A0 Time conflict with: ' +
+                conflicts
+                  .map((c) => artistDisplayName(c, b2bSeparator))
+                  .join(', ')}
+            </div>
+            <div className="detail-conflict-compare">
+              {conflicts.map((c) => {
+                const cOthers = getOtherPicks(c.id);
                 return (
-                  <button
-                    key={label}
-                    className={
-                      'detail-priority-option' + (active ? ' ' + cls : '')
-                    }
-                    type="button"
-                    aria-pressed={active ? 'true' : 'false'}
-                    aria-label={label + (active ? ' (selected)' : '')}
-                    aria-busy={isThisBusy ? 'true' : 'false'}
-                    disabled={anyBusy}
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (priorityBusy !== null) return;
-                      setPriorityBusy(key);
-                      try {
-                        await handlePriorityClick(p);
-                        setPriorityAnnounce(p ? `Saved as ${label}` : 'Priority cleared');
-                      } catch {
-                        setPriorityAnnounce('Failed to save priority');
-                      } finally {
-                        setPriorityBusy(null);
-                      }
-                    }}
-                  >
-                    <div style={{ fontSize: '20px' }}>{icon}</div>
-                    <div className="priority-label">{label}</div>
-                  </button>
+                  <div key={c.id} className="conflict-compare-card">
+                    <div className="conflict-compare-artist">
+                      {artistDisplayName(c, b2bSeparator)}
+                    </div>
+                    <div className="conflict-compare-meta">
+                      {formatTime(c.startTime) +
+                        ' - ' +
+                        formatTime(c.endTime) +
+                        ' \u00B7 ' +
+                        (getStageName(c.stageId) || 'Unknown')}
+                    </div>
+                    <div className="conflict-compare-crew">
+                      {cOthers.length
+                        ? cOthers.length + ' crew going'
+                        : 'No crew'}
+                    </div>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!currentFestival) return;
+                        savePick(currentFestival.id, set.id, null);
+                        savePick(
+                          currentFestival.id,
+                          c.id,
+                          myPick || 'want-to-see',
+                        );
+                      }}
+                    >
+                      Switch to this
+                    </button>
+                  </div>
                 );
               })}
             </div>
-            <div aria-live="polite" className="sr-only">{priorityAnnounce}</div>
-          </>
+          </div>
+        )}
+
+        {/* Priority picker (logged in + joined) */}
+        {currentProfile ? (
+          <div className="detail-priority-group">
+            {priorityOptions.map(([p, icon, label, cls]) => {
+              const active = myPick === p;
+              const key: Priority | 'clear' = p ?? 'clear';
+              const isThisBusy = priorityBusy === key;
+              const anyBusy = priorityBusy !== null;
+              return (
+                <button
+                  key={label}
+                  className={
+                    'detail-priority-option' + (active ? ' ' + cls : '')
+                  }
+                  type="button"
+                  aria-pressed={active ? 'true' : 'false'}
+                  aria-label={label + (active ? ' (selected)' : '')}
+                  aria-busy={isThisBusy ? 'true' : 'false'}
+                  disabled={anyBusy}
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (priorityBusy !== null) return;
+                    setPriorityBusy(key);
+                    try {
+                      await handlePriorityClick(p);
+                    } catch {
+                      // Save failed — store already surfaces error; just clear busy.
+                    } finally {
+                      setPriorityBusy(null);
+                    }
+                  }}
+                >
+                  <div style={{ fontSize: '20px' }}>{icon}</div>
+                  <div className="priority-label">{label}</div>
+                </button>
+              );
+            })}
+          </div>
         ) : (
           /* Join CTA (guest) */
           <div className="detail-join-cta">
@@ -509,15 +563,136 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
           </div>
         )}
 
-        <DetailCrewSection title={whoTitle} others={others} crewNotes={crewNotes} />
+        {/* Crew overlap / friends section */}
+        <div className="detail-friends">
+          <div className="detail-friends-title">{whoTitle}</div>
+          {others.map((o) => {
+            const priLabels: Record<string, string> = {
+              must: 'Must See',
+              'want-to-see': 'Want to See',
+              maybe: 'Maybe',
+            };
+            const priColors: Record<string, string> = {
+              must: 'var(--priority-must)',
+              'want-to-see': 'var(--priority-want)',
+              maybe: 'var(--priority-maybe)',
+            };
+            const avatarColor = getAvatarColor(o.name);
+            const initials = getInitials(o.name);
+            return (
+              <div key={o.profileId} className="detail-friend-item">
+                {o.avatar ? (
+                  <img
+                    src={o.avatar}
+                    alt={o.name}
+                    width={28}
+                    height={28}
+                    loading="lazy"
+                    decoding="async"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      flexShrink: 0,
+                    }}
+                    title={o.name + ' (' + o.priority + ')'}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      background: avatarColor,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: '#fff',
+                      flexShrink: 0,
+                    }}
+                    title={o.name + ' (' + o.priority + ')'}
+                  >
+                    {initials}
+                  </div>
+                )}
+                <span>{o.name}</span>
+                <span
+                  className="friend-priority"
+                  style={{ color: priColors[o.priority] }}
+                >
+                  {priLabels[o.priority]}
+                </span>
+              </div>
+            );
+          })}
 
+          {/* Crew notes from others */}
+          {crewNotes.length > 0 && (
+            <div
+              style={{
+                padding: '8px 0',
+                borderTop: '1px solid var(--border)',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'var(--accent-aqua)',
+                  marginBottom: '6px',
+                }}
+              >
+                Crew Notes
+              </div>
+              {crewNotes.map((cn, i) => (
+                <div key={i} style={{ fontSize: '13px', padding: '4px 0' }}>
+                  <strong style={{ color: 'var(--text-secondary)' }}>
+                    {cn.name + ': '}
+                  </strong>
+                  {cn.note}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Notes (logged in only) */}
         {currentProfile && (
-          <DetailNotesSection
-            personalNote={personalNote}
-            crewNote={crewNote}
-            onPersonalChange={handlePersonalNoteChange}
-            onCrewChange={handleCrewNoteChange}
-          />
+          <div className="detail-notes">
+            <div className="detail-notes-title" id="notes-label">
+              Personal Notes
+            </div>
+            <textarea
+              placeholder='Add notes (e.g., "meet at the rail")...'
+              aria-labelledby="notes-label"
+              value={personalNote}
+              onChange={(e) => handlePersonalNoteChange(e.target.value)}
+            />
+
+            {/* Crew note */}
+            <div className="detail-notes" style={{ marginTop: '8px' }}>
+              <div
+                className="detail-notes-title"
+                style={{ color: 'var(--accent-aqua)' }}
+                id="crew-notes-label"
+              >
+                Crew Note (visible to your crew)
+              </div>
+              <textarea
+                placeholder="Share a note with your crew..."
+                aria-labelledby="crew-notes-label"
+                style={{
+                  borderColor: 'var(--accent-aqua)',
+                  borderWidth: '1px',
+                }}
+                value={crewNote}
+                onChange={(e) => handleCrewNoteChange(e.target.value)}
+              />
+            </div>
+          </div>
         )}
       </div>
         </Drawer.Content>
