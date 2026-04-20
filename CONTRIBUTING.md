@@ -21,6 +21,13 @@ Do **not** open public issues for security findings. Report them per [SECURITY.m
 4. Write a clear commit message describing what changed and why
 5. Open a PR against `main`
 
+## Tech Stack
+
+- **Backend:** Node.js 22, Express 4, Socket.IO 4, PostgreSQL 16, Redis 7
+- **Frontend:** React 19 + Vite 6 + TypeScript (`packages/web/`)
+- **State:** Zustand (client), TanStack Router (routing)
+- **Workspace:** pnpm monorepo (`packages/`)
+
 ## Code Conventions
 
 - `const`/`let` only (never `var`), 2-space indent, single quotes, trailing commas

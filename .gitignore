@@ -1,5 +1,4 @@
 node_modules
-.claude/settings.local.json
 
 # Environment files
 .env
@@ -11,6 +10,28 @@ node_modules
 *.pem
 *.key
 credentials*.json
+
+# Build outputs
+coverage/
+output/
+lhci-reports/
+.turbo/
+dist.disabled/
+
+# Playwright debug scripts
+pw-*.js
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Local editor/tool settings
+.claude/
+.mcp.json
+mobile-loop-capture.js
 
 # Code review graph DB
 .code-review-graph/

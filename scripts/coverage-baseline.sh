@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-REPO="/home/asir/festival-planner"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 DATE="$(date +%Y-%m-%d)"

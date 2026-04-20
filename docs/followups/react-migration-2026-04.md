@@ -87,7 +87,4 @@ Single source of truth for deferred work after the React 19 migration (live 2026
 
 ## References
 
-- Mobile Design Critique FINAL: `docs/session-logs/mobile-loop-2026-04-17/FINAL.md`
 - React migration spec: `docs/plans/react-migration-spec-2026-04-16.md`
-- Memory: `memory/project_react_rewrite_live.md`, `memory/feedback_parallel_agents.md`
-- Session logs: `docs/session-logs/mobile-loop-2026-04-17/pass{1..8}/findings.json`

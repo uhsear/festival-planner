@@ -67,8 +67,8 @@ groups:
           summary: "Redis scrape target down"
           description: |
             Redis exporter is unreachable. Sessions, rate limiting, and
-            Socket.IO adapter are degraded. SSH to REDACTED and
-            `systemctl status redis`.
+            Socket.IO adapter are degraded. SSH to the application host
+            and run `systemctl status redis`.
 
       - alert: FestieDiskLow
         expr: |
@@ -82,5 +82,5 @@ groups:
           summary: "Root filesystem <10% free on festie host"
           description: |
             Less than 10% free on /. PM2 logs, Postgres WAL, or uploads may
-            be filling up. Check `du -sh /home/asir/festival-planner/logs`
-            and postgres data dir.
+            be filling up. Check `du -sh $APP_DIR/logs` and the postgres
+            data directory.

@@ -4,14 +4,14 @@
 # Simpler alternative to partitioning (028_audit_log_partitioning_plan.sql).
 # Date: 2026-04-14
 #
-# Install (on prod host REDACTED as user asir):
-#   chmod +x /home/asir/festival-planner/scripts/audit-log-cleanup.sh
+# Install (on the application host):
+#   chmod +x "$APP_DIR/scripts/audit-log-cleanup.sh"
 #   crontab -e
 #   # Run at 04:17 on the 1st of every month (off-peak):
-#   17 4 1 * * /home/asir/festival-planner/scripts/audit-log-cleanup.sh \
-#       >> /home/asir/logs/audit-log-cleanup.log 2>&1
+#   17 4 1 * * $APP_DIR/scripts/audit-log-cleanup.sh \
+#       >> $HOME/logs/audit-log-cleanup.log 2>&1
 #
-# Env (set in cron or /home/asir/.env):
+# Env (set in cron or $HOME/.env):
 #   PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD  (standard libpq vars)
 #   RETENTION_DAYS    default 90
 #   BATCH_SIZE        default 5000  (rows per DELETE chunk)

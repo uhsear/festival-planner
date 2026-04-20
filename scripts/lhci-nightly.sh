@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -e
-cd /home/asir/festival-planner
+cd "$(cd "$(dirname "$0")/.." && pwd)"
 TS=$(date +%Y%m%d-%H%M%S)
 LOG=logs/lhci/${TS}.log
 LOCK=/tmp/lhci-nightly.lock

@@ -130,6 +130,7 @@ module.exports = function createPageRoutes(deps) {
     if (req.path.startsWith('/uploads/')) {
       return res.status(404).end();
     }
+    res.setHeader('Cache-Control', 'no-store');
     res.sendFile(_spaIndex, (err) => {
       if (err && !res.headersSent) next(err);
     });

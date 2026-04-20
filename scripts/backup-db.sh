@@ -1,12 +1,12 @@
 #!/bin/bash
 # Database backup script for Festie
-# Runs via cron: 0 */6 * * * /home/asir/festival-planner/scripts/backup-db.sh
+# Runs via cron: 0 */6 * * * $APP_DIR/scripts/backup-db.sh
 
-BACKUP_DIR="${BACKUP_DIR:-/home/asir/backups/festival-planner}"
+BACKUP_DIR="${BACKUP_DIR:-$HOME/backups/festival-planner}"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-DB_NAME="festival_planner"
-DB_USER="festival"
-DB_HOST="127.0.0.1"
+DB_NAME="${DB_NAME:-festival_planner}"
+DB_USER="${DB_USER:-festival}"
+DB_HOST="${DB_HOST:-127.0.0.1}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/fp_${TIMESTAMP}.sql.gz.enc"
 LOG_FILE="${BACKUP_DIR}/backup.log"

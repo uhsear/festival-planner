@@ -17,13 +17,13 @@ Core capabilities include real-time crew synchronization via WebSockets, priorit
 
 The app is a server-rendered Node.js application with a real-time layer, backed by PostgreSQL and Redis.
 
-**Stack**: Node.js 22, Express 4, Socket.IO 4, PostgreSQL 16, Redis 7, PM2 cluster mode, nginx reverse proxy.
+**Stack**: Node.js 22, Express 4, Socket.IO 4, PostgreSQL 16, Redis 7, PM2 cluster mode, nginx reverse proxy. React 19 + Vite 6 + TypeScript frontend.
 
 **Backend structure**: Core concerns are extracted into focused `lib/` modules — logger, crypto-auth, presence tracking, and templated pages. Route files export factory functions (`createXRoutes(deps)`) for testability. All SQL uses parameterized queries; all user input is sanitized through dedicated helpers.
 
-**Frontend**: Vanilla JS with a service worker for offline support. No build step — the `public/` directory is served directly. Real-time updates flow through Socket.IO with Redis-backed adapter for multi-process consistency.
+**Frontend**: React 19 with Vite 6, TanStack Router, and Zustand for state management (`packages/web/`). TypeScript throughout, Tailwind CSS for styling, and a Workbox service worker for offline support. Real-time updates flow through Socket.IO with Redis-backed adapter for multi-process consistency.
 
-**Security model**: SHA-256 session tokens with refresh rotation, scrypt password hashing with account lockout, Content Security Policy with per-script nonce hashing, CSRF via origin enforcement, and multi-tier rate limiting per endpoint.
+**Security model**: SHA-256 session tokens with refresh rotation, scrypt password hashing with account lockout, Content Security Policy, CSRF via origin enforcement, and multi-tier rate limiting per endpoint.
 
 ## Testing
 
@@ -47,12 +47,13 @@ Interactive API docs are served at `/api/docs` with an OpenAPI spec at `/api/spe
 server.js              # Express app, Socket.IO, middleware, route mounting
 lib/                   # Core modules (config, logger, crypto-auth, presence, etc.)
 routes/                # Route factories organized by domain
-public/                # Frontend assets, service worker, manifest
-  app/                 # Client-side JS modules
+packages/web/          # React 19 frontend (Vite, TanStack Router, Zustand, TypeScript)
+packages/shared/       # Shared types and utilities
+public/                # Static assets, service worker, manifest
 tests/                 # Test suites (unit, integration, critical-paths, hardening, coverage-gaps)
-scripts/               # Operational scripts (backup, migration)
+scripts/               # Operational scripts (backup, monitoring)
 migrations/            # PostgreSQL schema migrations
-docs/                  # Internal documentation
+docs/                  # Documentation
 ```
 
 ## License

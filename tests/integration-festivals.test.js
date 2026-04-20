@@ -234,11 +234,10 @@ describe('Integration — Festivals', { concurrency: 1 }, () => {
 
     // Verify the app page loads and contains expected structure
     const response = await server.request.get('/').expect(200);
-    assert.match(response.text, /id="app"/);
-    assert.match(response.text, /id="toasts"/);
-    // Verify cache-busted script/css references
-    assert.match(response.text, /app\.js\?v=\d+/);
-    assert.match(response.text, /app\.css\?v=\d+/);
+    assert.match(response.text, /id="root"/);
+    // Verify Vite-built asset references (content-hashed filenames)
+    assert.match(response.text, /assets\/index-[A-Za-z0-9_-]+\.js/);
+    assert.match(response.text, /assets\/index-[A-Za-z0-9_-]+\.css/);
   });
 });
 

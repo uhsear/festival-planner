@@ -1,8 +1,8 @@
 #!/bin/bash
 # PostgreSQL backup script for Festie (custom format)
-# Run via cron: 0 */6 * * * /home/asir/festival-planner/scripts/backup-pg.sh
+# Run via cron: 0 */6 * * * $APP_DIR/scripts/backup-pg.sh
 
-BACKUP_DIR="${BACKUP_DIR:-/home/asir/backups/festival-planner}"
+BACKUP_DIR="${BACKUP_DIR:-$HOME/backups/festival-planner}"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DB_NAME="${DB_NAME:-festival_planner}"
 DB_USER="${DB_USER:-festival}"

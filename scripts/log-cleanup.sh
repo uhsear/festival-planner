@@ -3,7 +3,7 @@
 # Keeps last 7 days of deploy.log and migrate.log; truncates if > 10MB.
 set -euo pipefail
 
-LOG_DIR="/home/asir/festival-planner/logs"
+LOG_DIR="${LOG_DIR:-$(cd "$(dirname "$0")/.." && pwd)/logs}"
 MAX_SIZE=$((10 * 1024 * 1024))  # 10MB
 
 for LOG_FILE in deploy.log migrate.log; do

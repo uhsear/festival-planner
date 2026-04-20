@@ -84,11 +84,15 @@ async function seedFestival(pool) {
 }
 
 async function cleanupById(pool) {
+  await pool.query(`DELETE FROM festival_profile_picks WHERE profile_id IN (SELECT id FROM festival_profiles WHERE festival_id = $1)`, [FEST_ID]);
   await pool.query(`DELETE FROM festival_profiles WHERE festival_id = $1`, [FEST_ID]);
   await pool.query(`DELETE FROM festival_sets WHERE festival_id = $1`, [FEST_ID]);
   await pool.query(`DELETE FROM festival_days WHERE festival_id = $1`, [FEST_ID]);
   await pool.query(`DELETE FROM festival_stages WHERE festival_id = $1`, [FEST_ID]);
   await pool.query(`DELETE FROM festivals WHERE id = $1`, [FEST_ID]);
+  // Child tables referencing users (FK changed to RESTRICT in migration 031)
+  await pool.query(`DELETE FROM refresh_tokens WHERE user_id IN (SELECT id FROM users WHERE username LIKE $1)`, [`share-${RUN_ID}%`]);
+  await pool.query(`DELETE FROM user_sessions WHERE user_id IN (SELECT id FROM users WHERE username LIKE $1)`, [`share-${RUN_ID}%`]);
   await pool.query(`DELETE FROM users WHERE username LIKE $1`, [`share-${RUN_ID}%`]);
 }
 

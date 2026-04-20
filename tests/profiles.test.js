@@ -130,6 +130,7 @@ async function cleanupCreated() {
         [createdUserIds]
       );
       await pool.query('DELETE FROM festival_profiles WHERE user_id = ANY($1)', [createdUserIds]);
+      await pool.query('DELETE FROM refresh_tokens WHERE user_id = ANY($1)', [createdUserIds]);
       await pool.query('DELETE FROM user_sessions WHERE user_id = ANY($1)', [createdUserIds]);
       await pool.query('DELETE FROM user_roles WHERE user_id = ANY($1)', [createdUserIds]);
       await pool.query('DELETE FROM users WHERE id = ANY($1)', [createdUserIds]);

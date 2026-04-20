@@ -10,9 +10,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../.env" 2>/dev/null || true
 
-BACKUP_SRC="/home/asir/backups/festival-planner/"
+BACKUP_SRC="${BACKUP_DIR:-$HOME/backups/festival-planner}/"
 OFFSITE_TARGET="${OFFSITE_TARGET:-}"
-LOG_FILE="/home/asir/backups/festival-planner/offsite.log"
+LOG_FILE="${BACKUP_DIR:-$HOME/backups/festival-planner}/offsite.log"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"; }
 
