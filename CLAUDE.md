@@ -1,0 +1,121 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Festie is a real-time festival crew coordination app. Users create/join festivals, pick sets from the schedule, coordinate with crews via real-time chat, and export personalized schedules. The app is offline-first with WebSocket-driven live updates.
+
+## Tech Stack
+
+- **Backend**: Node.js 22 + Express 5 + Socket.IO 4 + PostgreSQL 16 + Redis 7
+- **Frontend**: React 19 + Vite 6 + TypeScript + TanStack Router + Zustand + Tailwind CSS 4
+- **Monorepo**: Backend at root (npm), frontend + shared packages under `packages/` (pnpm workspaces + Turborepo)
+
+See `ARCHITECTURE.md` for detailed design patterns, refactoring history, and module-level documentation (note: some references to Express 4 and SQLite are outdated — the project now uses Express 5 and PostgreSQL).
+
+## Commands
+
+```bash
+# Development (root uses npm, packages/ use pnpm)
+npm run dev                    # Backend + Vite frontend (proxied)
+npm start                      # Backend only
+
+# Testing (Node built-in test runner, not Jest)
+npm test                       # All backend tests (sequential, ~27 test files)
+npm run test:unit              # Unit tests only
+npm run test:e2e               # Playwright E2E
+npm run test:coverage          # c8 coverage (text + lcov + json-summary)
+node --test tests/integration-auth.test.js   # Single test file
+
+# Linting & Types
+npm run lint                   # ESLint on lib/, routes/, server.js
+npm run lint:fix               # Auto-fix
+pnpm --filter @festie/web typecheck   # Frontend TypeScript check
+pnpm --filter @festie/web lint        # Frontend ESLint
+
+# Frontend (from packages/web/)
+pnpm dev                       # Vite dev server standalone
+pnpm build                     # TypeScript + Vite production build
+```
+
+## Architecture
+
+### Backend (root)
+
+**Entry point**: `server.js` — Express app, Socket.IO setup, middleware stack, route mounting, graceful shutdown.
+
+**Key pattern — Dependency Injection via Factory Functions**: Every route module exports a factory function that receives a `deps` object (db pool, redis, config, logger, etc.) and returns an Express Router. This is the central architectural pattern:
+
+```js
+// routes/feature.js
+module.exports = function createFeatureRoutes({ pool, redis, config, io }) {
+  const router = express.Router();
+  // ...
+  return router;
+};
+```
+
+**`lib/`** — Core modules: `config.js` (centralized env vars with typed readers and defaults), `schemas.js` (Zod validation for all API inputs), database pool, Redis client, auth middleware, rate limiting, logging (Pino).
+
+**`routes/`** — Route factories. `socket.js` handles all real-time events (presence, chat, reactions, crew updates).
+
+**`migrations/`** — PostgreSQL migrations (004 baseline through 021+). Must be idempotent. All use parameterized queries (`$1, $2`).
+
+### Frontend (`packages/web/`)
+
+React 19 SPA with file-based routing (TanStack Router). Vite config has manual chunk splitting for HTTP/2 cache longevity (react-core, router, data, ui-motion, icons, export-tools, telemetry). Routes are lazy-loaded with skeleton fallbacks.
+
+**State management**: Zustand stores in `packages/shared/src/stores/` for auth, festival, crew, UI. Socket.IO listeners push real-time updates into stores. localStorage for offline snapshots + sync queue. PWA via Workbox service worker.
+
+### Shared (`packages/shared/`)
+
+TypeScript package exporting types, Zustand stores, Socket.IO service client, React hooks, utilities, and constants. Imported by frontend via workspace aliases (`@festie/shared/stores`, `@festie/shared/types`, etc.).
+
+## Database
+
+PostgreSQL 16 with connection pooling (pg, min 2 / max 20). Key tables: `users`, `sessions`, `festivals`, `profiles` (picks/notes/reminders), `crews`, `messages`, `audit_log`. All queries use parameterized SQL — no string interpolation.
+
+## Code Conventions
+
+- **Style**: 2-space indent, single quotes, trailing commas, semicolons, `const`/`let` only (enforced by ESLint flat config + Prettier)
+- **Backend is CommonJS** (`require`/`module.exports`), frontend is ESM/TypeScript
+- **API error responses**: `{ ok: false, code: 'ERROR_CODE', message: '...' }`
+- **API success responses**: `{ ok: true, ...data }`
+- **Validation**: Zod schemas in `lib/schemas.js` for all API endpoints
+- **Logging**: Pino with JSON output; sensitive fields are sanitized
+- **Config**: All env vars read through `lib/config.js` with `DEFAULTS` object and typed readers (`readInt`, `readBool`, `readList`)
+
+## Security Model
+
+- SHA-256 session tokens, scrypt password hashing (64-byte key, random 16-byte salt)
+- Max 5 concurrent sessions per user
+- CSRF via origin enforcement, CSP with inline hashes
+- Multi-tier rate limiting: in-memory (single process) or Redis-backed (cluster mode) with graceful fallback
+- Helmet for HTTP security headers
+
+## Testing
+
+Tests use **Node's built-in test runner** (`node:test` + `node:assert`). Test files:
+
+- `tests/unit.test.js` — isolated function tests
+- `tests/integration-*.test.js` — full app with test database (≈20 files covering auth, festivals, crews, chat, etc.)
+- `tests/critical-paths.test.js` — end-to-end user journeys
+- `tests/hardening.test.js` — security, rate limits, session edge cases
+- `tests/e2e/*.spec.js` — Playwright browser automation
+
+## Adding a New API Endpoint
+
+1. Add Zod schema to `lib/schemas.js`
+2. Create route factory in `routes/` (or add to existing one)
+3. Mount router in `server.js`
+4. Write integration test in `tests/`
+
+For real-time features: add Socket.IO event handler in `routes/socket.js`, client-side listener in `packages/shared/src/services/socket.ts`.
+
+## Deployment
+
+- **Dev/test**: Single process, in-memory rate limits, local file storage
+- **Production**: PM2 cluster mode (`ecosystem.config.js`), Redis-backed rate limits/sessions, nginx reverse proxy
+- **Docker**: Multi-stage build, Node 22 slim, non-root user, health check at `/api/health`
+- **Required env vars**: `PUBLIC_ORIGIN`, `DATABASE_URL`, `SESSION_SECRET`, `FIREBASE_CREDENTIALS_PATH`, `RESEND_API_KEY`; `REDIS_URL` for cluster mode
