@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Database backup script for Festie
 # Runs via cron: 0 */6 * * * $APP_DIR/scripts/backup-db.sh
 

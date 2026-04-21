@@ -34,7 +34,7 @@ describe('Integration — Festivals', { concurrency: 1 }, () => {
     assert.ok(csp.includes("style-src-attr 'unsafe-inline'"));
     assert.ok(csp.includes("connect-src 'self' wss://rave.example.com"));
     assert.ok(!csp.includes("connect-src 'self' ws: wss:"));
-    assert.match(response.text, /FESTIVAL PLANNER/);
+    assert.match(response.text, /Festival Planner/i);
   });
 
   test('uses Cloudflare client IP headers for rate limiting only when proxy trust is enabled', async () => {

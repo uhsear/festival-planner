@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # PostgreSQL backup script for Festie (custom format)
 # Run via cron: 0 */6 * * * $APP_DIR/scripts/backup-pg.sh
 

@@ -36,7 +36,16 @@ export function createSocket(bearerToken?: string, baseUrl?: string): Socket {
     }
   }
 
-  return io(url || undefined, opts);
+  const socket = io(url || undefined, opts);
+
+  socket.on('connect_error', (err: any) => {
+    const status = err?.data?.status ?? err?.status;
+    if (status === 401 || status === 403) {
+      socket.disconnect();
+    }
+  });
+
+  return socket;
 }
 
 export { Socket, SocketEvents };

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 # Off-site backup: rsync PostgreSQL dumps to a secondary location
 # Configure OFFSITE_TARGET in .env or edit below
 # Examples:

@@ -2,6 +2,7 @@ import { create, StateCreator } from 'zustand';
 import { persist, PersistStorage } from 'zustand/middleware';
 import { api, setAuthToken, clearAuthToken, getApiBase, getAuthToken } from '../services/api';
 import { TRUSTED_MUTATION_HEADER } from '../constants/config';
+import { resetAllStores } from './resetStores';
 import {
   User,
   LoginRequest,
@@ -118,24 +119,18 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await api.post('/auth/logout', {});
-      clearAuthToken();
-      set({
-        user: null,
-        userToken: null,
-        isAdmin: false,
-        adminToken: null,
-        isLoading: false,
-      });
-    } catch (err) {
-      clearAuthToken();
-      set({
-        user: null,
-        userToken: null,
-        isAdmin: false,
-        adminToken: null,
-        isLoading: false,
-      });
+    } catch {
+      // Server call failed — proceed with local cleanup regardless.
     }
+    clearAuthToken();
+    set({
+      user: null,
+      userToken: null,
+      isAdmin: false,
+      adminToken: null,
+      isLoading: false,
+    });
+    resetAllStores();
   },
 
   refreshToken: async () => {

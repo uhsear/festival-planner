@@ -131,8 +131,17 @@ export default function AdminAudit() {
             {entries.map((entry) => (
               <div
                 key={entry.id}
+                role="button"
+                tabIndex={0}
+                aria-expanded={expandedId === entry.id}
                 className="px-6 py-4 hover:bg-bg-primary/20 transition-colors cursor-pointer"
                 onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setExpandedId(expandedId === entry.id ? null : entry.id);
+                  }
+                }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">

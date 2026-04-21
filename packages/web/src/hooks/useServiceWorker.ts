@@ -4,6 +4,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 export function useServiceWorker() {
   const [needRefresh, setNeedRefresh] = useState(false);
   const { updateServiceWorker } = useRegisterSW({
+    onNeedRefresh: () => setNeedRefresh(true),
     onRegistered: (registration: any) => {
       console.log('SW Registered:', registration);
     },

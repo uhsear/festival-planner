@@ -32,12 +32,14 @@ export default function SetEditor({ set: s, stages, onField, onRemove }: SetEdit
       <input
         type="text"
         placeholder="Artist name"
+        aria-label="Artist name"
         value={s.artist || ''}
         onChange={(e) => onField('artist', e.target.value)}
         className="px-2 py-1.5 rounded bg-bg-primary border border-glass-border text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-1 focus:ring-accent-aqua"
       />
       <select
         value={s.stageId || ''}
+        aria-label="Stage"
         onChange={(e) => onField('stageId', e.target.value)}
         className="px-2 py-1.5 rounded bg-bg-primary border border-glass-border text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-aqua"
       >
@@ -50,12 +52,14 @@ export default function SetEditor({ set: s, stages, onField, onRemove }: SetEdit
       </select>
       <input
         type="time"
+        aria-label="Start time"
         value={s.startTime && s.startTime !== 'TBA' ? s.startTime : ''}
         onChange={(e) => onField('startTime', e.target.value || 'TBA')}
         className="px-2 py-1.5 rounded bg-bg-primary border border-glass-border text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-aqua"
       />
       <input
         type="time"
+        aria-label="End time"
         value={s.endTime && s.endTime !== 'TBA' ? s.endTime : ''}
         onChange={(e) => onField('endTime', e.target.value || null)}
         className="px-2 py-1.5 rounded bg-bg-primary border border-glass-border text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent-aqua"

@@ -54,13 +54,9 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        // Custom push + notificationclick handlers live here. Workbox's
-        // generated SW `importScripts()`-es these so our listeners register
-        // at SW script-eval time (before the browser dispatches events).
-        importScripts: ['/push-handler.js'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/festie\.us\/api\/v1\//,
+            urlPattern: /\/api\/v1\//,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'api-cache',
