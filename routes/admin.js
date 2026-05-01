@@ -117,7 +117,7 @@ module.exports = function createAdminRoutes(deps) {
         getUsers(),
         getFestivals(),
         getProfiles(),
-        stores.auditLog.query({ limit: 20 }),
+        stores.auditLog.query({ limit: 20 }).then(({ rows }) => rows),
       ]);
 
       // Build username map from users for activity resolution

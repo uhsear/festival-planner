@@ -203,7 +203,8 @@ export default function CrewView() {
             onSaved={() => selectCrew(activeCrew.id)}
           />
 
-          {/* Invite link — compact */}
+          {/* Invite link — compact (only visible to owner who receives inviteCode) */}
+          {activeCrew.inviteCode && (
           <div className="p-3 rounded-lg bg-bg-card border border-border flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-xs text-text-muted uppercase tracking-wide flex items-center gap-1.5">
@@ -218,6 +219,7 @@ export default function CrewView() {
               {copiedCode ? '✓ Copied' : 'Copy'}
             </Button>
           </div>
+          )}
 
           {/* Compare-schedules entry point — deep-links to /compare, which
              shows the side-by-side per-day table of who picked what. This

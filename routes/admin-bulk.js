@@ -23,6 +23,9 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
       if (!Array.isArray(userIds) || userIds.length === 0 || userIds.length > 50) {
         return sendError(res, 400, 'Provide 1-50 user IDs', ErrorCodes.INVALID_INPUT);
       }
+      if (!userIds.every(id => typeof id === 'string' && id.length > 0 && id.length <= 100)) {
+        return sendError(res, 400, 'Each user ID must be a non-empty string', ErrorCodes.INVALID_INPUT);
+      }
       const settled = await Promise.allSettled(
         userIds.map(userId => stores.sessions.deleteUserSessions(userId).then(() => userId)),
       );

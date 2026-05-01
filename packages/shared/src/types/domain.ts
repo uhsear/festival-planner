@@ -106,7 +106,7 @@ export interface CrewMember {
 export interface Crew {
   id: string;
   name: string;
-  inviteCode: string;
+  inviteCode?: string;
   owner: string;
   festivalId?: string;
   members: CrewMember[];

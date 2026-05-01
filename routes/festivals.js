@@ -48,7 +48,7 @@ module.exports = function createFestivalsRoutes(deps) {
     });
   }
 
-  router.get('/', async (req, res) => {
+  router.get('/', rateLimit(120, 'festival-list'), async (req, res) => {
     try {
       const festivals = await getFestivals();
       // Lightweight cache: recompute only when festival data changes
@@ -80,7 +80,7 @@ module.exports = function createFestivalsRoutes(deps) {
   //   ?depth=0 → name, id, location only (already served by GET /)
   //   ?depth=1 → stages + days with set names (no profiles/messages) — default for mobile initial load
   //   ?depth=2 (or omitted) → full festival data (backward compatible default)
-  router.get('/:id', async (req, res) => {
+  router.get('/:id', rateLimit(120, 'festival-detail'), async (req, res) => {
     try {
       const festival = await getFestivalById(req.params.id);
       if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);

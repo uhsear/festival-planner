@@ -17,7 +17,7 @@
 
 module.exports = function createHealthRoutes(deps) {
   const {
-    express,
+    express, log,
     stores, pool,
     sendSuccess, sendError, ErrorCodes, rateLimit,
   } = deps;
@@ -54,6 +54,11 @@ module.exports = function createHealthRoutes(deps) {
     if (fid < 100) clientMetricsBuckets.fid_under_100++; else clientMetricsBuckets.fid_over_100++;
     if ((avgRenderMs || 0) < 500) clientMetricsBuckets.render_under_500++; else clientMetricsBuckets.render_over_500++;
     return sendSuccess(res, { received: true });
+  });
+
+  router.post('/csp-report', rateLimit(30, 'csp-report'), express.json({ type: ['application/csp-report', 'application/json'], limit: '2kb' }), (req, res) => {
+    log.warn('csp-violation', { report: req.body });
+    res.status(204).end();
   });
 
   router.get('/ready', rateLimit(60, 'ready'), async (req, res) => {

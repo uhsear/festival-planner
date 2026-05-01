@@ -107,8 +107,10 @@ export interface CrewMeetingPointRemovedPayload {
 }
 
 export interface CrewPollCreatedPayload {
-  crewId: string;
-  poll: Record<string, unknown>;
+  pollId: string;
+  question: string;
+  options: string[];
+  createdBy: string;
 }
 
 export interface CrewPollVotedPayload {
@@ -193,7 +195,12 @@ export interface ServerToClientEvents {
   'crew:expense-deleted': (data: CrewExpenseDeletedPayload) => void;
   'crew:activity': (data: CrewActivityPayload) => void;
 
+  // Identity
+  'profile:identity': (data: { festivalId: string; profileId: string; username: string; avatarUrl?: string }) => void;
+
   // System
+  'session:revoked': (data: { reason: string }) => void;
+  'server:draining': (data: { message: string }) => void;
   'error': (error: { message: string; code?: string }) => void;
   'connect': () => void;
   'disconnect': (reason: string) => void;
@@ -204,8 +211,6 @@ export interface ServerToClientEvents {
 // ════════════════════════════════════════════════════════════════════════════════
 
 export interface ClientToServerEvents {
-  'join-festival': (data: { festivalId: string }) => void;
-  'leave-festival': (data: { festivalId: string }) => void;
   'join:festival': (
     festivalId: string,
     data: { _v?: number; userToken?: string | null },

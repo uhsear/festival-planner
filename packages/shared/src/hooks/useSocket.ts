@@ -15,11 +15,11 @@ export interface UseSocketReturn {
 export function useSocket(festivalId?: string): UseSocketReturn {
   const socketRef = useRef<Socket | null>(null);
   // Invariant: joinedFestivalIdRef.current holds the festivalId that the
-  // currently-live socket emitted `join-festival` for. Updated
+  // currently-live socket emitted `join:festival` for. Updated
   // synchronously at the top of each effect run and read in the cleanup.
   // Using a ref (rather than a closure-captured local) keeps the leave/
   // join sides in lockstep even under rapid festivalId switches
-  // (A -> B -> C), so we never emit `leave-festival:A` against a socket
+  // (A -> B -> C), so we never emit `leave:festival` against a socket
   // that has since joined C.
   const joinedFestivalIdRef = useRef<string | null>(null);
   const userToken = useAuthStore((state) => state.userToken);
@@ -42,7 +42,7 @@ export function useSocket(festivalId?: string): UseSocketReturn {
       setConnected(true);
       const joinId = joinedFestivalIdRef.current;
       if (joinId) {
-        socket.emit('join-festival', { festivalId: joinId });
+        socket.emit('join:festival', joinId, {});
       }
     };
 
@@ -84,7 +84,7 @@ export function useSocket(festivalId?: string): UseSocketReturn {
       // invariant documented above.
       const toLeave = joinedFestivalIdRef.current;
       if (toLeave && socket.connected) {
-        socket.emit('leave-festival', { festivalId: toLeave });
+        socket.emit('leave:festival');
       }
       socket.off('connect', handleConnect);
       socket.off('disconnect', handleDisconnect);

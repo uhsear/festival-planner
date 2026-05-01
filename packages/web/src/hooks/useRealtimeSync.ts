@@ -30,7 +30,7 @@ export interface UseRealtimeSyncReturn {
  * Source-of-truth decisions:
  *   - pick:updated / pick:removed / note:saved  -> festivalStore.loadProfiles
  *   - profile:updated / profile:joined / profile:left -> festivalStore.loadProfiles
- *   - crew:updated / crew:member-added / crew:member-removed -> crewStore
+ *   - crew:updated / crew:member-joined / crew:member-left -> crewStore
  *   - festival:updated / festival:set-added / festival:set-updated
  *       -> festivalStore.selectFestival (full reload of festival + sets + stages)
  *   - presence:update -> uiStore (no refetch)
@@ -119,13 +119,13 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
 
     // --- Presence (uiStore only; no refetch) ---
     const handlePresenceUpdate = (data: PresenceUpdatePayload) => {
-      if (data.users) setOnlineUsers(data.users);
+      if (data.online) setOnlineUsers(data.online.map(u => ({ id: u.userId, name: u.username, avatar: u.avatarUrl, status: 'online' as const })));
     };
 
     const handleConnect = () => {
       setConnected(true);
       if (currentFestivalId) {
-        socket.emit('join-festival', { festivalId: currentFestivalId });
+        socket.emit('join:festival', currentFestivalId, { _v: 1 }, () => {});
       }
     };
 
@@ -144,8 +144,8 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     socket.on('profile:left', handleProfileLeft);
 
     socket.on('crew:updated', handleCrewUpdated);
-    socket.on('crew:member-added', handleCrewMemberAdded);
-    socket.on('crew:member-removed', handleCrewMemberRemoved);
+    socket.on('crew:member-joined', handleCrewMemberAdded);
+    socket.on('crew:member-left', handleCrewMemberRemoved);
 
     socket.on('festival:updated', handleFestivalUpdated);
     socket.on('festival:set-added', handleSetAdded);
@@ -166,8 +166,8 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       socket.off('profile:left', handleProfileLeft);
 
       socket.off('crew:updated', handleCrewUpdated);
-      socket.off('crew:member-added', handleCrewMemberAdded);
-      socket.off('crew:member-removed', handleCrewMemberRemoved);
+      socket.off('crew:member-joined', handleCrewMemberAdded);
+      socket.off('crew:member-left', handleCrewMemberRemoved);
 
       socket.off('festival:updated', handleFestivalUpdated);
       socket.off('festival:set-added', handleSetAdded);

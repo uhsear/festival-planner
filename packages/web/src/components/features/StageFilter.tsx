@@ -30,7 +30,7 @@ export default function StageFilter({ stages, activeStages, onStagesChange, stag
   const colors = stageColors || DEFAULT_COLORS;
 
   return (
-    <div className="px-4 overflow-x-auto pb-2 stage-filter-row scrollbar-hide snap-x snap-mandatory">
+    <div className="px-4 overflow-x-auto pb-2 stage-filter-row scrollbar-hide">
       <div className="flex gap-2 min-w-min flex-nowrap">
         {stages.map((stage) => {
           const isActive = activeStages.includes(stage.id);

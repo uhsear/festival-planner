@@ -3,6 +3,13 @@
 
 @source "../**/*.{ts,tsx,js,jsx}";
 
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @theme {
   /* Breakpoints — required for md:/lg:/xl: responsive prefixes to be generated */
   --breakpoint-sm: 40rem;
