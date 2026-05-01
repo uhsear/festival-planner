@@ -329,25 +329,35 @@ if (require.main === module) {
   });
 
   async function listenWithRetry(server, port, host, maxRetries = 5, initialDelay = 1000) {
+    const isCluster = typeof process.send === 'function';
+
+    async function attemptListen() {
+      if (server.listening) {
+        log.warn('server already listening, skipping listen call', { port, host });
+        return;
+      }
+      await new Promise((resolve, reject) => {
+        const onError = (err) => { server.removeListener('listening', onSuccess); reject(err); };
+        const onSuccess = () => { server.removeListener('error', onError); resolve(); };
+        server.once('error', onError);
+        server.once('listening', onSuccess);
+        server.listen(port, host);
+      });
+      log.info('server started', { bind: host, port, origin: planner.config.PUBLIC_ORIGIN || 'not set' });
+      if (planner.setHealthReady) planner.setHealthReady(true);
+      if (isCluster) process.send('ready');
+    }
+
+    if (isCluster) {
+      await attemptListen();
+      return;
+    }
+
     let retries = 0;
     let currentDelay = initialDelay;
-
     while (retries < maxRetries) {
       try {
-        if (server.listening) {
-          log.warn('server already listening, skipping listen call', { port, host });
-          return;
-        }
-        await new Promise((resolve, reject) => {
-          const onError = (err) => { server.removeListener('listening', onSuccess); reject(err); };
-          const onSuccess = () => { server.removeListener('error', onError); resolve(); };
-          server.once('error', onError);
-          server.once('listening', onSuccess);
-          server.listen(port, host);
-        });
-        log.info('server started', { bind: host, port, origin: planner.config.PUBLIC_ORIGIN || 'not set' });
-        if (planner.setHealthReady) planner.setHealthReady(true);
-        if (typeof process.send === 'function') process.send('ready');
+        await attemptListen();
         return;
       } catch (error) {
         if (error.code === 'EADDRINUSE') {
