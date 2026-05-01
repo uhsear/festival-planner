@@ -53,7 +53,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   const [category, setCategory] = useState<string>('other');
   const [splitWith, setSplitWith] = useState<string[]>(() => members.map((m) => m.userId));
 
-  const { data: expenses = [], isLoading, isError } = useQuery<RawExpense[]>({
+  const { data: expenses = [], isLoading, isError, refetch } = useQuery<RawExpense[]>({
     queryKey: ['expenses', crewId],
     queryFn: async () => {
       const res = await api.get<RawExpense[]>(`/crews/${crewId}/expenses`);
@@ -140,13 +140,13 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   const totalSpent = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
   if (isLoading) return <div className="px-4 space-y-2"><Skeleton variant="card" /><Skeleton variant="card" /></div>;
-  if (isError) return <div className="px-4"><EmptyState icon={<DollarSign className="w-12 h-12" />} title="Couldn't load expenses" description="Try again later." /></div>;
+  if (isError) return <div className="px-4"><EmptyState icon={<DollarSign className="w-12 h-12" />} title="Couldn't load expenses" description="Something went wrong loading expenses." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
 
   return (
     <div className="space-y-3 px-4">
       {/* Summary */}
       {expenses.length > 0 && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="crew-stats-grid grid grid-cols-2 gap-2">
           <div className="p-3 rounded-lg bg-bg-card border border-border">
             <div className="text-xs text-text-muted uppercase tracking-wide">Total spent</div>
             <div className="text-lg font-bold text-text-primary">${totalSpent.toFixed(2)}</div>
@@ -206,7 +206,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
             value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required />
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">Category</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="crew-category-grid grid grid-cols-3 gap-2">
               {CATEGORIES.map((c) => (
                 <button key={c.key} type="button" onClick={() => setCategory(c.key)}
                   className={cn('min-h-11 px-2 py-2 rounded-lg border text-xs flex flex-col items-center gap-1',

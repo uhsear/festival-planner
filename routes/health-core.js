@@ -31,7 +31,7 @@ module.exports = function createHealthRoutes(deps) {
   const clientMetrics = { samples: 0, lcpSum: 0, fidSum: 0, clsSum: 0, renderMsSum: 0, renderCount: 0 };
   const clientMetricsBuckets = { lcp_under_2500: 0, lcp_over_2500: 0, fid_under_100: 0, fid_over_100: 0, render_under_500: 0, render_over_500: 0 };
 
-  router.get('/health', (req, res) => {
+  router.get('/health', rateLimit(120, 'health'), (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=5');
     return sendSuccess(res, { status: 'ok', uptime: Math.round(process.uptime()) });
   });
@@ -56,7 +56,7 @@ module.exports = function createHealthRoutes(deps) {
     return sendSuccess(res, { received: true });
   });
 
-  router.get('/ready', async (req, res) => {
+  router.get('/ready', rateLimit(60, 'ready'), async (req, res) => {
     if (!isReady) {
       res.status(503);
       return sendSuccess(res, { status: 'not_ready', message: 'Server is still initializing' });
@@ -102,7 +102,7 @@ module.exports = function createHealthRoutes(deps) {
   });
 
   // App info endpoint for mobile clients — version check, feature flags, minimum app version
-  router.get('/info', (req, res) => {
+  router.get('/info', rateLimit(60, 'info'), (req, res) => {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return sendSuccess(res, {
       apiVersion: config.API_VERSION,

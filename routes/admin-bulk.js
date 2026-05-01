@@ -23,14 +23,17 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
       if (!Array.isArray(userIds) || userIds.length === 0 || userIds.length > 50) {
         return sendError(res, 400, 'Provide 1-50 user IDs', ErrorCodes.INVALID_INPUT);
       }
-      const results = [];
-      for (const userId of userIds) {
-        try {
-          await stores.sessions.deleteUserSessions(userId);
-          results.push({ userId, status: 'deactivated' });
-          log.info('admin:bulk-deactivate', { userId, actor: 'admin' });
-        } catch (err) {
-          results.push({ userId, status: 'error', message: err.message });
+      const settled = await Promise.allSettled(
+        userIds.map(userId => stores.sessions.deleteUserSessions(userId).then(() => userId)),
+      );
+      const results = settled.map((r, i) =>
+        r.status === 'fulfilled'
+          ? { userId: userIds[i], status: 'deactivated' }
+          : { userId: userIds[i], status: 'error', message: r.reason?.message || 'unknown' },
+      );
+      for (const r of results) {
+        if (r.status === 'deactivated') {
+          log.info('admin:bulk-deactivate', { userId: r.userId, actor: 'admin' });
         }
       }
       if (stores.auditLog) {

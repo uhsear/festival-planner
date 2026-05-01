@@ -42,7 +42,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
 
-  const { data: polls = [], isLoading, isError } = useQuery<RawPoll[]>({
+  const { data: polls = [], isLoading, isError, refetch } = useQuery<RawPoll[]>({
     queryKey: ['polls', crewId],
     queryFn: async () => {
       const res = await api.get<{ polls: RawPoll[] } | RawPoll[]>(`/crews/${crewId}/polls`);
@@ -102,7 +102,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
   }
 
   if (isLoading) return <div className="px-4 space-y-2"><Skeleton variant="card" /><Skeleton variant="card" /></div>;
-  if (isError) return <div className="px-4"><EmptyState icon={<BarChart3 className="w-12 h-12" />} title="Couldn't load polls" description="Try again later." /></div>;
+  if (isError) return <div className="px-4"><EmptyState icon={<BarChart3 className="w-12 h-12" />} title="Couldn't load polls" description="Something went wrong loading polls." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
 
   return (
     <div className="space-y-3 px-4">
@@ -156,7 +156,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
           description="Create a poll to help your crew decide things together." />
       ) : (
         <div className="space-y-3">
-          {polls.map((p) => {
+          {polls.map((p, idx) => {
             // Aggregate votes[{option, user_id}] into counts per option index.
             const counts = new Array<number>(p.options.length).fill(0);
             let myVote: number | null = null;
@@ -168,7 +168,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
             const maxCount = Math.max(0, ...counts);
 
             return (
-              <div key={p.id} className="rounded-lg bg-bg-card border border-border p-3 space-y-2">
+              <div key={p.id} className="stagger-item rounded-lg bg-bg-card border border-border p-3 space-y-2" style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}>
                 <div className="flex items-start justify-between gap-2">
                   <h4 className="font-semibold text-text-primary flex-1">{p.question}</h4>
                   <span className="text-xs text-text-secondary flex-shrink-0">{total} {total === 1 ? 'vote' : 'votes'}</span>

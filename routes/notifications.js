@@ -86,7 +86,7 @@ module.exports = function createNotificationRoutes(deps) {
   });
 
   // ── GET /prefs — get notification preferences ───────────────────────
-  router.get('/prefs', userAuth, async (req, res) => {
+  router.get('/prefs', userAuth, rl(120, 'notif-prefs-get'), async (req, res) => {
     try {
       setNoStore(res);
       const prefs = await stores.notificationPrefs.get(req.user.userId);
@@ -118,7 +118,7 @@ module.exports = function createNotificationRoutes(deps) {
   });
 
   // ── GET /unread — get current unread counts ────────────────────────
-  router.get('/unread', userAuth, async (req, res) => {
+  router.get('/unread', userAuth, rl(120, 'notif-unread'), async (req, res) => {
     try {
       setNoStore(res);
       const counts = await stores.notificationCounts.getByUser(req.user.userId);
@@ -137,7 +137,7 @@ module.exports = function createNotificationRoutes(deps) {
   });
 
   // ── GET /history — notification delivery history ───────────────────
-  router.get('/history', userAuth, async (req, res) => {
+  router.get('/history', userAuth, rl(60, 'notif-history'), async (req, res) => {
     try {
       setNoStore(res);
       const { limit } = parsePageParams(req.query, { defaultSize: 25, maxSize: 100 });
@@ -218,7 +218,7 @@ module.exports = function createNotificationRoutes(deps) {
   const ALLOWED_TOPICS = new Set(['crew', 'schedule']);
 
   // GET /topics/:festivalId — get topic subscriptions for a festival
-  router.get('/topics/:festivalId', userAuth, async (req, res) => {
+  router.get('/topics/:festivalId', userAuth, rl(120, 'notif-topics-get'), async (req, res) => {
     try {
       setNoStore(res);
       const festivalId = sanitizeIdentifier(req.params.festivalId, 100);

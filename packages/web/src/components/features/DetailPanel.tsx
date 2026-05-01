@@ -78,7 +78,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
 
   // Genre chips from artist data
   const allGenres = useMemo(() => {
-    return [...new Set((set.artists || []).flatMap((a: any) => a.genres || []))].slice(0, 6);
+    return [...new Set((set.artists || []).flatMap((a) => a.genres || []))].slice(0, 6);
   }, [set.artists]);
 
   // Conflicts: find sets that overlap with this one in the user's picks
@@ -142,21 +142,8 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     onClose();
   }, [onClose]);
 
-  // Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleClose]);
-
-  // Focus close button on mount
-  useEffect(() => {
-    if (closeBtnRef.current) {
-      closeBtnRef.current.focus();
-    }
-  }, []);
+  // Focus close button on mount — intentionally removed manual Escape handler
+  // (Radix Dialog/vaul handles Escape natively via onOpenChange).
 
   // Fetch Spotify preview on mount
   useEffect(() => {
@@ -277,6 +264,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             content doesn't pin to the left of a 1400 px viewport. The `lg:`
             classes cancel vaul's `fixed bottom-0 inset-x-0` and recenter. */}
         <Drawer.Content
+          aria-label="Set detail panel"
           className="fixed bottom-0 inset-x-0 z-50 max-h-[92vh] flex flex-col
                      rounded-t-2xl bg-bg-primary border-t border-border-light
                      shadow-2xl outline-none
@@ -284,6 +272,10 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
                      lg:-translate-x-1/2 lg:-translate-y-1/2
                      lg:w-[min(640px,calc(100vw-2rem))] lg:max-h-[85vh]
                      lg:rounded-2xl lg:border lg:border-border-light lg:border-t-0"
+          onOpenAutoFocus={(e: Event) => {
+            e.preventDefault();
+            closeBtnRef.current?.focus();
+          }}
         >
           {/* Drag handle — mobile only (desktop has no drag affordance). */}
           <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0 lg:hidden" />
@@ -291,12 +283,13 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
               sr-only here because the visible "detail-artist" heading inside
               duplicates it with stage-color styling. */}
           <Drawer.Title className="sr-only">{artistDisplayName(set, currentFestival?.b2bSeparator)}</Drawer.Title>
+          <Drawer.Description className="sr-only">Set details, schedule, and crew info for {artistDisplayName(set, currentFestival?.b2bSeparator)}</Drawer.Description>
           <div className="detail-panel detail-panel--drawer" ref={panelRef}>
         {/* Close button */}
         <button
           className="detail-close"
           type="button"
-          aria-label="Close details"
+          aria-label="Close detail panel"
           onClick={handleClose}
           ref={closeBtnRef}
         >
@@ -314,7 +307,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
         {/* Artist photo — reserved aspect ratio prevents CLS when the lazy-
             loaded hero image swaps in; artist press photos are ~square, so
             1/1 matches the common case while object-cover handles drift. */}
-        {primaryArtist && (primaryArtist as any).photo && (
+        {primaryArtist && primaryArtist.photo && (
           <div
             className="detail-artist-photo-wrap"
             style={{
@@ -325,7 +318,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             }}
           >
             <img
-              src={(primaryArtist as any).photo}
+              src={primaryArtist.photo}
               alt={primaryArtist.name || set.artist || ''}
               className="detail-artist-photo"
               loading="lazy"
@@ -553,7 +546,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
         {/* Rate the set — shown only after the set has started so users rate
             what they actually saw. Auth-gated via currentProfile (guests see
             nothing here; they see the Join CTA above instead). */}
-        {currentProfile && set && currentFestival && hasSetStarted(set as any, currentFestival as any, festivalDays) && (
+        {currentProfile && set && currentFestival && hasSetStarted(set, currentFestival, festivalDays) && (
           <div className="detail-rating" style={{ margin: '14px 0 10px', textAlign: 'center' }}>
             <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase',
                           color: 'var(--color-text-muted)', marginBottom: 8 }}>

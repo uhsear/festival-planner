@@ -50,7 +50,7 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
   const rate = useMutation({
     mutationFn: async ({ rating, note }: { rating: number; note?: string }) => {
       const body = { rating, ...(note !== undefined ? { note } : {}) };
-      const bridge = (window as any).__festieQueue;
+      const bridge = window.__festieQueue;
       if (!navigator.onLine && bridge?.queueMutation) {
         return bridge.queueMutation({
           type: 'api', clientId: `rate-${setId}`, url: `/ratings/${setId}`, method: 'POST', body,
@@ -75,7 +75,7 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
 
   const remove = useMutation({
     mutationFn: async () => {
-      const bridge = (window as any).__festieQueue;
+      const bridge = window.__festieQueue;
       if (!navigator.onLine && bridge?.queueMutation) {
         return bridge.queueMutation({
           type: 'api', clientId: `rate-${setId}`, url: `/ratings/${setId}`, method: 'DELETE',

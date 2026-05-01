@@ -25,7 +25,7 @@ export default function AdminLayout({
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col h-screen bg-bg-primary">
+    <div className="flex flex-col min-h-dvh bg-bg-primary">
       {/* Top bar */}
       <div className="sticky top-0 z-30 border-b border-glass-border bg-bg-card/80 backdrop-blur-xl">
         <div className="flex items-center justify-between px-4 py-4 md:px-6">

@@ -34,7 +34,7 @@ function isIOSSafari(): boolean {
 
 function isStandalone(): boolean {
   return (
-    (typeof navigator !== 'undefined' && (navigator as any).standalone === true) ||
+    (typeof navigator !== 'undefined' && (navigator as unknown as { standalone?: boolean }).standalone === true) ||
     (typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)').matches) ||
     false
   );

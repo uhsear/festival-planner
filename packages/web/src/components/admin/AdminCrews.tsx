@@ -40,8 +40,8 @@ export default function AdminCrews() {
       setLoading(true);
       const result = await api.get<Crew[]>('/admin/crews');
       setCrews(Array.isArray(result) ? result : []);
-    } catch (err: any) {
-      toast(err.message || 'Failed to load crews', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to load crews', 'error');
     } finally {
       setLoading(false);
     }
@@ -54,8 +54,8 @@ export default function AdminCrews() {
     try {
       const result = await api.get<CrewMember[]>(`/admin/crews/${crewId}/members`);
       setMembersByCrew((prev) => ({ ...prev, [crewId]: Array.isArray(result) ? result : [] }));
-    } catch (err: any) {
-      toast(err.message || 'Failed to load members', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to load members', 'error');
     } finally {
       setMembersLoading((prev) => ({ ...prev, [crewId]: false }));
     }
@@ -86,8 +86,8 @@ export default function AdminCrews() {
       await api.delete<void>(`/admin/crews/${crewId}`);
       setCrews(crews.filter((c) => c.id !== crewId));
       toast(`Deleted ${name}`, 'success');
-    } catch (err: any) {
-      toast(err.message || 'Failed to delete crew', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to delete crew', 'error');
     }
   };
 

@@ -16,6 +16,7 @@ module.exports = function createExportRoutes(deps) {
     _buildAvatarUrl,
     sendSuccess, sendError, ErrorCodes,
     sanitizeIdentifier,
+    rateLimit,
   } = deps;
 
   const router = express.Router();
@@ -38,7 +39,6 @@ module.exports = function createExportRoutes(deps) {
   const MAX_CREW_IN_EXPORT = config.MAX_CREW_IN_EXPORT || 20;
   const EXPORT_COOLDOWN_MS = config.EXPORT_COOLDOWN_MS || 5_000;
   const MAX_COOLDOWN_ENTRIES = 1_000;
-  const _activeExports = 0;
   const exportCooldowns = new Map();
   const cooldownCleanup = setInterval(() => {
     const now = Date.now();
@@ -132,7 +132,7 @@ module.exports = function createExportRoutes(deps) {
    * Export endpoints return rendered HTML/ICS content, not JSON envelope.
    * This is by design — see Finding #54.
    */
-  router.get('/export/:festivalId/:profileId', userAuth, async (req, res) => {
+  router.get('/export/:festivalId/:profileId', userAuth, rateLimit(30, 'export-html'), async (req, res) => {
     const startTime = Date.now();
     try {
       setNoStore(res);
@@ -208,7 +208,7 @@ module.exports = function createExportRoutes(deps) {
    * Export endpoints return rendered HTML/ICS content, not JSON envelope.
    * This is by design — see Finding #54.
    */
-  router.get('/export/:festivalId/:profileId/calendar', userAuth, async (req, res) => {
+  router.get('/export/:festivalId/:profileId/calendar', userAuth, rateLimit(30, 'export-cal'), async (req, res) => {
     try {
       setNoStore(res);
       const festivalId = sanitizeIdentifier(req.params.festivalId);
@@ -307,7 +307,7 @@ module.exports = function createExportRoutes(deps) {
   // JSON and NDJSON exports removed as part of Finding #37: feature bloat reduction.
   // Maintaining only HTML (printable/offline) and ICS (native calendar integration).
 
-  router.get('/presence/:festivalId', userAuth, async (req, res) => {
+  router.get('/presence/:festivalId', userAuth, rateLimit(60, 'presence'), async (req, res) => {
     try {
       setNoStore(res);
       const festivalId = sanitizeIdentifier(req.params.festivalId);
@@ -328,7 +328,7 @@ module.exports = function createExportRoutes(deps) {
   });
 
   // Calendar export JSON API for native calendar integration
-  router.get('/festivals/:festivalId/calendar', userAuth, async (req, res) => {
+  router.get('/festivals/:festivalId/calendar', userAuth, rateLimit(30, 'festival-cal'), async (req, res) => {
     try {
       const festivalId = req.params.festivalId;
       const festival = await getFestivalById(festivalId);
@@ -447,7 +447,7 @@ module.exports = function createExportRoutes(deps) {
     return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' + lines.join('') + '</svg>';
   }
 
-  router.get('/export-card/:festivalId', userAuth, async (req, res) => {
+  router.get('/export-card/:festivalId', userAuth, rateLimit(30, 'export-card'), async (req, res) => {
     try {
       setNoStore(res);
       const festivalId = sanitizeIdentifier(req.params.festivalId);

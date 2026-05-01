@@ -86,11 +86,11 @@ export default function AppShell() {
     const r1 = requestAnimationFrame(() => {
       scrollEl.scrollTop = 0;
       const r2 = requestAnimationFrame(() => { scrollEl.scrollTop = 0; });
-      (scrollEl as any).__rafScrollReset = r2;
+      (scrollEl as unknown as Record<string, number>).__rafScrollReset = r2;
     });
     return () => {
       cancelAnimationFrame(r1);
-      const r2 = (scrollEl as any).__rafScrollReset;
+      const r2 = (scrollEl as unknown as Record<string, number>).__rafScrollReset;
       if (r2) cancelAnimationFrame(r2);
     };
   }, [location.pathname]);
@@ -136,7 +136,10 @@ export default function AppShell() {
       if (m === 'DELETE') return api.delete(url);
       return api.post(url, init.body);
     };
-    (window as any).__festieQueue = { queueMutation, processQueue: () => processQueue(adapter) };
+    window.__festieQueue = {
+      queueMutation: queueMutation as (args: unknown) => Promise<unknown>,
+      processQueue: () => processQueue(adapter),
+    };
     const onOnline = () => { processQueue(adapter).catch(() => {}); };
     window.addEventListener('online', onOnline);
     // Also drain on mount (covers the case where we boot online with queued items)

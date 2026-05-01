@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { SetStatus } from '@/hooks/useSetStatus';
 import { cn } from '@/lib/utils';
 
@@ -10,15 +10,22 @@ interface LiveBadgeProps {
 }
 
 export default function LiveBadge({ status, label, className }: LiveBadgeProps) {
+  const prefersReducedMotion = useReducedMotion();
+
   // Live: Pulsing coral dot + "LIVE" text
   if (status === 'live') {
     return (
-      <div className={cn('inline-flex items-center gap-2 px-3 py-1 rounded-full', 'bg-accent-coral/20', className)}>
-        <motion.div
-          className="w-2 h-2 rounded-full bg-accent-coral"
-          animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        />
+      <div className={cn('inline-flex items-center gap-2 px-3 py-1 rounded-full', 'bg-accent-coral/20', className)} aria-label="Live">
+        {prefersReducedMotion ? (
+          <div className="w-2 h-2 rounded-full bg-accent-coral" aria-hidden="true" />
+        ) : (
+          <motion.div
+            className="w-2 h-2 rounded-full bg-accent-coral"
+            aria-hidden="true"
+            animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+        )}
         <span className="text-xs font-bold text-accent-coral">{label}</span>
       </div>
     );
@@ -28,11 +35,16 @@ export default function LiveBadge({ status, label, className }: LiveBadgeProps) 
   if (status === 'soon') {
     return (
       <div className={cn('inline-flex items-center gap-2 px-3 py-1 rounded-full', 'bg-accent-amber/20', className)}>
-        <motion.div
-          className="w-2 h-2 rounded-full bg-accent-amber"
-          animate={{ scale: [1, 1.3, 1] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-        />
+        {prefersReducedMotion ? (
+          <div className="w-2 h-2 rounded-full bg-accent-amber" aria-hidden="true" />
+        ) : (
+          <motion.div
+            className="w-2 h-2 rounded-full bg-accent-amber"
+            aria-hidden="true"
+            animate={{ scale: [1, 1.3, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
+        )}
         <span className="text-xs font-semibold text-accent-amber">{label}</span>
       </div>
     );

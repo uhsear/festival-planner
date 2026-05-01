@@ -1,0 +1,224 @@
+import type { OnlineUser, Priority } from './domain';
+
+// ════════════════════════════════════════════════════════════════════════════════
+// Socket.IO Event Payload Types
+// ════════════════════════════════════════════════════════════════════════════════
+
+/** Presence user entry as emitted by the server's emitPresence helper. */
+export interface PresenceUser {
+  userId: string;
+  username: string;
+  avatarUrl?: string;
+}
+
+/** Base payload with optional event version field. */
+interface VersionedPayload {
+  _v?: number;
+}
+
+// ── Profile events (emitter.js) ──────────────────────────────────────────────
+
+export interface ProfileUpdatedPayload extends VersionedPayload {
+  festivalId: string;
+  profileId: string;
+  name?: string;
+  avatarUrl?: string;
+  picks?: Record<string, Priority>;
+  updatedAt?: string;
+}
+
+export interface ProfileCreatedPayload extends VersionedPayload {
+  festivalId: string;
+  profile: {
+    id: string;
+    name?: string;
+    avatarUrl?: string;
+  };
+}
+
+export interface ProfileDeletedPayload extends VersionedPayload {
+  festivalId: string;
+  profileId: string;
+}
+
+// ── Festival events (emitter.js) ─────────────────────────────────────────────
+
+export interface FestivalIdPayload extends VersionedPayload {
+  id: string;
+}
+
+export interface FestivalCreatedPayload extends VersionedPayload {
+  id: string;
+  name: string;
+}
+
+// ── Presence events ──────────────────────────────────────────────────────────
+
+export interface PresenceUpdatePayload extends VersionedPayload {
+  online: PresenceUser[];
+  /** Legacy field — some code paths emit `users` instead of `online`. */
+  users?: OnlineUser[];
+}
+
+// ── Crew events (crews.js, crew-features.js) ─────────────────────────────────
+
+export interface CrewMemberEventPayload {
+  crewId: string;
+  userId: string;
+  username?: string;
+}
+
+export interface CrewUpdatedPayload {
+  id: string;
+  crewId?: string;
+  festivalId?: string;
+  name?: string;
+  members?: Array<{
+    userId: string;
+    username?: string;
+    name?: string;
+    role?: string;
+    joinedAt?: string;
+  }>;
+  memberCount?: number;
+  [key: string]: unknown;
+}
+
+export interface CrewDeletedPayload {
+  crewId: string;
+  festivalId?: string;
+}
+
+export interface CrewHomeBaseUpdatedPayload {
+  crewId: string;
+  location: string | null;
+  time: string | null;
+}
+
+export interface CrewMeetingPointPayload {
+  id: string;
+  crewId: string;
+  [key: string]: unknown;
+}
+
+export interface CrewMeetingPointRemovedPayload {
+  id: string;
+  crewId: string;
+}
+
+export interface CrewPollCreatedPayload {
+  crewId: string;
+  poll: Record<string, unknown>;
+}
+
+export interface CrewPollVotedPayload {
+  pollId: string;
+  userId: string;
+  optionIndex: number;
+}
+
+export interface CrewPollClosedPayload {
+  pollId: string;
+}
+
+export interface CrewExpensePayload extends VersionedPayload {
+  crewId: string;
+  expense: Record<string, unknown>;
+}
+
+export interface CrewExpenseDeletedPayload extends VersionedPayload {
+  crewId: string;
+  expenseId: string;
+}
+
+export interface CrewActivityPayload extends VersionedPayload {
+  crewId: string;
+  item: Record<string, unknown>;
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// Server → Client event map
+// ════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Maps every server→client Socket.IO event name to its payload type.
+ * Use with `socket.on<K extends keyof ServerToClientEvents>(event, handler)`
+ * for type-safe listeners.
+ */
+export interface ServerToClientEvents {
+  // Profile
+  'profile:created': (data: ProfileCreatedPayload) => void;
+  'profile:updated': (data: ProfileUpdatedPayload) => void;
+  'profile:deleted': (data: ProfileDeletedPayload) => void;
+  // Legacy alias — server emits profile:updated but old code listened to these
+  'profile:joined': (data: ProfileUpdatedPayload) => void;
+  'profile:left': (data: ProfileDeletedPayload) => void;
+
+  // Picks / notes — profile:updated is the actual event, but the client
+  // registers explicit listeners for these names for clarity.
+  'pick:updated': (data: ProfileUpdatedPayload) => void;
+  'pick:removed': (data: ProfileDeletedPayload) => void;
+  'picks:updated': (data: ProfileUpdatedPayload) => void;
+  'note:saved': (data: ProfileUpdatedPayload) => void;
+
+  // Festival
+  'festival:created': (data: FestivalCreatedPayload) => void;
+  'festival:updated': (data: FestivalIdPayload) => void;
+  'festival:deleted': (data: FestivalIdPayload) => void;
+  'festival:set-added': (data: FestivalIdPayload) => void;
+  'festival:set-updated': (data: FestivalIdPayload) => void;
+  'festival:access-revoked': (data: { festivalId: string; profileId?: string }) => void;
+
+  // Presence
+  'presence:update': (data: PresenceUpdatePayload) => void;
+  'user:online': (user: OnlineUser) => void;
+  'user:offline': (userId: string) => void;
+
+  // Crew
+  'crew:updated': (data: CrewUpdatedPayload) => void;
+  'crew:deleted': (data: CrewDeletedPayload) => void;
+  'crew:member-joined': (data: CrewMemberEventPayload) => void;
+  'crew:member-left': (data: CrewMemberEventPayload) => void;
+  'crew:member-kicked': (data: { crewId: string; userId: string }) => void;
+  'crew:member-added': (data: CrewMemberEventPayload) => void;
+  'crew:member-removed': (data: CrewMemberEventPayload) => void;
+  'crew:home-base-updated': (data: CrewHomeBaseUpdatedPayload) => void;
+  'crew:meeting-point-created': (data: CrewMeetingPointPayload) => void;
+  'crew:meeting-point-updated': (data: CrewMeetingPointPayload) => void;
+  'crew:meeting-point-removed': (data: CrewMeetingPointRemovedPayload) => void;
+  'crew:poll-created': (data: CrewPollCreatedPayload) => void;
+  'crew:poll-voted': (data: CrewPollVotedPayload) => void;
+  'crew:poll-closed': (data: CrewPollClosedPayload) => void;
+  'crew:expense-added': (data: CrewExpensePayload) => void;
+  'crew:expense-deleted': (data: CrewExpenseDeletedPayload) => void;
+  'crew:activity': (data: CrewActivityPayload) => void;
+
+  // System
+  'error': (error: { message: string; code?: string }) => void;
+  'connect': () => void;
+  'disconnect': (reason: string) => void;
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// Client → Server event map
+// ════════════════════════════════════════════════════════════════════════════════
+
+export interface ClientToServerEvents {
+  'join-festival': (data: { festivalId: string }) => void;
+  'leave-festival': (data: { festivalId: string }) => void;
+  'join:festival': (
+    festivalId: string,
+    data: { _v?: number; userToken?: string | null },
+    ack: (response: { ok: boolean; profileId?: string; error?: string }) => void,
+  ) => void;
+  'leave:festival': () => void;
+  'join:crew': (
+    data: { _v?: number; crewId: string },
+    ack: (response: { ok: boolean; crewId?: string; error?: string }) => void,
+  ) => void;
+  'leave:crew': (data: { _v?: number; crewId: string }) => void;
+  'reconnect:restore': (
+    data: { _v?: number; festivalId: string; userToken?: string | null },
+    ack: (response: { ok: boolean; profileId?: string; error?: string }) => void,
+  ) => void;
+}

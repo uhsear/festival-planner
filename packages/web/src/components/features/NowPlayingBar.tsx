@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { FestivalSet, Priority } from '@festie/shared/types';
 import { useSetStatus } from '@/hooks/useSetStatus';
 import { artistDisplayName } from '@festie/shared/utils';
@@ -12,6 +12,7 @@ interface NowPlayingBarProps {
 }
 
 export default function NowPlayingBar({ liveSets, myPicks, onSetTap }: NowPlayingBarProps) {
+  const prefersReducedMotion = useReducedMotion();
   const statuses = useSetStatus(liveSets);
   const statusArray = Array.isArray(statuses) ? statuses : [statuses];
 
@@ -39,6 +40,9 @@ export default function NowPlayingBar({ liveSets, myPicks, onSetTap }: NowPlayin
   return (
     <AnimatePresence>
       <motion.div
+        role="status"
+        aria-live="polite"
+        aria-label={liveMyPick ? `Now playing: ${artistName}` : `${liveCount} set${liveCount !== 1 ? 's' : ''} live now`}
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
@@ -76,11 +80,16 @@ export default function NowPlayingBar({ liveSets, myPicks, onSetTap }: NowPlayin
                 )}
               </div>
               <div className="flex items-center gap-1">
-                <motion.div
-                  className="w-2 h-2 rounded-full bg-accent-coral"
-                  animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                />
+                {prefersReducedMotion ? (
+                  <div className="w-2 h-2 rounded-full bg-accent-coral" aria-hidden="true" />
+                ) : (
+                  <motion.div
+                    className="w-2 h-2 rounded-full bg-accent-coral"
+                    aria-hidden="true"
+                    animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                )}
               </div>
             </div>
 

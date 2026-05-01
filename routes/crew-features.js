@@ -34,7 +34,7 @@ module.exports = function mountCrewFeatures(router, deps) {
   });
 
   // ── GET /:crewId/meeting-points ─────────────────────────────────
-  router.get('/:crewId/meeting-points', userAuth, async (req, res) => {
+  router.get('/:crewId/meeting-points', userAuth, rateLimit(120, 'crew-mp-list'), async (req, res) => {
     try {
       const crewId = sanitizeIdentifier(req.params.crewId);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
@@ -139,7 +139,7 @@ module.exports = function mountCrewFeatures(router, deps) {
 
   // ── Poll routes (Phase 2C) ─────────────────────────────────────
 
-  router.get('/:crewId/polls', userAuth, async (req, res) => {
+  router.get('/:crewId/polls', userAuth, rateLimit(120, 'crew-poll-list'), async (req, res) => {
     try {
       const { crewId } = req.params;
       const userId = req.user.userId;

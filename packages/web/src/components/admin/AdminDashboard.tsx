@@ -44,8 +44,8 @@ export default function AdminDashboard() {
       setLoading(true);
       const result = await api.get<DashboardData>('/admin/dashboard');
       setData(result);
-    } catch (err: any) {
-      toast(err.message || 'Failed to load dashboard', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to load dashboard', 'error');
       setData(null);
     } finally {
       setLoading(false);

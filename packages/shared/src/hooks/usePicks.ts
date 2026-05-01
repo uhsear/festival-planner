@@ -8,7 +8,7 @@ export interface UsePicksReturn {
   saveNote: (festivalId: string, setId: string, note: string) => Promise<void>;
   getMyPick: (setId: string) => Priority | null | undefined;
   getMyNote: (setId: string) => string | undefined;
-  getOtherPicks: (setId: string) => Array<{ profileId: string; priority: Priority }>;
+  getOtherPicks: (setId: string) => Array<{ profileId: string; priority: Priority; name?: string }>;
 }
 
 export function usePicks(): UsePicksReturn {
@@ -72,13 +72,14 @@ export function usePicks(): UsePicksReturn {
   );
 
   const getOtherPicks = useCallback(
-    (setId: string): Array<{ profileId: string; priority: Priority }> => {
+    (setId: string): Array<{ profileId: string; priority: Priority; name?: string }> => {
       if (!currentProfile) return [];
       return allProfiles
         .filter((p) => p.id !== currentProfile.id && (p.picks || {})[setId])
         .map((p) => ({
           profileId: p.id,
           priority: (p.picks || {})[setId] as Priority,
+          name: p.name,
         }));
     },
     [currentProfile, allProfiles],

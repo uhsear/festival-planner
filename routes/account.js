@@ -122,8 +122,16 @@ module.exports = function createAccountRoutes(deps) {
       const taken = allUsers.find((u) => u.id !== req.user.userId && u.username.toLowerCase() === cleanUsername.toLowerCase());
       if (taken) return sendError(res, 400, 'Username already taken', ErrorCodes.ALREADY_EXISTS);
 
-      // Update username
-      const result = await stores.users.update(req.user.userId, { username: cleanUsername });
+      // Update username — DB UNIQUE constraint is the authoritative guard
+      let result;
+      try {
+        result = await stores.users.update(req.user.userId, { username: cleanUsername });
+      } catch (err) {
+        if (err.code === '23505') {
+          return sendError(res, 400, 'Username already taken', ErrorCodes.ALREADY_EXISTS);
+        }
+        throw err;
+      }
       invalidateUserCache();
 
       emitProfileIdentity(result, io);
@@ -156,16 +164,26 @@ module.exports = function createAccountRoutes(deps) {
         return sendError(res, 403, 'Incorrect password', ErrorCodes.PASSWORD_INCORRECT);
       }
 
-      // Soft-delete: set deleted_at, keep all data for 30-day grace period
-      await stores.users.update(req.user.userId, { deletedAt: new Date().toISOString() });
-      invalidateUserCache();
-
-      // Revoke all sessions and refresh tokens immediately
-      await invalidateUserSessions(req.user.userId);
-      if (stores.refreshTokens) await stores.refreshTokens.revokeAll(req.user.userId);
-      if (stores.deviceTokens) await stores.deviceTokens.deleteByUser(req.user.userId);
-      if (stores.profiles) await stores.profiles.deleteByUserId(req.user.userId);
-      disconnectUserSockets(req.user.userId, io);
+      // Soft-delete: set deleted_at, keep all data for 30-day grace period.
+      // Retry once on deadlock (PG 40P01) — concurrent test cleanup can trigger this.
+      const performSoftDelete = async () => {
+        await stores.users.update(req.user.userId, { deletedAt: new Date().toISOString() });
+        invalidateUserCache();
+        await invalidateUserSessions(req.user.userId);
+        if (stores.refreshTokens) await stores.refreshTokens.revokeAll(req.user.userId);
+        if (stores.deviceTokens) await stores.deviceTokens.deleteByUser(req.user.userId);
+        if (stores.profiles) await stores.profiles.deleteByUserId(req.user.userId);
+        disconnectUserSockets(req.user.userId, io);
+      };
+      try {
+        await performSoftDelete();
+      } catch (err) {
+        if (err.code === '40P01') {
+          await performSoftDelete();
+        } else {
+          throw err;
+        }
+      }
 
       log.warn('account:soft-delete', { userId: req.user.userId, username: currentUser.username, ip: getRequestIp(req) });
       deps.clearUserSessionCookie(res);
@@ -181,7 +199,7 @@ module.exports = function createAccountRoutes(deps) {
   });
 
   // ── GET /export — GDPR data export ────────────────────────────────────────
-  router.get('/export', userAuth, async (req, res) => {
+  router.get('/export', userAuth, rateLimit(10, 'account-export'), async (req, res) => {
     try {
       const userId = req.user.userId;
 

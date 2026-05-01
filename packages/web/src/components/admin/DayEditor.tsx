@@ -18,7 +18,7 @@ export interface DayEditorProps {
   onRemoveDay: () => void;
   onAddSet: () => void;
   onRemoveSet: (setId: string) => void;
-  onSetField: (setId: string, field: string, value: any) => void;
+  onSetField: (setId: string, field: string, value: string | null) => void;
 }
 
 /**

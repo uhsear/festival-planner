@@ -120,7 +120,7 @@ export default function BottomNav() {
   // handles the "coming soon" case for a direct URL visit before then.
   const tabs = useMemo(() => {
     if (!user) return baseTabs;
-    const wrapUnlocked = isFestivalOver(currentFestival as any, days);
+    const wrapUnlocked = isFestivalOver(currentFestival, days);
     return wrapUnlocked ? [...baseTabs, ...authTabs, wrapTab] : [...baseTabs, ...authTabs];
   }, [user, currentFestival, days]);
 

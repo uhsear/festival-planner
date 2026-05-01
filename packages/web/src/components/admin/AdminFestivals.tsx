@@ -4,6 +4,7 @@ import { useToast } from '../../lib/toastContext';
 import LineupImport from './LineupImport';
 import FestivalEditForm, { Festival as FormFestival } from './FestivalEditForm';
 import { cn } from '../../lib/utils';
+import type { SetRow } from './SetEditor';
 
 interface Festival {
   id: string;
@@ -12,7 +13,7 @@ interface Festival {
   stageCount?: number;  // from list endpoint
   dayCount?: number;    // from list endpoint
   stages?: Array<{ id: string; name: string; color: string }>;  // from detail endpoint
-  days?: Array<{ id: string; label: string; date: string; sets: any[] }>;  // from detail
+  days?: Array<{ id: string; label: string; date: string; sets: SetRow[] }>;  // from detail
 }
 
 type Tab = 'list' | 'create' | 'import';
@@ -43,8 +44,8 @@ export default function AdminFestivals() {
       setLoading(true);
       const result = await api.get<Festival[]>('/admin/festivals');
       setFestivals(Array.isArray(result) ? result : []);
-    } catch (err: any) {
-      toast(err.message || 'Failed to load festivals', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to load festivals', 'error');
     } finally {
       setLoading(false);
     }
@@ -69,8 +70,8 @@ export default function AdminFestivals() {
       setInitialExpandedDays(new Set());
       setTab('list');
       await loadFestivals();
-    } catch (err: any) {
-      toast(err.message || 'Failed to save festival', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to save festival', 'error');
     }
   };
 
@@ -89,8 +90,8 @@ export default function AdminFestivals() {
       await api.delete<void>(`/admin/festivals/${id}`);
       toast(`Deleted ${name}`, 'success');
       await loadFestivals();
-    } catch (err: any) {
-      toast(err.message || 'Failed to delete festival', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to delete festival', 'error');
     }
   };
 
@@ -109,8 +110,8 @@ export default function AdminFestivals() {
       });
       // Auto-expand all days so artists are visible immediately
       setInitialExpandedDays(new Set(days.map((d) => d.id)));
-    } catch (err: any) {
-      toast(err.message || 'Failed to load festival details', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to load festival details', 'error');
       setFormData(festival as Partial<FormFestival>);
     }
   };

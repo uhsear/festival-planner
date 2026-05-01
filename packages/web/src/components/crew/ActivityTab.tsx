@@ -53,7 +53,7 @@ function timeAgo(iso: string): string {
 }
 
 export default function ActivityTab({ crewId }: Props) {
-  const { data: items = [], isLoading, isError } = useQuery<ActivityItem[]>({
+  const { data: items = [], isLoading, isError, refetch } = useQuery<ActivityItem[]>({
     queryKey: ['crew-activity', crewId],
     queryFn: async () => {
       const res = await api.get<ActivityItem[]>(`/crews/${crewId}/activity`);
@@ -67,7 +67,7 @@ export default function ActivityTab({ crewId }: Props) {
     return <div className="px-4 space-y-2"><Skeleton variant="text" /><Skeleton variant="text" /><Skeleton variant="text" /></div>;
   }
   if (isError) {
-    return <div className="px-4"><EmptyState icon={<Activity className="w-12 h-12" />} title="Couldn't load activity" description="Try again later." /></div>;
+    return <div className="px-4"><EmptyState icon={<Activity className="w-12 h-12" />} title="Couldn't load activity" description="Something went wrong loading crew activity." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
   }
   if (items.length === 0) {
     return <div className="px-4"><EmptyState icon={<Activity className="w-12 h-12" />} title="No activity yet" description="Crew events will appear here as they happen." /></div>;
@@ -75,10 +75,10 @@ export default function ActivityTab({ crewId }: Props) {
 
   return (
     <div className="space-y-2 px-4">
-      {items.map((it) => {
+      {items.map((it, idx) => {
         const verb = TYPE_LABELS[it.type] || it.type.replace(/-/g, ' ');
         return (
-          <div key={it.id} className="crew-activity-item crew-list-enter p-3 rounded-lg bg-bg-card border border-border flex items-start gap-3">
+          <div key={it.id} className="crew-activity-item crew-list-enter stagger-item p-3 rounded-lg bg-bg-card border border-border flex items-start gap-3" style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}>
             <Avatar name={it.username || 'User'} size="sm" />
             <div className="flex-1 min-w-0">
               <div className="text-sm text-text-primary">

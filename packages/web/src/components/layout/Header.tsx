@@ -78,7 +78,7 @@ export default function Header() {
         />
         <div className="header-brand">
           <h1 className="logo">
-            <a href="/" style={{ color: 'inherit', textDecoration: 'none' }}>
+            <a href="/" aria-label="FESTIE home" style={{ color: 'inherit', textDecoration: 'none' }}>
               FESTIE
             </a>
           </h1>
@@ -124,24 +124,26 @@ export default function Header() {
         </div>
 
         {/* Desktop navigation tabs — hidden on mobile via CSS (.desktop-nav) */}
-        <div className="desktop-nav" role="tablist" aria-label="View navigation">
-          {desktopTabs.map((tab) => {
-            const active = isTabActive(tab.href);
-            return (
-              <button
-                key={tab.href}
-                role="tab"
-                aria-selected={active}
-                aria-controls="main-content"
-                tabIndex={active ? 0 : -1}
-                className={active ? 'active' : ''}
-                onClick={() => navigate({ to: tab.href })}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        <nav aria-label="Main navigation">
+          <div className="desktop-nav" role="tablist" aria-label="View navigation">
+            {desktopTabs.map((tab) => {
+              const active = isTabActive(tab.href);
+              return (
+                <button
+                  key={tab.href}
+                  role="tab"
+                  aria-selected={active}
+                  aria-controls="main-content"
+                  tabIndex={active ? 0 : -1}
+                  className={active ? 'active' : ''}
+                  onClick={() => navigate({ to: tab.href })}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
       </div>
 
       {/* Right section: festival mode + theme toggle + admin badge + profile badge */}

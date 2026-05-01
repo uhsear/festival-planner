@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 interface PullRefreshIndicatorProps {
@@ -7,12 +7,8 @@ interface PullRefreshIndicatorProps {
   isRefreshing: boolean;
 }
 
-/**
- * Visual indicator for pull-to-refresh gesture
- * Shows a circular progress indicator that fills as user pulls down
- * Animates to a spinning state when refreshing
- */
 export default function PullRefreshIndicator({ progress, isRefreshing }: PullRefreshIndicatorProps) {
+  const prefersReducedMotion = useReducedMotion();
   // Don't render if no progress and not refreshing
   if (progress === 0 && !isRefreshing) {
     return null;
@@ -23,6 +19,9 @@ export default function PullRefreshIndicator({ progress, isRefreshing }: PullRef
 
   return (
     <motion.div
+      role="status"
+      aria-live="polite"
+      aria-label={isRefreshing ? 'Refreshing content' : 'Pull to refresh'}
       className="fixed top-4 left-1/2 z-50 flex items-center justify-center"
       style={{
         transform: 'translateX(-50%)',
@@ -81,8 +80,7 @@ export default function PullRefreshIndicator({ progress, isRefreshing }: PullRef
             strokeLinecap="round"
           />
 
-          {/* Spinning circle when refreshing */}
-          {isRefreshing && (
+          {isRefreshing && !prefersReducedMotion && (
             <motion.circle
               cx="20"
               cy="20"
@@ -112,12 +110,12 @@ export default function PullRefreshIndicator({ progress, isRefreshing }: PullRef
         <div className="absolute inset-0 flex items-center justify-center">
           <motion.div
             animate={{
-              rotate: isRefreshing ? 360 : 0,
+              rotate: isRefreshing && !prefersReducedMotion ? 360 : 0,
             }}
             transition={{
               rotate: {
-                duration: isRefreshing ? 1 : 0.2,
-                repeat: isRefreshing ? Infinity : 0,
+                duration: isRefreshing && !prefersReducedMotion ? 1 : 0.2,
+                repeat: isRefreshing && !prefersReducedMotion ? Infinity : 0,
                 ease: 'linear',
               },
             }}

@@ -1,14 +1,24 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Socket } from 'socket.io-client';
 import { useSocket } from '@festie/shared/hooks/useSocket';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useFestivalStore } from '@festie/shared/stores/festivalStore';
 import { useCrewStore } from '@festie/shared/stores/crewStore';
 import { useAuthStore } from '@festie/shared/stores/authStore';
+import type { OnlineUser } from '@festie/shared/types';
+import type {
+  ProfileUpdatedPayload,
+  ProfileDeletedPayload,
+  FestivalIdPayload,
+  PresenceUpdatePayload,
+  CrewUpdatedPayload,
+  CrewMemberEventPayload,
+} from '@festie/shared/types/socket-events';
 
 export interface UseRealtimeSyncReturn {
   connected: boolean;
-  onlineUsers: any[];
+  onlineUsers: OnlineUser[];
 }
 
 /**
@@ -30,7 +40,7 @@ export interface UseRealtimeSyncReturn {
  */
 export function useRealtimeSync(): UseRealtimeSyncReturn {
   const queryClient = useQueryClient();
-  const socketRef = useRef<any>(null);
+  const socketRef = useRef<Socket | null>(null);
   const currentFestivalId = useFestivalStore((state) => state.currentFestivalId);
   const connected = useUIStore((state) => state.connected);
   const setConnected = useUIStore((state) => state.setConnected);
@@ -86,29 +96,29 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     };
 
     // --- Picks / notes (festivalStore is authoritative) ---
-    const handlePickUpdated = (_data: any) => reloadProfiles();
-    const handlePickRemoved = (_data: any) => reloadProfiles();
-    const handleNoteSaved = (_data: any) => reloadProfiles();
+    const handlePickUpdated = (_data: ProfileUpdatedPayload) => reloadProfiles();
+    const handlePickRemoved = (_data: ProfileDeletedPayload) => reloadProfiles();
+    const handleNoteSaved = (_data: ProfileUpdatedPayload) => reloadProfiles();
     // Legacy event name kept during transition (server still emits picks:updated).
-    const handlePicksUpdated = (_data: any) => reloadProfiles();
+    const handlePicksUpdated = (_data: ProfileUpdatedPayload) => reloadProfiles();
 
     // --- Profiles (festivalStore is authoritative) ---
-    const handleProfileUpdated = (_data: any) => reloadProfiles();
-    const handleProfileJoined = (_data: any) => reloadProfiles();
-    const handleProfileLeft = (_data: any) => reloadProfiles();
+    const handleProfileUpdated = (_data: ProfileUpdatedPayload) => reloadProfiles();
+    const handleProfileJoined = (_data: ProfileUpdatedPayload) => reloadProfiles();
+    const handleProfileLeft = (_data: ProfileDeletedPayload) => reloadProfiles();
 
     // --- Crews (crewStore is authoritative) ---
-    const handleCrewUpdated = (data: any) => reloadCrews(data?.crewId);
-    const handleCrewMemberAdded = (data: any) => reloadCrews(data?.crewId);
-    const handleCrewMemberRemoved = (data: any) => reloadCrews(data?.crewId);
+    const handleCrewUpdated = (data: CrewUpdatedPayload) => reloadCrews(data?.crewId ?? data?.id);
+    const handleCrewMemberAdded = (data: CrewMemberEventPayload) => reloadCrews(data?.crewId);
+    const handleCrewMemberRemoved = (data: CrewMemberEventPayload) => reloadCrews(data?.crewId);
 
     // --- Festival / sets (festivalStore selectFestival reloads everything) ---
-    const handleFestivalUpdated = (_data: any) => reloadFestival();
-    const handleSetAdded = (_data: any) => reloadFestival();
-    const handleSetUpdated = (_data: any) => reloadFestival();
+    const handleFestivalUpdated = (_data: FestivalIdPayload) => reloadFestival();
+    const handleSetAdded = (_data: FestivalIdPayload) => reloadFestival();
+    const handleSetUpdated = (_data: FestivalIdPayload) => reloadFestival();
 
     // --- Presence (uiStore only; no refetch) ---
-    const handlePresenceUpdate = (data: { users: any[] }) => {
+    const handlePresenceUpdate = (data: PresenceUpdatePayload) => {
       if (data.users) setOnlineUsers(data.users);
     };
 

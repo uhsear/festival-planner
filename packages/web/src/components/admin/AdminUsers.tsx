@@ -29,8 +29,8 @@ export default function AdminUsers() {
       setLoading(true);
       const result = await api.get<User[]>('/admin/users');
       setUsers(Array.isArray(result) ? result : []);
-    } catch (err: any) {
-      toast(err.message || 'Failed to load users', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to load users', 'error');
     } finally {
       setLoading(false);
     }
@@ -46,8 +46,8 @@ export default function AdminUsers() {
         setUsers(users.map((u) => (u.id === userId ? { ...u, roles: [...u.roles, 'admin'] } : u)));
       }
       toast(`User ${!currentlyAdmin ? 'granted' : 'revoked'} admin access`, 'success');
-    } catch (err: any) {
-      toast(err.message || 'Failed to update user', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to update user', 'error');
     }
   };
 
@@ -66,8 +66,8 @@ export default function AdminUsers() {
       await api.delete<void>(`/admin/users/${userId}`);
       setUsers(users.filter((u) => u.id !== userId));
       toast(`Deleted ${name}`, 'success');
-    } catch (err: any) {
-      toast(err.message || 'Failed to delete user', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to delete user', 'error');
     }
   };
 

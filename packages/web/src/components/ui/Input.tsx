@@ -26,7 +26,7 @@ export default function Input({
   const labelOnly = label && !props['aria-label'];
   const errorId = error ? `${inputId}-error` : undefined;
   const helperId = helperText && !error ? `${inputId}-helper` : undefined;
-  const describedBy = [errorId, helperId, (props as any)['aria-describedby']]
+  const describedBy = [errorId, helperId, props['aria-describedby']]
     .filter(Boolean)
     .join(' ') || undefined;
 

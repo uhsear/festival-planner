@@ -1,9 +1,5 @@
-@media (hover: hover) {
-  .set-card:hover { transform: translateY(-1px); }
-  .btn:hover:not(:disabled) { filter: brightness(1.1); }
-  .online-pill:hover { background: rgba(255,255,255,.08); }
-  .crew-pill:hover { background: rgba(255,255,255,.06); }
-  .admin-tab:hover { background: rgba(255,255,255,.04); }
-  .day-tab:hover:not(.active) { background: rgba(255,255,255,.04); }
-  .stage-chip:hover { filter: brightness(1.15); }
-}
+/* DEPRECATED — all hover states below were superseded by more specific rules
+   in app.css and globals.css. Legacy .online-pill and .admin-tab classes are
+   dead (never ported to React). This file is kept empty to avoid 404s from
+   any cached HTML that still references it. Safe to delete once all caches
+   have expired. Original: 9 lines, removed 2026-05-01. */

@@ -30,8 +30,8 @@ export default function StageFilter({ stages, activeStages, onStagesChange, stag
   const colors = stageColors || DEFAULT_COLORS;
 
   return (
-    <div className="px-4 overflow-x-auto pb-2 stage-filter-row">
-      <div className="flex gap-2 min-w-min">
+    <div className="px-4 overflow-x-auto pb-2 stage-filter-row scrollbar-hide snap-x snap-mandatory">
+      <div className="flex gap-2 min-w-min flex-nowrap">
         {stages.map((stage) => {
           const isActive = activeStages.includes(stage.id);
           const color = colors[stage.name?.toLowerCase()] || colors.main;
@@ -42,7 +42,7 @@ export default function StageFilter({ stages, activeStages, onStagesChange, stag
               onClick={() => toggleStage(stage.id)}
               aria-pressed={isActive ? 'true' : 'false'}
               className={cn(
-                'whitespace-nowrap px-3 py-2 rounded-lg text-xs font-semibold transition-all min-h-[44px]',
+                'whitespace-nowrap shrink-0 snap-start px-3 py-2 rounded-lg text-xs font-semibold transition-all min-h-[44px]',
                 isActive
                   ? 'text-white border-2'
                   : 'bg-bg-card border border-border text-text-secondary hover:border-border-light',

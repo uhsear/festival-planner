@@ -5,7 +5,7 @@ module.exports = function createExpenseRoutes(deps) {
   const { stores, userAuth, sendSuccess, sendError, ErrorCodes, log, rateLimit, emitter, sanitizeIdentifier } = deps;
 
   // GET /crew/:crewId/expenses
-  router.get('/crews/:crewId/expenses', userAuth, async (req, res) => {
+  router.get('/crews/:crewId/expenses', userAuth, rateLimit(120, 'expense-list'), async (req, res) => {
     try {
       const crewId = sanitizeIdentifier(req.params.crewId);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
@@ -77,7 +77,7 @@ module.exports = function createExpenseRoutes(deps) {
   });
 
   // GET /crew/:crewId/expenses/balances
-  router.get('/crews/:crewId/expenses/balances', userAuth, async (req, res) => {
+  router.get('/crews/:crewId/expenses/balances', userAuth, rateLimit(60, 'expense-balances'), async (req, res) => {
     try {
       const crewId = sanitizeIdentifier(req.params.crewId);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);

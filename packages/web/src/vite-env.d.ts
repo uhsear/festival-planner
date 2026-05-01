@@ -5,7 +5,7 @@ declare module 'virtual:pwa-register/react' {
   export type { RegisterSWOptions } from 'vite-plugin-pwa/client';
   export function useRegisterSW(options?: {
     onRegistered?: (registration: ServiceWorkerRegistration) => void;
-    onRegisterError?: (error: any) => void;
+    onRegisterError?: (error: unknown) => void;
   }): {
     offlineReady: Ref<boolean>;
     needRefresh: Ref<boolean>;

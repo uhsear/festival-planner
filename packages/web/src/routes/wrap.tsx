@@ -48,9 +48,9 @@ export default function WrapPage() {
   const posterRef = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
 
-  const over = isFestivalOver(currentFestival as any, days);
+  const over = isFestivalOver(currentFestival, days);
 
-  const { data, isLoading, isError } = useQuery<WrapResponse>({
+  const { data, isLoading, isError, refetch } = useQuery<WrapResponse>({
     queryKey: ['wrap', currentFestival?.id],
     queryFn: async () => {
       const res = await api.get<WrapResponse>(`/ratings/wrap/${currentFestival!.id}`);
@@ -103,9 +103,10 @@ export default function WrapPage() {
         URL.revokeObjectURL(url);
         toast('Saved to downloads', 'success');
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       // AbortError = user cancelled share sheet; suppress.
-      if (e?.name !== 'AbortError') {
+      const isAbort = e instanceof DOMException && e.name === 'AbortError';
+      if (!isAbort) {
         toast(e instanceof Error ? e.message : 'Share failed', 'error');
       }
     } finally {
@@ -137,7 +138,7 @@ export default function WrapPage() {
     return <div className="px-4 py-6 space-y-3"><Skeleton variant="card" /><Skeleton variant="card" /><Skeleton variant="card" /></div>;
   }
   if (isError) {
-    return <div className="px-4 py-8"><EmptyState icon={<Sparkles className="w-12 h-12" />} title="Couldn't load your wrap" description="Try again later." /></div>;
+    return <div className="px-4 py-8"><EmptyState icon={<Sparkles className="w-12 h-12" />} title="Couldn't load your wrap" description="Something went wrong loading your festival wrap." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
   }
 
   const stats = data?.stats || { totalRated: 0, stagesVisited: 0, daysAttended: 0, totalHours: 0 };
@@ -161,7 +162,7 @@ export default function WrapPage() {
       </header>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="wrap-stats-grid grid grid-cols-2 gap-2">
         <Stat icon={<Trophy className="w-4 h-4" />} label="Sets rated" value={String(stats.totalRated)} />
         <Stat icon={<MapIcon className="w-4 h-4" />} label="Stages visited" value={String(stats.stagesVisited)} />
         <Stat icon={<CalendarDays className="w-4 h-4" />} label="Days attended" value={String(stats.daysAttended)} />

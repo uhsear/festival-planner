@@ -11,7 +11,7 @@ export interface Festival {
   b2bSeparator?: string;
   stages?: Stage[];
   days?: Day[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface FestivalEditFormProps {
@@ -126,17 +126,17 @@ export default function FestivalEditForm({
 
   const handleRemoveSet = (dayId: string, setId: string) => {
     const updated = (formData.days || []).map((d) =>
-      d.id === dayId ? { ...d, sets: (d.sets || []).filter((s: any) => s.id !== setId) } : d,
+      d.id === dayId ? { ...d, sets: (d.sets || []).filter((s) => s.id !== setId) } : d,
     );
     setFormData({ ...formData, days: updated });
   };
 
-  const handleSetField = (dayId: string, setId: string, field: string, value: any) => {
+  const handleSetField = (dayId: string, setId: string, field: string, value: string | null) => {
     const updated = (formData.days || []).map((d) =>
       d.id === dayId
         ? {
             ...d,
-            sets: (d.sets || []).map((s: any) =>
+            sets: (d.sets || []).map((s) =>
               s.id === setId ? { ...s, [field]: value } : s,
             ),
           }

@@ -65,7 +65,7 @@ export default function FestivalModeToggle() {
       )}
 
       <div className="flex items-center gap-2">
-        <Flame className="w-5 h-5" />
+        <Flame className="w-5 h-5" aria-hidden="true" />
         <span className="text-sm font-medium hidden sm:inline">
           Festival Mode
         </span>

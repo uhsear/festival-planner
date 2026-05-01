@@ -5,10 +5,8 @@ export function useServiceWorker() {
   const [needRefresh, setNeedRefresh] = useState(false);
   const { updateServiceWorker } = useRegisterSW({
     onNeedRefresh: () => setNeedRefresh(true),
-    onRegistered: (registration: any) => {
-      console.log('SW Registered:', registration);
-    },
-    onRegisterError: (error: any) => {
+    onRegistered: (_registration: ServiceWorkerRegistration | undefined) => {},
+    onRegisterError: (error: unknown) => {
       console.error('SW registration error:', error);
     },
   });

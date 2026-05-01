@@ -13,7 +13,7 @@ interface RefreshableViewProps {
    * Query keys to invalidate on refresh
    * @example [['sets'], ['festival']]
    */
-  queryKeys?: any[][];
+  queryKeys?: readonly unknown[][];
 
   /**
    * Optional CSS class name

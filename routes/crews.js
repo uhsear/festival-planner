@@ -181,7 +181,7 @@ module.exports = function createCrewRoutes(deps) {
   });
 
   // ── GET / — List my crews (optionally filtered by festivalId) ───
-  router.get('/', userAuth, async (req, res) => {
+  router.get('/', userAuth, rateLimit(120, 'crew-list'), async (req, res) => {
     try {
       setNoStore(res);
       const festivalId = req.query.festivalId ? sanitizeIdentifier(req.query.festivalId, 100) : null;
@@ -226,7 +226,7 @@ module.exports = function createCrewRoutes(deps) {
     }
   });
 
-  router.get('/:crewId', userAuth, async (req, res) => {
+  router.get('/:crewId', userAuth, rateLimit(120, 'crew-get'), async (req, res) => {
     try {
       setNoStore(res);
       const crewId = sanitizeIdentifier(req.params.crewId, 100);
@@ -499,7 +499,7 @@ module.exports = function createCrewRoutes(deps) {
   });
 
   // ── GET /:crewId/overlap — Get crew pick overlap ───────────────
-  router.get('/:crewId/overlap', userAuth, async (req, res) => {
+  router.get('/:crewId/overlap', userAuth, rateLimit(60, 'crew-overlap'), async (req, res) => {
     try {
       setNoStore(res);
       const crewId = sanitizeIdentifier(req.params.crewId, 100);

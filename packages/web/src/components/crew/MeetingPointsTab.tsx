@@ -47,7 +47,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   const [type, setType] = useState<TypeKey>('during');
   const [meetAt, setMeetAt] = useState('');
 
-  const { data: points = [], isLoading, isError } = useQuery<MeetingPoint[]>({
+  const { data: points = [], isLoading, isError, refetch } = useQuery<MeetingPoint[]>({
     queryKey: ['meeting-points', crewId],
     queryFn: async () => {
       const res = await api.get<MeetingPoint[] | { meetingPoints: MeetingPoint[] }>(
@@ -101,7 +101,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
     return <div className="px-4 space-y-2"><Skeleton variant="card" /><Skeleton variant="card" /></div>;
   }
   if (isError) {
-    return <div className="px-4"><EmptyState icon={<MapPin className="w-12 h-12" />} title="Couldn't load meeting points" description="Try again later." /></div>;
+    return <div className="px-4"><EmptyState icon={<MapPin className="w-12 h-12" />} title="Couldn't load meeting points" description="Something went wrong loading meeting points." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
   }
 
   return (
@@ -117,7 +117,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
             <IconButton label="Cancel" icon={<X className="w-5 h-5" />} onClick={reset} />
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="crew-type-grid grid grid-cols-3 gap-2">
             {TYPES.map((t) => (
               <button key={t.key} type="button" onClick={() => setType(t.key)}
                 className={`px-2 py-2 rounded-lg border text-xs font-medium min-h-11 flex flex-col items-center gap-1 transition-colors ${

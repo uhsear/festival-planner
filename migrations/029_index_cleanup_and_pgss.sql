@@ -18,8 +18,14 @@
 --         sudo systemctl restart postgresql
 --     then re-run this migration.
 
--- Enable query-stats collection
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+-- Enable query-stats collection (requires superuser; skip gracefully if unprivileged)
+DO $$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE 'pg_stat_statements: skipped (requires superuser)';
+END
+$$;
 
 -- Drop 13 redundant indexes. Each is fully covered by another unique/PK
 -- index on the same leading columns. Write path gets cheaper; reads are

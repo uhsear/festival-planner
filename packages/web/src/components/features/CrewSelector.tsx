@@ -28,6 +28,15 @@ export default function CrewSelector({
     <div className="relative px-4 py-3">
       <button
         onClick={() => { tap(); setIsOpen(!isOpen); }}
+        aria-label="Select crew"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && isOpen) {
+            setIsOpen(false);
+            e.stopPropagation();
+          }
+        }}
         className={cn(
           'w-full px-4 py-3 rounded-lg font-semibold transition-colors',
           'bg-bg-card border border-border text-text-primary',
@@ -37,11 +46,15 @@ export default function CrewSelector({
         <span>{selectedCrew?.name || 'Select Crew'}</span>
         <ChevronDown
           className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')}
+          aria-hidden="true"
         />
       </button>
 
       {isOpen && (
-        <div className={cn(
+        <div
+          role="listbox"
+          aria-label="Crew list"
+          className={cn(
           'crew-selector-panel absolute top-full mt-2 left-4 right-4 z-50',
           'bg-bg-secondary border border-border rounded-lg overflow-hidden',
           'shadow-lg'
@@ -54,6 +67,8 @@ export default function CrewSelector({
               {crews.map((crew) => (
                 <button
                   key={crew.id}
+                  role="option"
+                  aria-selected={selectedCrewId === crew.id}
                   onClick={() => {
                     select();
                     onSelectCrew(crew.id);

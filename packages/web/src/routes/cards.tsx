@@ -102,11 +102,8 @@ export default function CardsView() {
             return (
               <div
                 key={set.id}
-                className="card-enter"
-                // Cap stagger at 300ms total — the old 600ms ceiling meant the
-                // last card in a dense day drifted in long after the viewport
-                // settled, reading as lag rather than choreography.
-                style={{ animationDelay: `${Math.min(idx * 20, 300)}ms` }}
+                className="card-enter stagger-item"
+                style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}
               >
                 <SetCard
                   set={set}

@@ -6,8 +6,8 @@ export interface SetRow {
   stageId?: string;
   startTime?: string | null;
   endTime?: string | null;
-  artists?: any[];
-  [key: string]: any;
+  artists?: Array<{ name: string; id?: string }>;
+  [key: string]: unknown;
 }
 
 export interface Stage {
@@ -19,7 +19,7 @@ export interface Stage {
 export interface SetEditorProps {
   set: SetRow;
   stages: Stage[];
-  onField: (field: string, value: any) => void;
+  onField: (field: string, value: string | null) => void;
   onRemove: () => void;
 }
 

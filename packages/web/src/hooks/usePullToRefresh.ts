@@ -24,7 +24,7 @@ export interface UsePullToRefreshProps {
   /**
    * Query keys to invalidate on refresh
    */
-  queryKeys?: any[];
+  queryKeys?: readonly unknown[][];
 }
 
 /**

@@ -15,9 +15,9 @@ export interface QueuedMutation {
   type: 'api' | 'socket';
   url?: string;
   method?: string;
-  body?: any;
+  body?: Record<string, unknown>;
   event?: string;
-  data?: any;
+  data?: Record<string, unknown>;
   status: 'pending' | 'failed' | 'completed';
   retries: number;
   createdAt: number;
@@ -26,7 +26,10 @@ export interface QueuedMutation {
 export interface UseOfflineQueueReturn {
   queueMutation: (mutation: Omit<QueuedMutation, 'status' | 'retries' | 'createdAt'>) => Promise<string>;
   pendingCount: number;
-  processQueue: (apiFn: any, socketEmitFn?: any) => Promise<void>;
+  processQueue: (
+    apiFn: (url: string, opts: { method: string; body?: Record<string, unknown> }) => Promise<unknown>,
+    socketEmitFn?: (event: string, data: Record<string, unknown>, ack: (response: { ok: boolean; error?: string }) => void) => void,
+  ) => Promise<void>;
   clearQueue: () => Promise<void>;
 }
 
@@ -39,8 +42,8 @@ function openDB(): Promise<IDBDatabase> {
 
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
-    req.onupgradeneeded = (e: any) => {
-      const db = e.target.result as IDBDatabase;
+    req.onupgradeneeded = (e: IDBVersionChangeEvent) => {
+      const db = (e.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
         store.createIndex('status', 'status', { unique: false });
@@ -263,7 +266,10 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
   );
 
   const processQueue = useCallback(
-    async (apiFn: any, socketEmitFn?: any): Promise<void> => {
+    async (
+      apiFn: (url: string, opts: { method: string; body?: Record<string, unknown> }) => Promise<unknown>,
+      socketEmitFn?: (event: string, data: Record<string, unknown>, ack: (response: { ok: boolean; error?: string }) => void) => void,
+    ): Promise<void> => {
       if (_processing) return;
       _processing = true;
 
@@ -295,7 +301,7 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
               await new Promise<void>((resolve, reject) => {
                 const timeout = setTimeout(() => reject(new Error('Socket ack timeout')), 10000);
                 try {
-                  socketEmitFn(mutation.event, { ...mutation.data, clientId: mutation.clientId }, (response: any) => {
+                  socketEmitFn(mutation.event!, { ...mutation.data, clientId: mutation.clientId }, (response: { ok: boolean; error?: string }) => {
                     clearTimeout(timeout);
                     if (response?.ok) resolve();
                     else reject(new Error(response?.error || 'Socket ack failed'));
@@ -311,10 +317,11 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
                 await removeMutation(mutation.id);
               }
             }
-          } catch (err: any) {
+          } catch (err: unknown) {
             const retries = (mutation.retries || 0) + 1;
-            const isClientError = err.status && err.status >= 400 && err.status < 500;
-            const isConflict = err.status === 409;
+            const status = err instanceof Error && 'status' in err ? (err as Error & { status: number }).status : undefined;
+            const isClientError = status !== undefined && status >= 400 && status < 500;
+            const isConflict = status === 409;
 
             if (isConflict) {
               // Conflict: mark for manual review (remove from queue)

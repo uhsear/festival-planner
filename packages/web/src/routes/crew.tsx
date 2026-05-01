@@ -18,15 +18,30 @@ import PromptDialog from '../components/ui/PromptDialog';
 import {
   Users, Copy, UserPlus, MapPin, BarChart3, DollarSign, Activity, Columns3,
 } from 'lucide-react';
+import type { Crew, CrewMember } from '@festie/shared/types';
+
+/** Extended crew shape matching what the API actually returns (includes home
+ *  base fields and legacy ownership field not yet in the shared Crew type). */
+interface CrewWithHomeBase extends Crew {
+  homeBaseLocation?: string | null;
+  homeBaseTime?: string | null;
+  homeBaseUpdatedAt?: string | null;
+  createdBy?: string;
+}
+
+/** Extended member shape — the server serializes `username` alongside `name`. */
+interface CrewMemberWithUsername extends CrewMember {
+  username?: string;
+}
 
 type TabKey = 'members' | 'meeting' | 'polls' | 'expenses' | 'activity';
 
 const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
-  { key: 'members',  label: 'Members',  icon: <Users       className="w-4 h-4" /> },
-  { key: 'meeting',  label: 'Meet',     icon: <MapPin      className="w-4 h-4" /> },
-  { key: 'polls',    label: 'Polls',    icon: <BarChart3   className="w-4 h-4" /> },
-  { key: 'expenses', label: 'Expenses', icon: <DollarSign  className="w-4 h-4" /> },
-  { key: 'activity', label: 'Activity', icon: <Activity    className="w-4 h-4" /> },
+  { key: 'members',  label: 'Members',  icon: <Users       className="w-4 h-4" aria-hidden="true" /> },
+  { key: 'meeting',  label: 'Meet',     icon: <MapPin      className="w-4 h-4" aria-hidden="true" /> },
+  { key: 'polls',    label: 'Polls',    icon: <BarChart3   className="w-4 h-4" aria-hidden="true" /> },
+  { key: 'expenses', label: 'Expenses', icon: <DollarSign  className="w-4 h-4" aria-hidden="true" /> },
+  { key: 'activity', label: 'Activity', icon: <Activity    className="w-4 h-4" aria-hidden="true" /> },
 ];
 
 export default function CrewView() {
@@ -144,10 +159,11 @@ export default function CrewView() {
     } finally { setAdminAddBusy(false); }
   }, [activeCrew, forceAddMember, selectCrew, toast]);
 
-  const members = activeCrew?.members || [];
+  const crew = activeCrew as CrewWithHomeBase | null;
+  const members = (crew?.members || []) as CrewMemberWithUsername[];
   // Owner = server 'role === "owner"' OR legacy 'createdBy' match.
-  const meMember = members.find((m: any) => m.userId === user.id);
-  const isOwner = (meMember?.role === 'owner') || (activeCrew as any)?.createdBy === user.id || activeCrew?.owner === user.id;
+  const meMember = members.find((m) => m.userId === user.id);
+  const isOwner = (meMember?.role === 'owner') || crew?.createdBy === user.id || crew?.owner === user.id;
 
   return (
     // max-w-2xl matches /account's comfortable reading width on desktop —
@@ -167,7 +183,7 @@ export default function CrewView() {
              action pair. Having both the EmptyState's lone CTA AND the row
              underneath showed two identical "Create Crew" buttons stacked on
              top of each other, which read as a rendering glitch. */}
-          <EmptyState icon={<Users className="w-12 h-12" />} title="No crew yet"
+          <EmptyState icon={<Users className="w-12 h-12" aria-hidden="true" />} title="No crew yet"
             description="Create a crew or join an existing one to coordinate with friends" />
           {crews.length === 0 && (
             <div className="mt-6 flex gap-3">
@@ -177,12 +193,12 @@ export default function CrewView() {
           )}
         </div>
       ) : (
-        <div className="space-y-4 px-4">
+        <div className="crew-content space-y-4 px-4">
           {/* Home base — pinned at the top so the crew always sees where to meet. */}
           <HomeBaseCard
             crewId={activeCrew.id}
-            currentLocation={(activeCrew as any).homeBaseLocation || (activeCrew as any).homeBase || (activeCrew as any).home_base_location || null}
-            currentTime={(activeCrew as any).homeBaseTime || (activeCrew as any).home_base_time || null}
+            currentLocation={crew?.homeBaseLocation ?? null}
+            currentTime={crew?.homeBaseTime ?? null}
             isOwner={isOwner}
             onSaved={() => selectCrew(activeCrew.id)}
           />
@@ -254,7 +270,7 @@ export default function CrewView() {
                 )}
                 {members.length > 0 ? (
                   <div className="space-y-2">
-                    {members.map((m: any) => (
+                    {members.map((m) => (
                       <div key={m.userId} className="crew-list-enter p-3 rounded-lg bg-bg-card border border-border flex items-center gap-3">
                         <Avatar name={m.name || m.username || 'User'} size="md" />
                         <div className="flex-1 min-w-0">
@@ -267,7 +283,7 @@ export default function CrewView() {
                     ))}
                   </div>
                 ) : (
-                  <EmptyState icon={<Users className="w-12 h-12" />} title="No members yet"
+                  <EmptyState icon={<Users className="w-12 h-12" aria-hidden="true" />} title="No members yet"
                     description="Invite friends with the code above — they'll appear here the moment they join." />
                 )}
               </div>

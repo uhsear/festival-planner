@@ -64,14 +64,14 @@ function toStr(v: unknown): string {
   return typeof v === 'string' ? v : '';
 }
 
-function normalize(raw: any): AnalyticsData {
-  const r = raw || {};
+function normalize(raw: unknown): AnalyticsData {
+  const r = (raw || {}) as Record<string, unknown>;
   const topSets = Array.isArray(r.topSets) ? r.topSets : [];
   const activeUsers = Array.isArray(r.activeUsers) ? r.activeUsers : [];
   const crews = Array.isArray(r.crews) ? r.crews : [];
   const festivalStats = Array.isArray(r.festivalStats) ? r.festivalStats : [];
   return {
-    topSets: topSets.map((s: any) => ({
+    topSets: topSets.map((s: Record<string, unknown>) => ({
       artist: toStr(s?.artist),
       stageId: typeof s?.stageId === 'string' ? s.stageId : null,
       dayIndex: typeof s?.dayIndex === 'number' ? s.dayIndex : null,
@@ -83,21 +83,21 @@ function normalize(raw: any): AnalyticsData {
       wantCount: toNum(s?.wantCount),
       maybeCount: toNum(s?.maybeCount),
     })),
-    activeUsers: activeUsers.map((u: any) => ({
+    activeUsers: activeUsers.map((u: Record<string, unknown>) => ({
       id: toStr(u?.id),
       username: toStr(u?.username),
       profileCount: toNum(u?.profileCount),
       totalPicks: toNum(u?.totalPicks),
       lastActive: toStr(u?.lastActive),
     })),
-    crews: crews.map((c: any) => ({
+    crews: crews.map((c: Record<string, unknown>) => ({
       id: toStr(c?.id),
       name: toStr(c?.name),
       festivalId: toStr(c?.festivalId),
       memberCount: toNum(c?.memberCount),
       createdAt: toStr(c?.createdAt),
     })),
-    festivalStats: festivalStats.map((f: any) => ({
+    festivalStats: festivalStats.map((f: Record<string, unknown>) => ({
       id: toStr(f?.id),
       name: toStr(f?.name),
       profileCount: toNum(f?.profileCount),
@@ -153,8 +153,8 @@ export default function AdminAnalytics() {
       setLoading(true);
       const raw = await api.get<unknown>('/admin/analytics');
       setData(normalize(raw));
-    } catch (err: any) {
-      toast(err.message || 'Failed to load analytics', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to load analytics', 'error');
       setData(ANALYTICS_DEFAULTS);
     } finally {
       setLoading(false);

@@ -60,7 +60,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       /iPad|iPhone|iPod/.test(ua) ||
       (ua.includes('Mac') && typeof document !== 'undefined' && 'ontouchend' in document);
     const isStandalone =
-      (typeof navigator !== 'undefined' && (navigator as any).standalone === true) ||
+      (typeof navigator !== 'undefined' && (navigator as unknown as { standalone?: boolean }).standalone === true) ||
       (typeof window !== 'undefined' &&
         window.matchMedia?.('(display-mode: standalone)').matches === true);
 

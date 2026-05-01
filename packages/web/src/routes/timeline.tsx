@@ -158,8 +158,7 @@ export default function TimelineView() {
     if (!el || nowIndicator === null) return;
     const target = el.querySelector<HTMLElement>('.timeline-now-line');
     if (!target) return;
-    const offset = target.offsetTop - Math.max(80, window.innerHeight * 0.25);
-    window.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' });
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [nowIndicator]);
 
   useEffect(() => {
@@ -208,11 +207,11 @@ export default function TimelineView() {
     );
   }
 
-  if (!allDaySets.length) {
+  if (!allDaySets.length || !timeBounds || timeBounds.totalSlots <= 0 || timeBounds.totalSlots > 200) {
     return (
       <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
         <div className="no-festival">
-          <p>No sets to display.</p>
+          <p>No sets scheduled for this day — try switching days above.</p>
         </div>
       </RefreshableView>
     );
@@ -222,17 +221,7 @@ export default function TimelineView() {
     return (
       <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
         <div className="no-festival">
-          <p>No stages selected.</p>
-        </div>
-      </RefreshableView>
-    );
-  }
-
-  if (!timeBounds || timeBounds.totalSlots <= 0 || timeBounds.totalSlots > 200) {
-    return (
-      <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
-        <div className="no-festival">
-          <p>Invalid time range.</p>
+          <p>All stages are filtered out — tap a stage above to show it.</p>
         </div>
       </RefreshableView>
     );
@@ -400,8 +389,8 @@ export default function TimelineView() {
                       // Per-column stagger: blocks fade/slide in column-by-column
                       // on day switch. Keyed off `selectedDay` via data-day on
                       // the grid so the CSS animation replays.
-                      ['--tl-stagger' as any]: `${Math.min(ci, 5) * 40}ms`,
-                    }}
+                      '--tl-stagger': `${Math.min(ci, 5) * 40}ms`,
+                    } as React.CSSProperties}
                     data-set-id={s.id}
                     data-short={isShort ? '1' : '0'}
                     role="button"
@@ -483,7 +472,7 @@ export default function TimelineView() {
                           <div
                             key={o.profileId}
                             className="mini-avatar"
-                            title={`${o.profileId} (${o.priority})`}
+                            title={`${o.name || 'Crew member'} (${o.priority})`}
                             style={{ width: 16, height: 16, fontSize: 7 }}
                           />
                         ))}
@@ -546,7 +535,7 @@ interface TBASectionProps {
   sets: FestivalSet[];
   stages: Stage[];
   getMyPick: (setId: string) => Priority | null | undefined;
-  getOtherPicks: (setId: string) => Array<{ profileId: string; priority: Priority }>;
+  getOtherPicks: (setId: string) => Array<{ profileId: string; priority: Priority; name?: string }>;
   conflictIds: Set<string>;
   currentProfile: Profile | null;
   currentFestival: Festival | null;
@@ -571,7 +560,7 @@ function TBASection({
     <div className="timeline-tba-section">
       <div className="timeline-tba-header">TBA — Times Not Yet Announced</div>
       <div className="timeline-tba-grid">
-        {sets.map((s) => {
+        {sets.map((s, idx) => {
           const myPick = getMyPick(s.id);
           const others = getOtherPicks(s.id);
           const stage = stages.find((st) => st.id === s.stageId);
@@ -582,8 +571,8 @@ function TBASection({
           return (
             <div
               key={s.id}
-              className={'timeline-tba-card' + priClass}
-              style={stageColor ? { borderLeft: `3px solid ${stageColor}`, position: 'relative' } : { position: 'relative' }}
+              className={'timeline-tba-card stagger-item' + priClass}
+              style={stageColor ? { '--i': Math.min(idx, 20), borderLeft: `3px solid ${stageColor}`, position: 'relative' } as React.CSSProperties : { '--i': Math.min(idx, 20), position: 'relative' } as React.CSSProperties}
             >
               {/* Positioned click overlay — keeps outer div non-interactive so
                   priority buttons inside don't trigger nested-interactive. */}
@@ -656,7 +645,7 @@ function TBASection({
                     <div
                       key={o.profileId}
                       className="mini-avatar"
-                      title={`${o.profileId} (${o.priority})`}
+                      title={`${o.name || 'Crew member'} (${o.priority})`}
                       style={{ width: 16, height: 16, fontSize: 7 }}
                     />
                   ))}

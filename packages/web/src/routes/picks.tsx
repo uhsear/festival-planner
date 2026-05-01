@@ -189,7 +189,7 @@ function PicksViewInner() {
               <span className="count">{items.length}</span>
             </div>
 
-            {items.map((set) => {
+            {items.map((set, idx) => {
               const sc = getStageColor(set.stageId);
               const sn = getStageName(set.stageId) || '';
               const dn = artistDisplayName(set, currentFestival?.b2bSeparator);
@@ -198,7 +198,8 @@ function PicksViewInner() {
               return (
                 <button
                   key={set.id}
-                  className="pick-item"
+                  className="pick-item stagger-item"
+                  style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}
                   type="button"
                   aria-label={`${dn} — ${dayLabel}${set.startTime ? ' ' + formatTime(set.startTime) : ' TBA'}`}
                   onClick={() => setDetailSet(set)}

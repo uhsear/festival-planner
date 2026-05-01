@@ -251,7 +251,7 @@ module.exports = function createAuthRoutes(deps) {
   });
 
   // GET /me — mobile-friendly current user endpoint (same as verify but GET)
-  router.get('/me', userAuth, async (req, res) => {
+  router.get('/me', userAuth, rateLimit(120, 'get-me'), async (req, res) => {
     try {
       setNoStore(res);
       const user = await getUserById(req.user.userId);
@@ -366,7 +366,7 @@ module.exports = function createAuthRoutes(deps) {
   // ── GET /sessions — list active sessions for current user ─────────────
   // Session management: Justified. Users need control over active sessions for security on shared devices.
   // Especially important for festival-goer accounts which may be accessed by friends.
-  router.get('/sessions', userAuth, async (req, res) => {
+  router.get('/sessions', userAuth, rateLimit(60, 'get-sessions'), async (req, res) => {
     try {
       setNoStore(res);
       // eslint-disable-next-line no-shadow

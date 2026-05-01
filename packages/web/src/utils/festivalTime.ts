@@ -2,6 +2,11 @@ import type { Festival } from '@festie/shared/types';
 
 interface DayLike { date?: string | null }
 
+/** Festival-like object that may carry inline days (e.g. from the list endpoint). */
+interface FestivalWithDays extends Festival {
+  days?: ReadonlyArray<DayLike>;
+}
+
 /**
  * Returns true when the festival's last day's 23:59 local has passed.
  *
@@ -15,7 +20,7 @@ export function isFestivalOver(
   days?: ReadonlyArray<DayLike> | null,
 ): boolean {
   if (!festival) return false;
-  const daysArr = (days && days.length > 0 ? days : (festival as any).days) || [];
+  const daysArr = (days && days.length > 0 ? days : (festival as FestivalWithDays).days) || [];
   if (!daysArr.length) return false;
   const last = daysArr[daysArr.length - 1];
   if (!last?.date) return false;
@@ -35,7 +40,7 @@ export function hasSetStarted(
 ): boolean {
   if (!set) return false;
   if (!festival) return false;
-  const daysArr = (days && days.length > 0 ? days : (festival as any).days) || [];
+  const daysArr = (days && days.length > 0 ? days : (festival as FestivalWithDays).days) || [];
   if (!set.startTime || set.dayIndex == null) return isFestivalOver(festival, daysArr);
   const day = daysArr[set.dayIndex];
   if (!day?.date) return isFestivalOver(festival, daysArr);

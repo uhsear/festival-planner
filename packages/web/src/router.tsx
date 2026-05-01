@@ -15,7 +15,7 @@ import WrapSkeleton from './components/ui/skeletons/WrapSkeleton';
 // while the chunk downloads — this replaces the previous single "Loading..."
 // text fallback and eliminates the visible layout jolt when content arrives.
 function withSkeleton(
-  LazyCmp: ComponentType<any>,
+  LazyCmp: ComponentType,
   Skeleton: ComponentType,
 ): () => ReactElement {
   return function SuspendedRoute() {
@@ -82,8 +82,8 @@ const ForgotPasswordPage = withSkeleton(lazy(loadForgot),      MinimalFallback);
 export function prefetchMainRoutes() {
   const loaders = [loadCards, loadTimeline, loadGrid, loadFestivalMode, loadPicks, loadCrew, loadAccount, loadWrap];
   const run = () => loaders.forEach((fn) => fn().catch(() => {}));
-  if (typeof (window as any).requestIdleCallback === 'function') {
-    (window as any).requestIdleCallback(run, { timeout: 2000 });
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(run, { timeout: 2000 });
   } else {
     setTimeout(run, 500);
   }

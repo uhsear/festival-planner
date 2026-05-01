@@ -47,7 +47,7 @@ export default function OfflineBanner() {
   }
 
   const handleFlush = () => {
-    const q = (window as any).__festieQueue;
+    const q = window.__festieQueue;
     if (q?.processQueue) q.processQueue().catch(() => {});
   };
 

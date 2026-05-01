@@ -18,7 +18,7 @@ export default function AdminPanel() {
 
   if (!user?.isAdmin) {
     return (
-      <div className="flex-center h-screen flex-col gap-4">
+      <div className="flex-center min-h-dvh flex-col gap-4">
         <div className="text-lg text-accent-coral">Access Denied</div>
         <button
           onClick={() => navigate({ to: '/cards' })}

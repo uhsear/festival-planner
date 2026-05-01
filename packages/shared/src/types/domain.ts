@@ -42,6 +42,8 @@ export interface FestivalDay {
 export interface Artist {
   id?: string;
   name: string;
+  photo?: string;
+  genres?: string[];
   links?: Record<string, string>;
 }
 

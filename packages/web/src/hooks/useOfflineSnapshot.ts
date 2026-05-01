@@ -1,13 +1,14 @@
 import { useCallback, useState, useEffect } from 'react';
+import type { User, Festival, Profile, Priority } from '@festie/shared/types';
 
 const SNAPSHOT_KEY = 'festie-offline-snapshot-v2';
 
 export interface OfflineSnapshot {
   timestamp: number;
-  user?: any;
-  festival?: any;
-  profile?: any;
-  picks?: Record<string, any>;
+  user?: User;
+  festival?: Festival;
+  profile?: Profile;
+  picks?: Record<string, Priority>;
 }
 
 export interface UseOfflineSnapshotReturn {

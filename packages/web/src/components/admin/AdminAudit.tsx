@@ -6,7 +6,7 @@ interface AuditEntry {
   id: string;
   action: string;
   actorUsername?: string;
-  details?: any;
+  details?: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -15,10 +15,12 @@ interface AuditEntry {
  */
 export default function AdminAudit() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
-  const [hasMore, setHasMore] = useState<boolean | undefined>(undefined);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
-  const [page, setPage] = useState(0);
+  // Stack of previous cursors for back-navigation; null = first page
+  const [cursorStack, setCursorStack] = useState<(string | null)[]>([]);
+  const [currentCursor, setCurrentCursor] = useState<string | null>(null);
   const [actionFilter, setActionFilter] = useState('');
   const [userFilter, setUserFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -28,14 +30,14 @@ export default function AdminAudit() {
 
   useEffect(() => {
     loadAudit();
-  }, [page, actionFilter, userFilter, dateFrom, dateTo]);
+  }, [currentCursor, actionFilter, userFilter, dateFrom, dateTo]);
 
   const loadAudit = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      params.set('offset', String(page * 50));
       params.set('limit', '50');
+      if (currentCursor) params.set('cursor', currentCursor);
       if (actionFilter) params.set('action', actionFilter);
       if (userFilter) params.set('user', userFilter);
       if (dateFrom) params.set('from', dateFrom);
@@ -46,14 +48,34 @@ export default function AdminAudit() {
       const result = await api.get<AuditEntry[]>(`/admin/audit?${params.toString()}`);
       const list = Array.isArray(result) ? result : [];
       setEntries(list);
-      // Server doesn't currently return hasMore; infer from page size.
-      setHasMore(list.length >= 50);
-    } catch (err: any) {
-      toast(err.message || 'Failed to load audit log', 'error');
+      // Server returns nextCursor via meta; infer hasMore from page size
+      // since the api wrapper strips meta.
+      setNextCursor(list.length >= 50 ? list[list.length - 1]?.id ?? null : null);
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Failed to load audit log', 'error');
     } finally {
       setLoading(false);
       setHasLoadedOnce(true);
     }
+  };
+
+  const goNext = () => {
+    if (!nextCursor) return;
+    setCursorStack((prev) => [...prev, currentCursor]);
+    setCurrentCursor(nextCursor);
+  };
+
+  const goPrev = () => {
+    if (cursorStack.length === 0) return;
+    const prev = [...cursorStack];
+    const lastCursor = prev.pop()!;
+    setCursorStack(prev);
+    setCurrentCursor(lastCursor);
+  };
+
+  const resetPagination = () => {
+    setCursorStack([]);
+    setCurrentCursor(null);
   };
 
   const formatTimeAgo = (dateStr: string): string => {
@@ -84,7 +106,7 @@ export default function AdminAudit() {
             value={actionFilter}
             onChange={(e) => {
               setActionFilter(e.target.value);
-              setPage(0);
+              resetPagination();
             }}
             className="px-3 py-2 rounded-lg bg-bg-primary border border-glass-border text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
           />
@@ -95,7 +117,7 @@ export default function AdminAudit() {
             value={userFilter}
             onChange={(e) => {
               setUserFilter(e.target.value);
-              setPage(0);
+              resetPagination();
             }}
             className="px-3 py-2 rounded-lg bg-bg-primary border border-glass-border text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
           />
@@ -105,7 +127,7 @@ export default function AdminAudit() {
             value={dateFrom}
             onChange={(e) => {
               setDateFrom(e.target.value);
-              setPage(0);
+              resetPagination();
             }}
             className="px-3 py-2 rounded-lg bg-bg-primary border border-glass-border text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-aqua"
           />
@@ -115,7 +137,7 @@ export default function AdminAudit() {
             value={dateTo}
             onChange={(e) => {
               setDateTo(e.target.value);
-              setPage(0);
+              resetPagination();
             }}
             className="px-3 py-2 rounded-lg bg-bg-primary border border-glass-border text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-aqua"
           />
@@ -170,16 +192,16 @@ export default function AdminAudit() {
       {entries.length > 0 && (
         <div className="flex justify-center gap-2">
           <button
-            onClick={() => setPage(Math.max(0, page - 1))}
-            disabled={page === 0}
+            onClick={goPrev}
+            disabled={cursorStack.length === 0}
             className="px-4 py-2 rounded-lg bg-bg-card border border-glass-border text-text-primary hover:bg-bg-card/80 disabled:opacity-50 transition-colors text-sm font-medium"
           >
             Previous
           </button>
-          <span className="px-4 py-2 text-text-muted text-sm">Page {page + 1}</span>
+          <span className="px-4 py-2 text-text-muted text-sm">Page {cursorStack.length + 1}</span>
           <button
-            onClick={() => setPage(page + 1)}
-            disabled={typeof hasMore === 'boolean' ? !hasMore : entries.length < 50}
+            onClick={goNext}
+            disabled={!nextCursor}
             className="px-4 py-2 rounded-lg bg-bg-card border border-glass-border text-text-primary hover:bg-bg-card/80 disabled:opacity-50 transition-colors text-sm font-medium"
           >
             Next

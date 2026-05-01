@@ -145,8 +145,8 @@ export default function LineupImport({ festivalId, onSuccess }: LineupImportProp
       setPreview([]);
       setErrors([]);
       onSuccess?.();
-    } catch (err: any) {
-      toast(err.message || 'Import failed', 'error');
+    } catch (err: unknown) {
+      toast(err instanceof Error ? err.message : 'Import failed', 'error');
     } finally {
       setLoading(false);
     }

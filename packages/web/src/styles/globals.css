@@ -125,6 +125,12 @@ html {
     font-family: var(--font-family-display);
     line-height: var(--line-height-tight);
     letter-spacing: var(--letter-spacing-display);
+    text-wrap: balance;
+  }
+
+  /* Prevent orphaned words on the last line of prose elements. */
+  p, li, dd, blockquote {
+    text-wrap: pretty;
   }
 
   /* Reading measure cap for long-form copy. Opt-in via `.prose` (vs. forcing
@@ -175,6 +181,12 @@ html {
     background-color: var(--color-text-secondary);
   }
 
+  /* Standard scrollbar styling (Firefox + future browsers) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-text-muted) transparent;
+  }
+
   /* Selection */
   ::selection {
     background-color: rgba(0, 232, 208, 0.25);
@@ -205,11 +217,11 @@ html {
 
   /* Card animations */
   .card-enter {
-    animation: card-in 0.3s ease-out;
+    animation: card-in var(--duration-slow) var(--ease-out);
   }
 
   .card-exit {
-    animation: card-out 0.2s ease-in;
+    animation: card-out var(--duration-med) var(--ease-in);
   }
 
   @keyframes card-in {
@@ -258,11 +270,11 @@ html {
   }
 
   .toast-enter {
-    animation: toast-in 0.3s ease-out;
+    animation: toast-in var(--duration-slow) var(--ease-out);
   }
 
   .toast-exit {
-    animation: toast-out 0.3s ease-in;
+    animation: toast-out var(--duration-slow) var(--ease-in);
   }
 
   /* Pulse animation */
@@ -313,7 +325,7 @@ html {
     border-radius: 0.5rem;
     font-weight: 600;
     letter-spacing: var(--letter-spacing-body);
-    transition: all 0.2s;
+    transition: all var(--duration-med) var(--ease-standard);
     border: none;
     cursor: pointer;
     font-family: inherit;
@@ -344,7 +356,7 @@ html {
     border: 1px solid var(--color-border);
     border-radius: 0.5rem;
     color: var(--color-text-primary);
-    transition: all 0.2s;
+    transition: all var(--duration-med) var(--ease-standard);
     font-family: inherit;
   }
 
@@ -470,6 +482,43 @@ html {
 
   .op-secondary {
     opacity: 0.75;
+  }
+
+  /* Performance: skip rendering for off-screen long-list items. */
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 500px;
+  }
+
+  /* Staggered list entrance — set --i on each item via style prop. */
+  @keyframes stagger-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .stagger-item {
+    animation: stagger-fade-in var(--duration-slow) var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 40ms);
+  }
+
+  /* Glass hover state with color-mix blend. */
+  @media (hover: hover) {
+    .glass:hover {
+      background-color: color-mix(in oklch, var(--color-glass) 85%, white);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+  }
+
+  /* Opt-in press scale for tappable surfaces without their own transforms. */
+  .press-scale:active {
+    transform: scale(0.97);
+    transition: transform var(--duration-fast) var(--ease-out);
   }
 
 /* ── Admin nav breakpoint (2026-04-16) ────────────────────────────────────
@@ -804,7 +853,7 @@ button {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  min-height: 32px;
+  min-height: 44px;
   font-size: var(--font-size-12, 0.75rem);
   font-weight: 600;
   color: var(--color-text-primary);
@@ -955,7 +1004,7 @@ button {
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition: border-color 0.2s, transform 0.1s;
+  transition: border-color var(--duration-med) var(--ease-standard), transform var(--duration-fast) var(--ease-out);
 }
 .fm-set-card:hover { border-color: var(--color-accent-aqua, #00d4aa); }
 .fm-set-card:active { transform: scale(0.98); }
@@ -1114,6 +1163,96 @@ button {
 }
 @media (max-width: 640px) {
   .card-grid { gap: 12px; max-width: none !important; }
+}
+
+/* ── Container queries (2026-04-28) ──────────────────────────────────────
+   CSS container queries let components adapt to their *container's* width
+   rather than the viewport. This matters when the same component renders
+   in different layout contexts (e.g., a card in a 1-col mobile grid vs. a
+   3-col desktop grid), or when parent containers constrain the available
+   width in ways that viewport media queries can't predict.
+
+   Three high-value applications:
+   1. Set cards — artist name, footer, and spacing adapt to actual card
+      width instead of viewport breakpoints (which disagree with the real
+      card width at transitional viewport sizes).
+   2. Crew category/type grids — the 3-column button grids in
+      ExpensesTab + MeetingPointsTab collapse to 2 columns when the crew
+      panel is narrow (< 320px), preventing cramped buttons.
+   3. Crew expense/wrap stat summaries — 2-column stat grids stack to
+      1 column below 300px container width so numbers stay readable.
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* 1. Set card container — each .card-enter wrapper (the stagger-item div in
+   cards.tsx) becomes a size container. The .set-card inside queries its
+   parent's inline size to scale typography and spacing. The legacy app.css
+   breakpoints for .set-card (14px at <=430px, 17px at <=768px, 20px at
+   desktop) assume the card fills the viewport, which is wrong at
+   transitional widths where auto-fit creates 2 narrow columns at, say,
+   700px viewport (each card ~335px). Container queries fix this: each
+   card reads its own column width and sizes accordingly. */
+.card-grid > .card-enter {
+  container-type: inline-size;
+}
+
+/* Small cards (< 320px): phone-portrait single column, or a narrow
+   column in a multi-column grid at transitional viewport widths. Compact
+   typography keeps the card readable without overflow. */
+@container (max-width: 319px) {
+  .set-card .card-artist {
+    font-size: 15px !important;
+    letter-spacing: -0.2px;
+  }
+  .set-card .card-stage {
+    font-size: 10px;
+    padding: 2px 8px;
+    margin-bottom: 6px;
+  }
+  .set-card .card-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+/* Medium cards (320–419px): the sweet spot for most phone grids. One step
+   up from the compact size — artist name gets 17px (matches the legacy
+   768px media query that assumed single-column). */
+@container (min-width: 320px) and (max-width: 419px) {
+  .set-card .card-artist {
+    font-size: 17px !important;
+  }
+}
+
+/* Wide cards (≥ 420px): desktop column or a stretched single-column phone.
+   Full 20px artist name with tighter letter-spacing for display weight.
+   The card has room for inline footer, so we ensure no wrapping. */
+@container (min-width: 420px) {
+  .set-card .card-artist {
+    font-size: 20px !important;
+    letter-spacing: -0.4px;
+  }
+  .set-card {
+    padding: 20px !important;
+  }
+}
+
+/* 2. Crew form grids — on very narrow viewports (< 320px), collapse
+   the 3-column category/type button grids to 2 columns. */
+@media (max-width: 319px) {
+  .crew-category-grid,
+  .crew-type-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* 3. Stat summary grids — the 2-column stat grids in ExpensesTab and
+   /wrap use `grid-cols-2`. Below ~300px viewport the stat cards are too
+   narrow for the number + label layout; stack to 1 column. */
+@media (max-width: 319px) {
+  .crew-stats-grid,
+  .wrap-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* #main-content scroll-anchor override: when a lazy route swaps in, the
@@ -1408,6 +1547,29 @@ button {
   scroll-padding-inline-start: 8px;
 }
 .stage-filter-row > * > button {
+  scroll-snap-align: start;
+}
+
+/* ── .filter-stage (AppShell / SubHeader) — horizontal scroll on narrow
+   viewports. The legacy app.css sets `flex-wrap: wrap` which still overflows
+   at 320 px when stage names are long ("The Forbidden Realm" etc.). Override
+   to nowrap + horizontal scroll with hidden scrollbar for a swipeable row. */
+.filter-stage {
+  display: flex;
+  gap: var(--space-3, 8px);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline-start: 8px;
+  scrollbar-width: none;          /* Firefox */
+}
+.filter-stage::-webkit-scrollbar {
+  display: none;                  /* Chrome / Safari */
+}
+.filter-stage > .stage-chip {
+  flex-shrink: 0;
   scroll-snap-align: start;
 }
 
@@ -1859,6 +2021,64 @@ button {
 .timeline-grid,
 .crew-page {
   contain: layout style;
+}
+
+/* ── Viewport-fill routes (mobile) ────────────────────────────────────────
+   Timeline, grid, and crew fill the mobile viewport exactly — no page-level
+   scroll. Each route handles its own internal scrolling. */
+@media (max-width: 768px) {
+  #main-content:has(.timeline-view),
+  #main-content:has(.fk-grid),
+  #main-content:has(.crew-page) {
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex;
+    flex-direction: column;
+    padding: 0 !important;
+  }
+
+  /* Timeline: RefreshableView is the single scroll container */
+  #main-content:has(.timeline-view) .timeline-view {
+    flex: 1;
+    min-height: 0;
+  }
+  #main-content:has(.timeline-view) .timeline-container {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  #main-content:has(.timeline-view) .timeline-grid {
+    min-width: 100% !important;
+  }
+
+  /* Grid: reduce column min-width so 4 stages fit on 375px phones */
+  #main-content:has(.fk-grid) .fk-grid__col {
+    min-width: 70px !important;
+  }
+
+  /* Crew: flex column layout, tab content scrolls */
+  #main-content:has(.crew-page) .crew-page {
+    flex: 1;
+    min-height: 0;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+    contain: none;
+  }
+  #main-content:has(.crew-page) .crew-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #main-content:has(.crew-page) .crew-tab-panel {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
 }
 
 @media print {
