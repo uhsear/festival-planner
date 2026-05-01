@@ -5,9 +5,9 @@
 Festie is a real-time web application for festival crew coordination. Users create festivals, join crew profiles, manage picks/notes/reminders, and chat in real-time.
 
 **Stack:**
-- Backend: Node.js 22 + Express 4 + Socket.IO 4 + PostgreSQL 16
+- Backend: Node.js 22 + Express 5 + Socket.IO 4 + PostgreSQL 16
 - Frontend: React 19 + Vite 6 + TanStack Router + Zustand + TypeScript (`packages/web/`)
-- Deployment: PM2 cluster mode + Redis 7 + nginx reverse proxy
+- Deployment: PM2 cluster mode + Redis 7 + Cloudflare Tunnel
 
 ---
 

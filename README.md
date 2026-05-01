@@ -17,7 +17,7 @@ Core capabilities include real-time crew synchronization via WebSockets, priorit
 
 The app is a server-rendered Node.js application with a real-time layer, backed by PostgreSQL and Redis.
 
-**Stack**: Node.js 22, Express 4, Socket.IO 4, PostgreSQL 16, Redis 7, PM2 cluster mode, nginx reverse proxy. React 19 + Vite 6 + TypeScript frontend.
+**Stack**: Node.js 22, Express 5, Socket.IO 4, PostgreSQL 16, Redis 7, PM2 cluster mode, Cloudflare Tunnel. React 19 + Vite 6 + TypeScript frontend.
 
 **Backend structure**: Core concerns are extracted into focused `lib/` modules — logger, crypto-auth, presence tracking, and templated pages. Route files export factory functions (`createXRoutes(deps)`) for testability. All SQL uses parameterized queries; all user input is sanitized through dedicated helpers.
 

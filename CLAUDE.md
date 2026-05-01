@@ -60,7 +60,7 @@ module.exports = function createFeatureRoutes({ pool, redis, config, io }) {
 
 **`routes/`** — Route factories. `socket.js` handles all real-time events (presence, chat, reactions, crew updates).
 
-**`migrations/`** — PostgreSQL migrations (004 baseline through 021+). Must be idempotent. All use parameterized queries (`$1, $2`).
+**`migrations/`** — PostgreSQL migrations (004 baseline onward; run `ls migrations/` for current set). Must be idempotent. All use parameterized queries (`$1, $2`).
 
 ### Frontend (`packages/web/`)
 
@@ -74,7 +74,7 @@ TypeScript package exporting types, Zustand stores, Socket.IO service client, Re
 
 ## Database
 
-PostgreSQL 16 with connection pooling (pg, min 2 / max 20). Key tables: `users`, `sessions`, `festivals`, `profiles` (picks/notes/reminders), `crews`, `messages`, `audit_log`. All queries use parameterized SQL — no string interpolation.
+PostgreSQL 16 with connection pooling (pg, min 2 / max 20). Key tables: `users`, `user_sessions`, `festivals`, `festival_profiles` (picks/notes/reminders), `crews`, `crew_activity`, `audit_log`. All queries use parameterized SQL — no string interpolation.
 
 ## Code Conventions
 
@@ -113,9 +113,47 @@ Tests use **Node's built-in test runner** (`node:test` + `node:assert`). Test fi
 
 For real-time features: add Socket.IO event handler in `routes/socket.js`, client-side listener in `packages/shared/src/services/socket.ts`.
 
+## Critical Rules
+
+### Code Quality Checklist
+Before marking work complete:
+- Code is readable with clear naming
+- Functions are small (<50 lines preferred)
+- Files are focused (<800 lines)
+- No deep nesting (>4 levels)
+- Proper error handling at system boundaries
+- No hardcoded values (use config.js constants)
+- Parameterized queries only (no string interpolation in SQL)
+
+### Security Checklist
+Before ANY commit:
+- No hardcoded secrets (API keys, passwords, tokens)
+- All user inputs validated via Zod schemas in lib/schemas.js
+- SQL injection prevention (parameterized queries with $1, $2)
+- XSS prevention (CSP headers, sanitized output)
+- Rate limiting on all public endpoints
+- Error messages don't leak sensitive data (no stack traces in production)
+
+### Performance Guidelines
+- Use cursor pagination (`WHERE id > $last_id`) over OFFSET for large tables
+- Create indexes with `CONCURRENTLY` on existing tables (non-blocking)
+- Use `Promise.all()` for independent async operations
+- Debounce search/filter inputs (300ms)
+- Use `content-visibility: auto` for long scrollable lists
+- Only animate `transform` and `opacity` (compositor-only properties)
+
+## Verification Workflow
+Before submitting changes, run this sequence:
+1. `pnpm --filter @festie/web typecheck` — TypeScript check
+2. `npm run lint` — Backend linting
+3. `pnpm --filter @festie/web lint` — Frontend linting
+4. `npm test` — All backend tests
+5. `npm run test:e2e` — Playwright E2E tests
+6. Review diff for leaked secrets (grep for sk-, ghp_, AKIA, password=, secret=)
+
 ## Deployment
 
 - **Dev/test**: Single process, in-memory rate limits, local file storage
-- **Production**: PM2 cluster mode (`ecosystem.config.js`), Redis-backed rate limits/sessions, nginx reverse proxy
+- **Production**: PM2 cluster mode (`ecosystem.config.js`), Redis-backed rate limits/sessions, Cloudflare Tunnel
 - **Docker**: Multi-stage build, Node 22 slim, non-root user, health check at `/api/health`
 - **Required env vars**: `PUBLIC_ORIGIN`, `DATABASE_URL`, `SESSION_SECRET`, `FIREBASE_CREDENTIALS_PATH`, `RESEND_API_KEY`; `REDIS_URL` for cluster mode
