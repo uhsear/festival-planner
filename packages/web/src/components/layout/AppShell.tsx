@@ -330,7 +330,7 @@ export default function AppShell() {
         <a
           href="#main-content"
           className="skip-link"
-          onClick={(e) => {
+          onClick={() => {
             // Ensure programmatic focus lands on main after the anchor jump.
             const main = document.getElementById('main-content');
             if (main) {

@@ -36,7 +36,7 @@ interface Props {
 
 export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
   const { toast } = useToast();
-  const { select, success, warning } = useHaptics();
+  const { select, warning } = useHaptics();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [question, setQuestion] = useState('');

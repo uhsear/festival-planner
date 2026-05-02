@@ -31,18 +31,12 @@ const mountAdminBulkRoutes = require('./admin-bulk');
 module.exports = function createAdminRoutes(deps) {
   const {
     express, config, log,
-    // eslint-disable-next-line no-unused-vars
-    resolveRequestToken, validatePasswordStrength, hashPassword,
-    getUsers, getProfiles, getUserById, getFestivals,
-    invalidateUserSessions, disconnectUserSockets,
-    removeAvatarFile, removeProfileSockets,
+    getUsers, getProfiles, getFestivals,
     setNoStore,
     sendSuccess, sendError, ErrorCodes,
-    adminAuth, getRequestIp, buildAvatarUrl,
-    // eslint-disable-next-line no-unused-vars
-    io, stores, hashSessionToken,
-    schemas, validate,
-    createAuditLog, invalidateUserCache, _invalidateFestivalCache,
+    adminAuth, getRequestIp,
+    io, stores,
+    _invalidateFestivalCache,
     rateLimit,
   } = deps;
 

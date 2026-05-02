@@ -1,6 +1,5 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useUIStore } from '@festie/shared/stores/uiStore';
-import { useAuthStore } from '@festie/shared/stores/authStore';
 
 const DB_NAME = 'festie-offline-queue';
 const DB_VERSION = 1;
@@ -196,7 +195,6 @@ async function pruneStaleEntries(): Promise<void> {
 export function useOfflineQueue(): UseOfflineQueueReturn {
   const [pendingCount, setPendingCount] = useState(0);
   const setPendingSync = useUIStore((state) => state.setPendingSync);
-  const user = useAuthStore((state) => state.user);
 
   // Initialize on mount
   useEffect(() => {

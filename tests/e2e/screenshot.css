@@ -1,0 +1,6 @@
+/* Hide dynamic elements during visual regression screenshots */
+.fm-live-dot, .pulse-soft, .skeleton, [data-testid="live-badge"] {
+  animation: none !important;
+  visibility: hidden !important;
+}
+.fm-countdown, .fm-time, time { color: transparent !important; }

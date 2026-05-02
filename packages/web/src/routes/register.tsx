@@ -50,7 +50,7 @@ export default function RegisterPage() {
       });
       toast('Account created successfully', 'success');
       await navigate({ to: '/cards' });
-    } catch (err) {
+    } catch {
       setFormError(error || 'Registration failed');
     }
   };

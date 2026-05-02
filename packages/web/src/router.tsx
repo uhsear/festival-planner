@@ -232,7 +232,7 @@ export const router = new Router({
   // default only fires for beforeLoad redirects + route-level pending states.
   defaultPendingComponent: MinimalFallback,
   defaultPendingMs: 200,
-  defaultErrorComponent: ({ error, reset }) => (
+  defaultErrorComponent: ({ error: _error, reset }) => (
     <div className="no-festival" role="alert">
       <p style={{ color: 'var(--accent-coral)', fontSize: '16px', marginBottom: '12px' }}>
         Error loading page

@@ -21,14 +21,11 @@ module.exports = function mountAdminAuditRoutes({ router, deps }) {
       const actorId = req.query.actor_id ? String(req.query.actor_id).trim() : null;
       const action = req.query.action ? String(req.query.action).trim() : null;
       const resourceType = req.query.resource_type ? String(req.query.resource_type).trim() : null;
+      const cursor = req.query.cursor ? String(req.query.cursor).trim() : null;
       let limit = 50;
-      let offset = 0;
 
       if (req.query.limit) {
         limit = Math.max(1, Math.min(200, parseInt(req.query.limit, 10) || 50));
-      }
-      if (req.query.offset) {
-        offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
       }
 
       let from = null;
@@ -48,8 +45,8 @@ module.exports = function mountAdminAuditRoutes({ router, deps }) {
         }
       }
 
-      const [entries, total] = await Promise.all([
-        stores.auditLog.query({ actorId, action, resourceType, from, to, limit, offset }),
+      const [{ rows: entries, nextCursor }, total] = await Promise.all([
+        stores.auditLog.query({ actorId, action, resourceType, from, to, limit, cursor }),
         stores.auditLog.count({ actorId, action, resourceType, from, to }),
       ]);
 
@@ -57,7 +54,7 @@ module.exports = function mountAdminAuditRoutes({ router, deps }) {
         meta: {
           total,
           limit,
-          offset,
+          nextCursor,
         },
       });
     } catch (error) {

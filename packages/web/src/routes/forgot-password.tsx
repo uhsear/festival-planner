@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { useAuth } from '@festie/shared';
 import { useToast } from '../lib/toastContext';
 import Button from '../components/ui/Button';
@@ -7,7 +7,6 @@ import Input from '../components/ui/Input';
 import { CheckCircle } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
-  const navigate = useNavigate();
   const { forgotPassword, isLoading, error } = useAuth();
   const { toast } = useToast();
 
@@ -43,7 +42,7 @@ export default function ForgotPasswordPage() {
       await forgotPassword({ email });
       setSubmitted(true);
       toast('Password reset link sent to your email', 'success');
-    } catch (err) {
+    } catch {
       const msg = error && !/^\s*5\d\d/.test(error)
         ? error
         : "We couldn't send the reset link right now. Please try again in a moment.";

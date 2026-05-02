@@ -1,15 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
-import { useFestivalStore, useAuthStore } from '@festie/shared';
-import FestivalSelector from './FestivalSelector';
+import { useAuthStore } from '@festie/shared';
 import UserMenu from './UserMenu';
 import FestivalModeToggle from '../features/FestivalModeToggle';
 
 export default function Header() {
-  const [showSearch, setShowSearch] = useState(false);
-  const searchQuery = useFestivalStore((state) => state.searchQuery);
-  const setSearchQuery = useFestivalStore((state) => state.setSearchQuery);
-  const currentFestival = useFestivalStore((state) => state.currentFestival);
   const user = useAuthStore((state) => state.user);
   const location = useLocation();
   const navigate = useNavigate();

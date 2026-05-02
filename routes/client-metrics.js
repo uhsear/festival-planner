@@ -54,7 +54,7 @@ module.exports = function createClientMetricsRoutes(deps) {
   router.post("/web-vitals", limiter, (req, res) => {
     let payload = req.body;
     if (typeof payload === "string") {
-      try { payload = JSON.parse(payload); } catch (_) { payload = null; }
+      try { payload = JSON.parse(payload); } catch { payload = null; }
     }
     if (!payload || typeof payload !== "object") {
       return res.status(204).end();
@@ -75,7 +75,7 @@ module.exports = function createClientMetricsRoutes(deps) {
       : "unknown";
 
     if (webVitalsHistogram) {
-      try { webVitalsHistogram.observe({ metric: name, nav }, recorded); } catch (_) { /* swallow */ }
+      try { webVitalsHistogram.observe({ metric: name, nav }, recorded); } catch { /* swallow */ }
     }
 
     log.info({

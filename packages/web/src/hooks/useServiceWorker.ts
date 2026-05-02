@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 
 export function useServiceWorker() {

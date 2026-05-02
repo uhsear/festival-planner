@@ -1,6 +1,5 @@
 import React, { useRef, useState } from 'react';
 import { FestivalSet, Priority } from '@festie/shared/types';
-import { PRIORITY_MAP } from '@festie/shared/constants';
 import { usePicks } from '@festie/shared/hooks';
 import { formatTime, artistDisplayName, artistSubtitle } from '@festie/shared/utils';
 import { useFestivalStore } from '@festie/shared/stores';
@@ -8,7 +7,6 @@ import { api } from '@festie/shared/services/api';
 import { useSetStatus } from '@/hooks/useSetStatus';
 import { useToast } from '@/lib/toastContext';
 import { useHaptics } from '@/hooks/useHaptics';
-import FriendAvatars from './FriendAvatars';
 import LiveBadge from './LiveBadge';
 
 interface SpotifyPreviewResponse {
@@ -136,8 +134,7 @@ export default function SetCard({
       audioRef.current.src = src;
       await audioRef.current.play();
       setPreviewPlaying(true);
-    } catch (err) {
-      // 404 / no-preview / network error — show tooltip, don't break UI.
+    } catch {
       setPreviewError('No preview');
       toast('No preview available', 'info');
     } finally {

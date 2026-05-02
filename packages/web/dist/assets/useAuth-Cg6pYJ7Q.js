@@ -1,1 +1,0 @@
-import{l as r}from"./index-DCSOZAR-.js";function l(){const t=r(o=>o.login),s=r(o=>o.register),a=r(o=>o.logout),n=r(o=>o.forgotPassword),e=r(o=>o.changePassword),c=r(o=>o.uploadAvatar),g=r(o=>o.removeAvatar),u=r(o=>o.isLoading),i=r(o=>o.error);return{login:t,register:s,logout:a,forgotPassword:n,changePassword:e,uploadAvatar:c,removeAvatar:g,isLoading:u,error:i}}export{l as u};

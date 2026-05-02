@@ -34,7 +34,6 @@ class PicksErrorBoundary extends Component<
     return { error };
   }
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // eslint-disable-next-line no-console
     console.error('[picks] render failed:', error, info.componentStack);
   }
   render() {

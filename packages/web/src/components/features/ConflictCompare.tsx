@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { X, ArrowRightLeft } from 'lucide-react';
 import { FestivalSet, Priority } from '@festie/shared/types';
-import { formatTime, artistDisplayName } from '@festie/shared/utils';
+import { formatTime } from '@festie/shared/utils';
 import { cn } from '@/lib/utils';
 import CrewOverlapHeat from './CrewOverlapHeat';
 

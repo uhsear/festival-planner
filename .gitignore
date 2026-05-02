@@ -17,6 +17,7 @@ output/
 lhci-reports/
 .turbo/
 dist.disabled/
+packages/web/dist/
 
 # Playwright debug scripts
 pw-*.js
@@ -35,3 +36,11 @@ mobile-loop-capture.js
 
 # Code review graph DB
 .code-review-graph/
+
+# Playwright MCP and test artifacts
+.playwright-mcp/
+*.png
+
+# Session logs and loop captures
+docs/session-logs/
+mobile-loop-*/

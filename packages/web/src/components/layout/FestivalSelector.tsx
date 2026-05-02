@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useFestivalStore } from '@festie/shared';
-import { useNavigate } from '@tanstack/react-router';
 
 export default function FestivalSelector() {
   const festivals = useFestivalStore((state) => state.festivals);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
   const selectFestival = useFestivalStore((state) => state.selectFestival);
-  const navigate = useNavigate();
   const isLoading = useFestivalStore((state) => state.isLoading);
 
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {

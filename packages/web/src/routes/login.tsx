@@ -29,7 +29,7 @@ export default function LoginPage() {
       await login({ username, password });
       toast('Login successful', 'success');
       await navigate({ to: '/cards' });
-    } catch (err) {
+    } catch {
       setFormError(error || 'Login failed');
     }
   };

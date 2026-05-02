@@ -35,7 +35,7 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
 
       const result = await stores.ratings.upsert(req.user.userId, setId, rating, (note || '').slice(0, 500));
       sendSuccess(res, result);
-    } catch (err) {
+    } catch {
       sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });
@@ -45,7 +45,7 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
     try {
       await stores.ratings.delete(req.user.userId, req.params.setId);
       sendSuccess(res, { deleted: true });
-    } catch (err) {
+    } catch {
       sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });
@@ -55,7 +55,7 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
     try {
       const ratings = await stores.ratings.getByUser(req.user.userId, req.params.festivalId);
       sendSuccess(res, { ratings });
-    } catch (err) {
+    } catch {
       sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });
@@ -65,7 +65,7 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
     try {
       const ratings = await stores.ratings.getByFestival(req.params.festivalId);
       sendSuccess(res, { ratings });
-    } catch (err) {
+    } catch {
       sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });
@@ -75,7 +75,7 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
     try {
       const ratings = await stores.ratings.getCrewRatings(req.params.crewId, req.params.festivalId);
       sendSuccess(res, { ratings });
-    } catch (err) {
+    } catch {
       sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });
@@ -89,7 +89,7 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
       ]);
       const topSets = ratings.filter(r => r.rating >= 4).slice(0, 5);
       sendSuccess(res, { stats, topSets, allRatings: ratings });
-    } catch (err) {
+    } catch {
       sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });

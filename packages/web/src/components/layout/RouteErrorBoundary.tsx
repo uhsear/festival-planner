@@ -7,7 +7,6 @@ import { useEffect } from 'react';
  */
 export default function RouteErrorBoundary({ error, reset }: { error: Error; reset: () => void }) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
     console.error('[route error]', error);
   }, [error]);
 

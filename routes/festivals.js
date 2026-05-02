@@ -3,7 +3,7 @@
 module.exports = function createFestivalsRoutes(deps) {
   const {
     express, config, log,
-    adminAuth, setNoStore,
+    adminAuth,
     getFestivals, getFestivalById,
     validateFestival, sanitizeFestivalPayload,
     removeFestivalSockets, getRequestIp,

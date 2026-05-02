@@ -230,7 +230,7 @@ export default function GridView() {
   const totalH = bounds.span * PX_PER_MIN;
 
   return (
-    <div className="fk-grid" ref={gridRef}>
+    <div className="fk-grid" ref={gridRef} role="grid" aria-label="Festival schedule grid — stages as columns, time as rows">
       {/* ── Toolbar ── */}
       <div className="fk-grid__toolbar">
         <button
@@ -249,17 +249,19 @@ export default function GridView() {
       {/* ── Sticky stage-header row ── */}
       <div
         className="fk-grid__head"
+        role="row"
         style={{
           gridTemplateColumns: `${GUTTER_W}px repeat(${visibleStages.length}, 1fr)`,
         }}
       >
-        <div />
+        <div role="columnheader" aria-label="Time" />
         {visibleStages.map((st) => {
           const c = getStageColor(st.id);
           return (
             <div
               key={st.id}
               className="fk-grid__col-head"
+              role="columnheader"
               style={{ '--stage-c': c } as React.CSSProperties}
             >
               {getStageName(st.id)}
@@ -269,9 +271,9 @@ export default function GridView() {
       </div>
 
       {/* ── Scrollable body ── */}
-      <div className="fk-grid__body" data-scroll-sentinel>
+      <div className="fk-grid__body" role="rowgroup" data-scroll-sentinel>
         {/* Time gutter */}
-        <div className="fk-grid__gutter" style={{ height: totalH }}>
+        <div className="fk-grid__gutter" role="presentation" style={{ height: totalH }}>
           {hours.map(({ m, px }) => (
             <span key={m} className="fk-grid__hour-label" style={{ top: px }}>
               {fmtHour(m)}
@@ -280,7 +282,7 @@ export default function GridView() {
         </div>
 
         {/* Columns wrapper */}
-        <div className="fk-grid__cols">
+        <div className="fk-grid__cols" role="presentation">
           {/* Now overlay */}
           {nowPx != null && (
             <div className="fk-grid__now-overlay" style={{ top: nowPx }}>
@@ -298,6 +300,8 @@ export default function GridView() {
               <div
                 key={st.id}
                 className="fk-grid__col"
+                role="row"
+                aria-label={getStageName(st.id)}
                 style={{ height: totalH, '--stage-c': c } as React.CSSProperties}
               >
                 {hours.map(({ m, px }) => (
@@ -324,6 +328,7 @@ export default function GridView() {
                   return (
                     <button
                       key={set.id}
+                      role="gridcell"
                       className={`fk-grid__set${pick ? ' fk-grid__set--picked' : ''}`}
                       style={
                         {

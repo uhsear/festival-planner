@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
+import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import { FestivalSet, Priority, Stage, Profile, Festival } from '@festie/shared/types';
@@ -23,20 +23,16 @@ const PRI_MAP: Record<string, string> = {
 };
 
 export default function TimelineView() {
-  const user = useAuthStore((state) => state.user);
   const currentProfile = useFestivalStore((state) => state.currentProfile);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
   const sets = useFestivalStore((state) => state.sets);
   const stages = useFestivalStore((state) => state.stages);
-  const days = useFestivalStore((state) => state.days);
   const selectedDay = useFestivalStore((state) => state.selectedDay);
   const activeStages = useFestivalStore((state) => state.activeStages);
-  const setSelectedDay = useFestivalStore((state) => state.setSelectedDay);
-  const setActiveStages = useFestivalStore((state) => state.setActiveStages);
 
   const setDetailSet = useUIStore((state) => state.setDetailSet);
   const { getMyPick, getOtherPicks, savePick } = usePicks();
-  const { getStageColor, getStageName } = useFestival();
+  const { getStageColor } = useFestival();
 
   // Ensure all stages are active if none selected
   const effectiveActiveStages = useMemo(() => {
@@ -549,7 +545,7 @@ function TBASection({
   stages,
   getMyPick,
   getOtherPicks,
-  conflictIds,
+  conflictIds: _conflictIds,
   currentProfile,
   currentFestival,
   getStageColor,

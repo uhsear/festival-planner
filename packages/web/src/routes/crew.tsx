@@ -90,9 +90,33 @@ export default function CrewView() {
     }
   }, [user?.id, crews, activeCrew, selectCrew]);
 
-  // /crew is a logged-in-only surface — see router.tsx beforeLoad guard.
-  // This effect catches the logged-out-while-on-route edge case so we never
-  // render the page to a guest after an in-session logout.
+  const submitForceAdd = useCallback(async (query: string) => {
+    if (!activeCrew) return;
+    setAdminAddBusy(true);
+    try {
+      const users = await api.get<Array<{ id: string; username: string; email: string | null }>>(
+        `/admin/users?search=${encodeURIComponent(query)}`,
+      );
+      if (!users || users.length === 0) { toast('No matching user found', 'error'); return; }
+      const exact = users.find((u) => u.username.toLowerCase() === query.toLowerCase());
+      const target = exact || users[0];
+      // Ambiguous match guard — kept as a native confirm since it's a
+      // rare admin-only path and doesn't warrant a second Radix dialog.
+      if (!exact && users.length > 1) {
+        const confirmed = window.confirm(`Found ${users.length} users. Add "${target.username}"?`);
+        if (!confirmed) return;
+      }
+      await forceAddMember(activeCrew.id, target.id);
+      await selectCrew(activeCrew.id);
+      toast(`Added ${target.username}`, 'success');
+      setAdminOpen(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed';
+      if (/already/i.test(msg)) toast('User is already in this crew', 'info');
+      else toast(msg, 'error');
+    } finally { setAdminAddBusy(false); }
+  }, [activeCrew, forceAddMember, selectCrew, toast]);
+
   useEffect(() => {
     if (!user) navigate({ to: '/login' }).catch(() => {});
   }, [user, navigate]);
@@ -132,32 +156,6 @@ export default function CrewView() {
   };
 
   const handleForceAdd = () => setAdminOpen(true);
-  const submitForceAdd = useCallback(async (query: string) => {
-    if (!activeCrew) return;
-    setAdminAddBusy(true);
-    try {
-      const users = await api.get<Array<{ id: string; username: string; email: string | null }>>(
-        `/admin/users?search=${encodeURIComponent(query)}`,
-      );
-      if (!users || users.length === 0) { toast('No matching user found', 'error'); return; }
-      const exact = users.find((u) => u.username.toLowerCase() === query.toLowerCase());
-      const target = exact || users[0];
-      // Ambiguous match guard — kept as a native confirm since it's a
-      // rare admin-only path and doesn't warrant a second Radix dialog.
-      if (!exact && users.length > 1) {
-        const confirmed = window.confirm(`Found ${users.length} users. Add "${target.username}"?`);
-        if (!confirmed) return;
-      }
-      await forceAddMember(activeCrew.id, target.id);
-      await selectCrew(activeCrew.id);
-      toast(`Added ${target.username}`, 'success');
-      setAdminOpen(false);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed';
-      if (/already/i.test(msg)) toast('User is already in this crew', 'info');
-      else toast(msg, 'error');
-    } finally { setAdminAddBusy(false); }
-  }, [activeCrew, forceAddMember, selectCrew, toast]);
 
   const crew = activeCrew as CrewWithHomeBase | null;
   const members = (crew?.members || []) as CrewMemberWithUsername[];

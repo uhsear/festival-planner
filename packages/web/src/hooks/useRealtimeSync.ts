@@ -5,7 +5,6 @@ import { useSocket } from '@festie/shared/hooks/useSocket';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useFestivalStore } from '@festie/shared/stores/festivalStore';
 import { useCrewStore } from '@festie/shared/stores/crewStore';
-import { useAuthStore } from '@festie/shared/stores/authStore';
 import type { OnlineUser } from '@festie/shared/types';
 import type {
   ProfileUpdatedPayload,
@@ -46,7 +45,6 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
   const setConnected = useUIStore((state) => state.setConnected);
   const onlineUsers = useUIStore((state) => state.onlineUsers);
   const setOnlineUsers = useUIStore((state) => state.setOnlineUsers);
-  const user = useAuthStore((state) => state.user);
 
   // Debounce timers keyed by refetch path. setTimeout ids are numbers in
   // the browser; we store them in a ref to survive re-renders without

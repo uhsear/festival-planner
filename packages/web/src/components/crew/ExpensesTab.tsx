@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
 import { useToast } from '../../lib/toastContext';
@@ -130,12 +130,6 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
     });
   }
 
-  const memberName = useMemo(() => {
-    const m: Record<string, string> = {};
-    for (const u of members) m[u.userId] = u.name || u.username || 'User';
-    return m;
-  }, [members]);
-
   const myBalance = balances.find((b) => b.userId === currentUserId)?.balance ?? 0;
   const totalSpent = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
@@ -166,7 +160,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
         <div className="p-3 rounded-lg bg-bg-card border border-border space-y-2">
           <div className="text-xs text-text-muted uppercase tracking-wide">Who owes what</div>
           {balances.filter((b) => Math.abs(b.balance) > 0.01).map((b) => {
-            const owesMe = b.userId !== currentUserId && b.balance < -0.01 && myBalance > 0.01;
+            const _owesMe = b.userId !== currentUserId && b.balance < -0.01 && myBalance > 0.01;
             const iOwe = b.userId !== currentUserId && b.balance > 0.01 && myBalance < -0.01;
             return (
               <div key={b.userId} className="flex items-center justify-between gap-2">

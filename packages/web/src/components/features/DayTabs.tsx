@@ -3,7 +3,6 @@ import { FestivalDay } from '@festie/shared/types';
 import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useSwipeDays } from '../../hooks/useSwipeDays';
-import Button from '../ui/Button';
 
 interface DayTabsProps {
   days: FestivalDay[];

@@ -3,7 +3,6 @@ import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import { artistDisplayName, getSetHotness, getConflictingSetIds } from '@festie/shared/utils';
-import { formatTime } from '@festie/shared/utils';
 import SetCard from '../components/features/SetCard';
 import EmptyState from '../components/ui/EmptyState';
 import CardsSkeleton from '../components/ui/skeletons/CardsSkeleton';
@@ -14,7 +13,6 @@ export default function CardsView() {
   const currentFestival = useFestivalStore((state) => state.currentFestival);
   const sets = useFestivalStore((state) => state.sets);
   const stages = useFestivalStore((state) => state.stages);
-  const days = useFestivalStore((state) => state.days);
   const selectedDay = useFestivalStore((state) => state.selectedDay);
   const searchQuery = useFestivalStore((state) => state.searchQuery);
   const activeStages = useFestivalStore((state) => state.activeStages);
