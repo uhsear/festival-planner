@@ -270,7 +270,7 @@ function CrewViewInner() {
                   </div>
                 )}
                 {members.length > 0 ? (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {members.map((m) => (
                       <div key={m.userId} className="crew-list-enter py-2 px-2.5 rounded-md bg-bg-card border border-border flex items-center gap-2.5">
                         <Avatar name={m.name || m.username || 'User'} size="sm" />

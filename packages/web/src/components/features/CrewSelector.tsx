@@ -38,7 +38,7 @@ export default function CrewSelector({
           }
         }}
         className={cn(
-          'w-full px-3 py-2 rounded-lg font-semibold text-sm transition-colors',
+          'w-full px-3 py-1.5 rounded-lg font-semibold text-sm transition-colors',
           'bg-bg-card border border-border text-text-primary',
           'hover:border-border-light flex items-center justify-between',
         )}
@@ -75,7 +75,7 @@ export default function CrewSelector({
                     setIsOpen(false);
                   }}
                   className={cn(
-                    'w-full px-4 py-3 text-left font-semibold transition-colors border-b border-border last:border-b-0',
+                    'w-full px-4 py-2.5 text-left font-semibold transition-colors border-b border-border last:border-b-0',
                     selectedCrewId === crew.id
                       ? 'bg-accent-aqua/20 text-accent-aqua'
                       : 'text-text-primary hover:bg-bg-card',
@@ -88,7 +88,7 @@ export default function CrewSelector({
             </div>
           )}
 
-          <div className="border-t border-border p-2 space-y-2">
+          <div className="border-t border-border p-1.5 space-y-1.5">
             <Button
               variant="outline"
               size="sm"

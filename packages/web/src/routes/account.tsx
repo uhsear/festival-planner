@@ -202,14 +202,14 @@ export default function AccountPage() {
   };
 
   return (
-    <div className="bg-bg-primary pb-24">
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-        <h1 className="text-2xl font-display font-bold text-text-primary">
+    <div className="bg-bg-primary pb-20">
+      <div className="max-w-lg mx-auto px-4 pt-3 pb-6 space-y-4">
+        <h1 className="text-xl font-display font-bold text-text-primary">
           Account Settings
         </h1>
 
         {/* Avatar section */}
-        <section className="p-4 rounded-lg bg-bg-card border border-border space-y-4">
+        <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
           <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
             <Camera className="w-4 h-4" />
             Avatar
@@ -254,7 +254,7 @@ export default function AccountPage() {
         </section>
 
         {/* Username section */}
-        <section className="p-4 rounded-lg bg-bg-card border border-border space-y-4">
+        <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
           <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
             <User className="w-4 h-4" />
             Username
@@ -283,7 +283,7 @@ export default function AccountPage() {
         </section>
 
         {/* Password section */}
-        <section className="p-4 rounded-lg bg-bg-card border border-border space-y-4">
+        <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
           <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
             <Lock className="w-4 h-4" />
             Change Password
@@ -328,7 +328,7 @@ export default function AccountPage() {
         </section>
 
         {/* Notifications section */}
-        <section className="p-4 rounded-lg bg-bg-card border border-border space-y-4">
+        <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
           <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
             {push.permission === 'granted' ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
             Push Notifications
@@ -370,7 +370,7 @@ export default function AccountPage() {
         </section>
 
         {/* GDPR export section */}
-        <section className="p-4 rounded-lg bg-bg-card border border-border space-y-4">
+        <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
           <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
             <Download className="w-4 h-4" />
             Export Data
@@ -394,7 +394,7 @@ export default function AccountPage() {
         {/* Delete account section */}
         <section
           className={cn(
-            'p-4 rounded-lg border space-y-4',
+            'p-4 rounded-lg border space-y-3',
             'bg-accent-coral/5 border-accent-coral/30',
           )}
         >

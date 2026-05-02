@@ -164,7 +164,7 @@ function PicksViewInner() {
       <RefreshableView queryKeys={[['picks'], ['profiles']]} className="picks-container h-full">
         <div role="region" aria-label="My picks">
           <EmptyState
-            icon={<Star className="w-12 h-12" aria-hidden="true" />}
+            icon={<Star className="w-9 h-9" aria-hidden="true" />}
             title={`No picks yet${days[selectedDay]?.label ? ` for ${days[selectedDay].label}` : ''}`}
             description="Browse artists and tap Must, Want, or Maybe to build your plan."
             cta={{ label: 'Browse Artists', onClick: () => navigate({ to: '/cards' }) }}

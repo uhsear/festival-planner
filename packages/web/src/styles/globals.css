@@ -868,7 +868,7 @@ button {
    stage palettes. */
 .fk-grid__col-head {
   padding: 8px 6px 6px;
-  margin: 6px 4px 6px;
+  margin: 4px 3px 4px;
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -1001,8 +1001,8 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   color: var(--color-accent-aqua);
   background: color-mix(in srgb, var(--color-accent-aqua) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent-aqua) 35%, transparent);
@@ -1515,14 +1515,14 @@ button {
 .timeline-legend {
   font-size: 12px;
   color: var(--color-text-secondary, #94a3b8);
-  margin: 4px 12px 8px;
+  margin: 2px 12px 4px;
 }
 .timeline-legend > summary {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 3px 6px;
   border-radius: 8px;
   background: var(--color-bg-glass, rgba(20, 20, 40, 0.4));
   font-weight: 600;

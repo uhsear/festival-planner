@@ -17,6 +17,12 @@ import { CalendarX, Music } from 'lucide-react';
 
 const SLOT_MINUTES = 15;
 
+function fmtHour(hh: number, mm: number): string {
+  const h = hh % 12 || 12;
+  const suffix = hh < 12 ? 'a' : 'p';
+  return mm === 0 ? `${h}${suffix}` : `${h}:${String(mm).padStart(2, '0')}${suffix}`;
+}
+
 const PRI_MAP: Record<string, string> = {
   must: 'must',
   'want-to-see': 'want',
@@ -274,7 +280,7 @@ function TimelineViewInner() {
           aria-label="Timeline view of festival sets by stage and time"
           data-day={selectedDay}
           style={{
-            gridTemplateColumns: `${vpW <= 430 ? '52px' : '70px'} repeat(${visibleStages.length}, minmax(${vpW <= 430 ? '100px' : '140px'}, 1fr))`,
+            gridTemplateColumns: `${vpW <= 430 ? '42px' : '70px'} repeat(${visibleStages.length}, minmax(${vpW <= 430 ? '100px' : '140px'}, 1fr))`,
             gridTemplateRows: `auto repeat(${timeBounds.totalSlots}, ${rowHeight}px)`,
             position: 'relative',
           }}
@@ -320,11 +326,7 @@ function TimelineViewInner() {
                       : '1px solid var(--border)',
                 }}
               >
-                {show
-                  ? formatTime(
-                      `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`,
-                    )
-                  : ''}
+                {show ? fmtHour(hh, mm) : ''}
               </div>
             );
           })}

@@ -22,11 +22,11 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className={cn(
-      'flex flex-col items-center justify-center py-12 px-4 text-center',
+      'flex flex-col items-center justify-start py-6 px-4 text-center',
       className
     )}>
       {icon && (
-        <div className="mb-4 text-text-muted opacity-50">
+        <div className="mb-2 text-text-muted opacity-50">
           {icon}
         </div>
       )}
@@ -36,7 +36,7 @@ export default function EmptyState({
       </h3>
 
       {description && (
-        <p className="text-sm text-text-muted max-w-xs mb-6">
+        <p className="text-sm text-text-muted max-w-xs mb-4">
           {description}
         </p>
       )}
