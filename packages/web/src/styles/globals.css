@@ -1002,7 +1002,7 @@ button {
   position: absolute;
   top: 2px;
   right: 6px;
-  z-index: 3;
+  z-index: 11;
   display: inline-flex;
   align-items: center;
   justify-content: center;
