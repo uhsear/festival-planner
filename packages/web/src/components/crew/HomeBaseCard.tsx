@@ -78,20 +78,19 @@ export default function HomeBaseCard({ crewId, currentLocation, currentTime, isO
       type="button"
       onClick={() => (isOwner ? setEditing(true) : undefined)}
       disabled={!isOwner}
-      className={`w-full p-3 rounded-lg bg-bg-card border text-left transition-colors ${
+      className={`w-full py-1.5 px-2 rounded-lg bg-bg-card border text-left transition-colors ${
         hasHomeBase ? 'border-accent-aqua/40' : 'border-dashed border-border hover:border-border-light'
       } ${isOwner ? 'cursor-pointer' : 'cursor-default'}`}>
-      <div className="flex items-center gap-3">
-        <MapPin className={`w-5 h-5 flex-shrink-0 ${hasHomeBase ? 'text-accent-aqua' : 'text-text-muted'}`} aria-hidden="true" />
+      <div className="flex items-center gap-2">
+        <MapPin className={`w-4 h-4 flex-shrink-0 ${hasHomeBase ? 'text-accent-aqua' : 'text-text-muted'}`} aria-hidden="true" />
         <div className="flex-1 min-w-0">
-          <div className="text-xs uppercase tracking-wide text-text-muted">Home base</div>
           {hasHomeBase ? (
-            <>
-              <div className="font-semibold text-text-primary truncate">{currentLocation}</div>
-              {currentTime && <div className="text-xs text-accent-aqua">⏰ {currentTime}</div>}
-            </>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-text-primary truncate">{currentLocation}</span>
+              {currentTime && <span className="text-xs text-accent-aqua flex-shrink-0">⏰ {currentTime}</span>}
+            </div>
           ) : (
-            <div className="text-sm text-text-secondary">Tap to set a meeting point for your crew</div>
+            <span className="text-xs text-text-secondary">Tap to set a meeting point</span>
           )}
         </div>
       </div>

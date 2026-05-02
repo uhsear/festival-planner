@@ -25,7 +25,7 @@ export default function CrewSelector({
   const { tap, select } = useHaptics();
 
   return (
-    <div className="relative px-4 py-3">
+    <div className="relative">
       <button
         onClick={() => { tap(); setIsOpen(!isOpen); }}
         aria-label="Select crew"
@@ -38,7 +38,7 @@ export default function CrewSelector({
           }
         }}
         className={cn(
-          'w-full px-4 py-3 rounded-lg font-semibold transition-colors',
+          'w-full px-3 py-2 rounded-lg font-semibold text-sm transition-colors',
           'bg-bg-card border border-border text-text-primary',
           'hover:border-border-light flex items-center justify-between',
         )}
@@ -55,7 +55,7 @@ export default function CrewSelector({
           role="listbox"
           aria-label="Crew list"
           className={cn(
-          'crew-selector-panel absolute top-full mt-2 left-4 right-4 z-50',
+          'crew-selector-panel absolute top-full mt-1 left-0 right-0 z-50',
           'bg-bg-secondary border border-border rounded-lg overflow-hidden',
           'shadow-lg'
         )}>
