@@ -2200,17 +2200,21 @@ button {
     padding: 0 !important;
   }
 
-  /* Timeline: RefreshableView is the single scroll container */
+  /* Timeline: RefreshableView is the scroll container (both axes).
+     The grid has minmax(100px, 1fr) columns which may exceed the viewport
+     on 4-stage days — horizontal scroll keeps names readable. */
   #main-content:has(.timeline-view) .timeline-view {
     flex: 1;
     min-height: 0;
+    overflow: auto !important;
   }
   #main-content:has(.timeline-view) .timeline-container {
     overflow: visible !important;
     height: auto !important;
+    min-width: min-content;
   }
   #main-content:has(.timeline-view) .timeline-grid {
-    min-width: 100% !important;
+    min-width: min-content !important;
   }
 
   /* Grid: widen columns for readability; whole grid scrolls horizontally.

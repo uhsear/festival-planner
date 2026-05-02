@@ -274,7 +274,7 @@ function TimelineViewInner() {
           aria-label="Timeline view of festival sets by stage and time"
           data-day={selectedDay}
           style={{
-            gridTemplateColumns: `${vpW <= 430 ? '52px' : '70px'} repeat(${visibleStages.length}, minmax(${vpW <= 430 ? '0' : '140px'}, 1fr))`,
+            gridTemplateColumns: `${vpW <= 430 ? '52px' : '70px'} repeat(${visibleStages.length}, minmax(${vpW <= 430 ? '100px' : '140px'}, 1fr))`,
             gridTemplateRows: `auto repeat(${timeBounds.totalSlots}, ${rowHeight}px)`,
             position: 'relative',
           }}
