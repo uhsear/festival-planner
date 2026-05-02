@@ -56,7 +56,7 @@ module.exports = function createFeatureRoutes({ pool, redis, config, io }) {
 };
 ```
 
-**`lib/`** — Core modules: `config.js` (centralized env vars with typed readers and defaults), `schemas.js` (Zod validation for all API inputs), database pool, Redis client, auth middleware, rate limiting, logging (Pino).
+**`lib/`** — Core modules: `config.js` (centralized env vars with typed readers and defaults), `schemas.js` (Zod validation for all API inputs), database pool, Redis client, auth middleware, rate limiting, logging (Pino). Sub-directories: `lib/app-context/` (CSP, cookies, avatars, request helpers), `lib/db/stores/` (data access layer per table), `lib/helpers/` (export-utils, sanitize, validation), `lib/notifications/` (push notification subsystem).
 
 **`routes/`** — Route factories. `socket.js` handles all real-time events (presence, chat, reactions, crew updates).
 
@@ -160,13 +160,6 @@ When starting work that spans multiple files or multiple sessions:
 3. Include a verification step for each task (which test to run, what output to expect)
 4. Execute tasks sequentially, verifying each before moving to the next
 
-### Systematic Debugging Protocol
-When a fix attempt fails, don't keep patching. Follow this escalation:
-1. **Root cause first** — Read the error, trace the call chain, identify the actual failure point. No fixes until the cause is understood.
-2. **Pattern analysis** — Check if the same issue exists elsewhere. A bug in one route handler likely exists in similar handlers.
-3. **Hypothesize and test** — Form a specific theory, write a test that proves/disproves it, then fix.
-4. **After 3 failed attempts** — Stop and question the architecture. The problem may be structural, not local. Step back and reassess rather than continuing to patch.
-
 ### Verification Honesty
 Never claim work is complete without running the actual verification commands and reading the output. Specifically:
 - Do not use words like "should work", "probably passes", or "seems correct" ��� run it and confirm
@@ -182,6 +175,10 @@ Before submitting changes, run this sequence:
 4. `npm test` — All backend tests
 5. `npm run test:e2e` — Playwright E2E tests
 6. Review diff for leaked secrets (grep for sk-, ghp_, AKIA, password=, secret=)
+
+## CI
+
+GitHub Actions on push to `main`. Jobs: lint, quality (typecheck + semgrep), security (npm audit), test (Node 20 + 22 with real Postgres/Redis services), Lighthouse CI, Docker build. Check with `gh run list --limit 5`.
 
 ## Deployment
 

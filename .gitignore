@@ -31,7 +31,9 @@ Thumbs.db
 
 # Local editor/tool settings
 .claude/
+.agents/
 .mcp.json
+skills-lock.json
 mobile-loop-capture.js
 
 # Code review graph DB
