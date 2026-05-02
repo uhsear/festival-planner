@@ -316,7 +316,13 @@ describe('migration idempotency', () => {
 
       for (const file of files) {
         const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+        // CONCURRENTLY operations cannot run inside a transaction block;
+        // pool.query() implicitly wraps in one. These migrations use
+        // IF EXISTS guards so they are logically idempotent — just skip
+        // the runtime double-apply test for them.
+        const hasConcurrently = /CONCURRENTLY/i.test(sql);
         await pool.query(sql).catch(() => {});
+        if (hasConcurrently) continue;
         // Second run — THIS is the idempotency check
         try {
           await pool.query(sql);

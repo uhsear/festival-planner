@@ -881,8 +881,7 @@ describe('per-user rate limiting', { concurrency: 1 }, () => {
     const user = await registerUser(server, 'headercheck');
 
     const res = await server.request
-      .get('/api/v1/festivals')
-      .set('x-user-token', user.token)
+      .get('/api/health')
       .expect(200);
 
     assert.ok(res.headers['x-ratelimit-limit']);

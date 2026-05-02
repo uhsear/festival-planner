@@ -64,6 +64,16 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
       - run: npm ci
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - name: Install web workspace deps
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
+      - name: Build frontend
+        working-directory: packages
+        run: pnpm --filter @festie/web build
       - name: Set up database
         env:
           TEST_DATABASE_URL: postgres://test_user:test_password@localhost:5432/festival_planner_test

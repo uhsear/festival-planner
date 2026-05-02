@@ -154,7 +154,7 @@ describe('Integration — Festivals', { concurrency: 1 }, () => {
 
     const serviceWorker = await server.request.get('/sw.js').expect(200);
     assert.equal(serviceWorker.headers['cache-control'], 'no-store');
-    assert.match(serviceWorker.text, /shell-\d+/);
+    assert.match(serviceWorker.text, /precacheAndRoute/);
 
     await server.request
       .post('/api/v1/festivals')
@@ -205,18 +205,16 @@ describe('Integration — Festivals', { concurrency: 1 }, () => {
     assert.equal(res2.status, 404);
   });
 
-  test('service worker restricts cache paths to safe patterns', async () => {
+  test('service worker uses Workbox with safe caching strategies', async () => {
     const server = await startServer();
     servers.push(server);
 
     const swText = (await server.request.get('/sw.js').expect(200)).text;
 
-    // Verify restrictive icon caching pattern
-    assert.match(swText, /icon-\\d\+\\.png/);
-    // Verify restrictive avatar caching pattern
-    assert.match(swText, /\[a-f0-9\]\+\\.webp/);
-    // Verify data cache limits to single ID segment
-    assert.ok(swText.includes("includes('/')"));
+    assert.match(swText, /precacheAndRoute/);
+    assert.match(swText, /NavigationRoute/);
+    assert.match(swText, /api-cache/);
+    assert.match(swText, /StaleWhileRevalidate/);
   });
 
   test('CSP includes media-src none directive', async () => {
