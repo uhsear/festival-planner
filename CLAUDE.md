@@ -142,6 +142,38 @@ Before ANY commit:
 - Use `content-visibility: auto` for long scrollable lists
 - Only animate `transform` and `opacity` (compositor-only properties)
 
+## Development Methodology
+
+### Design Before Code
+For features touching 3+ files or adding new API endpoints, present a short design before coding:
+1. Explore the relevant code and ask clarifying questions about requirements
+2. Propose 2-3 approaches with trade-offs (performance, complexity, migration risk)
+3. Present the chosen design in digestible sections for approval
+4. Get explicit sign-off before writing implementation code
+
+For bug fixes, small refactors, and single-file changes — proceed directly. Don't force a design phase where none is needed.
+
+### Implementation Plans for Large Features
+When starting work that spans multiple files or multiple sessions:
+1. Break the work into atomic tasks (each completable in 2-5 minutes)
+2. Each task must include exact file paths and specific changes — no placeholders like "add appropriate error handling" or "implement as needed"
+3. Include a verification step for each task (which test to run, what output to expect)
+4. Execute tasks sequentially, verifying each before moving to the next
+
+### Systematic Debugging Protocol
+When a fix attempt fails, don't keep patching. Follow this escalation:
+1. **Root cause first** — Read the error, trace the call chain, identify the actual failure point. No fixes until the cause is understood.
+2. **Pattern analysis** — Check if the same issue exists elsewhere. A bug in one route handler likely exists in similar handlers.
+3. **Hypothesize and test** — Form a specific theory, write a test that proves/disproves it, then fix.
+4. **After 3 failed attempts** — Stop and question the architecture. The problem may be structural, not local. Step back and reassess rather than continuing to patch.
+
+### Verification Honesty
+Never claim work is complete without running the actual verification commands and reading the output. Specifically:
+- Do not use words like "should work", "probably passes", or "seems correct" ��� run it and confirm
+- Do not assume a change is safe because it's small — verify it
+- If a verification step fails, report it transparently rather than skipping to the next step
+- If you cannot run a verification (e.g., no test database), say so explicitly rather than claiming success
+
 ## Verification Workflow
 Before submitting changes, run this sequence:
 1. `pnpm --filter @festie/web typecheck` — TypeScript check
