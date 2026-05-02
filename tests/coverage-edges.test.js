@@ -685,7 +685,7 @@ describe('expenses store — getByCrew', () => {
 describe('expenses store — getById / delete', () => {
   test('getById returns single row', async () => {
     const pool = makeFakePool([
-      { match: /SELECT \* FROM crew_expenses WHERE id/, rows: [{ id: 'e1', amount: 10 }] },
+      { match: /FROM crew_expenses WHERE id/, rows: [{ id: 'e1', amount: 10 }] },
     ]);
     const store = createExpensesStore(pool);
     const row = await store.getById('e1');
@@ -693,7 +693,7 @@ describe('expenses store — getById / delete', () => {
   });
 
   test('getById returns null when no row', async () => {
-    const pool = makeFakePool([{ match: /SELECT \* FROM crew_expenses WHERE id/, rows: [] }]);
+    const pool = makeFakePool([{ match: /FROM crew_expenses WHERE id/, rows: [] }]);
     const store = createExpensesStore(pool);
     assert.equal(await store.getById('nope'), null);
   });
@@ -833,7 +833,8 @@ describe('activity store', () => {
     ]);
     const store = createActivityStore(pool);
     await store.getByCrew('crew-1');
-    assert.deepEqual(captured, ['crew-1', 50]);
+    assert.equal(captured[0], 'crew-1');
+    assert.equal(captured[1], 51);
   });
 
   test('getByCrew honors explicit limit', async () => {
@@ -842,11 +843,12 @@ describe('activity store', () => {
       { match: /FROM crew_activity/, rows: (_s, p) => { captured = p; return []; } },
     ]);
     const store = createActivityStore(pool);
-    await store.getByCrew('crew-1', 10);
-    assert.deepEqual(captured, ['crew-1', 10]);
+    await store.getByCrew('crew-1', { limit: 10 });
+    assert.equal(captured[0], 'crew-1');
+    assert.equal(captured[1], 11);
   });
 
-  test('getByCrew returns joined rows unchanged', async () => {
+  test('getByCrew returns items array', async () => {
     const pool = makeFakePool([
       {
         match: /FROM crew_activity/,
@@ -857,10 +859,11 @@ describe('activity store', () => {
       },
     ]);
     const store = createActivityStore(pool);
-    const rows = await store.getByCrew('c');
-    assert.equal(rows.length, 2);
-    assert.equal(rows[0].username, 'alice');
-    assert.equal(rows[1].type, 'renamed');
+    const result = await store.getByCrew('c');
+    assert.equal(result.items.length, 2);
+    assert.equal(result.items[0].username, 'alice');
+    assert.equal(result.items[1].type, 'renamed');
+    assert.equal(result.nextCursor, null);
   });
 });
 
