@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react';
-// html-to-image is dynamic-imported inside exportPng so it only loads when the
+// html-to-image is dynamic-imported inside exportGrid so it only loads when the
 // user taps Export (saves ~50 KB gzipped from the initial grid-route chunk).
-import { Download } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
@@ -72,18 +72,9 @@ function GridViewInner() {
   const PX_PER_MIN = getPxPerMin(vw);
   const GUTTER_W = getGutterW(vw);
 
-  // `exporting` drives the Export button's aria-busy + visual pending state.
-  // html-to-image is ~50 KB and the capture itself can take 300-800 ms on a
-  // mid-tier phone, so a loading state prevents double-taps.
   const [exporting, setExporting] = useState(false);
 
-  // Export the FULL grid (not just the visible viewport). The grid's scroll
-  // container (.fk-grid__body) normally clips with overflow: auto/hidden; we
-  // temporarily strip that + expand to scrollWidth/scrollHeight so html-to-image
-  // captures every set block. pixelRatio is device-aware: 3x on high-DPR phones
-  // for crisp text, 2x on desktop. Restore on a try/finally so a failure never
-  // leaves the UI in the expanded state.
-  const exportPng = useCallback(async () => {
+  const exportGrid = useCallback(async () => {
     if (!gridRef.current || exporting) return;
     setExporting(true);
     const dayName = selectedDay === 0 ? 'saturday' : 'sunday';
@@ -104,11 +95,9 @@ function GridViewInner() {
       colsMinWidth: cols.style.minWidth,
     };
     try {
-      // Measure full content
       const fullW = Math.max(cols.scrollWidth + (el.querySelector<HTMLElement>('.fk-grid__gutter')?.offsetWidth || 0), el.clientWidth);
-      const fullH = Math.max(cols.scrollHeight + head.offsetHeight + (el.querySelector<HTMLElement>('.fk-grid__toolbar')?.offsetHeight || 0), el.clientHeight);
+      const fullH = Math.max(cols.scrollHeight + head.offsetHeight, el.clientHeight);
 
-      // Expand for capture
       el.style.overflow = 'visible';
       el.style.height = fullH + 'px';
       body.style.overflow = 'visible';
@@ -117,23 +106,32 @@ function GridViewInner() {
       head.style.width = fullW + 'px';
       cols.style.minWidth = fullW - (el.querySelector<HTMLElement>('.fk-grid__gutter')?.offsetWidth || 0) + 'px';
 
-      // Small delay so layout settles
       await new Promise(r => setTimeout(r, 50));
+      if (document.fonts?.ready) await document.fonts.ready;
 
-      const { toPng } = await import('html-to-image');
-      const dataUrl = await toPng(el, {
+      const { toBlob } = await import('html-to-image');
+      const blob = await toBlob(el, {
         backgroundColor: '#080810',
         pixelRatio: dpr,
         width: fullW,
         height: fullH,
         cacheBust: true,
       });
-      const a = document.createElement('a');
-      a.download = `fk2026-${dayName}-grid.png`;
-      a.href = dataUrl;
-      a.click();
-    } catch (err) {
-      console.error('Export failed', err);
+      if (!blob) throw new Error('Capture failed');
+
+      const filename = `festie-${dayName}-grid.png`;
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `${dayName} Grid` });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (e: unknown) {
+      const isAbort = e instanceof DOMException && e.name === 'AbortError';
+      if (!isAbort) console.error('Export failed', e);
     } finally {
       el.style.overflow = saved.elOverflow;
       el.style.height = saved.elHeight;
@@ -240,21 +238,17 @@ function GridViewInner() {
 
   return (
     <div className="fk-grid" ref={gridRef} role="grid" aria-label="Festival schedule grid — stages as columns, time as rows">
-      {/* ── Toolbar ── */}
-      <div className="fk-grid__toolbar">
-        <button
-          className="fk-grid__export-btn"
-          onClick={exportPng}
-          title="Export as PNG"
-          aria-label="Export grid as PNG image"
-          aria-busy={exporting ? 'true' : 'false'}
-          disabled={exporting}
-          type="button"
-        >
-          <Download size={13} aria-hidden="true" />
-          <span>{exporting ? 'Exporting…' : 'Export PNG'}</span>
-        </button>
-      </div>
+      <button
+        className="fk-grid__share-btn"
+        onClick={exportGrid}
+        title="Share grid"
+        aria-label="Share grid as image"
+        aria-busy={exporting ? 'true' : 'false'}
+        disabled={exporting}
+        type="button"
+      >
+        <Share2 size={15} aria-hidden="true" />
+      </button>
       {/* ── Sticky stage-header row ── */}
       <div
         className="fk-grid__head"

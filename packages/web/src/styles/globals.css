@@ -836,6 +836,7 @@ button {
    Stage-color border-left + tinted background; pick state brightens the tint.
    ─────────────────────────────────────────────────────────────────────── */
 .fk-grid {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -991,46 +992,38 @@ button {
   .fk-grid__now-line { animation: none; opacity: 0.85; }
 }
 
-/* Right-aligned toolbar. Sits above the sticky header and hosts Export. */
-.fk-grid__toolbar {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding: 8px 10px 6px;
-  flex-shrink: 0;
-}
-
-/* Compact branded CTA — mirrors .btn sizing at the tight end so it fits
-   on a 360 px phone without wrapping the rest of the toolbar. */
-.fk-grid__export-btn {
+/* Share button — floats above the grid header, visually aligned with the
+   day-tabs row in the sub-header above. Pulled up via negative margin so
+   it doesn't consume its own row. */
+.fk-grid__share-btn {
+  position: absolute;
+  top: -38px;
+  right: 8px;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  min-height: 44px;
-  font-size: var(--font-size-12, 0.75rem);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  background: color-mix(in srgb, var(--color-accent-aqua) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent-aqua) 45%, transparent);
-  border-radius: 6px;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--color-accent-aqua);
+  background: color-mix(in srgb, var(--color-accent-aqua) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent-aqua) 35%, transparent);
+  border-radius: 8px;
   cursor: pointer;
   transition: background-color var(--duration-med) var(--ease-standard),
-              border-color var(--duration-med) var(--ease-standard),
               transform var(--duration-fast) var(--ease-out);
 }
-.fk-grid__export-btn:hover {
+.fk-grid__share-btn:hover {
   background: color-mix(in srgb, var(--color-accent-aqua) 24%, transparent);
-  border-color: color-mix(in srgb, var(--color-accent-aqua) 65%, transparent);
 }
-.fk-grid__export-btn:active {
-  transform: scale(0.97);
+.fk-grid__share-btn:active {
+  transform: scale(0.93);
 }
-.fk-grid__export-btn:focus-visible {
+.fk-grid__share-btn:focus-visible {
   outline: 2px solid var(--color-accent-aqua);
   outline-offset: 2px;
 }
-.fk-grid__export-btn[aria-busy="true"] {
+.fk-grid__share-btn[aria-busy="true"] {
   opacity: 0.7;
   cursor: progress;
 }
@@ -2258,7 +2251,7 @@ button {
   .sub-header-wrap,
   .festival-mode-day-banner,
   .timeline-jump-now,
-  .fk-grid__toolbar,
+  .fk-grid__share-btn,
   .skip-link,
   .timeline-legend > summary,
   .admin-mobile-only,

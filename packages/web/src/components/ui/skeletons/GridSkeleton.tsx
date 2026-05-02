@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * Skeleton mirroring the `.fk-grid` 4-column layout used by /grid. Reserves
- * toolbar + sticky stage-header row + scrollable body area so the route's
+ * sticky stage-header row + scrollable body area so the route's
  * chunk-load doesn't shift the viewport.
  */
 export default function GridSkeleton() {
@@ -11,11 +11,6 @@ export default function GridSkeleton() {
 
   return (
     <div className="fk-grid" aria-busy="true" aria-label="Loading grid">
-      {/* toolbar */}
-      <div className="fk-grid__toolbar">
-        <div className="skeleton" style={{ height: 28, width: 120, borderRadius: 6 }} />
-      </div>
-
       {/* sticky header row */}
       <div
         className="fk-grid__head"
