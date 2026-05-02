@@ -12,7 +12,34 @@ Festie is a real-time festival crew coordination app. Users create/join festival
 - **Frontend**: React 19 + Vite 6 + TypeScript + TanStack Router + Zustand + Tailwind CSS 4
 - **Monorepo**: Backend at root (npm), frontend + shared packages under `packages/` (pnpm workspaces + Turborepo)
 
-See `ARCHITECTURE.md` for detailed design patterns, refactoring history, and module-level documentation (note: some references to Express 4 and SQLite are outdated — the project now uses Express 5 and PostgreSQL).
+See `ARCHITECTURE.md` for detailed design patterns, module inventory, and codebase statistics.
+
+See `CONTEXT.md` for the ubiquitous language glossary (domain terms, relationships, flagged ambiguities).
+
+## Skills & Slash Commands
+
+Default workflow: `/spec` -> `/plan` -> `/build` -> `/test` -> `/review` -> `/ship`. Skip steps that don't apply.
+
+| Task | Skill / Command |
+|------|----------------|
+| New feature spec | `/spec` (spec-driven-development) |
+| Task breakdown | `/plan` (planning-and-task-breakdown) |
+| Implementation | `/build` (incremental-implementation) |
+| Test-first dev | `/test` (tdd or test-driven-development) |
+| Code review | `/review` (code-review-and-quality) |
+| Simplify code | `/code-simplify` (code-simplification) |
+| Ship to prod | `/ship` (shipping-and-launch) |
+| Security audit | security-and-hardening |
+| Debug/diagnose | `/diagnose` (debugging-and-error-recovery) |
+| Performance | performance-optimization |
+| API design | api-and-interface-design |
+| UI work | frontend-ui-engineering |
+| Stress-test plan | `/grill-with-docs` |
+| Architecture | improve-codebase-architecture or `/zoom-out` |
+| Create issues | `/to-issues` or `/triage` |
+| Documentation/ADR | documentation-and-adrs |
+
+The karpathy-guidelines skill is always active: Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution.
 
 ## Commands
 
@@ -43,9 +70,9 @@ pnpm build                     # TypeScript + Vite production build
 
 ### Backend (root)
 
-**Entry point**: `server.js` — Express app, Socket.IO setup, middleware stack, route mounting, graceful shutdown.
+**Entry point**: `server.js` -- Express app, Socket.IO setup, middleware stack, route mounting, graceful shutdown.
 
-**Key pattern — Dependency Injection via Factory Functions**: Every route module exports a factory function that receives a `deps` object (db pool, redis, config, logger, etc.) and returns an Express Router. This is the central architectural pattern:
+**Key pattern -- Dependency Injection via Factory Functions**: Every route module exports a factory function that receives a `deps` object (db pool, redis, config, logger, etc.) and returns an Express Router. This is the central architectural pattern:
 
 ```js
 // routes/feature.js
@@ -56,11 +83,13 @@ module.exports = function createFeatureRoutes({ pool, redis, config, io }) {
 };
 ```
 
-**`lib/`** — Core modules: `config.js` (centralized env vars with typed readers and defaults), `schemas.js` (Zod validation for all API inputs), database pool, Redis client, auth middleware, rate limiting, logging (Pino). Sub-directories: `lib/app-context/` (CSP, cookies, avatars, request helpers), `lib/db/stores/` (data access layer per table), `lib/helpers/` (export-utils, sanitize, validation), `lib/notifications/` (push notification subsystem).
+**`lib/`** -- Core modules: `config.js` (centralized env vars with typed readers and defaults), `schemas.js` (Zod validation for all API inputs), database pool, Redis client, auth middleware, rate limiting, logging (Pino). Sub-directories: `lib/app-context/` (CSP, cookies, avatars, request helpers), `lib/db/stores/` (data access layer per table), `lib/helpers/` (export-utils, sanitize, validation), `lib/notifications/` (push notification subsystem).
 
-**`routes/`** — Route factories. `socket.js` handles all real-time events (presence, chat, reactions, crew updates).
+**`routes/`** -- Route factories. `socket.js` handles all real-time events (presence, chat, reactions, crew updates).
 
-**`migrations/`** — PostgreSQL migrations (004 baseline onward; run `ls migrations/` for current set). Must be idempotent. All use parameterized queries (`$1, $2`).
+**API docs** are available at `/api/docs` (Swagger UI), served by `lib/openapi.js`.
+
+**`migrations/`** -- PostgreSQL migrations (004 baseline onward; run `ls migrations/` for current set). Must be idempotent. All use parameterized queries (`$1, $2`).
 
 ### Frontend (`packages/web/`)
 
@@ -74,7 +103,7 @@ TypeScript package exporting types, Zustand stores, Socket.IO service client, Re
 
 ## Database
 
-PostgreSQL 16 with connection pooling (pg, min 2 / max 20). Key tables: `users`, `user_sessions`, `festivals`, `festival_profiles` (picks/notes/reminders), `crews`, `crew_activity`, `audit_log`. All queries use parameterized SQL — no string interpolation.
+PostgreSQL 16 with connection pooling (pg, min 2 / max 20). Key tables: `users`, `user_sessions`, `festivals`, `festival_profiles` (picks/notes/reminders), `crews`, `crew_activity`, `audit_log`. All queries use parameterized SQL -- no string interpolation.
 
 ## Code Conventions
 
@@ -98,11 +127,11 @@ PostgreSQL 16 with connection pooling (pg, min 2 / max 20). Key tables: `users`,
 
 Tests use **Node's built-in test runner** (`node:test` + `node:assert`). Test files:
 
-- `tests/unit.test.js` — isolated function tests
-- `tests/integration-*.test.js` — full app with test database (≈20 files covering auth, festivals, crews, chat, etc.)
-- `tests/critical-paths.test.js` — end-to-end user journeys
-- `tests/hardening.test.js` — security, rate limits, session edge cases
-- `tests/e2e/*.spec.js` — Playwright browser automation
+- `tests/unit.test.js` -- isolated function tests
+- `tests/integration-*.test.js` -- full app with test database (~20 files covering auth, festivals, crews, chat, etc.)
+- `tests/critical-paths.test.js` -- end-to-end user journeys
+- `tests/hardening.test.js` -- security, rate limits, session edge cases
+- `tests/e2e/*.spec.js` -- Playwright browser automation
 
 ## Adding a New API Endpoint
 
@@ -115,66 +144,23 @@ For real-time features: add Socket.IO event handler in `routes/socket.js`, clien
 
 ## Critical Rules
 
-### Code Quality Checklist
-Before marking work complete:
-- Code is readable with clear naming
-- Functions are small (<50 lines preferred)
-- Files are focused (<800 lines)
-- No deep nesting (>4 levels)
-- Proper error handling at system boundaries
-- No hardcoded values (use config.js constants)
-- Parameterized queries only (no string interpolation in SQL)
+### Code Quality
+Use `/review` before merging. Functions <50 lines, files <800 lines, nesting <4 levels. Parameterized queries only (`$1, $2`). No hardcoded values (use `config.js`).
 
-### Security Checklist
-Before ANY commit:
-- No hardcoded secrets (API keys, passwords, tokens)
-- All user inputs validated via Zod schemas in lib/schemas.js
-- SQL injection prevention (parameterized queries with $1, $2)
-- XSS prevention (CSP headers, sanitized output)
-- Rate limiting on all public endpoints
-- Error messages don't leak sensitive data (no stack traces in production)
+### Security
+Use security-and-hardening skill before commits. Festie-specific: all inputs via Zod in `lib/schemas.js`, parameterized SQL, rate limiting on public endpoints, CSP headers. Grep diff for secrets (`sk-`, `ghp_`, `AKIA`, `password=`, `secret=`).
 
-### Performance Guidelines
-- Use cursor pagination (`WHERE id > $last_id`) over OFFSET for large tables
-- Create indexes with `CONCURRENTLY` on existing tables (non-blocking)
-- Use `Promise.all()` for independent async operations
-- Debounce search/filter inputs (300ms)
-- Use `content-visibility: auto` for long scrollable lists
-- Only animate `transform` and `opacity` (compositor-only properties)
+### Performance
+Use performance-optimization skill. Festie-specific: cursor pagination (`WHERE id > $last_id`) over OFFSET, `CREATE INDEX CONCURRENTLY`, `content-visibility: auto` for scrollable lists, animate only `transform`/`opacity`.
 
 ## Development Methodology
 
-### Design Before Code
-For features touching 3+ files or adding new API endpoints, present a short design before coding:
-1. Explore the relevant code and ask clarifying questions about requirements
-2. Propose 2-3 approaches with trade-offs (performance, complexity, migration risk)
-3. Present the chosen design in digestible sections for approval
-4. Get explicit sign-off before writing implementation code
+For features touching 3+ files or new API endpoints: use `/spec` then `/plan`, then `/grill-with-docs` to stress-test against domain model. For bug fixes and single-file changes, proceed directly.
 
-For bug fixes, small refactors, and single-file changes — proceed directly. Don't force a design phase where none is needed.
-
-### Implementation Plans for Large Features
-When starting work that spans multiple files or multiple sessions:
-1. Break the work into atomic tasks (each completable in 2-5 minutes)
-2. Each task must include exact file paths and specific changes — no placeholders like "add appropriate error handling" or "implement as needed"
-3. Include a verification step for each task (which test to run, what output to expect)
-4. Execute tasks sequentially, verifying each before moving to the next
-
-### Verification Honesty
-Never claim work is complete without running the actual verification commands and reading the output. Specifically:
-- Do not use words like "should work", "probably passes", or "seems correct" ��� run it and confirm
-- Do not assume a change is safe because it's small — verify it
-- If a verification step fails, report it transparently rather than skipping to the next step
-- If you cannot run a verification (e.g., no test database), say so explicitly rather than claiming success
+Use `/plan` to break work into atomic tasks, then `/build` to execute with verification at each step.
 
 ## Verification Workflow
-Before submitting changes, run this sequence:
-1. `pnpm --filter @festie/web typecheck` — TypeScript check
-2. `npm run lint` — Backend linting
-3. `pnpm --filter @festie/web lint` — Frontend linting
-4. `npm test` — All backend tests
-5. `npm run test:e2e` — Playwright E2E tests
-6. Review diff for leaked secrets (grep for sk-, ghp_, AKIA, password=, secret=)
+Run `/ship` or manually: `pnpm --filter @festie/web typecheck && npm run lint && pnpm --filter @festie/web lint && npm test`. Grep diff for secrets.
 
 ## CI
 

@@ -15,6 +15,7 @@ import ExpensesTab from '../components/crew/ExpensesTab';
 import ActivityTab from '../components/crew/ActivityTab';
 import { useToast } from '../lib/toastContext';
 import PromptDialog from '../components/ui/PromptDialog';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import {
   Users, Copy, UserPlus, MapPin, BarChart3, DollarSign, Activity, Columns3,
 } from 'lucide-react';
@@ -45,6 +46,14 @@ const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
 ];
 
 export default function CrewView() {
+  return (
+    <RenderErrorBoundary name="crew">
+      <CrewViewInner />
+    </RenderErrorBoundary>
+  );
+}
+
+function CrewViewInner() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const crews = useCrewStore((state) => state.crews);

@@ -77,6 +77,16 @@ const leaveCrewEventSchema = z.object({
 
 
 // ════════════════════════════════════════════════════════════════════════════════
+// Cached memory usage — process.memoryUsage() is expensive on the hot path
+// (syscall per invocation). Cache with a 5-second refresh interval.
+// ════════════════════════════════════════════════════════════════════════════════
+let _cachedMemoryUsage = process.memoryUsage();
+const _memoryRefreshTimer = setInterval(() => {
+  _cachedMemoryUsage = process.memoryUsage();
+}, 5_000);
+_memoryRefreshTimer.unref();
+
+// ════════════════════════════════════════════════════════════════════════════════
 // Socket Handler Setup
 // ════════════════════════════════════════════════════════════════════════════════
 
@@ -165,7 +175,7 @@ module.exports = function setupSocketHandlers(deps) {
       }
 
       // Cheap checks before DB queries
-      const heapUsed = process.memoryUsage().heapUsed;
+      const heapUsed = _cachedMemoryUsage.heapUsed;
       if (heapUsed > config.MAX_HEAP_BYTES * 0.75) {
         return respond({ ok: false, error: 'Server is at capacity' });
       }
@@ -324,7 +334,7 @@ module.exports = function setupSocketHandlers(deps) {
           log.warn('room:full', { festivalId, roomSize }); return respond({ ok: false, error: 'Room is full', code: 'WS_ROOM_FULL' });
         }
 
-        const heapUsed = process.memoryUsage().heapUsed;
+        const heapUsed = _cachedMemoryUsage.heapUsed;
         if (heapUsed > config.MAX_HEAP_BYTES * 0.75) {
           return respond({ ok: false, error: 'Server is at capacity' });
         }

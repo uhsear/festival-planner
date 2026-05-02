@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # coverage-baseline.sh
-# Produces a c8 coverage baseline snapshot for festival-planner.
+# Produces a c8 coverage baseline snapshot for Festie.
 # Idempotent: re-running overwrites the day's baseline file.
 
 set -euo pipefail

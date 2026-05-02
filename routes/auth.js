@@ -313,13 +313,10 @@ module.exports = function createAuthRoutes(deps) {
   });
 
   // ── POST /refresh-token — exchange refresh token for new session + new refresh token ──
-  router.post('/refresh-token', rateLimit(20, 'refresh-token'), async (req, res) => {
+  router.post('/refresh-token', rateLimit(20, 'refresh-token'), validate(schemas.refreshToken), async (req, res) => {
     try {
       setNoStore(res);
-      const { refreshToken: incomingRefreshToken } = req.body || {};
-      if (!incomingRefreshToken || typeof incomingRefreshToken !== 'string') {
-        return sendError(res, 400, 'Refresh token required', ErrorCodes.MISSING_FIELD);
-      }
+      const { refreshToken: incomingRefreshToken } = req.validatedBody;
       if (!stores.refreshTokens) {
         return sendError(res, 501, 'Refresh tokens not supported', ErrorCodes.INTERNAL_ERROR);
       }

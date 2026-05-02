@@ -1,5 +1,0 @@
-/* DEPRECATED — all hover states below were superseded by more specific rules
-   in app.css and globals.css. Legacy .online-pill and .admin-tab classes are
-   dead (never ported to React). This file is kept empty to avoid 404s from
-   any cached HTML that still references it. Safe to delete once all caches
-   have expired. Original: 9 lines, removed 2026-05-01. */

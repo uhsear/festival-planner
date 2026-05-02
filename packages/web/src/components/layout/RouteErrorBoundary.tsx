@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Component, useEffect, type ReactNode } from 'react';
 
 /**
  * Generic error fallback for TanStack Router's `errorComponent` prop.
@@ -26,4 +26,58 @@ export default function RouteErrorBoundary({ error, reset }: { error: Error; res
       </div>
     </div>
   );
+}
+
+/**
+ * Class-based React error boundary for wrapping route component JSX.
+ * Unlike the functional RouteErrorBoundary above (which is for TanStack
+ * Router's `errorComponent` prop), this catches render-time throws from
+ * child components and shows an inline recovery card.
+ *
+ * Usage: <RenderErrorBoundary name="timeline">...</RenderErrorBoundary>
+ */
+export class RenderErrorBoundary extends Component<
+  { children: ReactNode; name: string },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error(`[${this.props.name}] render failed:`, error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="no-festival" role="alert" aria-label={`${this.props.name} view error`}>
+          <h2 style={{ marginTop: 0, fontSize: 18 }}>Something went wrong</h2>
+          <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, margin: '8px 0 16px' }}>
+            An unexpected error occurred while loading this view. Try reloading
+            the page or switching festivals.
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => this.setState({ error: null })}
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => window.location.reload()}
+            >
+              Reload page
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }

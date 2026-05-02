@@ -14,7 +14,7 @@ const ALLOWED_EVENTS = new Set(["shown", "accepted", "dismissed", "native_fired"
 const ALLOWED_PLATFORMS = new Set(["ios", "android", "desktop"]);
 
 module.exports = function createAnalyticsInstallRoutes(deps) {
-  const { express, log, stores, rateLimit } = deps;
+  const { express, log, stores, rateLimit, sendError, ErrorCodes } = deps;
   const router = express.Router();
 
   const noop = (_req, _res, next) => next();
@@ -23,8 +23,8 @@ module.exports = function createAnalyticsInstallRoutes(deps) {
   router.post("/install", limiter, async (req, res) => {
     try {
       const { platform, event, reason, engagement_ms } = req.body || {};
-      if (!ALLOWED_PLATFORMS.has(platform)) return res.status(400).json({ error: "invalid platform" });
-      if (!ALLOWED_EVENTS.has(event)) return res.status(400).json({ error: "invalid event" });
+      if (!ALLOWED_PLATFORMS.has(platform)) return sendError(res, 400, 'Invalid platform', ErrorCodes.INVALID_INPUT);
+      if (!ALLOWED_EVENTS.has(event)) return sendError(res, 400, 'Invalid event', ErrorCodes.INVALID_INPUT);
 
       const ua = (req.get("user-agent") || "").slice(0, 500);
       const reasonClean = typeof reason === "string" ? reason.trim().slice(0, 64) : null;

@@ -6,9 +6,18 @@ import { artistDisplayName, getSetHotness, getConflictingSetIds } from '@festie/
 import SetCard from '../components/features/SetCard';
 import EmptyState from '../components/ui/EmptyState';
 import CardsSkeleton from '../components/ui/skeletons/CardsSkeleton';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { Music, SearchX } from 'lucide-react';
 
 export default function CardsView() {
+  return (
+    <RenderErrorBoundary name="cards">
+      <CardsViewInner />
+    </RenderErrorBoundary>
+  );
+}
+
+function CardsViewInner() {
   const currentProfile = useFestivalStore((state) => state.currentProfile);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
   const sets = useFestivalStore((state) => state.sets);

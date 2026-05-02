@@ -6,6 +6,7 @@ import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import { artistDisplayName } from '@festie/shared/utils';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 
 // PX_PER_MIN adapts to viewport width: narrower mobile → denser (1.6 px/min)
 // so a 7-hour day fits in ≤ 680 px and the user still sees most of the day at
@@ -43,6 +44,14 @@ function getGutterW(viewportW: number): number {
 }
 
 export default function GridView() {
+  return (
+    <RenderErrorBoundary name="grid">
+      <GridViewInner />
+    </RenderErrorBoundary>
+  );
+}
+
+function GridViewInner() {
   const currentFestival = useFestivalStore((s) => s.currentFestival);
   const sets            = useFestivalStore((s) => s.sets);
   const stages          = useFestivalStore((s) => s.stages);

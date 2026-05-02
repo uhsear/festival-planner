@@ -10,6 +10,7 @@ import {
   getConflictingSetIds,
 } from '@festie/shared/utils';
 import RefreshableView from '../components/layout/RefreshableView';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import StageBadge from '../components/ui/StageBadge';
 import EmptyState from '../components/ui/EmptyState';
 import { CalendarX, Music } from 'lucide-react';
@@ -23,6 +24,14 @@ const PRI_MAP: Record<string, string> = {
 };
 
 export default function TimelineView() {
+  return (
+    <RenderErrorBoundary name="timeline">
+      <TimelineViewInner />
+    </RenderErrorBoundary>
+  );
+}
+
+function TimelineViewInner() {
   const currentProfile = useFestivalStore((state) => state.currentProfile);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
   const sets = useFestivalStore((state) => state.sets);

@@ -1,71 +1,135 @@
 # Festie
 
-[![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-blue.svg)](https://github.com/uhsear/festival-planner/blob/main/LICENSE)
-[![Uptime Status](https://img.shields.io/badge/status-uptime-brightgreen.svg)](https://github.com/uhsear/upptime)
-
-Real-time festival schedule coordination for event crews. Plan sets, sync picks with friends, and resolve conflicts — built for the chaos of multi-stage festivals.
+Real-time festival crew coordination app. Create festivals, pick sets from the lineup, coordinate with your crew via live chat, and export personalized schedules. Offline-first with WebSocket-driven updates.
 
 **Live at [festie.us](https://festie.us)**
 
-## What It Does
+## Tech Stack
 
-Festie lets groups coordinate festival schedules in real time. Crew members mark artists as must-see, interested, or skip, and the app surfaces conflicts, highlights consensus, and keeps everyone in sync — even offline.
+| Layer | Technology |
+|-------|-----------|
+| Backend | Node.js 22, Express 5, Socket.IO 4 |
+| Database | PostgreSQL 16, Redis 7 |
+| Frontend | React 19, Vite 6, TypeScript, TanStack Router, Zustand, Tailwind CSS 4 |
+| Monorepo | pnpm workspaces + Turborepo |
+| Testing | Node built-in test runner, Playwright |
+| Deployment | PM2 cluster, Cloudflare Tunnel, Docker |
 
-Core capabilities include real-time crew synchronization via WebSockets, priority-based set selection with conflict detection, ICS calendar export, offline-first with automatic reconnection sync, Firebase push notifications, full account lifecycle (email verification, recovery, GDPR self-deletion), and an admin dashboard for event and user management.
+## Prerequisites
 
-## Architecture
+- **Node.js** >= 20 (22 recommended)
+- **PostgreSQL** 16+
+- **Redis** 7+ (required for cluster mode; optional for single-process dev)
+- **pnpm** >= 9 (for frontend/shared packages)
+- **npm** (for backend root)
 
-The app is a server-rendered Node.js application with a real-time layer, backed by PostgreSQL and Redis.
+## Getting Started
 
-**Stack**: Node.js 22, Express 5, Socket.IO 4, PostgreSQL 16, Redis 7, PM2 cluster mode, Cloudflare Tunnel. React 19 + Vite 6 + TypeScript frontend.
+```bash
+# Clone
+git clone https://github.com/uhsear/festival-planner.git
+cd festival-planner
 
-**Backend structure**: Core concerns are extracted into focused `lib/` modules — logger, crypto-auth, presence tracking, and templated pages. Route files export factory functions (`createXRoutes(deps)`) for testability. All SQL uses parameterized queries; all user input is sanitized through dedicated helpers.
+# Install backend dependencies
+npm install
 
-**Frontend**: React 19 with Vite 6, TanStack Router, and Zustand for state management (`packages/web/`). TypeScript throughout, Tailwind CSS for styling, and a Workbox service worker for offline support. Real-time updates flow through Socket.IO with Redis-backed adapter for multi-process consistency.
+# Install frontend/shared dependencies
+pnpm install --filter @festie/web --filter @festie/shared
 
-**Security model**: SHA-256 session tokens with refresh rotation, scrypt password hashing with account lockout, Content Security Policy, CSRF via origin enforcement, and multi-tier rate limiting per endpoint.
+# Create .env from example
+cp .env.example .env
+# Edit .env with your DATABASE_URL, SESSION_SECRET, etc.
 
-## Testing
+# Run database migrations
+# Migrations run automatically on server start via lib/planner-db-pg.js
 
-The test suite covers unit, integration, critical path, hardening, and coverage gap scenarios across 6 test files using Node's built-in test runner. Coverage tracking via c8.
-
+# Start development (backend + frontend with hot reload)
+npm run dev
 ```
-npm test                  # all suites, sequential
-npm run test:unit         # unit tests only
-npm run test:integration  # integration tests only
-npm run test:coverage     # with c8 coverage report
-npm run test:e2e          # playwright end-to-end
-```
 
-## API
+The dev server starts the Express backend and proxies the Vite frontend. Open `http://localhost:4000` (or your configured PORT).
 
-Interactive API docs are served at `/api/docs` with an OpenAPI spec at `/api/spec`.
+## Scripts
+
+### Backend (root -- npm)
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Backend + Vite frontend (proxied) |
+| `npm start` | Backend only |
+| `npm test` | All backend tests (sequential, ~28 files) |
+| `npm run test:unit` | Unit tests only |
+| `npm run test:e2e` | Playwright E2E tests |
+| `npm run test:coverage` | c8 coverage (text + lcov + json-summary) |
+| `npm run lint` | ESLint on lib/, routes/, server.js |
+| `npm run lint:fix` | Auto-fix lint issues |
+
+### Frontend (packages/web/ -- pnpm)
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Vite dev server standalone |
+| `pnpm build` | TypeScript + Vite production build |
+| `pnpm --filter @festie/web typecheck` | TypeScript type checking |
+| `pnpm --filter @festie/web lint` | Frontend ESLint |
 
 ## Project Structure
 
 ```
-server.js              # Express app, Socket.IO, middleware, route mounting
-lib/                   # Core modules (config, logger, crypto-auth, presence, etc.)
-routes/                # Route factories organized by domain
-packages/web/          # React 19 frontend (Vite, TanStack Router, Zustand, TypeScript)
-packages/shared/       # Shared types and utilities
-public/                # Static assets, service worker, manifest
-tests/                 # Test suites (unit, integration, critical-paths, hardening, coverage-gaps)
-scripts/               # Operational scripts (backup, monitoring)
-migrations/            # PostgreSQL schema migrations
-docs/                  # Documentation
+festie/
+  server.js                 Express orchestrator (392 lines)
+  lib/
+    app-context/            DI composition root (config, DB, Redis, auth)
+    db/stores/              13 data access modules (PostgreSQL)
+    notifications/          FCM push notifications (send, retry, DND)
+    helpers/                Export utils, sanitize, validation
+    config.js               Centralized env var management
+    schemas.js              Zod validation for all API inputs
+    rate-limiting.js        Multi-tier rate limiting
+    middleware.js            Express middleware stack
+    socket-setup.js         Socket.IO + Redis adapter
+    shutdown.js             Graceful shutdown + background tasks
+    openapi.js              OpenAPI spec generation
+  routes/                   29 route factory modules
+  migrations/               28 PostgreSQL migrations (004-032)
+  tests/                    Unit, integration, hardening, E2E
+  packages/
+    web/src/                React 19 SPA (TanStack Router, Tailwind CSS 4)
+    shared/src/             TypeScript stores, hooks, types, services
 ```
+
+## Environment Variables
+
+Required for production:
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `SESSION_SECRET` | Strong random secret for session signing |
+| `PUBLIC_ORIGIN` | Public URL (e.g., `https://festie.us`) |
+| `FIREBASE_CREDENTIALS_PATH` | Path to FCM service account JSON |
+| `RESEND_API_KEY` | Resend API key for transactional email |
+| `REDIS_URL` | Redis connection (required for cluster mode) |
+
+See `lib/config.js` for the full list of supported variables and their defaults.
+
+## API Documentation
+
+Interactive API docs are available at `/api/docs` (Swagger UI) when the server is running.
+
+## Contributing
+
+1. Read `CLAUDE.md` for detailed development guidance, conventions, and architecture notes.
+2. Read `CONTEXT.md` for the domain language glossary.
+3. Follow the code conventions: 2-space indent, single quotes, trailing commas, semicolons.
+4. Backend is CommonJS; frontend is ESM/TypeScript.
+5. All API inputs must have Zod schemas in `lib/schemas.js`.
+6. All SQL must use parameterized queries (`$1, $2`).
+7. Run the verification workflow before submitting changes:
+   ```bash
+   pnpm --filter @festie/web typecheck && npm run lint && pnpm --filter @festie/web lint && npm test
+   ```
 
 ## License
 
-Festie is source-available under the [Business Source License 1.1](LICENSE). You can read the code, learn from the patterns, and run it for non-production evaluation. Commercial hosted use requires a license — see the LICENSE file or contact uhsear@gmail.com.
-
-After four years from each release, the code converts to Apache 2.0.
-
-## Security
-
-To report a vulnerability, see [SECURITY.md](SECURITY.md).
-
-## Author
-
-Built by [Asir Khan](https://github.com/uhsear).
+Business Source License 1.1. See [LICENSE](LICENSE) for details.

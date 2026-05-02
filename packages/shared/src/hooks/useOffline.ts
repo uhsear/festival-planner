@@ -3,13 +3,13 @@ import { useUIStore } from '../stores/uiStore';
 
 export interface OfflineSnapshot {
   timestamp: number;
-  data: any;
+  data: unknown;
 }
 
 export interface UseOfflineReturn {
   isOffline: boolean;
   pendingSync: number;
-  saveSnapshot: (data: any) => void;
+  saveSnapshot: (data: unknown) => void;
   restoreSnapshot: () => OfflineSnapshot | null;
 }
 
@@ -44,7 +44,7 @@ export function useOffline(): UseOfflineReturn {
     };
   }, [setOfflineMode]);
 
-  const saveSnapshot = useCallback((data: any) => {
+  const saveSnapshot = useCallback((data: unknown) => {
     try {
       const snapshot: OfflineSnapshot = {
         timestamp: Date.now(),

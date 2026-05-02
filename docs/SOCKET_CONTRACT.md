@@ -9,7 +9,7 @@ wss://festie.us/socket.io/?token=<session_token>&EIO=4&transport=websocket
 **Authentication options (pick one):**
 - Query param: `?token=<session_token>` (recommended for mobile)
 - Authorization header: `Bearer <session_token>` (handshake headers)
-- Cookie: `festival_user_session=<session_token>` (browser only)
+- Cookie: `festie_session=<session_token>` (browser only)
 
 **Connection is accepted if:**
 - Rate limit not exceeded (30 connections/min per IP)

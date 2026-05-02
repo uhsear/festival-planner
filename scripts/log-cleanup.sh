@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rotate festival-planner application logs (not PM2 logs — pm2-logrotate handles those).
+# Rotate Festie application logs (not PM2 logs — pm2-logrotate handles those).
 # Keeps last 7 days of deploy.log and migrate.log; truncates if > 10MB.
 set -euo pipefail
 

@@ -12,6 +12,7 @@ module.exports = {
       assertions: {
         'categories:performance': ['warn', { minScore: 0.8 }],
         'categories:accessibility': ['error', { minScore: 0.9 }],
+        'categories:best-practices': ['error', { minScore: 0.9 }],
         'categories:pwa': ['warn', { minScore: 0.8 }],
         'total-byte-weight': ['warn', { maxNumericValue: 800000 }],
       },

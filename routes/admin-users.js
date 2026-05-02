@@ -67,12 +67,9 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
         );
       }
 
-      if (req.query.cursor || req.query.limit || req.query.pageSize) {
-        const { limit, cursor } = parsePageParams(req.query);
-        const result = paginateArray(items, { limit, cursor });
-        return sendSuccess(res, result.items, { pagination: result.pagination });
-      }
-      return sendSuccess(res, items);
+      const { limit, cursor } = parsePageParams(req.query);
+      const result = paginateArray(items, { limit, cursor });
+      return sendSuccess(res, result.items, { pagination: result.pagination });
     } catch (error) {
       log.error('admin users load failed', { error: error.message });
       return sendError(res, 500, 'Failed to load users', ErrorCodes.INTERNAL_ERROR);
@@ -80,15 +77,12 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
   });
 
   // ── POST /users/:id/roles — grant a role to a user ────────────
-  router.post('/users/:id/roles', adminAuth, adminWriteLimit, async (req, res) => {
+  router.post('/users/:id/roles', adminAuth, adminWriteLimit, validate(schemas.adminAddRole), async (req, res) => {
     try {
       const targetUserId = deps.sanitizeIdentifier(req.params.id, 100);
       if (!targetUserId) return sendError(res, 400, 'Invalid user ID', ErrorCodes.INVALID_INPUT);
 
-      const { role } = req.body || {};
-      if (!role || typeof role !== 'string') {
-        return sendError(res, 400, 'Role name is required', ErrorCodes.MISSING_FIELD);
-      }
+      const { role } = req.validatedBody;
       const roleName = role.trim().toLowerCase();
       if (!['admin', 'user'].includes(roleName)) {
         return sendError(res, 400, 'Invalid role name', ErrorCodes.INVALID_INPUT);

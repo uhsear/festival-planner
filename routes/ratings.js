@@ -2,27 +2,17 @@
 
 const { Router } = require('express');
 
-// Rating emoji map: 1=skip, 2=meh, 3=okay, 4=good, 5=fire
-const VALID_RATINGS = [1, 2, 3, 4, 5];
-
-function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCodes, rateLimit }) {
+function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCodes, rateLimit, schemas, validate }) {
   const router = Router();
   const noopLimit = (_req, _res, next) => next();
   const writeLimit = (typeof rateLimit === 'function') ? rateLimit(60, 'rating-write') : noopLimit;
   const readLimit  = (typeof rateLimit === 'function') ? rateLimit(120, 'rating-read')  : noopLimit;
 
   // Rate a set (upsert)
-  router.post('/:setId', userAuth, writeLimit, async (req, res) => {
+  router.post('/:setId', userAuth, writeLimit, validate(schemas.ratingCreate), async (req, res) => {
     try {
       const { setId } = req.params;
-      const { rating, note } = req.body || {};
-
-      if (!VALID_RATINGS.includes(rating)) {
-        return sendError(res, 400, 'Rating must be 1-5', ErrorCodes.VALIDATION);
-      }
-      if (note && typeof note !== 'string') {
-        return sendError(res, 400, 'Note must be a string', ErrorCodes.VALIDATION);
-      }
+      const { rating, note } = req.validatedBody;
 
       // Verify set exists
       const setCheck = await stores.pool.query(
@@ -63,8 +53,9 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
   // Get aggregate ratings for a festival (public)
   router.get('/festival/:festivalId/all', readLimit, async (req, res) => {
     try {
-      const ratings = await stores.ratings.getByFestival(req.params.festivalId);
-      sendSuccess(res, { ratings });
+      const { cursor, limit } = schemas.paginationQuery.parse(req.query);
+      const result = await stores.ratings.getByFestival(req.params.festivalId, { cursor, limit });
+      sendSuccess(res, { ratings: result.items, nextCursor: result.nextCursor });
     } catch {
       sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
@@ -73,8 +64,9 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
   // Get crew ratings for a festival
   router.get('/crew/:crewId/festival/:festivalId', userAuth, readLimit, async (req, res) => {
     try {
-      const ratings = await stores.ratings.getCrewRatings(req.params.crewId, req.params.festivalId);
-      sendSuccess(res, { ratings });
+      const { cursor, limit } = schemas.paginationQuery.parse(req.query);
+      const result = await stores.ratings.getCrewRatings(req.params.crewId, req.params.festivalId, { cursor, limit });
+      sendSuccess(res, { ratings: result.items, nextCursor: result.nextCursor });
     } catch {
       sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }

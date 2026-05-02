@@ -2,7 +2,7 @@
 
 module.exports = function createExpenseRoutes(deps) {
   const router = deps.express.Router();
-  const { stores, userAuth, sendSuccess, sendError, ErrorCodes, log, rateLimit, emitter, sanitizeIdentifier } = deps;
+  const { stores, userAuth, sendSuccess, sendError, ErrorCodes, log, rateLimit, emitter, sanitizeIdentifier, schemas, validate } = deps;
 
   // GET /crew/:crewId/expenses
   router.get('/crews/:crewId/expenses', userAuth, rateLimit(120, 'expense-list'), async (req, res) => {
@@ -20,29 +20,22 @@ module.exports = function createExpenseRoutes(deps) {
   });
 
   // POST /crew/:crewId/expenses
-  router.post('/crews/:crewId/expenses', userAuth, rateLimit(30, 'expense-create'), async (req, res) => {
+  router.post('/crews/:crewId/expenses', userAuth, rateLimit(30, 'expense-create'), validate(schemas.expenseCreate), async (req, res) => {
     try {
       const crewId = sanitizeIdentifier(req.params.crewId);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
 
-      const { description, amount, splitWith, category } = req.body || {};
-      if (!description || typeof description !== 'string' || description.trim().length === 0) {
-        return sendError(res, 400, 'Description required', ErrorCodes.INVALID_INPUT);
-      }
-      const numAmount = Number(amount);
-      if (!Number.isFinite(numAmount) || numAmount <= 0 || numAmount > 99999) {
-        return sendError(res, 400, 'Valid amount required (0-99999)', ErrorCodes.INVALID_INPUT);
-      }
+      const { description, amount, splitWith, category } = req.validatedBody;
 
       const expense = await stores.expenses.create({
         crewId,
         paidBy: req.user.userId,
         description: description.trim().slice(0, 200),
-        amount: Math.round(numAmount * 100) / 100,
-        splitWith: Array.isArray(splitWith) ? splitWith : [],
-      category: typeof category === 'string' ? category.slice(0,20) : 'other',
+        amount: Math.round(amount * 100) / 100,
+        splitWith,
+        category: category || 'other',
       });
 
       emitter.crewExpenseAdded({ crewId, expense });
@@ -92,14 +85,14 @@ module.exports = function createExpenseRoutes(deps) {
   });
 
   
-  router.post('/crews/:crewId/expenses/settle', userAuth, rateLimit(20, 'expense-settle'), async (req, res) => {
+  router.post('/crews/:crewId/expenses/settle', userAuth, rateLimit(20, 'expense-settle'), validate(schemas.expenseSettle), async (req, res) => {
     try {
       const crewId = sanitizeIdentifier(req.params.crewId);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
-      const { toUserId, amount } = req.body || {};
-      if (!toUserId || typeof toUserId !== 'string') return sendError(res, 400, 'toUserId required', ErrorCodes.INVALID_INPUT);
+      const { toUserId } = req.validatedBody;
+      const { amount } = req.body || {};
       const numAmount = Number(amount);
       if (!Number.isFinite(numAmount) || numAmount <= 0) return sendError(res, 400, 'Valid amount required', ErrorCodes.INVALID_INPUT);
       const settlement = await stores.expenses.create({

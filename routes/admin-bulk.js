@@ -13,18 +13,16 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
     sendSuccess, sendError, ErrorCodes,
     adminAuth, getRequestIp,
     stores,
+    schemas, validate,
   } = deps;
   const { adminWriteLimit } = ctx;
 
   // ── POST /bulk/deactivate — deactivate multiple users ────────────
-  router.post('/bulk/deactivate', adminAuth, adminWriteLimit, async (req, res) => {
+  router.post('/bulk/deactivate', adminAuth, adminWriteLimit, validate(schemas.adminBulkDeactivate), async (req, res) => {
     try {
-      const { userIds } = req.body || {};
-      if (!Array.isArray(userIds) || userIds.length === 0 || userIds.length > 50) {
+      const { userIds } = req.validatedBody;
+      if (userIds.length > 50) {
         return sendError(res, 400, 'Provide 1-50 user IDs', ErrorCodes.INVALID_INPUT);
-      }
-      if (!userIds.every(id => typeof id === 'string' && id.length > 0 && id.length <= 100)) {
-        return sendError(res, 400, 'Each user ID must be a non-empty string', ErrorCodes.INVALID_INPUT);
       }
       const settled = await Promise.allSettled(
         userIds.map(userId => stores.sessions.deleteUserSessions(userId).then(() => userId)),
@@ -50,10 +48,10 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
   });
 
   // ── POST /bulk/archive-festivals — archive old festivals ─────────
-  router.post('/bulk/archive-festivals', adminAuth, adminWriteLimit, async (req, res) => {
+  router.post('/bulk/archive-festivals', adminAuth, adminWriteLimit, validate(schemas.adminBulkArchive), async (req, res) => {
     try {
-      const { festivalIds } = req.body || {};
-      if (!Array.isArray(festivalIds) || festivalIds.length === 0 || festivalIds.length > 50) {
+      const { festivalIds } = req.validatedBody;
+      if (festivalIds.length > 50) {
         return sendError(res, 400, 'Provide 1-50 festival IDs', ErrorCodes.INVALID_INPUT);
       }
       const results = [];

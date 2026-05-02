@@ -3,7 +3,7 @@ set -euo pipefail
 # PostgreSQL backup script for Festie (custom format)
 # Run via cron: 0 */6 * * * $APP_DIR/scripts/backup-pg.sh
 
-BACKUP_DIR="${BACKUP_DIR:-$HOME/backups/festival-planner}"
+BACKUP_DIR="${BACKUP_DIR:-$HOME/backups/festie}"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DB_NAME="${DB_NAME:-festival_planner}"
 DB_USER="${DB_USER:-festival}"

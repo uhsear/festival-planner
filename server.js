@@ -75,7 +75,7 @@ startMetricsListener(metrics, { basePort: 9400, workerId });
 
 const log = createLogger();
 
-function createFestivalPlanner(overrides = {}) {
+function createFestieApp(overrides = {}) {
   // 1. Create application context (config, DB, Redis, state, all utility functions)
   const ctx = createAppContext({ ...overrides, promMetrics: metrics });
   const { config, state, _stores, pool, redis, cacheBus, avatarPool } = ctx;
@@ -284,7 +284,7 @@ function createFestivalPlanner(overrides = {}) {
 
 // ── Main entry point ──────────────────────────────────────────────────────
 if (require.main === module) {
-  const planner = createFestivalPlanner();
+  const planner = createFestieApp();
   let shuttingDown = false;
 
   const shutdown = (signal, error = null) => {
@@ -385,7 +385,8 @@ if (require.main === module) {
 module.exports = {
   buildContentSecurityPolicy,
   collectInlineHashes,
-  createFestivalPlanner,
+  createFestieApp,
+  createFestivalPlanner: createFestieApp, // backward compat alias
   loadConfig,
   validateStartupConfig,
 };

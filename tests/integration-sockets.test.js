@@ -251,6 +251,141 @@ describe('Integration — Sockets', { concurrency: 1 }, () => {
     aliceSocket.close();
   });
 
+  test('join:crew — user joins a crew room and receives ack', async () => {
+    const server = await startServer();
+    servers.push(server);
+
+    const alice = await registerUser(server, 'alice');
+    await joinFestivalProfile(server, alice.token);
+
+    // Create a crew via HTTP API
+    const crewRes = await server.request
+      .post('/api/v1/crews')
+      .set('x-user-token', alice.token)
+      .set('x-festie-request', '1')
+      .send({ name: 'Socket Test Crew', festivalId: 'fest-1' })
+      .expect(201);
+    const crewId = crewRes.body.data.id;
+
+    // Connect and first join the festival (required for session state)
+    const socket = connectSocket(server.baseUrl);
+    await waitForEvent(socket, 'connect');
+    socket.emit('join:festival', 'fest-1', { userToken: alice.token });
+    await waitForEvent(socket, 'presence:update', (p) => p.online.length === 1);
+
+    // Now join the crew room
+    const ack = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('join:crew ack timeout')), 4000);
+      socket.emit('join:crew', { crewId }, (response) => {
+        clearTimeout(timeout);
+        resolve(response);
+      });
+    });
+    assert.equal(ack.ok, true);
+    assert.equal(ack.crewId, crewId);
+
+    socket.close();
+  });
+
+  test('leave:crew — user leaves a crew room', async () => {
+    const server = await startServer();
+    servers.push(server);
+
+    const alice = await registerUser(server, 'alice');
+    await joinFestivalProfile(server, alice.token);
+
+    // Create a crew
+    const crewRes = await server.request
+      .post('/api/v1/crews')
+      .set('x-user-token', alice.token)
+      .set('x-festie-request', '1')
+      .send({ name: 'Leave Test Crew', festivalId: 'fest-1' })
+      .expect(201);
+    const crewId = crewRes.body.data.id;
+
+    const socket = connectSocket(server.baseUrl);
+    await waitForEvent(socket, 'connect');
+    socket.emit('join:festival', 'fest-1', { userToken: alice.token });
+    await waitForEvent(socket, 'presence:update', (p) => p.online.length === 1);
+
+    // Join crew room first
+    const joinAck = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('join:crew ack timeout')), 4000);
+      socket.emit('join:crew', { crewId }, (response) => {
+        clearTimeout(timeout);
+        resolve(response);
+      });
+    });
+    assert.equal(joinAck.ok, true);
+
+    // Now leave the crew room — leave:crew has no ack, so verify
+    // the socket stays connected and can still interact
+    socket.emit('leave:crew', { crewId });
+
+    // Give the server a moment to process the leave
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // Verify the socket is still connected and functional by re-joining
+    const rejoinAck = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('rejoin:crew ack timeout')), 4000);
+      socket.emit('join:crew', { crewId }, (response) => {
+        clearTimeout(timeout);
+        resolve(response);
+      });
+    });
+    assert.equal(rejoinAck.ok, true);
+
+    socket.close();
+  });
+
+  test('reconnect:restore — restores festival room subscription on reconnect', async () => {
+    const server = await startServer();
+    servers.push(server);
+
+    const alice = await registerUser(server, 'alice');
+    await joinFestivalProfile(server, alice.token);
+
+    // First connection — join festival
+    const socket1 = connectSocket(server.baseUrl);
+    await waitForEvent(socket1, 'connect');
+    socket1.emit('join:festival', 'fest-1', { userToken: alice.token });
+    await waitForEvent(socket1, 'presence:update', (p) => p.online.length === 1);
+
+    // Disconnect the first socket
+    socket1.disconnect();
+
+    // Second connection — simulate reconnect:restore
+    const socket2 = connectSocket(server.baseUrl);
+    await waitForEvent(socket2, 'connect');
+
+    const restoreAck = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('reconnect:restore ack timeout')), 4000);
+      socket2.emit('reconnect:restore', { festivalId: 'fest-1', userToken: alice.token }, (response) => {
+        clearTimeout(timeout);
+        resolve(response);
+      });
+    });
+    assert.equal(restoreAck.ok, true);
+    assert.ok(restoreAck.profileId, 'restore should return profileId');
+
+    // Verify presence is active after restore
+    await waitForEvent(socket2, 'presence:update', (p) => p.online.length >= 1);
+
+    socket2.close();
+  });
+
+  test('reconnect:restore — rejects unauthenticated restore with disconnect', async () => {
+    const server = await startServer();
+    servers.push(server);
+
+    const socket = connectSocket(server.baseUrl);
+    await waitForEvent(socket, 'connect');
+
+    const disconnected = waitForEvent(socket, 'disconnect', () => true);
+    socket.emit('reconnect:restore', { festivalId: 'fest-1', userToken: 'invalid-token' }, () => {});
+    await disconnected;
+  });
+
   test('rejects socket events from unauthenticated or unauthorized sockets', async () => {
     const server = await startServer();
     servers.push(server);

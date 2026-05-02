@@ -31,10 +31,13 @@ module.exports = function createProfilesRoutes(deps) {
       if (!await getUserFestivalProfile(req.user.userId, festivalId)) {
         return sendError(res, 403, 'Join this festival to view crew plans', ErrorCodes.FORBIDDEN);
       }
-      const usersById = await getUserMap();
       const rawProfiles = stores.profiles.getByFestival
         ? await stores.profiles.getByFestival(festivalId)
         : (await getProfiles()).filter((profile) => profile.festivalId === festivalId);
+      const userIds = [...new Set(rawProfiles.map((p) => p.userId).filter(Boolean))];
+      const usersById = stores.users.getByIds
+        ? await stores.users.getByIds(userIds)
+        : await getUserMap();
       const profiles = rawProfiles
         .map((profile) => serializeProfileForViewer(profile, req.user.userId, usersById.get(profile.userId)));
       // Support paginated response when params present

@@ -16,7 +16,7 @@ const {
 describe('Config Loading', () => {
   // Save and clear env vars that interfere with override-only tests
   const savedEnv = {};
-  const envKeysToIsolate = ['ADMIN_USER', 'ADMIN_PASSWORD', 'NODE_ENV'];
+  const envKeysToIsolate = ['NODE_ENV'];
 
   function isolateEnv() {
     for (const key of envKeysToIsolate) {
@@ -36,12 +36,8 @@ describe('Config Loading', () => {
     try {
       const config = loadConfig({
         PUBLIC_ORIGIN: '',
-      ADMIN_USER: 'admin',
-        ADMIN_PASSWORD: 'password123',
       });
 
-      assert.equal(config.ADMIN_USER, 'admin');
-      assert.equal(config.ADMIN_PASSWORD, 'password123');
       assert.equal(config.PORT, 4000);
       assert.equal(config.BIND_ADDRESS, '127.0.0.1');
       assert.equal(config.NODE_ENV, 'development');

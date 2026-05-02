@@ -58,7 +58,7 @@ module.exports = function createAccountRoutes(deps) {
           return committedUser;
         } catch (err) {
           await removeAvatarFile(avatarKey).catch(() => {});
-          throw err;
+          throw new Error('Avatar write failed during upload', { cause: err });
         }
       });
 
@@ -130,7 +130,7 @@ module.exports = function createAccountRoutes(deps) {
         if (err.code === '23505') {
           return sendError(res, 400, 'Username already taken', ErrorCodes.ALREADY_EXISTS);
         }
-        throw err;
+        throw new Error('Username update failed', { cause: err });
       }
       invalidateUserCache();
 
@@ -181,7 +181,7 @@ module.exports = function createAccountRoutes(deps) {
         if (err.code === '40P01') {
           await performSoftDelete();
         } else {
-          throw err;
+          throw new Error('Account soft-delete failed', { cause: err });
         }
       }
 

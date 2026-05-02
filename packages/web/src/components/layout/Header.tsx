@@ -41,6 +41,10 @@ export default function Header() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('fp-theme', theme);
+    // Sync the PWA / mobile browser chrome color with the active theme
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', theme === 'dark' ? '#080810' : '#f5f5f7');
   }, [theme]);
 
   const toggleTheme = () => {

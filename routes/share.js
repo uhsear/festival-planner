@@ -17,7 +17,7 @@ module.exports = function createShareRoutes(deps) {
     express, log, config,
     stores, getFestivalById, getUserById,
     buildAvatarUrl, rateLimit,
-    sendError, ErrorCodes,
+    sendSuccess, sendError, ErrorCodes,
   } = deps;
 
   const router = express.Router();
@@ -158,18 +158,15 @@ module.exports = function createShareRoutes(deps) {
       const username = user?.username || profile.name || 'Anonymous';
 
       res.setHeader('Cache-Control', 'public, max-age=300');
-      return res.json({
-        data: {
-          username,
-          festivalName: festival.name,
-          festivalId: festival.id,
-          picks: profile.picks || {},
-          festival: {
-            stages: festival.stages,
-            days: festival.days,
-          },
+      return sendSuccess(res, {
+        username,
+        festivalName: festival.name,
+        festivalId: festival.id,
+        picks: profile.picks || {},
+        festival: {
+          stages: festival.stages,
+          days: festival.days,
         },
-        error: null,
       });
     } catch (error) {
       log.error('share json error', { error: error.message, profileId: req.params.profileId });

@@ -38,7 +38,7 @@ export function createSocket(bearerToken?: string, baseUrl?: string): Socket {
 
   const socket = io(url || undefined, opts);
 
-  socket.on('connect_error', (err: any) => {
+  socket.on('connect_error', (err: Error & { data?: { status?: number }; status?: number }) => {
     const status = err?.data?.status ?? err?.status;
     if (status === 401 || status === 403) {
       socket.disconnect();

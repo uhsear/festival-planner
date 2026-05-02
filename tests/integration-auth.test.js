@@ -90,7 +90,7 @@ describe('Integration — Auth', { concurrency: 1 }, () => {
       .send({ username: 'cookie-user', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true })
       .expect(201);
 
-    assert.match(registration.headers['set-cookie'].join('; '), /festival_user_session=/);
+    assert.match(registration.headers['set-cookie'].join('; '), /festie_session=/);
 
     await markTrustedMutation(userAgent.post('/api/v1/auth/verify')).expect(200);
 
@@ -103,7 +103,7 @@ describe('Integration — Auth', { concurrency: 1 }, () => {
       })
       .expect(200);
 
-    assert.match(changePassword.headers['set-cookie'].join('; '), /festival_user_session=/);
+    assert.match(changePassword.headers['set-cookie'].join('; '), /festie_session=/);
 
     await server.request
       .post('/api/v1/auth/verify')
@@ -111,7 +111,7 @@ describe('Integration — Auth', { concurrency: 1 }, () => {
       .expect(401);
 
     const logout = await markTrustedMutation(userAgent.post('/api/v1/auth/logout')).expect(200);
-    assert.match(logout.headers['set-cookie'].join('; '), /festival_user_session=;/);
+    assert.match(logout.headers['set-cookie'].join('; '), /festie_session=;/);
     await markTrustedMutation(userAgent.post('/api/v1/auth/verify')).expect(401);
 
     // Test admin auth through role-based system

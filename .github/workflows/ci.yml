@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, master]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, master]
 
 jobs:
   lint:
@@ -15,9 +15,19 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
       - run: npm ci
+      - name: Install web workspace deps
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
       - run: npm run lint
       - run: npm run lint:check
+      - name: Lint frontend (packages/web)
+        working-directory: packages
+        run: pnpm --filter @festie/web lint
 
   test:
     runs-on: ubuntu-latest
@@ -121,7 +131,7 @@ jobs:
 
   lighthouse:
     needs: quality
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -137,11 +147,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Run Lighthouse CI
         working-directory: packages/web
-        run: pnpm exec lhci autorun --config=.lighthouserc.cjs || echo "LHCI completed with warnings"
+        run: pnpm exec lhci autorun --config=.lighthouserc.cjs
 
   docker:
     needs: test
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

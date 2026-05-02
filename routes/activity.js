@@ -13,8 +13,9 @@ module.exports = function createActivityRoutes(deps) {
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
-      const activity = await stores.activity.getByCrew(crewId);
-      return sendSuccess(res, activity);
+      const { cursor, limit } = deps.schemas.paginationQuery.parse(req.query);
+      const result = await stores.activity.getByCrew(crewId, { cursor, limit });
+      return sendSuccess(res, { items: result.items, nextCursor: result.nextCursor });
     } catch (err) {
       log.error('get activity failed', { error: err.message });
       return sendError(res, 500, 'Failed to load activity', ErrorCodes.INTERNAL_ERROR);

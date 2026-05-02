@@ -4,9 +4,9 @@ FROM node:22.22.1-slim AS build
 
 WORKDIR /app
 
-# Install build deps for native modules (better-sqlite3, sharp)
+# Install build deps for native modules (sharp)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 make g++ && \
+    make g++ && \
     rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
