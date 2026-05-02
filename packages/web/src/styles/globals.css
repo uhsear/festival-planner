@@ -1000,9 +1000,9 @@ button {
 }
 .fk-grid__share-btn {
   position: absolute;
-  top: -40px;
-  right: 8px;
-  z-index: 2;
+  top: 2px;
+  right: 6px;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   justify-content: center;
