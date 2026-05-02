@@ -2168,10 +2168,6 @@ button {
   contain: layout style;
 }
 
-.crew-page {
-  overflow-x: hidden;
-}
-
 /* ── Cards route: sub-header scrolls with content ────────────────────────
    On /cards the sub-header (festival selector, day tabs, stage chips,
    search) should scroll away with the page so more cards are visible.
