@@ -177,7 +177,7 @@ function CrewViewInner() {
     // before this, the crew tabs + invite bar stretched the full 1400px and
     // the member list cards ran all the way to the edges, which read as
     // under-designed rather than immersive.
-    <div className="crew-page space-y-2 pb-20 max-w-2xl mx-auto px-3">
+    <div className="crew-page space-y-2 pb-20 max-w-2xl mx-auto px-3 min-w-0 w-full">
       {crews.length > 0 && (
         <CrewSelector crews={crews} selectedCrewId={activeCrew?.id}
           onSelectCrew={handleSelectCrew} onCreateCrew={handleCreateCrew} onJoinCrew={handleJoinCrew} />
@@ -200,7 +200,7 @@ function CrewViewInner() {
           )}
         </div>
       ) : (
-        <div className="crew-content space-y-2">
+        <div className="crew-content space-y-2 min-w-0">
           {/* Home base — pinned at the top so the crew always sees where to meet. */}
           <HomeBaseCard
             crewId={activeCrew.id}
@@ -237,7 +237,7 @@ function CrewViewInner() {
           </Link>
 
           {/* Tab nav — horizontal scroll on narrow screens, 5 tabs fit on 390+ */}
-          <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pr-4 scrollbar-hide" role="tablist" aria-label="Crew tabs">
+          <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pr-4 scrollbar-hide min-w-0 max-w-full" role="tablist" aria-label="Crew tabs">
             {TABS.map((t) => (
               <button key={t.key} role="tab" aria-selected={tab === t.key}
                 onClick={() => setTab(t.key)}
