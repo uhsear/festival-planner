@@ -237,18 +237,6 @@ function GridViewInner() {
   const totalH = bounds.span * PX_PER_MIN;
 
   return (
-    <div className="fk-grid-wrap">
-      <button
-        className="fk-grid__share-btn"
-        onClick={exportGrid}
-        title="Share grid"
-        aria-label="Share grid as image"
-        aria-busy={exporting ? 'true' : 'false'}
-        disabled={exporting}
-        type="button"
-      >
-        <Share2 size={15} aria-hidden="true" />
-      </button>
     <div className="fk-grid" ref={gridRef} role="grid" aria-label="Festival schedule grid — stages as columns, time as rows">
       {/* ── Sticky stage-header row ── */}
       <div
@@ -258,7 +246,19 @@ function GridViewInner() {
           gridTemplateColumns: `${GUTTER_W}px repeat(${visibleStages.length}, minmax(${vw <= 430 ? '92px' : '110px'}, 1fr))`,
         }}
       >
-        <div role="columnheader" aria-label="Time" />
+        <div role="columnheader" aria-label="Time" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button
+            className="fk-grid__share-btn"
+            onClick={exportGrid}
+            title="Share grid"
+            aria-label="Share grid as image"
+            aria-busy={exporting ? 'true' : 'false'}
+            disabled={exporting}
+            type="button"
+          >
+            <Share2 size={14} aria-hidden="true" />
+          </button>
+        </div>
         {visibleStages.map((st) => {
           const c = getStageColor(st.id);
           return (
@@ -367,7 +367,6 @@ function GridViewInner() {
           })}
         </div>
       </div>
-    </div>
     </div>
   );
 }

@@ -838,7 +838,7 @@ button {
 .fk-grid {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   background: var(--color-bg-primary);
@@ -991,27 +991,16 @@ button {
   .fk-grid__now-line { animation: none; opacity: 0.85; }
 }
 
-.fk-grid-wrap {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
 .fk-grid__share-btn {
-  position: absolute;
-  top: 2px;
-  right: 6px;
-  z-index: 11;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   color: var(--color-accent-aqua);
   background: color-mix(in srgb, var(--color-accent-aqua) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent-aqua) 35%, transparent);
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background-color var(--duration-med) var(--ease-standard),
               transform var(--duration-fast) var(--ease-out);
