@@ -2204,9 +2204,24 @@ button {
     min-width: 100% !important;
   }
 
-  /* Grid: reduce column min-width so 4 stages fit on 375px phones */
+  /* Grid: widen columns for readability; whole grid scrolls horizontally.
+     70px was unreadable — artist names and stage headers all truncated.
+     92px keeps text legible while showing ~3 cols on 320px with scroll. */
+  .fk-grid {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
   #main-content:has(.fk-grid) .fk-grid__col {
-    min-width: 70px !important;
+    min-width: 92px !important;
+  }
+  .fk-grid__col-head {
+    white-space: normal !important;
+    text-overflow: clip !important;
+    line-height: 1.15 !important;
+    padding: 4px 4px 4px !important;
+  }
+  .fk-grid__head {
+    min-width: max-content;
   }
 
   /* Crew: flex column layout, tab content scrolls */
@@ -2302,5 +2317,51 @@ button {
   *, *::before, *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* ── Mobile design fixes (2026-05-02) ─────────────────────────────────────
+   F1: Bottom nav icon-only at iPhone SE width (7 tabs × 46px > 320px).
+   F4: Stage filter chip scroll indicator (right-edge gradient mask).
+   F3: Timeline column headers allow wrapping.
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* F1 — Bottom nav: hide labels at <=359px so 7 icon tabs fit without
+   truncation. 320÷7 = 45.7px per tab — enough for 44px touch targets
+   but not for text. Icon-only matches iOS/Android compact tab bars. */
+@media (max-width: 359px) {
+  .bottom-nav-inner > button > span {
+    display: none;
+  }
+  .bottom-nav-inner > button {
+    justify-content: center;
+    padding: 6px 0;
+  }
+  .bottom-nav-inner > button > svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* F4 — Stage filter chip container: gradient mask on right edge to hint
+   that off-screen chips exist. Uses a CSS mask-image so the background
+   shows through the fade. The mask is removed when scrolled to the end
+   (via scroll-snap, JS not needed — the visual hint is enough). */
+.filter-stage {
+  -webkit-mask-image: linear-gradient(to right, #000 85%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 85%, transparent 100%);
+}
+
+/* F3 — Timeline: allow stage headers to wrap at narrow widths instead
+   of truncating to unreadable fragments like "THE FORBIDDE". */
+@media (max-width: 768px) {
+  .timeline-grid .timeline-header-cell {
+    white-space: normal;
+    word-break: break-word;
+    font-size: 0.6rem;
+    line-height: 1.2;
+    padding: 4px 2px;
+    text-align: center;
+    overflow: hidden;
   }
 }

@@ -260,7 +260,7 @@ function GridViewInner() {
         className="fk-grid__head"
         role="row"
         style={{
-          gridTemplateColumns: `${GUTTER_W}px repeat(${visibleStages.length}, 1fr)`,
+          gridTemplateColumns: `${GUTTER_W}px repeat(${visibleStages.length}, minmax(${vw <= 430 ? '92px' : '110px'}, 1fr))`,
         }}
       >
         <div role="columnheader" aria-label="Time" />
