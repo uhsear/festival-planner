@@ -237,7 +237,7 @@ function CrewViewInner() {
           </Link>
 
           {/* Tab nav — horizontal scroll on narrow screens, 5 tabs fit on 390+ */}
-          <div className="flex gap-1 overflow-x-auto -mx-1 px-1 scrollbar-hide" role="tablist" aria-label="Crew tabs">
+          <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pr-4 scrollbar-hide" role="tablist" aria-label="Crew tabs">
             {TABS.map((t) => (
               <button key={t.key} role="tab" aria-selected={tab === t.key}
                 onClick={() => setTab(t.key)}

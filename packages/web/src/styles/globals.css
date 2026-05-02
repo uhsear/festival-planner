@@ -814,6 +814,12 @@ button {
   display: block;
 }
 
+.detail-panel--drawer {
+  max-height: none !important;
+  height: auto !important;
+  overscroll-behavior: contain;
+}
+
 /* ── R29 (2026-04-17 pass 3) — coral danger buttons AA contrast ───────────
    `bg-accent-coral/20` + `text-accent-coral` combo (used for Delete buttons
    in AdminCrews/Users/Festivals and the VS chip in ConflictCompare) renders
@@ -2162,13 +2168,31 @@ button {
   contain: layout style;
 }
 
+/* ── Cards route: sub-header scrolls with content ────────────────────────
+   On /cards the sub-header (festival selector, day tabs, stage chips,
+   search) should scroll away with the page so more cards are visible.
+   Move the scroll container from #main-content up to .main-content so
+   both the sub-header-wrap and #main-content scroll as one unit.
+   #main-content becomes a non-scrolling flex child. */
+.main-content:has(#main-content > .card-grid),
+.main-content:has(#main-content .card-grid) {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+.main-content:has(#main-content > .card-grid) > #main-content,
+.main-content:has(#main-content .card-grid) > #main-content {
+  overflow: visible !important;
+  flex: none !important;
+  min-height: 0 !important;
+}
+
 /* ── Viewport-fill routes (mobile) ────────────────────────────────────────
-   Timeline, grid, and crew fill the mobile viewport exactly — no page-level
-   scroll. Each route handles its own internal scrolling. */
+   Timeline and grid fill the mobile viewport exactly — no page-level
+   scroll. Each route handles its own internal scrolling.
+   Crew uses page-level scroll instead (see crew rules below). */
 @media (max-width: 768px) {
   #main-content:has(.timeline-view),
-  #main-content:has(.fk-grid),
-  #main-content:has(.crew-page) {
+  #main-content:has(.fk-grid) {
     min-height: 0 !important;
     overflow: hidden !important;
     display: flex;
@@ -2209,13 +2233,15 @@ button {
     min-width: max-content;
   }
 
-  /* Crew: page-level scroll — no internal scroll trapping */
+  /* Crew: page-level scroll — no internal scroll trapping.
+     Crew is excluded from the shared viewport-fill rule above so the whole
+     page scrolls naturally instead of being trapped in a flex column. */
   #main-content:has(.crew-page) {
     overflow-y: auto !important;
     overflow-x: hidden !important;
+    padding: 0 !important;
   }
   #main-content:has(.crew-page) .crew-page {
-    padding-bottom: 16px !important;
     contain: none;
   }
   #main-content:has(.crew-page) .crew-tab-panel {

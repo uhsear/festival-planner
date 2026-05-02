@@ -151,19 +151,19 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
         <Drawer.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
         <Drawer.Content
           aria-label="Set detail panel"
-          className="fixed bottom-0 inset-x-0 z-50 max-h-[92vh] flex flex-col
+          className="fixed bottom-0 inset-x-0 z-50 max-h-[min(90dvh,calc(100dvh-32px))] flex flex-col
                      rounded-t-2xl bg-bg-primary border-t border-border-light
                      shadow-2xl outline-none
                      lg:bottom-auto lg:inset-x-auto lg:top-1/2 lg:left-1/2
                      lg:-translate-x-1/2 lg:-translate-y-1/2
-                     lg:w-[min(640px,calc(100vw-2rem))] lg:max-h-[85vh]
+                     lg:w-[min(640px,calc(100vw-2rem))] lg:max-h-[85dvh]
                      lg:rounded-2xl lg:border lg:border-border-light lg:border-t-0"
           onOpenAutoFocus={(e: Event) => { e.preventDefault(); closeBtnRef.current?.focus(); }}
         >
           <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0 lg:hidden" />
           <Drawer.Title className="sr-only">{artistDisplayName(set, b2bSeparator)}</Drawer.Title>
           <Drawer.Description className="sr-only">Set details, schedule, and crew info for {artistDisplayName(set, b2bSeparator)}</Drawer.Description>
-          <div className="detail-panel detail-panel--drawer" ref={panelRef}>
+          <div className="detail-panel detail-panel--drawer flex-1 min-h-0 overflow-y-auto" ref={panelRef}>
             <button className="detail-close" type="button" aria-label="Close detail panel" onClick={handleClose} ref={closeBtnRef}>
               {'×'}
             </button>

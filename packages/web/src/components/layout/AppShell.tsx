@@ -37,6 +37,7 @@ const noSubHeaderRoutes = ['/account', '/crew', '/festival-mode'];
 // already filtered by construction (picks/grid/timeline) or have their own
 // scoped controls. Day switching is still needed across all three.
 const dayOnlySubHeaderRoutes = ['/timeline', '/grid', '/picks'];
+const festivalOnlySubHeaderRoutes = ['/wrap'];
 
 export default function AppShell() {
   const location = useLocation();
@@ -63,6 +64,7 @@ export default function AppShell() {
   const isAuthRoute = authRoutes.includes(location.pathname);
   const hideSubHeader = noSubHeaderRoutes.includes(location.pathname);
   const dayOnlySubHeader = dayOnlySubHeaderRoutes.includes(location.pathname);
+  const festivalOnlySubHeader = festivalOnlySubHeaderRoutes.includes(location.pathname);
 
   // Sub-header is now a regular block in the document flow: it scrolls away
   // with the page when the user scrolls down, and they have to scroll back
@@ -80,18 +82,25 @@ export default function AppShell() {
   // scroll offset. Two rAFs ensure the reset sticks after Suspense commits
   // and layout settles.
   useEffect(() => {
-    const scrollEl = document.getElementById('main-content');
-    if (!scrollEl) return;
-    scrollEl.scrollTop = 0;
+    const mainContent = document.getElementById('main-content');
+    const parentScroller = mainContent?.parentElement;
+    const scrollEls: HTMLElement[] = [];
+    if (mainContent) scrollEls.push(mainContent);
+    if (parentScroller && parentScroller.scrollTop > 0) scrollEls.push(parentScroller);
+    if (scrollEls.length === 0) return;
+    const resetAll = () => { scrollEls.forEach((el) => { el.scrollTop = 0; }); };
+    resetAll();
     const r1 = requestAnimationFrame(() => {
-      scrollEl.scrollTop = 0;
-      const r2 = requestAnimationFrame(() => { scrollEl.scrollTop = 0; });
-      (scrollEl as unknown as Record<string, number>).__rafScrollReset = r2;
+      resetAll();
+      const r2 = requestAnimationFrame(() => { resetAll(); });
+      if (mainContent) (mainContent as unknown as Record<string, number>).__rafScrollReset = r2;
     });
     return () => {
       cancelAnimationFrame(r1);
-      const r2 = (scrollEl as unknown as Record<string, number>).__rafScrollReset;
-      if (r2) cancelAnimationFrame(r2);
+      if (mainContent) {
+        const r2 = (mainContent as unknown as Record<string, number>).__rafScrollReset;
+        if (r2) cancelAnimationFrame(r2);
+      }
     };
   }, [location.pathname]);
 
@@ -393,7 +402,7 @@ export default function AppShell() {
             </select>
 
             {/* Day tabs */}
-            {currentFestival && days.length > 0 && (
+            {!festivalOnlySubHeader && currentFestival && days.length > 0 && (
               <div className="day-tabs" role="tablist" aria-label="Festival days"
                 {...swipeDaysBind()} style={{ touchAction: 'pan-y' }}>
                 {days.map((day, i) => (
@@ -416,7 +425,7 @@ export default function AppShell() {
                 Hidden on /timeline, /grid, /picks (those views are either
                 already filtered by construction or have their own scoped
                 controls). Visible on /cards + /crew. */}
-            {!dayOnlySubHeader && currentFestival && stages.length > 0 && (
+            {!dayOnlySubHeader && !festivalOnlySubHeader && currentFestival && stages.length > 0 && (
               <div className="filter-stage" role="group" aria-label="Filter by stage">
                 {stages.map((stage) => {
                   const color = getStageColor(stage.id);
@@ -444,7 +453,7 @@ export default function AppShell() {
             )}
 
             {/* Search — same scoping as stage filter */}
-            {!dayOnlySubHeader && (
+            {!dayOnlySubHeader && !festivalOnlySubHeader && (
               <div className="search-box" role="search">
                 <input
                   type="text"
