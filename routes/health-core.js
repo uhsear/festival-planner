@@ -85,9 +85,9 @@ module.exports = function createHealthRoutes(deps) {
     }
 
     // Check Redis connectivity if enabled
-    if (config.REDIS_ENABLED && deps.redisClient) {
+    if (config.REDIS_ENABLED && deps.redis) {
       try {
-        const status = deps.redisClient.status || 'unknown';
+        const status = deps.redis.status || 'unknown';
         checks.redis = status === 'ready' ? 'ok' : 'degraded';
       } catch {
         checks.redis = 'degraded';
