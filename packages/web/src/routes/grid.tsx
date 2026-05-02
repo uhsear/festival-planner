@@ -237,7 +237,7 @@ function GridViewInner() {
   const totalH = bounds.span * PX_PER_MIN;
 
   return (
-    <div className="fk-grid" ref={gridRef} role="grid" aria-label="Festival schedule grid — stages as columns, time as rows">
+    <div className="fk-grid-wrap">
       <button
         className="fk-grid__share-btn"
         onClick={exportGrid}
@@ -249,6 +249,7 @@ function GridViewInner() {
       >
         <Share2 size={15} aria-hidden="true" />
       </button>
+    <div className="fk-grid" ref={gridRef} role="grid" aria-label="Festival schedule grid — stages as columns, time as rows">
       {/* ── Sticky stage-header row ── */}
       <div
         className="fk-grid__head"
@@ -366,6 +367,7 @@ function GridViewInner() {
           })}
         </div>
       </div>
+    </div>
     </div>
   );
 }

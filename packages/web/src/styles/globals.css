@@ -836,10 +836,9 @@ button {
    Stage-color border-left + tinted background; pick state brightens the tint.
    ─────────────────────────────────────────────────────────────────────── */
 .fk-grid {
-  position: relative;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
   min-height: 0;
   overflow: hidden;
   background: var(--color-bg-primary);
@@ -992,12 +991,16 @@ button {
   .fk-grid__now-line { animation: none; opacity: 0.85; }
 }
 
-/* Share button — floats above the grid header, visually aligned with the
-   day-tabs row in the sub-header above. Pulled up via negative margin so
-   it doesn't consume its own row. */
+.fk-grid-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
 .fk-grid__share-btn {
   position: absolute;
-  top: -38px;
+  top: -40px;
   right: 8px;
   z-index: 2;
   display: inline-flex;
