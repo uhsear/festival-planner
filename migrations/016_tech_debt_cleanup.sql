@@ -55,9 +55,19 @@ ALTER TABLE crews ALTER COLUMN created_at SET NOT NULL;
 ALTER TABLE festival_profiles ALTER COLUMN created_at SET DEFAULT NOW();
 ALTER TABLE festival_profiles ALTER COLUMN created_at SET NOT NULL;
 
--- user_sessions.created_at is bigint (epoch ms), not timestamptz
-ALTER TABLE user_sessions ALTER COLUMN created_at SET DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint;
-ALTER TABLE user_sessions ALTER COLUMN created_at SET NOT NULL;
+-- user_sessions.created_at may be bigint (epoch ms) or timestamptz (after migration 036)
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'user_sessions' AND column_name = 'created_at' AND data_type = 'bigint'
+  ) THEN
+    ALTER TABLE user_sessions ALTER COLUMN created_at SET DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint;
+    ALTER TABLE user_sessions ALTER COLUMN created_at SET NOT NULL;
+  ELSE
+    ALTER TABLE user_sessions ALTER COLUMN created_at SET DEFAULT NOW();
+    ALTER TABLE user_sessions ALTER COLUMN created_at SET NOT NULL;
+  END IF;
+END $$;
 
 ALTER TABLE festivals ALTER COLUMN created_at SET DEFAULT NOW();
 ALTER TABLE festivals ALTER COLUMN created_at SET NOT NULL;

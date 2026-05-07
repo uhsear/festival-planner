@@ -706,7 +706,7 @@ describe('rate-limit + session', () => {
     const user = await registerUser(server, 'expiringuser');
     const pool = new Pool({ connectionString: TEST_DATABASE_URL });
     try {
-      await pool.query('UPDATE user_sessions SET created_at = 0 WHERE user_id = $1', [user.user.id]);
+      await pool.query('UPDATE user_sessions SET created_at = $1 WHERE user_id = $2', [new Date('2000-01-01T00:00:00Z'), user.user.id]);
       const res = await server.request
         .get('/api/v1/account/export')
         .set('x-user-token', user.token);

@@ -248,8 +248,14 @@ describe('loadConfig: edge cases and defaults', () => {
   });
 
   it('DATABASE_URL defaults to localhost when not in production', () => {
-    const config = loadConfig({ PUBLIC_ORIGIN: '', NODE_ENV: 'development' });
-    assert.equal(config.DATABASE_URL, 'postgresql://localhost/festival_planner');
+    const saved = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    try {
+      const config = loadConfig({ PUBLIC_ORIGIN: '', NODE_ENV: 'development' });
+      assert.equal(config.DATABASE_URL, 'postgresql://localhost/festival_planner');
+    } finally {
+      if (saved !== undefined) process.env.DATABASE_URL = saved;
+    }
   });
 
   it('PG_POOL_MIN defaults to 2', () => {

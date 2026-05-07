@@ -16,7 +16,7 @@ DO $$ BEGIN
     WHERE table_name = 'user_sessions' AND column_name = 'created_at' AND data_type = 'bigint'
   ) THEN
     ALTER TABLE user_sessions RENAME COLUMN created_at TO created_at_epoch;
-    ALTER TABLE user_sessions ADD COLUMN created_at TIMESTAMPTZ;
+    ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ;
     UPDATE user_sessions SET created_at = to_timestamp(created_at_epoch / 1000.0)
       WHERE created_at_epoch IS NOT NULL;
     ALTER TABLE user_sessions ALTER COLUMN created_at SET DEFAULT NOW();
@@ -33,7 +33,7 @@ DO $$ BEGIN
     WHERE table_name = 'user_sessions' AND column_name = 'last_access' AND data_type = 'bigint'
   ) THEN
     ALTER TABLE user_sessions RENAME COLUMN last_access TO last_access_epoch;
-    ALTER TABLE user_sessions ADD COLUMN last_access TIMESTAMPTZ;
+    ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS last_access TIMESTAMPTZ;
     UPDATE user_sessions SET last_access = to_timestamp(last_access_epoch / 1000.0)
       WHERE last_access_epoch IS NOT NULL;
     ALTER TABLE user_sessions ALTER COLUMN last_access SET DEFAULT NOW();
@@ -50,7 +50,7 @@ DO $$ BEGIN
     WHERE table_name = 'login_failures' AND column_name = 'last_failure_at' AND data_type = 'bigint'
   ) THEN
     ALTER TABLE login_failures RENAME COLUMN last_failure_at TO last_failure_at_epoch;
-    ALTER TABLE login_failures ADD COLUMN last_failure_at TIMESTAMPTZ;
+    ALTER TABLE login_failures ADD COLUMN IF NOT EXISTS last_failure_at TIMESTAMPTZ;
     UPDATE login_failures SET last_failure_at = to_timestamp(last_failure_at_epoch / 1000.0)
       WHERE last_failure_at_epoch IS NOT NULL;
     ALTER TABLE login_failures DROP COLUMN last_failure_at_epoch;
@@ -65,7 +65,7 @@ DO $$ BEGIN
     WHERE table_name = 'login_failures' AND column_name = 'locked_until' AND data_type = 'bigint'
   ) THEN
     ALTER TABLE login_failures RENAME COLUMN locked_until TO locked_until_epoch;
-    ALTER TABLE login_failures ADD COLUMN locked_until TIMESTAMPTZ;
+    ALTER TABLE login_failures ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
     UPDATE login_failures SET locked_until = to_timestamp(locked_until_epoch / 1000.0)
       WHERE locked_until_epoch IS NOT NULL;
     ALTER TABLE login_failures DROP COLUMN locked_until_epoch;
