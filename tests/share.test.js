@@ -162,11 +162,7 @@ async function getShareHtml(server, profileId) {
 }
 
 async function getVanity(server, username) {
-  let res = await server.request.get(`/s/u/${username}`).redirects(0);
-  if (res.status === 404 && !/User Not Found/i.test(res.text || '')) {
-    res = await server.request.get(`/u/${username}`).redirects(0);
-  }
-  return res;
+  return server.request.get(`/s/u/${username}`).redirects(0);
 }
 
 async function getShareJson(server, profileId) {
