@@ -131,22 +131,23 @@ async function registerUser(server, suffix) {
 
 async function loginAdmin(server) {
   const username = `li-${RUN_ID}-admin`;
-  await server.request
+  const regRes = await server.request
     .post('/api/v1/auth/register')
     .set(TRUSTED_MUTATION_HEADER, '1')
-    .send({ username, password: ADMIN_PASSWORD, confirmPassword: ADMIN_PASSWORD, tosAccepted: true })
-    .expect(201);
-  const pool = new Pool({ connectionString: TEST_DATABASE_URL, statement_timeout: 5000 });
-  try {
-    await pool.query(
-      `INSERT INTO user_roles (user_id, role_id, granted_by, granted_at)
-       SELECT u.id, r.id, NULL, NOW() FROM users u, roles r
-       WHERE u.username = $1 AND r.name = $2
-       ON CONFLICT (user_id, role_id) DO NOTHING`,
-      [username, 'admin']
-    );
-  } finally {
-    await pool.end();
+    .send({ username, password: ADMIN_PASSWORD, confirmPassword: ADMIN_PASSWORD, tosAccepted: true });
+  if (regRes.status === 201) {
+    const pool = new Pool({ connectionString: TEST_DATABASE_URL, statement_timeout: 5000 });
+    try {
+      await pool.query(
+        `INSERT INTO user_roles (user_id, role_id, granted_by, granted_at)
+         SELECT u.id, r.id, NULL, NOW() FROM users u, roles r
+         WHERE u.username = $1 AND r.name = $2
+         ON CONFLICT (user_id, role_id) DO NOTHING`,
+        [username, 'admin']
+      );
+    } finally {
+      await pool.end();
+    }
   }
   const loginRes = await server.request
     .post('/api/v1/auth/login')
