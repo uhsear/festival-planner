@@ -39,7 +39,7 @@ const TRUSTED_MUTATION_HEADER = 'x-festie-request';
 const DEFAULT_PASSWORD = 'password123';
 const ADMIN_PASSWORD = 'test-admin-password-pass';
 
-const RUN_ID = `li${Date.now()}${process.pid}`;
+const RUN_ID = `li${Date.now().toString(36)}`;
 const FEST_ID = `fest-${RUN_ID}`;
 const STAGE_MAIN = `main-${RUN_ID}`;
 const STAGE_FOREST = `forest-${RUN_ID}`;

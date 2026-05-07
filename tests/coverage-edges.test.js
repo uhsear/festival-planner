@@ -310,7 +310,7 @@ describe('migration idempotency', () => {
       assert.equal(createTables.length, createTablesINE.length, `${file}: CREATE TABLE needs IF NOT EXISTS`);
 
       const createIdx = sql.match(/CREATE (?:UNIQUE )?INDEX\b/gi) || [];
-      const createIdxINE = sql.match(/CREATE (?:UNIQUE )?INDEX IF NOT EXISTS/gi) || [];
+      const createIdxINE = sql.match(/CREATE (?:UNIQUE )?INDEX (?:CONCURRENTLY )?IF NOT EXISTS/gi) || [];
       assert.equal(createIdx.length, createIdxINE.length, `${file}: CREATE INDEX needs IF NOT EXISTS`);
     }
   });

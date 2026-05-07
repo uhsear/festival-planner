@@ -437,8 +437,14 @@ describe('loadConfig: type coercion and bounds', () => {
   });
 
   it('MAX_USERS defaults to 200', () => {
-    const config = loadConfig({ PUBLIC_ORIGIN: '' });
-    assert.equal(config.MAX_USERS, 200);
+    const saved = process.env.MAX_USERS;
+    delete process.env.MAX_USERS;
+    try {
+      const config = loadConfig({ PUBLIC_ORIGIN: '' });
+      assert.equal(config.MAX_USERS, 200);
+    } finally {
+      if (saved !== undefined) process.env.MAX_USERS = saved;
+    }
   });
 
   it('AVATAR_SIZE defaults to 256', () => {

@@ -33,7 +33,7 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const TRUSTED_MUTATION_HEADER = 'x-festie-request';
 const DEFAULT_PASSWORD = 'password123';
 
-const RUN_ID = `sh${Date.now()}${process.pid}`;
+const RUN_ID = `sh${Date.now().toString(36)}`;
 const FEST_ID = `fest-${RUN_ID}`;
 const STAGE_MAIN = `main-${RUN_ID}`;
 const SET_A = `set-a-${RUN_ID}`;

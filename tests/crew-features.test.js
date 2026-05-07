@@ -28,7 +28,7 @@ const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 const skip = !TEST_DATABASE_URL || !TEST_DATABASE_URL.includes('_test');
 
 let testDbReady = false;
-const RUN_TAG = `cf-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+const RUN_TAG = `cf${Date.now().toString(36)}`;
 
 function createFestivalFixture() {
   return [{
