@@ -88,6 +88,8 @@ jobs:
           REDIS_URL: redis://localhost:6379
           NODE_ENV: test
         run: npm run test:coverage
+      - name: Enforce coverage threshold (60% minimum)
+        run: npx c8 check-coverage --lines 60 --branches 60 --functions 60 --statements 60
       - name: Upload coverage
         if: matrix.node-version == 22
         uses: actions/upload-artifact@v4

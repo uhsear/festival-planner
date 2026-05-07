@@ -68,8 +68,7 @@ export default function TimelineGrid({
     >
       {/* Empty top-left corner header cell */}
       <div
-        className="timeline-header-cell"
-        style={{ background: 'var(--bg-primary)' }}
+        className="timeline-header-cell bg-[var(--bg-primary)]"
         role="columnheader"
       />
 
@@ -261,7 +260,7 @@ export default function TimelineGrid({
                         key={o.profileId}
                         className="mini-avatar"
                         title={`${o.name || 'Crew member'} (${o.priority})`}
-                        style={{ width: 16, height: 16, fontSize: 7 }}
+                        className="h-4 w-4 text-[7px]"
                       />
                     ))}
                   </div>

@@ -161,7 +161,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
             const counts = new Array<number>(p.options.length).fill(0);
             let myVote: number | null = null;
             for (const v of p.votes) {
-              if (v.option >= 0 && v.option < counts.length) counts[v.option]++;
+              if (v.option >= 0 && v.option < counts.length) counts[v.option] = (counts[v.option] ?? 0) + 1;
               if (v.user_id === currentUserId) myVote = v.option;
             }
             const total = counts.reduce((a, b) => a + b, 0);
@@ -176,7 +176,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
 
                 <div className="space-y-2">
                   {p.options.map((text, i) => {
-                    const votes = counts[i];
+                    const votes = counts[i] ?? 0;
                     const pct = total > 0 ? Math.round((votes / total) * 100) : 0;
                     const winning = votes === maxCount && votes > 0;
                     const mine = myVote === i;

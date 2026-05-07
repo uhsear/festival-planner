@@ -21,6 +21,7 @@ import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useSwipeDays } from '../../hooks/useSwipeDays';
 import { useHaptics } from '../../hooks/useHaptics';
+import { useScrollFade } from '../../hooks/useScrollFade';
 import { useOffline } from '@festie/shared/hooks';
 import { useOfflineQueue } from '../../hooks/useOfflineQueue';
 import { prefetchMainRoutes } from '../../router';
@@ -166,7 +167,7 @@ export default function AppShell() {
       .then(() => {
         const fests = useFestivalStore.getState().festivals;
         if (fests.length > 0 && !useFestivalStore.getState().currentFestival) {
-          selectFestival(fests[0].id).catch(() => {});
+          selectFestival(fests[0]!.id).catch(() => {});
         }
       })
       .catch(() => {});
@@ -303,6 +304,7 @@ export default function AppShell() {
 
   // Haptic shell — same instance for day-tab taps + stage-chip toggles.
   const { select: selectHaptic } = useHaptics();
+  const { ref: stageScrollRef, canScrollLeft, canScrollRight } = useScrollFade<HTMLDivElement>();
 
   // Stage chip toggle handler (legacy behavior: toggle individual, show all when empty)
   const handleStageToggle = useCallback(

@@ -8,41 +8,28 @@ export default function CrewSkeleton() {
     <div className="crew-page space-y-4 pb-24" aria-busy="true" aria-label="Loading crew">
       {/* crew selector */}
       <div className="px-4">
-        <div className="skeleton" style={{ height: 40, width: '100%', borderRadius: 8 }} />
+        <div className="skeleton h-10 w-full rounded-lg" />
       </div>
 
       <div className="space-y-4 px-4">
         {/* home-base card */}
-        <div
-          className="skeleton"
-          style={{ height: 96, width: '100%', borderRadius: 12, opacity: 0.7 }}
-        />
+        <div className="skeleton h-24 w-full rounded-xl opacity-70" />
 
         {/* invite bar */}
-        <div
-          className="p-3 rounded-lg"
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            display: 'flex',
-            gap: 12,
-            alignItems: 'center',
-          }}
-        >
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div className="skeleton" style={{ height: 10, width: 80 }} />
-            <div className="skeleton" style={{ height: 12, width: '60%' }} />
+        <div className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3">
+          <div className="flex flex-1 flex-col gap-1.5">
+            <div className="skeleton h-2.5 w-20" />
+            <div className="skeleton h-3 w-[60%]" />
           </div>
-          <div className="skeleton" style={{ height: 36, width: 72, borderRadius: 6 }} />
+          <div className="skeleton h-9 w-[72px] rounded-md" />
         </div>
 
         {/* tab row */}
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div className="flex gap-1.5">
           {Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
-              className="skeleton"
-              style={{ height: 40, flex: 1, borderRadius: 8, minWidth: 64 }}
+              className="skeleton h-10 min-w-16 flex-1 rounded-lg"
             />
           ))}
         </div>
@@ -52,19 +39,12 @@ export default function CrewSkeleton() {
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="p-3 rounded-lg"
-              style={{
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                gap: 12,
-                alignItems: 'center',
-              }}
+              className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3"
             >
-              <div className="skeleton" style={{ height: 40, width: 40, borderRadius: '50%' }} />
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div className="skeleton" style={{ height: 14, width: '55%' }} />
-                <div className="skeleton" style={{ height: 10, width: '30%' }} />
+              <div className="skeleton h-10 w-10 rounded-full" />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <div className="skeleton h-3.5 w-[55%]" />
+                <div className="skeleton h-2.5 w-[30%]" />
               </div>
             </div>
           ))}

@@ -4,6 +4,7 @@ import { useFestival } from '@festie/shared/hooks';
 import { getStageBadgeStyle } from '../ui/StageBadge';
 import { useSwipeDays } from '../../hooks/useSwipeDays';
 import { useHaptics } from '../../hooks/useHaptics';
+import { useScrollFade } from '../../hooks/useScrollFade';
 
 interface SubHeaderProps {
   dayOnly: boolean;
@@ -23,6 +24,7 @@ export default function SubHeader({ dayOnly }: SubHeaderProps) {
   const setSearchQuery = useFestivalStore((s) => s.setSearchQuery);
   const { getStageColor } = useFestival();
   const { select: selectHaptic } = useHaptics();
+  const { ref: stageScrollRef, canScrollLeft, canScrollRight } = useScrollFade<HTMLDivElement>();
 
   const { bind: swipeDaysBind } = useSwipeDays({
     days,
@@ -100,24 +102,38 @@ export default function SubHeader({ dayOnly }: SubHeaderProps) {
         )}
 
         {!dayOnly && currentFestival && stages.length > 0 && (
-          <div className="filter-stage" role="group" aria-label="Filter by stage">
-            {stages.map((stage) => {
-              const color = getStageColor(stage.id);
-              const isActive = activeStages.includes(stage.id);
-              const style = getStageBadgeStyle(color, 'chip', isActive);
-              return (
-                <button
-                  key={stage.id}
-                  className={'stage-chip' + (isActive ? ' active' : '')}
-                  style={style}
-                  aria-pressed={isActive}
-                  aria-label={stage.name + (isActive ? ' (selected)' : '')}
-                  onClick={() => handleStageToggle(stage.id)}
-                >
-                  {stage.name}
-                </button>
-              );
-            })}
+          <div
+            className={
+              'stage-filter-scroll' +
+              (canScrollLeft ? ' fade-left' : '') +
+              (canScrollRight ? ' fade-right' : '')
+            }
+          >
+            <div
+              ref={stageScrollRef}
+              className="filter-stage"
+              role="tablist"
+              aria-label="Filter by stage"
+            >
+              {stages.map((stage) => {
+                const color = getStageColor(stage.id);
+                const isActive = activeStages.includes(stage.id);
+                const style = getStageBadgeStyle(color, 'chip', isActive);
+                return (
+                  <button
+                    key={stage.id}
+                    className={'stage-chip' + (isActive ? ' active' : '')}
+                    style={style}
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-label={stage.name + (isActive ? ' (selected)' : '')}
+                    onClick={() => handleStageToggle(stage.id)}
+                  >
+                    {stage.name}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 

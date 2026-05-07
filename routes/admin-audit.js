@@ -12,42 +12,20 @@ module.exports = function mountAdminAuditRoutes({ router, deps }) {
     sendSuccess, sendError, ErrorCodes,
     adminAuth,
     stores,
+    schemas, validateQuery,
   } = deps;
 
   // ── GET /audit — query audit log with filters ────────────
-  router.get('/audit', adminAuth, async (req, res) => {
+  router.get('/audit', adminAuth, validateQuery(schemas.adminAuditQuery), async (req, res) => {
     try {
       setNoStore(res);
-      const actorId = req.query.actor_id ? String(req.query.actor_id).trim() : null;
-      const action = req.query.action ? String(req.query.action).trim() : null;
-      const resourceType = req.query.resource_type ? String(req.query.resource_type).trim() : null;
-      const cursor = req.query.cursor ? String(req.query.cursor).trim() : null;
-      let limit = 50;
-
-      if (req.query.limit) {
-        limit = Math.max(1, Math.min(200, parseInt(req.query.limit, 10) || 50));
-      }
-
-      let from = null;
-      let to = null;
-
-      if (req.query.from) {
-        const fromDate = new Date(req.query.from);
-        if (!isNaN(fromDate.getTime())) {
-          from = fromDate.toISOString();
-        }
-      }
-
-      if (req.query.to) {
-        const toDate = new Date(req.query.to);
-        if (!isNaN(toDate.getTime())) {
-          to = toDate.toISOString();
-        }
-      }
+      const { actor_id: actorId, action, resource_type: resourceType, cursor, limit } = req.validatedQuery;
+      const from = req.validatedQuery.from ? new Date(req.validatedQuery.from).toISOString() : null;
+      const to = req.validatedQuery.to ? new Date(req.validatedQuery.to).toISOString() : null;
 
       const [{ rows: entries, nextCursor }, total] = await Promise.all([
-        stores.auditLog.query({ actorId, action, resourceType, from, to, limit, cursor }),
-        stores.auditLog.count({ actorId, action, resourceType, from, to }),
+        stores.auditLog.query({ actorId: actorId || null, action: action || null, resourceType: resourceType || null, from, to, limit, cursor: cursor || null }),
+        stores.auditLog.count({ actorId: actorId || null, action: action || null, resourceType: resourceType || null, from, to }),
       ]);
 
       return sendSuccess(res, entries, {

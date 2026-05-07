@@ -12,11 +12,11 @@ export default function RouteErrorBoundary({ error, reset }: { error: Error; res
 
   return (
     <div className="no-festival" role="alert">
-      <h2 style={{ marginTop: 0, fontSize: 18 }}>Something went wrong</h2>
-      <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, margin: '8px 0 16px' }}>
+      <h2 className="mt-0 text-lg">Something went wrong</h2>
+      <p className="my-2 mb-4 text-sm text-[var(--color-text-secondary)]">
         An unexpected error occurred. Try reloading the page.
       </p>
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div className="flex gap-2">
         <button type="button" className="btn btn-primary btn-sm" onClick={() => reset()}>
           Try again
         </button>
@@ -54,12 +54,12 @@ export class RenderErrorBoundary extends Component<
     if (this.state.error) {
       return (
         <div className="no-festival" role="alert" aria-label={`${this.props.name} view error`}>
-          <h2 style={{ marginTop: 0, fontSize: 18 }}>Something went wrong</h2>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, margin: '8px 0 16px' }}>
+          <h2 className="mt-0 text-lg">Something went wrong</h2>
+          <p className="my-2 mb-4 text-sm text-[var(--color-text-secondary)]">
             An unexpected error occurred while loading this view. Try reloading
             the page or switching festivals.
           </p>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="flex gap-2">
             <button
               type="button"
               className="btn btn-primary btn-sm"

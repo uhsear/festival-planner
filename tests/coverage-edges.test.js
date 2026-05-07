@@ -231,66 +231,16 @@ describe('withRetry helper', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════
-// Optional module probes (FCM / hotness / OfflineQueue / classifyError)
+// Optional module probes — REMOVED
 // ════════════════════════════════════════════════════════════════════════
-
-describe('optional module surface', () => {
-  test('lib/fcm sendBatch accepts >500 messages for batch-packing', () => {
-    try {
-      const { sendBatch } = require('../lib/fcm') || {};
-      if (typeof sendBatch === 'function') {
-        const messages = Array(501).fill(null).map((_, i) => ({
-          token: `token-${i}`, data: { message: 'test' },
-        }));
-        assert.equal(messages.length, 501);
-      }
-    } catch { /* module not present — acceptable */ }
-  });
-
-  test('lib/hotness getSetHotness returns larger score for bigger engagement', () => {
-    try {
-      const { getSetHotness } = require('../lib/hotness') || {};
-      if (typeof getSetHotness === 'function') {
-        const a = getSetHotness({ picks: 10, comments: 5 });
-        const b = getSetHotness({ picks: 100, comments: 50 });
-        assert.equal(typeof a, 'number');
-        assert.ok(b > a);
-      }
-    } catch { /* module not present */ }
-  });
-
-  test('lib/offline OfflineQueue enqueue/length and snapshot round-trip', () => {
-    try {
-      const { OfflineQueue } = require('../lib/offline') || {};
-      if (typeof OfflineQueue === 'function') {
-        const q = new OfflineQueue();
-        q.enqueue('POST', '/api/v1/profiles', { festivalId: 'fest-1' });
-        q.enqueue('PUT', '/api/v1/profiles/prof-1', { picks: { 'set-a': 'must' } });
-        assert.ok(q.queue.length >= 2);
-
-        const q2 = new OfflineQueue();
-        q2.enqueue('POST', '/api/v1/test', { data: 'test' });
-        const snapshot = q2.toSnapshot();
-        assert.ok(typeof snapshot === 'object' || typeof snapshot === 'string');
-        const q3 = new OfflineQueue();
-        q3.fromSnapshot(snapshot);
-        assert.ok(q3.queue.length >= 1);
-      }
-    } catch { /* module not present */ }
-  });
-
-  test('lib/offline classifyError — 4xx non-retryable, 5xx retryable', () => {
-    try {
-      const { classifyError } = require('../lib/offline') || {};
-      if (typeof classifyError === 'function') {
-        const is4xx = classifyError(new Error('Not Found'), { status: 404 });
-        const is5xx = classifyError(new Error('Server Error'), { status: 500 });
-        assert.ok(!is4xx.retryable || is4xx.retryable === false);
-        assert.equal(is5xx.retryable, true);
-      }
-    } catch { /* module not present */ }
-  });
-});
+// The following modules do not exist in this codebase and never did:
+//   - lib/fcm      (Firebase push is in lib/notifications, not a separate module)
+//   - lib/hotness   (no hotness scoring module exists)
+//   - lib/offline   (offline queue lives in the frontend, packages/shared/)
+//
+// The original tests wrapped every require in try/catch with ||{} fallback,
+// so they always passed silently without testing anything — classic dead code.
+// Removed 2026-05-07 as part of test infrastructure cleanup.
 
 // ════════════════════════════════════════════════════════════════════════
 // Migration idempotency (static-check + runtime-rerun)

@@ -50,7 +50,10 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
     }
   });
 
-  // Get aggregate ratings for a festival (public)
+  // Get aggregate ratings for a festival (public — intentionally unauthenticated).
+  // This endpoint returns read-only aggregate data (average rating, count per set)
+  // with no PII. Keeping it public allows share pages and unauthenticated festival
+  // browsers to display community sentiment without requiring login.
   router.get('/festival/:festivalId/all', readLimit, async (req, res) => {
     try {
       const { cursor, limit } = schemas.paginationQuery.parse(req.query);

@@ -85,25 +85,22 @@ module.exports = function createExpenseRoutes(deps) {
   });
 
   
-  router.post('/crews/:crewId/expenses/settle', userAuth, rateLimit(20, 'expense-settle'), validate(schemas.expenseSettle), async (req, res) => {
+  router.post('/crews/:crewId/expenses/settle', userAuth, rateLimit(20, 'expense-settle'), validate(schemas.expenseSettleFull), async (req, res) => {
     try {
       const crewId = sanitizeIdentifier(req.params.crewId);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
-      const { toUserId } = req.validatedBody;
-      const { amount } = req.body || {};
-      const numAmount = Number(amount);
-      if (!Number.isFinite(numAmount) || numAmount <= 0) return sendError(res, 400, 'Valid amount required', ErrorCodes.INVALID_INPUT);
+      const { toUserId, amount } = req.validatedBody;
       const settlement = await stores.expenses.create({
         crewId,
         paidBy: req.user.userId,
         description: `Settlement payment`,
-        amount: Math.round(numAmount * 100) / 100,
+        amount: Math.round(amount * 100) / 100,
         splitWith: [toUserId],
         category: 'settlement',
       });
-      await stores.activity.log({ crewId, userId: req.user.userId, type: 'expense_settled', detail: `$${numAmount.toFixed(2)} to ${toUserId}` });
+      await stores.activity.log({ crewId, userId: req.user.userId, type: 'expense_settled', detail: `$${amount.toFixed(2)} to ${toUserId}` });
       emitter.crewExpenseAdded({ crewId, expense: settlement });
       return sendSuccess(res, settlement, 201);
     } catch (err) {

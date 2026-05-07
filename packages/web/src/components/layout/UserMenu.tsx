@@ -66,8 +66,8 @@ export default function UserMenu({ user }: UserMenuProps) {
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
         );
         if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
+        const first = focusable[0]!;
+        const last = focusable[focusable.length - 1]!;
         if (e.shiftKey && document.activeElement === first) {
           e.preventDefault();
           last.focus();
@@ -136,22 +136,12 @@ export default function UserMenu({ user }: UserMenuProps) {
             height={32}
             loading="lazy"
             decoding="async"
-            style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}
+            className="h-8 w-8 rounded-full object-cover"
           />
         ) : (
           <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              backgroundColor: getAvatarColor(avatarName),
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: 13,
-            }}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold text-white"
+            style={{ backgroundColor: getAvatarColor(avatarName) }}
           >
             {getInitials(avatarName)}
           </div>
@@ -177,23 +167,12 @@ export default function UserMenu({ user }: UserMenuProps) {
                   height={52}
                   loading="lazy"
                   decoding="async"
-                  style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover' }}
+                  className="h-[52px] w-[52px] rounded-full object-cover"
                 />
               ) : (
                 <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: '50%',
-                    backgroundColor: getAvatarColor(avatarName),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    fontWeight: 600,
-                    fontSize: 18,
-                    flexShrink: 0,
-                  }}
+                  className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white"
+                  style={{ backgroundColor: getAvatarColor(avatarName) }}
                 >
                   {getInitials(avatarName)}
                 </div>
@@ -262,7 +241,7 @@ export default function UserMenu({ user }: UserMenuProps) {
                     ref={fileInputRef}
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif"
-                    style={{ display: 'none' }}
+                    className="hidden"
                     data-testid="avatar-file-input"
                     onChange={handleFileChange}
                   />

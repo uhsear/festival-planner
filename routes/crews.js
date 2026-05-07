@@ -10,7 +10,7 @@ module.exports = function createCrewRoutes(deps) {
     getFestivalById,
     sendSuccess, sendError, ErrorCodes,
     rateLimit, stores,
-    schemas, validate,
+    schemas, validate, validateQuery,
     io,
   } = deps;
 
@@ -181,10 +181,10 @@ module.exports = function createCrewRoutes(deps) {
   });
 
   // ── GET / — List my crews (optionally filtered by festivalId) ───
-  router.get('/', userAuth, rateLimit(120, 'crew-list'), async (req, res) => {
+  router.get('/', userAuth, rateLimit(120, 'crew-list'), validateQuery(schemas.crewListQuery), async (req, res) => {
     try {
       setNoStore(res);
-      const festivalId = req.query.festivalId ? sanitizeIdentifier(req.query.festivalId, 100) : null;
+      const festivalId = req.validatedQuery.festivalId ? sanitizeIdentifier(req.validatedQuery.festivalId, 100) : null;
 
       let crews;
       if (festivalId) {
@@ -204,13 +204,13 @@ module.exports = function createCrewRoutes(deps) {
   // ── GET /:crewId — Get crew details with members ───────────────
 
   // ── GET /search-users — Admin: search users for crew add ──────
-  router.get('/search-users', userAuth, rateLimit(30, 'crew-user-search'), async (req, res) => {
+  router.get('/search-users', userAuth, rateLimit(30, 'crew-user-search'), validateQuery(schemas.crewUserSearchQuery), async (req, res) => {
     try {
       const isAdmin = await stores.roles.hasRole(req.user.userId, 'admin');
       if (!isAdmin) return sendError(res, 403, 'Admin access required', ErrorCodes.FORBIDDEN);
 
       setNoStore(res);
-      const q = sanitizeString((req.query.q || ''), 100).toLowerCase();
+      const q = (req.validatedQuery.q || '').toLowerCase();
       if (!q || q.length < 1) return sendSuccess(res, []);
 
       const allUsers = await stores.users.readAll();

@@ -40,17 +40,16 @@ class PicksErrorBoundary extends Component<
     if (this.state.error) {
       return (
         <div className="picks-container" role="alert" aria-label="Picks view error">
-          <div className="no-festival" style={{ padding: 24 }}>
-            <h2 style={{ marginTop: 0 }}>Something went wrong loading your picks.</h2>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>
+          <div className="no-festival p-6">
+            <h2 className="mt-0">Something went wrong loading your picks.</h2>
+            <p className="text-sm text-[var(--color-text-secondary)]">
               Try reloading the page. If this keeps happening, switch festivals
               and back, or sign out and back in.
             </p>
             <button
               type="button"
-              className="btn btn-primary btn-sm"
+              className="btn btn-primary btn-sm mt-3"
               onClick={() => window.location.reload()}
-              style={{ marginTop: 12 }}
             >
               Reload
             </button>
@@ -139,7 +138,7 @@ function PicksViewInner() {
       <div className="picks-container" role="region" aria-label="My picks">
         <div className="no-festival">
           <p>Join this festival to start saving picks.</p>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginTop: 8 }}>
+          <p className="mt-2 text-[13px] text-[var(--color-text-secondary)]">
             Open the Schedule tab and tap <strong>Join festival</strong>.
           </p>
         </div>

@@ -176,7 +176,7 @@ export default function FestivalEditForm({
                 value={stage.name}
                 onChange={(e) => {
                   const updated = [...(formData.stages || [])];
-                  updated[i].name = e.target.value;
+                  if (updated[i]) updated[i].name = e.target.value;
                   setFormData({ ...formData, stages: updated });
                 }}
                 className="flex-1 px-3 py-2 rounded-lg bg-bg-primary border border-glass-border text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
@@ -186,7 +186,7 @@ export default function FestivalEditForm({
                 value={stage.color}
                 onChange={(e) => {
                   const updated = [...(formData.stages || [])];
-                  updated[i].color = e.target.value;
+                  if (updated[i]) updated[i].color = e.target.value;
                   setFormData({ ...formData, stages: updated });
                 }}
                 className="w-12 h-10 rounded-lg cursor-pointer"

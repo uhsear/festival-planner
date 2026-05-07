@@ -32,7 +32,7 @@ function fmtCountdown(mins: number): string {
 const POST_MIDNIGHT_CUTOFF_MIN = 6 * 60;
 
 function parseSetMs(dateStr: string, timeStr: string): number {
-  const [h, m] = timeStr.split(':').map(Number);
+  const [h = 0, m = 0] = timeStr.split(':').map(Number);
   const base = new Date(`${dateStr}T00:00:00`).getTime();
   const totalMins = h * 60 + m;
   // Wall-clock-before-6am on this festival day → it's the NEXT calendar day.

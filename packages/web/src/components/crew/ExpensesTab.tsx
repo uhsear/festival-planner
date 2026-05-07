@@ -249,7 +249,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
       ) : (
         <div className="space-y-2">
           {expenses.map((e) => {
-            const cat = CATEGORIES.find((c) => c.key === e.category) || CATEGORIES[CATEGORIES.length - 1];
+            const cat = CATEGORIES.find((c) => c.key === e.category) ?? CATEGORIES[CATEGORIES.length - 1]!;
             const paidByMe = e.paid_by === currentUserId;
             return (
               <div key={e.id} className="crew-list-enter p-3 rounded-lg bg-bg-card border border-border flex items-start gap-3">

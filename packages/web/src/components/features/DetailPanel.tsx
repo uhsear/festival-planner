@@ -169,6 +169,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             </button>
 
             <div className="detail-stage-badge" style={{ background: stageColor + '25', color: stageColor }}>
+
               {stageName}
             </div>
 
@@ -204,8 +205,8 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             )}
 
             {currentProfile && set && currentFestival && hasSetStarted(set, currentFestival, festivalDays) && (
-              <div className="detail-rating" style={{ margin: '14px 0 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: 8 }}>
+              <div className="detail-rating mx-0 mb-2.5 mt-3.5 text-center">
+                <div className="mb-2 text-[11px] uppercase tracking-wide text-[var(--color-text-muted)]">
                   Rate this set
                 </div>
                 <RatingButtons setId={set.id} festivalId={currentFestival.id} />

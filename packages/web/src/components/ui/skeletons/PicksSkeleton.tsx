@@ -18,12 +18,11 @@ export default function PicksSkeleton() {
           {Array.from({ length: section.count }).map((_, i) => (
             <div
               key={i}
-              className="pick-item"
-              style={{ display: 'flex', flexDirection: 'column', gap: 6, pointerEvents: 'none' }}
+              className="pick-item flex flex-col gap-1.5 pointer-events-none"
             >
-              <div className="skeleton" style={{ height: 10, width: '30%' }} />
-              <div className="skeleton" style={{ height: 16, width: '70%' }} />
-              <div className="skeleton" style={{ height: 12, width: '35%', marginTop: 2 }} />
+              <div className="skeleton h-2.5 w-[30%]" />
+              <div className="skeleton h-4 w-[70%]" />
+              <div className="skeleton mt-0.5 h-3 w-[35%]" />
             </div>
           ))}
         </div>

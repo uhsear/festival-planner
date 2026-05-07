@@ -19,8 +19,8 @@ export function detectConflicts(
 
   for (let i = 0; i < picked.length; i++) {
     for (let j = i + 1; j < picked.length; j++) {
-      const a = picked[i];
-      const b = picked[j];
+      const a = picked[i]!;
+      const b = picked[j]!;
 
       let aS = timeToMinutes(a.startTime);
       let aE = timeToMinutes(a.endTime);

@@ -43,12 +43,12 @@ export function getSetStatus(set: FestivalSet, now: Date, days: FestivalDay[] = 
     };
   }
 
-  const [startHh, startMm] = (set.startTime || '00:00').split(':').map((x) => parseInt(x, 10));
+  const [startHh = 0, startMm = 0] = (set.startTime || '00:00').split(':').map((x) => parseInt(x, 10));
   setDate.setHours(startHh, startMm, 0, 0);
   const setStartTime = setDate.getTime();
 
   const endDate = new Date(dateStr);
-  const [endHh, endMm] = (set.endTime || set.startTime).split(':').map((x) => parseInt(x, 10));
+  const [endHh = 0, endMm = 0] = (set.endTime || set.startTime).split(':').map((x) => parseInt(x, 10));
   endDate.setHours(endHh, endMm, 0, 0);
   // If end time is before start time, assume next day
   if (endDate <= setDate) {
@@ -154,5 +154,5 @@ export function useSetStatus(sets: FestivalSet | FestivalSet[]): SetStatusResult
     return setsArray.map((set) => getSetStatus(set, now, days));
   }, [setsArray, now, days]);
 
-  return isSingleSet ? results[0] : results;
+  return isSingleSet ? results[0]! : results;
 }

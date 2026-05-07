@@ -50,7 +50,7 @@ export default function ChangePasswordModal({ onClose, onSubmit }: ChangePasswor
         <section className="user-menu-section">
           <div className="user-menu-section-title">Change Password</div>
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="account-setting-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+            <div className="account-setting-row flex-col items-stretch gap-1.5">
               <label className="account-setting-key" htmlFor="cp-current">
                 Current password
               </label>
@@ -64,7 +64,7 @@ export default function ChangePasswordModal({ onClose, onSubmit }: ChangePasswor
                 required
               />
             </div>
-            <div className="account-setting-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+            <div className="account-setting-row flex-col items-stretch gap-1.5">
               <label className="account-setting-key" htmlFor="cp-new">
                 New password
               </label>
@@ -79,7 +79,7 @@ export default function ChangePasswordModal({ onClose, onSubmit }: ChangePasswor
                 required
               />
             </div>
-            <div className="account-setting-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+            <div className="account-setting-row flex-col items-stretch gap-1.5">
               <label className="account-setting-key" htmlFor="cp-confirm">
                 Confirm new password
               </label>
@@ -95,7 +95,7 @@ export default function ChangePasswordModal({ onClose, onSubmit }: ChangePasswor
               />
             </div>
             {error && (
-              <div role="alert" className="account-setting-value" style={{ color: 'var(--color-accent-coral)' }}>
+              <div role="alert" className="account-setting-value text-[var(--color-accent-coral)]">
                 {error}
               </div>
             )}

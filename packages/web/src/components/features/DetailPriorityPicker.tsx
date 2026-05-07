@@ -41,7 +41,7 @@ export default function DetailPriorityPicker({
               await onPriorityClick(p);
             }}
           >
-            <div style={{ fontSize: '20px' }}>{icon}</div>
+            <div className="text-xl">{icon}</div>
             <div className="priority-label">{label}</div>
           </button>
         );

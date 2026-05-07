@@ -10,20 +10,11 @@ export default function AccountSkeleton() {
       aria-label="Loading account"
     >
       {/* avatar row */}
-      <div
-        className="p-4 rounded-lg"
-        style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border)',
-          display: 'flex',
-          gap: 16,
-          alignItems: 'center',
-        }}
-      >
-        <div className="skeleton" style={{ height: 64, width: 64, borderRadius: '50%' }} />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="skeleton" style={{ height: 14, width: '50%' }} />
-          <div className="skeleton" style={{ height: 32, width: 120, borderRadius: 6 }} />
+      <div className="flex items-center gap-4 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4">
+        <div className="skeleton h-16 w-16 rounded-full" />
+        <div className="flex flex-1 flex-col gap-2">
+          <div className="skeleton h-3.5 w-1/2" />
+          <div className="skeleton h-8 w-[120px] rounded-md" />
         </div>
       </div>
 
@@ -31,21 +22,14 @@ export default function AccountSkeleton() {
       {[0, 1, 2].map((i) => (
         <div
           key={i}
-          className="p-4 rounded-lg"
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-          }}
+          className="flex flex-col gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-4"
         >
-          <div className="skeleton" style={{ height: 16, width: '40%' }} />
-          <div className="skeleton" style={{ height: 40, width: '100%', borderRadius: 6 }} />
+          <div className="skeleton h-4 w-2/5" />
+          <div className="skeleton h-10 w-full rounded-md" />
           {i !== 2 && (
-            <div className="skeleton" style={{ height: 40, width: '100%', borderRadius: 6 }} />
+            <div className="skeleton h-10 w-full rounded-md" />
           )}
-          <div className="skeleton" style={{ height: 36, width: 120, borderRadius: 6, marginTop: 4 }} />
+          <div className="skeleton mt-1 h-9 w-[120px] rounded-md" />
         </div>
       ))}
     </div>

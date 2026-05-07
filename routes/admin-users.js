@@ -19,18 +19,18 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
     sendSuccess, sendError, ErrorCodes,
     adminAuth, getRequestIp, buildAvatarUrl,
     io, stores,
-    schemas, validate,
+    schemas, validate, validateQuery,
     createAuditLog, invalidateUserCache,
   } = deps;
   const { adminWriteLimit, passwordResetRateLimit, crypto, parsePageParams, paginateArray } = ctx;
 
   // ── GET /users — list users with roles and optional search ────────────
-  router.get('/users', adminAuth, async (req, res) => {
+  router.get('/users', adminAuth, validateQuery(schemas.adminUserSearchQuery), async (req, res) => {
     try {
       setNoStore(res);
       const users = await getUsers();
       const profiles = await getProfiles();
-      const search = req.query.search ? String(req.query.search).trim().toLowerCase() : null;
+      const search = req.validatedQuery.search ? req.validatedQuery.search.toLowerCase() : null;
 
       // Pre-index profiles by userId
       const profilesByUser = new Map();

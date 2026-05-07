@@ -117,7 +117,7 @@ export default function CompareView() {
         </div>
       ) : (
         <div className="px-4 max-w-6xl mx-auto mt-2 overflow-x-auto">
-          <table className="w-full border-separate" style={{ borderSpacing: 0 }}>
+          <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-text-muted">
                 <th className="sticky left-0 bg-bg-primary z-10 py-2 pr-3 min-w-[180px]">Set</th>
@@ -142,13 +142,15 @@ export default function CompareView() {
                     <th
                       scope="row"
                       className="sticky left-0 bg-bg-primary z-10 py-3 pr-3 align-top text-left"
-                      style={{ borderLeft: `3px solid ${stageColor}`, paddingLeft: 10 }}
+                      style={{ borderLeft: `3px solid ${stageColor}` }}
+                      className="pl-2.5"
                     >
                       <div className="font-semibold text-text-primary truncate max-w-[180px]">{set.artist}</div>
                       <div className="text-xs text-text-secondary">
                         {formatTime(set.startTime)}–{formatTime(set.endTime)}
                       </div>
                       <div className="text-xs" style={{ color: stageColor }}>{getStageName(set.stageId)}</div>
+
                       {consensus && (
                         <div className="mt-1 inline-block text-[10px] px-1.5 py-0.5 rounded bg-accent-amber/20 text-accent-amber font-semibold">
                           All going

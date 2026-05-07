@@ -17,14 +17,14 @@ export default function GridSkeleton() {
         <div />
         {Array.from({ length: cols }).map((_, i) => (
           <div key={i} className="fk-grid__col-head">
-            <div className="skeleton" style={{ height: 14, width: '60%', margin: '0 auto' }} />
+            <div className="skeleton mx-auto h-3.5 w-[60%]" />
           </div>
         ))}
       </div>
 
       {/* body */}
       <div className="fk-grid__body">
-        <div className="fk-grid__gutter" style={{ height: 600 }}>
+        <div className="fk-grid__gutter h-[600px]">
           {[0, 1, 2, 3, 4, 5, 6].map((h) => (
             <span
               key={h}
@@ -32,25 +32,19 @@ export default function GridSkeleton() {
               style={{ top: h * 90 }}
               aria-hidden="true"
             >
-              <span className="skeleton" style={{ display: 'inline-block', height: 10, width: 28 }} />
+              <span className="skeleton inline-block h-2.5 w-7" />
             </span>
           ))}
         </div>
         <div className="fk-grid__cols">
           {Array.from({ length: cols }).map((_, ci) => (
-            <div key={ci} className="fk-grid__col" style={{ height: 600 }}>
+            <div key={ci} className="fk-grid__col h-[600px]">
               {[0, 1, 2].map((bi) => (
                 <div
                   key={bi}
-                  className="skeleton"
+                  className="skeleton absolute left-1.5 right-1.5 h-[110px] rounded-md opacity-60"
                   style={{
-                    position: 'absolute',
                     top: 60 + bi * 190 + ci * 15,
-                    left: 6,
-                    right: 6,
-                    height: 110,
-                    borderRadius: 6,
-                    opacity: 0.6,
                   }}
                 />
               ))}

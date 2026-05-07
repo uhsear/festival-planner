@@ -370,33 +370,23 @@ function TBASection({
                   priority buttons inside don't trigger nested-interactive. */}
               <button
                 type="button"
-                className="tba-card-click-target"
+                className="tba-card-click-target absolute inset-0 z-[1] cursor-pointer border-0 bg-transparent p-0 m-0"
                 aria-label={`${dn}${stage ? ' at ' + stage.name : ''}, time TBA${myPick ? ', priority: ' + myPick : ''}`}
                 onClick={() => onOpenDetail(s)}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'transparent',
-                  border: 0,
-                  padding: 0,
-                  margin: 0,
-                  cursor: 'pointer',
-                  zIndex: 1,
-                }}
               />
-              <div className="set-artist" style={{ position: 'relative', zIndex: 2, pointerEvents: 'none' }}>{dn}</div>
+              <div className="set-artist relative z-[2] pointer-events-none">{dn}</div>
               {stage && stageColor && (
                 <StageBadge
                   variant="pick"
                   stageName={stage.name}
                   stageColor={stageColor}
-                  style={{ fontSize: '11px', position: 'relative', zIndex: 2 }}
+                  className="relative z-[2] text-[11px]"
                 />
               )}
 
               {/* Priority pick buttons */}
               {currentProfile && (
-                <div className="timeline-pick-group" style={{ position: 'relative', zIndex: 2 }}>
+                <div className="timeline-pick-group relative z-[2]">
                   {([['must', '★'], ['want-to-see', '◆'], ['maybe', '●']] as const).map(
                     ([p, icon]) => {
                       const active = myPick === p;
@@ -432,13 +422,13 @@ function TBASection({
 
               {/* Crew overlap */}
               {others.length > 0 && (
-                <div className="set-overlap" style={{ position: 'relative', zIndex: 2 }}>
+                <div className="set-overlap relative z-[2]">
                   {others.slice(0, 3).map((o) => (
                     <div
                       key={o.profileId}
                       className="mini-avatar"
                       title={`${o.name || 'Crew member'} (${o.priority})`}
-                      style={{ width: 16, height: 16, fontSize: 7 }}
+                      className="h-4 w-4 text-[7px]"
                     />
                   ))}
                 </div>

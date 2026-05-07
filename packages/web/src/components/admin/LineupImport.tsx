@@ -73,7 +73,7 @@ export default function LineupImport({ festivalId, onSuccess }: LineupImportProp
       return;
     }
 
-    const header = parseCsvLine(lines[0]).map((h) => h.trim());
+    const header = parseCsvLine(lines[0]!).map((h) => h.trim());
     const required = ['dayLabel', 'date', 'artist', 'stage'];
 
     const missingColumns = required.filter((col) => !header.includes(col));
@@ -94,10 +94,10 @@ export default function LineupImport({ festivalId, onSuccess }: LineupImportProp
     lines.slice(1).forEach((line, lineNum) => {
       const values = parseCsvLine(line);
 
-      const dayLabel = (values[indexes.dayLabel] || '').trim();
-      const date = (values[indexes.date] || '').trim();
-      const artist = (values[indexes.artist] || '').trim();
-      const stage = (values[indexes.stage] || '').trim();
+      const dayLabel = (values[indexes['dayLabel']!] || '').trim();
+      const date = (values[indexes['date']!] || '').trim();
+      const artist = (values[indexes['artist']!] || '').trim();
+      const stage = (values[indexes['stage']!] || '').trim();
 
       if (!artist) {
         skippedCount++;

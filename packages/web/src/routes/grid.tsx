@@ -24,7 +24,7 @@ const PICK_COLOR: Record<string, string> = {
 };
 
 function toMin(t: string): number {
-  const [h, m] = t.split(':').map(Number);
+  const [h = 0, m = 0] = t.split(':').map(Number);
   return h * 60 + m;
 }
 
@@ -34,7 +34,7 @@ function fmtHour(totalMin: number): string {
 }
 
 function fmtShort(t: string): string {
-  const [h, m] = t.split(':').map(Number);
+  const [h = 0, m = 0] = t.split(':').map(Number);
   return `${h % 12 || 12}${m ? ':' + String(m).padStart(2, '0') : ''}${h < 12 ? 'am' : 'pm'}`;
 }
 

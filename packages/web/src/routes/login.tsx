@@ -104,10 +104,10 @@ export default function LoginPage() {
           {isLoading ? 'Logging in...' : 'Login'}
         </button>
 
-        <div style={{ textAlign: 'center', marginTop: '12px' }}>
+        <div className="mt-3 text-center">
           <Link
             to="/forgot-password"
-            style={{ color: 'var(--accent)', fontSize: '13px', textDecoration: 'none' }}
+            className="text-[13px] text-[var(--accent)] no-underline"
           >
             Forgot password?
           </Link>

@@ -8,7 +8,10 @@ const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { Pool } = require('pg');
 
-const DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+// DB skip-gate: migration tests require a live Postgres database.
+// Uses TEST_DATABASE_URL only — never falls back to DATABASE_URL (production safety).
+// Set TEST_DATABASE_URL to run them (always set in CI). See tests/README.md.
+const DATABASE_URL = process.env.TEST_DATABASE_URL;
 
 // ── Spotify module tests ────────────────────────────────────────────
 

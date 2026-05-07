@@ -10,7 +10,7 @@ module.exports = function createFestivalsRoutes(deps) {
     sendSuccess, sendError, ErrorCodes,
     rateLimit,
     io, stores, emitter,
-    schemas, validate, invalidateFestivalCache,
+    schemas, validate, validateQuery, invalidateFestivalCache,
   } = deps;
 
   const router = express.Router();
@@ -80,7 +80,7 @@ module.exports = function createFestivalsRoutes(deps) {
   //   ?depth=0 → name, id, location only (already served by GET /)
   //   ?depth=1 → stages + days with set names (no profiles/messages) — default for mobile initial load
   //   ?depth=2 (or omitted) → full festival data (backward compatible default)
-  router.get('/:id', rateLimit(120, 'festival-detail'), async (req, res) => {
+  router.get('/:id', rateLimit(120, 'festival-detail'), validateQuery(schemas.festivalDepthQuery), async (req, res) => {
     try {
       const festival = await getFestivalById(req.params.id);
       if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
@@ -90,10 +90,7 @@ module.exports = function createFestivalsRoutes(deps) {
       // still fetching fresh data when the network is available.
       res.setHeader('Cache-Control', 'no-cache');
 
-      const depth = req.query.depth !== undefined ? parseInt(req.query.depth, 10) : undefined;
-      if (depth !== undefined && (!Number.isFinite(depth) || depth < 0 || depth > 2)) {
-        return sendError(res, 400, 'Invalid depth parameter (0-2)', ErrorCodes.INVALID_INPUT);
-      }
+      const depth = req.validatedQuery.depth;
       if (depth === 1) {
         // L1: structural overview — stages, days with set names/times, no full profile data
         return sendSuccess(res, {
@@ -178,12 +175,12 @@ module.exports = function createFestivalsRoutes(deps) {
   });
 
   // P3.18: Soft-delete (default). Pass ?hard=true for permanent removal.
-  router.delete('/:id', adminAuth, rateLimit(5, 'festival-delete'), async (req, res) => {
+  router.delete('/:id', adminAuth, rateLimit(5, 'festival-delete'), validateQuery(schemas.festivalDeleteQuery), async (req, res) => {
     try {
       const festival = await getFestivalById(req.params.id);
       if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
       const festivalId = festival.id;
-      const hardDelete = req.query.hard === 'true';
+      const hardDelete = req.validatedQuery.hard === 'true';
 
       if (!hardDelete && stores.festivals?.softDelete) {
         // Soft-delete: mark as deleted, preserve data for potential restore

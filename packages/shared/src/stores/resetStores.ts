@@ -1,13 +1,17 @@
 import { useCrewStore } from './crewStore';
 import { useUIStore } from './uiStore';
-import { useFestivalStore } from './festivalStore';
+import { useFestivalDataStore } from './festivalDataStore';
+import { useFestivalUIStore } from './festivalUIStore';
 import { useFestivalModeStore } from './festivalModeStore';
 
 export function resetAllStores(): void {
-  useFestivalStore.setState({
+  useFestivalDataStore.setState({
     festivals: [], currentFestivalId: null, currentFestival: null,
     currentProfile: null, allProfiles: [], sets: [], stages: [], days: [],
-    selectedDay: 0, activeStages: [], searchQuery: '', error: null,
+    error: null,
+  });
+  useFestivalUIStore.setState({
+    selectedDay: 0, activeStages: [], searchQuery: '',
   });
   useCrewStore.setState({
     crews: [], activeCrew: null, crewMembers: [], crewOverlap: {},

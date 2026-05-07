@@ -17,13 +17,7 @@ export default function FestivalSelector() {
     <>
       <label
         htmlFor="festival-select-input"
-        style={{
-          fontSize: '12px',
-          color: 'var(--text-secondary)',
-          marginRight: '6px',
-          display: 'inline-block',
-          fontWeight: 600,
-        }}
+        className="mr-1.5 inline-block text-xs font-semibold text-[var(--text-secondary)]"
       >
         Festival:
       </label>

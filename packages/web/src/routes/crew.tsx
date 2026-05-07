@@ -95,7 +95,7 @@ function CrewViewInner() {
 
   useEffect(() => {
     if (user && crews.length > 0 && !activeCrew) {
-      selectCrew(crews[0].id).catch(() => {});
+      selectCrew(crews[0]!.id).catch(() => {});
     }
   }, [user?.id, crews, activeCrew, selectCrew]);
 
@@ -108,7 +108,7 @@ function CrewViewInner() {
       );
       if (!users || users.length === 0) { toast('No matching user found', 'error'); return; }
       const exact = users.find((u) => u.username.toLowerCase() === query.toLowerCase());
-      const target = exact || users[0];
+      const target = exact || users[0]!;
       // Ambiguous match guard — kept as a native confirm since it's a
       // rare admin-only path and doesn't warrant a second Radix dialog.
       if (!exact && users.length > 1) {

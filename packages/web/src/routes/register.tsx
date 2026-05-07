@@ -139,39 +139,21 @@ export default function RegisterPage() {
         />
 
         {/* TOS checkbox — matches legacy styling */}
-        <label
-          className="tos-checkbox"
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '8px',
-            margin: '10px 0',
-            fontSize: '13px',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
-          }}
-        >
+        <label className="tos-checkbox my-2.5 flex cursor-pointer items-start gap-2 text-[13px] text-[var(--text-secondary)]">
           <input
             type="checkbox"
             id="authTos"
             checked={tosAccepted}
             onChange={(e) => setTosAccepted(e.target.checked)}
-            style={{
-              width: '18px',
-              height: '18px',
-              minWidth: '18px',
-              padding: '0',
-              marginTop: '2px',
-              accentColor: 'var(--accent)',
-            }}
+            className="mt-0.5 h-[18px] w-[18px] min-w-[18px] p-0 accent-[var(--accent)]"
           />
           <span>
             I agree to the{' '}
-            <a href="/terms.html" target="_blank" style={{ color: 'var(--accent)' }}>
+            <a href="/terms.html" target="_blank" className="text-[var(--accent)]">
               Terms of Service
             </a>{' '}
             and{' '}
-            <a href="/privacy.html" target="_blank" style={{ color: 'var(--accent)' }}>
+            <a href="/privacy.html" target="_blank" className="text-[var(--accent)]">
               Privacy Policy
             </a>
           </span>

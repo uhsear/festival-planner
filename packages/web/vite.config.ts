@@ -8,7 +8,7 @@ export default defineConfig({
   build: {
     target: 'es2022',
     cssCodeSplit: true,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         // Split the vendor bundle into logical chunks so the 697 KB index chunk
         // becomes a small shell + cacheable vendor groups. Parallel HTTP/2 load

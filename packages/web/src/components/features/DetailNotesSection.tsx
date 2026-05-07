@@ -20,10 +20,9 @@ export default function DetailNotesSection({
         onChange={(e) => onPersonalChange(e.target.value)}
       />
 
-      <div className="detail-notes" style={{ marginTop: '8px' }}>
+      <div className="detail-notes mt-2">
         <div
-          className="detail-notes-title"
-          style={{ color: 'var(--accent-aqua)' }}
+          className="detail-notes-title text-[var(--accent-aqua)]"
           id="crew-notes-label"
         >
           Crew Note (visible to your crew)
@@ -31,7 +30,7 @@ export default function DetailNotesSection({
         <textarea
           placeholder="Share a note with your crew..."
           aria-labelledby="crew-notes-label"
-          style={{ borderColor: 'var(--accent-aqua)', borderWidth: '1px' }}
+          className="border border-[var(--accent-aqua)]"
           value={crewNote}
           onChange={(e) => onCrewChange(e.target.value)}
         />

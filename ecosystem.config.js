@@ -42,9 +42,19 @@ module.exports = {
       CLUSTER_SIZE: '4'
     },
 
+    // Log configuration
     error_file: './logs/pm2-error.log',
     out_file: './logs/pm2-out.log',
     merge_logs: true,
-    time: true
+    time: true,
+
+    // Log rotation (requires pm2-logrotate: pm2 install pm2-logrotate)
+    // These are app-level settings; pm2-logrotate module config is set via:
+    //   pm2 set pm2-logrotate:max_size    50M
+    //   pm2 set pm2-logrotate:retain       14
+    //   pm2 set pm2-logrotate:compress    true
+    //   pm2 set pm2-logrotate:dateFormat  YYYY-MM-DD_HH-mm-ss
+    //   pm2 set pm2-logrotate:rotateInterval '0 0 * * *'
+    //   pm2 set pm2-logrotate:workerInterval 30
   }]
 };

@@ -2,7 +2,7 @@ import { FestivalSet, Artist } from '../types/domain';
 
 export function formatTime(t: string | undefined): string {
   if (!t) return '';
-  const [hh, mm] = t.split(':');
+  const [hh = '0', mm = '00'] = t.split(':');
   let hr = parseInt(hh, 10);
   const ap = hr >= 12 ? 'PM' : 'AM';
   hr = hr % 12 || 12;
@@ -11,7 +11,7 @@ export function formatTime(t: string | undefined): string {
 
 export function timeToMinutes(t: string | undefined): number {
   if (!t) return 0;
-  const [hh, mm] = t.split(':').map((x) => parseInt(x, 10));
+  const [hh = 0, mm = 0] = t.split(':').map((x) => parseInt(x, 10));
   return hh * 60 + mm;
 }
 
@@ -71,11 +71,11 @@ export function getSetHotness(set: FestivalSet): number {
   const dayDate = new Date(set.date);
   if (isNaN(dayDate.getTime())) return 0;
 
-  const [hh, mm] = (set.startTime || '00:00').split(':').map((x) => parseInt(x, 10));
+  const [hh = 0, mm = 0] = (set.startTime || '00:00').split(':').map((x) => parseInt(x, 10));
   dayDate.setHours(hh, mm, 0, 0);
   const setStart = dayDate.getTime();
 
-  const [eh, em] = (set.endTime || set.startTime).split(':').map((x) => parseInt(x, 10));
+  const [eh = 0, em = 0] = (set.endTime || set.startTime).split(':').map((x) => parseInt(x, 10));
   const endDate = new Date(set.date);
   endDate.setHours(eh, em, 0, 0);
   if (endDate <= dayDate) endDate.setDate(endDate.getDate() + 1);

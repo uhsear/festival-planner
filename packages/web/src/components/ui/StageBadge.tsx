@@ -37,8 +37,8 @@ function relativeLuminance(r: number, g: number, b: number): number {
 function parseHex(hex: string): [number, number, number] | null {
   const m = /^#?([0-9a-f]{3,8})$/i.exec(hex);
   if (!m) return null;
-  let h = m[1];
-  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  let h = m[1]!;
+  if (h.length === 3) h = h[0]! + h[0]! + h[1]! + h[1]! + h[2]! + h[2]!;
   if (h.length < 6) return null;
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }

@@ -47,41 +47,32 @@ export default function DetailCrewSection({ title, others, crewNotes }: Props) {
                 height={28}
                 loading="lazy"
                 decoding="async"
-                style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  objectFit: 'cover', flexShrink: 0,
-                }}
+                className="h-7 w-7 shrink-0 rounded-full object-cover"
                 title={o.name + ' (' + o.priority + ')'}
               />
             ) : (
               <div
-                style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: avatarColor,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0,
-                }}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+                style={{ background: avatarColor }}
                 title={o.name + ' (' + o.priority + ')'}
               >
                 {initials}
               </div>
             )}
             <span>{o.name}</span>
-            <span className="friend-priority" style={{ color: priColors[o.priority] }}>
-              {priLabels[o.priority]}
-            </span>
+            <span className="friend-priority" style={{ color: priColors[o.priority] }}>{priLabels[o.priority]}</span>
           </div>
         );
       })}
 
       {crewNotes.length > 0 && (
-        <div style={{ padding: '8px 0', borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent-aqua)', marginBottom: '6px' }}>
+        <div className="border-t border-[var(--border)] py-2">
+          <div className="mb-1.5 text-xs font-semibold text-[var(--accent-aqua)]">
             Crew Notes
           </div>
           {crewNotes.map((cn, i) => (
-            <div key={i} style={{ fontSize: '13px', padding: '4px 0' }}>
-              <strong style={{ color: 'var(--text-secondary)' }}>{cn.name + ': '}</strong>
+            <div key={i} className="py-1 text-[13px]">
+              <strong className="text-[var(--text-secondary)]">{cn.name + ': '}</strong>
               {cn.note}
             </div>
           ))}

@@ -82,7 +82,7 @@ export function useDetailPanelData(set: FestivalSet) {
         (p) =>
           p.id !== currentProfile?.id && p.notes?.['crew:' + set.id],
       )
-      .map((p) => ({ name: p.name || 'Unknown', note: p.notes['crew:' + set.id] }));
+      .map((p) => ({ name: p.name || 'Unknown', note: p.notes['crew:' + set.id]! }));
   }, [allProfiles, currentProfile?.id, set.id]);
 
   const whoTitle = useMemo(() => {

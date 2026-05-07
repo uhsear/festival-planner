@@ -15,11 +15,10 @@ export default function TimelineSkeleton() {
       role="region"
     >
       <div
-        className="timeline-grid"
+        className="timeline-grid relative"
         style={{
           gridTemplateColumns: `52px repeat(${stages}, minmax(0, 1fr))`,
           gridTemplateRows: `auto repeat(${slots}, 28px)`,
-          position: 'relative',
         }}
       >
         {/* corner */}
@@ -27,7 +26,7 @@ export default function TimelineSkeleton() {
         {/* stage headers */}
         {Array.from({ length: stages }).map((_, i) => (
           <div key={`h-${i}`} className="timeline-header-cell">
-            <div className="skeleton" style={{ height: 14, width: '60%', margin: '0 auto' }} />
+            <div className="skeleton mx-auto h-3.5 w-[60%]" />
           </div>
         ))}
 
@@ -39,7 +38,7 @@ export default function TimelineSkeleton() {
             style={{ gridRow: i + 2, gridColumn: 1 }}
           >
             {i % 2 === 0 ? (
-              <div className="skeleton" style={{ height: 10, width: 32 }} />
+              <div className="skeleton h-2.5 w-8" />
             ) : null}
           </div>
         ))}
@@ -54,13 +53,10 @@ export default function TimelineSkeleton() {
         ].map((b, i) => (
           <div
             key={`s-${i}`}
-            className="skeleton"
+            className="skeleton m-[1px_2px] rounded-md opacity-65"
             style={{
               gridRow: `${b.row + 1} / span ${b.span}`,
               gridColumn: b.col + 1,
-              margin: '1px 2px',
-              borderRadius: 6,
-              opacity: 0.65,
             }}
           />
         ))}

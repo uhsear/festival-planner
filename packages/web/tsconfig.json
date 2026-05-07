@@ -5,17 +5,12 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "strict": true,
-    // TODO: Enable "noUncheckedIndexedAccess": true incrementally.
-    // As of 2026-05-07 it produces ~50 errors across 15 files (conflicts.ts,
-    // format.ts, StageBadge.tsx, crew.tsx, grid.tsx, LineupImport.tsx, etc.).
-    // Fix files one at a time, then flip the flag.
-    "esModuleInterop": true,
+    "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@festie/shared/*": ["../shared/src/*"]

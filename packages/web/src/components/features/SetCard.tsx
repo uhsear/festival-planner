@@ -154,25 +154,15 @@ export default function SetCard({
           are positioned above via z-index. */}
       <button
         type="button"
-        className="set-card-click-target"
+        className="set-card-click-target absolute inset-0 z-[1] cursor-pointer border-0 bg-transparent p-0 m-0"
         aria-label={`${artistName} — ${stageName} ${set.startTime ? formatTime(set.startTime) : 'TBA'}`}
         onClick={() => { tap(); onTap(); }}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'transparent',
-          border: 0,
-          padding: 0,
-          margin: 0,
-          cursor: 'pointer',
-          zIndex: 1,
-        }}
       />
 
       {/* Spotify preview button — top-right corner, above click target */}
       {set.artists?.some((a) => a.links?.spotify) && (
         <button
-          className="card-preview-btn"
+          className="card-preview-btn absolute right-2 top-2 z-[2]"
           type="button"
           aria-label={
             previewPlaying
@@ -182,30 +172,22 @@ export default function SetCard({
           title={previewError || (previewPlaying ? 'Stop preview' : 'Play preview')}
           disabled={previewLoading}
           onClick={handlePreviewClick}
-          style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}
         >
           {previewPlaying ? '◼' : '▶'}
         </button>
       )}
 
       {/* Note indicator */}
-      {myNote && <div className="card-note-indicator" aria-label="Has note" style={{ position: 'relative', zIndex: 2 }}>📝</div>}
+      {myNote && <div className="card-note-indicator relative z-[2]" aria-label="Has note">📝</div>}
 
       {/* Conflict badge */}
-      {conflicts.length > 0 && <div className="conflict-badge" style={{ position: 'relative', zIndex: 2 }}>⚠ Conflict</div>}
+      {conflicts.length > 0 && <div className="conflict-badge relative z-[2]">⚠ Conflict</div>}
 
       {/* Stage label — solid bg + white text passes AA for all palette colors,
           including dark purples where the old faded-tint style failed contrast. */}
       <span
-        className="card-stage"
-        style={{
-          background: stageColor,
-          color: '#fff',
-          fontWeight: 700,
-          textShadow: '0 1px 2px rgba(0, 0, 0, 0.35)',
-          position: 'relative',
-          zIndex: 2,
-        }}
+        className="card-stage relative z-[2] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
+        style={{ background: stageColor }}
       >
         {stageName}
       </span>

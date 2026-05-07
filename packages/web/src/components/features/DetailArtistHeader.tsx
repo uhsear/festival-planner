@@ -37,19 +37,15 @@ export default function DetailArtistHeader({
       {/* Artist photo */}
       {primaryArtist && primaryArtist.photo && (
         <div
-          className="detail-artist-photo-wrap"
-          style={{
-            aspectRatio: '1 / 1',
-            background: stageColor + '18',
-          }}
+          className="detail-artist-photo-wrap aspect-square"
+          style={{ background: stageColor + '18' }}
         >
           <img
             src={primaryArtist.photo}
             alt={primaryArtist.name || setArtist || ''}
-            className="detail-artist-photo"
+            className="detail-artist-photo h-full w-full object-cover"
             loading="lazy"
             decoding="async"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             onError={(e) => {
               const wrap = (e.target as HTMLElement).parentElement;
               if (wrap) wrap.remove();
@@ -83,32 +79,18 @@ export default function DetailArtistHeader({
           {artistLinks.map((a, i) => (
             <React.Fragment key={a.name + i}>
               {isB2B && (
-                <div
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: 'var(--text-secondary)',
-                    marginTop: '6px',
-                  }}
-                >
+                <div className="mt-1.5 text-xs font-semibold text-[var(--text-secondary)]">
                   {a.name}
                 </div>
               )}
-              <div
-                className="detail-link"
-                style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}
-              >
+              <div className="detail-link flex flex-wrap gap-2.5">
                 {Object.entries(a.links || {}).map(([platform, url]) => (
                   <a
                     key={platform}
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      color: 'var(--accent-aqua)',
-                      fontSize: '13px',
-                      textDecoration: 'none',
-                    }}
+                    className="text-[13px] text-[var(--accent-aqua)] no-underline"
                   >
                     {(PLATFORM_LABELS[platform] || platform) + ' ↗'}
                   </a>

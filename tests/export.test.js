@@ -15,6 +15,8 @@ const { after, afterEach, before, describe, test } = require('node:test');
 const request = require('supertest');
 const { Pool } = require('pg');
 
+// DB skip-gate: these integration tests require a live Postgres database.
+// Set TEST_DATABASE_URL to run them (always set in CI). See tests/README.md.
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
 const skip = !TEST_DATABASE_URL || !TEST_DATABASE_URL.includes('_test');
 
@@ -22,13 +24,13 @@ const skip = !TEST_DATABASE_URL || !TEST_DATABASE_URL.includes('_test');
 let createFestivalPlanner = null;
 if (!skip) {
   try {
-    ({ createFestivalPlanner } = require('../../../../../server'));
+    ({ createFestivalPlanner } = require('../server'));
   } catch (err) {
     // Leave createFestivalPlanner null — individual tests will skip.
   }
 }
 
-const PUBLIC_DIR = path.join(__dirname, '..', '..', '..', '..', '..', 'public');
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const TRUSTED_MUTATION_HEADER = 'x-festie-request';
 const DEFAULT_PASSWORD = 'password123';
 
