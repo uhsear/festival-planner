@@ -45,11 +45,13 @@ module.exports = function createCalendarSyncRoutes(deps) {
  * No auth required; uses token for lookup.
  */
 module.exports.createCalendarFeedRoute = function createCalendarFeedRoute(deps) {
-  const { stores, log, config } = deps;
+  const { stores, log, config, rateLimit } = deps;
   const express = require('express');
   const feedRouter = express.Router();
+  const noopLimit = (_req, _res, next) => next();
+  const feedLimit = (typeof rateLimit === 'function') ? rateLimit(30, 'calendar-feed') : noopLimit;
 
-  feedRouter.get('/cal/:token.ics', async (req, res) => {
+  feedRouter.get('/cal/:token.ics', feedLimit, async (req, res) => {
     try {
       const tokenId = req.params.token;
       if (!tokenId || tokenId.length > 50) {

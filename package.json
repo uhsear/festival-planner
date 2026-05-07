@@ -14,7 +14,7 @@
   },
   "author": "Asir Khan <uhsear@gmail.com>",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "start": "node server.js",

@@ -1,4 +1,3 @@
-import React from 'react';
 import { cn } from '../../lib/utils';
 
 interface SkeletonProps {
@@ -24,6 +23,8 @@ export default function Skeleton({
         variantStyles[variant],
         className
       )}
+      aria-busy="true"
+      aria-label="Loading"
     />
   );
 }

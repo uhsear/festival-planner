@@ -53,27 +53,27 @@ const joinFestivalEventSchema = z.object({
   _v: z.number().int().min(1).default(1),
   festivalId: z.string().min(1).max(100),
   userToken: z.string().optional().nullable(),
-}).passthrough();
+}).strip();
 
 /** Reconnect and restore presence state */
 const reconnectRestoreEventSchema = z.object({
   _v: z.number().int().min(1).default(1),
   festivalId: z.string().min(1).max(100),
   userToken: z.string().optional().nullable(),
-}).passthrough();
+}).strip();
 
 
 /** Join a crew room for real-time crew updates */
 const joinCrewEventSchema = z.object({
   _v: z.number().int().min(1).default(1),
   crewId: z.string().min(1).max(100),
-}).passthrough();
+}).strip();
 
 /** Leave a crew room */
 const leaveCrewEventSchema = z.object({
   _v: z.number().int().min(1).default(1),
   crewId: z.string().min(1).max(100),
-}).passthrough();
+}).strip();
 
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -132,6 +132,82 @@ module.exports = function setupSocketHandlers(deps) {
     setSocketPresence,
   } = deps;
 
+  // ── Shared auth + room join helper ─────────────────────────────────
+  // Used by both join:festival and reconnect:restore to avoid ~40 lines
+  // of duplicated auth validation, room management, and presence logic.
+  /**
+   * Authenticate a socket, validate festival membership, join the room,
+   * and update presence state.
+   * @param {object} socket - Socket.IO socket instance
+   * @param {string} festivalId - Validated festival ID to join
+   * @param {string|null} userToken - Optional user token from event data
+   * @param {object} opts - Additional options
+   * @param {string} opts.rateLimitScope - Prefix for rate limit key (e.g. 'join' or 'restore')
+   * @returns {Promise<{ok:boolean, error?:string, code?:string, session?:object, profile?:object}>}
+   */
+  async function authenticateAndJoinRoom(socket, festivalId, userToken, { rateLimitScope }) {
+    // Auth + rate limit BEFORE any DB lookups
+    const sessionToken = resolveSocketToken(socket, userToken, config.USER_SESSION_COOKIE);
+    const session = await validateUserSession(sessionToken);
+    if (!session) {
+      disconnectSocket(socket, io);
+      return { ok: false, error: 'Authentication required' };
+    }
+    if (!consumeSocketRateLimit(`${rateLimitScope}:${session.userId}`, config.SOCKET_JOIN_RATE_LIMIT)) {
+      socket.emit('error', { message: 'Realtime rate limit exceeded' });
+      return { ok: false, error: 'Rate limited' };
+    }
+
+    // Cheap capacity checks before DB queries
+    const heapUsed = _cachedMemoryUsage.heapUsed;
+    if (heapUsed > config.MAX_HEAP_BYTES * 0.75) {
+      return { ok: false, error: 'Server is at capacity' };
+    }
+    const roomSize = io.sockets.adapter.rooms.get(festivalId)?.size || 0;
+    if (roomSize >= config.ROOM_CAPACITY_LIMIT) {
+      log.warn('room:full', { festivalId, roomSize });
+      return { ok: false, error: 'Room is full', code: 'WS_ROOM_FULL' };
+    }
+
+    // DB lookups
+    if (!await getFestivalById(festivalId)) {
+      return { ok: false, error: 'Festival not found' };
+    }
+    const profile = await getUserFestivalProfile(session.userId, festivalId);
+    if (!profile) {
+      return { ok: false, error: 'Not a member of this festival' };
+    }
+
+    // Leave previous festival room and clear all non-default rooms
+    const previousFestivalId = leaveFestivalRealtime(socket, io);
+    if (previousFestivalId && previousFestivalId !== festivalId) emitPresence(previousFestivalId, io);
+    for (const room of socket.rooms) {
+      if (room !== socket.id) socket.leave(room);
+    }
+
+    // Join new room and set socket state
+    socket.join(festivalId);
+    socket.data.userId = session.userId;
+    socket.data.username = session.username;
+    socket.data.festivalId = festivalId;
+    socket.data.profileId = profile.id;
+    socket.data.userSessionToken = sessionToken;
+    socket.authenticated = true;
+
+    // Update presence — guard against duplicates on reconnect
+    const presenceList = await getPresenceList(festivalId);
+    const existingPresence = presenceList.find(
+      (p) => p.userId === session.userId && p.socketId === socket.id
+    );
+    if (!existingPresence) {
+      setSocketPresence(festivalId, session.userId, session.username, socket.id)
+        .catch((err) => log.debug('setSocketPresence error', { error: err.message }));
+    }
+    emitPresence(festivalId, io);
+
+    return { ok: true, session, profile };
+  }
+
   // Main Socket.IO connection handler
   io.on('connection', (socket) => {
     // Assign a request ID for tracking this socket connection through its lifecycle
@@ -161,64 +237,14 @@ module.exports = function setupSocketHandlers(deps) {
       }
 
       const { festivalId: validatedFestivalId } = validation.data;
-
-      // Auth + rate limit BEFORE any DB lookups to avoid wasting queries on bad/rate-limited requests
-      const sessionToken = resolveSocketToken(socket, validation.data.userToken, config.USER_SESSION_COOKIE);
-      const session = await validateUserSession(sessionToken);
-      if (!session) {
-        disconnectSocket(socket, io);
-        return respond({ ok: false, error: 'Authentication required' });
+      const result = await authenticateAndJoinRoom(socket, validatedFestivalId, validation.data.userToken, { rateLimitScope: 'join' });
+      if (!result.ok) {
+        if (result.error === 'Not a member of this festival') {
+          socket.emit('error', { message: 'Join this festival before using crew realtime' });
+        }
+        return respond({ ok: false, error: result.error, code: result.code });
       }
-      if (!consumeSocketRateLimit(`join:${session.userId}`, config.SOCKET_JOIN_RATE_LIMIT)) {
-        socket.emit('error', { message: 'Realtime rate limit exceeded' });
-        return respond({ ok: false, error: 'Rate limited' });
-      }
-
-      // Cheap checks before DB queries
-      const heapUsed = _cachedMemoryUsage.heapUsed;
-      if (heapUsed > config.MAX_HEAP_BYTES * 0.75) {
-        return respond({ ok: false, error: 'Server is at capacity' });
-      }
-      const roomSize = io.sockets.adapter.rooms.get(validatedFestivalId)?.size || 0;
-      if (roomSize >= config.ROOM_CAPACITY_LIMIT) {
-        log.warn('room:full', { festivalId: validatedFestivalId || festivalId, roomSize }); return respond({ ok: false, error: 'Room is full', code: 'WS_ROOM_FULL' });
-      }
-
-      // DB lookups
-      if (!await getFestivalById(validatedFestivalId)) {
-        return respond({ ok: false, error: 'Festival not found' });
-      }
-      const profile = await getUserFestivalProfile(session.userId, validatedFestivalId);
-      if (!profile) {
-        socket.emit('error', { message: 'Join this festival before using crew realtime' });
-        return respond({ ok: false, error: 'Not a member of this festival' });
-      }
-
-      const previousFestivalId = leaveFestivalRealtime(socket, io);
-      if (previousFestivalId) emitPresence(previousFestivalId, io);
-      for (const room of socket.rooms) {
-        if (room !== socket.id) socket.leave(room);
-      }
-
-      socket.join(validatedFestivalId);
-      socket.data.userId = session.userId;
-      socket.data.username = session.username;
-      socket.data.festivalId = validatedFestivalId;
-      socket.data.profileId = profile.id;
-      socket.data.userSessionToken = sessionToken;
-
-      // Update presence in both local Map and Redis
-      // Guard against duplicate presence updates on reconnect
-      const presenceList = await getPresenceList(validatedFestivalId);
-      const existingPresence = presenceList.find(
-        (p) => p.userId === session.userId && p.socketId === socket.id
-      );
-      if (!existingPresence) {
-        setSocketPresence(validatedFestivalId, session.userId, session.username, socket.id)
-          .catch((err) => log.debug('setSocketPresence error', { error: err.message }));
-      }
-      emitPresence(validatedFestivalId, io);
-      respond({ ok: true, profileId: profile.id });
+      respond({ ok: true, profileId: result.profile.id });
       } catch (error) {
         log.error('join:festival error', { error: error && error.message, socketId: socket.id, connectionId });
         respond({ ok: false, error: 'Server error' });
@@ -325,64 +351,18 @@ module.exports = function setupSocketHandlers(deps) {
         }
 
         const { festivalId } = validation.data;
-        if (!await getFestivalById(festivalId)) {
-          return respond({ ok: false, error: 'Festival not found' });
+        const result = await authenticateAndJoinRoom(socket, festivalId, validation.data.userToken, { rateLimitScope: 'restore' });
+        if (!result.ok) {
+          if (result.error === 'Authentication required') {
+            log.warn('reconnect:restore session validation failed', { festivalId, socketId: socket.id });
+          }
+          return respond({ ok: false, error: result.error, code: result.code });
         }
 
-        const roomSize = io.sockets.adapter.rooms.get(festivalId)?.size || 0;
-        if (roomSize >= config.ROOM_CAPACITY_LIMIT) {
-          log.warn('room:full', { festivalId, roomSize }); return respond({ ok: false, error: 'Room is full', code: 'WS_ROOM_FULL' });
-        }
-
-        const heapUsed = _cachedMemoryUsage.heapUsed;
-        if (heapUsed > config.MAX_HEAP_BYTES * 0.75) {
-          return respond({ ok: false, error: 'Server is at capacity' });
-        }
-
-        // SECURITY: Always re-validate session token on reconnect (token may have been invalidated during disconnect)
-        const sessionToken = resolveSocketToken(socket, validation.data.userToken, config.USER_SESSION_COOKIE);
-        const session = await validateUserSession(sessionToken);
-        if (!session) {
-          log.warn('reconnect:restore session validation failed', { festivalId, socketId: socket.id });
-          disconnectSocket(socket, io);
-          return respond({ ok: false, error: 'Authentication required' });
-        }
-        if (!consumeSocketRateLimit(`restore:${session.userId}`, config.SOCKET_JOIN_RATE_LIMIT)) {
-          return respond({ ok: false, error: 'Rate limited' });
-        }
-        const profile = await getUserFestivalProfile(session.userId, festivalId);
-        if (!profile) {
-          return respond({ ok: false, error: 'Not a member of this festival' });
-        }
-
-        // Re-join room and restore socket state
-        const previousFestivalId = leaveFestivalRealtime(socket, io);
-        if (previousFestivalId && previousFestivalId !== festivalId) emitPresence(previousFestivalId, io);
-        for (const room of socket.rooms) {
-          if (room !== socket.id) socket.leave(room);
-        }
-        socket.join(festivalId);
-        socket.data.userId = session.userId;
-        socket.data.username = session.username;
-        socket.data.festivalId = festivalId;
-        socket.data.profileId = profile.id;
-        socket.data.userSessionToken = sessionToken;
-
-        // Guard against duplicate presence updates on reconnect
-        const presenceList = await getPresenceList(festivalId);
-        const existingPresence = presenceList.find(
-          (p) => p.userId === session.userId && p.socketId === socket.id
-        );
-        if (!existingPresence) {
-          setSocketPresence(festivalId, session.userId, session.username, socket.id)
-            .catch((err) => log.debug('setSocketPresence error', { error: err.message }));
-        }
-        emitPresence(festivalId, io);
-
-        log.info('reconnect:restore success', { userId: session.userId, festivalId });
+        log.info('reconnect:restore success', { userId: result.session.userId, festivalId });
         respond({
           ok: true,
-          profileId: profile.id,
+          profileId: result.profile.id,
         });
       } catch (error) {
         log.error('reconnect:restore error', { error: error.message, socketId: socket.id, userId: socket.data?.userId });

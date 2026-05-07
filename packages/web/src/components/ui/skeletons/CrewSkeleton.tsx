@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Skeleton for /crew — crew selector + home-base card + invite bar + tab bar
  * + 3 member rows. Matches the authenticated CrewView layout so the page

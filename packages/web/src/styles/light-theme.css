@@ -1,0 +1,146 @@
+/* ── Light theme (2026-05-02) ────────────────────────────────────────────
+   Overrides the dark-palette custom properties when the user toggles the
+   theme via the Header sun/moon button. Accent colors (coral, aqua, amber,
+   green, blue) and priority colors are designed to work on both light and
+   dark backgrounds, so they stay unchanged.
+   ─────────────────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+  --color-bg-primary: #f5f5f7;
+  --color-bg-secondary: #eeeef2;
+  --color-bg-card: rgba(255, 255, 255, 0.85);
+  --color-bg-card-hover: rgba(245, 245, 250, 0.95);
+  --color-bg-input: rgba(255, 255, 255, 0.9);
+  --color-text-primary: #1a1a2e;
+  --color-text-secondary: #555577;
+  --color-text-muted: #777799;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-light: rgba(0, 0, 0, 0.12);
+  --color-glass: rgba(255, 255, 255, 0.75);
+  --color-glass-border: rgba(0, 0, 0, 0.08);
+}
+
+/* Glass utilities — light mode needs white-on-light-bg instead of
+   dark-on-dark-bg. The blur stays the same; only tints change. */
+[data-theme="light"] .glass-sm {
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+/* Skeleton shimmer — dark shimmer on light bg instead of white shimmer. */
+[data-theme="light"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* Selection — darken the tint so it reads on light bg. */
+[data-theme="light"] ::selection {
+  background-color: rgba(0, 232, 208, 0.2);
+}
+
+/* Glass hover — invert the blend direction for light bg. */
+@media (hover: hover) {
+  [data-theme="light"] .glass:hover {
+    background-color: color-mix(in oklch, var(--color-glass) 85%, black);
+    border-color: rgba(0, 0, 0, 0.12);
+  }
+}
+
+/* Box shadows — dark-on-light instead of glow-on-dark. */
+[data-theme="light"] .timeline-set:hover {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .timeline-tba-card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.10);
+}
+[data-theme="light"] .timeline-jump-now {
+  box-shadow:
+    0 6px 20px rgba(255, 51, 102, 0.2),
+    0 1px 3px rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .timeline-jump-now:hover {
+  box-shadow:
+    0 8px 24px rgba(255, 51, 102, 0.28),
+    0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* Scrollbar — light track + darker thumb. */
+[data-theme="light"] ::-webkit-scrollbar-track {
+  background-color: var(--color-bg-secondary);
+}
+
+/* Festival mode cards — use light glass bg variable. */
+[data-theme="light"] .fm-set-card {
+  background: var(--color-bg-card);
+  border-color: var(--color-border-light);
+}
+[data-theme="light"] .fm-set-card.fm-now {
+  background: color-mix(in srgb, var(--color-accent-coral) 8%, var(--color-bg-card));
+}
+
+/* Timeline legend + header — use theme variables. */
+[data-theme="light"] .timeline-legend > summary {
+  background: rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .timeline-legend > summary:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+[data-theme="light"] .timeline-legend-list {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: var(--color-border-light);
+}
+
+/* Legend dot border — match light bg. */
+[data-theme="light"] .legend-dot {
+  border-color: var(--color-bg-primary);
+}
+
+/* Timeline header backdrop — light bg with blur. */
+[data-theme="light"] .timeline-grid .timeline-header-cell {
+  background: var(--color-bg-primary);
+}
+
+/* Festival mode day banner — softer gradient on light bg. */
+[data-theme="light"] .festival-mode-day-banner {
+  background: linear-gradient(90deg, rgba(0, 212, 170, 0.12), rgba(155, 114, 255, 0.08));
+  border-color: rgba(0, 212, 170, 0.25);
+}
+
+/* Coral danger buttons — on light bg the default coral reads fine,
+   no need for the dark-mode pastel override. */
+[data-theme="light"] .bg-accent-coral\/20.text-accent-coral {
+  color: var(--color-accent-coral);
+}
+[data-theme="light"] .bg-accent-coral\/30.text-accent-coral,
+[data-theme="light"] .bg-accent-coral\/20.text-accent-coral:hover {
+  color: var(--color-accent-coral);
+}
+
+/* Crew activity rail — softer on light bg. */
+[data-theme="light"] .crew-activity-item::before {
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--color-accent-aqua) 20%, transparent),
+    transparent);
+}
+
+/* Skip link — ensure it pops on light bg. */
+[data-theme="light"] .skip-link {
+  color: #fff;
+}
+
+/* Timeline set artist text-shadow — lighter shadow on light bg. */
+[data-theme="light"] .timeline-set .set-artist {
+  text-shadow:
+    0 1px 2px rgba(255, 255, 255, 0.6),
+    0 0 1px rgba(255, 255, 255, 0.8);
+}
+
+/* Admin active tab — text color for active tab on light bg. */
+[data-theme="light"] .admin-mobile-only button.bg-accent-aqua.text-bg-primary,
+[data-theme="light"] .admin-desktop-sidebar button.bg-accent-aqua.text-bg-primary {
+  color: var(--color-bg-primary);
+}

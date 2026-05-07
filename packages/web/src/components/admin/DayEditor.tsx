@@ -1,4 +1,3 @@
-import React from 'react';
 import SetEditor, { SetRow, Stage } from './SetEditor';
 
 export interface Day {

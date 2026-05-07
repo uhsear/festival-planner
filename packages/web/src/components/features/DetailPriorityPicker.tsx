@@ -1,4 +1,3 @@
-import React from 'react';
 import { Priority } from '@festie/shared/types';
 
 interface Props {

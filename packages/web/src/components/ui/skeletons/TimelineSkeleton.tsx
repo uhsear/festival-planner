@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Skeleton mirroring `.timeline-grid` — a 4-stage column layout with 5
  * staggered placeholder set blocks. Matches TimelineView's grid template so

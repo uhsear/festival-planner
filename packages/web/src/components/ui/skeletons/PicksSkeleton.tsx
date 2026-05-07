@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Skeleton for /picks — three priority sections (Must / Want / Maybe) with
  * 2-3 placeholder rows each, mirroring `.picks-section` + `.pick-item`.

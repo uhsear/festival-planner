@@ -1,4 +1,3 @@
-import React from 'react';
 import { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName } from '@festie/shared/utils';
 

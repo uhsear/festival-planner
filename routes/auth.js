@@ -11,6 +11,61 @@
  * POST /change-password - Change password (authenticated)
  * (Email routes split to email-auth.js: forgot-password, verify-email, update-email, resend-verification)
  */
+/**
+ * Create a new user, link orphan festival profiles, and optionally send
+ * a verification email. Returns the created user record.
+ *
+ * Callers are responsible for session creation and HTTP response.
+ */
+async function createUserWithProfile(userData, deps) {
+  const { cleanUsername, passwordHash, newUserId, cleanEmail } = userData;
+  const {
+    stores, config, log, invalidateUserCache,
+  } = deps;
+
+  const crypto = require('crypto');
+  const { sendVerificationEmail } = require('../lib/email');
+
+  // Create user in database
+  const user = await stores.users.create({
+    id: newUserId,
+    username: cleanUsername,
+    passwordHash,
+    email: cleanEmail || null,
+    createdAt: new Date().toISOString(),
+    tosAcceptedAt: new Date().toISOString(),
+    tosVersion: 1,
+  });
+  invalidateUserCache();
+
+  // Auto-link orphan profiles that match the new username
+  const profiles = await deps.getProfiles?.() || [];
+  for (const profile of profiles) {
+    if (!profile.userId && profile.name.toLowerCase() === cleanUsername.toLowerCase()) {
+      await stores.profiles.update(profile.id, { userId: user.id });
+    }
+  }
+
+  // Send verification email if email was provided
+  if (cleanEmail) {
+    try {
+      const verifyToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
+      await stores.pool.query(
+        'INSERT INTO email_verification_tokens (user_id, token_hash, email, expires_at) VALUES ($1, $2, $3, NOW() + ($4 || \' hours\')::INTERVAL)',
+        [user.id, tokenHash, cleanEmail, config.EMAIL_VERIFY_TOKEN_TTL_HOURS],
+      );
+      const verifyUrl = `${config.PUBLIC_ORIGIN}/api/v1/auth/verify-email?token=${verifyToken}`;
+      await sendVerificationEmail({ to: cleanEmail, username: cleanUsername, verifyUrl, config, log });
+    } catch (emailErr) {
+      log.error('register:verify-email-send-failed', { error: emailErr.message, userId: user.id });
+      // Don't fail registration if email send fails
+    }
+  }
+
+  return user;
+}
+
 module.exports = function createAuthRoutes(deps) {
   const {
     express, config, log,
@@ -25,15 +80,12 @@ module.exports = function createAuthRoutes(deps) {
     io, DUMMY_PASSWORD_HASH,
     schemas, validate,
     stores, invalidateUserCache,
-     
-     
-     
+
+
+
     // eslint-disable-next-line no-unused-vars
     pool, state, _hashSessionToken, createAuditLog, getRequestIp,
   } = deps;
-
-  const crypto = require('crypto');
-  const { sendVerificationEmail } = require("../lib/email");
 
   const router = express.Router();
 
@@ -78,25 +130,10 @@ module.exports = function createAuthRoutes(deps) {
         }
       }
 
-      // Create user in database
-      const user = await stores.users.create({
-        id: newUserId,
-        username: cleanUsername,
-        passwordHash,
-        email: cleanEmail || null,
-        createdAt: new Date().toISOString(),
-        tosAcceptedAt: new Date().toISOString(),
-        tosVersion: 1,
-      });
-      invalidateUserCache();
-
-      // Auto-link orphan profiles that match the new username
-      const profiles = await deps.getProfiles?.() || [];
-      for (const profile of profiles) {
-        if (!profile.userId && profile.name.toLowerCase() === cleanUsername.toLowerCase()) {
-          await stores.profiles.update(profile.id, { userId: user.id });
-        }
-      }
+      const user = await createUserWithProfile(
+        { cleanUsername, passwordHash, newUserId, cleanEmail },
+        deps,
+      );
 
       const token = await createUserSession(user.id, user.username);
       setNoStore(res);
@@ -113,23 +150,6 @@ module.exports = function createAuthRoutes(deps) {
           sessionToken: hashToken(token),
           expiresAt: new Date(Date.now() + config.REFRESH_TOKEN_TTL),
         });
-      }
-
-      // Send verification email if email was provided
-      if (cleanEmail) {
-        try {
-          const verifyToken = crypto.randomBytes(32).toString('hex');
-          const tokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
-          await stores.pool.query(
-            'INSERT INTO email_verification_tokens (user_id, token_hash, email, expires_at) VALUES ($1, $2, $3, NOW() + ($4 || \' hours\')::INTERVAL)',
-            [user.id, tokenHash, cleanEmail, config.EMAIL_VERIFY_TOKEN_TTL_HOURS],
-          );
-          const verifyUrl = `${config.PUBLIC_ORIGIN}/api/v1/auth/verify-email?token=${verifyToken}`;
-          await sendVerificationEmail({ to: cleanEmail, username: cleanUsername, verifyUrl, config, log });
-        } catch (emailErr) {
-          log.error('register:verify-email-send-failed', { error: emailErr.message, userId: user.id });
-          // Don't fail registration if email send fails
-        }
       }
 
       const { serializePublicUser } = deps;

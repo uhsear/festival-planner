@@ -1,0 +1,143 @@
+/* Base styles (no-layer; Tailwind v4 with preflight disabled has no predefined
+   @layer base, so we skip the wrapper and let these rules cascade normally) */
+* {
+  border-color: var(--color-border);
+}
+
+html {
+    scroll-behavior: smooth;
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-family-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Body rhythm: Space Grotesk benefits from slight negative tracking and
+       1.5 leading for paragraph readability. Headings override below. */
+    line-height: var(--line-height-normal);
+    letter-spacing: var(--letter-spacing-body);
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Heading hierarchy — display font + tight leading + caps tracking.
+     Individual pages override font-size via Tailwind utilities. */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-family-display);
+    line-height: var(--line-height-tight);
+    letter-spacing: var(--letter-spacing-display);
+    text-wrap: balance;
+  }
+
+  /* Prevent orphaned words on the last line of prose elements. */
+  p, li, dd, blockquote {
+    text-wrap: pretty;
+  }
+
+  /* Reading measure cap for long-form copy. Opt-in via `.prose` (vs. forcing
+     on every <p>, which would break flexed row layouts). */
+  .prose, .prose p {
+    max-width: var(--measure-prose);
+    line-height: var(--line-height-relaxed);
+  }
+
+  /* Digits in times/counters/prices shouldn't jitter when they tick. */
+  .tabular, time, .fm-time, .fm-countdown, .fm-set-time,
+  .fk-grid__hour-label, .fk-grid__set-time, .fk-grid__now-label {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+
+  /* Global tap-highlight suppression (2026-04-18). iOS/Android draw a
+     translucent gray box on any tapped element with no explicit override;
+     our active-scale + focus-visible ring already provide feedback, so
+     the UA box just looks laggy. `button, a, [role="button"], label,
+     summary, input[type="button"], input[type="submit"]` covers every
+     tappable surface in the app. */
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, a, [role="button"], label, summary,
+  input[type="button"], input[type="submit"], input[type="reset"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: var(--color-bg-secondary);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-text-muted);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-text-secondary);
+  }
+
+  /* Standard scrollbar styling (Firefox + future browsers) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-text-muted) transparent;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: rgba(0, 232, 208, 0.25);
+    color: var(--color-text-primary);
+  }
+
+  /* Focus ring */
+  :focus-visible {
+    outline: 2px solid var(--color-accent-aqua);
+    outline-offset: 2px;
+  }
+
+/* (b) Button reset — preflight is disabled, so <button> inherits the UA
+   `ButtonFace` system color as an opaque gray on non-Mac renderers. Force
+   transparent so Tailwind bg utilities can stack on a clean canvas and
+   bare buttons don't bleed contrast-failing gray into the design. */
+button {
+  background-color: transparent;
+}
+
+/* Skip-link (WCAG 2.4.1). Hidden until focused; jumps past the ~20 chrome
+   tabs so keyboard/screen-reader users land on main content in one hit. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 200;
+  background: var(--color-accent-aqua, #00d4aa);
+  color: var(--color-bg-primary, #0d0d1a);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 0.15s ease-out;
+}
+.skip-link:focus,
+.skip-link:focus-visible { transform: translateY(0); outline: 2px solid var(--color-accent-coral, #ff6b6b); outline-offset: 2px; }
+
+/* ── Unified focus ring (2026-04-18) ──────────────────────────────────────
+   Normalise the five focus variants currently in the codebase to one
+   accent-aqua 2px ring with 2px offset. Keeps the :focus-visible rule at
+   the top of the file authoritative; this just ensures utility-class
+   outlines inherit the same color when devs write `focus-visible:outline-2`
+   without a color. */
+:focus-visible {
+  outline-color: var(--color-accent-aqua);
+  outline-offset: 2px;
+  border-radius: inherit;
+}

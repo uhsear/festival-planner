@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Skeleton for /account — avatar, username field, password section, and
  * push-notifications block. Matches the stacked card layout of AccountPage.

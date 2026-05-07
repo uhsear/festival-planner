@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Flame } from 'lucide-react';
 import { useLocation, useNavigate } from '@tanstack/react-router';

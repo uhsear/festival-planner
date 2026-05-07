@@ -78,7 +78,7 @@ export default function HomeBaseCard({ crewId, currentLocation, currentTime, isO
       type="button"
       onClick={() => (isOwner ? setEditing(true) : undefined)}
       disabled={!isOwner}
-      className={`w-full py-1.5 px-2 rounded-lg bg-bg-card border text-left transition-colors ${
+      className={`w-full py-1.5 px-2 min-h-11 rounded-lg bg-bg-card border text-left transition-colors ${
         hasHomeBase ? 'border-accent-aqua/40' : 'border-dashed border-border hover:border-border-light'
       } ${isOwner ? 'cursor-pointer' : 'cursor-default'}`}>
       <div className="flex items-center gap-2">

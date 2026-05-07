@@ -196,6 +196,16 @@ const compareRoute = new Route({
   },
 });
 
+// /me — convenience alias so direct visits / old bookmarks land on the
+// account page instead of "Not Found".
+const meRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: '/me',
+  beforeLoad: async () => {
+    throw redirect({ to: '/account' });
+  },
+});
+
 const adminRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/admin',
@@ -220,6 +230,7 @@ const routeTree = rootRoute.addChildren([
   festivalModeRoute,
   wrapRoute,
   accountRoute,
+  meRoute,
   compareRoute,
   adminRoute,
 ]);

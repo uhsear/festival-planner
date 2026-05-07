@@ -6,11 +6,11 @@ const { Router } = require('express');
 const weatherCache = new Map();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 
-function createWeatherRoutes({ stores, sendSuccess, sendError, ErrorCodes, rateLimit }) {
+function createWeatherRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCodes, rateLimit }) {
   const router = Router();
 
   // GET /weather/:festivalId — returns weather for festival's coordinates
-  router.get('/:festivalId', rateLimit(30, 'weather'), async (req, res) => {
+  router.get('/:festivalId', userAuth, rateLimit(30, 'weather'), async (req, res) => {
     try {
       const { festivalId } = req.params;
 

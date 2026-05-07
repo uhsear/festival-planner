@@ -38,7 +38,7 @@ export default function CrewSelector({
           }
         }}
         className={cn(
-          'w-full px-3 py-1.5 rounded-lg font-semibold text-sm transition-colors',
+          'w-full px-3 py-1.5 min-h-11 rounded-lg font-semibold text-sm transition-colors',
           'bg-bg-card border border-border text-text-primary',
           'hover:border-border-light flex items-center justify-between',
         )}

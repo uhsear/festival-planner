@@ -1,6 +1,7 @@
 import { useCrewStore } from './crewStore';
 import { useUIStore } from './uiStore';
 import { useFestivalStore } from './festivalStore';
+import { useFestivalModeStore } from './festivalModeStore';
 
 export function resetAllStores(): void {
   useFestivalStore.setState({
@@ -15,5 +16,9 @@ export function resetAllStores(): void {
   useUIStore.setState({
     detailSet: null, connected: false, offlineMode: false,
     pendingSync: 0, onlineUsers: [],
+  });
+  useFestivalModeStore.setState({
+    isFestivalMode: false, festivalStarted: false, showPastSets: true,
+    autoScrollToNow: false, manuallyDisabled: false,
   });
 }

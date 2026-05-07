@@ -179,14 +179,7 @@ module.exports = function createShareRoutes(deps) {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function escapeHtml(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+const { escapeHtml } = require('../lib/helpers/sanitize');
 
 function getStageNameById(stages, stageId) {
   const stage = (stages || []).find((s) => s.id === stageId);
@@ -244,11 +237,6 @@ function renderSharePage({ username, avatarUrl, festivalName, festivalLocation, 
   <meta property="og:description" content="${mustCount} must-see, ${wantCount} want-to-see, ${maybeCount} maybe - ${totalPicks} total picks">
   <meta property="og:url" content="${origin}/s/${profileId}">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="${origin}/api/v1/export-card/${profileId}?public=1">
-  <meta property="og:image:width" content="800">
-  <meta property="og:image:height" content="600">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="${origin}/api/v1/export-card/${profileId}?public=1">
   <meta property="og:image" content="${origin}/api/v1/export-card/${profileId}?public=1">
   <meta property="og:image:width" content="800">
   <meta property="og:image:height" content="600">

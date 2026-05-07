@@ -1,4 +1,3 @@
-import React from 'react';
 import { getAvatarColor, getInitials } from '@festie/shared/utils';
 
 interface OtherPick {

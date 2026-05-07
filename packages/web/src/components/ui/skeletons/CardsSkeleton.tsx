@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Layout-matched skeleton for /cards. Renders 8 placeholder tiles inside the
  * same `.card-grid` container used by CardsView so the page doesn't jolt when

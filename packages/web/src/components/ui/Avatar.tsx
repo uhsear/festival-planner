@@ -1,4 +1,3 @@
-import React from 'react';
 import { getAvatarColor, getInitials, normalizeIdentityName } from '@festie/shared';
 import { cn } from '../../lib/utils';
 

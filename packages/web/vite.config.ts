@@ -8,7 +8,6 @@ export default defineConfig({
   build: {
     target: 'es2022',
     cssCodeSplit: true,
-    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         // Split the vendor bundle into logical chunks so the 697 KB index chunk
@@ -51,6 +50,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globIgnores: ['**/admin-*.js'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,

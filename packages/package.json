@@ -9,6 +9,12 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test"
   },
+  "pnpm": {
+    "overrides": {
+      "serialize-javascript": ">=7.0.5",
+      "basic-ftp": ">=5.3.1"
+    }
+  },
   "devDependencies": {
     "turbo": "^2.5.0",
     "typescript": "~5.8.0"

@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Skeleton for /wrap — 4-stat row + top-5 set leaderboard. Matches WrapPage's
  * summary layout so the route-chunk + ratings fetch can land without jolt.

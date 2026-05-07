@@ -11,7 +11,7 @@ import { useAuthStore } from './authStore';
 // we're online.
 async function offlinePut(url: string, body: unknown, clientId: string): Promise<void> {
   if (typeof window !== 'undefined' && !navigator.onLine) {
-    const bridge = (window as any).__festieQueue;
+    const bridge = window.__festieQueue;
     if (bridge?.queueMutation) {
       await bridge.queueMutation({ type: 'api', clientId, url, method: 'PUT', body });
       return;

@@ -19,47 +19,16 @@ export interface FestivalModeActions {
 
 export type FestivalModeStore = FestivalModeState & FestivalModeActions;
 
-// Read legacy localStorage keys written by the vanilla-JS frontend so users
-// who opted in / opted out there keep their preference after the React cutover.
-// Legacy keys: festie-festival-mode ('true'/'false'), festie-festival-mode-disabled ('true').
-function readLegacyPrefs(): Partial<FestivalModeState> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const on = localStorage.getItem('festie-festival-mode') === 'true';
-    const disabled = localStorage.getItem('festie-festival-mode-disabled') === 'true';
-    return { isFestivalMode: on && !disabled, manuallyDisabled: disabled };
-  } catch {
-    return {};
-  }
-}
-
-function writeLegacyPrefs(on: boolean, manuallyDisabled: boolean) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem('festie-festival-mode', String(on));
-    if (manuallyDisabled) {
-      localStorage.setItem('festie-festival-mode-disabled', 'true');
-    } else {
-      localStorage.removeItem('festie-festival-mode-disabled');
-    }
-  } catch {
-    /* private mode / storage quota — ignore */
-  }
-}
-
-const legacy = readLegacyPrefs();
-
 const festivalModeStore: StateCreator<FestivalModeStore> = (set) => ({
-  isFestivalMode: legacy.isFestivalMode ?? false,
+  isFestivalMode: false,
   festivalStarted: false,
-  showPastSets: !(legacy.isFestivalMode ?? false),
-  autoScrollToNow: legacy.isFestivalMode ?? false,
-  manuallyDisabled: legacy.manuallyDisabled ?? false,
+  showPastSets: true,
+  autoScrollToNow: false,
+  manuallyDisabled: false,
 
   toggleFestivalMode: () => {
     set((state) => {
       const next = !state.isFestivalMode;
-      writeLegacyPrefs(next, !next);
       return next
         ? { isFestivalMode: true, showPastSets: false, autoScrollToNow: true, manuallyDisabled: false }
         : { isFestivalMode: false, showPastSets: true, autoScrollToNow: false, manuallyDisabled: true };
@@ -69,12 +38,6 @@ const festivalModeStore: StateCreator<FestivalModeStore> = (set) => ({
   setFestivalMode: (on: boolean) => {
     set((state) => {
       if (state.isFestivalMode === on) return state;
-      // Turning ON is an explicit opt-in — clear any prior manual-disable so
-      // future auto-detect can run normally. Turning OFF via this helper is
-      // used by internal redirects (not a user opt-out), so leave the flag
-      // alone; toggleFestivalMode is what records real user intent.
-      const manuallyDisabled = on ? false : state.manuallyDisabled;
-      writeLegacyPrefs(on, manuallyDisabled && !on);
       return on
         ? { isFestivalMode: true, showPastSets: false, autoScrollToNow: true, manuallyDisabled: false }
         : { isFestivalMode: false, showPastSets: true, autoScrollToNow: false };

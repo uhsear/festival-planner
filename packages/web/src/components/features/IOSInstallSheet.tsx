@@ -1,4 +1,3 @@
-import React from 'react';
 import { Drawer } from 'vaul';
 import { Share, Plus, X } from 'lucide-react';
 import { useIOSInstall } from '../../hooks/useIOSInstall';

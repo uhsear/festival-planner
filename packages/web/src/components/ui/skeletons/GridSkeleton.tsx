@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Skeleton mirroring the `.fk-grid` 4-column layout used by /grid. Reserves
  * sticky stage-header row + scrollable body area so the route's

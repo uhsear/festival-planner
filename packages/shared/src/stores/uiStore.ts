@@ -2,6 +2,11 @@ import { create, StateCreator } from 'zustand';
 import { FestivalSet, OnlineUser } from '../types';
 
 export interface UIState {
+  // Trade-off: stores a full FestivalSet object for convenience (avoids a
+  // lookup-by-id in every consumer). The downside is that stale copies can
+  // linger if the canonical set list is updated elsewhere. If this becomes a
+  // problem, switch to `detailSetId: string | null` and derive the object via
+  // a selector that joins against the festivalStore sets array.
   detailSet: FestivalSet | null;
   detailAutoSpotify: boolean;
   connected: boolean;

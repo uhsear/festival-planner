@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { SetStatus } from '@/hooks/useSetStatus';
 import { cn } from '@/lib/utils';

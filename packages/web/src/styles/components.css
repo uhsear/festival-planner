@@ -1,0 +1,370 @@
+/* Component utilities (no-layer; same reason as above) */
+  /* Glassmorphism utilities */
+  .glass {
+    background-color: var(--color-glass);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--color-glass-border);
+  }
+
+  .glass-sm {
+    background-color: rgba(20, 20, 38, 0.75);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--color-glass-border);
+  }
+
+  /* Skeleton loading */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 0.5rem;
+  }
+
+  /* Button base. Ship-ready weight is 600 (was 500) so Space Grotesk reads
+     as "a button" even without color variance. Pair with .btn-cta for CTAs
+     that need Syncopate-style caps tracking. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    letter-spacing: var(--letter-spacing-body);
+    transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  /* Uppercase-tracked CTA variant — use on primary call-to-action buttons. */
+  .btn-cta {
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-caps);
+    font-weight: 700;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn:focus-visible {
+    outline: 2px solid;
+    outline-offset: 2px;
+  }
+
+  /* Input base */
+  .input-base {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    background-color: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    color: var(--color-text-primary);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+    font-family: inherit;
+  }
+
+  .input-base:focus-visible {
+    border-color: var(--color-accent-aqua);
+    outline: none;
+  }
+
+  .input-base::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  /* Priority badges */
+  .badge-must {
+    background-color: rgba(255, 51, 102, 0.2);
+    color: var(--color-accent-coral);
+    border: 1px solid rgba(255, 51, 102, 0.3);
+  }
+
+  .badge-want {
+    background-color: rgba(0, 232, 208, 0.2);
+    color: var(--color-accent-aqua);
+    border: 1px solid rgba(0, 232, 208, 0.3);
+  }
+
+  .badge-maybe {
+    background-color: rgba(255, 176, 32, 0.2);
+    color: var(--color-accent-amber);
+    border: 1px solid rgba(255, 176, 32, 0.3);
+  }
+
+  /* Tab indicator */
+  .tab-indicator {
+    position: relative;
+  }
+
+  .tab-indicator::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0.25rem;
+    background-color: var(--color-accent-aqua);
+    border-radius: 2px 2px 0 0;
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background-color: var(--color-border);
+    margin: 1rem 0;
+  }
+
+  /* Safe area padding */
+  .safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .safe-bottom {
+    padding-bottom: max(5rem, env(safe-area-inset-bottom));
+  }
+
+/* Custom utilities (no-layer; same reason as above) */
+  /* Display utilities */
+  .flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .flex-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Spacing utilities */
+  .gap-xs {
+    gap: 0.25rem;
+  }
+
+  .gap-sm {
+    gap: 0.5rem;
+  }
+
+  .gap-md {
+    gap: 1rem;
+  }
+
+  .gap-lg {
+    gap: 1.5rem;
+  }
+
+  /* Text utilities */
+  .text-xs {
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+  }
+
+  .text-sm {
+    font-size: 0.875rem;
+  }
+
+  .text-base {
+    font-size: 1rem;
+  }
+
+  .text-lg {
+    font-size: 1.125rem;
+  }
+
+  .text-display {
+    font-size: 1.5rem;
+    font-weight: bold;
+    font-family: var(--font-family-display);
+  }
+
+  /* Opacity utilities */
+  .op-muted {
+    opacity: 0.6;
+  }
+
+  .op-secondary {
+    opacity: 0.75;
+  }
+
+  /* Performance: skip rendering for off-screen long-list items. */
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 500px;
+  }
+
+  /* Glass hover state with color-mix blend. */
+  @media (hover: hover) {
+    .glass:hover {
+      background-color: color-mix(in oklch, var(--color-glass) 85%, white);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+  }
+
+  /* Opt-in press scale for tappable surfaces without their own transforms. */
+  .press-scale:active {
+    transform: scale(0.97);
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+
+/* (c) Password-visibility toggle inside <Input isPassword>. Was 20×24 (the
+   lucide Eye icon's intrinsic size), failing WCAG 2.5.8 minimum 24×24.
+   Force a 32×32 hit area so keyboard focus + touch both land reliably. */
+.input-base + button[aria-label="Show password"],
+.input-base + button[aria-label="Hide password"],
+.relative > button[aria-label="Show password"],
+.relative > button[aria-label="Hide password"] {
+  min-width: 32px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── R29 (2026-04-17 pass 3) — coral danger buttons AA contrast ───────────
+   `bg-accent-coral/20` + `text-accent-coral` combo (used for Delete buttons
+   in AdminCrews/Users/Festivals and the VS chip in ConflictCompare) renders
+   as #ff3366 coral text on a ~#351021 20%-tint background — 4.21:1, just
+   below the AA 4.5:1 threshold for normal text. Lightening the text to a
+   pastel coral keeps the semantic "danger" feel while clearing AA at 6.3:1.
+   ─────────────────────────────────────────────────────────────────────── */
+.bg-accent-coral\/20.text-accent-coral {
+  color: #ff7a8c;
+}
+.bg-accent-coral\/30.text-accent-coral,
+.bg-accent-coral\/20.text-accent-coral:hover {
+  color: #ff8fa0;
+}
+
+/* Centered card grid: auto-fit tracks (280-360 px) + max-width 1120 px
+   (3 × 360 + 2 × 18 gap) + margin:auto keeps the grid centered on wide
+   desktop viewports, so unused space becomes symmetric gutters instead
+   of a one-sided blob on the right. On mobile, minmax's 100% min lets a
+   single column take the full viewport width. */
+.card-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 360px)) !important;
+  gap: 18px;
+  justify-content: start !important;
+  max-width: 1120px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+@media (max-width: 640px) {
+  .card-grid { gap: 12px; max-width: none !important; }
+}
+
+/* ── Container queries (2026-04-28) ──────────────────────────────────────
+   CSS container queries let components adapt to their *container's* width
+   rather than the viewport. This matters when the same component renders
+   in different layout contexts (e.g., a card in a 1-col mobile grid vs. a
+   3-col desktop grid), or when parent containers constrain the available
+   width in ways that viewport media queries can't predict.
+
+   Three high-value applications:
+   1. Set cards — artist name, footer, and spacing adapt to actual card
+      width instead of viewport breakpoints (which disagree with the real
+      card width at transitional viewport sizes).
+   2. Crew category/type grids — the 3-column button grids in
+      ExpensesTab + MeetingPointsTab collapse to 2 columns when the crew
+      panel is narrow (< 320px), preventing cramped buttons.
+   3. Crew expense/wrap stat summaries — 2-column stat grids stack to
+      1 column below 300px container width so numbers stay readable.
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* 1. Set card container — each .card-enter wrapper (the stagger-item div in
+   cards.tsx) becomes a size container. The .set-card inside queries its
+   parent's inline size to scale typography and spacing. The legacy app.css
+   breakpoints for .set-card (14px at <=430px, 17px at <=768px, 20px at
+   desktop) assume the card fills the viewport, which is wrong at
+   transitional widths where auto-fit creates 2 narrow columns at, say,
+   700px viewport (each card ~335px). Container queries fix this: each
+   card reads its own column width and sizes accordingly. */
+.card-grid > .card-enter {
+  container-type: inline-size;
+}
+
+/* Small cards (< 320px): phone-portrait single column, or a narrow
+   column in a multi-column grid at transitional viewport widths. Compact
+   typography keeps the card readable without overflow. */
+@container (max-width: 319px) {
+  .set-card .card-artist {
+    font-size: 15px !important;
+    letter-spacing: -0.2px;
+  }
+  .set-card .card-stage {
+    font-size: 10px;
+    padding: 2px 8px;
+    margin-bottom: 6px;
+  }
+  .set-card .card-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+/* Medium cards (320–419px): the sweet spot for most phone grids. One step
+   up from the compact size — artist name gets 17px (matches the legacy
+   768px media query that assumed single-column). */
+@container (min-width: 320px) and (max-width: 419px) {
+  .set-card .card-artist {
+    font-size: 17px !important;
+  }
+}
+
+/* Wide cards (≥ 420px): desktop column or a stretched single-column phone.
+   Full 20px artist name with tighter letter-spacing for display weight.
+   The card has room for inline footer, so we ensure no wrapping. */
+@container (min-width: 420px) {
+  .set-card .card-artist {
+    font-size: 20px !important;
+    letter-spacing: -0.4px;
+  }
+  .set-card {
+    padding: 20px !important;
+  }
+}
+
+/* 2. Crew form grids — on very narrow viewports (< 320px), collapse
+   the 3-column category/type button grids to 2 columns. */
+@media (max-width: 319px) {
+  .crew-category-grid,
+  .crew-type-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* 3. Stat summary grids — the 2-column stat grids in ExpensesTab and
+   /wrap use `grid-cols-2`. Below ~300px viewport the stat cards are too
+   narrow for the number + label layout; stack to 1 column. */
+@media (max-width: 319px) {
+  .crew-stats-grid,
+  .wrap-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Suspense fallback CLS reservation. The tiny `Loading...` string used as
+   the route-level Suspense fallback previously rendered at ~40 px — when
+   a full-height page (/grid, /timeline) swapped in, the page visibly
+   jumped from 40 px to full viewport. Pin the fallback to the same
+   min-height floor as #main-content so swap-in is height-stable. */
+#main-content > .loading-skeleton,
+.loading-skeleton[aria-busy="true"] {
+  min-height: calc(100dvh - 240px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted, #8787a8);
+}

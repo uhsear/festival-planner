@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface Props {
   preview: { embedUrl: string; label: string; embedType: string };
   visible: boolean;

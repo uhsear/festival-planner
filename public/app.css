@@ -3304,25 +3304,11 @@ html {
   padding-block: 6px;
 }
 
-/* Timeline priority dots — enlarge hit area even when cell is narrow */
+/* Timeline priority dots — WCAG 2.5.8 44×44 touch target at all sizes */
 .timeline-pick-btn {
-  min-inline-size: 36px;
-  min-block-size: 36px;
+  min-inline-size: 44px;
+  min-block-size: 44px;
   position: relative;
-}
-.timeline-pick-btn::after {
-  content: "";
-  position: absolute;
-  inset: -6px;
-  pointer-events: auto;
-}
-
-@media (min-width: 380px) {
-  .timeline-pick-btn {
-    min-inline-size: 44px;
-    min-block-size: 44px;
-  }
-  .timeline-pick-btn::after { inset: 0; }
 }
 
 /* Admin panel mobile tabs — Tailwind px-3 py-1.5 gave ~32px height */

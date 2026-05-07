@@ -229,7 +229,7 @@ function CrewViewInner() {
              replaces the legacy renderCrewSchedule view in public/views/crew.js. */}
           <Link
             to="/compare"
-            className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-accent-aqua/10 border border-accent-aqua/30 hover:bg-accent-aqua/15 transition-colors"
+            className="flex items-center gap-2 py-1.5 px-2 min-h-11 rounded-lg bg-accent-aqua/10 border border-accent-aqua/30 hover:bg-accent-aqua/15 transition-colors"
           >
             <Columns3 className="w-4 h-4 text-accent-aqua flex-shrink-0" aria-hidden="true" />
             <span className="text-xs font-semibold text-text-primary">Compare schedules</span>
@@ -241,7 +241,7 @@ function CrewViewInner() {
             {TABS.map((t) => (
               <button key={t.key} role="tab" aria-selected={tab === t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex-shrink-0 px-2.5 py-1.5 rounded-md flex items-center gap-1 text-xs font-medium whitespace-nowrap transition-colors ${
+                className={`flex-shrink-0 px-2.5 py-1.5 min-h-11 rounded-md flex items-center gap-1 text-xs font-medium whitespace-nowrap transition-colors ${
                   tab === t.key
                     ? 'bg-accent-aqua/15 text-accent-aqua border border-accent-aqua/30'
                     : 'bg-bg-card text-text-secondary border border-border hover:border-border-light'

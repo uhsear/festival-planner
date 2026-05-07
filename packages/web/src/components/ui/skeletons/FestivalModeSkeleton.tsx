@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Skeleton for /festival-mode — reserves the header + two sections (NOW and
  * UP NEXT) with `.fm-set-card` placeholders that match the live-render tree.
