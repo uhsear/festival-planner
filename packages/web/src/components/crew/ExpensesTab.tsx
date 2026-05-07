@@ -203,6 +203,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
             <div className="crew-category-grid grid grid-cols-3 gap-2">
               {CATEGORIES.map((c) => (
                 <button key={c.key} type="button" onClick={() => setCategory(c.key)}
+                  aria-pressed={category === c.key}
                   className={cn('min-h-11 px-2 py-2 rounded-lg border text-xs flex flex-col items-center gap-1',
                     category === c.key
                       ? 'bg-accent-aqua/15 border-accent-aqua text-accent-aqua'
@@ -219,6 +220,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
                 const active = splitWith.includes(m.userId);
                 return (
                   <button key={m.userId} type="button" onClick={() => toggleMember(m.userId)}
+                    aria-pressed={active}
                     className={cn('min-h-11 px-3 rounded-full border text-sm',
                       active
                         ? 'bg-accent-aqua/15 border-accent-aqua text-accent-aqua'

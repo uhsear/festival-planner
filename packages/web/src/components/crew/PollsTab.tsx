@@ -124,7 +124,8 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
               {options.map((o, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <input className="input-base flex-1 min-h-11" value={o}
-                    onChange={(e) => updateOpt(i, e.target.value)} placeholder={`Option ${i + 1}`} required />
+                    onChange={(e) => updateOpt(i, e.target.value)} placeholder={`Option ${i + 1}`}
+                    aria-label={`Poll option ${i + 1}`} required />
                   {options.length > 2 && (
                     <IconButton
                       label="Remove option"

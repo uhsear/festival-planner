@@ -538,89 +538,52 @@ describe('lib/shutdown.js', () => {
 
 // ---------------------------------------------------------------------------
 // 4. lib/socket-setup.js — configureSocketIO
+//    Uses real http.createServer + Socket.IO Server (no listen, no port)
+//    with only notifications + emitter stubs. Tests verify behavior through
+//    the real returned objects.
 // ---------------------------------------------------------------------------
 describe('lib/socket-setup.js', () => {
 
-  // Patch dependencies ONCE at suite level to avoid fragile per-test cache manipulation.
-  // The patching happens synchronously when this describe block is first evaluated.
-  const httpMod = require('http');
-  const _origCreateServer = httpMod.createServer;
+  // Patch only notification and emitter (heavy deps with side effects).
+  const _notifPath = require.resolve('../lib/notifications');
+  const _emitterPath = require.resolve('../lib/emitter');
+  const _setupPath = require.resolve('../lib/socket-setup');
 
-  // Shared mutable state — each test resets fakeServer/fakeIo via beforeEach
-  let fakeServer;
-  let fakeIo;
+  const _origNotif = require.cache[_notifPath]?.exports;
+  const _origEmitter = require.cache[_emitterPath]?.exports;
 
-  // Pre-load modules so they're in require.cache before patching
-  require('socket.io');
-  require('../lib/notifications');
-  require('../lib/emitter');
-
-  // Patch socket.io, notifications, emitter in require cache ONCE
-  const sioPath = require.resolve('socket.io');
-  const notifPath = require.resolve('../lib/notifications');
-  const emitterPath = require.resolve('../lib/emitter');
-  const setupPath = require.resolve('../lib/socket-setup');
-
-  // Save originals
-  const origSio = require.cache[sioPath]?.exports;
-  const origNotif = require.cache[notifPath]?.exports;
-  const origEmitter = require.cache[emitterPath]?.exports;
-
-  // Install stubs that delegate to our mutable fakeIo/fakeServer
-  httpMod.createServer = function stubCreateServer() { return fakeServer; };
-
-  if (require.cache[sioPath]) {
-    require.cache[sioPath].exports = {
-      ...origSio,
-      Server: function StubServer() { return fakeIo; },
-    };
-  }
-  if (require.cache[notifPath]) {
-    require.cache[notifPath].exports = {
-      ...origNotif,
+  // Install lightweight stubs before requiring socket-setup
+  if (require.cache[_notifPath]) {
+    require.cache[_notifPath].exports = {
+      ..._origNotif,
       createNotificationService: () => ({ send: mock.fn() }),
     };
   }
-  if (require.cache[emitterPath]) {
-    require.cache[emitterPath].exports = {
-      ...origEmitter,
+  if (require.cache[_emitterPath]) {
+    require.cache[_emitterPath].exports = {
+      ..._origEmitter,
       createSocketEmitter: () => ({ emitChatMessage: mock.fn(), flushAll: mock.fn() }),
     };
   }
 
-  // Clear and re-require socket-setup so it picks up our stubs
-  delete require.cache[setupPath];
+  // Re-require socket-setup with patched deps
+  delete require.cache[_setupPath];
   const { configureSocketIO } = require('../lib/socket-setup');
 
-  // Restore originals AFTER all socket-setup tests (at module teardown)
-  // Node test runner runs afterEach per-test, but we need suite-level cleanup.
-  // We do it in afterEach of the last test — or simply accept the leak since
-  // this is the last describe block. For safety, register a process handler:
+  // Restore on exit
   process.once('beforeExit', () => {
-    httpMod.createServer = _origCreateServer;
-    if (require.cache[sioPath]) require.cache[sioPath].exports = origSio;
-    if (require.cache[notifPath]) require.cache[notifPath].exports = origNotif;
-    if (require.cache[emitterPath]) require.cache[emitterPath].exports = origEmitter;
+    if (require.cache[_notifPath] && _origNotif) require.cache[_notifPath].exports = _origNotif;
+    if (require.cache[_emitterPath] && _origEmitter) require.cache[_emitterPath].exports = _origEmitter;
   });
 
-  beforeEach(() => {
-    fakeIo = {
-      adapter: mock.fn(),
-      on: mock.fn(),
-      of: () => ({ sockets: new Map() }),
-      engine: { clientsCount: 0 },
-    };
-
-    fakeServer = {
-      keepAliveTimeout: 0,
-      headersTimeout: 0,
-    };
-
-    // Re-point the Server stub to the new fakeIo for this test
-    if (require.cache[sioPath]) {
-      require.cache[sioPath].exports.Server = function StubServer() { return fakeIo; };
+  // Track created servers/io for cleanup
+  const toClose = [];
+  afterEach(() => {
+    for (const r of toClose) {
+      try { r.io.close(); } catch { /* ignore */ }
+      try { r.server.close(); } catch { /* ignore */ }
     }
-    httpMod.createServer = function stubCreateServer() { return fakeServer; };
+    toClose.length = 0;
   });
 
   function makeCtx(overrides = {}) {
@@ -635,7 +598,7 @@ describe('lib/socket-setup.js', () => {
         error: mock.fn(),
         debug: mock.fn(),
       },
-      redis: null, // no redis adapter by default
+      redis: null,
       stores: {},
       getRawRequestIp: mock.fn(() => '127.0.0.1'),
       isAllowedOrigin: mock.fn(() => true),
@@ -646,106 +609,99 @@ describe('lib/socket-setup.js', () => {
     };
   }
 
+  function run(ctxOverrides = {}) {
+    const ctx = makeCtx(ctxOverrides);
+    const result = configureSocketIO({}, ctx);
+    toClose.push(result);
+    return { ...result, ctx };
+  }
+
   it('returns server, io, emitter, and notificationService', () => {
-    const result = configureSocketIO({}, makeCtx());
-    assert.ok(result.server);
-    assert.ok(result.io);
-    assert.ok(result.emitter);
-    assert.ok(result.notificationService);
+    const { server, io, emitter, notificationService } = run();
+    assert.ok(server);
+    assert.ok(io);
+    assert.ok(emitter);
+    assert.ok(notificationService);
   });
 
-  it('sets keepAliveTimeout and headersTimeout on server', () => {
-    configureSocketIO({}, makeCtx());
-    assert.equal(fakeServer.keepAliveTimeout, 65_000);
-    assert.equal(fakeServer.headersTimeout, 66_000);
+  it('server is an http.Server instance', () => {
+    const http = require('http');
+    const { server } = run();
+    assert.ok(server instanceof http.Server);
   });
 
-  it('registers a connection handler on io', () => {
-    configureSocketIO({}, makeCtx());
-    const onCalls = fakeIo.on.mock.calls;
-    assert.ok(onCalls.length >= 1, `expected io.on to be called, got ${onCalls.length} calls`);
-    assert.equal(onCalls[0].arguments[0], 'connection');
-    assert.equal(typeof onCalls[0].arguments[1], 'function');
+  it('io is a socket.io Server instance', () => {
+    const { Server } = require('socket.io');
+    const { io } = run();
+    assert.ok(io instanceof Server);
   });
 
-  it('does not attach redis adapter when redis is null', () => {
-    configureSocketIO({}, makeCtx({ redis: null }));
-    assert.equal(fakeIo.adapter.mock.calls.length, 0);
+  it('sets keepAliveTimeout to 65000', () => {
+    const { server } = run();
+    assert.equal(server.keepAliveTimeout, 65_000);
   });
 
-  it('returns the http server created internally', () => {
-    const result = configureSocketIO({}, makeCtx());
-    assert.equal(result.server, fakeServer);
+  it('sets headersTimeout to 66000', () => {
+    const { server } = run();
+    assert.equal(server.headersTimeout, 66_000);
   });
 
-  it('returns the io instance created internally', () => {
-    const result = configureSocketIO({}, makeCtx());
-    assert.equal(result.io, fakeIo);
+  it('registers a connection listener on the default namespace', () => {
+    const { io } = run();
+    const ns = io.of('/');
+    assert.ok(ns.listenerCount('connection') >= 1);
   });
 
-  describe('connection auth timeout', () => {
-    it('registers once-disconnect handler on connected socket', () => {
-      configureSocketIO({}, makeCtx());
-      const connectionCb = fakeIo.on.mock.calls[0].arguments[1];
+  it('connection handler registers once-disconnect on socket', () => {
+    const { io } = run();
+    const ns = io.of('/');
+    const listeners = ns.listeners('connection');
 
-      const testSocket = {
-        id: 'test-sock',
-        authenticated: false,
-        disconnect: mock.fn(),
-        once: mock.fn(),
-      };
+    const testSocket = {
+      id: 'test-sock',
+      authenticated: false,
+      disconnect: mock.fn(),
+      once: mock.fn(),
+    };
 
-      connectionCb(testSocket);
+    listeners[0](testSocket);
 
-      assert.equal(testSocket.once.mock.calls.length, 1);
-      assert.equal(testSocket.once.mock.calls[0].arguments[0], 'disconnect');
-      assert.equal(typeof testSocket.once.mock.calls[0].arguments[1], 'function');
-    });
-
-    it('the disconnect cleanup callback clears the auth timer', () => {
-      configureSocketIO({}, makeCtx());
-      const connectionCb = fakeIo.on.mock.calls[0].arguments[1];
-
-      const testSocket = {
-        id: 'auth-sock',
-        authenticated: true,
-        disconnect: mock.fn(),
-        once: mock.fn(),
-      };
-
-      connectionCb(testSocket);
-
-      // once('disconnect', fn) — fn should be a function that clears the timer
-      const cleanupFn = testSocket.once.mock.calls[0].arguments[1];
-      assert.equal(typeof cleanupFn, 'function');
-      // Calling it should not throw
-      assert.doesNotThrow(() => cleanupFn());
-    });
+    assert.equal(testSocket.once.mock.calls.length, 1);
+    assert.equal(testSocket.once.mock.calls[0].arguments[0], 'disconnect');
+    assert.equal(typeof testSocket.once.mock.calls[0].arguments[1], 'function');
   });
 
-  describe('allowRequest callback', () => {
-    it('is configured on the Socket.IO server', () => {
-      const ctx = makeCtx();
-      const result = configureSocketIO({}, ctx);
-      // If allowRequest was configured, the server was created successfully
-      assert.ok(result.io);
-    });
+  it('disconnect cleanup callback does not throw', () => {
+    const { io } = run();
+    const listeners = io.of('/').listeners('connection');
+
+    const testSocket = {
+      id: 'cleanup-sock',
+      authenticated: true,
+      disconnect: mock.fn(),
+      once: mock.fn(),
+    };
+
+    listeners[0](testSocket);
+    const cleanupFn = testSocket.once.mock.calls[0].arguments[1];
+    assert.doesNotThrow(() => cleanupFn());
   });
 
-  describe('redis adapter', () => {
-    it('logs warning when redis adapter attachment fails', () => {
-      // Provide a redis mock — the actual @socket.io/redis-adapter require
-      // will likely throw in the test environment, triggering the catch branch
-      const ctx = makeCtx({ redis: { duplicate: mock.fn() } });
-      const result = configureSocketIO({}, ctx);
-      // Should still return a valid result (falls back to in-memory)
-      assert.ok(result.io);
-      // The log.warn should have been called (redis adapter failed)
-      const warnCalls = ctx.log.warn.mock.calls;
-      const hasAdapterWarn = warnCalls.some(
-        (c) => typeof c.arguments[0] === 'string' && c.arguments[0].includes('redis adapter')
-      );
-      assert.ok(hasAdapterWarn, 'expected warning about redis adapter failure');
-    });
+  it('does not log redis adapter when redis is null', () => {
+    const { ctx } = run({ redis: null });
+    const infoCalls = ctx.log.info.mock.calls;
+    const hasRedisLog = infoCalls.some(
+      (c) => typeof c.arguments[0] === 'string' && c.arguments[0].includes('redis adapter')
+    );
+    assert.ok(!hasRedisLog);
+  });
+
+  it('logs warning when redis adapter fails to attach', () => {
+    const { ctx } = run({ redis: { duplicate: mock.fn() } });
+    const warnCalls = ctx.log.warn.mock.calls;
+    const hasAdapterWarn = warnCalls.some(
+      (c) => typeof c.arguments[0] === 'string' && c.arguments[0].includes('redis adapter')
+    );
+    assert.ok(hasAdapterWarn, 'expected warning about redis adapter failure');
   });
 });

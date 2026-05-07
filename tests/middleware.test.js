@@ -137,6 +137,102 @@ describe('middleware: audit-middleware', () => {
     // Should log error, not throw
     assert.ok(deps.log.error.mock.calls.length >= 1);
   });
+
+  it('extracts admin actor from adminSession', async () => {
+    const deps = makeDeps();
+    const middleware = createAuditMiddleware(deps);
+    const req = mockReq({ method: 'PATCH', adminSession: true });
+    const res = mockRes();
+    middleware(req, res, () => {});
+    res._emit('finish');
+    await new Promise((r) => setTimeout(r, 50));
+    const entry = deps.stores.auditLog.insert.mock.calls[0]?.arguments[0];
+    assert.equal(entry.actor_type, 'admin');
+  });
+
+  it('extracts system actor when no user and no admin', async () => {
+    const deps = makeDeps();
+    const middleware = createAuditMiddleware(deps);
+    const req = mockReq({ method: 'POST', user: null });
+    const res = mockRes();
+    middleware(req, res, () => {});
+    res._emit('finish');
+    await new Promise((r) => setTimeout(r, 50));
+    const entry = deps.stores.auditLog.insert.mock.calls[0]?.arguments[0];
+    assert.equal(entry.actor_type, 'system');
+    assert.equal(entry.actor_id, null);
+  });
+
+  it('extracts target from route path and params', async () => {
+    const deps = makeDeps();
+    const middleware = createAuditMiddleware(deps);
+    const req = mockReq({
+      method: 'PUT',
+      route: { path: '/festivals/:id' },
+      params: { id: 'fest-1' },
+    });
+    const res = mockRes();
+    middleware(req, res, () => {});
+    res._emit('finish');
+    await new Promise((r) => setTimeout(r, 50));
+    const entry = deps.stores.auditLog.insert.mock.calls[0]?.arguments[0];
+    assert.equal(entry.target_type, 'festivals');
+    assert.equal(entry.target_id, 'fest-1');
+    assert.equal(entry.action, 'replace:festivals');
+  });
+
+  it('handles missing route in extractTarget', async () => {
+    const deps = makeDeps();
+    const middleware = createAuditMiddleware(deps);
+    const req = mockReq({ method: 'DELETE', route: null });
+    const res = mockRes();
+    middleware(req, res, () => {});
+    res._emit('finish');
+    await new Promise((r) => setTimeout(r, 50));
+    const entry = deps.stores.auditLog.insert.mock.calls[0]?.arguments[0];
+    assert.equal(entry.target_type, 'unknown');
+  });
+
+  it('handles route with param-only path', async () => {
+    const deps = makeDeps();
+    const middleware = createAuditMiddleware(deps);
+    const req = mockReq({
+      method: 'PATCH',
+      route: { path: '/:id' },
+      params: { id: 'abc' },
+    });
+    const res = mockRes();
+    middleware(req, res, () => {});
+    res._emit('finish');
+    await new Promise((r) => setTimeout(r, 50));
+    const entry = deps.stores.auditLog.insert.mock.calls[0]?.arguments[0];
+    assert.equal(entry.action, 'update::id');
+  });
+
+  it('captures failure status for 4xx responses', async () => {
+    const deps = makeDeps();
+    const middleware = createAuditMiddleware(deps);
+    const req = mockReq({ method: 'POST' });
+    const res = mockRes();
+    res.statusCode = 403;
+    middleware(req, res, () => {});
+    res._emit('finish');
+    await new Promise((r) => setTimeout(r, 50));
+    const entry = deps.stores.auditLog.insert.mock.calls[0]?.arguments[0];
+    assert.equal(entry.status, 'failure');
+  });
+
+  it('wraps res.json to capture response body', () => {
+    const deps = makeDeps();
+    const middleware = createAuditMiddleware(deps);
+    const req = mockReq({ method: 'POST' });
+    const res = mockRes();
+    let jsonCalled = false;
+    res._setOriginalJson(() => { jsonCalled = true; });
+    middleware(req, res, () => {});
+    res.json({ ok: true });
+    assert.ok(jsonCalled);
+  });
 });
 
 // ── CORS logic (reimplemented from middleware.js inline) ─────────────────

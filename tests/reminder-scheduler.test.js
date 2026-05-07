@@ -88,7 +88,7 @@ describe('reminder-scheduler: createReminderScheduler', () => {
 describe('reminder-scheduler: processProfileReminders (via tick)', () => {
   it('fires notification for a reminder within the fire window', async () => {
     const now = Date.now();
-    const setStartMs = now + 15 * 60000 + 30000; // 15.5 min from now (fireAt = now+30s, within 65s window)
+    const setStartMs = now + 15 * 60000 + 60000; // 16 min from now (fireAt ≈ now+60s, within 65s window even with HH:MM truncation)
 
     const notifyFn = mock.fn(async () => ({ sent: 1 }));
     const prefsFn = mock.fn(async () => null);

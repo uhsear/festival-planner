@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 interface ChangePasswordModalProps {
   onClose: () => void;
@@ -11,14 +11,35 @@ export default function ChangePasswordModal({ onClose, onSubmit }: ChangePasswor
   const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  const trapFocus = useCallback((e: KeyboardEvent) => {
+    if (e.key !== 'Tab' || !dialogRef.current) return;
+    const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+      'input, button, [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable.length) return;
+    const first = focusable[0] as HTMLElement | undefined;
+    const last = focusable[focusable.length - 1] as HTMLElement | undefined;
+    if (!first || !last) return;
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      trapFocus(e);
     };
     document.addEventListener('keydown', onKeyDown);
+    dialogRef.current?.querySelector<HTMLElement>('input')?.focus();
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  }, [onClose, trapFocus]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +67,7 @@ export default function ChangePasswordModal({ onClose, onSubmit }: ChangePasswor
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="user-menu" role="dialog" aria-modal="true" aria-label="Change password">
+      <div ref={dialogRef} className="user-menu" role="dialog" aria-modal="true" aria-label="Change password">
         <section className="user-menu-section">
           <div className="user-menu-section-title">Change Password</div>
           <form onSubmit={handleSubmit} className="space-y-3">
