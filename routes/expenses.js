@@ -2,13 +2,12 @@
 
 module.exports = function createExpenseRoutes(deps) {
   const router = deps.express.Router();
-  const { stores, userAuth, sendSuccess, sendError, ErrorCodes, log, rateLimit, emitter, sanitizeIdentifier, schemas, validate } = deps;
+  const { stores, userAuth, sendSuccess, sendError, ErrorCodes, log, rateLimit, emitter, sanitizeIdentifier, schemas, validate, validateParams } = deps;
 
   // GET /crew/:crewId/expenses
-  router.get('/crews/:crewId/expenses', userAuth, rateLimit(120, 'expense-list'), async (req, res) => {
+  router.get('/crews/:crewId/expenses', userAuth, rateLimit(120, 'expense-list'), validateParams(schemas.crewIdParams), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
       const expenses = await stores.expenses.getByCrew(crewId);
@@ -20,10 +19,9 @@ module.exports = function createExpenseRoutes(deps) {
   });
 
   // POST /crew/:crewId/expenses
-  router.post('/crews/:crewId/expenses', userAuth, rateLimit(30, 'expense-create'), validate(schemas.expenseCreate), async (req, res) => {
+  router.post('/crews/:crewId/expenses', userAuth, rateLimit(30, 'expense-create'), validateParams(schemas.crewIdParams), validate(schemas.expenseCreate), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
 
@@ -48,11 +46,10 @@ module.exports = function createExpenseRoutes(deps) {
   });
 
   // DELETE /crew/:crewId/expenses/:expenseId
-  router.delete('/crews/:crewId/expenses/:expenseId', userAuth, rateLimit(30, 'expense-delete'), async (req, res) => {
+  router.delete('/crews/:crewId/expenses/:expenseId', userAuth, rateLimit(30, 'expense-delete'), validateParams(schemas.crewIdExpenseIdParams), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId);
-      const expenseId = sanitizeIdentifier(req.params.expenseId);
-      if (!crewId || !expenseId) return sendError(res, 400, 'Invalid IDs', ErrorCodes.INVALID_INPUT);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
+      const expenseId = sanitizeIdentifier(req.validatedParams.expenseId);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
 
@@ -70,10 +67,9 @@ module.exports = function createExpenseRoutes(deps) {
   });
 
   // GET /crew/:crewId/expenses/balances
-  router.get('/crews/:crewId/expenses/balances', userAuth, rateLimit(60, 'expense-balances'), async (req, res) => {
+  router.get('/crews/:crewId/expenses/balances', userAuth, rateLimit(60, 'expense-balances'), validateParams(schemas.crewIdParams), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
       const balances = await stores.expenses.getBalances(crewId);
@@ -85,10 +81,9 @@ module.exports = function createExpenseRoutes(deps) {
   });
 
   
-  router.post('/crews/:crewId/expenses/settle', userAuth, rateLimit(20, 'expense-settle'), validate(schemas.expenseSettleFull), async (req, res) => {
+  router.post('/crews/:crewId/expenses/settle', userAuth, rateLimit(20, 'expense-settle'), validateParams(schemas.crewIdParams), validate(schemas.expenseSettleFull), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
       const { toUserId, amount } = req.validatedBody;

@@ -30,9 +30,9 @@ class GlobalErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <div className="p-8 text-center">
           <h1>Something went wrong</h1>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: 14, margin: '8px 0 16px' }}>
+          <p className="text-[var(--color-text-secondary)] text-sm my-2 mb-4">
             {this.state.error?.message}
           </p>
           <button

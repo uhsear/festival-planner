@@ -1,4 +1,4 @@
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 import { Flame } from 'lucide-react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
 import { useFestivalModeStore } from '@festie/shared';
@@ -38,7 +38,7 @@ export default function FestivalModeToggle() {
   };
 
   return (
-    <motion.button
+    <m.button
       onClick={handleToggle}
       whileTap={{ scale: 0.95 }}
       aria-label={
@@ -55,7 +55,7 @@ export default function FestivalModeToggle() {
       )}
     >
       {isFestivalMode && !prefersReducedMotion && (
-        <motion.div
+        <m.div
           className="absolute inset-0 rounded-lg bg-accent-coral -z-[1]"
           animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.25, 0.6] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
@@ -68,6 +68,6 @@ export default function FestivalModeToggle() {
           Festival Mode
         </span>
       </div>
-    </motion.button>
+    </m.button>
   );
 }

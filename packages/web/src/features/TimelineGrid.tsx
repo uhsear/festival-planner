@@ -56,14 +56,13 @@ export default function TimelineGrid({
   return (
     <div
       ref={gridRef}
-      className="timeline-grid"
+      className="timeline-grid relative"
       role="grid"
       aria-label="Timeline view of festival sets by stage and time"
       data-day={selectedDay}
       style={{
         gridTemplateColumns: `${vpW <= 430 ? '42px' : '70px'} repeat(${visibleStages.length}, minmax(${vpW <= 430 ? '100px' : '140px'}, 1fr))`,
         gridTemplateRows: `auto repeat(${timeBounds.totalSlots}, ${rowHeight}px)`,
-        position: 'relative',
       }}
     >
       {/* Empty top-left corner header cell */}
@@ -162,20 +161,11 @@ export default function TimelineGrid({
             return (
               <div
                 key={s.id}
-                className={'timeline-set' + priClass + conflictClass}
+                className={'timeline-set relative top-px left-0.5 right-0.5 h-[calc(100%-2px)]' + priClass + conflictClass}
                 style={{
                   gridRow: `${Math.floor(topSlot) + 2} / span ${Math.max(1, Math.ceil(spanSlots))}`,
                   gridColumn: ci + 2,
                   background: color + '20',
-                  position: 'relative',
-                  top: '1px',
-                  left: '2px',
-                  right: '2px',
-                  minHeight: 'auto',
-                  height: 'calc(100% - 2px)',
-                  // Per-column stagger: blocks fade/slide in column-by-column
-                  // on day switch. Keyed off `selectedDay` via data-day on
-                  // the grid so the CSS animation replays.
                   '--tl-stagger': `${Math.min(ci, 5) * 40}ms`,
                 } as React.CSSProperties}
                 data-set-id={s.id}

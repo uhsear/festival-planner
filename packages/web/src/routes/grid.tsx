@@ -246,7 +246,7 @@ function GridViewInner() {
           gridTemplateColumns: `${GUTTER_W}px repeat(${visibleStages.length}, minmax(${vw <= 430 ? '92px' : '110px'}, 1fr))`,
         }}
       >
-        <div role="columnheader" aria-label="Time" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div role="columnheader" aria-label="Time" className="flex items-center justify-center">
           <button
             className="fk-grid__share-btn"
             onClick={exportGrid}

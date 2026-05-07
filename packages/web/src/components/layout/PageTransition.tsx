@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { m } from 'motion/react';
 import { useLocation } from '@tanstack/react-router';
 
 interface PageTransitionProps {
@@ -22,7 +22,7 @@ export default function PageTransition({ children }: PageTransitionProps) {
   const key = location.pathname;
 
   return (
-    <motion.div
+    <m.div
       key={key}
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
@@ -31,19 +31,9 @@ export default function PageTransition({ children }: PageTransitionProps) {
          without delaying first interaction. transform-only Y keeps this on
          the compositor — no layout thrash. */
       transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-      style={{
-        willChange: 'opacity, transform',
-        // Pass height: 100% through so full-viewport routes (/grid, /timeline)
-        // get a bounded parent for their inner scroll containers. Without
-        // this, height: 100% on .fk-grid resolves to 0 because motion.div
-        // is a flow element with no intrinsic height.
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: 0,
-      }}
+      className="will-change-[opacity,transform] h-full flex flex-col min-h-0"
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }

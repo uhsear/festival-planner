@@ -9,15 +9,14 @@ const MAX_MEETING_POINTS_PER_CREW = 20;
 module.exports = function mountCrewFeatures(router, deps) {
   const {
     stores, userAuth, sendSuccess, sendError, ErrorCodes,
-    rateLimit, log, io, validate, schemas,
+    rateLimit, log, io, validate, validateParams, schemas,
     sanitizeIdentifier, createOpaqueId,
   } = deps;
 
   // ── PUT /:crewId/home-base — set crew meeting point ─────────────
-  router.put('/:crewId/home-base', userAuth, rateLimit(10, 'crew-homebase'), validate(schemas.crewHomeBase), async (req, res) => {
+  router.put('/:crewId/home-base', userAuth, rateLimit(10, 'crew-homebase'), validateParams(schemas.crewIdParams), validate(schemas.crewHomeBase), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
       if (member.role !== 'owner') return sendError(res, 403, 'Only owner can set home base', ErrorCodes.FORBIDDEN);
@@ -34,10 +33,9 @@ module.exports = function mountCrewFeatures(router, deps) {
   });
 
   // ── GET /:crewId/meeting-points ─────────────────────────────────
-  router.get('/:crewId/meeting-points', userAuth, rateLimit(120, 'crew-mp-list'), async (req, res) => {
+  router.get('/:crewId/meeting-points', userAuth, rateLimit(120, 'crew-mp-list'), validateParams(schemas.crewIdParams), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
       const points = await stores.crews.meetingPoints.listByCrew(crewId);
@@ -49,10 +47,9 @@ module.exports = function mountCrewFeatures(router, deps) {
   });
 
   // ── POST /:crewId/meeting-points ────────────────────────────────
-  router.post('/:crewId/meeting-points', userAuth, rateLimit(20, 'crew-mp-create'), validate(schemas.meetingPointCreate), async (req, res) => {
+  router.post('/:crewId/meeting-points', userAuth, rateLimit(20, 'crew-mp-create'), validateParams(schemas.crewIdParams), validate(schemas.meetingPointCreate), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
 
@@ -82,11 +79,10 @@ module.exports = function mountCrewFeatures(router, deps) {
   });
 
   // ── PUT /:crewId/meeting-points/:mpId ───────────────────────────
-  router.put('/:crewId/meeting-points/:mpId', userAuth, rateLimit(20, 'crew-mp-update'), validate(schemas.meetingPointUpdate), async (req, res) => {
+  router.put('/:crewId/meeting-points/:mpId', userAuth, rateLimit(20, 'crew-mp-update'), validateParams(schemas.crewIdMpIdParams), validate(schemas.meetingPointUpdate), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId);
-      const mpId = sanitizeIdentifier(req.params.mpId);
-      if (!crewId || !mpId) return sendError(res, 400, 'Invalid ID', ErrorCodes.INVALID_INPUT);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
+      const mpId = sanitizeIdentifier(req.validatedParams.mpId);
 
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
@@ -110,11 +106,10 @@ module.exports = function mountCrewFeatures(router, deps) {
   });
 
   // ── DELETE /:crewId/meeting-points/:mpId ────────────────────────
-  router.delete('/:crewId/meeting-points/:mpId', userAuth, rateLimit(20, 'crew-mp-delete'), async (req, res) => {
+  router.delete('/:crewId/meeting-points/:mpId', userAuth, rateLimit(20, 'crew-mp-delete'), validateParams(schemas.crewIdMpIdParams), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId);
-      const mpId = sanitizeIdentifier(req.params.mpId);
-      if (!crewId || !mpId) return sendError(res, 400, 'Invalid ID', ErrorCodes.INVALID_INPUT);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
+      const mpId = sanitizeIdentifier(req.validatedParams.mpId);
 
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
@@ -139,9 +134,9 @@ module.exports = function mountCrewFeatures(router, deps) {
 
   // ── Poll routes (Phase 2C) ─────────────────────────────────────
 
-  router.get('/:crewId/polls', userAuth, rateLimit(120, 'crew-poll-list'), async (req, res) => {
+  router.get('/:crewId/polls', userAuth, rateLimit(120, 'crew-poll-list'), validateParams(schemas.crewIdParams), async (req, res) => {
     try {
-      const { crewId } = req.params;
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
       const userId = req.user.userId;
       const membership = await stores.crews.getMember(crewId, userId);
       if (!membership) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
@@ -153,15 +148,11 @@ module.exports = function mountCrewFeatures(router, deps) {
     }
   });
 
-  router.post('/:crewId/polls', userAuth, rateLimit(10, 'crew-poll-create'), validate(schemas.pollCreate), async (req, res) => {
+  router.post('/:crewId/polls', userAuth, rateLimit(10, 'crew-poll-create'), validateParams(schemas.crewIdParams), validate(schemas.pollCreate), async (req, res) => {
     try {
-      const { crewId } = req.params;
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
       const { question, options, closesAt } = req.validatedBody;
       const userId = req.user.userId;
-
-      if (!question || !Array.isArray(options) || options.length < 2 || options.length > 4) {
-        return sendError(res, 400, 'Invalid poll data', ErrorCodes.INVALID_INPUT);
-      }
 
       const membership = await stores.crews.getMember(crewId, userId);
       if (!membership) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
@@ -185,15 +176,12 @@ module.exports = function mountCrewFeatures(router, deps) {
     }
   });
 
-  router.post('/:crewId/polls/:pollId/vote', userAuth, rateLimit(60, 'crew-poll-vote'), validate(schemas.pollVote), async (req, res) => {
+  router.post('/:crewId/polls/:pollId/vote', userAuth, rateLimit(60, 'crew-poll-vote'), validateParams(schemas.crewIdPollIdParams), validate(schemas.pollVote), async (req, res) => {
     try {
-      const { crewId, pollId } = req.params;
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
+      const pollId = sanitizeIdentifier(req.validatedParams.pollId);
       const { optionIndex } = req.validatedBody;
       const userId = req.user.userId;
-
-      if (!Number.isInteger(optionIndex) || optionIndex < 0) {
-        return sendError(res, 400, 'Invalid option', ErrorCodes.INVALID_INPUT);
-      }
 
       const membership = await stores.crews.getMember(crewId, userId);
       if (!membership) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
@@ -212,9 +200,10 @@ module.exports = function mountCrewFeatures(router, deps) {
     }
   });
 
-  router.delete('/:crewId/polls/:pollId', userAuth, rateLimit(10, 'crew-poll-delete'), async (req, res) => {
+  router.delete('/:crewId/polls/:pollId', userAuth, rateLimit(10, 'crew-poll-delete'), validateParams(schemas.crewIdPollIdParams), async (req, res) => {
     try {
-      const { crewId, pollId } = req.params;
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
+      const pollId = sanitizeIdentifier(req.validatedParams.pollId);
       const userId = req.user.userId;
 
       const membership = await stores.crews.getMember(crewId, userId);

@@ -15,11 +15,7 @@ export default function TimelineSkeleton() {
       role="region"
     >
       <div
-        className="timeline-grid relative"
-        style={{
-          gridTemplateColumns: `52px repeat(${stages}, minmax(0, 1fr))`,
-          gridTemplateRows: `auto repeat(${slots}, 28px)`,
-        }}
+        className="timeline-grid relative grid-cols-[52px_repeat(4,minmax(0,1fr))] grid-rows-[auto_repeat(16,28px)]"
       >
         {/* corner */}
         <div className="timeline-header-cell" />

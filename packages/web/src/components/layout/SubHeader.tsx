@@ -84,7 +84,7 @@ export default function SubHeader({ dayOnly }: SubHeaderProps) {
 
         {currentFestival && days.length > 0 && (
           <div role="tablist" aria-label="Festival days"
-            {...swipeDaysBind()} className="day-tabs touch-pan-y" style={{ touchAction: 'pan-y' }}>
+            {...swipeDaysBind()} className="day-tabs touch-pan-y">
             {days.map((day, i) => (
               <button
                 key={day.id || i}

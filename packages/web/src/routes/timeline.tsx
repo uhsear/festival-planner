@@ -242,15 +242,15 @@ function TimelineViewInner() {
           <summary>Legend</summary>
           <ul className="timeline-legend-list">
             <li>
-              <span className="legend-swatch" style={{ background: 'var(--color-accent-coral, #ff6b6b)' }} aria-hidden="true" />
+              <span className="legend-swatch bg-[var(--color-accent-coral,#ff6b6b)]" aria-hidden="true" />
               Must See (your pick)
             </li>
             <li>
-              <span className="legend-swatch" style={{ background: 'var(--color-accent-aqua, #00d4aa)' }} aria-hidden="true" />
+              <span className="legend-swatch bg-[var(--color-accent-aqua,#00d4aa)]" aria-hidden="true" />
               Want to See (your pick)
             </li>
             <li>
-              <span className="legend-swatch" style={{ background: 'var(--color-accent-amber, #f59e0b)' }} aria-hidden="true" />
+              <span className="legend-swatch bg-[var(--color-accent-amber,#f59e0b)]" aria-hidden="true" />
               Maybe (your pick)
             </li>
             <li>
@@ -363,8 +363,8 @@ function TBASection({
           return (
             <div
               key={s.id}
-              className={'timeline-tba-card stagger-item' + priClass}
-              style={stageColor ? { '--i': Math.min(idx, 20), borderLeft: `3px solid ${stageColor}`, position: 'relative' } as React.CSSProperties : { '--i': Math.min(idx, 20), position: 'relative' } as React.CSSProperties}
+              className={'timeline-tba-card stagger-item relative' + priClass}
+              style={stageColor ? { '--i': Math.min(idx, 20), borderLeft: `3px solid ${stageColor}` } as React.CSSProperties : { '--i': Math.min(idx, 20) } as React.CSSProperties}
             >
               {/* Positioned click overlay — keeps outer div non-interactive so
                   priority buttons inside don't trigger nested-interactive. */}

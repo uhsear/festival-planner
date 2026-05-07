@@ -1,4 +1,4 @@
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 import { cn } from '@/lib/utils';
 
 interface PullRefreshIndicatorProps {
@@ -17,14 +17,11 @@ export default function PullRefreshIndicator({ progress, isRefreshing }: PullRef
   const scale = 0.5 + progress * 0.5;
 
   return (
-    <motion.div
+    <m.div
       role="status"
       aria-live="polite"
       aria-label={isRefreshing ? 'Refreshing content' : 'Pull to refresh'}
-      className="fixed top-4 left-1/2 z-50 flex items-center justify-center"
-      style={{
-        transform: 'translateX(-50%)',
-      }}
+      className="fixed top-4 left-1/2 z-50 flex items-center justify-center -translate-x-1/2"
       animate={{
         opacity: isRefreshing ? 1 : opacity,
         scale: isRefreshing ? 1 : scale,
@@ -59,7 +56,7 @@ export default function PullRefreshIndicator({ progress, isRefreshing }: PullRef
           />
 
           {/* Progress arc */}
-          <motion.circle
+          <m.circle
             cx="20"
             cy="20"
             r="16"
@@ -80,14 +77,14 @@ export default function PullRefreshIndicator({ progress, isRefreshing }: PullRef
           />
 
           {isRefreshing && !prefersReducedMotion && (
-            <motion.circle
+            <m.circle
               cx="20"
               cy="20"
               r="16"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              className="text-accent-aqua"
+              className="text-accent-aqua origin-[20px_20px]"
               animate={{
                 rotate: 360,
               }}
@@ -98,16 +95,14 @@ export default function PullRefreshIndicator({ progress, isRefreshing }: PullRef
                   ease: 'linear',
                 },
               }}
-              style={{
-                transformOrigin: '20px 20px',
-              }}
             />
           )}
         </svg>
 
         {/* Center icon */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <motion.div
+          <m.div
+            className="origin-center"
             animate={{
               rotate: isRefreshing && !prefersReducedMotion ? 360 : 0,
             }}
@@ -117,9 +112,6 @@ export default function PullRefreshIndicator({ progress, isRefreshing }: PullRef
                 repeat: isRefreshing && !prefersReducedMotion ? Infinity : 0,
                 ease: 'linear',
               },
-            }}
-            style={{
-              transformOrigin: 'center',
             }}
           >
             {/* Refresh/arrow icon SVG */}
@@ -149,9 +141,9 @@ export default function PullRefreshIndicator({ progress, isRefreshing }: PullRef
                 fill="none"
               />
             </svg>
-          </motion.div>
+          </m.div>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

@@ -1,4 +1,4 @@
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 import { SetStatus } from '@/hooks/useSetStatus';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +18,7 @@ export default function LiveBadge({ status, label, className }: LiveBadgeProps) 
         {prefersReducedMotion ? (
           <div className="w-2 h-2 rounded-full bg-accent-coral" aria-hidden="true" />
         ) : (
-          <motion.div
+          <m.div
             className="w-2 h-2 rounded-full bg-accent-coral"
             aria-hidden="true"
             animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
@@ -37,7 +37,7 @@ export default function LiveBadge({ status, label, className }: LiveBadgeProps) 
         {prefersReducedMotion ? (
           <div className="w-2 h-2 rounded-full bg-accent-amber" aria-hidden="true" />
         ) : (
-          <motion.div
+          <m.div
             className="w-2 h-2 rounded-full bg-accent-amber"
             aria-hidden="true"
             animate={{ scale: [1, 1.3, 1] }}

@@ -405,8 +405,8 @@ export default function AppShell() {
 
             {/* Day tabs */}
             {!festivalOnlySubHeader && currentFestival && days.length > 0 && (
-              <div className="day-tabs" role="tablist" aria-label="Festival days"
-                {...swipeDaysBind()} style={{ touchAction: 'pan-y' }}>
+              <div className="day-tabs touch-pan-y" role="tablist" aria-label="Festival days"
+                {...swipeDaysBind()}>
                 {days.map((day, i) => (
                   <button
                     key={day.id || i}

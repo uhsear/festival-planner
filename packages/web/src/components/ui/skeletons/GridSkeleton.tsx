@@ -11,8 +11,7 @@ export default function GridSkeleton() {
     <div className="fk-grid" aria-busy="true" aria-label="Loading grid">
       {/* sticky header row */}
       <div
-        className="fk-grid__head"
-        style={{ gridTemplateColumns: `${gutter}px repeat(${cols}, 1fr)` }}
+        className="fk-grid__head grid-cols-[52px_repeat(4,1fr)]"
       >
         <div />
         {Array.from({ length: cols }).map((_, i) => (

@@ -44,7 +44,7 @@ export interface UsePullToRefreshProps {
  *   queryKeys: [['sets'], ['festival']],
  * });
  * return (
- *   <div {...bind} style={{ overscrollBehavior: 'none' }}>
+ *   <div {...bind} className="overscroll-none">
  *     {pullProgress > 0 && <RefreshIndicator progress={pullProgress} />}
  *   </div>
  * );

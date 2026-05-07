@@ -55,7 +55,7 @@ const loadCompare       = () => import('./routes/compare');
 // dedicated skeletons keyed to their real layout.
 const MinimalFallback = () => (
   <div className="loading-skeleton" aria-busy="true" aria-label="Loading">
-    <div className="skeleton" style={{ height: 200, margin: 24, borderRadius: 12 }} />
+    <div className="skeleton h-[200px] m-6 rounded-xl" />
   </div>
 );
 
@@ -245,7 +245,7 @@ export const router = new Router({
   defaultPendingMs: 200,
   defaultErrorComponent: ({ error: _error, reset }) => (
     <div className="no-festival" role="alert">
-      <p style={{ color: 'var(--accent-coral)', fontSize: '16px', marginBottom: '12px' }}>
+      <p className="text-[var(--accent-coral)] text-base mb-3">
         Error loading page
       </p>
       <button onClick={() => reset()} className="btn btn-primary btn-sm">

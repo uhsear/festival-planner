@@ -29,7 +29,7 @@ export interface UseSwipeDaysProps {
  *   selectedDay: currentDay,
  *   onSelectDay: (day) => setCurrentDay(day),
  * });
- * return <div {...bind()} style={{ touchAction: 'pan-y' }}>...</div>;
+ * return <div {...bind()} className="touch-pan-y">...</div>;
  */
 export function useSwipeDays({ days, selectedDay, onSelectDay }: UseSwipeDaysProps): UseSwipeDaysReturn {
   const { select } = useHaptics();

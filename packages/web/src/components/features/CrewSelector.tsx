@@ -60,10 +60,7 @@ export default function CrewSelector({
           'shadow-lg'
         )}>
           {crews.length > 0 && (
-            <div
-              className="max-h-48 overflow-y-auto"
-              style={{ overscrollBehavior: 'contain' }}
-            >
+            <div className="max-h-48 overflow-y-auto overscroll-contain">
               {crews.map((crew) => (
                 <button
                   key={crew.id}

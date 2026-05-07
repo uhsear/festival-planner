@@ -228,15 +228,7 @@ export default function WrapPage() {
       {stats.totalRated > 0 && (
         <div
           aria-hidden="true"
-          style={{
-            position: 'fixed',
-            left: -99999,
-            top: 0,
-            width: 1080,
-            height: 1920,
-            pointerEvents: 'none',
-            overflow: 'hidden',
-          }}
+          className="fixed -left-[99999px] top-0 w-[1080px] h-[1920px] pointer-events-none overflow-hidden"
         >
           <div ref={posterRef}>
             <WrapPoster

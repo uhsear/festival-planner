@@ -13,18 +13,17 @@ module.exports = function createProfilesRoutes(deps) {
     rateLimit,
     removeProfileSockets,
     io, emitter,
-    schemas, validate,
+    schemas, validate, validateParams,
     stores,
   } = deps;
 
   const router = express.Router();
   const { parsePageParams, paginateArray } = require('../lib/pagination');
 
-  router.get('/:festivalId', userAuth, async (req, res) => {
+  router.get('/:festivalId', userAuth, validateParams(schemas.festivalIdParams), async (req, res) => {
     try {
       setNoStore(res);
-      const festivalId = req.params.festivalId;
-      if (!festivalId || festivalId.length > 100) return sendError(res, 400, 'Invalid festival ID', ErrorCodes.INVALID_INPUT);
+      const festivalId = req.validatedParams.festivalId;
       const festival = await getFestivalById(festivalId);
       if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
       const { getUserFestivalProfile } = deps;
@@ -114,10 +113,7 @@ module.exports = function createProfilesRoutes(deps) {
   async function updateProfile(req, res) {
     try {
       setNoStore(res);
-      const profileId = req.params.id;
-      if (!profileId || profileId.length > 100) {
-        return sendError(res, 400, 'Invalid profile ID', ErrorCodes.INVALID_INPUT);
-      }
+      const profileId = req.validatedParams.id;
       let nextPicks;
       if (req.validatedBody?.picks !== undefined) {
         const normalized = normalizePickPayload(req.validatedBody.picks);
@@ -218,12 +214,12 @@ module.exports = function createProfilesRoutes(deps) {
     }
   }
   // Support both PUT and PATCH for compatibility with different HTTP clients. Both treat payloads as partial updates (merge semantics).
-  router.put('/:id', userAuth, rateLimit(30, 'profile-update'), validate(schemas.profileUpdate), updateProfile);
-  router.patch('/:id', userAuth, rateLimit(30, 'profile-update'), validate(schemas.profileUpdate), updateProfile);
+  router.put('/:id', userAuth, rateLimit(30, 'profile-update'), validateParams(schemas.profileIdParams), validate(schemas.profileUpdate), updateProfile);
+  router.patch('/:id', userAuth, rateLimit(30, 'profile-update'), validateParams(schemas.profileIdParams), validate(schemas.profileUpdate), updateProfile);
 
-  router.delete('/:id', adminAuth, rateLimit(5, 'profile-delete'), async (req, res) => {
+  router.delete('/:id', adminAuth, rateLimit(5, 'profile-delete'), validateParams(schemas.profileIdParams), async (req, res) => {
     try {
-      const profile = await stores.profiles.delete(req.params.id);
+      const profile = await stores.profiles.delete(req.validatedParams.id);
 
       if (!profile) return sendError(res, 404, 'Profile not found', ErrorCodes.NOT_FOUND);
       log.info('profile:deleted', { profileId: profile.id, festivalId: profile.festivalId, userId: profile.userId });
