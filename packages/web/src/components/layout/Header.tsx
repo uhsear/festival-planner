@@ -77,7 +77,7 @@ export default function Header() {
         />
         <div className="header-brand">
           <h1 className="logo">
-            <a href="/" aria-label="FESTIE home" style={{ color: 'inherit', textDecoration: 'none' }}>
+            <a href="/" aria-label="FESTIE home" className="text-[inherit] no-underline">
               FESTIE
             </a>
           </h1>

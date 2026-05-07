@@ -384,7 +384,7 @@ export default function AppShell() {
                 search are suppressed on those routes. */}
             <label
               htmlFor="festival-select-input"
-              style={{ fontSize: '12px', color: 'var(--text-secondary)', marginRight: '6px', display: 'inline-block', fontWeight: '600' }}
+              className="mr-1.5 inline-block text-xs font-semibold text-[var(--text-secondary)]"
             >
               Festival:
             </label>
@@ -428,29 +428,43 @@ export default function AppShell() {
                 already filtered by construction or have their own scoped
                 controls). Visible on /cards + /crew. */}
             {!dayOnlySubHeader && !festivalOnlySubHeader && currentFestival && stages.length > 0 && (
-              <div className="filter-stage" role="group" aria-label="Filter by stage">
-                {stages.map((stage) => {
-                  const color = getStageColor(stage.id);
-                  const isActive = activeStages.includes(stage.id);
-                  // Active: solid stage color + white text with text-shadow
-                  // (AA contrast on every palette color, incl. dark purples).
-                  // Inactive: faded stage-color tint + stage-color text on
-                  // dark bg for brand feel. See StageBadge for the shared
-                  // palette logic.
-                  const style = getStageBadgeStyle(color, 'chip', isActive);
-                  return (
-                    <button
-                      key={stage.id}
-                      className={'stage-chip' + (isActive ? ' active' : '')}
-                      style={style}
-                      aria-pressed={isActive}
-                      aria-label={stage.name + (isActive ? ' (selected)' : '')}
-                      onClick={() => handleStageToggle(stage.id)}
-                    >
-                      {stage.name}
-                    </button>
-                  );
-                })}
+              <div
+                className={
+                  'stage-filter-scroll' +
+                  (canScrollLeft ? ' fade-left' : '') +
+                  (canScrollRight ? ' fade-right' : '')
+                }
+              >
+                <div
+                  ref={stageScrollRef}
+                  className="filter-stage"
+                  role="tablist"
+                  aria-label="Filter by stage"
+                >
+                  {stages.map((stage) => {
+                    const color = getStageColor(stage.id);
+                    const isActive = activeStages.includes(stage.id);
+                    // Active: solid stage color + white text with text-shadow
+                    // (AA contrast on every palette color, incl. dark purples).
+                    // Inactive: faded stage-color tint + stage-color text on
+                    // dark bg for brand feel. See StageBadge for the shared
+                    // palette logic.
+                    const style = getStageBadgeStyle(color, 'chip', isActive);
+                    return (
+                      <button
+                        key={stage.id}
+                        className={'stage-chip' + (isActive ? ' active' : '')}
+                        style={style}
+                        role="tab"
+                        aria-selected={isActive}
+                        aria-label={stage.name + (isActive ? ' (selected)' : '')}
+                        onClick={() => handleStageToggle(stage.id)}
+                      >
+                        {stage.name}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

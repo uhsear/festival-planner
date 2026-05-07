@@ -1461,13 +1461,36 @@
   }
 }
 
-/* F4 — Stage filter chip container: gradient mask on right edge to hint
-   that off-screen chips exist. Uses a CSS mask-image so the background
-   shows through the fade. The mask is removed when scrolled to the end
-   (via scroll-snap, JS not needed — the visual hint is enough). */
-.filter-stage {
-  -webkit-mask-image: linear-gradient(to right, #000 85%, transparent 100%);
-  mask-image: linear-gradient(to right, #000 85%, transparent 100%);
+/* F4 — Stage filter scroll wrapper: dual-edge gradient fade indicators.
+   A `.stage-filter-scroll` wrapper receives `.fade-left` / `.fade-right`
+   classes from useScrollFade so the mask adapts as the user scrolls.
+   When both overflow, both edges fade; when scrolled to an end, that
+   edge's fade disappears. The wrapper is a plain block that sizes to the
+   sub-header row; the inner `.filter-stage` does the actual scrolling. */
+.stage-filter-scroll {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+}
+/* Remove the old static right-only mask — replaced by the wrapper. */
+.stage-filter-scroll .filter-stage {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+/* Right fade only */
+.stage-filter-scroll.fade-right:not(.fade-left) .filter-stage {
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+}
+/* Left fade only */
+.stage-filter-scroll.fade-left:not(.fade-right) .filter-stage {
+  -webkit-mask-image: linear-gradient(to left, #000 0, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to left, #000 0, #000 calc(100% - 28px), transparent 100%);
+}
+/* Both edges fade */
+.stage-filter-scroll.fade-left.fade-right .filter-stage {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
 }
 
 /* F3 — Timeline: allow stage headers to wrap at narrow widths instead

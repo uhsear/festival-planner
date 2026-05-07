@@ -426,9 +426,8 @@ function TBASection({
                   {others.slice(0, 3).map((o) => (
                     <div
                       key={o.profileId}
-                      className="mini-avatar"
+                      className="mini-avatar h-4 w-4 text-[7px]"
                       title={`${o.name || 'Crew member'} (${o.priority})`}
-                      className="h-4 w-4 text-[7px]"
                     />
                   ))}
                 </div>

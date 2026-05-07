@@ -63,7 +63,7 @@ export default function SubHeader({ dayOnly }: SubHeaderProps) {
       <nav className="sub-header" aria-label="Festival view controls">
         <label
           htmlFor="festival-select-input"
-          style={{ fontSize: '12px', color: 'var(--text-secondary)', marginRight: '6px', display: 'inline-block', fontWeight: '600' }}
+          className="mr-1.5 inline-block text-xs font-semibold text-[var(--text-secondary)]"
         >
           Festival:
         </label>
@@ -83,8 +83,8 @@ export default function SubHeader({ dayOnly }: SubHeaderProps) {
         </select>
 
         {currentFestival && days.length > 0 && (
-          <div className="day-tabs" role="tablist" aria-label="Festival days"
-            {...swipeDaysBind()} style={{ touchAction: 'pan-y' }}>
+          <div role="tablist" aria-label="Festival days"
+            {...swipeDaysBind()} className="day-tabs touch-pan-y" style={{ touchAction: 'pan-y' }}>
             {days.map((day, i) => (
               <button
                 key={day.id || i}

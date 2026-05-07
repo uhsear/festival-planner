@@ -41,7 +41,10 @@ function validateStartupConfig(config) {
     throw new Error('Startup validation failed: WEBHOOK_TOKEN_HMAC_KEY is required when FCM_RETRY_WEBHOOK_URL is set.');
   }
 
-  // 3. Production must not ship weak/default SESSION_SECRET (only enforced when key exists on config)
+  // 3. Production must not ship weak/default SESSION_SECRET (only enforced when key exists on config).
+  // NOTE: SESSION_SECRET is not currently used for HMAC signing — session tokens are opaque random
+  // strings hashed with SHA-256 server-side. This check ensures the key is pre-provisioned so
+  // HMAC-signed sessions can be introduced without a redeployment. See ADR-004.
   if (isProd && Object.prototype.hasOwnProperty.call(config, 'SESSION_SECRET')) {
     if (!config.SESSION_SECRET || config.SESSION_SECRET === 'change-me') {
       throw new Error('Startup validation failed: SESSION_SECRET must be set to a strong random value in production (not empty, not "change-me").');

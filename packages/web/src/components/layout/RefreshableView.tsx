@@ -49,10 +49,7 @@ export default function RefreshableView({
         'touch-action-pan-y',
         className,
       )}
-      style={{
-        overscrollBehavior: 'none',
-        touchAction: 'pan-y',
-      }}
+      /* overscroll-behavior + touch-action already set via Tailwind in className */
     >
       <PullRefreshIndicator progress={pullProgress} isRefreshing={isRefreshing} />
       {children}

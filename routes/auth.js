@@ -181,8 +181,8 @@ module.exports = function createAuthRoutes(deps) {
       // Check account lockout (per-user failure tracking)
       if (user) {
         const failures = await stores.loginFailures?.get(user.id);
-        if (failures?.lockedUntil && Date.now() < failures.lockedUntil) {
-          const retryAfterSec = Math.ceil((failures.lockedUntil - Date.now()) / 1000);
+        if (failures?.lockedUntil && new Date() < new Date(failures.lockedUntil)) {
+          const retryAfterSec = Math.ceil((new Date(failures.lockedUntil) - new Date()) / 1000);
           res.setHeader('Retry-After', String(retryAfterSec));
           return sendError(res, 423, 'Account temporarily locked due to too many failed attempts', ErrorCodes.ACCOUNT_LOCKED);
         }
@@ -205,7 +205,7 @@ module.exports = function createAuthRoutes(deps) {
           await stores.loginFailures.record(user.id);
           const failures = await stores.loginFailures.get(user.id);
           if (failures && failures.consecutiveFailures >= config.MAX_LOGIN_FAILURES) {
-            const lockUntil = Date.now() + config.LOGIN_LOCKOUT_MS;
+            const lockUntil = new Date(Date.now() + config.LOGIN_LOCKOUT_MS);
             await stores.loginFailures.lock(user.id, lockUntil);
             log.warn('account locked', { userId: user.id, failures: failures.consecutiveFailures });
           }
@@ -388,12 +388,16 @@ module.exports = function createAuthRoutes(deps) {
       setNoStore(res);
       // eslint-disable-next-line no-shadow
       const { stores, hashSessionToken: hashToken } = deps;
+      const crypto = require('crypto');
       const sessions = await stores.sessions.listUserSessions(req.user.userId);
       const currentTokenHash = req.userToken ? hashToken(req.userToken) : null;
+      // Use an opaque identifier derived from SHA-256 of the token hash instead
+      // of exposing a 24-char prefix of the actual token hash. This prevents
+      // any partial-preimage attack surface while remaining stable per-session.
       const items = sessions.map((s) => ({
-        id: s.token.slice(0, 24),
-        createdAt: new Date(Number(s.createdAt || 0)).toISOString(),
-        lastAccess: new Date(Number(s.lastAccess || 0)).toISOString(),
+        id: crypto.createHash('sha256').update(s.token).digest('hex').slice(0, 16),
+        createdAt: new Date(s.createdAt).toISOString(),
+        lastAccess: new Date(s.lastAccess).toISOString(),
         current: s.token === currentTokenHash,
       }));
       return sendSuccess(res, items);
@@ -409,14 +413,15 @@ module.exports = function createAuthRoutes(deps) {
       setNoStore(res);
       // eslint-disable-next-line no-shadow
       const { stores, hashSessionToken: hashToken } = deps;
+      const crypto = require('crypto');
       const sessionId = req.params.id;
-      if (!sessionId || sessionId.length !== 24 || !/^[a-f0-9]+$/i.test(sessionId)) {
+      if (!sessionId || sessionId.length !== 16 || !/^[a-f0-9]+$/i.test(sessionId)) {
         return sendError(res, 400, 'Invalid session ID', ErrorCodes.INVALID_INPUT);
       }
 
-      // Find matching session by prefix
+      // Find matching session by opaque id (SHA-256 of token hash, first 16 hex chars)
       const sessions = await stores.sessions.listUserSessions(req.user.userId);
-      const target = sessions.find((s) => s.token.slice(0, 24) === sessionId);
+      const target = sessions.find((s) => crypto.createHash('sha256').update(s.token).digest('hex').slice(0, 16) === sessionId);
       if (!target) return sendError(res, 404, 'Session not found', ErrorCodes.NOT_FOUND);
 
       // Prevent revoking current session (use /logout instead)

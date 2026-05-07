@@ -56,10 +56,9 @@ export default function FestivalModeToggle() {
     >
       {isFestivalMode && !prefersReducedMotion && (
         <motion.div
-          className="absolute inset-0 rounded-lg bg-accent-coral"
+          className="absolute inset-0 rounded-lg bg-accent-coral -z-[1]"
           animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.25, 0.6] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          style={{ zIndex: -1 }}
         />
       )}
 

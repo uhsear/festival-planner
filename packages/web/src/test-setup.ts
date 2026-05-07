@@ -1,3 +1,4 @@
+/// <reference types="vitest/globals" />
 import '@testing-library/jest-dom/vitest';
 
 // Stub matchMedia — jsdom doesn't implement it, but motion/react and some

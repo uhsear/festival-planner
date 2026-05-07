@@ -141,9 +141,8 @@ export default function CompareView() {
                   <tr key={set.id} className="border-t border-border">
                     <th
                       scope="row"
-                      className="sticky left-0 bg-bg-primary z-10 py-3 pr-3 align-top text-left"
+                      className="sticky left-0 bg-bg-primary z-10 py-3 pr-3 align-top text-left pl-2.5"
                       style={{ borderLeft: `3px solid ${stageColor}` }}
-                      className="pl-2.5"
                     >
                       <div className="font-semibold text-text-primary truncate max-w-[180px]">{set.artist}</div>
                       <div className="text-xs text-text-secondary">
