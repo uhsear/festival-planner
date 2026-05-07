@@ -216,7 +216,7 @@ describe('api service', () => {
         json: async () => { throw new Error('not json'); },
         headers: { get: () => null },
       });
-      await expect(api.get('/crash')).rejects.toThrow('Request failed');
+      await expect(api.get('/crash')).rejects.toThrow('Internal Server Error');
     });
   });
 

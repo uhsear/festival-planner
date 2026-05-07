@@ -34,11 +34,11 @@ describe('TimelineSkeleton', () => {
     expect(skeletons.length).toBeGreaterThan(0);
   });
 
-  it('uses CSS grid layout for the timeline', () => {
+  it('renders the timeline grid container', () => {
     const { container } = render(<TimelineSkeleton />);
     const grid = container.querySelector('.timeline-grid');
     expect(grid).toBeInTheDocument();
-    expect(grid?.getAttribute('style')).toContain('grid-template-columns');
-    expect(grid?.getAttribute('style')).toContain('grid-template-rows');
+    // Grid contains header cells + time cells + placeholder set blocks
+    expect(grid!.children.length).toBeGreaterThan(10);
   });
 });

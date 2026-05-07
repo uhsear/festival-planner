@@ -118,6 +118,32 @@ function makeSet(overrides: Partial<FestivalSet> = {}): FestivalSet {
   };
 }
 
+function defaultDetailData() {
+  return {
+    currentFestival: { id: 'fest-1', name: 'Test Fest' } as ReturnType<typeof useDetailPanelData>['currentFestival'],
+    festivalDays: [],
+    currentProfile: { id: 'prof-1', picks: {}, notes: {} } as ReturnType<typeof useDetailPanelData>['currentProfile'],
+    b2bSeparator: 'b2b',
+    stageColor: '#ff3366',
+    stageName: 'Main Stage',
+    myPick: null as Priority | null,
+    artistName: 'Daft Punk',
+    sub: '',
+    artistLinks: [] as ReturnType<typeof useDetailPanelData>['artistLinks'],
+    isB2B: false,
+    primaryArtist: null as ReturnType<typeof useDetailPanelData>['primaryArtist'],
+    allGenres: [] as string[],
+    conflicts: [] as ReturnType<typeof useDetailPanelData>['conflicts'],
+    others: [] as ReturnType<typeof useDetailPanelData>['others'],
+    crewNotes: [] as ReturnType<typeof useDetailPanelData>['crewNotes'],
+    whoTitle: "Who's going",
+    savePick: mockSavePick,
+    saveNote: mockSaveNote,
+    getOtherPicks: vi.fn(() => []) as ReturnType<typeof useDetailPanelData>['getOtherPicks'],
+    getStageName: vi.fn(() => 'Main Stage') as ReturnType<typeof useDetailPanelData>['getStageName'],
+  };
+}
+
 describe('DetailPanel', () => {
   const defaultProps = {
     set: makeSet(),
@@ -126,6 +152,7 @@ describe('DetailPanel', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useDetailPanelData).mockReturnValue(defaultDetailData());
   });
 
   it('renders the drawer with set detail aria-label', () => {
@@ -178,27 +205,8 @@ describe('DetailPanel', () => {
 
   it('renders Join Festival CTA when user has no profile', () => {
     vi.mocked(useDetailPanelData).mockReturnValue({
-      currentFestival: { id: 'fest-1', name: 'Test Fest' } as ReturnType<typeof useDetailPanelData>['currentFestival'],
-      festivalDays: [],
+      ...defaultDetailData(),
       currentProfile: null,
-      b2bSeparator: 'b2b',
-      stageColor: '#ff3366',
-      stageName: 'Main Stage',
-      myPick: null,
-      artistName: 'Daft Punk',
-      sub: '',
-      artistLinks: [],
-      isB2B: false,
-      primaryArtist: null,
-      allGenres: [],
-      conflicts: [],
-      others: [],
-      crewNotes: [],
-      whoTitle: "Who's going",
-      savePick: mockSavePick,
-      saveNote: mockSaveNote,
-      getOtherPicks: vi.fn(() => []),
-      getStageName: vi.fn(() => 'Main Stage'),
     });
     render(<DetailPanel {...defaultProps} />);
     expect(screen.getByRole('button', { name: /Join Festival/ })).toBeInTheDocument();

@@ -73,6 +73,11 @@ describe('SetCard', () => {
       minutesUntil: 300,
       progress: 0,
     });
+    vi.mocked(usePicks).mockReturnValue({
+      getMyPick: vi.fn(() => null),
+      savePick: vi.fn(),
+      getMyNote: vi.fn(() => ''),
+    });
   });
 
   it('renders the artist name', () => {

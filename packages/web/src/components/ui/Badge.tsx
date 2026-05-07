@@ -18,9 +18,9 @@ export default function Badge({
     must: 'badge-must',
     want: 'badge-want',
     maybe: 'badge-maybe',
-    online: 'bg-accent-green bg-opacity-20 text-accent-green border border-accent-green border-opacity-30',
-    offline: 'bg-text-muted bg-opacity-20 text-text-muted border border-text-muted border-opacity-30',
-    count: 'bg-accent-coral bg-opacity-20 text-accent-coral border border-accent-coral border-opacity-30',
+    online: 'bg-accent-green/20 text-accent-green border border-accent-green/30',
+    offline: 'bg-text-muted/20 text-text-muted border border-text-muted/30',
+    count: 'bg-accent-coral/20 text-accent-coral border border-accent-coral/30',
     outline: 'bg-transparent text-text-secondary border border-border',
   };
 

@@ -20,11 +20,11 @@ describe('CrewSkeleton', () => {
     expect(homeBase).toBeInTheDocument();
   });
 
-  it('renders 5 tab placeholders', () => {
+  it('renders 5 tab placeholders in the tab row', () => {
     const { container } = render(<CrewSkeleton />);
-    const tabRow = container.querySelector('.flex.gap-1\\.5');
-    const tabs = tabRow?.querySelectorAll('.skeleton');
-    expect(tabs?.length).toBe(5);
+    // The tab row contains 5 skeleton children with min-w-16 and flex-1
+    const tabSkeletons = container.querySelectorAll('.skeleton.min-w-16');
+    expect(tabSkeletons.length).toBe(5);
   });
 
   it('renders 3 member row placeholders', () => {

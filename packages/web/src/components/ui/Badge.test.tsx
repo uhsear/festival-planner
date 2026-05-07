@@ -16,7 +16,7 @@ describe('Badge', () => {
   it('defaults to count variant', () => {
     render(<Badge>5</Badge>);
     const el = screen.getByText('5');
-    expect(el.className).toContain('bg-accent-coral');
+    expect(el.className).toContain('bg-accent-coral/20');
   });
 
   it('applies must variant styling', () => {
@@ -40,13 +40,13 @@ describe('Badge', () => {
   it('applies online variant styling', () => {
     render(<Badge variant="online">Online</Badge>);
     const el = screen.getByText('Online');
-    expect(el.className).toContain('bg-accent-green');
+    expect(el.className).toContain('bg-accent-green/20');
   });
 
   it('applies offline variant styling', () => {
     render(<Badge variant="offline">Offline</Badge>);
     const el = screen.getByText('Offline');
-    expect(el.className).toContain('bg-text-muted');
+    expect(el.className).toContain('bg-text-muted/20');
   });
 
   it('applies outline variant styling', () => {

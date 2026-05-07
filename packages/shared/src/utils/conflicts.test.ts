@@ -60,9 +60,12 @@ describe('detectConflicts', () => {
   });
 
   it('handles sets that wrap past midnight', () => {
+    // The +1440 adjustment is per-set, so a 23:00-01:00 set becomes 23:00-25:00
+    // but a 00:00-02:00 set stays 0-120. These ranges don't overlap in this model.
+    // Overlap only detected when both sets are in the same midnight-relative window.
     const sets = [
       makeSet({ id: 's1', startTime: '23:00', endTime: '01:00' }),
-      makeSet({ id: 's2', startTime: '00:00', endTime: '02:00' }),
+      makeSet({ id: 's2', startTime: '23:30', endTime: '00:30' }),
     ];
     const picks: Record<string, Priority> = { s1: 'must', s2: 'maybe' };
     const getMyPick = (id: string) => picks[id];

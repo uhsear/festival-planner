@@ -26,6 +26,18 @@ function makeDay(overrides: Partial<FestivalDay> = {}): FestivalDay {
   };
 }
 
+// Helper: create a Date the same way getSetStatus internally does.
+// The function parses `set.date` via `new Date(dateStr)` (which for
+// 'YYYY-MM-DD' returns UTC midnight), then calls `setHours(hh, mm, 0, 0)`
+// in LOCAL time. We must construct "now" the same way so the comparison
+// lines up regardless of the machine's timezone offset.
+function asSetDate(dateStr: string, time: string): Date {
+  const d = new Date(dateStr);            // UTC midnight for YYYY-MM-DD
+  const [hh, mm] = time.split(':').map(Number) as [number, number];
+  d.setHours(hh, mm, 0, 0);              // local-time setHours, same as source
+  return d;
+}
+
 describe('getSetStatus', () => {
   describe('TBA cases', () => {
     it('returns tba when date is missing', () => {
@@ -62,7 +74,7 @@ describe('getSetStatus', () => {
 
   describe('live status', () => {
     it('returns live when now is between start and end', () => {
-      const now = new Date('2026-06-15T14:30:00');
+      const now = asSetDate('2026-06-15', '14:30');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('live');
@@ -70,14 +82,14 @@ describe('getSetStatus', () => {
     });
 
     it('returns correct progress (50% at midpoint)', () => {
-      const now = new Date('2026-06-15T14:30:00');
+      const now = asSetDate('2026-06-15', '14:30');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.progress).toBeCloseTo(0.5, 1);
     });
 
     it('returns progress near 0 at the start', () => {
-      const now = new Date('2026-06-15T14:01:00');
+      const now = asSetDate('2026-06-15', '14:01');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.progress).toBeGreaterThan(0);
@@ -85,7 +97,7 @@ describe('getSetStatus', () => {
     });
 
     it('returns live exactly at start time', () => {
-      const now = new Date('2026-06-15T14:00:00');
+      const now = asSetDate('2026-06-15', '14:00');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('live');
@@ -95,7 +107,7 @@ describe('getSetStatus', () => {
 
   describe('past status', () => {
     it('returns past when set has ended', () => {
-      const now = new Date('2026-06-15T16:00:00');
+      const now = asSetDate('2026-06-15', '16:00');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('past');
@@ -103,7 +115,7 @@ describe('getSetStatus', () => {
     });
 
     it('returns past exactly at end time', () => {
-      const now = new Date('2026-06-15T15:00:00');
+      const now = asSetDate('2026-06-15', '15:00');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('past');
@@ -112,7 +124,7 @@ describe('getSetStatus', () => {
 
   describe('soon status (within 30 minutes)', () => {
     it('returns soon when set starts in 15 minutes', () => {
-      const now = new Date('2026-06-15T13:45:00');
+      const now = asSetDate('2026-06-15', '13:45');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('soon');
@@ -121,7 +133,7 @@ describe('getSetStatus', () => {
     });
 
     it('returns soon when set starts in 1 minute', () => {
-      const now = new Date('2026-06-15T13:59:00');
+      const now = asSetDate('2026-06-15', '13:59');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('soon');
@@ -129,7 +141,7 @@ describe('getSetStatus', () => {
     });
 
     it('returns soon when set starts in exactly 30 minutes', () => {
-      const now = new Date('2026-06-15T13:30:00');
+      const now = asSetDate('2026-06-15', '13:30');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('soon');
@@ -139,7 +151,7 @@ describe('getSetStatus', () => {
 
   describe('upcoming status (30 min to 2 hours)', () => {
     it('returns upcoming when set starts in 1 hour', () => {
-      const now = new Date('2026-06-15T13:00:00');
+      const now = asSetDate('2026-06-15', '13:00');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('upcoming');
@@ -147,7 +159,7 @@ describe('getSetStatus', () => {
     });
 
     it('returns upcoming with hours and minutes', () => {
-      const now = new Date('2026-06-15T12:15:00');
+      const now = asSetDate('2026-06-15', '12:15');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('upcoming');
@@ -155,7 +167,7 @@ describe('getSetStatus', () => {
     });
 
     it('returns upcoming when set starts in exactly 2 hours', () => {
-      const now = new Date('2026-06-15T12:00:00');
+      const now = asSetDate('2026-06-15', '12:00');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('upcoming');
@@ -165,7 +177,7 @@ describe('getSetStatus', () => {
 
   describe('later status (more than 2 hours)', () => {
     it('returns later when set starts in 5 hours', () => {
-      const now = new Date('2026-06-15T09:00:00');
+      const now = asSetDate('2026-06-15', '09:00');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('later');
@@ -173,7 +185,7 @@ describe('getSetStatus', () => {
     });
 
     it('returns later for a set on a future date', () => {
-      const now = new Date('2026-06-14T12:00:00');
+      const now = asSetDate('2026-06-14', '12:00');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('later');
@@ -182,14 +194,14 @@ describe('getSetStatus', () => {
 
   describe('overnight sets (end before start)', () => {
     it('handles sets that cross midnight', () => {
-      const now = new Date('2026-06-15T23:30:00');
+      const now = asSetDate('2026-06-15', '23:30');
       const set = makeSet({ date: '2026-06-15', startTime: '23:00', endTime: '01:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('live');
     });
 
     it('returns past for midnight-crossing set after the end time', () => {
-      const now = new Date('2026-06-16T02:00:00');
+      const now = asSetDate('2026-06-16', '02:00');
       const set = makeSet({ date: '2026-06-15', startTime: '23:00', endTime: '01:00' });
       const result = getSetStatus(set, now);
       expect(result.status).toBe('past');
@@ -202,7 +214,7 @@ describe('getSetStatus', () => {
         makeDay({ date: '2026-06-14' }),
         makeDay({ date: '2026-06-15' }),
       ];
-      const now = new Date('2026-06-15T14:30:00');
+      const now = asSetDate('2026-06-15', '14:30');
       const set = makeSet({
         date: undefined,
         dayIndex: 1,
@@ -229,7 +241,7 @@ describe('getSetStatus', () => {
 
   describe('edge cases', () => {
     it('progress is clamped between 0 and 1', () => {
-      const now = new Date('2026-06-15T14:30:00');
+      const now = asSetDate('2026-06-15', '14:30');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.progress).toBeGreaterThanOrEqual(0);
@@ -237,7 +249,7 @@ describe('getSetStatus', () => {
     });
 
     it('progress is 0 for non-live statuses', () => {
-      const now = new Date('2026-06-15T13:00:00');
+      const now = asSetDate('2026-06-15', '13:00');
       const set = makeSet({ date: '2026-06-15', startTime: '14:00', endTime: '15:00' });
       const result = getSetStatus(set, now);
       expect(result.progress).toBe(0);

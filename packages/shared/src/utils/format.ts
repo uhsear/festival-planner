@@ -68,7 +68,8 @@ export function getSetHotness(set: FestivalSet): number {
   if (_hotnessCache.has(cacheKey)) return _hotnessCache.get(cacheKey) || 0;
 
   const now = nowSec * 1000;
-  const dayDate = new Date(set.date);
+  const [yr = 0, mo = 1, dy = 1] = set.date.split('-').map((x) => parseInt(x, 10));
+  const dayDate = new Date(yr, mo - 1, dy);
   if (isNaN(dayDate.getTime())) return 0;
 
   const [hh = 0, mm = 0] = (set.startTime || '00:00').split(':').map((x) => parseInt(x, 10));
@@ -76,7 +77,7 @@ export function getSetHotness(set: FestivalSet): number {
   const setStart = dayDate.getTime();
 
   const [eh = 0, em = 0] = (set.endTime || set.startTime).split(':').map((x) => parseInt(x, 10));
-  const endDate = new Date(set.date);
+  const endDate = new Date(yr, mo - 1, dy);
   endDate.setHours(eh, em, 0, 0);
   if (endDate <= dayDate) endDate.setDate(endDate.getDate() + 1);
   const setEnd = endDate.getTime();

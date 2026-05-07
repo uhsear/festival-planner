@@ -221,20 +221,20 @@ describe('getSetHotness', () => {
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    // Set that started 30 minutes ago and ends 30 minutes from now
-    const startH = now.getHours();
-    const startM = now.getMinutes() > 30 ? now.getMinutes() - 30 : 0;
-    const endH = now.getHours() + 1;
+    const startDate = new Date(now.getTime() - 30 * 60000);
+    const endDate = new Date(now.getTime() + 30 * 60000);
     const set = makeSet({
+      id: 'hotness-playing',
       date,
-      startTime: `${pad(startH)}:${pad(startM)}`,
-      endTime: `${pad(endH)}:00`,
+      startTime: `${pad(startDate.getHours())}:${pad(startDate.getMinutes())}`,
+      endTime: `${pad(endDate.getHours())}:${pad(endDate.getMinutes())}`,
     });
     expect(getSetHotness(set)).toBe(1000);
   });
 
   it('returns 0 for a set far in the future', () => {
     const set = makeSet({
+      id: 'hotness-future',
       date: '2099-12-31',
       startTime: '23:00',
       endTime: '23:59',
