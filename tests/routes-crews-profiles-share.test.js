@@ -1255,8 +1255,10 @@ function makeProfileDeps(overrides = {}) {
     rateLimit: () => (_req, _res, next) => next(),
     validate: () => (req, _res, next) => { req.validatedBody = req.body; next(); },
     validateParams: () => (req, _res, next) => { req.validatedParams = req.params; next(); },
+    validateQuery: () => (req, _res, next) => { req.validatedQuery = req.query; next(); },
     schemas: {
       festivalIdParams: {}, profileIdParams: {}, joinFestival: {}, profileUpdate: {},
+      paginationQuery: {},
     },
     io: ioObj,
     emitter: {
