@@ -1310,6 +1310,9 @@ describe('routes/ratings', () => {
           getCrewRatings: mock.fn(async () => ({ items: [], nextCursor: null })),
           getWrapStats: mock.fn(async () => ({ total: 5, avgRating: 4.2 })),
         },
+        crews: {
+          getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
+        },
       },
       ...overrides,
     });
