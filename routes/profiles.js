@@ -47,7 +47,7 @@ module.exports = function createProfilesRoutes(deps) {
       }
       return sendSuccess(res, profiles);
     } catch (error) {
-      log.error('profile load failed', { error: error.message, festivalId: req.params.festivalId });
+      log.error('profile load failed', { error: error.message, festivalId: req.validatedParams?.festivalId });
       return sendError(res, 500, 'Failed to load profiles', ErrorCodes.INTERNAL_ERROR);
     }
   });
@@ -209,7 +209,7 @@ module.exports = function createProfilesRoutes(deps) {
       if (profile.updatedAt) res.setHeader('ETag', `"${profile.updatedAt}"`);
       return sendSuccess(res, serializeOwnProfile(profile, await getUserById(profile.userId)));
     } catch (error) {
-      log.error('profile update failed', { error: error.message, profileId: req.params.id });
+      log.error('profile update failed', { error: error.message, profileId: req.validatedParams?.id });
       return sendError(res, 500, 'Failed to update profile', ErrorCodes.INTERNAL_ERROR);
     }
   }
@@ -227,7 +227,7 @@ module.exports = function createProfilesRoutes(deps) {
       emitter.profileDeleted({ festivalId: profile.festivalId, profileId: profile.id });
       return sendSuccess(res, { success: true });
     } catch (error) {
-      log.error('profile delete failed', { error: error.message, profileId: req.params.id });
+      log.error('profile delete failed', { error: error.message, profileId: req.validatedParams?.id });
       return sendError(res, 500, 'Failed to delete profile', ErrorCodes.INTERNAL_ERROR);
     }
   });
