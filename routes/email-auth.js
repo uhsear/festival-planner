@@ -32,8 +32,7 @@ module.exports = function createEmailAuthRoutes(deps) {
     schemas, validate,
     stores, invalidateUserCache,
     state, createAuditLog, getRequestIp,
-    // eslint-disable-next-line no-unused-vars
-    createOpaqueId, _hashSessionToken, io,
+    io,
   } = deps;
 
   const { sendPasswordResetEmail, sendVerificationEmail } = require('../lib/email');
