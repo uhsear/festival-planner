@@ -104,9 +104,10 @@ function makeMockDeps(overrides = {}) {
     rateLimit: () => (_req, _res, next) => next(),
     io: { to: () => ({ emit: () => {} }), sockets: { sockets: new Map() } },
     DUMMY_PASSWORD_HASH: 'dummy-hash',
-    schemas: {},
+    schemas: { genericIdParams: {}, festivalDepthQuery: {}, festivalDeleteQuery: {}, festivalCreate: {}, festivalUpdate: {}, setLink: {} },
     validate: () => (req, _res, next) => { req.validatedBody = req.body; next(); },
     validateQuery: () => (req, _res, next) => { req.validatedQuery = req.query; next(); },
+    validateParams: () => (req, _res, next) => { req.validatedParams = req.params; next(); },
     stores: {
       users: {
         create: mock.fn(async (d) => d),

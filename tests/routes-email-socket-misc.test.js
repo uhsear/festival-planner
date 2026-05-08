@@ -88,6 +88,7 @@ function baseDeps(overrides = {}) {
       expenseCreate: {},
       expenseSettleFull: {},
       ratingCreate: {},
+      festivalIdParams: {},
       paginationQuery: { parse: () => ({ cursor: null, limit: 20 }) },
     },
     sanitizeString: (s) => (s || '').trim(),
