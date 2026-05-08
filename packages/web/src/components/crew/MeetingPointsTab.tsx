@@ -101,14 +101,14 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
     return <div className="px-4 space-y-2"><Skeleton variant="card" /><Skeleton variant="card" /></div>;
   }
   if (isError) {
-    return <div className="px-4"><EmptyState icon={<MapPin className="w-12 h-12" />} title="Couldn't load meeting points" description="Something went wrong loading meeting points." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
+    return <div className="px-4"><EmptyState icon={<MapPin className="w-12 h-12" aria-hidden="true" />} title="Couldn't load meeting points" description="Something went wrong loading meeting points." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
   }
 
   return (
     <div className="space-y-3 px-4">
       {!showForm ? (
         <Button variant="primary" onClick={() => setShowForm(true)} className="w-full min-h-11">
-          <Plus className="w-4 h-4" /> Add Meeting Point
+          <Plus className="w-4 h-4" aria-hidden="true" /> Add Meeting Point
         </Button>
       ) : (
         <form onSubmit={submit} className="p-3 rounded-lg bg-bg-card border border-border space-y-3">
@@ -117,9 +117,9 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
             <IconButton label="Cancel" icon={<X className="w-5 h-5" />} onClick={reset} />
           </div>
 
-          <div className="crew-type-grid grid grid-cols-3 gap-2">
+          <div className="crew-type-grid grid grid-cols-3 gap-2" role="radiogroup" aria-label="Meeting point type">
             {TYPES.map((t) => (
-              <button key={t.key} type="button" onClick={() => setType(t.key)}
+              <button key={t.key} type="button" role="radio" aria-checked={type === t.key} onClick={() => setType(t.key)}
                 className={`px-2 py-2 rounded-lg border text-xs font-medium min-h-11 flex flex-col items-center gap-1 transition-colors ${
                   type === t.key
                     ? 'bg-accent-aqua/15 border-accent-aqua text-accent-aqua'
@@ -132,11 +132,11 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
           </div>
 
           <input className="input-base w-full min-h-11" placeholder="Label (e.g. 'Main entrance')"
-            value={label} onChange={(e) => setLabel(e.target.value)} maxLength={100} required />
+            aria-label="Label" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={100} required />
           <input className="input-base w-full min-h-11" placeholder="Location (e.g. 'Near the food court')"
-            value={location} onChange={(e) => setLocation(e.target.value)} maxLength={200} required />
+            aria-label="Location" value={location} onChange={(e) => setLocation(e.target.value)} maxLength={200} required />
           <input type="datetime-local" className="input-base w-full min-h-11" placeholder="Meet at (optional)"
-            value={meetAt} onChange={(e) => setMeetAt(e.target.value)} />
+            aria-label="Meet at time" value={meetAt} onChange={(e) => setMeetAt(e.target.value)} />
 
           <Button type="submit" variant="primary" isLoading={createPoint.isPending}
             className="w-full min-h-11" disabled={!label.trim() || !location.trim()}>
@@ -146,7 +146,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
       )}
 
       {points.length === 0 ? (
-        <EmptyState icon={<MapPin className="w-12 h-12" />} title="No meeting points yet"
+        <EmptyState icon={<MapPin className="w-12 h-12" aria-hidden="true" />} title="No meeting points yet"
           description="Drop a pin so your crew knows where to meet." />
       ) : (
         <div className="space-y-2">

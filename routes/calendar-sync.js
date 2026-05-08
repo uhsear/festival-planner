@@ -54,7 +54,7 @@ module.exports.createCalendarFeedRoute = function createCalendarFeedRoute(deps) 
   feedRouter.get('/cal/:token.ics', feedLimit, async (req, res) => {
     try {
       const tokenId = req.params.token;
-      if (!tokenId || tokenId.length > 50) {
+      if (!tokenId || tokenId.length > 50 || !/^[a-zA-Z0-9_-]+$/.test(tokenId)) {
         return res.status(400).send('Invalid token');
       }
 

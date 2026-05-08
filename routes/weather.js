@@ -30,7 +30,9 @@ function createWeatherRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
       }
 
       const { latitude, longitude } = result.rows[0];
-      if (!latitude || !longitude) {
+      if (!latitude || !longitude ||
+          typeof latitude !== 'number' || typeof longitude !== 'number' ||
+          latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
         return sendSuccess(res, { available: false, reason: 'No coordinates set for this festival' });
       }
 

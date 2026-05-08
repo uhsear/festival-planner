@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuthStore, useFestivalStore } from '@festie/shared';
+import { useAuthStore } from '@festie/shared';
 import { getAvatarColor, getInitials } from '@festie/shared/utils';
 import { useNavigate } from '@tanstack/react-router';
 import { useToast } from '../../lib/toastContext';
 import ChangePasswordModal from './ChangePasswordModal';
+import UserMenuProfileCard from './UserMenuProfileCard';
+import UserMenuAccountSection from './UserMenuAccountSection';
 
 interface UserMenuProps {
   user: {
@@ -21,39 +23,14 @@ interface UserMenuProps {
 export default function UserMenu({ user }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const logout = useAuthStore((state) => state.logout);
-  const uploadAvatar = useAuthStore((state) => state.uploadAvatar);
-  const removeAvatar = useAuthStore((state) => state.removeAvatar);
   const changePassword = useAuthStore((state) => state.changePassword);
   const isLoading = useAuthStore((state) => state.isLoading);
-
-  const currentFestival = useFestivalStore((state) => state.currentFestival);
-  const currentProfile = useFestivalStore((state) => state.currentProfile);
-
-  // Compute pick/note stats from the current profile
-  const summary = (() => {
-    if (!currentProfile) return { total: 0, must: 0, want: 0, notes: 0 };
-    const picks = currentProfile.picks || {};
-    const notes = currentProfile.notes || {};
-    let must = 0;
-    let want = 0;
-    for (const priority of Object.values(picks)) {
-      if (priority === 'must') must++;
-      else if (priority === 'want-to-see') want++;
-    }
-    return {
-      total: Object.keys(picks).length,
-      must,
-      want,
-      notes: Object.keys(notes).length,
-    };
-  })();
 
   const close = useCallback(() => setIsOpen(false), []);
 
@@ -96,28 +73,14 @@ export default function UserMenu({ user }: UserMenuProps) {
     } catch (e) {
       console.error('Logout failed:', e);
     }
-    // Always navigate — logout store action also clears state on error
     await navigate({ to: '/login' });
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      await uploadAvatar(file);
-    }
-    // Reset the input so the same file can be re-selected
-    e.target.value = '';
-  };
-
-  const handleRemoveAvatar = async () => {
-    await removeAvatar();
   };
 
   const avatarName = user.username || user.name || '';
 
   return (
     <>
-      {/* Trigger — profile badge in the header */}
+      {/* Trigger -- profile badge in the header */}
       <button
         ref={triggerRef}
         className="profile-badge"
@@ -148,7 +111,7 @@ export default function UserMenu({ user }: UserMenuProps) {
         )}
       </button>
 
-      {/* Overlay + menu (matches legacy showUserMenu DOM) */}
+      {/* Overlay + menu */}
       {isOpen && (
         <div
           className="user-menu-overlay"
@@ -157,196 +120,14 @@ export default function UserMenu({ user }: UserMenuProps) {
           }}
         >
           <div className="user-menu" ref={menuRef} role="dialog" aria-modal="true" aria-label="User menu">
-            {/* ── Profile card ───────────────────────────────── */}
-            <div className="user-menu-profile-card" data-testid="user-menu-profile">
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={avatarName}
-                  width={52}
-                  height={52}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-[52px] w-[52px] rounded-full object-cover"
-                />
-              ) : (
-                <div
-                  className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white"
-                  style={{ backgroundColor: getAvatarColor(avatarName) }}
-                >
-                  {getInitials(avatarName)}
-                </div>
-              )}
-              <div className="user-menu-copy">
-                <div className="user-menu-name">{user.username}</div>
-                <div className="user-menu-subline">Account identity across every festival</div>
-                <div className="user-menu-badges">
-                  <span className="identity-badge">Account</span>
-                  {user.isAdmin && (
-                    <span className="identity-badge identity-badge-admin">Admin</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* ── Festival Profile section ───────────────────── */}
-            {currentFestival && (
-              <section className="user-menu-section" data-testid="festival-profile-section">
-                <div className="user-menu-section-title">Festival Profile</div>
-                <div className="user-menu-section-copy">
-                  {currentProfile
-                    ? `Specific to ${currentFestival.name}. Picks, notes, and crew coordination live here.`
-                    : `You have not joined ${currentFestival.name} yet. Join when you are ready to save picks and coordinate with the crew.`}
-                </div>
-                <div className="user-menu-status">
-                  {currentProfile ? (
-                    <>
-                      <span className="identity-badge identity-badge-self">Joined</span>
-                      <span className="identity-badge">Notes stay private</span>
-                    </>
-                  ) : (
-                    <span className="identity-badge">Not joined</span>
-                  )}
-                </div>
-                {currentProfile && (
-                  <div className="user-menu-stats">
-                    {([
-                      [summary.total, 'Total picks'],
-                      [summary.must, 'Must see'],
-                      [summary.want, 'Want to see'],
-                      [summary.notes, 'Notes'],
-                    ] as const).map(([value, label]) => (
-                      <div className="user-menu-stat" key={label}>
-                        <strong>{value}</strong>
-                        <span>{label}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            )}
-
-            {/* ── Account section ────────────────────────────── */}
-            <section className="user-menu-section" data-testid="account-section">
-              <div className="user-menu-section-title">Account</div>
-
-              {/* Photo row */}
-              <div className="account-setting-row">
-                <div className="account-setting-label">
-                  <span className="account-setting-key">Photo</span>
-                  <span className="account-setting-value">JPG, PNG, GIF, or WebP up to 5MB</span>
-                </div>
-                <div className="account-setting-actions">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="hidden"
-                    data-testid="avatar-file-input"
-                    onChange={handleFileChange}
-                  />
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    disabled={isLoading}
-                    data-testid="avatar-upload-button"
-                    onClick={() => {
-                      if (!isLoading) fileInputRef.current?.click();
-                    }}
-                  >
-                    {isLoading ? 'Uploading...' : 'Upload'}
-                  </button>
-                  {user.avatarUrl && (
-                    <button
-                      className="btn btn-ghost btn-sm btn-muted"
-                      type="button"
-                      disabled={isLoading}
-                      data-testid="avatar-remove-button"
-                      onClick={handleRemoveAvatar}
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Email row */}
-              <div className="account-setting-row">
-                <div className="account-setting-label">
-                  <span className="account-setting-key">Email</span>
-                  {user.email ? (
-                    <span className="account-setting-value">
-                      {user.email}
-                      {user.emailVerified ? (
-                        <span className="account-verified-badge">Verified</span>
-                      ) : (
-                        <span className="account-unverified-badge">Unverified</span>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="account-setting-value account-setting-empty">Not set</span>
-                  )}
-                </div>
-                <div className="account-setting-actions">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={() => {
-                      close();
-                      // No /auth/change-email endpoint exists yet — stub
-                      // until the backend route lands so we don't ship a
-                      // broken button.
-                      toast('Email change coming soon', 'info');
-                    }}
-                  >
-                    {user.email ? 'Change' : 'Add'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Password row */}
-              <div className="account-setting-row">
-                <div className="account-setting-label">
-                  <span className="account-setting-key">Password</span>
-                  <span className="account-setting-value">{'\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'}</span>
-                </div>
-                <div className="account-setting-actions">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={() => {
-                      close();
-                      setShowChangePassword(true);
-                    }}
-                  >
-                    Change
-                  </button>
-                </div>
-              </div>
-
-              {/* Bottom actions */}
-              <div className="user-menu-actions">
-                {user.isAdmin && (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    type="button"
-                    onClick={() => {
-                      close();
-                      navigate({ to: '/admin' });
-                    }}
-                  >
-                    Admin Panel
-                  </button>
-                )}
-                <button
-                  className="btn btn-danger btn-sm"
-                  type="button"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
-              </div>
-            </section>
+            <UserMenuProfileCard user={user} />
+            <UserMenuAccountSection
+              user={user}
+              isLoading={isLoading}
+              onClose={close}
+              onLogout={handleLogout}
+              onChangePassword={() => setShowChangePassword(true)}
+            />
           </div>
         </div>
       )}
@@ -370,4 +151,3 @@ export default function UserMenu({ user }: UserMenuProps) {
     </>
   );
 }
-

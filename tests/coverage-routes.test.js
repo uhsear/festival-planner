@@ -443,7 +443,7 @@ describe('admin festival CRUD + cascade + audit', () => {
       })
       .expect(201);
 
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setImmediate(r));
     const pool = new Pool({ connectionString: TEST_DATABASE_URL });
     try {
       const { rows } = await pool.query(
@@ -1226,7 +1226,7 @@ describe('Socket.IO event validation', () => {
         });
       });
       socket.on('connect_error', (e) => reject(e));
-      setTimeout(() => { socket.disconnect(); reject(new Error('timeout')); }, 5000);
+      setTimeout(() => { socket.disconnect(); reject(new Error('timeout')); }, 3000);
     });
   });
 
@@ -1267,7 +1267,7 @@ describe('Socket.IO event validation', () => {
         });
       });
       socket.on('connect_error', (e) => reject(e));
-      setTimeout(() => { socket.disconnect(); reject(new Error('timeout')); }, 5000);
+      setTimeout(() => { socket.disconnect(); reject(new Error('timeout')); }, 3000);
     });
   });
 
@@ -1288,7 +1288,7 @@ describe('Socket.IO event validation', () => {
         });
       });
       socket.on('connect_error', (e) => reject(e));
-      setTimeout(() => { socket.disconnect(); reject(new Error('timeout')); }, 5000);
+      setTimeout(() => { socket.disconnect(); reject(new Error('timeout')); }, 3000);
     });
   });
 
@@ -1308,7 +1308,7 @@ describe('Socket.IO event validation', () => {
         });
       });
       socket.on('connect_error', (e) => reject(e));
-      setTimeout(() => { socket.disconnect(); reject(new Error('timeout')); }, 5000);
+      setTimeout(() => { socket.disconnect(); reject(new Error('timeout')); }, 3000);
     });
   });
 });

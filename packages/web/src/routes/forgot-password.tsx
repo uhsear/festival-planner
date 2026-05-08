@@ -101,7 +101,7 @@ export default function ForgotPasswordPage() {
             aria-live="polite"
           >
             <div className="flex justify-center">
-              <CheckCircle className="w-12 h-12 text-accent-green" />
+              <CheckCircle className="w-12 h-12 text-accent-green" aria-hidden="true" />
             </div>
 
             <div>

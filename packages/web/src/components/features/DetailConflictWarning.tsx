@@ -41,8 +41,9 @@ export default function DetailConflictWarning({
                 {cOthers.length ? cOthers.length + ' crew going' : 'No crew'}
               </div>
               <button
-                className="btn btn-ghost btn-sm"
+                className="btn btn-ghost btn-sm min-h-[44px]"
                 type="button"
+                aria-label={`Switch to ${artistDisplayName(c, b2bSeparator)}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSwitch(currentSetId, c, myPick || 'want-to-see');

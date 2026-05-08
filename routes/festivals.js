@@ -186,19 +186,11 @@ module.exports = function createFestivalsRoutes(deps) {
         // Soft-delete: mark as deleted, preserve data for potential restore
         await stores.festivals.softDelete(festivalId);
       } else {
-        // Hard delete: permanently remove all data
+        // Hard delete: permanently remove all data inside a transaction.
         // Migration 031 changed all festival FKs from CASCADE to RESTRICT,
         // so we must delete child rows explicitly in dependency order.
         if (stores.crews?.deleteByFestival) await stores.crews.deleteByFestival(festivalId);
-        await stores.pool.query('DELETE FROM set_ratings WHERE set_id IN (SELECT id FROM festival_sets WHERE festival_id = $1)', [festivalId]);
-        await stores.pool.query('DELETE FROM festival_sets WHERE festival_id = $1', [festivalId]);
-        await stores.pool.query('DELETE FROM festival_stages WHERE festival_id = $1', [festivalId]);
-        await stores.pool.query('DELETE FROM festival_days WHERE festival_id = $1', [festivalId]);
-        await stores.pool.query('DELETE FROM festival_profiles WHERE festival_id = $1', [festivalId]);
-        await stores.pool.query('DELETE FROM calendar_tokens WHERE festival_id = $1', [festivalId]);
-        await stores.pool.query('DELETE FROM notification_counts WHERE festival_id = $1', [festivalId]);
-        await stores.pool.query('DELETE FROM notification_topic_subs WHERE festival_id = $1', [festivalId]);
-        await stores.pool.query('DELETE FROM festivals WHERE id = $1', [festivalId]);
+        await stores.festivals.hardDelete(festivalId);
       }
       invalidateFestivalCache();
 

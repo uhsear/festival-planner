@@ -92,7 +92,8 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
       if (!user) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
 
       // Get the acting admin's userId from the request session
-      const actorId = req.userId || 'admin';
+      const actorId = req.user?.userId || req.userId;
+      if (!actorId) return sendError(res, 401, 'Unauthorized', ErrorCodes.UNAUTHORIZED);
 
       await stores.roles.grantRole(targetUserId, roleName, actorId);
 
@@ -132,7 +133,8 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
       if (!user) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
 
       // Prevent revoking own admin role
-      const actorId = req.userId || 'admin';
+      const actorId = req.user?.userId || req.userId;
+      if (!actorId) return sendError(res, 401, 'Unauthorized', ErrorCodes.UNAUTHORIZED);
       if (roleName === 'admin' && targetUserId === actorId) {
         return sendError(res, 400, 'Cannot revoke your own admin role', ErrorCodes.INVALID_INPUT);
       }
@@ -243,6 +245,13 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
     try {
       const targetUserId = deps.sanitizeIdentifier(req.params.id, 100);
       if (!targetUserId) return sendError(res, 400, 'Invalid user ID', ErrorCodes.INVALID_INPUT);
+
+      // Prevent self-deletion
+      const actorId = req.user?.userId || req.userId;
+      if (targetUserId === actorId) {
+        return sendError(res, 400, 'Cannot delete your own account', ErrorCodes.INVALID_INPUT);
+      }
+
       // Verify user exists before proceeding
       const existingUser = await getUserById(targetUserId);
       if (!existingUser) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);

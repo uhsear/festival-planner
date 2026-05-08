@@ -30,7 +30,7 @@ export default function AdminAudit() {
 
   useEffect(() => {
     loadAudit();
-  }, [currentCursor, actionFilter, userFilter, dateFrom, dateTo]);
+  }, [currentCursor, actionFilter, userFilter, dateFrom, dateTo]); // eslint-disable-line react-hooks/exhaustive-deps -- loadAudit reads filter state directly
 
   const loadAudit = async () => {
     try {

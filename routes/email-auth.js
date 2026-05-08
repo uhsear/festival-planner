@@ -47,6 +47,7 @@ module.exports = function createEmailAuthRoutes(deps) {
     log,
     sendError,
     ErrorCodes,
+    redis: deps.redis,
   });
 
   // Per-email rate limiting for forgot-password (3 requests per 60 seconds)

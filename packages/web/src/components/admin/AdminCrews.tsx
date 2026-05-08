@@ -33,7 +33,7 @@ export default function AdminCrews() {
 
   useEffect(() => {
     loadCrews();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- load once on mount
 
   const loadCrews = async () => {
     try {

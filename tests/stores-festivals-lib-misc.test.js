@@ -137,21 +137,21 @@ describe('lib/db/stores/festivals.js', () => {
   });
 
   describe('getById', () => {
-    it('returns matching festival from readAll', async () => {
-      const pool = makePool();
-      const festivals = [
-        { id: 'f1', name: 'First' },
-        { id: 'f2', name: 'Second' },
-      ];
-      const utils = { buildFestivalRecords: mock.fn(async () => festivals) };
+    it('returns matching festival via direct query', async () => {
+      const festivalData = { id: 'f2', name: 'Second', location: '', b2bSeparator: 'b2b', stages: [], days: [] };
+      const pool = makePool([{ rows: [festivalData] }]);
+      const utils = { buildFestivalRecords: mock.fn() };
       const store = createFestivalsStore(pool, utils);
       const result = await store.getById('f2');
-      assert.deepEqual(result, { id: 'f2', name: 'Second' });
+      assert.deepEqual(result, festivalData);
+      // Should use pool.query directly, not buildFestivalRecords
+      assert.equal(pool.query.mock.calls.length, 1);
+      assert.ok(pool.query.mock.calls[0].arguments[0].includes('festivals'));
     });
 
     it('returns null when no festival matches', async () => {
-      const pool = makePool();
-      const utils = { buildFestivalRecords: mock.fn(async () => []) };
+      const pool = makePool([{ rows: [] }]);
+      const utils = { buildFestivalRecords: mock.fn() };
       const store = createFestivalsStore(pool, utils);
       const result = await store.getById('nonexistent');
       assert.equal(result, null);
@@ -902,48 +902,48 @@ describe('lib/reset-pages.js', () => {
   const {
     renderResetFormPage,
     renderResetErrorPage,
-    escapeHtmlResetPage,
+    escapeHtml,
   } = require('../lib/reset-pages');
 
-  describe('escapeHtmlResetPage', () => {
+  describe('escapeHtml (re-exported from sanitize)', () => {
     it('escapes ampersands', () => {
-      assert.equal(escapeHtmlResetPage('a&b'), 'a&amp;b');
+      assert.equal(escapeHtml('a&b'), 'a&amp;b');
     });
 
     it('escapes less-than', () => {
-      assert.equal(escapeHtmlResetPage('a<b'), 'a&lt;b');
+      assert.equal(escapeHtml('a<b'), 'a&lt;b');
     });
 
     it('escapes greater-than', () => {
-      assert.equal(escapeHtmlResetPage('a>b'), 'a&gt;b');
+      assert.equal(escapeHtml('a>b'), 'a&gt;b');
     });
 
     it('escapes double quotes', () => {
-      assert.equal(escapeHtmlResetPage('a"b'), 'a&quot;b');
+      assert.equal(escapeHtml('a"b'), 'a&quot;b');
     });
 
     it('escapes single quotes', () => {
-      assert.equal(escapeHtmlResetPage("a'b"), 'a&#39;b');
+      assert.equal(escapeHtml("a'b"), 'a&#39;b');
     });
 
-    it('handles null/undefined gracefully', () => {
-      assert.equal(escapeHtmlResetPage(null), '');
-      assert.equal(escapeHtmlResetPage(undefined), '');
+    it('converts null/undefined to string representation', () => {
+      assert.equal(escapeHtml(null), 'null');
+      assert.equal(escapeHtml(undefined), 'undefined');
     });
 
     it('handles empty string', () => {
-      assert.equal(escapeHtmlResetPage(''), '');
+      assert.equal(escapeHtml(''), '');
     });
 
     it('escapes multiple special characters at once', () => {
       assert.equal(
-        escapeHtmlResetPage('<script>"alert(\'xss\')&"</script>'),
+        escapeHtml('<script>"alert(\'xss\')&"</script>'),
         '&lt;script&gt;&quot;alert(&#39;xss&#39;)&amp;&quot;&lt;/script&gt;',
       );
     });
 
     it('handles non-string input by converting to string', () => {
-      assert.equal(escapeHtmlResetPage(123), '123');
+      assert.equal(escapeHtml(123), '123');
     });
   });
 

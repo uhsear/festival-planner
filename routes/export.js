@@ -3,8 +3,12 @@
  * Licensed under the Business Source License 1.1. See LICENSE file for details.
  */
 /**
- * Export routes: HTML/ICS generation and presence
- * Handles festival schedule exports and real-time crew presence
+ * Export routes: HTML/ICS/image generation and presence.
+ *
+ * Heavy lifting is delegated to helpers:
+ *   lib/helpers/ics-builder.js   — ICS calendar generation (shared with calendar-sync)
+ *   lib/helpers/export-image.js  — SVG picks-card builder
+ *   lib/export-worker.js         — HTML rendering (worker thread)
  */
 
 module.exports = function createExportRoutes(deps) {
@@ -13,7 +17,6 @@ module.exports = function createExportRoutes(deps) {
     userAuth, setNoStore,
     getFestivalById, getProfiles, getUserFestivalProfile, getUserById,
     serializeOwnProfile, serializeExportCrewProfile,
-    _buildAvatarUrl,
     sendSuccess, sendError, ErrorCodes,
     sanitizeIdentifier,
     rateLimit,
@@ -23,11 +26,17 @@ module.exports = function createExportRoutes(deps) {
   const path = require('path');
   const fs = require('fs');
   const { Worker } = require('worker_threads');
+  const sharp = require('sharp');
   const config = deps.config;
 
+  const { validateIcsTime, buildVCalendar } = require('../lib/helpers/ics-builder');
+  const { buildPicksCardSvg } = require('../lib/helpers/export-image');
   const { exportContentSecurityPolicy } = deps;
 
-  // Cache export template at startup to avoid sync I/O per request
+  // ═══════════════════════════════════════════════════════════════════
+  // Worker pool for HTML export
+  // ═══════════════════════════════════════════════════════════════════
+
   const templatePath = path.join(config.PUBLIC_DIR, 'export-template.html');
   const exportTemplate = fs.existsSync(templatePath)
     ? fs.readFileSync(templatePath, 'utf8')
@@ -125,6 +134,51 @@ module.exports = function createExportRoutes(deps) {
     });
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // Shared: build ICS events from festival picks
+  // ═══════════════════════════════════════════════════════════════════
+
+  function buildIcsEventsFromPicks(festival, profile, origin) {
+    const picks = profile.picks || {};
+    const notes = profile.notes || {};
+    const sets = (festival.days || []).flatMap((day) =>
+      (day.sets || []).filter((s) => picks[s.id]).map((s) => ({ ...s, date: day.date, dayLabel: day.label }))
+    );
+    const stageMap = new Map((festival.stages || []).map((s) => [s.id, s]));
+
+    const events = [];
+    for (const set of sets) {
+      if (!set.date || !/^\d{4}-\d{2}-\d{2}$/.test(set.date) || !set.startTime || !set.endTime) continue;
+      const startTime = validateIcsTime(set.startTime);
+      const endTime = validateIcsTime(set.endTime);
+      if (!startTime || !endTime) continue;
+
+      const stage = stageMap.get(set.stageId);
+      const dtstart = set.date.replace(/-/g, '') + 'T' + startTime.replace(':', '') + '00';
+      const dtend = set.date.replace(/-/g, '') + 'T' + endTime.replace(':', '') + '00';
+      const priority = picks[set.id] || '';
+      const note = notes[set.id] || '';
+      const description = [priority && `Priority: ${priority}`, note].filter(Boolean).join('\\n');
+      const location = stage
+        ? stage.name + (festival.location ? ' - ' + festival.location : '')
+        : undefined;
+
+      events.push({
+        uid: `${set.id}-${festival.id}@${origin}`,
+        summary: set.artist,
+        dtstart,
+        dtend,
+        location,
+        description: description || undefined,
+      });
+    }
+    return events;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Routes
+  // ═══════════════════════════════════════════════════════════════════
+
   // HTML export: Justified. Provides printable/offline snapshot users can reference on paper/offline device.
   // More accessible than ICS for casual viewing. Worker-based generation keeps server responsive.
   /**
@@ -155,9 +209,10 @@ module.exports = function createExportRoutes(deps) {
       exportCooldowns.set(userId, Date.now());
 
       const exportedAt = new Date().toISOString();
-      // Only load festival profiles once
-      const allProfiles = await getProfiles();
-      const festivalProfiles = allProfiles.filter((p) => p.festivalId === festivalId);
+      // Only load festival profiles once — use targeted query when available
+      const festivalProfiles = deps.stores.profiles.getByFestival
+        ? await deps.stores.profiles.getByFestival(festivalId)
+        : (await getProfiles()).filter((p) => p.festivalId === festivalId);
       const crewProfiles = festivalProfiles
         .map((crewProfile) => serializeExportCrewProfile(crewProfile))
         .slice(0, MAX_CREW_IN_EXPORT);
@@ -229,75 +284,15 @@ module.exports = function createExportRoutes(deps) {
       }
       exportCooldowns.set(`ics:${userId}`, Date.now());
 
-      const picks = profile.picks || {};
-      const notes = profile.notes || {};
-      const sets = (festival.days || []).flatMap((day) =>
-        (day.sets || []).filter((s) => picks[s.id]).map((s) => ({ ...s, date: day.date, dayLabel: day.label }))
-      );
-      const stageMap = new Map((festival.stages || []).map((s) => [s.id, s]));
-
-      // ICS value escaping (RFC 5545)
-      function escIcs(v) {
-        return String(v || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n').replace(/\r/g, '');
-      }
-      function validateIcsTime(t) {
-        if (!/^\d{2}:\d{2}$/.test(t)) return null;
-        const [hh, mm] = t.split(':').map(Number);
-        if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
-        return t;
-      }
-      function foldIcsLine(line) {
-        if (line.length <= 75) return line;
-        let folded = line.substring(0, 75);
-        let rest = line.substring(75);
-        while (rest.length > 0) {
-          folded += '\r\n ' + rest.substring(0, 74);
-          rest = rest.substring(74);
-        }
-        return folded;
-      }
-
-      const icsLines = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//FestivalPlanner//EN',
-        'CALSCALE:GREGORIAN',
-        'METHOD:PUBLISH',
-        foldIcsLine(`X-WR-CALNAME:${escIcs(festival.name)}`),
-      ];
-
-      sets.forEach((set) => {
-        if (!set.date || !/^\d{4}-\d{2}-\d{2}$/.test(set.date) || !set.startTime || !set.endTime) return;
-        const startTime = validateIcsTime(set.startTime);
-        const endTime = validateIcsTime(set.endTime);
-        if (!startTime || !endTime) return;
-        const stage = stageMap.get(set.stageId);
-        const dtStart = set.date.replace(/-/g, '') + 'T' + startTime.replace(':', '') + '00';
-        const dtEnd = set.date.replace(/-/g, '') + 'T' + endTime.replace(':', '') + '00';
-        const priority = picks[set.id] || '';
-        const note = notes[set.id] || '';
-        const description = [priority && `Priority: ${priority}`, note].filter(Boolean).join('\\n');
-
-        const dtstamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-        icsLines.push('BEGIN:VEVENT');
-        icsLines.push(`DTSTAMP:${dtstamp}`);
-        icsLines.push(`DTSTART:${dtStart}`);
-        icsLines.push(`DTEND:${dtEnd}`);
-        icsLines.push(foldIcsLine(`SUMMARY:${escIcs(set.artist)}`));
-        if (stage) icsLines.push(foldIcsLine(`LOCATION:${escIcs(stage.name)}${festival.location ? ' - ' + escIcs(festival.location) : ''}`));
-        if (description) icsLines.push(foldIcsLine(`DESCRIPTION:${escIcs(description)}`));
-        icsLines.push(`UID:${set.id}-${festival.id}@${(config.PUBLIC_ORIGIN || 'localhost').replace(/^https?:\/\//, '')}`);
-        icsLines.push(`STATUS:CONFIRMED`);
-        icsLines.push('END:VEVENT');
-      });
-
-      icsLines.push('END:VCALENDAR');
+      const origin = (config.PUBLIC_ORIGIN || 'localhost').replace(/^https?:\/\//, '');
+      const events = buildIcsEventsFromPicks(festival, profile, origin);
+      const ics = buildVCalendar(events, { calendarName: festival.name });
 
       const safeName = (festival.name || 'festival').replace(/[^a-z0-9_-]/gi, '_').slice(0, 60);
       res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
       const icsFilename = `${safeName}_schedule.ics`;
       res.setHeader('Content-Disposition', `attachment; filename="${icsFilename}"; filename*=UTF-8''${encodeURIComponent(icsFilename)}`);
-      return res.send(icsLines.join('\r\n'));
+      return res.send(ics);
     } catch (error) {
       log.error('ics export failed', { error: error.message });
       return sendError(res, 500, 'Failed to export calendar', ErrorCodes.INTERNAL_ERROR);
@@ -369,83 +364,10 @@ module.exports = function createExportRoutes(deps) {
       return sendError(res, 500, 'Calendar export failed', ErrorCodes.INTERNAL_ERROR);
     }
   });
+
   // ═══════════════════════════════════════════════════════════════════
-  // Phase 1C: Shareable Picks Card — SVG → PNG via Sharp
+  // Phase 1C: Shareable Picks Card — SVG -> PNG via Sharp
   // ═══════════════════════════════════════════════════════════════════
-  const sharp = require('sharp');
-
-  function buildPicksCardSvg(festival, profile, _user) {
-    const picks = profile.picks || {};
-    const days = festival.days || [];
-    const allSets = days.flatMap(d => (d.sets || []).map(s => ({ ...s, dayLabel: d.label })));
-
-    const mustSets = allSets.filter(s => picks[s.id] === 'must').slice(0, 8);
-    const wantSets = allSets.filter(s => picks[s.id] === 'want-to-see').slice(0, 5);
-
-    function getArtistName(set) {
-      if (set.artists?.length > 0) return set.artists.map(a => a.name).join(' b2b ');
-      return set.artist || 'Unknown';
-    }
-    function esc(str) { return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-
-    const W = 1080;
-    const H = 1920;
-    let y = 80;
-    const lines = [];
-
-    // Background
-    lines.push('<rect width="' + W + '" height="' + H + '" fill="#0a0a1a"/>');
-
-    // Festival name
-    lines.push('<text x="60" y="' + y + '" font-family="sans-serif" font-weight="700" font-size="42" fill="#ffffff" letter-spacing="2">' + esc(festival.name).toUpperCase() + '</text>');
-    y += 40;
-
-    // Date range
-    const dateRange = days.length > 0 ? (days[0].label || '') + (days.length > 1 ? ' - ' + (days[days.length - 1].label || '') : '') : '';
-    if (dateRange) {
-      lines.push('<text x="60" y="' + y + '" font-family="sans-serif" font-size="20" fill="#8888aa">' + esc(dateRange) + '</text>');
-      y += 20;
-    }
-
-    // Separator
-    y += 20;
-    lines.push('<line x1="60" y1="' + y + '" x2="' + (W - 60) + '" y2="' + y + '" stroke="#ffffff20" stroke-width="1"/>');
-    y += 40;
-
-    // Must See section
-    if (mustSets.length > 0) {
-      lines.push('<text x="60" y="' + y + '" font-family="sans-serif" font-weight="700" font-size="18" fill="#ff6b6b" letter-spacing="3">\u2605 MUST SEE</text>');
-      y += 35;
-      for (const set of mustSets) {
-        const name = getArtistName(set);
-        lines.push('<text x="80" y="' + y + '" font-family="sans-serif" font-size="32" fill="#ffffff">' + esc(name) + '</text>');
-        y += 48;
-      }
-      y += 10;
-    }
-
-    // Separator
-    lines.push('<line x1="60" y1="' + y + '" x2="' + (W - 60) + '" y2="' + y + '" stroke="#ffffff15" stroke-width="1"/>');
-    y += 30;
-
-    // Want to See section
-    if (wantSets.length > 0) {
-      lines.push('<text x="60" y="' + y + '" font-family="sans-serif" font-weight="700" font-size="18" fill="#4ecdc4" letter-spacing="3">\u25C6 WANT TO SEE</text>');
-      y += 35;
-      for (const set of wantSets) {
-        const name = getArtistName(set);
-        lines.push('<text x="80" y="' + y + '" font-family="sans-serif" font-size="28" fill="#ccccdd">' + esc(name) + '</text>');
-        y += 42;
-      }
-    }
-
-    // Branding footer
-    const footerY = H - 60;
-    lines.push('<line x1="60" y1="' + (footerY - 30) + '" x2="' + (W - 60) + '" y2="' + (footerY - 30) + '" stroke="#ffffff20" stroke-width="1"/>');
-    lines.push('<text x="60" y="' + footerY + '" font-family="sans-serif" font-size="20" fill="#8888aa">@' + esc(profile.name) + ' \u00B7 festie.us</text>');
-
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' + lines.join('') + '</svg>';
-  }
 
   router.get('/export-card/:festivalId', userAuth, rateLimit(30, 'export-card'), async (req, res) => {
     try {
@@ -459,7 +381,6 @@ module.exports = function createExportRoutes(deps) {
       const profile = await getUserFestivalProfile(req.user.userId, festivalId);
       if (!profile) return sendError(res, 404, 'Not joined', ErrorCodes.NOT_FOUND);
 
-      const user = await getUserById(req.user.userId);
       const userId = req.user.userId;
       const lastCardExport = exportCooldowns.get('card:' + userId) || 0;
       if (Date.now() - lastCardExport < EXPORT_COOLDOWN_MS) {
@@ -467,7 +388,8 @@ module.exports = function createExportRoutes(deps) {
       }
       exportCooldowns.set('card:' + userId, Date.now());
 
-      const svg = buildPicksCardSvg(festival, profile, user);
+      const brandDomain = (config.PUBLIC_ORIGIN || 'festie.us').replace(/^https?:\/\//, '');
+      const svg = buildPicksCardSvg(festival, profile, { brandDomain });
       const png = await sharp(Buffer.from(svg)).png({ quality: 90 }).toBuffer();
 
       const safeName = (festival.name || 'picks').replace(/[^a-z0-9_-]/gi, '_').slice(0, 40);
@@ -480,7 +402,6 @@ module.exports = function createExportRoutes(deps) {
       return sendError(res, 500, 'Failed to generate picks card', ErrorCodes.INTERNAL_ERROR);
     }
   });
-
 
   return router;
 };

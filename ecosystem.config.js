@@ -1,3 +1,14 @@
+// ──────────────────────────────────────────────────────────────────────────────
+// PM2 Log Rotation Setup (required for production)
+//
+// Install:    pm2 install pm2-logrotate
+// Configure:  pm2 set pm2-logrotate:max_size 50M
+//             pm2 set pm2-logrotate:retain 7
+//             pm2 set pm2-logrotate:compress true
+//
+// Verify:     pm2 describe pm2-logrotate
+// ──────────────────────────────────────────────────────────────────────────────
+
 module.exports = {
   apps: [{
     name: 'festie',

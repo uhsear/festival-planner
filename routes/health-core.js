@@ -75,8 +75,8 @@ module.exports = function createHealthRoutes(deps) {
 
     // Check database connectivity
     try {
-      if (stores && stores.users && typeof stores.users.readAll === 'function') {
-        await stores.users.readAll();
+      if (stores && stores.pool && typeof stores.pool.query === 'function') {
+        await stores.pool.query('SELECT 1');
       } else {
         checks.database = 'degraded';
       }

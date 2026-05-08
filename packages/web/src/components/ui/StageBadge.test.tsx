@@ -8,10 +8,10 @@ describe('StageBadge', () => {
     expect(screen.getByText('Main Stage')).toBeInTheDocument();
   });
 
-  it('has role=img with aria-label set to stage name', () => {
+  it('renders a span with the stage name as text', () => {
     render(<StageBadge stageName="Sahara" stageColor="#00aaff" />);
-    const badge = screen.getByRole('img', { name: 'Sahara' });
-    expect(badge).toBeInTheDocument();
+    const badge = screen.getByText('Sahara');
+    expect(badge.tagName).toBe('SPAN');
   });
 
   it('applies default variant class', () => {

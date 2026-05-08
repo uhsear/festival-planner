@@ -83,6 +83,7 @@ export default function PromptDialog({
               onChange={(e) => setValue(e.target.value)}
               placeholder={placeholder}
               disabled={busy}
+              aria-label={title}
               {...(error ? { 'aria-invalid': true, 'aria-describedby': errorId } : {})}
               className="input-base w-full min-h-11"
             />

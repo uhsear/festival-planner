@@ -1,47 +1,22 @@
 'use strict';
-const { escapeHtml, renderInviteJoinPage, renderInviteErrorPage } = require("../lib/invite-pages");
+const { generateUniqueInviteCode } = require('./crew-invites');
 
 module.exports = function createCrewRoutes(deps) {
   const {
-    express, config, log,
+    express, log, pool,
     userAuth, setNoStore,
     sanitizeString, sanitizeIdentifier,
-    createOpaqueId, _getRequestIp,
-    getFestivalById,
+    createOpaqueId,
     sendSuccess, sendError, ErrorCodes,
     rateLimit, stores,
     schemas, validate, validateQuery,
     io,
   } = deps;
 
-  const crypto = require('crypto');
   const router = express.Router();
 
   // ── Helpers ────────────────────────────────────────────────────────
   const MAX_CREWS_PER_USER_PER_FESTIVAL = 3;
-  const INVITE_CODE_LENGTH = 6;
-  const INVITE_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I/O/0/1
-
-  function generateInviteCode() {
-    // Use rejection sampling to avoid modulo bias (charset length 31 doesn't divide 256 evenly)
-    const limit = 256 - (256 % INVITE_CODE_CHARS.length); // largest multiple of 31 <= 256
-    let code = '';
-    while (code.length < INVITE_CODE_LENGTH) {
-      const bytes = crypto.randomBytes(INVITE_CODE_LENGTH * 2); // over-request to reduce loops
-      for (let i = 0; i < bytes.length && code.length < INVITE_CODE_LENGTH; i++) {
-        if (bytes[i] < limit) code += INVITE_CODE_CHARS[bytes[i] % INVITE_CODE_CHARS.length];
-      }
-    }
-    return code;
-  }
-
-  async function generateUniqueInviteCode() {
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const code = generateInviteCode();
-      if (!(await stores.crews.getByInviteCode(code))) return code;
-    }
-    throw new Error('Failed to generate unique invite code');
-  }
 
   /**
    * Resolve a crew by ID and verify the requesting user is the owner.
@@ -67,8 +42,6 @@ module.exports = function createCrewRoutes(deps) {
       maxMembers: crew.maxMembers,
       createdAt: crew.createdAt,
       updatedAt: crew.updatedAt,
-      // Home base fields — exposed to all crew members so everyone sees
-      // the meeting location after the owner sets it.
       homeBaseLocation: crew.homeBaseLocation || crew.home_base_location || null,
       homeBaseTime: crew.homeBaseTime || crew.home_base_time || null,
       homeBaseUpdatedAt: crew.homeBaseUpdatedAt || crew.home_base_updated_at || null,
@@ -77,7 +50,6 @@ module.exports = function createCrewRoutes(deps) {
       result.role = membership.role || crew.role;
       result.joinedAt = membership.joinedAt || crew.joinedAt;
     }
-    // Only include invite code + expiry if the user is the owner
     if (result.role === 'owner') {
       result.inviteCode = crew.inviteCode;
       result.inviteExpiresAt = crew.inviteExpiresAt || null;
@@ -101,6 +73,19 @@ module.exports = function createCrewRoutes(deps) {
     return result;
   }
 
+  // Share helpers with sub-routers via deps
+  const _crewHelpers = { resolveCrewOwnership, serializeCrew, serializeCrewWithMembers, MAX_CREWS_PER_USER_PER_FESTIVAL };
+  const subDeps = { ...deps, _crewHelpers };
+
+  // ── Mount sub-routers ──────────────────────────────────────────────
+  const inviteRoutes = require('./crew-invites')(subDeps);
+  const meetingPointRoutes = require('./crew-meeting-points')(subDeps);
+  const pollRoutes = require('./crew-polls')(subDeps);
+
+  router.use('/', inviteRoutes);
+  router.use('/', meetingPointRoutes);
+  router.use('/', pollRoutes);
+
   // ── POST / — Create a crew ──────────────────────────────────────
   router.post('/', userAuth, rateLimit(10, 'crew-create'), validate(schemas.crewCreate), async (req, res) => {
     try {
@@ -111,15 +96,18 @@ module.exports = function createCrewRoutes(deps) {
       if (!cleanName) return sendError(res, 400, 'Crew name required', ErrorCodes.MISSING_FIELD);
       if (!cleanFestivalId) return sendError(res, 400, 'Festival ID required', ErrorCodes.MISSING_FIELD);
 
-      // Verify festival exists
-      const festival = (await stores.festivals.readAll()).find((f) => f.id === cleanFestivalId);
-      if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
+      // Verify festival exists — direct query instead of readAll().find()
+      const { rows: festivalRows } = await pool.query(
+        'SELECT 1 FROM festivals WHERE id = $1 AND deleted_at IS NULL',
+        [cleanFestivalId]
+      );
+      if (festivalRows.length === 0) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
 
       // Verify user has a profile for this festival
       const profile = await stores.profiles.readByUserAndFestival?.(req.user.userId, cleanFestivalId);
       if (!profile) return sendError(res, 403, 'Join the festival first', ErrorCodes.FORBIDDEN);
 
-      // Limit crews per user per festival — wrapped with error handling
+      // Limit crews per user per festival
       let existingCrews;
       try {
         existingCrews = await stores.crews.listByUserAndFestival(req.user.userId, cleanFestivalId);
@@ -134,7 +122,7 @@ module.exports = function createCrewRoutes(deps) {
       const crewId = createOpaqueId('crew');
       let inviteCode;
       try {
-        inviteCode = await generateUniqueInviteCode();
+        inviteCode = await generateUniqueInviteCode(stores);
       } catch (error) {
         log.error('invite code generation failed', { error: error.message });
         return sendError(res, 500, 'Failed to generate invite code', ErrorCodes.INTERNAL_ERROR);
@@ -142,7 +130,7 @@ module.exports = function createCrewRoutes(deps) {
 
       try {
         const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        await stores.crews.create({
+        const crewData = {
           id: crewId,
           festivalId: cleanFestivalId,
           name: cleanName,
@@ -150,14 +138,14 @@ module.exports = function createCrewRoutes(deps) {
           inviteCode,
           inviteExpiresAt,
           maxMembers: 30,
-        });
-
-        // Add creator as owner
-        await stores.crews.addMember({
-          crewId,
-          userId: req.user.userId,
-          role: 'owner',
-        });
+        };
+        // Use transactional createWithOwner when available; fallback to separate calls
+        if (stores.crews.createWithOwner) {
+          await stores.crews.createWithOwner(crewData);
+        } else {
+          await stores.crews.create(crewData);
+          await stores.crews.addMember({ crewId, userId: req.user.userId, role: 'owner' });
+        }
 
         const crew = await stores.crews.getById(crewId);
         const members = await stores.crews.getMembers(crewId);
@@ -201,8 +189,6 @@ module.exports = function createCrewRoutes(deps) {
     }
   });
 
-  // ── GET /:crewId — Get crew details with members ───────────────
-
   // ── GET /search-users — Admin: search users for crew add ──────
   router.get('/search-users', userAuth, rateLimit(30, 'crew-user-search'), validateQuery(schemas.crewUserSearchQuery), async (req, res) => {
     try {
@@ -210,14 +196,14 @@ module.exports = function createCrewRoutes(deps) {
       if (!isAdmin) return sendError(res, 403, 'Admin access required', ErrorCodes.FORBIDDEN);
 
       setNoStore(res);
-      const q = (req.validatedQuery.q || '').toLowerCase();
+      const q = (req.validatedQuery.q || '').trim();
       if (!q || q.length < 1) return sendSuccess(res, []);
 
-      const allUsers = await stores.users.readAll();
-      const matches = allUsers
-        .filter(u => u.username.toLowerCase().includes(q) && !u.deletedAt)
-        .slice(0, 20)
-        .map(u => ({ id: u.id, username: u.username }));
+      // Targeted query instead of readAll() + filter
+      const { rows: matches } = await pool.query(
+        'SELECT id, username FROM users WHERE username ILIKE $1 AND deleted_at IS NULL LIMIT 20',
+        [`%${q}%`]
+      );
 
       return sendSuccess(res, matches);
     } catch (error) {
@@ -226,6 +212,7 @@ module.exports = function createCrewRoutes(deps) {
     }
   });
 
+  // ── GET /:crewId — Get crew details with members ───────────────
   router.get('/:crewId', userAuth, rateLimit(120, 'crew-get'), async (req, res) => {
     try {
       setNoStore(res);
@@ -235,7 +222,6 @@ module.exports = function createCrewRoutes(deps) {
       const crew = await stores.crews.getById(crewId);
       if (!crew) return sendError(res, 404, 'Crew not found', ErrorCodes.NOT_FOUND);
 
-      // Must be a member to view
       const membership = await stores.crews.getMember(crewId, req.user.userId);
       if (!membership) return sendError(res, 403, 'Not a member of this crew', ErrorCodes.FORBIDDEN);
 
@@ -273,7 +259,6 @@ module.exports = function createCrewRoutes(deps) {
       const updated = await stores.crews.getById(crewId);
       const members = await stores.crews.getMembers(crewId);
 
-      // Broadcast update to crew room — strip invite code to prevent leakage to non-owners
       if (io) {
         const broadcastData = serializeCrewWithMembers(updated, members, null);
         delete broadcastData.inviteCode;
@@ -298,7 +283,6 @@ module.exports = function createCrewRoutes(deps) {
       if (!resolved) return;
       const { crew } = resolved;
 
-      // Broadcast deletion before removing
       if (io) io.to(`crew:${crewId}`).emit('crew:deleted', { crewId, festivalId: crew.festivalId });
 
       await stores.crews.delete(crewId);
@@ -308,64 +292,6 @@ module.exports = function createCrewRoutes(deps) {
     } catch (error) {
       log.error('crew delete failed', { error: error.message, crewId: req.params.crewId });
       return sendError(res, 500, 'Failed to delete crew', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
-
-  // ── POST /join — Join a crew via invite code ────────────────────
-  router.post('/join', userAuth, rateLimit(10, 'crew-join'), validate(schemas.crewJoin), async (req, res) => {
-    try {
-      const code = req.validatedBody.inviteCode.toUpperCase().trim();
-
-      const crew = await stores.crews.getByInviteCode(code);
-      if (!crew) {
-        // Check if code exists but is expired
-        const expiredCrew = await stores.crews.getExpiredByInviteCode(code);
-        if (expiredCrew) return sendError(res, 410, 'Invite code has expired. Ask the crew owner to regenerate it.', ErrorCodes.NOT_FOUND);
-        return sendError(res, 404, 'Invalid invite code', ErrorCodes.NOT_FOUND);
-      }
-
-      // Verify user has a profile for this festival
-      const profile = await stores.profiles.readByUserAndFestival?.(req.user.userId, crew.festivalId);
-      if (!profile) return sendError(res, 403, 'Join the festival first', ErrorCodes.FORBIDDEN);
-
-      // Check if already a member
-      const existing = await stores.crews.getMember(crew.id, req.user.userId);
-      if (existing) return sendError(res, 400, 'Already a member of this crew', ErrorCodes.ALREADY_EXISTS);
-
-      // Limit crews per user per festival
-      const userCrews = await stores.crews.listByUserAndFestival(req.user.userId, crew.festivalId);
-      if (userCrews.length >= MAX_CREWS_PER_USER_PER_FESTIVAL) {
-        return sendError(res, 400, `Maximum ${MAX_CREWS_PER_USER_PER_FESTIVAL} crews per festival`, ErrorCodes.MAX_LIMIT_REACHED);
-      }
-
-      // Check member cap
-      const memberCount = await stores.crews.getMemberCount(crew.id);
-      if (memberCount >= crew.maxMembers) {
-        return sendError(res, 400, 'Crew is full', ErrorCodes.MAX_LIMIT_REACHED);
-      }
-
-      await stores.crews.addMember({
-        crewId: crew.id,
-        userId: req.user.userId,
-        role: 'member',
-      });
-
-      const members = await stores.crews.getMembers(crew.id);
-
-      // Broadcast new member to crew room
-      if (io) {
-        io.to(`crew:${crew.id}`).emit('crew:member-joined', {
-          crewId: crew.id,
-          userId: req.user.userId,
-          username: req.user.username,
-        });
-      }
-
-      log.info('crew:joined', { crewId: crew.id, festivalId: crew.festivalId, userId: req.user.userId });
-      return sendSuccess(res, serializeCrewWithMembers(crew, members, req.user.userId));
-    } catch (error) {
-      log.error('crew join failed', { error: error.message, userId: req.user.userId });
-      return sendError(res, 500, 'Failed to join crew', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
@@ -381,14 +307,12 @@ module.exports = function createCrewRoutes(deps) {
       const membership = await stores.crews.getMember(crewId, req.user.userId);
       if (!membership) return sendError(res, 400, 'Not a member of this crew', ErrorCodes.INVALID_INPUT);
 
-      // Owner must transfer before leaving
       if (membership.role === 'owner') {
         return sendError(res, 400, 'Transfer ownership before leaving', ErrorCodes.FORBIDDEN);
       }
 
       await stores.crews.removeMember(crewId, req.user.userId);
 
-      // Broadcast departure to crew room
       if (io) {
         io.to(`crew:${crewId}`).emit('crew:member-left', {
           crewId,
@@ -424,7 +348,6 @@ module.exports = function createCrewRoutes(deps) {
 
       await stores.crews.removeMember(crewId, targetUserId);
 
-      // Broadcast kick to crew room
       if (io) {
         io.to(`crew:${crewId}`).emit('crew:member-kicked', {
           crewId,
@@ -457,12 +380,16 @@ module.exports = function createCrewRoutes(deps) {
       const target = await stores.crews.getMember(crewId, targetUserId);
       if (!target) return sendError(res, 404, 'Target is not a crew member', ErrorCodes.NOT_FOUND);
 
-      await stores.crews.updateMemberRole(crewId, targetUserId, 'owner');
-      await stores.crews.updateMemberRole(crewId, req.user.userId, 'member');
+      // Use transactional transferOwnership when available; fallback to separate calls
+      if (stores.crews.transferOwnership) {
+        await stores.crews.transferOwnership(crewId, req.user.userId, targetUserId);
+      } else {
+        await stores.crews.updateMemberRole(crewId, targetUserId, 'owner');
+        await stores.crews.updateMemberRole(crewId, req.user.userId, 'member');
+      }
 
       const members = await stores.crews.getMembers(crewId);
 
-      // Broadcast ownership change — use a non-owner perspective to avoid leaking invite code
       if (io) {
         const broadcastData = serializeCrewWithMembers(crew, members, null);
         delete broadcastData.inviteCode;
@@ -474,27 +401,6 @@ module.exports = function createCrewRoutes(deps) {
     } catch (error) {
       log.error('crew transfer failed', { error: error.message, crewId: req.params.crewId });
       return sendError(res, 500, 'Failed to transfer ownership', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
-
-  // ── POST /:crewId/invite — Regenerate invite code (owner only) ─
-  router.post('/:crewId/invite', userAuth, rateLimit(5, 'crew-invite'), async (req, res) => {
-    try {
-      const crewId = sanitizeIdentifier(req.params.crewId, 100);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
-
-      const resolved = await resolveCrewOwnership(res, crewId, req.user.userId, 'regenerate invite codes');
-      if (!resolved) return;
-
-      const newCode = await generateUniqueInviteCode();
-      await stores.crews.regenerateInviteCode(crewId, newCode);
-
-      log.info('crew:invite-regenerated', { crewId, userId: req.user.userId });
-      const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      return sendSuccess(res, { inviteCode: newCode, inviteExpiresAt });
-    } catch (error) {
-      log.error('crew invite regen failed', { error: error.message, crewId: req.params.crewId });
-      return sendError(res, 500, 'Failed to regenerate invite code', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
@@ -536,53 +442,6 @@ module.exports = function createCrewRoutes(deps) {
       return sendError(res, 500, 'Failed to get overlap', ErrorCodes.INTERNAL_ERROR);
     }
   });
-
-  // ── GET /join/:inviteCode — Public crew invite page (no auth) ─────
-  router.get('/join/:inviteCode', rateLimit(30, 'crew-invite-page'), async (req, res) => {
-    try {
-      const inviteCode = String(req.params.inviteCode || '').trim();
-      // Sanitize inviteCode: alphanumeric, 4-12 chars
-      if (!inviteCode || inviteCode.length < 4 || inviteCode.length > 12 || !/^[a-zA-Z0-9]+$/.test(inviteCode)) {
-        const origin = config.PUBLIC_ORIGIN || `${req.protocol}://${req.get('host')}`;
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Cache-Control', 'public, max-age=60');
-        res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'");
-        return res.send(renderInviteErrorPage(escapeHtml(origin), 'Invalid or expired invite link'));
-      }
-
-      const crew = await stores.crews.getByInviteCode(inviteCode);
-      if (!crew) {
-        const origin = config.PUBLIC_ORIGIN || `${req.protocol}://${req.get('host')}`;
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Cache-Control', 'public, max-age=60');
-        res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'");
-        return res.send(renderInviteErrorPage(escapeHtml(origin), 'Invalid or expired invite link'));
-      }
-
-      // Get festival name for the invite page
-      const festival = await getFestivalById(crew.festivalId);
-      const festivalName = festival?.name || 'Festival';
-
-      const origin = config.PUBLIC_ORIGIN || `${req.protocol}://${req.get('host')}`;
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=300');
-      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'");
-      return res.send(renderInviteJoinPage({
-        crewName: escapeHtml(crew.name),
-        festivalName: escapeHtml(festivalName),
-        inviteCode: escapeHtml(inviteCode),
-        origin: escapeHtml(origin),
-      }));
-    } catch (error) {
-      log.error('crew invite page failed', { error: error.message, inviteCode: req.params.inviteCode });
-      const origin = config.PUBLIC_ORIGIN || `${req.protocol}://${req.get('host')}`;
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'");
-      return res.send(renderInviteErrorPage(escapeHtml(origin), 'Failed to load invite'));
-    }
-  });
-
-
 
   // ── POST /:crewId/members — Admin: add any user to a crew ─────
   router.post('/:crewId/members', userAuth, rateLimit(10, 'crew-add-member'), validate(schemas.crewAddMember), async (req, res) => {
@@ -633,9 +492,6 @@ module.exports = function createCrewRoutes(deps) {
       return sendError(res, 500, 'Failed to add member', ErrorCodes.INTERNAL_ERROR);
     }
   });
-
-  // ── Meeting points + polls (extracted to crew-features.js) ──────
-  require('./crew-features')(router, deps);
 
   return router;
 };

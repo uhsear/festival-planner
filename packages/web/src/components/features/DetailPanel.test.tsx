@@ -6,7 +6,7 @@ import type { FestivalSet, Priority } from '@festie/shared/types';
 // Mock vaul Drawer
 vi.mock('vaul', () => ({
   Drawer: {
-    Root: ({ children, open, onOpenChange }: { children: React.ReactNode; open: boolean; onOpenChange: (o: boolean) => void }) => (
+    Root: ({ children, open, onOpenChange: _onOpenChange }: { children: React.ReactNode; open: boolean; onOpenChange: (o: boolean) => void }) => (
       open ? <div data-testid="drawer-root">{children}</div> : null
     ),
     Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,

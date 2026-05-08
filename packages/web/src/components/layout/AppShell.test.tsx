@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 // Mock all external dependencies to keep this a unit test on AppShell's
-// rendering logic. The AppShell is highly connected — we verify basic
+// rendering logic. The AppShell is a thin orchestrator — we verify basic
 // structural rendering and conditional UI elements.
 
 const mockNavigate = vi.fn();
@@ -19,26 +19,6 @@ vi.mock('@festie/shared', () => ({
     selector({ user: mockUser, checkSession: vi.fn(async () => {}) }),
 }));
 
-vi.mock('@festie/shared/stores', () => ({
-  useFestivalStore: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({
-      loadFestivals: vi.fn(async () => {}),
-      selectFestival: vi.fn(async () => {}),
-      festivals: [],
-      currentFestival: null,
-      currentProfile: null,
-      stages: [],
-      days: [],
-      selectedDay: 0,
-      activeStages: [],
-      searchQuery: '',
-      setSelectedDay: vi.fn(),
-      setActiveStages: vi.fn(),
-      setSearchQuery: vi.fn(),
-      loadProfiles: vi.fn(async () => {}),
-    }),
-}));
-
 vi.mock('@festie/shared/stores/uiStore', () => ({
   useUIStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({
@@ -49,48 +29,25 @@ vi.mock('@festie/shared/stores/uiStore', () => ({
     }),
 }));
 
-vi.mock('@festie/shared/stores/crewStore', () => ({
-  useCrewStore: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({
-      loadCrews: vi.fn(async () => {}),
-      joinByCode: vi.fn(async () => {}),
-    }),
-}));
-
-vi.mock('@festie/shared/stores/festivalModeStore', () => ({
-  useFestivalModeStore: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ isFestivalMode: false, manuallyDisabled: false, setFestivalMode: vi.fn() }),
-  isTodayFestivalDay: vi.fn(() => false),
-}));
-
 vi.mock('@festie/shared/hooks', () => ({
-  useFestival: vi.fn(() => ({ getStageColor: vi.fn(() => '#ff3366') })),
   useOffline: vi.fn(),
-}));
-
-vi.mock('@festie/shared/services', () => ({
-  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
-}));
-
-vi.mock('../../lib/toastContext', () => ({
-  useToast: vi.fn(() => ({ toast: vi.fn(), toastUndo: vi.fn(), toasts: [], removeToast: vi.fn(), pauseToast: vi.fn(), resumeToast: vi.fn() })),
 }));
 
 vi.mock('./Header', () => ({ default: () => <div data-testid="header">Header</div> }));
 vi.mock('./BottomNav', () => ({ default: () => <div data-testid="bottom-nav">BottomNav</div> }));
+vi.mock('./SubHeader', () => ({ default: () => <div data-testid="sub-header">SubHeader</div> }));
 vi.mock('./PageTransition', () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 vi.mock('../features/DetailPanel', () => ({ default: () => <div data-testid="detail-panel" /> }));
 vi.mock('../features/OfflineBanner', () => ({ default: () => null }));
 vi.mock('../features/UpdatePrompt', () => ({ default: () => null }));
 vi.mock('../features/IOSInstallSheet', () => ({ default: () => null }));
 vi.mock('../features/FestivalDayBanner', () => ({ default: () => null }));
-vi.mock('../ui/StageBadge', () => ({ getStageBadgeStyle: vi.fn(() => ({})) }));
 vi.mock('../../hooks/useRealtimeSync', () => ({ useRealtimeSync: vi.fn() }));
 vi.mock('../../hooks/usePushNotifications', () => ({ usePushNotifications: vi.fn() }));
-vi.mock('../../hooks/useSwipeDays', () => ({ useSwipeDays: vi.fn(() => ({ bind: vi.fn(() => ({})) })) }));
-vi.mock('../../hooks/useHaptics', () => ({ useHaptics: vi.fn(() => ({ select: vi.fn(), tap: vi.fn() })) }));
-vi.mock('../../hooks/useScrollFade', () => ({ useScrollFade: vi.fn(() => ({ ref: { current: null }, canScrollLeft: false, canScrollRight: false, check: vi.fn() })) }));
-vi.mock('../../hooks/useOfflineQueue', () => ({ useOfflineQueue: vi.fn(() => ({ queueMutation: vi.fn(), processQueue: vi.fn(async () => {}) })) }));
+vi.mock('../../hooks/useScrollReset', () => ({ useScrollReset: vi.fn() }));
+vi.mock('../../hooks/useOfflineQueueBridge', () => ({ useOfflineQueueBridge: vi.fn() }));
+vi.mock('../../hooks/useFestivalLoader', () => ({ useFestivalLoader: vi.fn() }));
+vi.mock('../../hooks/useFestivalMode', () => ({ useFestivalMode: vi.fn(() => ({ showDayBanner: false })) }));
 vi.mock('../../router', () => ({ prefetchMainRoutes: vi.fn() }));
 
 import AppShell from './AppShell';

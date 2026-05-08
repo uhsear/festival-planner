@@ -13,7 +13,7 @@ function makeDeps(overrides = {}) {
   return {
     express,
     log,
-    stores: overrides.stores || { users: { readAll: async () => [] } },
+    stores: overrides.stores || { pool: { query: async () => ({ rows: [{ '?column?': 1 }] }) } },
     pool: {},
     config: overrides.config || {
       REDIS_ENABLED: false,
@@ -121,8 +121,8 @@ describe('health-core: GET /ready', () => {
     assert.equal(res.body.checks.redis, 'disabled');
   });
 
-  it('reports database degraded when stores.users.readAll is missing', async () => {
-    const deps = makeDeps({ stores: { users: {} } });
+  it('reports database degraded when stores.pool.query is missing', async () => {
+    const deps = makeDeps({ stores: {} });
     const { app, setReady } = testApp(deps);
     setReady(true);
     const res = await request(app, 'GET', '/ready');

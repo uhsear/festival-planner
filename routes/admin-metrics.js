@@ -17,7 +17,7 @@ module.exports = function createAdminMetricsRoutes(deps) {
   const {
     express,
     adminAuth, setNoStore,
-    getUsers, getFestivals, getProfiles, io, stores, state, pool,
+    getUsers: _getUsers, getFestivals, getProfiles, io, stores, state, pool,
     sendSuccess, sendError, ErrorCodes,
   } = deps;
 
@@ -53,7 +53,7 @@ module.exports = function createAdminMetricsRoutes(deps) {
       `fp_websocket_connections ${connections}`,
       '# HELP fp_users_total Total registered users',
       '# TYPE fp_users_total gauge',
-      `fp_users_total ${(await getUsers()).length}`,
+      `fp_users_total ${await stores.users.countActive()}`,
       '# HELP fp_festivals_total Total festivals',
       '# TYPE fp_festivals_total gauge',
       `fp_festivals_total ${(await getFestivals()).length}`,

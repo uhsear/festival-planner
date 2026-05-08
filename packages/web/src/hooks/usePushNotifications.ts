@@ -108,7 +108,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
     if (token !== _currentToken) {
       await api.post<void>('/notifications/token', { token, platform: 'web' });
-      _currentToken = token;
+      _currentToken = token; // eslint-disable-line require-atomic-updates -- module-level flag, not a real race
     }
   }, [isSupported]);
 
@@ -121,7 +121,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       // Swallow — server may have already removed the token
     }
 
-    _currentToken = null;
+    _currentToken = null; // eslint-disable-line require-atomic-updates -- module-level flag, not a real race
   }, []);
 
   // Auto-register when permission is already granted and user is logged in.

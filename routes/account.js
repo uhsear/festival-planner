@@ -1,10 +1,116 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
 // Licensed under the Business Source License 1.1. See LICENSE file for details.
+
+/**
+ * Collect all user data for GDPR export. Gathers profiles, device tokens,
+ * crews, sessions, notification preferences, and topic subscriptions.
+ */
+async function collectGdprData(userId, currentUser, deps) {
+  const { stores, getProfiles, log } = deps;
+
+  const exportData = {
+    exportDate: new Date().toISOString(),
+    exportVersion: '1.0',
+    user: {
+      id: currentUser.id,
+      username: currentUser.username,
+      createdAt: currentUser.createdAt,
+      updatedAt: currentUser.updatedAt,
+    },
+    profiles: [],
+    messages: [],
+    deviceTokens: [],
+  };
+
+  // Get profiles for this user — use targeted query when available
+  const userProfiles = stores?.profiles?.getByUserId
+    ? await stores.profiles.getByUserId(userId)
+    : (getProfiles ? (await getProfiles()) : []).filter((p) => p.userId === userId);
+
+  for (const profile of userProfiles) {
+    exportData.profiles.push({
+      id: profile.id,
+      festivalId: profile.festivalId,
+      name: profile.name,
+      picks: profile.picks || {},
+      notes: profile.notes || {},
+      reminders: profile.reminders || {},
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    });
+  }
+
+  // Chat feature removed (migration 013) — messages export skipped
+
+  // Get device tokens
+  if (stores?.deviceTokens?.listByUser) {
+    const tokens = await stores.deviceTokens.listByUser(userId) || [];
+    exportData.deviceTokens = tokens.map((t) => ({
+      id: t.id,
+      platform: t.platform,
+      deviceName: t.deviceName,
+      createdAt: t.createdAt,
+      lastUsedAt: t.lastUsedAt,
+    }));
+  }
+
+  // Get crew memberships
+  if (stores?.crews?.listForUser) {
+    try {
+      const userCrews = await stores.crews.listForUser(userId);
+      exportData.crews = (userCrews || []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        festivalId: c.festivalId,
+        role: c.role,
+        joinedAt: c.joinedAt,
+      }));
+    } catch (error) {
+      log.warn('gdpr-export:partial-failure', { section: 'crews', userId, error: error.message });
+      exportData.crews = [];
+    }
+  }
+
+  // Get active sessions (exclude token hashes)
+  if (stores?.sessions?.listUserSessions) {
+    try {
+      const sessions = await stores.sessions.listUserSessions(userId);
+      exportData.sessions = sessions.map((s) => ({
+        createdAt: new Date(s.createdAt).toISOString(),
+        lastAccess: new Date(s.lastAccess).toISOString(),
+      }));
+    } catch (error) {
+      log.warn('gdpr-export:partial-failure', { section: 'sessions', userId, error: error.message });
+      exportData.sessions = [];
+    }
+  }
+
+  // Get notification preferences (GDPR: include all personal data)
+  if (stores?.notificationPrefs?.get) {
+    exportData.notificationPreferences = await stores.notificationPrefs.get(userId);
+  }
+
+  // Get topic subscriptions per festival (parallel instead of sequential)
+  if (stores?.topicSubscriptions?.getForUser) {
+    const results = await Promise.all(
+      userProfiles.map(async (profile) => {
+        const subs = await stores.topicSubscriptions.getForUser(userId, profile.festivalId);
+        return (subs && Object.keys(subs).length > 0)
+          ? { festivalId: profile.festivalId, subscriptions: subs }
+          : null;
+      }),
+    );
+    exportData.topicSubscriptions = results.filter(Boolean);
+  }
+
+  return exportData;
+}
+
 module.exports = function createAccountRoutes(deps) {
   const {
     express, _config, log,
     userAuth, handleAvatarUpload, processAvatarUpload,
-    runUserTask, getUserById, getUsers,
+    runUserTask, getUserById, getUsers: _getUsers,
     writeAvatarFile, removeAvatarFile, createVersionToken,
     emitProfileIdentity, setNoStore, serializePublicUser,
     sanitizeString, validateUsername,
@@ -113,14 +219,17 @@ module.exports = function createAccountRoutes(deps) {
         return sendError(res, 400, 'Username must be 2-30 characters (letters, numbers, spaces, hyphens, underscores)', ErrorCodes.INVALID_INPUT);
       }
 
-      // Check if username is available
-      const allUsers = await getUsers();
-      const currentUser = allUsers.find((u) => u.id === req.user.userId);
+      // Check if username is available (targeted query instead of loading all users)
+      const [currentUser, existingUser] = await Promise.all([
+        getUserById(req.user.userId),
+        stores.users.getByUsername(cleanUsername),
+      ]);
       if (!currentUser) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
 
-      // Allow case-only changes for the same user
-      const taken = allUsers.find((u) => u.id !== req.user.userId && u.username.toLowerCase() === cleanUsername.toLowerCase());
-      if (taken) return sendError(res, 400, 'Username already taken', ErrorCodes.ALREADY_EXISTS);
+      // Allow case-only changes for the same user; reject if another user holds it
+      if (existingUser && existingUser.id !== req.user.userId) {
+        return sendError(res, 400, 'Username already taken', ErrorCodes.ALREADY_EXISTS);
+      }
 
       // Update username — DB UNIQUE constraint is the authoritative guard
       let result;
@@ -211,112 +320,17 @@ module.exports = function createAccountRoutes(deps) {
           res,
           429,
           `Data export rate limited. Next available: ${nextAvailable.toISOString()}`,
-          ErrorCodes.RATE_LIMITED
+          ErrorCodes.RATE_LIMITED,
         );
       }
 
-      // eslint-disable-next-line no-shadow
-      const { stores, getProfiles } = deps;
       const currentUser = await getUserById(userId);
       if (!currentUser) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
 
-      // Collect user data
-      const exportData = {
-        exportDate: new Date().toISOString(),
-        exportVersion: '1.0',
-        user: {
-          id: currentUser.id,
-          username: currentUser.username,
-          createdAt: currentUser.createdAt,
-          updatedAt: currentUser.updatedAt,
-        },
-        profiles: [],
-        messages: [],
-        deviceTokens: [],
-      };
+      const exportData = await collectGdprData(userId, currentUser, deps);
 
-      // Get all profiles for this user
-      const allProfiles = getProfiles ? (await getProfiles()) : [];
-      const userProfiles = allProfiles.filter((p) => p.userId === userId);
-
-      for (const profile of userProfiles) {
-        exportData.profiles.push({
-          id: profile.id,
-          festivalId: profile.festivalId,
-          name: profile.name,
-          picks: profile.picks || {},
-          notes: profile.notes || {},
-          reminders: profile.reminders || {},
-          createdAt: profile.createdAt,
-          updatedAt: profile.updatedAt,
-        });
-      }
-
-      // Chat feature removed (migration 013) — messages export skipped
-
-      // Get device tokens
-      if (stores?.deviceTokens?.listByUser) {
-        const tokens = await stores.deviceTokens.listByUser(userId) || [];
-        exportData.deviceTokens = tokens.map((t) => ({
-          id: t.id,
-          platform: t.platform,
-          deviceName: t.deviceName,
-          createdAt: t.createdAt,
-          lastUsedAt: t.lastUsedAt,
-        }));
-      }
-
-      // Get crew memberships
-      if (stores?.crews?.listForUser) {
-        try {
-          const userCrews = await stores.crews.listForUser(userId);
-          exportData.crews = (userCrews || []).map((c) => ({
-            id: c.id,
-            name: c.name,
-            festivalId: c.festivalId,
-            role: c.role,
-            joinedAt: c.joinedAt,
-          }));
-        } catch (error) {
-          log.warn('gdpr-export:partial-failure', { section: 'crews', userId, error: error.message });
-          exportData.crews = [];
-        }
-      }
-
-      // Get active sessions (exclude token hashes)
-      if (stores?.sessions?.listUserSessions) {
-        try {
-          const sessions = await stores.sessions.listUserSessions(userId);
-          exportData.sessions = sessions.map((s) => ({
-            createdAt: new Date(s.createdAt).toISOString(),
-            lastAccess: new Date(s.lastAccess).toISOString(),
-          }));
-        } catch (error) {
-          log.warn('gdpr-export:partial-failure', { section: 'sessions', userId, error: error.message });
-          exportData.sessions = [];
-        }
-      }
-
-      // Get notification preferences (GDPR: include all personal data)
-      if (stores?.notificationPrefs?.get) {
-        exportData.notificationPreferences = await stores.notificationPrefs.get(userId);
-      }
-
-      // Get topic subscriptions per festival
-      if (stores?.topicSubscriptions?.getForUser) {
-        exportData.topicSubscriptions = [];
-        for (const profile of userProfiles) {
-          const subs = await stores.topicSubscriptions.getForUser(userId, profile.festivalId);
-          if (subs && Object.keys(subs).length > 0) {
-            exportData.topicSubscriptions.push({ festivalId: profile.festivalId, subscriptions: subs });
-          }
-        }
-      }
-
-      // Record the export for rate limiting
       recordExport(userId);
 
-      // Set response headers for download
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `festie-data-${timestamp}.json`;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');

@@ -28,7 +28,7 @@ export default function FestivalDayBanner() {
   if (dismissed) return null;
 
   const dismiss = () => {
-    try { sessionStorage.setItem(DISMISS_KEY, 'true'); } catch {}
+    try { sessionStorage.setItem(DISMISS_KEY, 'true'); } catch { /* sessionStorage unavailable */ }
     setDismissed(true);
   };
 

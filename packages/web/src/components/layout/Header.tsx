@@ -96,7 +96,7 @@ export default function Header() {
                 } catch {
                   /* user dismissed or prompt already consumed */
                 }
-                window.__festieInstallPrompt = null;
+                window.__festieInstallPrompt = null; // eslint-disable-line require-atomic-updates -- module-level flag, not a real race
               }}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

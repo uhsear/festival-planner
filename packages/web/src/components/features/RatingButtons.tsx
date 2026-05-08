@@ -111,7 +111,7 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
     }
   };
 
-  const size = compact ? 'w-9 h-9 text-base' : 'w-11 h-11 text-xl';
+  const size = compact ? 'w-11 h-11 text-base' : 'w-11 h-11 text-xl';
 
   return (
     <div className={cn('flex items-center justify-center gap-1', compact && 'scale-90 origin-left')}

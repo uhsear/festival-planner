@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FestivalSet, Priority, Stage, Profile, Festival } from '@festie/shared/types';
-import { formatTime, timeToMinutes, artistDisplayName } from '@festie/shared/utils';
+import { timeToMinutes } from '@festie/shared/utils';
+import TimelineGridCell from './TimelineGridCell';
 
 const SLOT_MINUTES = 15;
 
@@ -9,12 +10,6 @@ function fmtHour(hh: number, mm: number): string {
   const suffix = hh < 12 ? 'a' : 'p';
   return mm === 0 ? `${h}${suffix}` : `${h}:${String(mm).padStart(2, '0')}${suffix}`;
 }
-
-const PRI_MAP: Record<string, string> = {
-  must: 'must',
-  'want-to-see': 'want',
-  maybe: 'maybe',
-};
 
 export interface TimelineGridProps {
   visibleStages: Stage[];
@@ -53,6 +48,18 @@ export default function TimelineGrid({
   onSetClick,
   onSavePick,
 }: TimelineGridProps) {
+  // Pre-compute stageId -> sets map once instead of filtering inside every
+  // stage column .map() iteration. O(n) once vs O(stages * sets) per render.
+  const setsByStage = useMemo(() => {
+    const m = new Map<string, FestivalSet[]>();
+    for (const s of timedSets) {
+      const arr = m.get(s.stageId) || [];
+      arr.push(s);
+      m.set(s.stageId, arr);
+    }
+    return m;
+  }, [timedSets]);
+
   return (
     <div
       ref={gridRef}
@@ -135,126 +142,32 @@ export default function TimelineGrid({
       {/* Set blocks */}
       {visibleStages.map((st, ci) => {
         const color = getStageColor(st.id);
-        return timedSets
-          .filter((s) => s.stageId === st.id)
-          .map((s) => {
+        const stageSets = setsByStage.get(st.id) || [];
+        return stageSets.map((s) => {
             const startMin = timeToMinutes(s.startTime!);
             let endMin = timeToMinutes(s.endTime!);
             if (endMin <= startMin) endMin += 24 * 60;
             const topSlot = (startMin - timeBounds.minMin) / SLOT_MINUTES;
             const spanSlots = (endMin - startMin) / SLOT_MINUTES;
 
-            const myPick = getMyPick(s.id);
-            const others = getOtherPicks(s.id);
-            const priClass = myPick ? ' priority-' + (PRI_MAP[myPick] || '') : '';
-            const conflictClass =
-              myPick && conflictIds.has(s.id) ? ' has-conflict' : '';
-            const dn = artistDisplayName(s, currentFestival?.b2bSeparator);
-
-            // "Short" = block height < 2 text lines + 4 px padding. At
-            // 26 px rowHeight that's anything < 2 slots (30 min); at 36 px
-            // anything < 2 slots too. Short blocks drop time + single-line
-            // ellipsis so the artist name wins.
-            const blockPx = Math.max(1, Math.ceil(spanSlots)) * rowHeight;
-            const isShort = blockPx < 44;
-
             return (
-              <div
+              <TimelineGridCell
                 key={s.id}
-                className={'timeline-set relative top-px left-0.5 right-0.5 h-[calc(100%-2px)]' + priClass + conflictClass}
-                style={{
-                  gridRow: `${Math.floor(topSlot) + 2} / span ${Math.max(1, Math.ceil(spanSlots))}`,
-                  gridColumn: ci + 2,
-                  background: color + '20',
-                  '--tl-stagger': `${Math.min(ci, 5) * 40}ms`,
-                } as React.CSSProperties}
-                data-set-id={s.id}
-                data-short={isShort ? '1' : '0'}
-                role="button"
-                tabIndex={0}
-                aria-label={`${dn} at ${st.name}, ${formatTime(s.startTime!)}-${formatTime(s.endTime!)}${myPick ? ', priority: ' + myPick : ''}`}
-                onClick={() => onSetClick(s)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onSetClick(s);
-                  }
-                }}
-              >
-                {conflictClass && (
-                  <span
-                    className="timeline-conflict-badge"
-                    aria-hidden="true"
-                    title="Schedule conflict with another of your picks"
-                  >
-                    ⚠
-                  </span>
-                )}
-                <div className="set-artist" title={dn}>
-                  {dn}
-                </div>
-                {!isShort && (
-                  <div className="set-time">
-                    {formatTime(s.startTime!)} - {formatTime(s.endTime!)}
-                  </div>
-                )}
-
-                {/* Priority pick buttons */}
-                {currentProfile && !isShort && blockPx >= 60 && (
-                  <div className="timeline-pick-group">
-                    {([['must', '★'], ['want-to-see', '◆'], ['maybe', '●']] as const).map(
-                      ([p, icon]) => {
-                        const active = myPick === p;
-                        return (
-                          <button
-                            key={p}
-                            className={
-                              'timeline-pick-btn' +
-                              (active ? ' active-' + PRI_MAP[p] : '')
-                            }
-                            type="button"
-                            aria-pressed={active ? 'true' : 'false'}
-                            aria-label={
-                              (p === 'must'
-                                ? 'Must See'
-                                : p === 'want-to-see'
-                                  ? 'Want to See'
-                                  : 'Maybe') + (active ? ' (selected)' : '')
-                            }
-                            title={
-                              p === 'must'
-                                ? 'Must See'
-                                : p === 'want-to-see'
-                                  ? 'Want to See'
-                                  : 'Maybe'
-                            }
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onSavePick(s.id, active ? null : p);
-                            }}
-                          >
-                            {icon}
-                          </button>
-                        );
-                      },
-                    )}
-                  </div>
-                )}
-
-                {/* Crew overlap avatars */}
-                {others.length > 0 && (
-                  <div className="set-overlap">
-                    {others.slice(0, 3).map((o) => (
-                      <div
-                        key={o.profileId}
-                        className="mini-avatar h-4 w-4 text-[7px]"
-                        title={`${o.name || 'Crew member'} (${o.priority})`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+                set={s}
+                stageName={st.name}
+                stageColor={color}
+                columnIndex={ci}
+                topSlot={topSlot}
+                spanSlots={spanSlots}
+                rowHeight={rowHeight}
+                myPick={getMyPick(s.id)}
+                others={getOtherPicks(s.id)}
+                hasConflict={conflictIds.has(s.id)}
+                hasProfile={!!currentProfile}
+                festival={currentFestival}
+                onSetClick={onSetClick}
+                onSavePick={onSavePick}
+              />
             );
           });
       })}

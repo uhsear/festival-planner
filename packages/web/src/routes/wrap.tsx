@@ -119,7 +119,7 @@ export default function WrapPage() {
   if (!currentFestival) {
     return (
       <div className="px-4 py-8">
-        <EmptyState icon={<Sparkles className="w-12 h-12" />} title="Select a festival first"
+        <EmptyState icon={<Sparkles className="w-12 h-12" aria-hidden="true" />} title="Select a festival first"
           description="Your wrap appears here once a festival ends." />
       </div>
     );
@@ -128,7 +128,7 @@ export default function WrapPage() {
   if (!over) {
     return (
       <div className="px-4 py-8">
-        <EmptyState icon={<Sparkles className="w-12 h-12" />} title="Festival wrap coming soon"
+        <EmptyState icon={<Sparkles className="w-12 h-12" aria-hidden="true" />} title="Festival wrap coming soon"
           description="We'll put together your highlights the day after the festival ends." />
       </div>
     );
@@ -138,7 +138,7 @@ export default function WrapPage() {
     return <div className="px-4 py-6 space-y-3"><Skeleton variant="card" /><Skeleton variant="card" /><Skeleton variant="card" /></div>;
   }
   if (isError) {
-    return <div className="px-4 py-8"><EmptyState icon={<Sparkles className="w-12 h-12" />} title="Couldn't load your wrap" description="Something went wrong loading your festival wrap." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
+    return <div className="px-4 py-8"><EmptyState icon={<Sparkles className="w-12 h-12" aria-hidden="true" />} title="Couldn't load your wrap" description="Something went wrong loading your festival wrap." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
   }
 
   const stats = data?.stats || { totalRated: 0, stagesVisited: 0, daysAttended: 0, totalHours: 0 };
@@ -163,10 +163,10 @@ export default function WrapPage() {
 
       {/* Stats grid */}
       <div className="wrap-stats-grid grid grid-cols-2 gap-1.5">
-        <Stat icon={<Trophy className="w-4 h-4" />} label="Sets rated" value={String(stats.totalRated)} />
-        <Stat icon={<MapIcon className="w-4 h-4" />} label="Stages visited" value={String(stats.stagesVisited)} />
-        <Stat icon={<CalendarDays className="w-4 h-4" />} label="Days attended" value={String(stats.daysAttended)} />
-        <Stat icon={<Clock className="w-4 h-4" />} label="Hours of music" value={totalHours.toFixed(1)} />
+        <Stat icon={<Trophy className="w-4 h-4" aria-hidden="true" />} label="Sets rated" value={String(stats.totalRated)} />
+        <Stat icon={<MapIcon className="w-4 h-4" aria-hidden="true" />} label="Stages visited" value={String(stats.stagesVisited)} />
+        <Stat icon={<CalendarDays className="w-4 h-4" aria-hidden="true" />} label="Days attended" value={String(stats.daysAttended)} />
+        <Stat icon={<Clock className="w-4 h-4" aria-hidden="true" />} label="Hours of music" value={totalHours.toFixed(1)} />
       </div>
 
       {/* Top sets */}
@@ -189,7 +189,7 @@ export default function WrapPage() {
           </div>
         </section>
       ) : (
-        <EmptyState icon={<Trophy className="w-12 h-12" />}
+        <EmptyState icon={<Trophy className="w-12 h-12" aria-hidden="true" />}
           title="No 4/5 or 5/5 ratings yet"
           description="Rate sets from the set detail panel to build your wrap." />
       )}

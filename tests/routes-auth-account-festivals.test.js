@@ -111,12 +111,15 @@ function makeMockDeps(overrides = {}) {
       users: {
         create: mock.fn(async (d) => d),
         getById: mock.fn(async () => null),
+        getByUsername: mock.fn(async () => null),
+        countActive: mock.fn(async () => 0),
         update: mock.fn(async (id, data) => ({ id, username: data.username || 'testuser', ...data })),
         findByUsername: mock.fn(async () => null),
       },
       profiles: {
         update: mock.fn(async () => {}),
         deleteByUserId: mock.fn(async () => {}),
+        claimOrphanProfiles: mock.fn(async () => {}),
       },
       pool: { query: mock.fn(async () => ({ rows: [] })) },
       roles: { getUserRoles: mock.fn(async () => []) },
@@ -131,6 +134,7 @@ function makeMockDeps(overrides = {}) {
         create: mock.fn(async (d) => d),
         update: mock.fn(async (id, data) => ({ id, ...data })),
         softDelete: mock.fn(async () => {}),
+        hardDelete: mock.fn(async () => {}),
       },
       auditLog: null,
       deviceTokens: null,
@@ -212,8 +216,15 @@ describe('routes/auth.js — createAuthRoutes', () => {
     test('successful registration returns 201 with user and token', async () => {
       const deps = makeMockDeps({
         stores: {
-          users: { create: mock.fn(async (d) => d) },
-          profiles: { update: mock.fn(async () => {}) },
+          users: {
+            create: mock.fn(async (d) => d),
+            getByUsername: mock.fn(async () => null),
+            countActive: mock.fn(async () => 0),
+          },
+          profiles: {
+            update: mock.fn(async () => {}),
+            claimOrphanProfiles: mock.fn(async () => {}),
+          },
           pool: { query: mock.fn(async () => ({ rows: [] })) },
           roles: { getUserRoles: mock.fn(async () => ['user']) },
           sessions: {
@@ -275,9 +286,8 @@ describe('routes/auth.js — createAuthRoutes', () => {
     });
 
     test('returns 400 when username already taken', async () => {
-      const deps = makeMockDeps({
-        getUsers: mock.fn(async () => [{ id: 'u-exist', username: 'newuser' }]),
-      });
+      const deps = makeMockDeps();
+      deps.stores.users.getByUsername = mock.fn(async () => ({ id: 'u-exist', username: 'newuser' }));
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
@@ -290,11 +300,11 @@ describe('routes/auth.js — createAuthRoutes', () => {
     });
 
     test('returns 400 when max users reached', async () => {
-      const users = Array.from({ length: 100 }, (_, i) => ({ id: `u-${i}`, username: `user${i}` }));
       const deps = makeMockDeps({
-        getUsers: mock.fn(async () => users),
         config: { MAX_USERS: 100 },
       });
+      deps.stores.users.getByUsername = mock.fn(async () => null);
+      deps.stores.users.countActive = mock.fn(async () => 100);
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
@@ -309,8 +319,15 @@ describe('routes/auth.js — createAuthRoutes', () => {
     test('returns 400 when email already in use', async () => {
       const deps = makeMockDeps({
         stores: {
-          users: { create: mock.fn(async (d) => d) },
-          profiles: { update: mock.fn(async () => {}) },
+          users: {
+            create: mock.fn(async (d) => d),
+            getByUsername: mock.fn(async () => null),
+            countActive: mock.fn(async () => 0),
+          },
+          profiles: {
+            update: mock.fn(async () => {}),
+            claimOrphanProfiles: mock.fn(async () => {}),
+          },
           pool: { query: mock.fn(async () => ({ rows: [{ id: 'u-exist' }] })) },
           roles: { getUserRoles: mock.fn(async () => []) },
           sessions: {
@@ -331,9 +348,8 @@ describe('routes/auth.js — createAuthRoutes', () => {
     });
 
     test('returns 500 on internal error', async () => {
-      const deps = makeMockDeps({
-        getUsers: mock.fn(async () => { throw new Error('db down'); }),
-      });
+      const deps = makeMockDeps();
+      deps.stores.users.getByUsername = mock.fn(async () => { throw new Error('db down'); });
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
@@ -349,19 +365,10 @@ describe('routes/auth.js — createAuthRoutes', () => {
   // ── POST /login ───────────────────────────────────────────────────
   describe('POST /login', () => {
     test('successful login returns user and token', async () => {
-      const deps = makeMockDeps({
-        getUsers: mock.fn(async () => [{ id: 'u-1', username: 'testuser', passwordHash: 'hashed-pw' }]),
-        stores: {
-          users: { create: mock.fn(async (d) => d), findByUsername: mock.fn(async () => null) },
-          profiles: { update: mock.fn(async () => {}) },
-          pool: { query: mock.fn(async () => ({ rows: [] })) },
-          roles: { getUserRoles: mock.fn(async () => ['user']) },
-          sessions: {
-            deleteUserSession: mock.fn(async () => {}),
-            listUserSessions: mock.fn(async () => []),
-          },
-        },
-      });
+      const deps = makeMockDeps();
+      deps.stores.users.getByUsername = mock.fn(async () => ({ id: 'u-1', username: 'testuser', passwordHash: 'hashed-pw' }));
+      deps.stores.users.findByUsername = mock.fn(async () => null);
+      deps.stores.roles = { getUserRoles: mock.fn(async () => ['user']) };
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
@@ -389,9 +396,10 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
     test('returns 401 when user not found (timing-safe)', async (t) => {
       const deps = makeMockDeps({
-        getUsers: mock.fn(async () => []),
         verifyPassword: mock.fn(async () => false),
       });
+      deps.stores.users.getByUsername = mock.fn(async () => null);
+      deps.stores.users.findByUsername = mock.fn(async () => null);
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
@@ -406,9 +414,9 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
     test('returns 401 when password is wrong', async () => {
       const deps = makeMockDeps({
-        getUsers: mock.fn(async () => [{ id: 'u-1', username: 'testuser', passwordHash: 'hashed-pw' }]),
         verifyPassword: mock.fn(async () => false),
       });
+      deps.stores.users.getByUsername = mock.fn(async () => ({ id: 'u-1', username: 'testuser', passwordHash: 'hashed-pw' }));
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
@@ -422,28 +430,16 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
     test('reactivates soft-deleted account on successful login', async () => {
       const updateFn = mock.fn(async () => {});
-      const deps = makeMockDeps({
-        getUsers: mock.fn(async () => []),
-        stores: {
-          users: {
-            create: mock.fn(async (d) => d),
-            findByUsername: mock.fn(async () => ({
-              id: 'u-deleted',
-              username: 'testuser',
-              passwordHash: 'hashed-pw',
-              deletedAt: '2026-01-01T00:00:00.000Z',
-            })),
-            update: updateFn,
-          },
-          profiles: { update: mock.fn(async () => {}) },
-          pool: { query: mock.fn(async () => ({ rows: [] })) },
-          roles: { getUserRoles: mock.fn(async () => []) },
-          sessions: {
-            deleteUserSession: mock.fn(async () => {}),
-            listUserSessions: mock.fn(async () => []),
-          },
-        },
-      });
+      const deps = makeMockDeps();
+      deps.stores.users.getByUsername = mock.fn(async () => null);
+      deps.stores.users.findByUsername = mock.fn(async () => ({
+        id: 'u-deleted',
+        username: 'testuser',
+        passwordHash: 'hashed-pw',
+        deletedAt: '2026-01-01T00:00:00.000Z',
+      }));
+      deps.stores.users.update = updateFn;
+      deps.stores.roles = { getUserRoles: mock.fn(async () => []) };
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
@@ -457,9 +453,8 @@ describe('routes/auth.js — createAuthRoutes', () => {
     });
 
     test('returns 500 on internal error', async () => {
-      const deps = makeMockDeps({
-        getUsers: mock.fn(async () => { throw new Error('db down'); }),
-      });
+      const deps = makeMockDeps();
+      deps.stores.users.getByUsername = mock.fn(async () => { throw new Error('db down'); });
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
@@ -973,16 +968,9 @@ describe('routes/account.js — createAccountRoutes', () => {
   describe('PUT /username', () => {
     test('changes username successfully', async () => {
       const updateFn = mock.fn(async (id, data) => ({ id, username: data.username }));
-      const deps = makeMockDeps({
-        getUsers: mock.fn(async () => [{ id: 'user-1', username: 'oldname' }]),
-        stores: {
-          users: { create: mock.fn(async (d) => d), update: updateFn },
-          profiles: { update: mock.fn(async () => {}) },
-          pool: { query: mock.fn(async () => ({ rows: [] })) },
-          roles: { getUserRoles: mock.fn(async () => []) },
-          sessions: { deleteUserSession: mock.fn(async () => {}), listUserSessions: mock.fn(async () => []) },
-        },
-      });
+      const deps = makeMockDeps();
+      deps.stores.users.getByUsername = mock.fn(async () => null);
+      deps.stores.users.update = updateFn;
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
@@ -997,16 +985,9 @@ describe('routes/account.js — createAccountRoutes', () => {
 
     test('PATCH /username also works', async () => {
       const updateFn = mock.fn(async (id, data) => ({ id, username: data.username }));
-      const deps = makeMockDeps({
-        getUsers: mock.fn(async () => [{ id: 'user-1', username: 'oldname' }]),
-        stores: {
-          users: { create: mock.fn(async (d) => d), update: updateFn },
-          profiles: { update: mock.fn(async () => {}) },
-          pool: { query: mock.fn(async () => ({ rows: [] })) },
-          roles: { getUserRoles: mock.fn(async () => []) },
-          sessions: { deleteUserSession: mock.fn(async () => {}), listUserSessions: mock.fn(async () => []) },
-        },
-      });
+      const deps = makeMockDeps();
+      deps.stores.users.getByUsername = mock.fn(async () => null);
+      deps.stores.users.update = updateFn;
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
@@ -1035,8 +1016,9 @@ describe('routes/account.js — createAccountRoutes', () => {
 
     test('returns 404 when current user not found', async () => {
       const deps = makeMockDeps({
-        getUsers: mock.fn(async () => []),
+        getUserById: mock.fn(async () => null),
       });
+      deps.stores.users.getByUsername = mock.fn(async () => null);
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
@@ -1049,12 +1031,8 @@ describe('routes/account.js — createAccountRoutes', () => {
     });
 
     test('returns 400 when username is already taken by another user', async () => {
-      const deps = makeMockDeps({
-        getUsers: mock.fn(async () => [
-          { id: 'user-1', username: 'oldname' },
-          { id: 'user-other', username: 'taken' },
-        ]),
-      });
+      const deps = makeMockDeps();
+      deps.stores.users.getByUsername = mock.fn(async () => ({ id: 'user-other', username: 'taken' }));
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
@@ -1069,16 +1047,9 @@ describe('routes/account.js — createAccountRoutes', () => {
     test('returns 400 on unique constraint violation from DB', async () => {
       const dbError = new Error('duplicate key');
       dbError.code = '23505';
-      const deps = makeMockDeps({
-        getUsers: mock.fn(async () => [{ id: 'user-1', username: 'oldname' }]),
-        stores: {
-          users: { create: mock.fn(async (d) => d), update: mock.fn(async () => { throw dbError; }) },
-          profiles: { update: mock.fn(async () => {}) },
-          pool: { query: mock.fn(async () => ({ rows: [] })) },
-          roles: { getUserRoles: mock.fn(async () => []) },
-          sessions: { deleteUserSession: mock.fn(async () => {}), listUserSessions: mock.fn(async () => []) },
-        },
-      });
+      const deps = makeMockDeps();
+      deps.stores.users.getByUsername = mock.fn(async () => null);
+      deps.stores.users.update = mock.fn(async () => { throw dbError; });
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
@@ -1576,14 +1547,14 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
     });
 
     test('hard-deletes festival when ?hard=true', async () => {
-      const poolQuery = mock.fn(async () => ({ rows: [] }));
+      const hardDeleteFn = mock.fn(async () => {});
       const deps = makeMockDeps({
         getFestivalById: mock.fn(async () => ({ id: 'f-1', name: 'Fest' })),
         stores: {
-          festivals: { create: mock.fn(async (d) => d), update: mock.fn(async (id, d) => ({ id, ...d })) },
+          festivals: { create: mock.fn(async (d) => d), update: mock.fn(async (id, d) => ({ id, ...d })), hardDelete: hardDeleteFn },
           users: { create: mock.fn(async (d) => d) },
           profiles: { update: mock.fn(async () => {}) },
-          pool: { query: poolQuery },
+          pool: { query: mock.fn(async () => ({ rows: [] })) },
           roles: { getUserRoles: mock.fn(async () => []) },
           sessions: { deleteUserSession: mock.fn(async () => {}), listUserSessions: mock.fn(async () => []) },
           crews: { deleteByFestival: mock.fn(async () => {}) },
@@ -1597,8 +1568,9 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       assert.equal(res.status, 200);
       assert.equal(res.body.ok, true);
       assert.equal(res.body.softDeleted, false);
-      // Should have called pool.query for each child table deletion
-      assert.ok(poolQuery.mock.calls.length >= 7, 'should delete child rows');
+      // Should have called stores.festivals.hardDelete
+      assert.equal(hardDeleteFn.mock.calls.length, 1);
+      assert.equal(hardDeleteFn.mock.calls[0].arguments[0], 'f-1');
     });
 
     test('returns 404 when festival not found', async () => {

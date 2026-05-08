@@ -34,7 +34,7 @@ vi.mock('@/hooks/useHaptics', () => ({
 }));
 
 vi.mock('./LiveBadge', () => ({
-  default: ({ status, label }: { status: string; label: string }) => (
+  default: ({ status: _status, label }: { status: string; label: string }) => (
     <div data-testid="live-badge">{label}</div>
   ),
 }));

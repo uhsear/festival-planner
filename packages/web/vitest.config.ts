@@ -15,7 +15,7 @@ export default mergeConfig(
         provider: 'v8',
         reporter: ['text', 'lcov', 'json-summary'],
         include: ['src/components/**/*.tsx', 'src/hooks/**/*.ts', 'src/lib/**/*.ts'],
-        exclude: ['src/**/*.test.*', 'src/test-setup.ts'],
+        exclude: ['src/**/*.test.*', 'src/**/*.spec.*', 'src/test-setup.ts', 'src/routeTree.gen.ts'],
         thresholds: {
           statements: 40,
           branches: 35,

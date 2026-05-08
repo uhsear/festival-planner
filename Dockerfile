@@ -17,9 +17,9 @@ FROM node:22.22.1-slim
 
 WORKDIR /app
 
-# Runtime deps for sharp
+# Runtime deps for sharp (libvips only — no -dev headers needed at runtime)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libvips-dev && \
+    libvips42 && \
     rm -rf /var/lib/apt/lists/*
 
 # Non-root user
@@ -43,9 +43,9 @@ RUN mkdir -p /app/data /app/lib/data /app/logs /app/public/uploads/avatars && \
 
 USER app
 
-# Health check
+# Health check (uses PORT env var so the container works on any port)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD node -e "require('http').get('http://127.0.0.1:4000/api/ready', r => { process.exit(r.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"
+    CMD node -e "const p=process.env.PORT||4000;require('http').get('http://127.0.0.1:'+p+'/api/ready',r=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
 
 EXPOSE 4000
 

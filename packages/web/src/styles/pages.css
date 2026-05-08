@@ -287,8 +287,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 44px;
+  height: 44px;
   color: var(--color-accent-aqua);
   background: color-mix(in srgb, var(--color-accent-aqua) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent-aqua) 35%, transparent);
@@ -724,7 +724,7 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  min-height: 36px;
+  min-height: 44px;
 }
 .festival-mode-day-banner__enter:hover { filter: brightness(1.1); }
 .festival-mode-day-banner__close {
@@ -736,8 +736,8 @@
   font-size: 20px;
   padding: 0 4px;
   line-height: 1;
-  min-height: 36px;
-  min-width: 36px;
+  min-height: 44px;
+  min-width: 44px;
 }
 .festival-mode-day-banner__close:hover { color: var(--color-text-primary, #f8fafc); }
 @keyframes fm-day-banner-slide {

@@ -63,6 +63,7 @@ function makeCrewDeps(overrides = {}) {
       pollCreate: {}, pollVote: {}, festivalIdParams: {}, profileIdParams: {},
     },
     io: ioObj,
+    pool: { query: mock.fn(async () => ({ rows: [{ id: 'f1' }] })) },
     stores: {
       crews: {
         getById: mock.fn(async () => null),
@@ -166,10 +167,7 @@ describe('routes/crews.js', () => {
       const { app } = buildCrewApp({
         sanitizeString: (s) => s,
         sanitizeIdentifier: (s) => s,
-        stores: {
-          ...makeCrewDeps().stores,
-          festivals: { readAll: mock.fn(async () => []) },
-        },
+        pool: { query: mock.fn(async () => ({ rows: [] })) },
       });
       const res = await request(app)
         .post('/crews')
@@ -1074,22 +1072,20 @@ describe('routes/crews.js', () => {
 
     test('returns matching users for admin', async () => {
       const { app } = buildCrewApp({
+        pool: {
+          query: mock.fn(async () => ({
+            rows: [
+              { id: 'u1', username: 'testuser' },
+            ],
+          })),
+        },
         stores: {
           ...makeCrewDeps().stores,
           roles: { hasRole: mock.fn(async () => true) },
-          users: {
-            ...makeCrewDeps().stores.users,
-            readAll: mock.fn(async () => [
-              { id: 'u1', username: 'testuser' },
-              { id: 'u2', username: 'other' },
-              { id: 'u3', username: 'testing', deletedAt: '2024-01-01' },
-            ]),
-          },
         },
       });
       const res = await request(app).get('/crews/search-users?q=test');
       assert.equal(res.status, 200);
-      // Should match 'testuser' but filter out deleted 'testing'
     });
   });
 
@@ -1862,11 +1858,15 @@ function makeShareDeps(overrides = {}) {
     config: { NODE_ENV: 'test', PUBLIC_ORIGIN: 'http://localhost:3000' },
     log: noopLog,
     stores: {
-      users: { readAll: mock.fn(async () => []) },
+      users: {
+        readAll: mock.fn(async () => []),
+        getByUsername: mock.fn(async () => null),
+      },
       profiles: {
         readAll: mock.fn(async () => []),
         getById: mock.fn(async () => null),
       },
+      pool: { query: mock.fn(async () => ({ rows: [] })) },
     },
     getFestivalById: mock.fn(async (id) => ({
       id, name: 'Test Fest', location: 'Somewhere',
@@ -1924,7 +1924,7 @@ describe('routes/share.js', () => {
       const { app } = buildShareApp({
         stores: {
           ...makeShareDeps().stores,
-          users: { readAll: mock.fn(async () => [{ id: 'u1', username: 'other' }]) },
+          users: { getByUsername: mock.fn(async () => null) },
         },
       });
       const res = await request(app).get('/s/u/unknown');
@@ -1936,8 +1936,8 @@ describe('routes/share.js', () => {
       const { app } = buildShareApp({
         stores: {
           ...makeShareDeps().stores,
-          users: { readAll: mock.fn(async () => [{ id: 'u1', username: 'testuser' }]) },
-          profiles: { ...makeShareDeps().stores.profiles, readAll: mock.fn(async () => []) },
+          users: { getByUsername: mock.fn(async () => ({ id: 'u1', username: 'testuser' })) },
+          pool: { query: mock.fn(async () => ({ rows: [] })) },
         },
       });
       const res = await request(app).get('/s/u/testuser');
@@ -1949,14 +1949,8 @@ describe('routes/share.js', () => {
       const { app } = buildShareApp({
         stores: {
           ...makeShareDeps().stores,
-          users: { readAll: mock.fn(async () => [{ id: 'u1', username: 'testuser' }]) },
-          profiles: {
-            ...makeShareDeps().stores.profiles,
-            readAll: mock.fn(async () => [
-              { id: 'p-old', userId: 'u1', createdAt: '2025-01-01' },
-              { id: 'p-new', userId: 'u1', createdAt: '2026-01-01' },
-            ]),
-          },
+          users: { getByUsername: mock.fn(async () => ({ id: 'u1', username: 'testuser' })) },
+          pool: { query: mock.fn(async () => ({ rows: [{ id: 'p-new' }] })) },
         },
       });
       const res = await request(app).get('/s/u/testuser');
@@ -1968,7 +1962,7 @@ describe('routes/share.js', () => {
       const { app } = buildShareApp({
         stores: {
           ...makeShareDeps().stores,
-          users: { readAll: mock.fn(async () => { throw new Error('db fail'); }) },
+          users: { getByUsername: mock.fn(async () => { throw new Error('db fail'); }) },
         },
       });
       const res = await request(app).get('/s/u/testuser');

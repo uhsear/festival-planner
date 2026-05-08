@@ -21,8 +21,9 @@ export default function AdminPanel() {
       <div className="flex-center min-h-dvh flex-col gap-4">
         <div className="text-lg text-accent-coral">Access Denied</div>
         <button
+          type="button"
           onClick={() => navigate({ to: '/cards' })}
-          className="px-4 py-2 rounded-lg bg-accent-aqua text-bg-primary hover:opacity-80 transition-opacity"
+          className="px-4 py-2 min-h-11 rounded-lg bg-accent-aqua text-bg-primary hover:opacity-80 transition-opacity"
         >
           Go Back
         </button>

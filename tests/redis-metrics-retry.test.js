@@ -298,8 +298,8 @@ describe('redis.js', () => {
       });
       const bus = createCacheInvalidationBus(redis, { log, onInvalidateUsers: () => {} });
       bus.publishUserInvalidation();
-      // Allow promise to resolve
-      await new Promise(r => setTimeout(r, 10));
+      // Allow promise microtask to resolve
+      await new Promise(r => setImmediate(r));
       assert.ok(published.some(p => p.channel === 'cache:invalidate:users'));
     });
 
@@ -319,7 +319,7 @@ describe('redis.js', () => {
       });
       const bus = createCacheInvalidationBus(redis, { log, onInvalidateFestivals: () => {} });
       bus.publishFestivalInvalidation();
-      await new Promise(r => setTimeout(r, 10));
+      await new Promise(r => setImmediate(r));
       assert.ok(published.some(p => p.channel === 'cache:invalidate:festivals'));
     });
 
@@ -473,7 +473,8 @@ describe('redis.js', () => {
       const log = makeLog();
       const cb = createRedisCircuitBreaker(redis, { maxFailures: 1, resetTimeMs: 1, log });
       await cb.exec(() => Promise.reject(new Error('fail')));
-      await new Promise(r => setTimeout(r, 10));
+      // resetTimeMs is 1ms — yield event loop so the timer expires
+      await new Promise(r => setImmediate(r));
       const result = await cb.exec(() => Promise.resolve('recovered'));
       assert.equal(result, 'recovered');
       const state = cb.getState();
@@ -1010,13 +1011,37 @@ describe('metrics.js', () => {
       stop();
     });
 
+    // Helper: retry HTTP request until server is listening (replaces fixed setTimeout)
+    function httpGetWithRetry(url, maxAttempts = 10) {
+      const http = require('http');
+      return new Promise((resolve, reject) => {
+        let attempts = 0;
+        function attempt() {
+          attempts++;
+          const req = http.get(url, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => resolve({ statusCode: res.statusCode, body: data }));
+          });
+          req.on('error', (err) => {
+            if (err.code === 'ECONNREFUSED' && attempts < maxAttempts) {
+              setTimeout(attempt, 20);
+            } else {
+              reject(err);
+            }
+          });
+        }
+        attempt();
+      });
+    }
+
     it('starts HTTP listener and returns close function', async () => {
       if (!sharedMetrics.available) return;
       // Use a high port unlikely to conflict
       const stop = startMetricsListener(sharedMetrics, { basePort: 19400, workerId: 0 });
       assert.equal(typeof stop, 'function');
-      // Give it a moment to bind
-      await new Promise(r => setTimeout(r, 100));
+      // Verify it's listening by making a request (retries on ECONNREFUSED)
+      await httpGetWithRetry('http://127.0.0.1:19400/metrics');
       // Clean up
       await stop();
     });
@@ -1024,17 +1049,7 @@ describe('metrics.js', () => {
     it('serves metrics on /metrics endpoint', async () => {
       if (!sharedMetrics.available) return;
       const stop = startMetricsListener(sharedMetrics, { basePort: 19401, workerId: 0 });
-      await new Promise(r => setTimeout(r, 100));
-      // Make a request to the metrics endpoint
-      const http = require('http');
-      const body = await new Promise((resolve, reject) => {
-        const req = http.get('http://127.0.0.1:19401/metrics', (res) => {
-          let data = '';
-          res.on('data', (chunk) => { data += chunk; });
-          res.on('end', () => resolve(data));
-        });
-        req.on('error', reject);
-      });
+      const { body } = await httpGetWithRetry('http://127.0.0.1:19401/metrics');
       assert.ok(body.length > 0);
       await stop();
     });
@@ -1042,15 +1057,7 @@ describe('metrics.js', () => {
     it('returns 404 for non-metrics paths', async () => {
       if (!sharedMetrics.available) return;
       const stop = startMetricsListener(sharedMetrics, { basePort: 19402, workerId: 0 });
-      await new Promise(r => setTimeout(r, 100));
-      const http = require('http');
-      const statusCode = await new Promise((resolve, reject) => {
-        const req = http.get('http://127.0.0.1:19402/other', (res) => {
-          res.resume();
-          resolve(res.statusCode);
-        });
-        req.on('error', reject);
-      });
+      const { statusCode } = await httpGetWithRetry('http://127.0.0.1:19402/other');
       assert.equal(statusCode, 404);
       await stop();
     });
@@ -1058,15 +1065,7 @@ describe('metrics.js', () => {
     it('computes port from basePort + workerId', async () => {
       if (!sharedMetrics.available) return;
       const stop = startMetricsListener(sharedMetrics, { basePort: 19410, workerId: 3 });
-      await new Promise(r => setTimeout(r, 100));
-      const http = require('http');
-      const statusCode = await new Promise((resolve, reject) => {
-        const req = http.get('http://127.0.0.1:19413/metrics', (res) => {
-          res.resume();
-          resolve(res.statusCode);
-        });
-        req.on('error', reject);
-      });
+      const { statusCode } = await httpGetWithRetry('http://127.0.0.1:19413/metrics');
       assert.equal(statusCode, 200);
       await stop();
     });
@@ -1079,26 +1078,40 @@ describe('metrics.js', () => {
 
 describe('notifications/retry.js', () => {
 
+  // Helper: advance mock timers and yield to let drain() async work complete.
+  // mock.timers.tick() fires the setTimeout callbacks synchronously, but the
+  // drain() function is async, so we need to yield the microtask queue.
+  async function tickAndDrain(ctx, ms) {
+    ctx.mock.timers.tick(ms);
+    // Yield to let async drain() promises settle
+    await new Promise(r => setImmediate(r));
+    await new Promise(r => setImmediate(r));
+  }
+
   describe('createRetryQueue', () => {
     it('enqueue adds entry to queue', () => {
       const log = makeLog();
       const q = createRetryQueue({ log });
       q.enqueue({ sendFn: async () => {}, userId: 'u1' });
       assert.equal(q.pending, 1);
+      q.shutdown();
     });
 
-    it('drain processes entries and calls sendFn', async () => {
+    it('drain processes entries and calls sendFn', async (t) => {
+      t.mock.timers.enable({ apis: ['setTimeout'] });
       const log = makeLog();
       const q = createRetryQueue({ log, maxRetries: 3, maxAgeMs: 60000 });
       let sent = false;
       q.enqueue({ sendFn: async () => { sent = true; }, userId: 'u1' });
-      // Wait for scheduled drain
-      await new Promise(r => setTimeout(r, 3000));
+      // First drain is scheduled at 2s (2000 * 2^0)
+      await tickAndDrain(t, 2000);
       assert.ok(sent);
       assert.equal(q.pending, 0);
+      q.shutdown();
     });
 
-    it('retries failed entries up to maxRetries', async () => {
+    it('retries failed entries up to maxRetries', async (t) => {
+      t.mock.timers.enable({ apis: ['setTimeout'] });
       const log = makeLog();
       let attempts = 0;
       const q = createRetryQueue({ log, maxRetries: 2, maxAgeMs: 60000 });
@@ -1109,22 +1122,29 @@ describe('notifications/retry.js', () => {
         },
         userId: 'u1',
       });
-      // Wait for multiple drain cycles (exponential backoff: 2s, 4s, 8s)
-      await new Promise(r => setTimeout(r, 16000));
+      // Drain cycle 1: delay = 2000 * 2^0 = 2s
+      await tickAndDrain(t, 2000);
+      // Drain cycle 2: delay = 2000 * 2^1 = 4s
+      await tickAndDrain(t, 4000);
+      // Drain cycle 3: delay = 2000 * 2^2 = 8s
+      await tickAndDrain(t, 8000);
       assert.ok(attempts >= 3); // 1 initial + 2 retries
       // Should have logged max retries exceeded
       const warnCalls = log.warn.mock.calls;
       const maxRetryWarning = warnCalls.some(c => c.arguments[0] === 'fcm retry: max retries exceeded');
       assert.ok(maxRetryWarning, 'should log max retries exceeded');
+      q.shutdown();
     });
 
-    it('drops entries older than maxAgeMs', async () => {
+    it('drops entries older than maxAgeMs', async (t) => {
+      t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
       const log = makeLog();
       const q = createRetryQueue({ log, maxRetries: 3, maxAgeMs: 1 }); // 1ms max age
       q.enqueue({ sendFn: async () => { throw new Error('fail'); }, userId: 'u1' });
-      // Wait for drain — entry should be expired by then
-      await new Promise(r => setTimeout(r, 3000));
+      // First drain at 2s — entry will be expired by then (maxAgeMs: 1ms)
+      await tickAndDrain(t, 2000);
       assert.equal(q.pending, 0);
+      q.shutdown();
     });
 
     it('drops oldest entry when queue is full (500)', () => {
@@ -1139,9 +1159,11 @@ describe('notifications/retry.js', () => {
       q.enqueue({ sendFn: async () => {}, userId: 'overflow' });
       assert.equal(q.pending, 500); // still 500 (dropped one, added one)
       assert.ok(log.warn.mock.callCount() > 0);
+      q.shutdown();
     });
 
-    it('skips not-registered FCM errors without retry', async () => {
+    it('skips not-registered FCM errors without retry', async (t) => {
+      t.mock.timers.enable({ apis: ['setTimeout'] });
       const log = makeLog();
       let attempts = 0;
       const q = createRetryQueue({ log, maxRetries: 3, maxAgeMs: 60000 });
@@ -1154,11 +1176,13 @@ describe('notifications/retry.js', () => {
         },
         userId: 'u1',
       });
-      await new Promise(r => setTimeout(r, 3000));
+      await tickAndDrain(t, 2000);
       assert.equal(attempts, 1); // only tried once, did not retry
+      q.shutdown();
     });
 
-    it('skips invalid-registration errors without retry', async () => {
+    it('skips invalid-registration errors without retry', async (t) => {
+      t.mock.timers.enable({ apis: ['setTimeout'] });
       const log = makeLog();
       let attempts = 0;
       const q = createRetryQueue({ log, maxRetries: 3, maxAgeMs: 60000 });
@@ -1171,11 +1195,13 @@ describe('notifications/retry.js', () => {
         },
         userId: 'u2',
       });
-      await new Promise(r => setTimeout(r, 3000));
+      await tickAndDrain(t, 2000);
       assert.equal(attempts, 1);
+      q.shutdown();
     });
 
-    it('skips invalid-argument errors without retry', async () => {
+    it('skips invalid-argument errors without retry', async (t) => {
+      t.mock.timers.enable({ apis: ['setTimeout'] });
       const log = makeLog();
       let attempts = 0;
       const q = createRetryQueue({ log, maxRetries: 3, maxAgeMs: 60000 });
@@ -1188,8 +1214,9 @@ describe('notifications/retry.js', () => {
         },
         userId: 'u3',
       });
-      await new Promise(r => setTimeout(r, 3000));
+      await tickAndDrain(t, 2000);
       assert.equal(attempts, 1);
+      q.shutdown();
     });
 
     it('shutdown clears queue and timer', () => {
@@ -1211,13 +1238,15 @@ describe('notifications/retry.js', () => {
       assert.equal(q.pending, 0);
     });
 
-    it('successful retry logs debug message', async () => {
+    it('successful retry logs debug message', async (t) => {
+      t.mock.timers.enable({ apis: ['setTimeout'] });
       const log = makeLog();
       const q = createRetryQueue({ log, maxRetries: 3, maxAgeMs: 60000 });
       q.enqueue({ sendFn: async () => {}, userId: 'u1' });
-      await new Promise(r => setTimeout(r, 3000));
+      await tickAndDrain(t, 2000);
       const debugCalls = log.debug.mock.calls;
       assert.ok(debugCalls.some(c => c.arguments[0] === 'fcm retry: resend succeeded'));
+      q.shutdown();
     });
 
     it('scheduleDrain does not double-schedule', () => {

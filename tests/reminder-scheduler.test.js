@@ -93,6 +93,15 @@ describe('reminder-scheduler: processProfileReminders (via tick)', () => {
     const notifyFn = mock.fn(async () => ({ sent: 1 }));
     const prefsFn = mock.fn(async () => null);
 
+    // computeSetStartMs parses `${date}T${HH:MM}:00` as LOCAL time.
+    // Use local date and local hours/minutes consistently so the computed
+    // timestamp matches the expected setStartMs (within 1 minute due to
+    // HH:MM truncation).
+    const setDate = new Date(setStartMs);
+    const localDateStr = `${setDate.getFullYear()}-${String(setDate.getMonth() + 1).padStart(2, '0')}-${String(setDate.getDate()).padStart(2, '0')}`;
+    const localHours = setDate.getHours();
+    const localMinutes = setDate.getMinutes();
+
     // Build a festival query chain
     let callIndex = 0;
     const queryFn = mock.fn(async (sql, params) => {
@@ -100,17 +109,13 @@ describe('reminder-scheduler: processProfileReminders (via tick)', () => {
         return { rows: [{ id: 'fest-1', name: 'Test Fest' }] };
       }
       if (sql.includes('festival_days')) {
-        // Return a day that matches
-        const dateStr = new Date(setStartMs).toISOString().slice(0, 10);
-        return { rows: [{ day_index: 0, label: 'Day 1', date: dateStr }] };
+        return { rows: [{ day_index: 0, label: 'Day 1', date: localDateStr }] };
       }
       if (sql.includes('festival_stages')) {
         return { rows: [{ id: 'stage-1', name: 'Main Stage' }] };
       }
       if (sql.includes('festival_sets')) {
-        const hours = new Date(setStartMs).getHours();
-        const minutes = new Date(setStartMs).getMinutes();
-        const startTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        const startTime = `${String(localHours).padStart(2, '0')}:${String(localMinutes).padStart(2, '0')}`;
         return {
           rows: [{
             id: 'set-1', day_index: 0, artist: 'DJ Alpha',

@@ -67,10 +67,10 @@ export default function ActivityTab({ crewId }: Props) {
     return <div className="px-4 space-y-2"><Skeleton variant="text" /><Skeleton variant="text" /><Skeleton variant="text" /></div>;
   }
   if (isError) {
-    return <div className="px-4"><EmptyState icon={<Activity className="w-12 h-12" />} title="Couldn't load activity" description="Something went wrong loading crew activity." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
+    return <div className="px-4"><EmptyState icon={<Activity className="w-12 h-12" aria-hidden="true" />} title="Couldn't load activity" description="Something went wrong loading crew activity." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
   }
   if (items.length === 0) {
-    return <div className="px-4"><EmptyState icon={<Activity className="w-12 h-12" />} title="No activity yet" description="Crew events will appear here as they happen." /></div>;
+    return <div className="px-4"><EmptyState icon={<Activity className="w-12 h-12" aria-hidden="true" />} title="No activity yet" description="Crew events will appear here as they happen." /></div>;
   }
 
   return (

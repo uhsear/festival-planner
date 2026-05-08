@@ -44,6 +44,8 @@ export default function DetailArtistHeader({
             src={primaryArtist.photo}
             alt={primaryArtist.name || setArtist || ''}
             className="detail-artist-photo h-full w-full object-cover"
+            width={300}
+            height={300}
             loading="lazy"
             decoding="async"
             onError={(e) => {

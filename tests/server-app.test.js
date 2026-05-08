@@ -532,14 +532,34 @@ describe('loadConfig: type coercion and bounds', () => {
     assert.equal(config.COOKIE_SAME_SITE, 'lax');
   });
 
-  it('DB_POOL_SIZE defaults to 15', () => {
+  it('PG_POOL_MAX defaults to 20', () => {
     const config = loadConfig({ PUBLIC_ORIGIN: '' });
-    assert.equal(config.DB_POOL_SIZE, 15);
+    assert.equal(config.PG_POOL_MAX, 20);
   });
 
-  it('DB_POOL_SIZE clamps at max 50', () => {
-    const config = loadConfig({ PUBLIC_ORIGIN: '', DB_POOL_SIZE: '100' });
-    assert.equal(config.DB_POOL_SIZE, 15); // out-of-range reverts to default
+  it('PG_POOL_MAX clamps at max 50', () => {
+    const config = loadConfig({ PUBLIC_ORIGIN: '', PG_POOL_MAX: '100' });
+    assert.equal(config.PG_POOL_MAX, 20); // out-of-range reverts to default
+  });
+
+  it('IDEMPOTENCY_TTL defaults to 300000', () => {
+    const config = loadConfig({ PUBLIC_ORIGIN: '' });
+    assert.equal(config.IDEMPOTENCY_TTL, 300_000);
+  });
+
+  it('IDEMPOTENCY_MAX_ENTRIES defaults to 5000', () => {
+    const config = loadConfig({ PUBLIC_ORIGIN: '' });
+    assert.equal(config.IDEMPOTENCY_MAX_ENTRIES, 5000);
+  });
+
+  it('ERROR_DEDUP_WINDOW defaults to 60000', () => {
+    const config = loadConfig({ PUBLIC_ORIGIN: '' });
+    assert.equal(config.ERROR_DEDUP_WINDOW, 60_000);
+  });
+
+  it('ERROR_DEDUP_MAX defaults to 500', () => {
+    const config = loadConfig({ PUBLIC_ORIGIN: '' });
+    assert.equal(config.ERROR_DEDUP_MAX, 500);
   });
 
   it('EMAIL_VERIFY_TOKEN_TTL_HOURS defaults to 24', () => {

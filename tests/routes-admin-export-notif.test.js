@@ -159,6 +159,7 @@ function makeDeps(overrides = {}) {
         update: mock.fn(async () => {}),
         hardDelete: mock.fn(async (id) => ({ id, username: 'deleted-user', avatarKey: null })),
         delete: mock.fn(async (id) => ({ id, username: 'deleted-user', avatarKey: null })),
+        countActive: mock.fn(async () => 2),
       },
       roles: {
         getUserRoles: mock.fn(async () => ['admin']),

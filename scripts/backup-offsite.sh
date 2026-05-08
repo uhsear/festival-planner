@@ -18,6 +18,7 @@ LOG_FILE="${BACKUP_DIR:-$HOME/backups/festie}/offsite.log"
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"; }
 
 if [ -z "$OFFSITE_TARGET" ]; then
+  log "WARNING: No off-site backup target configured (OFFSITE_TARGET). Data is at risk from single-host failures."
   log "SKIP: OFFSITE_TARGET not configured in .env"
   exit 0
 fi

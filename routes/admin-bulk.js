@@ -38,7 +38,7 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
         }
       }
       if (stores.auditLog) {
-        await stores.auditLog.insert({ actorType: 'admin', actorId: 'admin', action: 'bulk_deactivate', targetType: 'users', targetId: userIds.join(','), detailsJson: JSON.stringify({ count: userIds.length }) });
+        await stores.auditLog.insert({ actorType: 'admin', actorId: req.user?.userId || 'admin', action: 'bulk_deactivate', targetType: 'users', targetId: userIds.join(','), detailsJson: JSON.stringify({ count: userIds.length }), ip: getRequestIp(req) });
       }
       return sendSuccess(res, { results });
     } catch (error) {
@@ -65,7 +65,7 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
       }
       if (deps.invalidateFestivalListCache) deps.invalidateFestivalListCache();
       if (stores.auditLog) {
-        await stores.auditLog.insert({ actorType: 'admin', actorId: 'admin', action: 'bulk_archive', targetType: 'festivals', targetId: festivalIds.join(','), detailsJson: JSON.stringify({ count: festivalIds.length }) });
+        await stores.auditLog.insert({ actorType: 'admin', actorId: req.user?.userId || 'admin', action: 'bulk_archive', targetType: 'festivals', targetId: festivalIds.join(','), detailsJson: JSON.stringify({ count: festivalIds.length }), ip: getRequestIp(req) });
       }
       return sendSuccess(res, { results });
     } catch (error) {
@@ -138,7 +138,7 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
 
       if (stores.auditLog) {
         await stores.auditLog.insert({
-          actorType: 'admin', actorId: req.userId || 'admin',
+          actorType: 'admin', actorId: req.user?.userId || 'admin',
           action: 'crew_remove_member', targetType: 'crew_member',
           targetId: `${crewId}:${targetUserId}`,
           detailsJson: JSON.stringify({ crewId, userId: targetUserId }),
@@ -167,7 +167,7 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
 
       if (stores.auditLog) {
         await stores.auditLog.insert({
-          actorType: 'admin', actorId: req.userId || 'admin',
+          actorType: 'admin', actorId: req.user?.userId || 'admin',
           action: 'crew_delete', targetType: 'crew',
           targetId: crewId,
           detailsJson: JSON.stringify({ crewName: crew.name, festivalId: crew.festivalId }),

@@ -60,11 +60,11 @@ export default function RegisterPage() {
       <h1 className="logo-big">FESTIE</h1>
       <p className="tagline">Plan your sets. Sync with your crew.</p>
 
-      <div className="auth-tabs">
-        <Link to="/login" className="auth-tab">
+      <div className="auth-tabs" role="tablist" aria-label="Authentication method">
+        <Link to="/login" className="auth-tab" role="tab" aria-selected={false} tabIndex={-1}>
           Login
         </Link>
-        <button className="auth-tab active">Create Account</button>
+        <button className="auth-tab active" role="tab" aria-selected={true} tabIndex={0} type="button">Create Account</button>
       </div>
 
       <form className="auth-form" onSubmit={handleSubmit} noValidate {...(isLoading ? { 'aria-busy': true } : {})}>
@@ -139,13 +139,13 @@ export default function RegisterPage() {
         />
 
         {/* TOS checkbox — matches legacy styling */}
-        <label className="tos-checkbox my-2.5 flex cursor-pointer items-start gap-2 text-[13px] text-[var(--text-secondary)]">
+        <label className="tos-checkbox my-2.5 flex min-h-11 cursor-pointer items-start gap-2 text-[13px] text-[var(--text-secondary)]">
           <input
             type="checkbox"
             id="authTos"
             checked={tosAccepted}
             onChange={(e) => setTosAccepted(e.target.checked)}
-            className="mt-0.5 h-[18px] w-[18px] min-w-[18px] p-0 accent-[var(--accent)]"
+            className="mt-0.5 h-[22px] w-[22px] min-w-[22px] p-0 accent-[var(--accent)]"
           />
           <span>
             I agree to the{' '}
@@ -159,7 +159,7 @@ export default function RegisterPage() {
           </span>
         </label>
 
-        <button className="btn btn-primary" type="submit" disabled={isLoading} {...(isLoading ? { 'aria-busy': true } : {})}>
+        <button className="btn btn-primary min-h-11" type="submit" disabled={isLoading} {...(isLoading ? { 'aria-busy': true } : {})}>
           {isLoading ? 'Creating account...' : 'Create Account'}
         </button>
       </form>

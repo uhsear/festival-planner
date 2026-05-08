@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useCrewStore } from '@festie/shared/stores';
 import { useAuthStore } from '@festie/shared/stores';
@@ -6,23 +6,21 @@ import { useFestivalStore } from '@festie/shared/stores';
 import { api } from '@festie/shared/services';
 import CrewSelector from '../components/features/CrewSelector';
 import EmptyState from '../components/ui/EmptyState';
-import Avatar from '../components/ui/Avatar';
 import Button from '../components/ui/Button';
 import HomeBaseCard from '../components/crew/HomeBaseCard';
 import MeetingPointsTab from '../components/crew/MeetingPointsTab';
 import PollsTab from '../components/crew/PollsTab';
 import ExpensesTab from '../components/crew/ExpensesTab';
 import ActivityTab from '../components/crew/ActivityTab';
+import MembersTab from '../components/crew/MembersTab';
 import { useToast } from '../lib/toastContext';
 import PromptDialog from '../components/ui/PromptDialog';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import {
-  Users, Copy, UserPlus, MapPin, BarChart3, DollarSign, Activity, Columns3,
+  Users, Copy, MapPin, BarChart3, DollarSign, Activity, Columns3,
 } from 'lucide-react';
 import type { Crew, CrewMember } from '@festie/shared/types';
 
-/** Extended crew shape matching what the API actually returns (includes home
- *  base fields and legacy ownership field not yet in the shared Crew type). */
 interface CrewWithHomeBase extends Crew {
   homeBaseLocation?: string | null;
   homeBaseTime?: string | null;
@@ -30,7 +28,6 @@ interface CrewWithHomeBase extends Crew {
   createdBy?: string;
 }
 
-/** Extended member shape — the server serializes `username` alongside `name`. */
 interface CrewMemberWithUsername extends CrewMember {
   username?: string;
 }
@@ -67,16 +64,19 @@ function CrewViewInner() {
   const [tab, setTab] = useState<TabKey>('members');
   const { toast } = useToast();
 
-  // Prompt dialogs — Radix-based replacements for three blocking window.prompt
-  // calls. Only one is open at a time; each handler reads/writes its slice
-  // of state. Keeping them colocated with CrewView avoids lifting state up.
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Cleanup copy-feedback timer on unmount
+  useEffect(() => {
+    return () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current); };
+  }, []);
+
   const [createOpen, setCreateOpen]     = useState(false);
   const [createBusy, setCreateBusy]     = useState(false);
   const [joinOpen, setJoinOpen]         = useState(false);
   const [joinBusy, setJoinBusy]         = useState(false);
   const [adminOpen, setAdminOpen]       = useState(false);
 
-  // Admin role check — drives both force-add visibility + poll close on any poll.
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminAddBusy, setAdminAddBusy] = useState(false);
   useEffect(() => {
@@ -91,13 +91,13 @@ function CrewViewInner() {
       } catch {/* ignore */}
     })();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional: only check admin role on login
 
   useEffect(() => {
     if (user && crews.length > 0 && !activeCrew) {
       selectCrew(crews[0]!.id).catch(() => {});
     }
-  }, [user?.id, crews, activeCrew, selectCrew]);
+  }, [user?.id, crews, activeCrew, selectCrew]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional: use user.id to avoid re-running on every user object change
 
   const submitForceAdd = useCallback(async (query: string) => {
     if (!activeCrew) return;
@@ -109,8 +109,6 @@ function CrewViewInner() {
       if (!users || users.length === 0) { toast('No matching user found', 'error'); return; }
       const exact = users.find((u) => u.username.toLowerCase() === query.toLowerCase());
       const target = exact || users[0]!;
-      // Ambiguous match guard — kept as a native confirm since it's a
-      // rare admin-only path and doesn't warrant a second Radix dialog.
       if (!exact && users.length > 1) {
         const confirmed = window.confirm(`Found ${users.length} users. Add "${target.username}"?`);
         if (!confirmed) return;
@@ -132,7 +130,6 @@ function CrewViewInner() {
   if (!user) return null;
 
   const handleSelectCrew = (crewId: string) => { selectCrew(crewId).catch(console.error); };
-
   const handleCreateCrew = () => setCreateOpen(true);
   const submitCreateCrew = async (name: string) => {
     setCreateBusy(true);
@@ -160,7 +157,8 @@ function CrewViewInner() {
       const url = `${window.location.origin}/api/v1/crews/join/${activeCrew.inviteCode}`;
       navigator.clipboard?.writeText(url);
       setCopiedCode(true);
-      setTimeout(() => setCopiedCode(false), 2000);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopiedCode(false), 2000);
     }
   };
 
@@ -168,15 +166,10 @@ function CrewViewInner() {
 
   const crew = activeCrew as CrewWithHomeBase | null;
   const members = (crew?.members || []) as CrewMemberWithUsername[];
-  // Owner = server 'role === "owner"' OR legacy 'createdBy' match.
   const meMember = members.find((m) => m.userId === user.id);
   const isOwner = (meMember?.role === 'owner') || crew?.createdBy === user.id || crew?.owner === user.id;
 
   return (
-    // max-w-2xl matches /account's comfortable reading width on desktop —
-    // before this, the crew tabs + invite bar stretched the full 1400px and
-    // the member list cards ran all the way to the edges, which read as
-    // under-designed rather than immersive.
     <div className="crew-page space-y-2 pb-20 max-w-2xl mx-auto px-3 min-w-0 w-full">
       {crews.length > 0 && (
         <CrewSelector crews={crews} selectedCrewId={activeCrew?.id}
@@ -185,11 +178,6 @@ function CrewViewInner() {
 
       {!activeCrew ? (
         <div className="px-4">
-          {/* EmptyState renders without a cta prop — the paired
-             "Create Crew / Join by Code" row below is the primary + secondary
-             action pair. Having both the EmptyState's lone CTA AND the row
-             underneath showed two identical "Create Crew" buttons stacked on
-             top of each other, which read as a rendering glitch. */}
           <EmptyState icon={<Users className="w-12 h-12" aria-hidden="true" />} title="No crew yet"
             description="Create a crew or join an existing one to coordinate with friends" />
           {crews.length === 0 && (
@@ -201,7 +189,6 @@ function CrewViewInner() {
         </div>
       ) : (
         <div className="crew-content space-y-2 min-w-0">
-          {/* Home base — pinned at the top so the crew always sees where to meet. */}
           <HomeBaseCard
             crewId={activeCrew.id}
             currentLocation={crew?.homeBaseLocation ?? null}
@@ -210,36 +197,33 @@ function CrewViewInner() {
             onSaved={() => selectCrew(activeCrew.id)}
           />
 
-          {/* Invite link — compact (only visible to owner who receives inviteCode) */}
           {activeCrew.inviteCode && (
-          <div className="py-1.5 px-2 rounded-lg bg-bg-card border border-border flex items-center gap-2">
-            <Copy className="w-3.5 h-3.5 text-text-muted flex-shrink-0" aria-hidden="true" />
-            <span className="text-xs text-text-secondary truncate">
-              Invite: <span className="text-text-primary font-mono">{activeCrew.inviteCode}</span>
-            </span>
-            <Button variant={copiedCode ? 'primary' : 'outline'} onClick={handleCopyInviteCode}
-              className={`!py-1 !px-2.5 text-xs ml-auto flex-shrink-0 ${copiedCode ? 'crew-copy-success' : ''}`}>
-              {copiedCode ? '✓' : 'Copy'}
-            </Button>
-          </div>
+            <div className="py-1.5 px-2 rounded-lg bg-bg-card border border-border flex items-center gap-2">
+              <Copy className="w-3.5 h-3.5 text-text-muted flex-shrink-0" aria-hidden="true" />
+              <span className="text-xs text-text-secondary truncate">
+                Invite: <span className="text-text-primary font-mono">{activeCrew.inviteCode}</span>
+              </span>
+              <Button variant={copiedCode ? 'primary' : 'outline'} onClick={handleCopyInviteCode}
+                className={`!py-1 !px-2.5 text-xs ml-auto flex-shrink-0 ${copiedCode ? 'crew-copy-success' : ''}`}>
+                {copiedCode ? '✓' : 'Copy'}
+              </Button>
+            </div>
           )}
 
-          {/* Compare-schedules entry point — deep-links to /compare, which
-             shows the side-by-side per-day table of who picked what. This
-             replaces the legacy renderCrewSchedule view in public/views/crew.js. */}
           <Link
             to="/compare"
             className="flex items-center gap-2 py-1.5 px-2 min-h-11 rounded-lg bg-accent-aqua/10 border border-accent-aqua/30 hover:bg-accent-aqua/15 transition-colors"
           >
             <Columns3 className="w-4 h-4 text-accent-aqua flex-shrink-0" aria-hidden="true" />
             <span className="text-xs font-semibold text-text-primary">Compare schedules</span>
-            <span className="text-accent-aqua text-xs ml-auto">→</span>
+            <span className="text-accent-aqua text-xs ml-auto">{'→'}</span>
           </Link>
 
-          {/* Tab nav — horizontal scroll on narrow screens, 5 tabs fit on 390+ */}
           <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pr-4 scrollbar-hide min-w-0 max-w-full" role="tablist" aria-label="Crew tabs">
             {TABS.map((t) => (
               <button key={t.key} role="tab" aria-selected={tab === t.key}
+                id={`crew-tab-${t.key}`}
+                aria-controls="crew-tab-panel"
                 onClick={() => setTab(t.key)}
                 className={`flex-shrink-0 px-2.5 py-1.5 min-h-11 rounded-md flex items-center gap-1 text-xs font-medium whitespace-nowrap transition-colors ${
                   tab === t.key
@@ -252,44 +236,16 @@ function CrewViewInner() {
             ))}
           </div>
 
-          {/* Tab content — keyed by `tab` so switching restarts the mount-fade
-             defined in globals.css (.crew-tab-panel → card-in animation). */}
-          <div className="crew-tab-panel" key={tab} role="tabpanel">
+          <div className="crew-tab-panel" key={tab} role="tabpanel" id="crew-tab-panel" aria-labelledby={`crew-tab-${tab}`}>
             {tab === 'members' && (
-              <div className="space-y-1.5">
-                {isAdmin && (
-                  <div className="py-1.5 px-2 rounded-md border border-accent-amber/40 bg-accent-amber/5 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-xs text-accent-amber">
-                      <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span className="font-semibold">Admin</span>
-                    </div>
-                    <Button variant="outline" onClick={handleForceAdd} disabled={adminAddBusy}
-                      className="!py-1 !px-2.5 text-xs">
-                      {adminAddBusy ? 'Adding…' : 'Force Add'}
-                    </Button>
-                  </div>
-                )}
-                {members.length > 0 ? (
-                  <div className="space-y-0.5">
-                    {members.map((m) => (
-                      <div key={m.userId} className="crew-list-enter py-2 px-2.5 rounded-md bg-bg-card border border-border flex items-center gap-2.5">
-                        <Avatar name={m.name || m.username || 'User'} size="sm" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-text-primary truncate">{m.name || m.username}</div>
-                          {(m.role === 'owner' || activeCrew.owner === m.userId) && (
-                            <div className="text-xs text-accent-amber">👑 Owner</div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState icon={<Users className="w-12 h-12" aria-hidden="true" />} title="No members yet"
-                    description="Invite friends with the code above — they'll appear here the moment they join." />
-                )}
-              </div>
+              <MembersTab
+                members={members}
+                ownerId={activeCrew.owner}
+                isAdmin={isAdmin}
+                adminAddBusy={adminAddBusy}
+                onForceAdd={handleForceAdd}
+              />
             )}
-
             {tab === 'meeting' && (
               <MeetingPointsTab crewId={activeCrew.id} currentUserId={user.id} />
             )}
@@ -306,7 +262,6 @@ function CrewViewInner() {
         </div>
       )}
 
-      {/* Prompt dialogs — replaces blocking window.prompt calls */}
       <PromptDialog
         open={createOpen}
         onOpenChange={setCreateOpen}

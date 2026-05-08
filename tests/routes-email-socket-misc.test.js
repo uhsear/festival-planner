@@ -1519,7 +1519,10 @@ describe('routes/lineup-import', () => {
       })),
       invalidateFestivalCache: mock.fn(noop),
       getRequestIp: () => '127.0.0.1',
-      stores: { pool: storePool },
+      stores: {
+        pool: storePool,
+        festivals: { insertSets: mock.fn(async () => {}) },
+      },
       pool: storePool,
       config: {
         ...baseDeps().config,

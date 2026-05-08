@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { FestivalSet, Priority } from '@festie/shared/types';
 import { usePicks } from '@festie/shared/hooks';
 import { formatTime, artistDisplayName, artistSubtitle } from '@festie/shared/utils';
@@ -62,7 +62,25 @@ export default function SetCard({
   const [previewPlaying, setPreviewPlaying] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioListenersRef = useRef<{ ended: () => void; error: () => void } | null>(null);
   const setStatus = useSetStatus(set);
+
+  // Cleanup audio element and its event listeners on unmount to prevent leaks.
+  useEffect(() => {
+    return () => {
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.src = '';
+        if (audioListenersRef.current) {
+          audio.removeEventListener('ended', audioListenersRef.current.ended);
+          audio.removeEventListener('error', audioListenersRef.current.error);
+        }
+        audioRef.current = null;
+        audioListenersRef.current = null;
+      }
+    };
+  }, []);
 
   const myPick = getMyPick(set.id);
   const myNote = getMyNote(set.id);
@@ -125,11 +143,14 @@ export default function SetCard({
       }
       if (!audioRef.current) {
         audioRef.current = new Audio();
-        audioRef.current.addEventListener('ended', () => setPreviewPlaying(false));
-        audioRef.current.addEventListener('error', () => {
+        const onEnded = () => setPreviewPlaying(false);
+        const onError = () => {
           setPreviewPlaying(false);
           setPreviewError('Playback failed');
-        });
+        };
+        audioRef.current.addEventListener('ended', onEnded);
+        audioRef.current.addEventListener('error', onError);
+        audioListenersRef.current = { ended: onEnded, error: onError };
       }
       audioRef.current.src = src;
       await audioRef.current.play();

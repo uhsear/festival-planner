@@ -146,7 +146,7 @@ export default function AdminAnalytics() {
 
   useEffect(() => {
     loadAnalytics();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- load once on mount
 
   const loadAnalytics = async () => {
     try {
@@ -292,6 +292,7 @@ export default function AdminAnalytics() {
           <h2 className="text-lg font-semibold text-text-primary mb-4">Festival Stats</h2>
           <div role="region" tabIndex={0} aria-label="Festival stats table" className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua">
             <table className="w-full text-sm">
+              <caption className="sr-only">Festival statistics</caption>
               <thead>
                 <tr className="text-left text-text-muted border-b border-glass-border">
                   <th className="px-4 py-2">Festival</th>
@@ -321,6 +322,7 @@ export default function AdminAnalytics() {
           <h2 className="text-lg font-semibold text-text-primary mb-4">Most Active Users</h2>
           <div role="region" tabIndex={0} aria-label="Most active users table" className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua">
             <table className="w-full text-sm">
+              <caption className="sr-only">Most active users</caption>
               <thead>
                 <tr className="text-left text-text-muted border-b border-glass-border">
                   <th className="px-4 py-2">User</th>
@@ -350,6 +352,7 @@ export default function AdminAnalytics() {
           <h2 className="text-lg font-semibold text-text-primary mb-4">Crews</h2>
           <div role="region" tabIndex={0} aria-label="Crews table" className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua">
             <table className="w-full text-sm">
+              <caption className="sr-only">Crews overview</caption>
               <thead>
                 <tr className="text-left text-text-muted border-b border-glass-border">
                   <th className="px-4 py-2">Name</th>

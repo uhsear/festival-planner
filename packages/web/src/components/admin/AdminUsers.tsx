@@ -22,7 +22,7 @@ export default function AdminUsers() {
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- load once on mount
 
   const loadUsers = async () => {
     try {
@@ -101,6 +101,7 @@ export default function AdminUsers() {
         <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
+              <caption className="sr-only">User management</caption>
               <thead>
                 <tr className="border-b border-glass-border bg-bg-primary/20">
                   <th className="px-4 py-3 text-left text-text-muted font-medium">Username</th>

@@ -39,9 +39,9 @@ export default function LoginPage() {
       <h1 className="logo-big">FESTIE</h1>
       <p className="tagline">Plan your sets. Sync with your crew.</p>
 
-      <div className="auth-tabs">
-        <button className="auth-tab active">Login</button>
-        <Link to="/register" className="auth-tab">
+      <div className="auth-tabs" role="tablist" aria-label="Authentication method">
+        <button className="auth-tab active" role="tab" aria-selected={true} tabIndex={0} type="button">Login</button>
+        <Link to="/register" className="auth-tab" role="tab" aria-selected={false} tabIndex={-1}>
           Create Account
         </Link>
       </div>
@@ -75,6 +75,7 @@ export default function LoginPage() {
           disabled={isLoading}
           aria-invalid={Boolean(formError && !username)}
           aria-describedby={formError ? 'authFormError' : undefined}
+          className="min-h-11"
         />
 
         <label htmlFor="authPassword" className="sr-only">
@@ -93,10 +94,11 @@ export default function LoginPage() {
           disabled={isLoading}
           aria-invalid={Boolean(formError && !password)}
           aria-describedby={formError ? 'authFormError' : undefined}
+          className="min-h-11"
         />
 
         <button
-          className="btn btn-primary"
+          className="btn btn-primary min-h-11"
           type="submit"
           disabled={isLoading}
           {...(isLoading ? { 'aria-busy': true } : {})}

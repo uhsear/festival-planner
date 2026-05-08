@@ -91,12 +91,12 @@ export default function FestivalModeView() {
       }
       timed.push({ set: s, start, end, priority });
     }
-    const current = timed.filter((t) => t.start <= nowMs && t.end > nowMs);
-    const upcoming = timed
+    const currentSets = timed.filter((t) => t.start <= nowMs && t.end > nowMs);
+    const upcomingSets = timed
       .filter((t) => t.start > nowMs)
       .sort((a, b) => a.start - b.start)
       .slice(0, 5);
-    return { current, upcoming };
+    return { current: currentSets, upcoming: upcomingSets };
   }, [picks, sets, days, now]);
 
   if (!currentFestival) {

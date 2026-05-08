@@ -38,13 +38,8 @@ async function createUserWithProfile(userData, deps) {
   });
   invalidateUserCache();
 
-  // Auto-link orphan profiles that match the new username
-  const profiles = await deps.getProfiles?.() || [];
-  for (const profile of profiles) {
-    if (!profile.userId && profile.name.toLowerCase() === cleanUsername.toLowerCase()) {
-      await stores.profiles.update(profile.id, { userId: user.id });
-    }
-  }
+  // Auto-link orphan profiles that match the new username (single batch query)
+  await stores.profiles.claimOrphanProfiles(user.id, cleanUsername);
 
   // Send verification email if email was provided
   if (cleanEmail) {
@@ -66,6 +61,69 @@ async function createUserWithProfile(userData, deps) {
   return user;
 }
 
+/**
+ * Issue a refresh token for mobile clients and persist it.
+ * Returns the raw refresh token string, or null if refresh tokens are disabled.
+ */
+async function issueRefreshToken(userId, sessionToken, deps) {
+  const { stores, config, createOpaqueId } = deps;
+  if (!stores.refreshTokens) return null;
+  const { hashSessionToken: hashToken } = deps;
+  const refreshToken = createOpaqueId('rt');
+  await stores.refreshTokens.create({
+    token: hashToken(refreshToken),
+    userId,
+    sessionToken: hashToken(sessionToken),
+    expiresAt: new Date(Date.now() + config.REFRESH_TOKEN_TTL),
+  });
+  return refreshToken;
+}
+
+/**
+ * Track a failed login attempt: increment metrics, record per-user failure,
+ * and lock the account if the failure threshold is reached.
+ */
+async function handleLoginFailure(user, deps) {
+  const { stores, config, log, state } = deps;
+  if (state?.metrics) {
+    state.metrics.authFailures = (state.metrics.authFailures || 0) + 1;
+  }
+  if (user && stores.loginFailures) {
+    await stores.loginFailures.record(user.id);
+    const failures = await stores.loginFailures.get(user.id);
+    if (failures && failures.consecutiveFailures >= config.MAX_LOGIN_FAILURES) {
+      const lockUntil = new Date(Date.now() + config.LOGIN_LOCKOUT_MS);
+      await stores.loginFailures.lock(user.id, lockUntil);
+      log.warn('account locked', { userId: user.id, failures: failures.consecutiveFailures });
+    }
+  }
+}
+
+/**
+ * Compute the opaque session identifier (SHA-256 of token hash, first 16 hex chars).
+ */
+function computeSessionOpaqueId(tokenHash) {
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(tokenHash).digest('hex').slice(0, 16);
+}
+
+/**
+ * Disconnect sockets belonging to a user whose session token hash matches
+ * `targetTokenHash`, emitting a revocation event before disconnecting.
+ */
+function disconnectSessionSockets(userId, targetTokenHash, reason, deps) {
+  const { io, hashSessionToken: hashToken } = deps;
+  for (const [, socket] of io.sockets.sockets) {
+    if (socket.data?.userId === userId) {
+      const socketTokenHash = socket.data.userSessionToken ? hashToken(socket.data.userSessionToken) : null;
+      if (socketTokenHash === targetTokenHash) {
+        socket.emit('session:revoked', { reason });
+        socket.disconnect(true);
+      }
+    }
+  }
+}
+
 module.exports = function createAuthRoutes(deps) {
   const {
     express, config, log,
@@ -74,7 +132,7 @@ module.exports = function createAuthRoutes(deps) {
     createUserSession, validateUserSession,
     invalidateUserSessions, resolveRequestToken,
     setNoStore, setUserSessionCookie, clearUserSessionCookie,
-    userAuth, getUserById, getUsers,
+    userAuth, getUserById, getUsers: _getUsers,
     disconnectUserSockets, createOpaqueId,
     sendSuccess, sendError, ErrorCodes, rateLimit,
     io, DUMMY_PASSWORD_HASH,
@@ -108,13 +166,15 @@ module.exports = function createAuthRoutes(deps) {
       const passwordHash = await hashPassword(password);
       const newUserId = createOpaqueId('user');
 
-      // Check if username exists and user count
-      const existingUsers = await getUsers();
-      const existingUser = existingUsers.find((u) => u.username.toLowerCase() === cleanUsername.toLowerCase());
+      // Check if username exists and user count (targeted queries instead of loading all users)
+      const [existingUser, userCount] = await Promise.all([
+        stores.users.getByUsername(cleanUsername),
+        stores.users.countActive(),
+      ]);
       if (existingUser) {
         return sendError(res, 400, 'Username already taken', ErrorCodes.ALREADY_EXISTS);
       }
-      if (existingUsers.length >= config.MAX_USERS) {
+      if (userCount >= config.MAX_USERS) {
         return sendError(res, 400, 'Maximum users reached', ErrorCodes.MAX_LIMIT_REACHED);
       }
 
@@ -139,18 +199,7 @@ module.exports = function createAuthRoutes(deps) {
       setNoStore(res);
       setUserSessionCookie(res, token);
 
-      // Issue refresh token for mobile clients
-      let refreshToken = null;
-      if (stores.refreshTokens) {
-        const { hashSessionToken: hashToken } = deps;
-        refreshToken = createOpaqueId('rt');
-        await stores.refreshTokens.create({
-          token: hashToken(refreshToken),
-          userId: user.id,
-          sessionToken: hashToken(token),
-          expiresAt: new Date(Date.now() + config.REFRESH_TOKEN_TTL),
-        });
-      }
+      const refreshToken = await issueRefreshToken(user.id, token, deps);
 
       const { serializePublicUser } = deps;
       const _roles = await stores.roles.getUserRoles(user.id);
@@ -168,7 +217,7 @@ module.exports = function createAuthRoutes(deps) {
       if (!username || !password) {
         return sendError(res, 400, 'Username and password required', ErrorCodes.MISSING_FIELD);
       }
-      let user = (await getUsers()).find((candidate) => candidate.username.toLowerCase() === String(username).trim().toLowerCase());
+      let user = await stores.users.getByUsername(String(username).trim());
 
       // If not found in active users, check for soft-deleted accounts (reactivation flow)
       if (!user) {
@@ -196,20 +245,7 @@ module.exports = function createAuthRoutes(deps) {
 
       const passwordValid = await verifyPassword(String(password), user?.passwordHash || DUMMY_PASSWORD_HASH);
       if (!user || !passwordValid) {
-        // Track auth failures for brute force detection
-        if (deps.state?.metrics) {
-          deps.state.metrics.authFailures = (deps.state.metrics.authFailures || 0) + 1;
-        }
-        // Per-user failure tracking with lockout
-        if (user && stores.loginFailures) {
-          await stores.loginFailures.record(user.id);
-          const failures = await stores.loginFailures.get(user.id);
-          if (failures && failures.consecutiveFailures >= config.MAX_LOGIN_FAILURES) {
-            const lockUntil = new Date(Date.now() + config.LOGIN_LOCKOUT_MS);
-            await stores.loginFailures.lock(user.id, lockUntil);
-            log.warn('account locked', { userId: user.id, failures: failures.consecutiveFailures });
-          }
-        }
+        await handleLoginFailure(user, deps);
         const jitter = 500 + Math.floor(Math.random() * 1000);
         const username_or_user = user ? user.username : 'unknown';
         log.warn('authentication failed', { username: username_or_user, ip: req.ip });
@@ -230,19 +266,7 @@ module.exports = function createAuthRoutes(deps) {
       setNoStore(res);
       setUserSessionCookie(res, token);
 
-      // Issue refresh token for mobile clients (90-day TTL with rotation)
-      let refreshToken = null;
-      if (stores.refreshTokens) {
-        const { hashSessionToken: hashToken } = deps;
-        refreshToken = createOpaqueId('rt');
-        const refreshTokenHash = hashToken(refreshToken);
-        await stores.refreshTokens.create({
-          token: refreshTokenHash,
-          userId: user.id,
-          sessionToken: hashToken(token),
-          expiresAt: new Date(Date.now() + config.REFRESH_TOKEN_TTL),
-        });
-      }
+      const refreshToken = await issueRefreshToken(user.id, token, deps);
 
       const { serializePublicUser } = deps;
       const roles = await stores.roles.getUserRoles(user.id);
@@ -276,8 +300,10 @@ module.exports = function createAuthRoutes(deps) {
       setNoStore(res);
       const user = await getUserById(req.user.userId);
       if (!user) return sendError(res, 401, 'User not found', ErrorCodes.AUTH_REQUIRED);
-      const { serializePublicUser, getProfiles, stores: depStores } = deps;
-      const profiles = (await getProfiles()).filter((p) => p.userId === req.user.userId);
+      const { serializePublicUser, stores: depStores } = deps;
+      const profiles = depStores.profiles.getByUserId
+        ? await depStores.profiles.getByUserId(req.user.userId)
+        : (await deps.getProfiles()).filter((p) => p.userId === req.user.userId);
       const roles = await depStores.roles.getUserRoles(req.user.userId);
       return sendSuccess(res, {
         user: serializePublicUser(user),
@@ -388,14 +414,10 @@ module.exports = function createAuthRoutes(deps) {
       setNoStore(res);
       // eslint-disable-next-line no-shadow
       const { stores, hashSessionToken: hashToken } = deps;
-      const crypto = require('crypto');
       const sessions = await stores.sessions.listUserSessions(req.user.userId);
       const currentTokenHash = req.userToken ? hashToken(req.userToken) : null;
-      // Use an opaque identifier derived from SHA-256 of the token hash instead
-      // of exposing a 24-char prefix of the actual token hash. This prevents
-      // any partial-preimage attack surface while remaining stable per-session.
       const items = sessions.map((s) => ({
-        id: crypto.createHash('sha256').update(s.token).digest('hex').slice(0, 16),
+        id: computeSessionOpaqueId(s.token),
         createdAt: new Date(s.createdAt).toISOString(),
         lastAccess: new Date(s.lastAccess).toISOString(),
         current: s.token === currentTokenHash,
@@ -413,39 +435,22 @@ module.exports = function createAuthRoutes(deps) {
       setNoStore(res);
       // eslint-disable-next-line no-shadow
       const { stores, hashSessionToken: hashToken } = deps;
-      const crypto = require('crypto');
       const sessionId = req.params.id;
       if (!sessionId || sessionId.length !== 16 || !/^[a-f0-9]+$/i.test(sessionId)) {
         return sendError(res, 400, 'Invalid session ID', ErrorCodes.INVALID_INPUT);
       }
 
-      // Find matching session by opaque id (SHA-256 of token hash, first 16 hex chars)
       const sessions = await stores.sessions.listUserSessions(req.user.userId);
-      const target = sessions.find((s) => crypto.createHash('sha256').update(s.token).digest('hex').slice(0, 16) === sessionId);
+      const target = sessions.find((s) => computeSessionOpaqueId(s.token) === sessionId);
       if (!target) return sendError(res, 404, 'Session not found', ErrorCodes.NOT_FOUND);
 
-      // Prevent revoking current session (use /logout instead)
       const currentTokenHash = req.userToken ? hashToken(req.userToken) : null;
       if (target.token === currentTokenHash) {
         return sendError(res, 400, 'Cannot revoke current session. Use /logout instead.', ErrorCodes.INVALID_INPUT);
       }
 
       await stores.sessions.deleteUserSession(target.token);
-      // Disconnect sockets using the revoked session
-      const disconnectSessionTokens = deps.disconnectSessionTokens;
-      if (disconnectSessionTokens) {
-        // We need raw token to disconnect sockets, but we only have the hash.
-        // Disconnect by scanning sockets for this user — targeted by token hash.
-        for (const [, socket] of io.sockets.sockets) {
-          if (socket.data?.userId === req.user.userId) {
-            const socketTokenHash = socket.data.userSessionToken ? hashToken(socket.data.userSessionToken) : null;
-            if (socketTokenHash === target.token) {
-              socket.emit('session:revoked', { reason: 'Session revoked by user' });
-              socket.disconnect(true);
-            }
-          }
-        }
-      }
+      disconnectSessionSockets(req.user.userId, target.token, 'Session revoked by user', deps);
 
       log.info('session:revoked', { userId: req.user.userId, sessionId });
       return sendSuccess(res, { success: true });
@@ -459,13 +464,14 @@ module.exports = function createAuthRoutes(deps) {
   router.delete('/sessions', userAuth, rateLimit(5, 'del-all-sessions'), async (req, res) => {
     try {
       setNoStore(res);
-      const currentTokenHash = req.userToken ? deps.hashSessionToken(req.userToken) : null;
+      const { hashSessionToken: hashToken } = deps;
+      const currentTokenHash = req.userToken ? hashToken(req.userToken) : null;
       await invalidateUserSessions(req.user.userId, req.userToken);
 
       // Disconnect all sockets for this user except current session
       for (const [, socket] of io.sockets.sockets) {
         if (socket.data?.userId === req.user.userId) {
-          const socketTokenHash = socket.data.userSessionToken ? deps.hashSessionToken(socket.data.userSessionToken) : null;
+          const socketTokenHash = socket.data.userSessionToken ? hashToken(socket.data.userSessionToken) : null;
           if (socketTokenHash !== currentTokenHash) {
             socket.emit('session:revoked', { reason: 'All other sessions revoked' });
             socket.disconnect(true);

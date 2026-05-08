@@ -142,14 +142,18 @@ module.exports = function createLineupImportRoute(deps) {
 
       let columnMap;
       if (hasHeader) {
+        const HEADER_TO_FIELD = {
+          artist: 'artist', name: 'artist', act: 'artist',
+          stage: 'stage',
+          day: 'day', date: 'day',
+          start: 'startTime', starttime: 'startTime',
+          end: 'endTime', endtime: 'endTime',
+          link: 'linkUrl', linkurl: 'linkUrl', url: 'linkUrl', spotify: 'linkUrl',
+        };
         columnMap = {};
         for (let i = 0; i < headerLower.length; i++) {
-          if (headerLower[i] === 'artist' || headerLower[i] === 'name') columnMap.artist = i;
-          else if (headerLower[i] === 'stage') columnMap.stage = i;
-          else if (headerLower[i] === 'day' || headerLower[i] === 'date') columnMap.day = i;
-          else if (headerLower[i] === 'start' || headerLower[i] === 'starttime') columnMap.startTime = i;
-          else if (headerLower[i] === 'end' || headerLower[i] === 'endtime') columnMap.endTime = i;
-          else if (headerLower[i] === 'link' || headerLower[i] === 'linkurl' || headerLower[i] === 'url' || headerLower[i] === 'spotify') columnMap.linkUrl = i;
+          const field = HEADER_TO_FIELD[headerLower[i]];
+          if (field && columnMap[field] === undefined) columnMap[field] = i;
         }
       } else {
         columnMap = { artist: 0, stage: 1, day: 2, startTime: 3, endTime: 4 };
@@ -240,17 +244,13 @@ module.exports = function createLineupImportRoute(deps) {
         }
       }
 
-      // Insert imported sets into the database
-      for (const set of imported) {
+      // Insert imported sets via centralized store method
+      const setsWithSortOrder = imported.map((set) => {
         const existingDay = festival.days?.[set.dayIndex];
         const sortOrder = (existingDay?.sets?.length || 0) + imported.filter((s) => s.dayIndex === set.dayIndex && imported.indexOf(s) < imported.indexOf(set)).length;
-
-        await stores.pool.query(
-          `INSERT INTO festival_sets (id, festival_id, day_index, artist, stage_id, start_time, end_time, sort_order, link_url, artists)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-          [set.id, festivalId, set.dayIndex, set.artist, set.stageId, set.startTime, set.endTime, sortOrder, set.linkUrl, JSON.stringify(set.artists || [])]
-        );
-      }
+        return { ...set, sortOrder };
+      });
+      await stores.festivals.insertSets(festivalId, setsWithSortOrder);
 
       // Update festival timestamp
       await stores.pool.query('UPDATE festivals SET updated_at = NOW() WHERE id = $1', [festivalId]);

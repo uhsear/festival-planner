@@ -37,7 +37,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- load once on mount
 
   const loadDashboard = async () => {
     try {

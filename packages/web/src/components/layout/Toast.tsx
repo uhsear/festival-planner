@@ -8,13 +8,13 @@ export default function Toast() {
   const getIcon = (type: string) => {
     switch (type) {
       case 'success':
-        return <CheckCircle className="w-5 h-5" />;
+        return <CheckCircle className="w-5 h-5" aria-hidden="true" />;
       case 'error':
-        return <AlertCircle className="w-5 h-5" />;
+        return <AlertCircle className="w-5 h-5" aria-hidden="true" />;
       case 'warning':
-        return <AlertTriangle className="w-5 h-5" />;
+        return <AlertTriangle className="w-5 h-5" aria-hidden="true" />;
       default:
-        return <Info className="w-5 h-5" />;
+        return <Info className="w-5 h-5" aria-hidden="true" />;
     }
   };
 
@@ -61,7 +61,7 @@ export default function Toast() {
                 <button
                   type="button"
                   onClick={t.onUndo}
-                  className="text-xs mt-1 opacity-75 hover:opacity-100 flex items-center gap-1 transition-opacity"
+                  className="text-xs mt-1 opacity-75 hover:opacity-100 flex items-center gap-1 transition-opacity min-h-11 min-w-11"
                 >
                   <RotateCcw className="w-3 h-3" />
                   Undo
@@ -73,7 +73,7 @@ export default function Toast() {
           <button
             type="button"
             onClick={() => removeToast(t.id)}
-            className="p-1 hover:bg-white hover:bg-opacity-10 rounded transition-colors flex-shrink-0"
+            className="p-1 hover:bg-white hover:bg-opacity-10 rounded transition-colors flex-shrink-0 min-h-11 min-w-11 inline-flex items-center justify-center"
             aria-label="Close"
           >
             <X className="w-4 h-4" />

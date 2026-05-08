@@ -11,6 +11,7 @@ export default function DetailSpotifySection({ preview, visible, onToggle }: Pro
         className="btn btn-ghost btn-sm flex items-center gap-1.5"
         type="button"
         onClick={onToggle}
+        aria-expanded={visible}
       >
         {visible ? '\u25B2 Hide Player' : '\u25B6 Listen on Spotify'}
       </button>

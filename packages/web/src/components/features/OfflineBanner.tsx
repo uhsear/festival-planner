@@ -81,7 +81,7 @@ export default function OfflineBanner() {
         {showSyncing && (
           <button
             onClick={handleFlush}
-            className="text-xs font-bold px-2 py-1 rounded bg-bg-primary/10 hover:bg-bg-primary/20"
+            className="text-xs font-bold px-2 py-1 rounded bg-bg-primary/10 hover:bg-bg-primary/20 min-h-[44px]"
           >
             Flush now
           </button>

@@ -4,6 +4,7 @@
 //
 // New code should import from festivalDataStore / festivalUIStore directly.
 
+import { useCallback, useRef, useSyncExternalStore } from 'react';
 import { useFestivalDataStore } from './festivalDataStore';
 import { useFestivalUIStore } from './festivalUIStore';
 import type { FestivalDataState, FestivalDataActions } from './festivalDataStore';
@@ -24,10 +25,13 @@ export type FestivalStore = FestivalState & FestivalActions;
 // Merges both stores into a single selector surface so every existing
 // `useFestivalStore((s) => s.foo)` call works without modification.
 //
-// Implementation: a thin wrapper that subscribes to both underlying stores
-// and returns a merged object.  The `Object.assign` approach avoids an
-// extra render because `useSyncExternalStore` (used internally by Zustand)
-// already de-duplicates by referential equality on each slice.
+// FIX: The previous implementation called `useFestivalDataStore()` and
+// `useFestivalUIStore()` without selectors on every render, meaning every
+// component using the facade re-rendered on ANY change to EITHER store.
+//
+// This rewrite uses `useSyncExternalStore` to subscribe to both underlying
+// stores but only triggers a re-render when the *selected* value changes
+// (compared via `Object.is`, matching Zustand's default behavior).
 
 type UseFestivalStore = {
   (): FestivalStore;
@@ -43,22 +47,51 @@ function getMergedState(): FestivalStore {
   } as FestivalStore;
 }
 
+// Subscribe to both underlying stores. The listener fires when either
+// data store or UI store changes -- but useSyncExternalStore will only
+// trigger a React re-render if `getSnapshot` returns a different value.
+function subscribeToBothStores(listener: () => void): () => void {
+  const unsubData = useFestivalDataStore.subscribe(listener);
+  const unsubUI = useFestivalUIStore.subscribe(listener);
+  return () => {
+    unsubData();
+    unsubUI();
+  };
+}
+
 export const useFestivalStore: UseFestivalStore = (<T,>(
   selector?: (state: FestivalStore) => T,
 ): T | FestivalStore => {
-  // Subscribe to both stores so the component re-renders when either changes
-  const dataState = useFestivalDataStore();
-  const uiState = useFestivalUIStore();
-
-  const merged: FestivalStore = {
-    ...dataState,
-    ...uiState,
-  } as FestivalStore;
-
-  if (selector) {
-    return selector(merged);
+  // Fast path: no selector -- return the full merged state (rare in practice,
+  // kept for API compatibility). This will re-render on any change.
+  if (!selector) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    return useSyncExternalStore(subscribeToBothStores, getMergedState, getMergedState);
   }
-  return merged;
+
+  // With a selector: only re-render when the selected slice changes.
+  // We cache the last snapshot so useSyncExternalStore sees a stable
+  // reference when the selected value hasn't changed.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const cachedRef = useRef<{ value: T; merged: FestivalStore } | null>(null);
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const getSnapshot = useCallback((): T => {
+    const merged = getMergedState();
+    const next = selector(merged);
+
+    // Return the cached value if the selected slice is unchanged.
+    // This preserves referential identity, preventing re-renders.
+    if (cachedRef.current !== null && Object.is(cachedRef.current.value, next)) {
+      return cachedRef.current.value;
+    }
+
+    cachedRef.current = { value: next, merged };
+    return next;
+  }, [selector]);
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useSyncExternalStore(subscribeToBothStores, getSnapshot, getSnapshot);
 }) as UseFestivalStore;
 
 // Static methods used by non-React code (e.g. `useFestivalStore.getState()`)

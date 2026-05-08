@@ -58,6 +58,9 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     if (!socket) return;
 
     socketRef.current = socket;
+    // Copy ref value so the cleanup function uses the snapshot captured at
+    // effect-creation time (satisfies react-hooks/exhaustive-deps).
+    const timersSnapshot = debouncersRef.current;
 
     const schedule = (key: string, fn: () => void, delay = 300) => {
       const timers = debouncersRef.current;
@@ -176,10 +179,9 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       socket.off('disconnect', handleDisconnect);
 
       // Cancel any pending debounced refetches so we don't fire after unmount.
-      const timers = debouncersRef.current;
-      for (const k of Object.keys(timers)) {
-        clearTimeout(timers[k]);
-        delete timers[k];
+      for (const k of Object.keys(timersSnapshot)) {
+        clearTimeout(timersSnapshot[k]);
+        delete timersSnapshot[k];
       }
     };
   }, [socket, currentFestivalId, queryClient, setConnected, setOnlineUsers]);

@@ -255,6 +255,28 @@ export const router = new Router({
   ),
 });
 
+// ── Route-change focus management (WCAG 2.4.3) ─────────────────────
+// After each navigation, move focus to #main-content so screen-reader
+// users land at the start of the new page instead of staying on the
+// link/button they clicked. Uses two rAFs to let lazy-loaded route
+// components mount before focusing (mirrors AppShell scroll-reset).
+let lastPath = '';
+router.subscribe('onResolved', () => {
+  const nextPath = router.state.location.pathname;
+  if (nextPath === lastPath) return;
+  lastPath = nextPath;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const main = document.getElementById('main-content');
+      if (main) {
+        // tabIndex=-1 allows focus without adding to tab order
+        if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1');
+        main.focus({ preventScroll: true });
+      }
+    });
+  });
+});
+
 declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router;

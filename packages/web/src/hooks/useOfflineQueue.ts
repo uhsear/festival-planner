@@ -344,7 +344,7 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
       } catch (err) {
         console.error('Queue processing error:', err);
       } finally {
-        _processing = false;
+        _processing = false; // eslint-disable-line require-atomic-updates -- module-level flag, not a real race
         await updatePendingCount();
       }
     },

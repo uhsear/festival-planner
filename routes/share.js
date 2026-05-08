@@ -38,25 +38,23 @@ module.exports = function createShareRoutes(deps) {
         return sendShareError(res, 400, 'Invalid Link', 'This share link is not valid.');
       }
 
-      // Look up user by username (case-insensitive)
-      const users = await stores.users.readAll();
-      const user = users.find((u) => u.username.toLowerCase() === username.toLowerCase());
+      // Look up user by username (case-insensitive, targeted query)
+      const user = await stores.users.getByUsername(username.toLowerCase());
       if (!user) {
         return sendShareError(res, 404, 'User Not Found', 'No account with this username exists.');
       }
 
-      // Find their most recent profile
-      const allProfiles = await stores.profiles.readAll();
-      const userProfiles = allProfiles.filter((p) => p.userId === user.id);
-      if (userProfiles.length === 0) {
+      // Find their most recent profile (targeted query, not readAll)
+      const { rows: profileRows } = await stores.pool.query(
+        `SELECT id FROM festival_profiles
+         WHERE user_id = $1 AND deleted_at IS NULL
+         ORDER BY created_at DESC LIMIT 1`,
+        [user.id],
+      );
+      if (profileRows.length === 0) {
         return sendShareError(res, 404, 'No Schedule Yet', 'This user hasn\'t joined a festival yet.');
       }
-      // Sort by createdAt descending and take the first
-      const profile = userProfiles.sort((a, b) => {
-        const dateA = new Date(a.createdAt || 0).getTime();
-        const dateB = new Date(b.createdAt || 0).getTime();
-        return dateB - dateA;
-      })[0];
+      const profile = profileRows[0];
 
       // Redirect to the opaque share link
       return res.redirect(302, `/s/${profile.id}`);

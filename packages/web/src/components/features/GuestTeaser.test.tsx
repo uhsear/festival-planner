@@ -3,7 +3,16 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import GuestTeaser from './GuestTeaser';
 
+const mockNavigate = vi.fn();
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => mockNavigate,
+}));
+
 describe('GuestTeaser', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe('picks mode', () => {
     it('renders the picks title', () => {
       render(<GuestTeaser mode="picks" />);
@@ -65,17 +74,9 @@ describe('GuestTeaser', () => {
   });
 
   it('navigates to /register when CTA is clicked', async () => {
-    // GuestTeaser uses window.location.href assignment for navigation
-    const originalHref = window.location.href;
-    const hrefSetter = vi.fn();
-    Object.defineProperty(window, 'location', {
-      writable: true,
-      value: { ...window.location, get href() { return originalHref; }, set href(v: string) { hrefSetter(v); } },
-    });
-
     const user = userEvent.setup();
     render(<GuestTeaser mode="picks" />);
     await user.click(screen.getByRole('button', { name: 'Sign Up Free' }));
-    expect(hrefSetter).toHaveBeenCalledWith('/register');
+    expect(mockNavigate).toHaveBeenCalledWith({ to: '/register' });
   });
 });

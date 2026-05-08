@@ -63,11 +63,12 @@ describe('IconButton', () => {
       expect(btn.className).toContain('min-w-11');
     });
 
-    it('applies sm size (36x36)', () => {
+    it('applies sm size (WCAG AA minimum 44x44)', () => {
       render(<IconButton icon={icon} label="Action" size="sm" />);
       const btn = screen.getByRole('button');
-      expect(btn.className).toContain('min-h-9');
-      expect(btn.className).toContain('min-w-9');
+      // Both sm and md use min-h-11 min-w-11 (44px) per WCAG 2.5.5
+      expect(btn.className).toContain('min-h-11');
+      expect(btn.className).toContain('min-w-11');
     });
   });
 

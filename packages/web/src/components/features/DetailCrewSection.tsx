@@ -34,36 +34,38 @@ export default function DetailCrewSection({ title, others, crewNotes }: Props) {
   return (
     <div className="detail-friends">
       <div className="detail-friends-title">{title}</div>
-      {others.map((o) => {
-        const avatarColor = getAvatarColor(o.name);
-        const initials = getInitials(o.name);
-        return (
-          <div key={o.profileId} className="detail-friend-item">
-            {o.avatar ? (
-              <img
-                src={o.avatar}
-                alt={o.name}
-                width={28}
-                height={28}
-                loading="lazy"
-                decoding="async"
-                className="h-7 w-7 shrink-0 rounded-full object-cover"
-                title={o.name + ' (' + o.priority + ')'}
-              />
-            ) : (
-              <div
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
-                style={{ background: avatarColor }}
-                title={o.name + ' (' + o.priority + ')'}
-              >
-                {initials}
-              </div>
-            )}
-            <span>{o.name}</span>
-            <span className="friend-priority" style={{ color: priColors[o.priority] }}>{priLabels[o.priority]}</span>
-          </div>
-        );
-      })}
+      <ul className="list-none m-0 p-0">
+        {others.map((o) => {
+          const avatarColor = getAvatarColor(o.name);
+          const initials = getInitials(o.name);
+          return (
+            <li key={o.profileId} className="detail-friend-item">
+              {o.avatar ? (
+                <img
+                  src={o.avatar}
+                  alt={o.name}
+                  width={28}
+                  height={28}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-7 w-7 shrink-0 rounded-full object-cover"
+                  title={o.name + ' (' + o.priority + ')'}
+                />
+              ) : (
+                <div
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+                  style={{ background: avatarColor }}
+                  title={o.name + ' (' + o.priority + ')'}
+                >
+                  {initials}
+                </div>
+              )}
+              <span>{o.name}</span>
+              <span className="friend-priority" style={{ color: priColors[o.priority] }}>{priLabels[o.priority]}</span>
+            </li>
+          );
+        })}
+      </ul>
 
       {crewNotes.length > 0 && (
         <div className="border-t border-[var(--border)] py-2">

@@ -3,12 +3,12 @@ import { renderHook, act } from '@testing-library/react';
 import { useScrollFade } from './useScrollFade';
 
 describe('useScrollFade', () => {
-  let rafCallback: FrameRequestCallback | null = null;
+  let _rafCallback: FrameRequestCallback | null = null;
 
   beforeEach(() => {
-    rafCallback = null;
+    _rafCallback = null;
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
-      rafCallback = cb;
+      _rafCallback = cb;
       return 1;
     });
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});

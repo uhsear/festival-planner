@@ -63,6 +63,28 @@ function ensureWhiteContrast(hex: string): string {
   );
 }
 
+// Ensures the inactive chip text color has at least 4.5:1 contrast against
+// the dark app background (~#0d0d1a, luminance ~0.008). Light stage colors
+// (yellow, lime, etc.) are brightened just enough to pass WCAG AA.
+const DARK_BG_LUMINANCE = 0.008;
+function ensureDarkBgContrast(hex: string): string {
+  const rgb = parseHex(hex);
+  if (!rgb) return hex;
+  const [r, g, b] = rgb;
+  const lum = relativeLuminance(r, g, b);
+  const ratio = (lum + 0.05) / (DARK_BG_LUMINANCE + 0.05);
+  if (ratio >= 4.5) return hex;
+  // Target luminance for 4.5:1 against DARK_BG_LUMINANCE
+  const targetLum = 4.5 * (DARK_BG_LUMINANCE + 0.05) - 0.05;
+  if (lum === 0) return '#b3b3b3'; // fallback for pure black
+  const k = targetLum / lum;
+  return toHex(
+    linearToSrgb(Math.min(1, srgbToLinear(r) * k)),
+    linearToSrgb(Math.min(1, srgbToLinear(g) * k)),
+    linearToSrgb(Math.min(1, srgbToLinear(b) * k)),
+  );
+}
+
 export function getStageBadgeStyle(
   stageColor: string,
   variant: StageBadgeVariant = 'default',
@@ -72,7 +94,7 @@ export function getStageBadgeStyle(
   if (isFadedChip) {
     return {
       background: stageColor + '20',
-      color: stageColor,
+      color: ensureDarkBgContrast(stageColor),
       borderColor: 'transparent',
     };
   }
@@ -100,7 +122,7 @@ export default function StageBadge({
   const composedClass = [variantClass + activeSuffix, className].filter(Boolean).join(' ');
 
   return (
-    <span className={composedClass} role="img" aria-label={stageName} style={{ ...baseStyle, ...style }}>
+    <span className={composedClass} style={{ ...baseStyle, ...style }}>
       {stageName}
     </span>
   );

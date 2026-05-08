@@ -25,7 +25,7 @@ DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_PORT="${DB_PORT:-5432}"
 DAILY_KEEP="${DAILY_KEEP:-30}"      # days to keep daily backups
 WEEKLY_KEEP="${WEEKLY_KEEP:-12}"    # weekly snapshots to retain
-VERIFY="${BACKUP_VERIFY:-0}"        # set to 1 to pg_restore --list after dump
+VERIFY="${BACKUP_VERIFY:-1}"        # pg_restore --list is cheap; catches truncated dumps
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/fp_${TIMESTAMP}.dump"

@@ -138,7 +138,7 @@ export function useSetStatus(sets: FestivalSet | FestivalSet[]): SetStatusResult
   const [now, setNow] = useState(() => new Date());
   const days = useFestivalStore((s) => s.days);
   const isSingleSet = !Array.isArray(sets);
-  const setsArray = isSingleSet ? [sets] : sets;
+  const setsArray = useMemo(() => isSingleSet ? [sets] : sets, [isSingleSet, sets]);
 
   // Update current time on 60-second interval
   useEffect(() => {

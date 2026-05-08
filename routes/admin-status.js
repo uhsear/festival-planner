@@ -11,12 +11,13 @@
 // file need it. If a third file ever needs the same policy, promote it to
 // lib/csp-helpers.js.
 const { renderAnalyticsDashboard } = require('../lib/analytics-template');
+const { renderStatusPage } = require('../lib/helpers/status-template');
 
 module.exports = function createAdminStatusRoutes(deps) {
   const {
     express,
     adminAuth, setNoStore,
-    getUsers, getFestivals, getProfiles, io, stores, state, pool,
+    getUsers: _getUsers, getFestivals, getProfiles, io, stores, state, pool,
     sendSuccess, sendError, ErrorCodes, log,
   } = deps;
 
@@ -67,7 +68,7 @@ module.exports = function createAdminStatusRoutes(deps) {
         heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
       },
       connections: io.engine?.clientsCount || 0,
-      users: (await getUsers()).length,
+      users: await stores.users.countActive(),
       festivals: (await getFestivals()).length,
       profiles: (await getProfiles()).length,
       onlineRooms: state.onlineUsers.size,
@@ -104,220 +105,29 @@ module.exports = function createAdminStatusRoutes(deps) {
     const cspNonce = res.locals.cspNonce || '';
     res.setHeader('Content-Security-Policy', buildStrictNonceCSP(cspNonce));
 
-    const mem = process.memoryUsage();
     const uptime = Math.round(process.uptime());
-    const connections = io.engine?.clientsCount || 0;
-    const metrics = deps.metrics;
-    const workerId = process.pid;
+    const days = Math.floor(uptime / 86400);
+    const hours = Math.floor((uptime % 86400) / 3600);
+    const mins = Math.floor((uptime % 3600) / 60);
+    const secs = uptime % 60;
+    let uptimeStr;
+    if (days > 0) uptimeStr = `${days}d ${hours}h ${mins}m`;
+    else if (hours > 0) uptimeStr = `${hours}h ${mins}m ${secs}s`;
+    else if (mins > 0) uptimeStr = `${mins}m ${secs}s`;
+    else uptimeStr = `${secs}s`;
 
-    // Format uptime as human-readable
-    const uptimeStr = (() => {
-      const days = Math.floor(uptime / 86400);
-      const hours = Math.floor((uptime % 86400) / 3600);
-      const mins = Math.floor((uptime % 3600) / 60);
-      const secs = uptime % 60;
-      if (days > 0) return `${days}d ${hours}h ${mins}m`;
-      if (hours > 0) return `${hours}h ${mins}m ${secs}s`;
-      if (mins > 0) return `${mins}m ${secs}s`;
-      return `${secs}s`;
-    })();
-
-    const nonceAttr = cspNonce ? ` nonce="${cspNonce}"` : '';
-
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Festie - Admin Status</title>
-  <style${nonceAttr}>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #0f0f0f;
-      color: #e0e0e0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      line-height: 1.6;
-    }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    header {
-      border-bottom: 1px solid #333;
-      padding-bottom: 20px;
-      margin-bottom: 30px;
-    }
-    h1 {
-      font-size: 28px;
-      margin-bottom: 8px;
-    }
-    .timestamp {
-      color: #999;
-      font-size: 14px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 20px;
-      margin-bottom: 30px;
-    }
-    .card {
-      background: #1a1a1a;
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 20px;
-    }
-    .card h2 {
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #999;
-      margin-bottom: 12px;
-      border-bottom: 1px solid #333;
-      padding-bottom: 8px;
-    }
-    .stat {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid #222;
-    }
-    .stat:last-child {
-      border-bottom: none;
-    }
-    .stat-label {
-      color: #999;
-      font-size: 13px;
-    }
-    .stat-value {
-      font-weight: 600;
-      font-size: 16px;
-      color: #fff;
-      font-family: "Courier New", monospace;
-    }
-    .status-ok { color: #4ade80; }
-    .status-warning { color: #facc15; }
-    .status-critical { color: #ef4444; }
-    footer {
-      text-align: center;
-      padding-top: 20px;
-      border-top: 1px solid #333;
-      color: #666;
-      font-size: 12px;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <h1>Festie Admin Status</h1>
-      <div class="timestamp">${new Date().toISOString()}</div>
-    </header>
-
-    <div class="grid">
-      <div class="card">
-        <h2>Server</h2>
-        <div class="stat">
-          <span class="stat-label">Uptime</span>
-          <span class="stat-value">${uptimeStr}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Worker ID (PID)</span>
-          <span class="stat-value">${workerId}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Status</span>
-          <span class="stat-value status-ok">✓ Healthy</span>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Memory</h2>
-        <div class="stat">
-          <span class="stat-label">RSS</span>
-          <span class="stat-value">${Math.round(mem.rss / 1024 / 1024)} MB</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Heap Used</span>
-          <span class="stat-value">${Math.round(mem.heapUsed / 1024 / 1024)} MB</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Heap Total</span>
-          <span class="stat-value">${Math.round(mem.heapTotal / 1024 / 1024)} MB</span>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Connections</h2>
-        <div class="stat">
-          <span class="stat-label">Active WebSocket</span>
-          <span class="stat-value">${connections}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Online Users</span>
-          <span class="stat-value">${state.onlineUsers.size}</span>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Data</h2>
-        <div class="stat">
-          <span class="stat-label">Total Users</span>
-          <span class="stat-value">${(await getUsers()).length}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Total Festivals</span>
-          <span class="stat-value">${(await getFestivals()).length}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Total Profiles</span>
-          <span class="stat-value">${(await getProfiles()).length}</span>
-        </div>
-      </div>
-
-      ${metrics ? `
-      <div class="card">
-        <h2>Requests</h2>
-        <div class="stat">
-          <span class="stat-label">Total</span>
-          <span class="stat-value">${metrics.totalRequests}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Errors</span>
-          <span class="stat-value ${metrics.totalErrors > 0 ? 'status-warning' : ''}">${metrics.totalErrors}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Avg Duration</span>
-          <span class="stat-value">${metrics.requestCount > 0 ? Math.round(metrics.totalDuration / metrics.requestCount) : 0}ms</span>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Socket.IO</h2>
-        <div class="stat">
-          <span class="stat-label">Total Connections</span>
-          <span class="stat-value">${metrics.socketConnections || 0}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Peak Concurrent</span>
-          <span class="stat-value">${metrics.peakConnections || 0}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Transport Errors</span>
-          <span class="stat-value ${(metrics.socketErrors || 0) > 0 ? 'status-warning' : ''}">${metrics.socketErrors || 0}</span>
-        </div>
-      </div>
-      ` : ''}
-    </div>
-
-    <footer>
-      <p>Festie Server Status Dashboard</p>
-    </footer>
-  </div>
-</body>
-</html>`;
+    const html = renderStatusPage({
+      nonceAttr: cspNonce ? ` nonce="${cspNonce}"` : '',
+      uptimeStr,
+      workerId: process.pid,
+      mem: process.memoryUsage(),
+      connections: io.engine?.clientsCount || 0,
+      onlineUsers: state.onlineUsers.size,
+      totalUsers: await stores.users.countActive(),
+      totalFestivals: (await getFestivals()).length,
+      totalProfiles: (await getProfiles()).length,
+      metrics: deps.metrics,
+    });
 
     return res.send(html);
   });

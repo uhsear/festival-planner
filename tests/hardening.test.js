@@ -611,7 +611,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
       });
 
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Socket connect timeout')), 5000);
+        const timeout = setTimeout(() => reject(new Error('Socket connect timeout')), 3000);
         clientSocket.on('connect', () => { clearTimeout(timeout); resolve(); });
         clientSocket.on('connect_error', (err) => { clearTimeout(timeout); reject(err); });
       });
@@ -659,7 +659,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
       });
 
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Socket connect timeout')), 5000);
+        const timeout = setTimeout(() => reject(new Error('Socket connect timeout')), 3000);
         clientSocket.on('connect', () => { clearTimeout(timeout); resolve(); });
         clientSocket.on('connect_error', (err) => { clearTimeout(timeout); reject(err); });
       });
@@ -712,7 +712,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
       });
 
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Socket connect timeout')), 5000);
+        const timeout = setTimeout(() => reject(new Error('Socket connect timeout')), 3000);
         clientSocket.on('connect', () => { clearTimeout(timeout); resolve(); });
         clientSocket.on('connect_error', (err) => { clearTimeout(timeout); reject(err); });
       });

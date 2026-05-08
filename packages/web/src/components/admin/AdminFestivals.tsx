@@ -37,7 +37,7 @@ export default function AdminFestivals() {
 
   useEffect(() => {
     loadFestivals();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- load once on mount
 
   const loadFestivals = async () => {
     try {

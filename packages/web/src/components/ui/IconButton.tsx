@@ -8,7 +8,7 @@ interface IconButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElem
   label: string;
   /** default: muted → primary on hover; danger: muted → coral on hover; ghost: same as default, slightly lighter baseline. */
   variant?: 'default' | 'ghost' | 'danger';
-  /** md = 44×44 (WCAG 2.5.5 AAA); sm = 36×36 (use only in dense lists). */
+  /** md = 44×44 (WCAG 2.5.5 AAA); sm = 44×44 (WCAG AA minimum). */
   size?: 'sm' | 'md';
 }
 
@@ -22,7 +22,7 @@ const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(function
   { icon, label, variant = 'default', size = 'md', className, type = 'button', ...rest },
   ref,
 ) {
-  const sizeClass = size === 'sm' ? 'min-h-9 min-w-9' : 'min-h-11 min-w-11';
+  const sizeClass = size === 'sm' ? 'min-h-11 min-w-11' : 'min-h-11 min-w-11';
   const variantClass =
     variant === 'danger'
       ? 'text-text-muted hover:text-accent-coral'

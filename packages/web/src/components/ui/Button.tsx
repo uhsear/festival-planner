@@ -30,15 +30,16 @@ export default function Button({
   };
 
   const sizeStyles = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg',
+    sm: 'px-3 py-1.5 text-sm min-h-11',
+    md: 'px-4 py-2 text-base min-h-11',
+    lg: 'px-6 py-3 text-lg min-h-11',
   };
 
   return (
     <button
       {...props}
       disabled={disabled || isLoading}
+      aria-busy={isLoading || undefined}
       className={cn(
         baseStyles,
         variantStyles[variant],
@@ -48,7 +49,7 @@ export default function Button({
       )}
     >
       <div className="flex items-center justify-center gap-2">
-        {isLoading && <Loader className="w-4 h-4 animate-spin" />}
+        {isLoading && <Loader className="w-4 h-4 animate-spin" aria-hidden="true" />}
         {children}
       </div>
     </button>

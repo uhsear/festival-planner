@@ -197,7 +197,7 @@ function GridViewInner() {
     for (let m = bounds.lo; m <= bounds.hi; m += 60)
       out.push({ m, px: (m - bounds.lo) * PX_PER_MIN });
     return out;
-  }, [bounds]);
+  }, [bounds, PX_PER_MIN]);
 
   const nowPx = useMemo(() => {
     if (!bounds) return null;
@@ -205,7 +205,7 @@ function GridViewInner() {
     const nm = now.getHours() * 60 + now.getMinutes();
     if (nm < bounds.lo || nm > bounds.hi) return null;
     return (nm - bounds.lo) * PX_PER_MIN;
-  }, [bounds]);
+  }, [bounds, PX_PER_MIN]);
 
   // Auto-scroll to NOW on mount (only when NOW is within the day's bounds).
   // Centers the line in the viewport so the user sees what's happening AND

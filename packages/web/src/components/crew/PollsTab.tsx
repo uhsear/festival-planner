@@ -3,18 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
 import { useToast } from '../../lib/toastContext';
 import { useHaptics } from '../../hooks/useHaptics';
-import { cn } from '@/lib/utils';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import EmptyState from '../ui/EmptyState';
 import Skeleton from '../ui/Skeleton';
 import IconButton from '../ui/IconButton';
-import { BarChart3, Plus, X, Check, Trash2 } from 'lucide-react';
+import PollItem from './PollItem';
+import { BarChart3, Plus, X } from 'lucide-react';
 
-// Server returns (polls store listByCrew):
-//   { id, crew_id, created_by, question, options: string[],
-//     votes: [{option: number, user_id: string}], vote_count, closes_at, closed, created_at }
-// Response envelope: { data: { polls: [...] } }
 interface RawVote { option: number; user_id: string | null }
 interface RawPoll {
   id: string;
@@ -49,7 +45,6 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
       const list = Array.isArray(res) ? res : res?.polls || [];
       return list.map((p) => ({
         ...p,
-        // Nulls inside the LEFT JOIN become {option: null, user_id: null} — drop those.
         votes: (p.votes || []).filter((v) => v && v.user_id && typeof v.option === 'number'),
       }));
     },
@@ -96,19 +91,23 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
     e.preventDefault();
     const q = question.trim();
     const opts = options.map((o) => o.trim()).filter(Boolean);
-    // Server requires 2–4 options (routes/crew-features.js:161)
     if (!q || opts.length < 2 || opts.length > 4) return;
     createPoll.mutate({ question: q, options: opts });
   }
 
+  function handleVote(pollId: string, optionIndex: number) {
+    select();
+    vote.mutate({ pollId, optionIndex });
+  }
+
   if (isLoading) return <div className="px-4 space-y-2"><Skeleton variant="card" /><Skeleton variant="card" /></div>;
-  if (isError) return <div className="px-4"><EmptyState icon={<BarChart3 className="w-12 h-12" />} title="Couldn't load polls" description="Something went wrong loading polls." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
+  if (isError) return <div className="px-4"><EmptyState icon={<BarChart3 className="w-12 h-12" aria-hidden="true" />} title="Couldn't load polls" description="Something went wrong loading polls." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
 
   return (
     <div className="space-y-3 px-4">
       {!showForm ? (
         <Button variant="primary" onClick={() => setShowForm(true)} className="w-full min-h-11">
-          <Plus className="w-4 h-4" /> Create Poll
+          <Plus className="w-4 h-4" aria-hidden="true" /> Create Poll
         </Button>
       ) : (
         <form onSubmit={submit} className="p-3 rounded-lg bg-bg-card border border-border space-y-3">
@@ -140,7 +139,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
             {options.length < 4 && (
               <button type="button" onClick={addOpt}
                 className="min-h-11 mt-2 text-sm text-accent-aqua hover:opacity-80 flex items-center gap-1">
-                <Plus className="w-4 h-4" /> Add option
+                <Plus className="w-4 h-4" aria-hidden="true" /> Add option
               </button>
             )}
           </div>
@@ -153,75 +152,23 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
       )}
 
       {polls.length === 0 ? (
-        <EmptyState icon={<BarChart3 className="w-12 h-12" />} title="No polls yet"
+        <EmptyState icon={<BarChart3 className="w-12 h-12" aria-hidden="true" />} title="No polls yet"
           description="Create a poll to help your crew decide things together." />
       ) : (
         <div className="space-y-3">
-          {polls.map((p, idx) => {
-            // Aggregate votes[{option, user_id}] into counts per option index.
-            const counts = new Array<number>(p.options.length).fill(0);
-            let myVote: number | null = null;
-            for (const v of p.votes) {
-              if (v.option >= 0 && v.option < counts.length) counts[v.option] = (counts[v.option] ?? 0) + 1;
-              if (v.user_id === currentUserId) myVote = v.option;
-            }
-            const total = counts.reduce((a, b) => a + b, 0);
-            const maxCount = Math.max(0, ...counts);
-
-            return (
-              <div key={p.id} className="stagger-item rounded-lg bg-bg-card border border-border p-3 space-y-2" style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}>
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="font-semibold text-text-primary flex-1">{p.question}</h4>
-                  <span className="text-xs text-text-secondary flex-shrink-0">{total} {total === 1 ? 'vote' : 'votes'}</span>
-                </div>
-
-                <div className="space-y-2">
-                  {p.options.map((text, i) => {
-                    const votes = counts[i] ?? 0;
-                    const pct = total > 0 ? Math.round((votes / total) * 100) : 0;
-                    const winning = votes === maxCount && votes > 0;
-                    const mine = myVote === i;
-                    return (
-                      <button key={i} onClick={() => { select(); vote.mutate({ pollId: p.id, optionIndex: i }); }}
-                        disabled={vote.isPending}
-                        aria-pressed={mine ? 'true' : 'false'}
-                        aria-busy={vote.isPending ? 'true' : 'false'}
-                        className={cn(
-                          'w-full min-h-11 relative rounded-lg border transition-colors text-left overflow-hidden',
-                          mine
-                            ? 'border-accent-aqua'
-                            : winning
-                              ? 'border-accent-aqua/40'
-                              : 'border-border hover:border-border-light',
-                        )}>
-                        <div key={`${p.id}-${i}-${pct}`}
-                          className={cn('crew-poll-bar absolute inset-y-0 left-0 transition-all duration-300',
-                          mine ? 'bg-accent-aqua/25' : winning ? 'bg-accent-aqua/10' : 'bg-text-muted/10')}
-                          style={{ width: `${pct}%` }} />
-                        <div className="relative flex items-center justify-between px-3 py-2">
-                          <span className="text-sm text-text-primary flex items-center gap-2 truncate">
-                            {mine && <Check className="w-3.5 h-3.5 text-accent-aqua flex-shrink-0" />}
-                            <span className="truncate">{text}</span>
-                          </span>
-                          <span className={cn('text-xs font-medium flex-shrink-0 ml-2',
-                            mine ? 'text-accent-aqua' : 'text-text-secondary')}>
-                            {pct}%
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {(p.created_by === currentUserId || isOwner) && (
-                  <button onClick={() => close.mutate(p.id)} disabled={close.isPending}
-                    className="min-h-11 flex items-center gap-2 text-xs text-accent-coral hover:opacity-80">
-                    <Trash2 className="w-3.5 h-3.5" /> Close poll
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          {polls.map((p, idx) => (
+            <PollItem
+              key={p.id}
+              poll={p}
+              index={idx}
+              currentUserId={currentUserId}
+              isOwner={isOwner}
+              isVotePending={vote.isPending}
+              isClosePending={close.isPending}
+              onVote={handleVote}
+              onClose={(pollId) => close.mutate(pollId)}
+            />
+          ))}
         </div>
       )}
     </div>

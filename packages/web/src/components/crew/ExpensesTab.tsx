@@ -7,25 +7,23 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import EmptyState from '../ui/EmptyState';
 import Skeleton from '../ui/Skeleton';
-import { DollarSign, Plus, Trash2, HandCoins, X } from 'lucide-react';
+import ExpenseItem from './ExpenseItem';
+import { DollarSign, Plus, HandCoins, X } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 
-// Server shape (snake_case from routes/expenses.js + expenses store).
 interface RawExpense {
   id: string;
   crew_id: string;
   paid_by: string;
   paid_by_name: string;
   description: string;
-  amount: string | number; // numeric(10,2) comes back as string in pg
+  amount: string | number;
   split_with: string[];
   category: string;
   created_at: string;
 }
 
 interface Balance { userId: string; username: string; balance: number }
-
-// Crew member shape from /crews/:id (serializeCrewWithMembers).
 interface CrewMemberLite { userId: string; username?: string; name?: string }
 
 interface Props {
@@ -42,6 +40,18 @@ const CATEGORIES = [
   { key: 'tickets',  emoji: '🎫', label: 'Tickets'},
   { key: 'other',    emoji: '💸', label: 'Other'  },
 ] as const;
+
+function formatBalance(value: number): string {
+  if (value > 0.01) return `+$${value.toFixed(2)}`;
+  if (value < -0.01) return `-$${Math.abs(value).toFixed(2)}`;
+  return '$0.00';
+}
+
+function balanceColor(value: number): string {
+  if (value > 0.01) return 'text-accent-aqua';
+  if (value < -0.01) return 'text-accent-coral';
+  return 'text-text-primary';
+}
 
 export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   const { toast } = useToast();
@@ -122,19 +132,15 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
     e.preventDefault();
     const amt = Number(amount);
     if (!description.trim() || !Number.isFinite(amt) || amt <= 0) return;
-    addExpense.mutate({
-      description: description.trim(),
-      amount: amt,
-      splitWith,
-      category,
-    });
+    addExpense.mutate({ description: description.trim(), amount: amt, splitWith, category });
   }
 
   const myBalance = balances.find((b) => b.userId === currentUserId)?.balance ?? 0;
   const totalSpent = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const nonZeroBalances = balances.filter((b) => Math.abs(b.balance) > 0.01);
 
   if (isLoading) return <div className="px-4 space-y-2"><Skeleton variant="card" /><Skeleton variant="card" /></div>;
-  if (isError) return <div className="px-4"><EmptyState icon={<DollarSign className="w-12 h-12" />} title="Couldn't load expenses" description="Something went wrong loading expenses." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
+  if (isError) return <div className="px-4"><EmptyState icon={<DollarSign className="w-12 h-12" aria-hidden="true" />} title="Couldn't load expenses" description="Something went wrong loading expenses." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
 
   return (
     <div className="space-y-3 px-4">
@@ -147,20 +153,18 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
           </div>
           <div className="p-3 rounded-lg bg-bg-card border border-border">
             <div className="text-xs text-text-muted uppercase tracking-wide">Your balance</div>
-            <div className={cn('text-lg font-bold',
-              myBalance > 0.01 ? 'text-accent-aqua' : myBalance < -0.01 ? 'text-accent-coral' : 'text-text-primary')}>
-              {myBalance > 0.01 ? `+$${myBalance.toFixed(2)}` : myBalance < -0.01 ? `-$${Math.abs(myBalance).toFixed(2)}` : '$0.00'}
+            <div className={cn('text-lg font-bold', balanceColor(myBalance))}>
+              {formatBalance(myBalance)}
             </div>
           </div>
         </div>
       )}
 
       {/* Balances w/ settle button */}
-      {balances.filter((b) => Math.abs(b.balance) > 0.01).length > 0 && (
+      {nonZeroBalances.length > 0 && (
         <div className="p-3 rounded-lg bg-bg-card border border-border space-y-2">
           <div className="text-xs text-text-muted uppercase tracking-wide">Who owes what</div>
-          {balances.filter((b) => Math.abs(b.balance) > 0.01).map((b) => {
-            const _owesMe = b.userId !== currentUserId && b.balance < -0.01 && myBalance > 0.01;
+          {nonZeroBalances.map((b) => {
             const iOwe = b.userId !== currentUserId && b.balance > 0.01 && myBalance < -0.01;
             return (
               <div key={b.userId} className="flex items-center justify-between gap-2">
@@ -168,13 +172,13 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
                   {b.userId === currentUserId ? 'You' : b.username}
                   {' '}
                   <span className={b.balance > 0 ? 'text-accent-aqua' : 'text-accent-coral'}>
-                    {b.balance > 0 ? `+$${b.balance.toFixed(2)}` : `-$${Math.abs(b.balance).toFixed(2)}`}
+                    {formatBalance(b.balance)}
                   </span>
                 </span>
                 {iOwe && (
                   <Button variant="outline" onClick={() => settle.mutate({ toUserId: b.userId, amount: Math.min(Math.abs(myBalance), b.balance) })}
                     className="!py-1 !px-3 text-xs min-h-11">
-                    <HandCoins className="w-3.5 h-3.5" /> Settle up
+                    <HandCoins className="w-3.5 h-3.5" aria-hidden="true" /> Settle up
                   </Button>
                 )}
               </div>
@@ -186,7 +190,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
       {/* Add form / toggle */}
       {!showForm ? (
         <Button variant="primary" onClick={() => setShowForm(true)} className="w-full min-h-11">
-          <Plus className="w-4 h-4" /> Add Expense
+          <Plus className="w-4 h-4" aria-hidden="true" /> Add Expense
         </Button>
       ) : (
         <form onSubmit={submit} className="p-3 rounded-lg bg-bg-card border border-border space-y-3">
@@ -232,7 +236,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
             </div>
             {splitWith.length > 0 && amount && (
               <div className="text-xs text-text-muted mt-1">
-                ${(Number(amount) / splitWith.length).toFixed(2)}/person × {splitWith.length}
+                ${(Number(amount) / splitWith.length).toFixed(2)}/person {'×'} {splitWith.length}
               </div>
             )}
           </div>
@@ -246,33 +250,25 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
 
       {/* Expense list */}
       {expenses.length === 0 ? (
-        <EmptyState icon={<DollarSign className="w-12 h-12" />} title="No expenses yet"
+        <EmptyState icon={<DollarSign className="w-12 h-12" aria-hidden="true" />} title="No expenses yet"
           description="Track shared costs so everyone knows where they stand." />
       ) : (
         <div className="space-y-2">
           {expenses.map((e) => {
             const cat = CATEGORIES.find((c) => c.key === e.category) ?? CATEGORIES[CATEGORIES.length - 1]!;
-            const paidByMe = e.paid_by === currentUserId;
             return (
-              <div key={e.id} className="crew-list-enter p-3 rounded-lg bg-bg-card border border-border flex items-start gap-3">
-                <span className="text-xl leading-none" aria-hidden="true">{cat.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-text-primary">{e.description}</div>
-                  <div className="text-xs text-text-secondary">
-                    ${Number(e.amount).toFixed(2)} · {paidByMe ? 'You' : e.paid_by_name} paid
-                    {e.split_with.length > 0 && ` · split ${e.split_with.length} ways`}
-                  </div>
-                </div>
-                {paidByMe && (
-                  <IconButton
-                    label="Remove expense"
-                    variant="danger"
-                    icon={<Trash2 className="w-4 h-4" />}
-                    onClick={() => removeExpense.mutate(e.id)}
-                    disabled={removeExpense.isPending}
-                  />
-                )}
-              </div>
+              <ExpenseItem
+                key={e.id}
+                id={e.id}
+                description={e.description}
+                amount={e.amount}
+                paidByName={e.paid_by_name}
+                paidByMe={e.paid_by === currentUserId}
+                splitCount={e.split_with.length}
+                category={cat}
+                onRemove={(id) => removeExpense.mutate(id)}
+                isRemoving={removeExpense.isPending}
+              />
             );
           })}
         </div>

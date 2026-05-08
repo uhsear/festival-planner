@@ -1,4 +1,5 @@
 #!/bin/bash
+# DEPRECATED: Use backup-pg.sh instead. This script will be removed in a future version.
 set -euo pipefail
 # Database backup script for Festie
 # Runs via cron: 0 */6 * * * $APP_DIR/scripts/backup-db.sh

@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router';
 import Button from '../ui/Button';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +29,7 @@ const CONFIG = {
 };
 
 export default function GuestTeaser({ mode, className }: GuestTeaserProps) {
+  const navigate = useNavigate();
   const config = CONFIG[mode];
 
   return (
@@ -36,14 +38,14 @@ export default function GuestTeaser({ mode, className }: GuestTeaserProps) {
       className={cn('flex flex-col items-center justify-center py-16 px-4', className)}
     >
       <div aria-hidden="true" className="text-6xl mb-6">{config.icon}</div>
-      <h1
+      <h2
         id={`guest-teaser-${mode}-heading`}
         className="text-2xl font-display font-bold text-text-primary mb-3 text-center"
       >
         {config.title}
-      </h1>
+      </h2>
       <p className="text-center text-text-secondary mb-8 max-w-sm text-sm leading-relaxed">{config.description}</p>
-      <Button variant="primary" onClick={() => window.location.href = '/register'}>
+      <Button variant="primary" onClick={() => navigate({ to: '/register' })}>
         {config.cta}
       </Button>
     </section>

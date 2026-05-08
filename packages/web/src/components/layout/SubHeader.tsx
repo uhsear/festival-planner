@@ -7,10 +7,13 @@ import { useHaptics } from '../../hooks/useHaptics';
 import { useScrollFade } from '../../hooks/useScrollFade';
 
 interface SubHeaderProps {
+  /** Show only day tabs (no stage chips or search). Used on /timeline, /grid, /picks. */
   dayOnly: boolean;
+  /** Show only festival selector (no day tabs, stage chips, or search). Used on /wrap. */
+  festivalOnly: boolean;
 }
 
-export default function SubHeader({ dayOnly }: SubHeaderProps) {
+export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
   const festivals = useFestivalStore((s) => s.festivals);
   const currentFestival = useFestivalStore((s) => s.currentFestival);
   const selectFestival = useFestivalStore((s) => s.selectFestival);
@@ -38,9 +41,7 @@ export default function SubHeader({ dayOnly }: SubHeaderProps) {
       if (!id) return;
       try {
         await selectFestival(id);
-      } catch (_) {
-        console.warn('festival select failed', _);
-      }
+      } catch (_) {} // eslint-disable-line no-empty
     },
     [selectFestival],
   );
@@ -58,9 +59,14 @@ export default function SubHeader({ dayOnly }: SubHeaderProps) {
     [activeStages, setActiveStages, selectHaptic],
   );
 
+  const showDayTabs = !festivalOnly && currentFestival && days.length > 0;
+  const showStageFilter = !dayOnly && !festivalOnly && currentFestival && stages.length > 0;
+  const showSearch = !dayOnly && !festivalOnly;
+
   return (
     <div className="sub-header-wrap">
       <nav className="sub-header" aria-label="Festival view controls">
+        {/* Festival selector */}
         <label
           htmlFor="festival-select-input"
           className="mr-1.5 inline-block text-xs font-semibold text-[var(--text-secondary)]"
@@ -82,9 +88,10 @@ export default function SubHeader({ dayOnly }: SubHeaderProps) {
           ))}
         </select>
 
-        {currentFestival && days.length > 0 && (
-          <div role="tablist" aria-label="Festival days"
-            {...swipeDaysBind()} className="day-tabs touch-pan-y">
+        {/* Day tabs */}
+        {showDayTabs && (
+          <div className="day-tabs touch-pan-y" role="tablist" aria-label="Festival days"
+            {...swipeDaysBind()}>
             {days.map((day, i) => (
               <button
                 key={day.id || i}
@@ -101,7 +108,8 @@ export default function SubHeader({ dayOnly }: SubHeaderProps) {
           </div>
         )}
 
-        {!dayOnly && currentFestival && stages.length > 0 && (
+        {/* Stage filter chips */}
+        {showStageFilter && (
           <div
             className={
               'stage-filter-scroll' +
@@ -137,7 +145,8 @@ export default function SubHeader({ dayOnly }: SubHeaderProps) {
           </div>
         )}
 
-        {!dayOnly && (
+        {/* Artist search */}
+        {showSearch && (
           <div className="search-box" role="search">
             <input
               type="text"

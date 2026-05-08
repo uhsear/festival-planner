@@ -203,6 +203,7 @@ export default function LineupImport({ festivalId, onSuccess }: LineupImportProp
           <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
+                <caption className="sr-only">Lineup import preview</caption>
                 <thead>
                   <tr className="border-b border-glass-border">
                     <th className="px-4 py-2 text-left text-text-muted font-medium">Day</th>

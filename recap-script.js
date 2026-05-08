@@ -3,7 +3,7 @@ const { chromium, devices } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
-const BASE = 'https://festie.us';
+const BASE = process.env.PUBLIC_ORIGIN || 'https://festie.us';
 const ROUTES = ['/', '/picks', '/crew', '/grid', '/cards', '/timeline'];
 const DEVICES = [
   { name: 'iphone-se',        dev: { ...devices['iPhone SE'],        viewport: { width: 320, height: 568 } } },

@@ -5,7 +5,7 @@
  */
 export default function GridSkeleton() {
   const cols = 4;
-  const gutter = 52;
+  const _gutter = 52;
 
   return (
     <div className="fk-grid" aria-busy="true" aria-label="Loading grid">

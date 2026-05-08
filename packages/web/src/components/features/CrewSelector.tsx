@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Crew } from '@festie/shared/types';
 import { ChevronDown, Plus, LogIn } from 'lucide-react';
 import Button from '../ui/Button';
@@ -23,17 +23,77 @@ export default function CrewSelector({
   const [isOpen, setIsOpen] = useState(false);
   const selectedCrew = crews.find((c) => c.id === selectedCrewId) || crews[0];
   const { tap, select } = useHaptics();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  // Focus first option when opened; return focus to trigger on close
+  useEffect(() => {
+    if (isOpen) {
+      // Focus the first focusable element inside the panel
+      requestAnimationFrame(() => {
+        const firstFocusable = panelRef.current?.querySelector<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
+        firstFocusable?.focus();
+      });
+    }
+  }, [isOpen]);
+
+  const close = useCallback(() => {
+    setIsOpen(false);
+    triggerRef.current?.focus();
+  }, []);
+
+  // Focus trap inside dropdown when open
+  const handlePanelKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        close();
+        e.stopPropagation();
+        return;
+      }
+      if (e.key !== 'Tab' || !panelRef.current) return;
+      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    },
+    [close],
+  );
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
+        ref={triggerRef}
         onClick={() => { tap(); setIsOpen(!isOpen); }}
         aria-label="Select crew"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         onKeyDown={(e) => {
           if (e.key === 'Escape' && isOpen) {
-            setIsOpen(false);
+            close();
             e.stopPropagation();
           }
         }}
@@ -52,8 +112,10 @@ export default function CrewSelector({
 
       {isOpen && (
         <div
+          ref={panelRef}
           role="listbox"
           aria-label="Crew list"
+          onKeyDown={handlePanelKeyDown}
           className={cn(
           'crew-selector-panel absolute top-full mt-1 left-0 right-0 z-50',
           'bg-bg-secondary border border-border rounded-lg overflow-hidden',
@@ -69,7 +131,7 @@ export default function CrewSelector({
                   onClick={() => {
                     select();
                     onSelectCrew(crew.id);
-                    setIsOpen(false);
+                    close();
                   }}
                   className={cn(
                     'w-full px-4 py-2.5 text-left font-semibold transition-colors border-b border-border last:border-b-0',
@@ -91,11 +153,11 @@ export default function CrewSelector({
               size="sm"
               onClick={() => {
                 onCreateCrew();
-                setIsOpen(false);
+                close();
               }}
               className="w-full flex items-center gap-2 justify-center"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4" aria-hidden="true" />
               Create Crew
             </Button>
 
@@ -104,11 +166,11 @@ export default function CrewSelector({
               size="sm"
               onClick={() => {
                 onJoinCrew();
-                setIsOpen(false);
+                close();
               }}
               className="w-full flex items-center gap-2 justify-center"
             >
-              <LogIn className="w-4 h-4" />
+              <LogIn className="w-4 h-4" aria-hidden="true" />
               Join by Code
             </Button>
           </div>

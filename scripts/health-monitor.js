@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// DEPRECATED: Use scripts/health-check.sh instead. This script will be removed in a future version.
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -6,9 +7,9 @@ const { execFileSync } = require('child_process');
 const { createLogger } = require('../lib/logger');
 
 const APP_DIR = path.join(__dirname, '..');
-const HEALTH_URL = 'http://127.0.0.1:4000/api/health';
+const HEALTH_URL = process.env.HEALTH_URL || 'http://127.0.0.1:4000/api/health';
 const FAIL_FILE = '/tmp/festie-health-fails';
-const RESTART_THRESHOLD = 3;
+const RESTART_THRESHOLD = parseInt(process.env.RESTART_THRESHOLD || process.env.MAX_FAILS || '3');
 
 const logger = createLogger('health-monitor');
 const log = (level, message, data = {}) => {

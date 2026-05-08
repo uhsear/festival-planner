@@ -46,6 +46,7 @@ module.exports = function createAdminRoutes(deps) {
     log,
     sendError,
     ErrorCodes,
+    redis: deps.redis,
   });
   const crypto = require('crypto');
   const { parsePageParams, paginateArray } = require('../lib/pagination');

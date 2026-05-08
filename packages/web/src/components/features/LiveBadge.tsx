@@ -33,7 +33,7 @@ export default function LiveBadge({ status, label, className }: LiveBadgeProps) 
   // Soon: Amber animated dot + "In Xm" text
   if (status === 'soon') {
     return (
-      <div className={cn('inline-flex items-center gap-2 px-3 py-1 rounded-full', 'bg-accent-amber/20', className)}>
+      <div className={cn('inline-flex items-center gap-2 px-3 py-1 rounded-full', 'bg-accent-amber/20', className)} aria-label="Starting soon">
         {prefersReducedMotion ? (
           <div className="w-2 h-2 rounded-full bg-accent-amber" aria-hidden="true" />
         ) : (
