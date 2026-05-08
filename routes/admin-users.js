@@ -19,7 +19,7 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
     sendSuccess, sendError, ErrorCodes,
     adminAuth, getRequestIp, buildAvatarUrl,
     io, stores,
-    schemas, validate, validateQuery,
+    schemas, validate, validateQuery, validateParams,
     createAuditLog, invalidateUserCache,
   } = deps;
   const { adminWriteLimit, passwordResetRateLimit, crypto, parsePageParams, paginateArray } = ctx;
@@ -74,9 +74,9 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
   });
 
   // ── POST /users/:id/roles — grant a role to a user ────────────
-  router.post('/users/:id/roles', adminAuth, adminWriteLimit, validate(schemas.adminAddRole), async (req, res) => {
+  router.post('/users/:id/roles', adminAuth, adminWriteLimit, validateParams(schemas.genericIdParams), validate(schemas.adminAddRole), async (req, res) => {
     try {
-      const targetUserId = deps.sanitizeIdentifier(req.params.id, 100);
+      const targetUserId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
       if (!targetUserId) return sendError(res, 400, 'Invalid user ID', ErrorCodes.INVALID_INPUT);
 
       const { role } = req.validatedBody;
@@ -110,15 +110,15 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
       const updatedRoles = await stores.roles.getUserRoles(targetUserId);
       return sendSuccess(res, { userId: targetUserId, username: user.username, roles: updatedRoles });
     } catch (error) {
-      log.error('admin role grant failed', { error: error.message, targetUserId: req.params.id });
+      log.error('admin role grant failed', { error: error.message, targetUserId: req.validatedParams?.id });
       return sendError(res, 500, 'Failed to grant role', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
   // ── DELETE /users/:id/roles/:role — revoke a role from a user ────────────
-  router.delete('/users/:id/roles/:role', adminAuth, adminWriteLimit, async (req, res) => {
+  router.delete('/users/:id/roles/:role', adminAuth, adminWriteLimit, validateParams(schemas.genericIdParams), async (req, res) => {
     try {
-      const targetUserId = deps.sanitizeIdentifier(req.params.id, 100);
+      const targetUserId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
       if (!targetUserId) return sendError(res, 400, 'Invalid user ID', ErrorCodes.INVALID_INPUT);
 
       const roleName = (req.params.role || '').trim().toLowerCase();
@@ -154,7 +154,7 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
       const updatedRoles = await stores.roles.getUserRoles(targetUserId);
       return sendSuccess(res, { userId: targetUserId, username: user.username, roles: updatedRoles });
     } catch (error) {
-      log.error('admin role revoke failed', { error: error.message, targetUserId: req.params.id });
+      log.error('admin role revoke failed', { error: error.message, targetUserId: req.validatedParams?.id });
       return sendError(res, 500, 'Failed to revoke role', ErrorCodes.INTERNAL_ERROR);
     }
   });
@@ -162,9 +162,9 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
   // SECURITY: All admin mutations create audit log entries for compliance and security monitoring
   // AUDIT FIX (2026-04-14): `passwordResetRateLimit` added as outer gate. PUBLIC_ORIGIN
   // throw preserved from Agent E's earlier edit.
-  router.post('/users/:id/reset-link', adminAuth, adminWriteLimit, passwordResetRateLimit, async (req, res) => {
+  router.post('/users/:id/reset-link', adminAuth, adminWriteLimit, passwordResetRateLimit, validateParams(schemas.genericIdParams), async (req, res) => {
     try {
-      const targetUserId = deps.sanitizeIdentifier(req.params.id, 100);
+      const targetUserId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
       if (!targetUserId) return sendError(res, 400, 'Invalid user ID', ErrorCodes.INVALID_INPUT);
 
       const user = await getUserById(targetUserId);
@@ -199,16 +199,16 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
       log.warn('admin:reset-link', { ...auditLog });
       return sendSuccess(res, { resetUrl, username: user.username });
     } catch (error) {
-      log.error('admin reset-link failed', { error: error.message, targetUserId: req.params.id });
+      log.error('admin reset-link failed', { error: error.message, targetUserId: req.validatedParams?.id });
       return sendError(res, 500, 'Failed to generate reset link', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
   // AUDIT FIX (2026-04-14): `passwordResetRateLimit` added to admin in-place
   // password reset as well — same per-email tier as /users/:id/reset-link.
-  router.put('/users/:id/reset-password', adminAuth, adminWriteLimit, passwordResetRateLimit, validate(schemas.resetPassword), async (req, res) => {
+  router.put('/users/:id/reset-password', adminAuth, adminWriteLimit, passwordResetRateLimit, validateParams(schemas.genericIdParams), validate(schemas.resetPassword), async (req, res) => {
     try {
-      const targetUserId = deps.sanitizeIdentifier(req.params.id, 100);
+      const targetUserId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
       if (!targetUserId) return sendError(res, 400, 'Invalid user ID', ErrorCodes.INVALID_INPUT);
       const { newPassword } = req.validatedBody;
       if (!validatePasswordStrength(newPassword)) {
@@ -233,14 +233,14 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
       log.warn('admin:reset-password', { ...auditLog });
       return sendSuccess(res, { success: true, username });
     } catch (error) {
-      log.error('admin reset-password failed', { error: error.message, targetUserId: req.params.id });
+      log.error('admin reset-password failed', { error: error.message, targetUserId: req.validatedParams?.id });
       return sendError(res, 500, 'Failed to reset password', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
-  router.delete('/users/:id', adminAuth, adminWriteLimit, async (req, res) => {
+  router.delete('/users/:id', adminAuth, adminWriteLimit, validateParams(schemas.genericIdParams), async (req, res) => {
     try {
-      const targetUserId = deps.sanitizeIdentifier(req.params.id, 100);
+      const targetUserId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
       if (!targetUserId) return sendError(res, 400, 'Invalid user ID', ErrorCodes.INVALID_INPUT);
 
       // Prevent self-deletion
@@ -276,7 +276,7 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
       disconnectUserSockets(targetUserId, io);
       return sendSuccess(res, { success: true });
     } catch (error) {
-      log.error('admin delete-user failed', { error: error.message, targetUserId: req.params.id });
+      log.error('admin delete-user failed', { error: error.message, targetUserId: req.validatedParams?.id });
       return sendError(res, 500, 'Failed to delete user', ErrorCodes.INTERNAL_ERROR);
     }
   });

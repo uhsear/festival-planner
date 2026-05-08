@@ -20,6 +20,7 @@ module.exports = function createExportRoutes(deps) {
     sendSuccess, sendError, ErrorCodes,
     sanitizeIdentifier,
     rateLimit,
+    schemas, validateParams,
   } = deps;
 
   const router = express.Router();
@@ -218,11 +219,11 @@ module.exports = function createExportRoutes(deps) {
    * Export endpoints return rendered HTML/ICS content, not JSON envelope.
    * This is by design — see Finding #54.
    */
-  router.get('/export/:festivalId/:profileId', userAuth, rateLimit(30, 'export-html'), async (req, res) => {
+  router.get('/export/:festivalId/:profileId', userAuth, rateLimit(30, 'export-html'), validateParams(schemas.festivalIdParams), async (req, res) => {
     const startTime = Date.now();
     try {
       setNoStore(res);
-      const festivalId = sanitizeIdentifier(req.params.festivalId);
+      const festivalId = sanitizeIdentifier(req.validatedParams.festivalId);
       const profileId = sanitizeIdentifier(req.params.profileId);
       if (!festivalId || !profileId) return sendError(res, 400, 'Invalid festival or profile ID', ErrorCodes.INVALID_INPUT);
 
@@ -270,7 +271,7 @@ module.exports = function createExportRoutes(deps) {
       if (error.message === 'Too many concurrent exports' || error.message === 'Export queue full') {
         return sendError(res, 503, 'Server busy, try again shortly', ErrorCodes.RATE_LIMITED);
       }
-      log.error('export failed', { error: error.message, festivalId: req.params.festivalId, profileId: req.params.profileId, elapsedMs });
+      log.error('export failed', { error: error.message, festivalId: req.validatedParams?.festivalId, profileId: req.params.profileId, elapsedMs });
       return sendError(res, 500, 'Failed to export', ErrorCodes.INTERNAL_ERROR);
     }
   });
@@ -282,10 +283,10 @@ module.exports = function createExportRoutes(deps) {
    * Export endpoints return rendered HTML/ICS content, not JSON envelope.
    * This is by design — see Finding #54.
    */
-  router.get('/export/:festivalId/:profileId/calendar', userAuth, rateLimit(30, 'export-cal'), async (req, res) => {
+  router.get('/export/:festivalId/:profileId/calendar', userAuth, rateLimit(30, 'export-cal'), validateParams(schemas.festivalIdParams), async (req, res) => {
     try {
       setNoStore(res);
-      const festivalId = sanitizeIdentifier(req.params.festivalId);
+      const festivalId = sanitizeIdentifier(req.validatedParams.festivalId);
       const profileId = sanitizeIdentifier(req.params.profileId);
       if (!festivalId || !profileId) return sendError(res, 400, 'Invalid festival or profile ID', ErrorCodes.INVALID_INPUT);
       const festival = await getFestivalById(festivalId);
@@ -321,10 +322,10 @@ module.exports = function createExportRoutes(deps) {
   // JSON and NDJSON exports removed as part of Finding #37: feature bloat reduction.
   // Maintaining only HTML (printable/offline) and ICS (native calendar integration).
 
-  router.get('/presence/:festivalId', userAuth, rateLimit(60, 'presence'), async (req, res) => {
+  router.get('/presence/:festivalId', userAuth, rateLimit(60, 'presence'), validateParams(schemas.festivalIdParams), async (req, res) => {
     try {
       setNoStore(res);
-      const festivalId = sanitizeIdentifier(req.params.festivalId);
+      const festivalId = sanitizeIdentifier(req.validatedParams.festivalId);
       if (!festivalId) return sendError(res, 400, 'Invalid festival ID', ErrorCodes.INVALID_INPUT);
       const festival = await getFestivalById(festivalId);
       if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
@@ -335,15 +336,15 @@ module.exports = function createExportRoutes(deps) {
       const online = await getPresenceList(festivalId);
       return sendSuccess(res, { online });
     } catch (error) {
-      log.error('presence load failed', { error: error.message, festivalId: req.params.festivalId });
+      log.error('presence load failed', { error: error.message, festivalId: req.validatedParams?.festivalId });
       return sendError(res, 500, 'Failed to load presence', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
   // Calendar export JSON API for native calendar integration
-  router.get('/festivals/:festivalId/calendar', userAuth, rateLimit(30, 'festival-cal'), async (req, res) => {
+  router.get('/festivals/:festivalId/calendar', userAuth, rateLimit(30, 'festival-cal'), validateParams(schemas.festivalIdParams), async (req, res) => {
     try {
-      const festivalId = req.params.festivalId;
+      const festivalId = req.validatedParams.festivalId;
       const festival = await getFestivalById(festivalId);
       if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
 
@@ -383,10 +384,10 @@ module.exports = function createExportRoutes(deps) {
   // Phase 1C: Shareable Picks Card — SVG -> PNG via Sharp
   // ═══════════════════════════════════════════════════════════════════
 
-  router.get('/export-card/:festivalId', userAuth, rateLimit(30, 'export-card'), async (req, res) => {
+  router.get('/export-card/:festivalId', userAuth, rateLimit(30, 'export-card'), validateParams(schemas.festivalIdParams), async (req, res) => {
     try {
       setNoStore(res);
-      const festivalId = sanitizeIdentifier(req.params.festivalId);
+      const festivalId = sanitizeIdentifier(req.validatedParams.festivalId);
       if (!festivalId) return sendError(res, 400, 'Invalid festival ID', ErrorCodes.INVALID_INPUT);
 
       const festival = await getFestivalById(festivalId);

@@ -51,6 +51,8 @@ function makeDeps(overrides = {}) {
       adminBulkDeactivate: {},
       adminBulkArchive: {},
       adminAuditQuery: {},
+      genericIdParams: {},
+      festivalIdParams: {},
       pushToken: {},
       deleteToken: {},
       notificationPrefs: {},

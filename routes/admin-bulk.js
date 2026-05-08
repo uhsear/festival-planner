@@ -13,7 +13,7 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
     sendSuccess, sendError, ErrorCodes,
     adminAuth, getRequestIp,
     stores,
-    schemas, validate,
+    schemas, validate, validateParams,
   } = deps;
   const { adminWriteLimit } = ctx;
 
@@ -110,10 +110,10 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
   });
 
   // ── GET /crews/:id/members — list members of a crew ────────────
-  router.get('/crews/:id/members', adminAuth, async (req, res) => {
+  router.get('/crews/:id/members', adminAuth, validateParams(schemas.genericIdParams), async (req, res) => {
     try {
       setNoStore(res);
-      const crewId = deps.sanitizeIdentifier(req.params.id, 100);
+      const crewId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
 
       const members = await stores.crews.getMembers(crewId);
@@ -125,9 +125,9 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
   });
 
   // ── DELETE /crews/:id/members/:userId — remove a member from a crew ────────────
-  router.delete('/crews/:id/members/:userId', adminAuth, adminWriteLimit, async (req, res) => {
+  router.delete('/crews/:id/members/:userId', adminAuth, adminWriteLimit, validateParams(schemas.genericIdParams), async (req, res) => {
     try {
-      const crewId = deps.sanitizeIdentifier(req.params.id, 100);
+      const crewId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
       const targetUserId = deps.sanitizeIdentifier(req.params.userId, 100);
       if (!crewId || !targetUserId) return sendError(res, 400, 'Invalid IDs', ErrorCodes.INVALID_INPUT);
 
@@ -155,9 +155,9 @@ module.exports = function mountAdminBulkRoutes({ router, deps, ctx }) {
   });
 
   // ── DELETE /crews/:id — delete a crew entirely ────────────
-  router.delete('/crews/:id', adminAuth, adminWriteLimit, async (req, res) => {
+  router.delete('/crews/:id', adminAuth, adminWriteLimit, validateParams(schemas.genericIdParams), async (req, res) => {
     try {
-      const crewId = deps.sanitizeIdentifier(req.params.id, 100);
+      const crewId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
 
       const crew = await stores.crews.getById(crewId);

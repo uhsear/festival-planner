@@ -35,7 +35,7 @@ module.exports = function createCrewInviteRoutes(deps) {
     getFestivalById,
     sendSuccess, sendError, ErrorCodes,
     rateLimit, stores,
-    schemas, validate,
+    schemas, validate, validateParams,
     io,
   } = deps;
 
@@ -102,9 +102,9 @@ module.exports = function createCrewInviteRoutes(deps) {
   });
 
   // ── POST /:crewId/invite — Regenerate invite code (owner only) ─
-  router.post('/:crewId/invite', userAuth, rateLimit(5, 'crew-invite'), async (req, res) => {
+  router.post('/:crewId/invite', userAuth, rateLimit(5, 'crew-invite'), validateParams(schemas.crewIdParams), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId, 100);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
 
       const resolved = await resolveCrewOwnership(res, crewId, req.user.userId, 'regenerate invite codes');
@@ -117,7 +117,7 @@ module.exports = function createCrewInviteRoutes(deps) {
       const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       return sendSuccess(res, { inviteCode: newCode, inviteExpiresAt });
     } catch (error) {
-      log.error('crew invite regen failed', { error: error.message, crewId: req.params.crewId });
+      log.error('crew invite regen failed', { error: error.message, crewId: req.validatedParams?.crewId });
       return sendError(res, 500, 'Failed to regenerate invite code', ErrorCodes.INTERNAL_ERROR);
     }
   });
