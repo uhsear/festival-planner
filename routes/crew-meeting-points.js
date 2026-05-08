@@ -73,7 +73,8 @@ module.exports = function createCrewMeetingPointRoutes(deps) {
       });
 
       io.to('crew:' + crewId).emit('crew:meeting-point-created', point);
-      return sendSuccess(res, { meetingPoint: point }, 201);
+      res.status(201);
+      return sendSuccess(res, { meetingPoint: point });
     } catch (err) {
       log.error('create meeting point failed', { error: err.message });
       return sendError(res, 500, 'Failed to create meeting point', ErrorCodes.INTERNAL_ERROR);
