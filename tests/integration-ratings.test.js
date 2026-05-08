@@ -32,7 +32,7 @@ describe('Integration — Ratings', { concurrency: 1 }, () => {
       .send({ rating: 5, note: 'Amazing show!' })
       .expect(200);
 
-    assert.equal(createRes.body.ok, true);
+    assert.equal(createRes.body.error, null);
     assert.equal(createRes.body.data.rating, 5);
     assert.equal(createRes.body.data.note, 'Amazing show!');
     assert.equal(createRes.body.data.setId, 'set-a');
@@ -43,7 +43,7 @@ describe('Integration — Ratings', { concurrency: 1 }, () => {
       .set('x-user-token', alice.token)
       .expect(200);
 
-    assert.equal(listRes.body.ok, true);
+    assert.equal(listRes.body.error, null);
     assert.ok(Array.isArray(listRes.body.data.ratings));
     assert.equal(listRes.body.data.ratings.length, 1);
     assert.equal(listRes.body.data.ratings[0].setId, 'set-a');
@@ -55,7 +55,7 @@ describe('Integration — Ratings', { concurrency: 1 }, () => {
       .set('x-user-token', alice.token)
       .expect(200);
 
-    assert.equal(deleteRes.body.ok, true);
+    assert.equal(deleteRes.body.error, null);
     assert.equal(deleteRes.body.data.deleted, true);
 
     // Verify deletion
@@ -200,7 +200,7 @@ describe('Integration — Ratings', { concurrency: 1 }, () => {
       .get('/api/v1/ratings/festival/fest-1/all')
       .expect(200);
 
-    assert.equal(aggRes.body.ok, true);
+    assert.equal(aggRes.body.error, null);
     const setCRating = aggRes.body.data.ratings.find(r => r.setId === 'set-c');
     assert.ok(setCRating, 'set-c should appear in aggregate ratings');
     assert.equal(setCRating.totalRatings, 2);
@@ -232,7 +232,7 @@ describe('Integration — Ratings', { concurrency: 1 }, () => {
       .set('x-user-token', eve.token)
       .expect(200);
 
-    assert.equal(wrapRes.body.ok, true);
+    assert.equal(wrapRes.body.error, null);
     assert.ok(wrapRes.body.data.stats);
     assert.equal(wrapRes.body.data.stats.totalRated, 2);
     assert.ok(wrapRes.body.data.stats.avgRating > 0);

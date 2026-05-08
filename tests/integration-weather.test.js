@@ -4,6 +4,7 @@ const {
   Pool,
   TEST_DATABASE_URL,
   startServer,
+  registerUser,
 } = require('./_integration-helpers');
 
 const servers = [];
@@ -20,23 +21,29 @@ describe('Integration — Weather', { concurrency: 1 }, () => {
     const server = await startServer();
     servers.push(server);
 
+    const alice = await registerUser(server, 'weather-alice-' + Date.now());
+
     const res = await server.request
       .get('/api/v1/weather/nonexistent-fest-' + Date.now())
+      .set('x-user-token', alice.token)
       .expect(404);
 
-    assert.equal(res.body.ok, false);
+    assert.ok(res.body.error, 'Should return an error');
   });
 
   test('returns available:false when festival has no coordinates', async () => {
     const server = await startServer();
     servers.push(server);
 
+    const bob = await registerUser(server, 'weather-bob-' + Date.now());
+
     // The seed festival (fest-1) has no latitude/longitude by default
     const res = await server.request
       .get('/api/v1/weather/fest-1')
+      .set('x-user-token', bob.token)
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.available, false);
     assert.ok(res.body.data.reason, 'Should include a reason when coords missing');
   });
@@ -44,6 +51,8 @@ describe('Integration — Weather', { concurrency: 1 }, () => {
   test('fetches weather data for a festival with coordinates', async () => {
     const server = await startServer();
     servers.push(server);
+
+    const charlie = await registerUser(server, 'weather-charlie-' + Date.now());
 
     // Add coordinates to fest-1 for this test
     const pool = new Pool({ connectionString: TEST_DATABASE_URL });
@@ -58,9 +67,10 @@ describe('Integration — Weather', { concurrency: 1 }, () => {
 
     const res = await server.request
       .get('/api/v1/weather/fest-1')
+      .set('x-user-token', charlie.token)
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
 
     // The external API may succeed or fail depending on network availability.
     // In either case, available should be a boolean.
@@ -77,15 +87,14 @@ describe('Integration — Weather', { concurrency: 1 }, () => {
     }
   });
 
-  test('does not require authentication', async () => {
+  test('requires authentication', async () => {
     const server = await startServer();
     servers.push(server);
 
-    // Weather endpoint is public — no auth header needed
+    // Weather endpoint requires auth — no auth header should get 401
     const res = await server.request
       .get('/api/v1/weather/fest-1');
 
-    // Should get a 200, not a 401
-    assert.equal(res.status, 200);
+    assert.equal(res.status, 401);
   });
 });

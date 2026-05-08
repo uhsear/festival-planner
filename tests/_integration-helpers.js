@@ -101,7 +101,8 @@ async function truncateAllTables(databaseUrl) {
         notification_preferences, device_tokens,
         crew_members, crews, festival_profile_notes,
         festival_profile_picks, festival_profiles, festival_sets, festival_days,
-        festival_stages, festivals, user_sessions, users
+        festival_stages, festivals, user_sessions, users,
+        install_events, set_ratings, calendar_tokens
       CASCADE
     `);
   } finally {

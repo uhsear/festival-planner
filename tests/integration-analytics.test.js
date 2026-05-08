@@ -74,8 +74,8 @@ describe('Integration — Analytics Install', { concurrency: 1 }, () => {
       .send({ platform: 'windows', event: 'shown' })
       .expect(400);
 
-    assert.ok(res.body.error, 'Should return an error message');
-    assert.match(res.body.error, /invalid platform/i);
+    assert.ok(res.body.error, 'Should return an error object');
+    assert.match(res.body.error.message, /invalid platform/i);
   });
 
   test('rejects invalid event values with 400', async () => {
@@ -87,8 +87,8 @@ describe('Integration — Analytics Install', { concurrency: 1 }, () => {
       .send({ platform: 'ios', event: 'clicked' })
       .expect(400);
 
-    assert.ok(res.body.error, 'Should return an error message');
-    assert.match(res.body.error, /invalid event/i);
+    assert.ok(res.body.error, 'Should return an error object');
+    assert.match(res.body.error.message, /invalid event/i);
   });
 
   test('rejects missing fields with 400', async () => {

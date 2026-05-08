@@ -36,7 +36,7 @@ describe('Integration — Calendar Sync', { concurrency: 1 }, () => {
       .set('x-user-token', alice.token)
       .expect(200);
 
-    assert.equal(syncRes.body.ok, true);
+    assert.equal(syncRes.body.error, null);
     assert.ok(syncRes.body.data.url, 'Should return a calendar URL');
     assert.ok(syncRes.body.data.tokenId, 'Should return a token ID');
 
@@ -98,7 +98,7 @@ describe('Integration — Calendar Sync', { concurrency: 1 }, () => {
       .set('x-user-token', charlie.token)
       .expect(404);
 
-    assert.equal(res.body.ok, false);
+    assert.ok(res.body.error, 'Should return an error');
   });
 
   test('returns 404 for ICS feed with invalid token', async () => {
