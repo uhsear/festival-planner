@@ -135,8 +135,25 @@ describe('routes/email-auth', () => {
   // These modules exist on disk so they'll load, but their email-sending
   // functions will fail gracefully without valid config.
 
+  function makeEmailTokensStore() {
+    return {
+      findUserByEmail: mock.fn(async () => null),
+      invalidateResetTokens: mock.fn(noopAsync),
+      createResetToken: mock.fn(noopAsync),
+      findVerificationToken: mock.fn(async () => null),
+      markTokenUsed: mock.fn(noopAsync),
+      updateUserEmail: mock.fn(noopAsync),
+      checkEmailExists: mock.fn(async () => false),
+      setEmailUnverified: mock.fn(noopAsync),
+      createVerificationToken: mock.fn(noopAsync),
+      invalidateVerificationTokens: mock.fn(noopAsync),
+      consumeResetToken: mock.fn(async () => null),
+    };
+  }
+
   function buildEmailAuthDeps(overrides = {}) {
     const storePool = makePool();
+    const emailTokens = makeEmailTokensStore();
     return baseDeps({
       hashPassword: mock.fn(async () => 'hashed-pw'),
       verifyPassword: mock.fn(async () => true),
@@ -155,7 +172,7 @@ describe('routes/email-auth', () => {
       getRequestIp: mock.fn(() => '127.0.0.1'),
       createOpaqueId: () => 'opaque-id',
       _hashSessionToken: mock.fn((t) => t),
-      stores: { pool: storePool, users: { update: mock.fn(noopAsync) } },
+      stores: { pool: storePool, users: { update: mock.fn(noopAsync) }, emailTokens },
       pool: storePool,
       ...overrides,
     });
@@ -163,7 +180,7 @@ describe('routes/email-auth', () => {
 
   test('POST /forgot-password — returns success even when user not found (anti-enumeration)', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.pool.query = mock.fn(async () => ({ rows: [] }));
+    // findUserByEmail returns null by default (user not found)
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -179,12 +196,7 @@ describe('routes/email-auth', () => {
 
   test('POST /forgot-password — sends reset email when user exists', async () => {
     const deps = buildEmailAuthDeps();
-    let queryCount = 0;
-    deps.stores.pool.query = mock.fn(async () => {
-      queryCount++;
-      if (queryCount === 1) return { rows: [{ id: 'user-1', username: 'alice', email: 'alice@test.com' }] };
-      return { rows: [] };
-    });
+    deps.stores.emailTokens.findUserByEmail = mock.fn(async () => ({ id: 'user-1', username: 'alice', email: 'alice@test.com' }));
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -195,13 +207,12 @@ describe('routes/email-auth', () => {
       .expect(200);
 
     assert.equal(res.body.ok, true);
-    // Should have made DB queries (SELECT user, UPDATE old tokens, INSERT new token)
-    assert.ok(deps.stores.pool.query.mock.calls.length >= 1);
+    assert.ok(deps.stores.emailTokens.invalidateResetTokens.mock.calls.length >= 1);
   });
 
   test('POST /forgot-password — per-email rate limit kicks in after 3 attempts', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.pool.query = mock.fn(async () => ({ rows: [{ id: 'u1', username: 'bob', email: 'bob@test.com' }] }));
+    deps.stores.emailTokens.findUserByEmail = mock.fn(async () => ({ id: 'u1', username: 'bob', email: 'bob@test.com' }));
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -224,7 +235,7 @@ describe('routes/email-auth', () => {
 
   test('POST /forgot-password — returns 500 on unexpected error', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.pool.query = mock.fn(async () => { throw new Error('DB down'); });
+    deps.stores.emailTokens.findUserByEmail = mock.fn(async () => { throw new Error('DB down'); });
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -265,7 +276,7 @@ describe('routes/email-auth', () => {
 
   test('GET /verify-email — returns error for expired/used token', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.pool.query = mock.fn(async () => ({ rows: [] }));
+    // findVerificationToken returns null by default (expired/used)
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -280,12 +291,9 @@ describe('routes/email-auth', () => {
 
   test('GET /verify-email — verifies email successfully', async () => {
     const deps = buildEmailAuthDeps();
-    let queryCount = 0;
-    deps.stores.pool.query = mock.fn(async () => {
-      queryCount++;
-      if (queryCount === 1) return { rows: [{ id: 'tok-1', user_id: 'user-1', email: 'verified@test.com' }] };
-      return { rows: [] };
-    });
+    deps.stores.emailTokens.findVerificationToken = mock.fn(async () => ({
+      id: 'tok-1', user_id: 'user-1', email: 'verified@test.com',
+    }));
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -301,7 +309,7 @@ describe('routes/email-auth', () => {
 
   test('GET /verify-email — returns 500 on DB error', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.pool.query = mock.fn(async () => { throw new Error('DB fail'); });
+    deps.stores.emailTokens.findVerificationToken = mock.fn(async () => { throw new Error('DB fail'); });
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -332,7 +340,7 @@ describe('routes/email-auth', () => {
 
   test('POST /update-email — rejects already-used email', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.pool.query = mock.fn(async () => ({ rows: [{ id: 'other-user' }] }));
+    deps.stores.emailTokens.checkEmailExists = mock.fn(async () => true);
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -347,14 +355,7 @@ describe('routes/email-auth', () => {
 
   test('POST /update-email — succeeds with valid data', async () => {
     const deps = buildEmailAuthDeps();
-    let queryCount = 0;
-    deps.stores.pool.query = mock.fn(async () => {
-      queryCount++;
-      // 1st call = check uniqueness (no rows = available)
-      // subsequent = INSERT/UPDATE
-      if (queryCount === 1) return { rows: [] };
-      return { rows: [] };
-    });
+    // checkEmailExists returns false by default (email available)
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);

@@ -146,49 +146,53 @@ module.exports = function createAuthRoutes(deps) {
 
   const router = express.Router();
 
+  async function validateRegistrationInput(body) {
+    const { username, password, confirmPassword, email: rawEmail } = body;
+    const cleanUsername = sanitizeString(username, 30);
+    if (!validateUsername(cleanUsername)) {
+      return { error: 'Username must be 2-30 characters (letters, numbers, spaces, hyphens, underscores)' };
+    }
+    if (!validatePasswordStrength(password)) {
+      return { error: 'Password must be 8-100 characters' };
+    }
+    if (password !== confirmPassword) {
+      return { error: 'Passwords do not match' };
+    }
+    return { cleanUsername, cleanEmail: rawEmail ? String(rawEmail).trim().toLowerCase() : null };
+  }
+
+  async function checkRegistrationConflicts(cleanUsername, cleanEmail) {
+    const [existingUser, userCount] = await Promise.all([
+      stores.users.getByUsername(cleanUsername),
+      stores.users.countActive(),
+    ]);
+    if (existingUser) return 'Username already taken';
+    if (userCount >= config.MAX_USERS) return 'Maximum users reached';
+
+    if (cleanEmail) {
+      const emailExists = await stores.pool.query(
+        'SELECT id FROM users WHERE LOWER(email) = $1 AND deleted_at IS NULL',
+        [cleanEmail],
+      );
+      if (emailExists.rows.length > 0) return 'Email address already in use';
+    }
+    return null;
+  }
+
   router.post('/register', rateLimit(5, 'register'), validate(schemas.register), async (req, res) => {
     try {
-      const { username, password, confirmPassword, email: rawEmail } = req.validatedBody;
-      const cleanUsername = sanitizeString(username, 30);
-      if (!validateUsername(cleanUsername)) {
-        return sendError(res, 400, 'Username must be 2-30 characters (letters, numbers, spaces, hyphens, underscores)', ErrorCodes.INVALID_INPUT);
-      }
-      if (!validatePasswordStrength(password)) {
-        return sendError(res, 400, 'Password must be 8-100 characters', ErrorCodes.INVALID_INPUT);
-      }
-      if (password !== confirmPassword) {
-        return sendError(res, 400, 'Passwords do not match', ErrorCodes.INVALID_INPUT);
+      const validated = await validateRegistrationInput(req.validatedBody);
+      if (validated.error) return sendError(res, 400, validated.error, ErrorCodes.INVALID_INPUT);
+      const { cleanUsername, cleanEmail } = validated;
+
+      const conflict = await checkRegistrationConflicts(cleanUsername, cleanEmail);
+      if (conflict) {
+        const code = conflict === 'Maximum users reached' ? ErrorCodes.MAX_LIMIT_REACHED : ErrorCodes.ALREADY_EXISTS;
+        return sendError(res, 400, conflict, code);
       }
 
-      // Create user and auto-link matching profiles atomically by writing
-      // users first, then linking profiles only if user creation succeeded
-      const passwordHash = await hashPassword(password);
+      const passwordHash = await hashPassword(req.validatedBody.password);
       const newUserId = createOpaqueId('user');
-
-      // Check if username exists and user count (targeted queries instead of loading all users)
-      const [existingUser, userCount] = await Promise.all([
-        stores.users.getByUsername(cleanUsername),
-        stores.users.countActive(),
-      ]);
-      if (existingUser) {
-        return sendError(res, 400, 'Username already taken', ErrorCodes.ALREADY_EXISTS);
-      }
-      if (userCount >= config.MAX_USERS) {
-        return sendError(res, 400, 'Maximum users reached', ErrorCodes.MAX_LIMIT_REACHED);
-      }
-
-      // Validate email uniqueness if provided
-      const cleanEmail = rawEmail ? String(rawEmail).trim().toLowerCase() : null;
-      if (cleanEmail) {
-        const emailExists = await stores.pool.query(
-          'SELECT id FROM users WHERE LOWER(email) = $1 AND deleted_at IS NULL',
-          [cleanEmail],
-        );
-        if (emailExists.rows.length > 0) {
-          return sendError(res, 400, 'Email address already in use', ErrorCodes.ALREADY_EXISTS);
-        }
-      }
-
       const user = await createUserWithProfile(
         { cleanUsername, passwordHash, newUserId, cleanEmail },
         deps,
@@ -197,7 +201,6 @@ module.exports = function createAuthRoutes(deps) {
       const token = await createUserSession(user.id, user.username);
       setNoStore(res);
       setUserSessionCookie(res, token);
-
       const refreshToken = await issueRefreshToken(user.id, token, deps);
 
       const { serializePublicUser } = deps;
@@ -210,33 +213,39 @@ module.exports = function createAuthRoutes(deps) {
     }
   });
 
+  async function resolveLoginUser(username) {
+    let user = await stores.users.getByUsername(String(username).trim());
+    if (!user) {
+      try {
+        const softDeleted = await stores.users.findByUsername?.(String(username).trim());
+        if (softDeleted?.deletedAt) user = softDeleted;
+      } catch { /* ignored */ }
+    }
+    return user;
+  }
+
+  async function checkAccountLockout(user, res) {
+    if (!user) return false;
+    const failures = await stores.loginFailures?.get(user.id);
+    if (failures?.lockedUntil && new Date() < new Date(failures.lockedUntil)) {
+      const retryAfterSec = Math.ceil((new Date(failures.lockedUntil) - new Date()) / 1000);
+      res.setHeader('Retry-After', String(retryAfterSec));
+      sendError(res, 423, 'Account temporarily locked due to too many failed attempts', ErrorCodes.ACCOUNT_LOCKED);
+      return true;
+    }
+    return false;
+  }
+
   router.post('/login', rateLimit(10, 'login'), validate(schemas.login), async (req, res) => {
     try {
       const { username, password } = req.validatedBody;
       if (!username || !password) {
         return sendError(res, 400, 'Username and password required', ErrorCodes.MISSING_FIELD);
       }
-      let user = await stores.users.getByUsername(String(username).trim());
+      const user = await resolveLoginUser(username);
 
-      // If not found in active users, check for soft-deleted accounts (reactivation flow)
-      if (!user) {
-        try {
-          const softDeleted = await stores.users.findByUsername?.(String(username).trim());
-          if (softDeleted?.deletedAt) user = softDeleted;
-        } catch { /* ignored */ }
-      }
+      if (await checkAccountLockout(user, res)) return;
 
-      // Check account lockout (per-user failure tracking)
-      if (user) {
-        const failures = await stores.loginFailures?.get(user.id);
-        if (failures?.lockedUntil && new Date() < new Date(failures.lockedUntil)) {
-          const retryAfterSec = Math.ceil((new Date(failures.lockedUntil) - new Date()) / 1000);
-          res.setHeader('Retry-After', String(retryAfterSec));
-          return sendError(res, 423, 'Account temporarily locked due to too many failed attempts', ErrorCodes.ACCOUNT_LOCKED);
-        }
-      }
-
-      // Rate limit by userId (for distributed credential stuffing attacks)
       if (user && !deps.consumeUserAuthRateLimit(user.id, config.AUTH_RATE_LIMIT_MAX)) {
         const jitter = 100 + Math.floor(Math.random() * 100);
         return setTimeout(() => sendError(res, 429, 'Too many login attempts for this account', ErrorCodes.RATE_LIMITED), jitter);
@@ -246,15 +255,12 @@ module.exports = function createAuthRoutes(deps) {
       if (!user || !passwordValid) {
         await handleLoginFailure(user, deps);
         const jitter = 500 + Math.floor(Math.random() * 1000);
-        const username_or_user = user ? user.username : 'unknown';
-        log.warn('authentication failed', { username: username_or_user, ip: req.ip });
+        log.warn('authentication failed', { username: user ? user.username : 'unknown', ip: req.ip });
         return setTimeout(() => sendError(res, 401, 'Invalid username or password', ErrorCodes.INVALID_CREDENTIALS), jitter);
       }
 
-      // Reset login failure counter on success
       if (stores.loginFailures) await stores.loginFailures.reset(user.id);
 
-      // Reactivate soft-deleted accounts on successful login (30-day grace period)
       if (user.deletedAt) {
         await stores.users.update(user.id, { deletedAt: null });
         invalidateUserCache();
@@ -264,7 +270,6 @@ module.exports = function createAuthRoutes(deps) {
       const token = await createUserSession(user.id, user.username);
       setNoStore(res);
       setUserSessionCookie(res, token);
-
       const refreshToken = await issueRefreshToken(user.id, token, deps);
 
       const { serializePublicUser } = deps;

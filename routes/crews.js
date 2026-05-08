@@ -86,6 +86,33 @@ module.exports = function createCrewRoutes(deps) {
   router.use('/', meetingPointRoutes);
   router.use('/', pollRoutes);
 
+  // ── Crew creation helpers ────────────────────────────────────────
+  async function validateCrewCreation(req, cleanFestivalId) {
+    const { rows: festivalRows } = await pool.query(
+      'SELECT 1 FROM festivals WHERE id = $1 AND deleted_at IS NULL',
+      [cleanFestivalId],
+    );
+    if (festivalRows.length === 0) return 'Festival not found';
+
+    const profile = await stores.profiles.readByUserAndFestival?.(req.user.userId, cleanFestivalId);
+    if (!profile) return 'Join the festival first';
+
+    const existingCrews = await stores.crews.listByUserAndFestival(req.user.userId, cleanFestivalId);
+    if (!Array.isArray(existingCrews) || existingCrews.length >= MAX_CREWS_PER_USER_PER_FESTIVAL) {
+      return `Maximum ${MAX_CREWS_PER_USER_PER_FESTIVAL} crews per festival`;
+    }
+    return null;
+  }
+
+  async function persistCrew(crewData) {
+    if (stores.crews.createWithOwner) {
+      await stores.crews.createWithOwner(crewData);
+    } else {
+      await stores.crews.create(crewData);
+      await stores.crews.addMember({ crewId: crewData.id, userId: crewData.createdBy, role: 'owner' });
+    }
+  }
+
   // ── POST / — Create a crew ──────────────────────────────────────
   router.post('/', userAuth, rateLimit(10, 'crew-create'), validate(schemas.crewCreate), async (req, res) => {
     try {
@@ -96,72 +123,40 @@ module.exports = function createCrewRoutes(deps) {
       if (!cleanName) return sendError(res, 400, 'Crew name required', ErrorCodes.MISSING_FIELD);
       if (!cleanFestivalId) return sendError(res, 400, 'Festival ID required', ErrorCodes.MISSING_FIELD);
 
-      // Verify festival exists — direct query instead of readAll().find()
-      const { rows: festivalRows } = await pool.query(
-        'SELECT 1 FROM festivals WHERE id = $1 AND deleted_at IS NULL',
-        [cleanFestivalId]
-      );
-      if (festivalRows.length === 0) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
-
-      // Verify user has a profile for this festival
-      const profile = await stores.profiles.readByUserAndFestival?.(req.user.userId, cleanFestivalId);
-      if (!profile) return sendError(res, 403, 'Join the festival first', ErrorCodes.FORBIDDEN);
-
-      // Limit crews per user per festival
-      let existingCrews;
-      try {
-        existingCrews = await stores.crews.listByUserAndFestival(req.user.userId, cleanFestivalId);
-      } catch (error) {
-        log.error('crew list failed', { error: error.message, userId: req.user.userId });
-        return sendError(res, 500, 'Failed to check existing crews', ErrorCodes.INTERNAL_ERROR);
-      }
-      if (!Array.isArray(existingCrews) || existingCrews.length >= MAX_CREWS_PER_USER_PER_FESTIVAL) {
-        return sendError(res, 400, `Maximum ${MAX_CREWS_PER_USER_PER_FESTIVAL} crews per festival`, ErrorCodes.MAX_LIMIT_REACHED);
+      const validationError = await validateCrewCreation(req, cleanFestivalId);
+      if (validationError) {
+        const code = validationError.startsWith('Maximum') ? ErrorCodes.MAX_LIMIT_REACHED
+          : validationError === 'Festival not found' ? ErrorCodes.NOT_FOUND
+            : ErrorCodes.FORBIDDEN;
+        const status = validationError === 'Festival not found' ? 404
+          : validationError.startsWith('Maximum') ? 400 : 403;
+        return sendError(res, status, validationError, code);
       }
 
       const crewId = createOpaqueId('crew');
-      let inviteCode;
-      try {
-        inviteCode = await generateUniqueInviteCode(stores);
-      } catch (error) {
-        log.error('invite code generation failed', { error: error.message });
-        return sendError(res, 500, 'Failed to generate invite code', ErrorCodes.INTERNAL_ERROR);
-      }
+      const inviteCode = await generateUniqueInviteCode(stores);
+      const crewData = {
+        id: crewId,
+        festivalId: cleanFestivalId,
+        name: cleanName,
+        createdBy: req.user.userId,
+        inviteCode,
+        inviteExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        maxMembers: 30,
+      };
 
-      try {
-        const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        const crewData = {
-          id: crewId,
-          festivalId: cleanFestivalId,
-          name: cleanName,
-          createdBy: req.user.userId,
-          inviteCode,
-          inviteExpiresAt,
-          maxMembers: 30,
-        };
-        // Use transactional createWithOwner when available; fallback to separate calls
-        if (stores.crews.createWithOwner) {
-          await stores.crews.createWithOwner(crewData);
-        } else {
-          await stores.crews.create(crewData);
-          await stores.crews.addMember({ crewId, userId: req.user.userId, role: 'owner' });
-        }
+      await persistCrew(crewData);
+      const crew = await stores.crews.getById(crewId);
+      const members = await stores.crews.getMembers(crewId);
 
-        const crew = await stores.crews.getById(crewId);
-        const members = await stores.crews.getMembers(crewId);
-
-        if (!crew || !Array.isArray(members)) {
-          log.error('crew creation incomplete', { crewId });
-          return sendError(res, 500, 'Failed to create crew', ErrorCodes.INTERNAL_ERROR);
-        }
-
-        log.info('crew:created', { crewId, festivalId: cleanFestivalId, userId: req.user.userId });
-        res.status(201);
-        return sendSuccess(res, serializeCrewWithMembers(crew, members, req.user.userId));
-      } catch (error) {
-        log.error('crew creation failed', { error: error.message, userId: req.user.userId });
+      if (!crew || !Array.isArray(members)) {
+        log.error('crew creation incomplete', { crewId });
         return sendError(res, 500, 'Failed to create crew', ErrorCodes.INTERNAL_ERROR);
       }
+
+      log.info('crew:created', { crewId, festivalId: cleanFestivalId, userId: req.user.userId });
+      res.status(201);
+      return sendSuccess(res, serializeCrewWithMembers(crew, members, req.user.userId));
     } catch (error) {
       log.error('crew create failed', { error: error.message, userId: req.user.userId });
       return sendError(res, 500, 'Failed to create crew', ErrorCodes.INTERNAL_ERROR);

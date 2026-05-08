@@ -64,6 +64,34 @@ module.exports = function createShareRoutes(deps) {
     }
   });
 
+  function buildShareDays(festival, picks) {
+    const pickedSetIds = new Set(Object.keys(picks));
+    return (festival.days || []).map((day, dayIndex) => {
+      const daySets = (day.sets || [])
+        .filter((set) => pickedSetIds.has(set.id))
+        .map((set) => ({
+          artist: escapeHtml(set.artist),
+          stage: escapeHtml(getStageNameById(festival.stages, set.stageId)),
+          stageColor: sanitizeColor(getStageColorById(festival.stages, set.stageId)),
+          startTime: escapeHtml(set.startTime || ''),
+          endTime: escapeHtml(set.endTime || ''),
+          priority: picks[set.id] || 'want-to-see',
+        }))
+        .sort((a, b) => a.startTime.localeCompare(b.startTime));
+      return { label: escapeHtml(day.label || `Day ${dayIndex + 1}`), date: day.date || '', sets: daySets };
+    }).filter((day) => day.sets.length > 0);
+  }
+
+  function buildPickStats(picks) {
+    const values = Object.values(picks);
+    return {
+      totalPicks: Object.keys(picks).length,
+      mustCount: values.filter((v) => v === 'must').length,
+      wantCount: values.filter((v) => v === 'want-to-see').length,
+      maybeCount: values.filter((v) => v === 'maybe').length,
+    };
+  }
+
   // GET /s/:profileId — public share page (rate limited to prevent scraping)
   router.get('/:profileId', rateLimit(30, 'share'), async (req, res) => {
     try {
@@ -83,48 +111,19 @@ module.exports = function createShareRoutes(deps) {
       }
 
       const user = await getUserById(profile.userId);
-      const username = escapeHtml(user?.username || profile.name || 'Anonymous');
-      const avatarUrl = escapeHtml(buildAvatarUrl(user) || '');
-
-      // Build pick data grouped by day
       const picks = profile.picks || {};
-      const pickedSetIds = new Set(Object.keys(picks));
-      const days = (festival.days || []).map((day, dayIndex) => {
-        const daySets = (day.sets || [])
-          .filter((set) => pickedSetIds.has(set.id))
-          .map((set) => ({
-            artist: escapeHtml(set.artist),
-            stage: escapeHtml(getStageNameById(festival.stages, set.stageId)),
-            stageColor: sanitizeColor(getStageColorById(festival.stages, set.stageId)),
-            startTime: escapeHtml(set.startTime || ''),
-            endTime: escapeHtml(set.endTime || ''),
-            priority: picks[set.id] || 'want-to-see',
-          }))
-          .sort((a, b) => a.startTime.localeCompare(b.startTime));
-        return { label: escapeHtml(day.label || `Day ${dayIndex + 1}`), date: day.date || '', sets: daySets };
-      }).filter((day) => day.sets.length > 0);
-
-      const totalPicks = Object.keys(picks).length;
-      const mustCount = Object.values(picks).filter((v) => v === 'must').length;
-      const wantCount = Object.values(picks).filter((v) => v === 'want-to-see').length;
-      const maybeCount = Object.values(picks).filter((v) => v === 'maybe').length;
-
       const origin = config.PUBLIC_ORIGIN || `${req.protocol}://${req.get('host')}`;
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Cache-Control', 'public, max-age=300'); // 5 min cache
-      // Override Helmet CSP to allow inline styles for this self-contained HTML page
+      res.setHeader('Cache-Control', 'public, max-age=300');
       res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' https:; frame-ancestors 'none'");
       return res.send(renderSharePage({
-        username,
-        avatarUrl,
+        username: escapeHtml(user?.username || profile.name || 'Anonymous'),
+        avatarUrl: escapeHtml(buildAvatarUrl(user) || ''),
         festivalName: escapeHtml(festival.name),
         festivalLocation: escapeHtml(festival.location || ''),
-        days,
-        totalPicks,
-        mustCount,
-        wantCount,
-        maybeCount,
+        days: buildShareDays(festival, picks),
+        ...buildPickStats(picks),
         origin: escapeHtml(origin),
         profileId: escapeHtml(profileId),
       }));
@@ -235,11 +234,7 @@ function renderSharePage({ username, avatarUrl, festivalName, festivalLocation, 
   <meta property="og:description" content="${mustCount} must-see, ${wantCount} want-to-see, ${maybeCount} maybe - ${totalPicks} total picks">
   <meta property="og:url" content="${origin}/s/${profileId}">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="${origin}/api/v1/export-card/${profileId}?public=1">
-  <meta property="og:image:width" content="800">
-  <meta property="og:image:height" content="600">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="${origin}/api/v1/export-card/${profileId}?public=1">
+  <meta name="twitter:card" content="summary">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {

@@ -179,6 +179,38 @@ module.exports = function createExportRoutes(deps) {
   // Routes
   // ═══════════════════════════════════════════════════════════════════
 
+  // ── HTML export helpers ──────────────────────────────────────────
+
+  async function loadExportProfile(req, festivalId, profileId) {
+    const festival = await getFestivalById(festivalId);
+    if (!festival) return { error: { status: 404, message: 'Not found', code: ErrorCodes.NOT_FOUND } };
+
+    const profile = await deps.stores.profiles.getById(profileId);
+    if (!profile || profile.festivalId !== festivalId) {
+      return { error: { status: 404, message: 'Not found', code: ErrorCodes.NOT_FOUND } };
+    }
+    if (profile.userId !== req.user.userId) {
+      return { error: { status: 403, message: 'Not allowed to export this profile', code: ErrorCodes.FORBIDDEN } };
+    }
+    return { festival, profile };
+  }
+
+  function checkExportCooldown(userId, cooldownKey) {
+    const lastExport = exportCooldowns.get(cooldownKey || userId) || 0;
+    if (Date.now() - lastExport < EXPORT_COOLDOWN_MS) return true;
+    exportCooldowns.set(cooldownKey || userId, Date.now());
+    return false;
+  }
+
+  function buildExportFilename(festivalName, profileName) {
+    const safeFilename = (`${festivalName}_${profileName}`)
+      .slice(0, 200)
+      .replace(/[^a-z0-9_-]/gi, '_')
+      .replace(/_+/g, '_')
+      .slice(0, 80) || 'festival_schedule';
+    return `${safeFilename}_schedule.html`;
+  }
+
   // HTML export: Justified. Provides printable/offline snapshot users can reference on paper/offline device.
   // More accessible than ICS for casual viewing. Worker-based generation keeps server responsive.
   /**
@@ -193,23 +225,15 @@ module.exports = function createExportRoutes(deps) {
       const festivalId = sanitizeIdentifier(req.params.festivalId);
       const profileId = sanitizeIdentifier(req.params.profileId);
       if (!festivalId || !profileId) return sendError(res, 400, 'Invalid festival or profile ID', ErrorCodes.INVALID_INPUT);
-      const festival = await getFestivalById(festivalId);
-      if (!festival) return sendError(res, 404, 'Not found', ErrorCodes.NOT_FOUND);
 
-      // Use store method to get single profile directly instead of loading all profiles
-      const profile = await deps.stores.profiles.getById(profileId);
-      if (!profile || profile.festivalId !== festivalId) return sendError(res, 404, 'Not found', ErrorCodes.NOT_FOUND);
-      if (profile.userId !== req.user.userId) return sendError(res, 403, 'Not allowed to export this profile', ErrorCodes.FORBIDDEN);
+      const loaded = await loadExportProfile(req, festivalId, profileId);
+      if (loaded.error) return sendError(res, loaded.error.status, loaded.error.message, loaded.error.code);
+      const { festival, profile } = loaded;
 
-      const userId = req.user.userId;
-      const lastExport = exportCooldowns.get(userId) || 0;
-      if (Date.now() - lastExport < EXPORT_COOLDOWN_MS) {
+      if (checkExportCooldown(req.user.userId)) {
         return sendError(res, 429, 'Please wait a few seconds before exporting again', ErrorCodes.RATE_LIMITED);
       }
-      exportCooldowns.set(userId, Date.now());
 
-      const exportedAt = new Date().toISOString();
-      // Only load festival profiles once — use targeted query when available
       const festivalProfiles = deps.stores.profiles.getByFestival
         ? await deps.stores.profiles.getByFestival(festivalId)
         : (await getProfiles()).filter((p) => p.festivalId === festivalId);
@@ -218,21 +242,17 @@ module.exports = function createExportRoutes(deps) {
         .slice(0, MAX_CREW_IN_EXPORT);
       const user = await getUserById(profile.userId);
       const totalSets = (festival.days || []).flatMap((day) =>
-        (day.sets || []).filter((s) => profile.picks && profile.picks[s.id])
+        (day.sets || []).filter((s) => profile.picks && profile.picks[s.id]),
       ).length;
+
       const html = await runExportWorker({
         template: exportTemplate,
         festival,
         profile: serializeOwnProfile(profile, user),
         allProfiles: crewProfiles,
-        exportedAt,
+        exportedAt: new Date().toISOString(),
       });
-      const safeFilename = (`${festival.name}_${profile.name}`)
-        .slice(0, 200)
-        .replace(/[^a-z0-9_-]/gi, '_')
-        .replace(/_+/g, '_')
-        .slice(0, 80) || 'festival_schedule';
-      const downloadFilename = `${safeFilename}_schedule.html`;
+      const downloadFilename = buildExportFilename(festival.name, profile.name);
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Content-Security-Policy', exportContentSecurityPolicy);
@@ -242,7 +262,6 @@ module.exports = function createExportRoutes(deps) {
       const encodeFilename = deps.encodeContentDispositionFilename;
       res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"; filename*=UTF-8''${encodeFilename(downloadFilename)}`);
 
-      // Log export completion with duration and set count
       const durationMs = Date.now() - startTime;
       log.info('export completed', { festivalId, format: 'html', durationMs, sets: totalSets });
       return res.send(html);
@@ -335,25 +354,21 @@ module.exports = function createExportRoutes(deps) {
       if (!profile) return sendError(res, 404, 'Not joined', ErrorCodes.NOT_FOUND);
 
       const picks = profile.picks || {};
-      const events = [];
-      for (const stage of festival.stages || []) {
-        for (const day of festival.days || []) {
-          for (const set of day.sets || []) {
-            if (set.stageId === stage.id && picks[set.id]) {
-              events.push({
-                id: set.id,
-                title: set.name || set.artist || 'Unknown',
-                stage: stage.name,
-                day: day.date || day.name,
-                startTime: set.startTime || null,
-                endTime: set.endTime || null,
-                priority: picks[set.id],
-                linkUrl: set.linkUrl || null,
-              });
-            }
-          }
-        }
-      }
+      const stageMap = new Map((festival.stages || []).map((s) => [s.id, s.name]));
+      const events = (festival.days || []).flatMap((day) =>
+        (day.sets || [])
+          .filter((set) => picks[set.id])
+          .map((set) => ({
+            id: set.id,
+            title: set.name || set.artist || 'Unknown',
+            stage: stageMap.get(set.stageId) || 'Unknown',
+            day: day.date || day.name,
+            startTime: set.startTime || null,
+            endTime: set.endTime || null,
+            priority: picks[set.id],
+            linkUrl: set.linkUrl || null,
+          })),
+      );
 
       return sendSuccess(res, {
         festival: { id: festival.id, name: festival.name },

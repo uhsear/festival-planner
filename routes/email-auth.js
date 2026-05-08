@@ -31,7 +31,7 @@ module.exports = function createEmailAuthRoutes(deps) {
     sendSuccess, sendError, ErrorCodes, rateLimit,
     schemas, validate,
     stores, invalidateUserCache,
-    pool, state, createAuditLog, getRequestIp,
+    state, createAuditLog, getRequestIp,
     // eslint-disable-next-line no-unused-vars
     createOpaqueId, _hashSessionToken, io,
   } = deps;
@@ -85,32 +85,21 @@ module.exports = function createEmailAuthRoutes(deps) {
         entry.count += 1;
       }
 
-      const result = await stores.pool.query(
-        'SELECT id, username, email FROM users WHERE LOWER(email) = $1 AND deleted_at IS NULL',
-        [cleanEmail],
-      );
+      const user = await stores.emailTokens.findUserByEmail(cleanEmail);
 
-      if (result.rows.length === 0) {
+      if (!user) {
         // Timing-safe: add small delay to match the email-send path
         await new Promise((r) => setTimeout(r, 200 + Math.random() * 300));
         return sendSuccess(res, { message: successMsg });
       }
 
-      const user = result.rows[0];
-
       // Invalidate any existing reset tokens for this user
-      await stores.pool.query(
-        'UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL',
-        [user.id],
-      );
+      await stores.emailTokens.invalidateResetTokens(user.id);
 
       // Generate new reset token
       const resetToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-      await stores.pool.query(
-        'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'1 hour\')',
-        [user.id, tokenHash],
-      );
+      await stores.emailTokens.createResetToken(user.id, tokenHash);
 
       const resetUrl = `${config.PUBLIC_ORIGIN}/reset-password?token=${resetToken}`;
       const sent = await sendPasswordResetEmail({ to: cleanEmail, username: user.username, resetUrl, config, log });
@@ -135,23 +124,17 @@ module.exports = function createEmailAuthRoutes(deps) {
       }
 
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-      const result = await stores.pool.query(
-        'SELECT id, user_id, email FROM email_verification_tokens WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()',
-        [tokenHash],
-      );
+      const tokenRow = await stores.emailTokens.findVerificationToken(tokenHash);
 
-      if (result.rows.length === 0) {
+      if (!tokenRow) {
         return res.status(400).send(_verifyEmailPage('This verification link has expired or already been used.', false));
       }
 
-      const { id: tokenId, user_id: userId, email: verifiedEmail } = result.rows[0];
+      const { id: tokenId, user_id: userId, email: verifiedEmail } = tokenRow;
 
       // Mark token as used and update user email_verified_at
-      await stores.pool.query('UPDATE email_verification_tokens SET used_at = NOW() WHERE id = $1', [tokenId]);
-      await stores.pool.query(
-        'UPDATE users SET email = $1, email_verified_at = NOW() WHERE id = $2',
-        [verifiedEmail, userId],
-      );
+      await stores.emailTokens.markTokenUsed(tokenId);
+      await stores.emailTokens.updateUserEmail(userId, verifiedEmail);
       invalidateUserCache();
 
       log.info('email:verified', { userId, email: verifiedEmail });
@@ -176,28 +159,19 @@ module.exports = function createEmailAuthRoutes(deps) {
       }
 
       // Check email uniqueness
-      const exists = await stores.pool.query(
-        'SELECT id FROM users WHERE LOWER(email) = $1 AND deleted_at IS NULL AND id != $2',
-        [cleanEmail, req.user.userId],
-      );
-      if (exists.rows.length > 0) {
+      const emailTaken = await stores.emailTokens.checkEmailExists(cleanEmail, req.user.userId);
+      if (emailTaken) {
         return sendError(res, 400, 'Email address already in use', ErrorCodes.ALREADY_EXISTS);
       }
 
       // Update email (unverified until confirmed)
-      await stores.pool.query(
-        'UPDATE users SET email = $1, email_verified_at = NULL WHERE id = $2',
-        [cleanEmail, req.user.userId],
-      );
+      await stores.emailTokens.setEmailUnverified(req.user.userId, cleanEmail);
       invalidateUserCache();
 
       // Send verification email
       const verifyToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
-      await stores.pool.query(
-        'INSERT INTO email_verification_tokens (user_id, token_hash, email, expires_at) VALUES ($1, $2, $3, NOW() + ($4 || \' hours\')::INTERVAL)',
-        [req.user.userId, tokenHash, cleanEmail, config.EMAIL_VERIFY_TOKEN_TTL_HOURS],
-      );
+      await stores.emailTokens.createVerificationToken(req.user.userId, tokenHash, cleanEmail, config.EMAIL_VERIFY_TOKEN_TTL_HOURS);
       const verifyUrl = `${config.PUBLIC_ORIGIN}/api/v1/auth/verify-email?token=${verifyToken}`;
       await sendVerificationEmail({ to: cleanEmail, username: user.username, verifyUrl, config, log });
 
@@ -233,17 +207,11 @@ module.exports = function createEmailAuthRoutes(deps) {
       _resendVerifyLimits.set(emailKey, [...recentAttempts, now]);
 
       // Invalidate old tokens
-      await stores.pool.query(
-        'UPDATE email_verification_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL',
-        [req.user.userId],
-      );
+      await stores.emailTokens.invalidateVerificationTokens(req.user.userId);
 
       const verifyToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
-      await stores.pool.query(
-        'INSERT INTO email_verification_tokens (user_id, token_hash, email, expires_at) VALUES ($1, $2, $3, NOW() + ($4 || \' hours\')::INTERVAL)',
-        [req.user.userId, tokenHash, user.email, config.EMAIL_VERIFY_TOKEN_TTL_HOURS],
-      );
+      await stores.emailTokens.createVerificationToken(req.user.userId, tokenHash, user.email, config.EMAIL_VERIFY_TOKEN_TTL_HOURS);
       const verifyUrl = `${config.PUBLIC_ORIGIN}/api/v1/auth/verify-email?token=${verifyToken}`;
       await sendVerificationEmail({ to: user.email, username: user.username, verifyUrl, config, log });
 
@@ -277,6 +245,29 @@ module.exports = function createEmailAuthRoutes(deps) {
     deps.state.timers.push(cleanupInterval);
   }
 
+  /**
+   * Resolve the reset token to a userId. Checks in-memory admin tokens
+   * first, then falls back to self-service DB tokens.
+   * Returns { userId } or { error } with status/message/code.
+   */
+  async function resolveResetToken(token) {
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    if (state._adminResetTokens?.has(token)) {
+      const tokenData = state._adminResetTokens.get(token);
+      if (Date.now() > tokenData.expiresAt) {
+        state._adminResetTokens.delete(token);
+        return { error: { status: 400, message: 'Reset link has expired', code: ErrorCodes.INVALID_INPUT } };
+      }
+      return { userId: tokenData.userId };
+    }
+
+    const consumed = await stores.emailTokens.consumeResetToken(tokenHash);
+    if (consumed) return { userId: consumed.user_id };
+
+    return { error: { status: 400, message: 'Invalid or expired reset link', code: ErrorCodes.INVALID_INPUT } };
+  }
+
   // POST /reset-password — Validate token and reset password (public, no auth)
   router.post('/reset-password', rateLimit(5, 'reset-password'), passwordResetRateLimit, validate(schemas.resetPasswordPublic), async (req, res) => {
     try {
@@ -288,50 +279,23 @@ module.exports = function createEmailAuthRoutes(deps) {
         return sendError(res, 400, 'Password must be 8-100 characters', ErrorCodes.INVALID_INPUT);
       }
 
-      // Validate reset token — check in-memory first, then DB
-      let targetUserId = null;
-      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-      if (state._adminResetTokens?.has(token)) {
-        const tokenData = state._adminResetTokens.get(token);
-        if (Date.now() > tokenData.expiresAt) {
-          state._adminResetTokens.delete(token);
-          return sendError(res, 400, 'Reset link has expired', ErrorCodes.INVALID_INPUT);
-        }
-        targetUserId = tokenData.userId;
+      const resolved = await resolveResetToken(token);
+      if (resolved.error) {
+        return sendError(res, resolved.error.status, resolved.error.message, resolved.error.code);
       }
-      // admin_sessions table dropped (migration 013) — cross-worker lookup removed
+      const { userId: targetUserId } = resolved;
 
-      // Fallback: check self-service password_reset_tokens table
-      // Atomic UPDATE...RETURNING prevents TOCTOU race between concurrent requests
-      if (!targetUserId) {
-        const selfResult = await pool.query(
-          'UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW() RETURNING user_id',
-          [tokenHash],
-        );
-        if (selfResult.rows.length > 0) {
-          targetUserId = selfResult.rows[0].user_id;
-        }
-      }
-
-      if (!targetUserId) {
-        return sendError(res, 400, 'Invalid or expired reset link', ErrorCodes.INVALID_INPUT);
-      }
       const user = await getUserById(targetUserId);
       if (!user) {
         state._adminResetTokens.delete(token);
         return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
       }
 
-      // Update password and invalidate all sessions
       await stores.users.update(targetUserId, { passwordHash: await hashPassword(newPassword) });
       invalidateUserCache();
       await invalidateUserSessions(targetUserId);
       disconnectUserSockets(targetUserId, io);
-
-      // Invalidate the reset token (both in-memory and DB)
       state._adminResetTokens.delete(token);
-      // admin_sessions cleanup removed (migration 013)
 
       const auditLog = createAuditLog('user_reset_password', 'user', {
         userId: targetUserId,
