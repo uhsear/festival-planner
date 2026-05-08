@@ -12,6 +12,7 @@ import Button from '../components/ui/Button';
 import WrapPoster from '../components/features/WrapPoster';
 import { useToast } from '../lib/toastContext';
 import { isFestivalOver } from '../utils/festivalTime';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { Sparkles, Trophy, Map as MapIcon, Clock, CalendarDays, Share2 } from 'lucide-react';
 
 // Server shape from GET /ratings/wrap/:festivalId:
@@ -40,6 +41,14 @@ interface WrapResponse { stats: WrapStats; topSets: TopSet[]; allRatings: TopSet
 const EMOJI: Record<number, string> = { 5: '🔥', 4: '😊', 3: '👍', 2: '🤔', 1: '👎' };
 
 export default function WrapPage() {
+  return (
+    <RenderErrorBoundary name="wrap">
+      <WrapPageInner />
+    </RenderErrorBoundary>
+  );
+}
+
+function WrapPageInner() {
   const user = useAuthStore((s) => s.user);
   const currentFestival = useFestivalStore((s) => s.currentFestival);
   const days = useFestivalStore((s) => s.days);

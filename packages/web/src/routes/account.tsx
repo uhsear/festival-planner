@@ -4,8 +4,17 @@ import ProfileSection from '../components/account/ProfileSection';
 import PasswordSection from '../components/account/PasswordSection';
 import NotificationSection from '../components/account/NotificationSection';
 import DangerZone from '../components/account/DangerZone';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 
 export default function AccountPage() {
+  return (
+    <RenderErrorBoundary name="account">
+      <AccountPageInner />
+    </RenderErrorBoundary>
+  );
+}
+
+function AccountPageInner() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
 

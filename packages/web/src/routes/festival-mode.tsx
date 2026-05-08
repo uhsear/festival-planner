@@ -6,6 +6,7 @@ import { useFestival } from '@festie/shared/hooks';
 import { artistDisplayName } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import EmptyState from '../components/ui/EmptyState';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { CalendarX, SkipForward } from 'lucide-react';
 
 // Countdown flips to coral + bolder when a set is ≤ this many minutes away,
@@ -48,6 +49,14 @@ interface TimedSet {
 }
 
 export default function FestivalModeView() {
+  return (
+    <RenderErrorBoundary name="festival-mode">
+      <FestivalModeViewInner />
+    </RenderErrorBoundary>
+  );
+}
+
+function FestivalModeViewInner() {
   const currentFestival = useFestivalStore((s) => s.currentFestival);
   const sets = useFestivalStore((s) => s.sets);
   const days = useFestivalStore((s) => s.days);

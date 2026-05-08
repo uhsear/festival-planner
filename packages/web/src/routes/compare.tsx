@@ -6,9 +6,18 @@ import GuestTeaser from '../components/features/GuestTeaser';
 import EmptyState from '../components/ui/EmptyState';
 import CompareColumn from '../components/compare/CompareColumn';
 import CompareRow from '../components/compare/CompareRow';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { Users } from 'lucide-react';
 
 export default function CompareView() {
+  return (
+    <RenderErrorBoundary name="compare">
+      <CompareViewInner />
+    </RenderErrorBoundary>
+  );
+}
+
+function CompareViewInner() {
   const user           = useAuthStore((s) => s.user);
   const currentProfile = useFestivalStore((s) => s.currentProfile);
   const days           = useFestivalStore((s) => s.days);
