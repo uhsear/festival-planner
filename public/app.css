@@ -2509,7 +2509,7 @@ body:has(.admin-login-overlay.open) .cookie-banner {
 [role="dialog"] .panel,
 [role="dialog"] .modal-body,
 [role="dialog"] .dialog-content,
-[role="dialog"] > div:last-child,
+[role="dialog"] > div:last-child:not(.detail-panel--drawer),
 .user-menu,
 .user-menu-panel {
   /* Bottom nav is 56-72px depending on spacing. Add calc so the last row

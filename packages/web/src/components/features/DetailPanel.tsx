@@ -163,7 +163,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
           <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0 lg:hidden" />
           <Drawer.Title className="sr-only">{artistDisplayName(set, b2bSeparator)}</Drawer.Title>
           <Drawer.Description className="sr-only">Set details, schedule, and crew info for {artistDisplayName(set, b2bSeparator)}</Drawer.Description>
-          <div className="detail-panel detail-panel--drawer flex-1 min-h-0 overflow-y-auto" ref={panelRef}>
+          <div className="detail-panel detail-panel--drawer min-h-0 overflow-y-auto" ref={panelRef}>
             <button className="detail-close" type="button" aria-label="Close detail panel" onClick={handleClose} ref={closeBtnRef}>
               {'×'}
             </button>

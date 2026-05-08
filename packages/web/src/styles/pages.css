@@ -115,10 +115,11 @@
   display: block;
 }
 
-.detail-panel--drawer {
+.detail-panel.detail-panel--drawer {
   max-height: none !important;
   height: auto !important;
   overscroll-behavior: contain;
+  padding-bottom: max(28px, env(safe-area-inset-bottom)) !important;
 }
 
 /* ── R31 (2026-04-17) — Grid view redesign ────────────────────────────────
