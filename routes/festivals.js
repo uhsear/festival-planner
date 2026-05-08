@@ -43,7 +43,7 @@ module.exports = function createFestivalsRoutes(deps) {
           ip: getRequestIp(req),
         });
       } catch (e) {
-        log.debug('audit log write failed', { error: e.message });
+        log.warn('audit log write failed', { error: e.message });
       }
     });
   }
