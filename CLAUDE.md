@@ -9,7 +9,7 @@ Festie is a real-time festival crew coordination app. Users create/join festival
 ## Tech Stack
 
 - **Backend**: Node.js 22 + Express 5 + Socket.IO 4 + PostgreSQL 16 + Redis 7
-- **Frontend**: React 19 + Vite 6 + TypeScript + TanStack Router + Zustand + Tailwind CSS 4
+- **Frontend**: React 19 + Vite 8 + TypeScript + TanStack Router + Zustand + Tailwind CSS 4
 - **Monorepo**: Backend at root (npm), frontend + shared packages under `packages/` (pnpm workspaces + Turborepo)
 
 See `ARCHITECTURE.md` for detailed design patterns, module inventory, and codebase statistics.

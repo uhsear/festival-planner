@@ -2,9 +2,9 @@
 
 ## Overview
 
-Festie is a real-time festival crew coordination app built as a monorepo. The backend is a Node.js 22 server using Express 5, Socket.IO 4, PostgreSQL 16, and Redis 7. The frontend is a React 19 SPA with TanStack Router, Zustand, and Tailwind CSS 4, built with Vite 6. A shared TypeScript package provides stores, hooks, types, and utilities consumed by the frontend.
+Festie is a real-time festival crew coordination app built as a monorepo. The backend is a Node.js 22 server using Express 5, Socket.IO 4, PostgreSQL 16, and Redis 7. The frontend is a React 19 SPA with TanStack Router, Zustand, and Tailwind CSS 4, built with Vite 8. A shared TypeScript package provides stores, hooks, types, and utilities consumed by the frontend.
 
-**Stack:** Node.js 22 + Express 5 + Socket.IO 4 + PostgreSQL 16 + Redis 7 | React 19 + Vite 6 + TanStack Router + Zustand + Tailwind CSS 4
+**Stack:** Node.js 22 + Express 5 + Socket.IO 4 + PostgreSQL 16 + Redis 7 | React 19 + Vite 8 + TanStack Router + Zustand + Tailwind CSS 4
 
 ---
 
@@ -156,7 +156,7 @@ module.exports = function createFeatureRoutes({ pool, redis, config, io, log, ..
 
 ## Frontend: `packages/web/`
 
-React 19 SPA with file-based routing via TanStack Router. Built with Vite 6 and Tailwind CSS 4. Routes are lazy-loaded with skeleton fallbacks. Vite config uses manual chunk splitting for HTTP/2 cache optimization (react-core, router, data, ui-motion, icons, export-tools, telemetry).
+React 19 SPA with file-based routing via TanStack Router. Built with Vite 8 and Tailwind CSS 4. Routes are lazy-loaded with skeleton fallbacks. Vite config uses manual chunk splitting for HTTP/2 cache optimization (react-core, router, data, ui-motion, icons, export-tools, telemetry).
 
 ### Routes (`packages/web/src/routes/`)
 
