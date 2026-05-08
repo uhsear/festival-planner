@@ -434,7 +434,7 @@ describe('routes/email-auth', () => {
 
   test('POST /resend-verification — succeeds for unverified user', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.pool.query = mock.fn(async () => ({ rows: [] }));
+    // emailTokens methods default to no-op async, which is sufficient
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -479,8 +479,7 @@ describe('routes/email-auth', () => {
 
   test('POST /reset-password — rejects invalid/expired token', async () => {
     const deps = buildEmailAuthDeps();
-    // No admin token, no DB token
-    deps.pool.query = mock.fn(async () => ({ rows: [] }));
+    // consumeResetToken returns null by default (no matching token)
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -495,7 +494,7 @@ describe('routes/email-auth', () => {
 
   test('POST /reset-password — succeeds with valid DB token', async () => {
     const deps = buildEmailAuthDeps();
-    deps.pool.query = mock.fn(async () => ({ rows: [{ user_id: 'user-1' }] }));
+    deps.stores.emailTokens.consumeResetToken = mock.fn(async () => ({ user_id: 'user-1' }));
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -513,7 +512,6 @@ describe('routes/email-auth', () => {
   test('POST /reset-password — succeeds with admin in-memory token', async () => {
     const deps = buildEmailAuthDeps();
     deps.state._adminResetTokens.set('admin-tok', { userId: 'user-1', expiresAt: Date.now() + 60_000 });
-    deps.pool.query = mock.fn(async () => ({ rows: [] }));
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -531,7 +529,7 @@ describe('routes/email-auth', () => {
   test('POST /reset-password — rejects expired admin token', async () => {
     const deps = buildEmailAuthDeps();
     deps.state._adminResetTokens.set('expired-tok', { userId: 'user-1', expiresAt: Date.now() - 1000 });
-    deps.pool.query = mock.fn(async () => ({ rows: [] }));
+    // consumeResetToken returns null by default (no DB token fallback)
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
