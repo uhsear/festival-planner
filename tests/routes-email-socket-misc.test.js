@@ -1237,7 +1237,7 @@ describe('routes/expenses', () => {
     const res = await request(app)
       .post('/crews/crew-1/expenses')
       .send({ description: 'Pizza', amount: 24.99, splitWith: ['user-2'], category: 'food' })
-      .expect(200);
+      .expect(201);
 
     assert.equal(res.body.ok, true);
   });
@@ -1284,7 +1284,7 @@ describe('routes/expenses', () => {
     const res = await request(app)
       .post('/crews/crew-1/expenses/settle')
       .send({ toUserId: 'user-2', amount: 15.00 })
-      .expect(200);
+      .expect(201);
 
     assert.equal(res.body.ok, true);
   });
