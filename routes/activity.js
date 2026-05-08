@@ -2,14 +2,14 @@
 
 module.exports = function createActivityRoutes(deps) {
   const router = deps.express.Router();
-  const { stores, userAuth, sendSuccess, sendError, ErrorCodes, log, sanitizeIdentifier, rateLimit, schemas, validateQuery } = deps;
+  const { stores, userAuth, sendSuccess, sendError, ErrorCodes, log, sanitizeIdentifier, rateLimit, schemas, validateQuery, validateParams } = deps;
   const noopLimit = (_req, _res, next) => next();
   const readLimit = (typeof rateLimit === 'function') ? rateLimit(120, 'activity-read') : noopLimit;
 
   // GET /crew/:crewId/activity
-  router.get('/crews/:crewId/activity', userAuth, readLimit, validateQuery(schemas.paginationQuery), async (req, res) => {
+  router.get('/crews/:crewId/activity', userAuth, readLimit, validateParams(schemas.crewIdParams), validateQuery(schemas.paginationQuery), async (req, res) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);

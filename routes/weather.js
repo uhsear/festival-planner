@@ -6,13 +6,13 @@ const { Router } = require('express');
 const weatherCache = new Map();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 
-function createWeatherRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCodes, rateLimit }) {
+function createWeatherRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCodes, rateLimit, schemas, validateParams }) {
   const router = Router();
 
   // GET /weather/:festivalId — returns weather for festival's coordinates
-  router.get('/:festivalId', userAuth, rateLimit(30, 'weather'), async (req, res) => {
+  router.get('/:festivalId', userAuth, rateLimit(30, 'weather'), validateParams(schemas.festivalIdParams), async (req, res) => {
     try {
-      const { festivalId } = req.params;
+      const { festivalId } = req.validatedParams;
 
       // Check cache first
       const cached = weatherCache.get(festivalId);
@@ -70,12 +70,15 @@ function createWeatherRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
         },
       };
 
-      // Cache it
       weatherCache.set(festivalId, { data, expiresAt: Date.now() + CACHE_TTL_MS });
-      // Evict old entries
       if (weatherCache.size > 50) {
+        const now = Date.now();
         for (const [key, val] of weatherCache) {
-          if (val.expiresAt < Date.now()) weatherCache.delete(key);
+          if (val.expiresAt < now) weatherCache.delete(key);
+        }
+        if (weatherCache.size > 50) {
+          const oldest = weatherCache.keys().next().value;
+          weatherCache.delete(oldest);
         }
       }
 

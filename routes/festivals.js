@@ -10,7 +10,7 @@ module.exports = function createFestivalsRoutes(deps) {
     sendSuccess, sendError, ErrorCodes,
     rateLimit,
     io, stores, emitter,
-    schemas, validate, validateQuery, invalidateFestivalCache,
+    schemas, validate, validateQuery, validateParams, invalidateFestivalCache,
   } = deps;
 
   const router = express.Router();
@@ -80,9 +80,9 @@ module.exports = function createFestivalsRoutes(deps) {
   //   ?depth=0 → name, id, location only (already served by GET /)
   //   ?depth=1 → stages + days with set names (no profiles/messages) — default for mobile initial load
   //   ?depth=2 (or omitted) → full festival data (backward compatible default)
-  router.get('/:id', rateLimit(120, 'festival-detail'), validateQuery(schemas.festivalDepthQuery), async (req, res) => {
+  router.get('/:id', rateLimit(120, 'festival-detail'), validateParams(schemas.genericIdParams), validateQuery(schemas.festivalDepthQuery), async (req, res) => {
     try {
-      const festival = await getFestivalById(req.params.id);
+      const festival = await getFestivalById(req.validatedParams.id);
       if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
       // Public festival structure (stages/days/sets) — no user data. Use
       // `no-cache` (revalidate) rather than `no-store` (never cache) so the
@@ -118,7 +118,7 @@ module.exports = function createFestivalsRoutes(deps) {
       // depth=2 or omitted: full festival (backward compatible)
       return sendSuccess(res, festival);
     } catch (error) {
-      log.error('festival load failed', { error: error.message, festivalId: req.params.id });
+      log.error('festival load failed', { error: error.message, festivalId: req.validatedParams?.id });
       return sendError(res, 500, 'Failed to load festival', ErrorCodes.INTERNAL_ERROR);
     }
   });
@@ -144,17 +144,17 @@ module.exports = function createFestivalsRoutes(deps) {
     }
   });
 
-  router.put('/:id', adminAuth, rateLimit(10, 'festival-update'), validate(schemas.festivalUpdate), async (req, res) => {
+  router.put('/:id', adminAuth, rateLimit(10, 'festival-update'), validateParams(schemas.genericIdParams), validate(schemas.festivalUpdate), async (req, res) => {
     try {
       const validationErrors = validateFestival(config, req.validatedBody);
       if (validationErrors.length > 0) {
         return sendError(res, 400, validationErrors.join('; '), ErrorCodes.INVALID_INPUT);
       }
-      const existingFestival = await getFestivalById(req.params.id);
+      const existingFestival = await getFestivalById(req.validatedParams.id);
       if (!existingFestival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
 
       const nextFestival = sanitizeFestivalPayload(req.validatedBody, existingFestival);
-      const festival = await stores.festivals.update(req.params.id, {
+      const festival = await stores.festivals.update(req.validatedParams.id, {
         name: nextFestival.name,
         location: nextFestival.location,
         b2bSeparator: nextFestival.b2bSeparator,
@@ -169,15 +169,15 @@ module.exports = function createFestivalsRoutes(deps) {
       emitter.festivalUpdated({ festival });
       return sendSuccess(res, festival);
     } catch (error) {
-      log.error('festival update failed', { error: error.message, festivalId: req.params.id });
+      log.error('festival update failed', { error: error.message, festivalId: req.validatedParams?.id });
       return sendError(res, 500, 'Failed to update festival', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
   // P3.18: Soft-delete (default). Pass ?hard=true for permanent removal.
-  router.delete('/:id', adminAuth, rateLimit(5, 'festival-delete'), validateQuery(schemas.festivalDeleteQuery), async (req, res) => {
+  router.delete('/:id', adminAuth, rateLimit(5, 'festival-delete'), validateParams(schemas.genericIdParams), validateQuery(schemas.festivalDeleteQuery), async (req, res) => {
     try {
-      const festival = await getFestivalById(req.params.id);
+      const festival = await getFestivalById(req.validatedParams.id);
       if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
       const festivalId = festival.id;
       const hardDelete = req.validatedQuery.hard === 'true';
@@ -201,7 +201,7 @@ module.exports = function createFestivalsRoutes(deps) {
       emitter.festivalDeleted({ id: festivalId });
       return sendSuccess(res, { success: true, softDeleted: !hardDelete });
     } catch (error) {
-      log.error('festival delete failed', { error: error.message, festivalId: req.params.id });
+      log.error('festival delete failed', { error: error.message, festivalId: req.validatedParams?.id });
       return sendError(res, 500, 'Failed to delete festival', ErrorCodes.INTERNAL_ERROR);
     }
   });

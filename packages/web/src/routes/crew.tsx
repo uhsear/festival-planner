@@ -70,7 +70,11 @@ function CrewViewInner() {
   }, [user, navigate]);
   if (!user) return null;
 
-  const handleSelectCrew = (crewId: string) => { selectCrew(crewId).catch(console.error); };
+  const handleSelectCrew = (crewId: string) => {
+    selectCrew(crewId).catch((e: unknown) => {
+      toast(e instanceof Error ? e.message : 'Failed to select crew', 'error');
+    });
+  };
   const handleCreateCrew = () => setCreateOpen(true);
   const submitCreateCrew = async (name: string) => {
     setCreateBusy(true);

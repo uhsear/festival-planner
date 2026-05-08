@@ -13,14 +13,14 @@ module.exports = function createProfilesRoutes(deps) {
     rateLimit,
     removeProfileSockets,
     io, emitter,
-    schemas, validate, validateParams,
+    schemas, validate, validateParams, validateQuery,
     stores,
   } = deps;
 
   const router = express.Router();
-  const { parsePageParams, paginateArray } = require('../lib/pagination');
+  const { paginateArray } = require('../lib/pagination');
 
-  router.get('/:festivalId', userAuth, validateParams(schemas.festivalIdParams), async (req, res) => {
+  router.get('/:festivalId', userAuth, validateParams(schemas.festivalIdParams), validateQuery(schemas.paginationQuery), async (req, res) => {
     try {
       setNoStore(res);
       const festivalId = req.validatedParams.festivalId;
@@ -41,7 +41,7 @@ module.exports = function createProfilesRoutes(deps) {
         .map((profile) => serializeProfileForViewer(profile, req.user.userId, usersById.get(profile.userId)));
       // Support paginated response when params present
       if (req.query.cursor || req.query.limit || req.query.pageSize) {
-        const { limit, cursor } = parsePageParams(req.query);
+        const { limit, cursor } = req.validatedQuery;
         const { items, pagination } = paginateArray(profiles, { limit, cursor });
         return sendSuccess(res, items, { pagination });
       }
