@@ -21,10 +21,10 @@ module.exports = function createCrewPollRoutes(deps) {
       const membership = await stores.crews.getMember(crewId, userId);
       if (!membership) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
       const polls = await stores.polls.listByCrew(crewId);
-      sendSuccess(res, { polls });
+      return sendSuccess(res, { polls });
     } catch (err) {
-      log.error('get polls error', { error: err.message, crewId: req.params.crewId });
-      sendError(res, 500, 'Failed to list polls', ErrorCodes.INTERNAL_ERROR);
+      log.error('get polls error', { error: err.message, crewId: req.validatedParams?.crewId });
+      return sendError(res, 500, 'Failed to list polls', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
@@ -50,10 +50,10 @@ module.exports = function createCrewPollRoutes(deps) {
         pollId: poll.id, question: poll.question, options: poll.options, createdBy: userId,
       });
       await stores.activity.log({ crewId, userId, type: 'poll-created', detail: poll.question.slice(0, 100) }).catch(() => {});
-      sendSuccess(res, { poll });
+      return sendSuccess(res, { poll });
     } catch (err) {
       log.error('create poll error', { error: err.message });
-      sendError(res, 500, 'Failed to create poll', ErrorCodes.INTERNAL_ERROR);
+      return sendError(res, 500, 'Failed to create poll', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
@@ -75,10 +75,10 @@ module.exports = function createCrewPollRoutes(deps) {
       await stores.polls.vote(pollId, userId, optionIndex);
       io.to('crew:' + crewId).emit('crew:poll-voted', { pollId, userId, optionIndex });
       await stores.activity.log({ crewId, userId, type: 'poll-voted', detail: poll.options[optionIndex] || null }).catch(() => {});
-      sendSuccess(res, { voted: true });
+      return sendSuccess(res, { voted: true });
     } catch (err) {
       log.error('vote error', { error: err.message });
-      sendError(res, 500, 'Failed to vote', ErrorCodes.INTERNAL_ERROR);
+      return sendError(res, 500, 'Failed to vote', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
@@ -100,10 +100,10 @@ module.exports = function createCrewPollRoutes(deps) {
 
       const closed = await stores.polls.close(pollId);
       io.to('crew:' + crewId).emit('crew:poll-closed', { pollId });
-      sendSuccess(res, { closed });
+      return sendSuccess(res, { closed });
     } catch (err) {
       log.error('close poll error', { error: err.message });
-      sendError(res, 500, 'Failed to close poll', ErrorCodes.INTERNAL_ERROR);
+      return sendError(res, 500, 'Failed to close poll', ErrorCodes.INTERNAL_ERROR);
     }
   });
 

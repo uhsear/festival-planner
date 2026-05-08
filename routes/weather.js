@@ -82,12 +82,12 @@ function createWeatherRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
         }
       }
 
-      sendSuccess(res, data);
+      return sendSuccess(res, data);
     } catch (err) {
       if (err.name === 'AbortError') {
         return sendSuccess(res, { available: false, reason: 'Weather request timed out' });
       }
-      sendError(res, 500, 'Failed to fetch weather data', ErrorCodes.INTERNAL_ERROR);
+      return sendError(res, 500, 'Failed to fetch weather data', ErrorCodes.INTERNAL_ERROR);
     }
   });
 

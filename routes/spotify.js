@@ -111,10 +111,10 @@ module.exports = function createSpotifyRoutes(deps) {
       // Fallback: artist embed
       const r = artistEmbed(artistId, artistName);
       setCachedPreview(setId, r);
-      sendSuccess(res, r);
+      return sendSuccess(res, r);
     } catch (err) {
-      log.error("spotify preview error", { error: err.message, setId: req.params.setId });
-      sendError(res, 500, "Failed to fetch preview", ErrorCodes.INTERNAL_ERROR);
+      log.error("spotify preview error", { error: err.message, setId: req.validatedParams?.setId });
+      return sendError(res, 500, "Failed to fetch preview", ErrorCodes.INTERNAL_ERROR);
     }
   });
 
