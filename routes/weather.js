@@ -26,7 +26,7 @@ function createWeatherRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
         [festivalId]
       );
       if (result.rows.length === 0) {
-        return sendError(res, 404, 'Festival not found');
+        return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
       }
 
       const { latitude, longitude } = result.rows[0];

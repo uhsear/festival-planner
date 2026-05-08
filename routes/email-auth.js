@@ -199,9 +199,7 @@ module.exports = function createEmailAuthRoutes(deps) {
       if (recentAttempts.length >= RESEND_VERIFY_MAX) {
         return sendError(res, 429, `Too many verification emails sent to this address. Try again in ${Math.ceil((recentAttempts[0] + RESEND_VERIFY_WINDOW - now) / 1000)}s`, ErrorCodes.RATE_LIMITED);
       }
-      recentAttempts.push(now);
       if (_resendVerifyLimits.size >= 10_000) {
-        // Evict oldest entry to prevent unbounded growth under enumeration
         _resendVerifyLimits.delete(_resendVerifyLimits.keys().next().value);
       }
       _resendVerifyLimits.set(emailKey, [...recentAttempts, now]);

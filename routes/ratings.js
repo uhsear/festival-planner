@@ -2,7 +2,7 @@
 
 const { Router } = require('express');
 
-function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCodes, rateLimit, schemas, validate, validateParams, validateQuery }) {
+function createRatingsRoutes({ stores, userAuth, log, sendSuccess, sendError, ErrorCodes, rateLimit, schemas, validate, validateParams, validateQuery }) {
   const router = Router();
   const noopLimit = (_req, _res, next) => next();
   const writeLimit = (typeof rateLimit === 'function') ? rateLimit(60, 'rating-write') : noopLimit;
@@ -24,9 +24,10 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
       }
 
       const result = await stores.ratings.upsert(req.user.userId, setId, rating, (note || '').slice(0, 500));
-      sendSuccess(res, result);
-    } catch {
-      sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
+      return sendSuccess(res, result);
+    } catch (err) {
+      log.error('rate set failed', { error: err.message, setId: req.validatedParams?.setId });
+      return sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
@@ -34,9 +35,10 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
   router.delete('/:setId', userAuth, writeLimit, validateParams(schemas.setIdParams), async (req, res) => {
     try {
       await stores.ratings.delete(req.user.userId, req.validatedParams.setId);
-      sendSuccess(res, { deleted: true });
-    } catch {
-      sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
+      return sendSuccess(res, { deleted: true });
+    } catch (err) {
+      log.error('delete rating failed', { error: err.message, setId: req.validatedParams?.setId });
+      return sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
@@ -44,9 +46,10 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
   router.get('/festival/:festivalId', userAuth, readLimit, validateParams(schemas.festivalIdParams), async (req, res) => {
     try {
       const ratings = await stores.ratings.getByUser(req.user.userId, req.validatedParams.festivalId);
-      sendSuccess(res, { ratings });
-    } catch {
-      sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
+      return sendSuccess(res, { ratings });
+    } catch (err) {
+      log.error('get user ratings failed', { error: err.message, festivalId: req.validatedParams?.festivalId });
+      return sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
@@ -58,20 +61,24 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
     try {
       const { cursor, limit } = req.validatedQuery;
       const result = await stores.ratings.getByFestival(req.validatedParams.festivalId, { cursor, limit });
-      sendSuccess(res, { ratings: result.items, nextCursor: result.nextCursor });
-    } catch {
-      sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
+      return sendSuccess(res, { ratings: result.items, nextCursor: result.nextCursor });
+    } catch (err) {
+      log.error('get festival ratings failed', { error: err.message, festivalId: req.validatedParams?.festivalId });
+      return sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
   // Get crew ratings for a festival
   router.get('/crew/:crewId/festival/:festivalId', userAuth, readLimit, validateParams(schemas.crewIdFestivalIdParams), validateQuery(schemas.paginationQuery), async (req, res) => {
     try {
+      const member = await stores.crews.getMember(req.validatedParams.crewId, req.user.userId);
+      if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
       const { cursor, limit } = req.validatedQuery;
       const result = await stores.ratings.getCrewRatings(req.validatedParams.crewId, req.validatedParams.festivalId, { cursor, limit });
-      sendSuccess(res, { ratings: result.items, nextCursor: result.nextCursor });
-    } catch {
-      sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
+      return sendSuccess(res, { ratings: result.items, nextCursor: result.nextCursor });
+    } catch (err) {
+      log.error('get crew ratings failed', { error: err.message, crewId: req.validatedParams?.crewId });
+      return sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
@@ -83,9 +90,10 @@ function createRatingsRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
         stores.ratings.getByUser(req.user.userId, req.validatedParams.festivalId),
       ]);
       const topSets = ratings.filter(r => r.rating >= 4).slice(0, 5);
-      sendSuccess(res, { stats, topSets, allRatings: ratings });
-    } catch {
-      sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
+      return sendSuccess(res, { stats, topSets, allRatings: ratings });
+    } catch (err) {
+      log.error('get wrap stats failed', { error: err.message, festivalId: req.validatedParams?.festivalId });
+      return sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
     }
   });
 

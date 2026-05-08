@@ -38,7 +38,8 @@ module.exports = function createExpenseRoutes(deps) {
 
       emitter.crewExpenseAdded({ crewId, expense });
       await stores.activity.log({ crewId, userId: req.user.userId, type: 'expense-added', detail: `${expense.description} $${expense.amount}` }).catch(()=>{});
-      return sendSuccess(res, expense, 201);
+      res.status(201);
+      return sendSuccess(res, expense);
     } catch (err) {
       log.error('create expense failed', { error: err.message });
       return sendError(res, 500, 'Failed to create expense', ErrorCodes.INTERNAL_ERROR);
@@ -97,7 +98,8 @@ module.exports = function createExpenseRoutes(deps) {
       });
       await stores.activity.log({ crewId, userId: req.user.userId, type: 'expense_settled', detail: `$${amount.toFixed(2)} to ${toUserId}` });
       emitter.crewExpenseAdded({ crewId, expense: settlement });
-      return sendSuccess(res, settlement, 201);
+      res.status(201);
+      return sendSuccess(res, settlement);
     } catch (err) {
       log.error('settle expense failed', { error: err.message });
       return sendError(res, 500, 'Failed to record settlement', ErrorCodes.INTERNAL_ERROR);

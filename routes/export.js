@@ -335,8 +335,7 @@ module.exports = function createExportRoutes(deps) {
       const online = await getPresenceList(festivalId);
       return sendSuccess(res, { online });
     } catch (error) {
-      // eslint-disable-next-line no-undef
-      log.error('presence load failed', { error: error.message, festivalId });
+      log.error('presence load failed', { error: error.message, festivalId: req.params.festivalId });
       return sendError(res, 500, 'Failed to load presence', ErrorCodes.INTERNAL_ERROR);
     }
   });

@@ -76,6 +76,15 @@ function CardsViewInner() {
     return getConflictingSetIds(filteredSets, getMyPick);
   }, [filteredSets, getMyPick]);
 
+  const conflictsBySetId = useMemo(() => {
+    const conflictSets = filteredSets.filter((s) => conflictIds.has(s.id));
+    const map = new Map<string, typeof conflictSets>();
+    for (const s of conflictSets) {
+      map.set(s.id, conflictSets.filter((c) => c.id !== s.id));
+    }
+    return map;
+  }, [filteredSets, conflictIds]);
+
   // Show layout-matched skeleton while festivals are being fetched on boot
   // — same component the router uses for the chunk-load fallback so the
   // visual is continuous across route-transition → data-fetch.
@@ -102,9 +111,7 @@ function CardsViewInner() {
             const sc = getStageColor(set.stageId);
             const sn = getStageName(set.stageId) || 'Unknown';
             const others = getOtherPicks(set.id);
-            const setConflicts = conflictIds.has(set.id)
-              ? filteredSets.filter((s) => s.id !== set.id && conflictIds.has(s.id))
-              : [];
+            const setConflicts = conflictsBySetId.get(set.id) || [];
 
             return (
               <div

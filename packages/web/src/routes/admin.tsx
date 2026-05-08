@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { useAuthStore } from '@festie/shared';
 import { useNavigate } from '@tanstack/react-router';
 import AdminLayout from '../components/admin/AdminLayout';
-import AdminDashboard from '../components/admin/AdminDashboard';
-import AdminFestivals from '../components/admin/AdminFestivals';
-import AdminUsers from '../components/admin/AdminUsers';
-import AdminCrews from '../components/admin/AdminCrews';
-import AdminAudit from '../components/admin/AdminAudit';
-import AdminAnalytics from '../components/admin/AdminAnalytics';
+
+const AdminDashboard = lazy(() => import('../components/admin/AdminDashboard'));
+const AdminFestivals = lazy(() => import('../components/admin/AdminFestivals'));
+const AdminUsers = lazy(() => import('../components/admin/AdminUsers'));
+const AdminCrews = lazy(() => import('../components/admin/AdminCrews'));
+const AdminAudit = lazy(() => import('../components/admin/AdminAudit'));
+const AdminAnalytics = lazy(() => import('../components/admin/AdminAnalytics'));
 
 type AdminTab = 'dashboard' | 'festivals' | 'users' | 'crews' | 'audit' | 'analytics';
 
@@ -67,7 +68,9 @@ export default function AdminPanel() {
       onTabChange={(tab) => setActiveTab(tab as AdminTab)}
       tabs={tabs}
     >
-      {renderContent()}
+      <Suspense fallback={<div className="flex-center p-8 text-text-muted">Loading…</div>}>
+        {renderContent()}
+      </Suspense>
     </AdminLayout>
   );
 }

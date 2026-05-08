@@ -163,6 +163,7 @@ function makeDeps(overrides = {}) {
       },
       roles: {
         getUserRoles: mock.fn(async () => ['admin']),
+        getUserRolesBatch: mock.fn(async (ids) => new Map(ids.map((id) => [id, ['admin']]))),
         grantRole: mock.fn(async () => {}),
         revokeRole: mock.fn(async () => {}),
       },

@@ -40,10 +40,7 @@ module.exports = function mountAdminUserRoutes({ router, deps, ctx }) {
         profilesByUser.get(profile.userId).push(profile);
       }
 
-      // Fetch roles for all users in parallel
-      const rolePromises = users.map(u => stores.roles.getUserRoles(u.id).then(roles => [u.id, roles]));
-      const roleEntries = await Promise.all(rolePromises);
-      const rolesByUser = new Map(roleEntries);
+      const rolesByUser = await stores.roles.getUserRolesBatch(users.map(u => u.id));
 
       let items = users.map((user) => {
         const userProfiles = profilesByUser.get(user.id) || [];
