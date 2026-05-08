@@ -121,7 +121,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
             <label className="block text-sm font-medium text-text-primary mb-2">Options (2–4)</label>
             <div className="space-y-2">
               {options.map((o, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={`opt-${i}`} className="flex items-center gap-2">
                   <input className="input-base flex-1 min-h-11" value={o}
                     onChange={(e) => updateOpt(i, e.target.value)} placeholder={`Option ${i + 1}`}
                     aria-label={`Poll option ${i + 1}`} required />

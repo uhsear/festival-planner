@@ -80,7 +80,7 @@ export default function WrapPoster({ festivalName, topSets, stats }: Props) {
         </div>
         {topSets.slice(0, 5).map((s, i) => (
           <div
-            key={i}
+            key={s.artist || i}
             style={{
               display: 'flex',
               alignItems: 'center',

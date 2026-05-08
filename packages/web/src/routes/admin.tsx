@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useState } from 'react';
 import { useAuthStore } from '@festie/shared';
 import { useNavigate } from '@tanstack/react-router';
 import AdminLayout from '../components/admin/AdminLayout';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 
 const AdminDashboard = lazy(() => import('../components/admin/AdminDashboard'));
 const AdminFestivals = lazy(() => import('../components/admin/AdminFestivals'));
@@ -13,6 +14,14 @@ const AdminAnalytics = lazy(() => import('../components/admin/AdminAnalytics'));
 type AdminTab = 'dashboard' | 'festivals' | 'users' | 'crews' | 'audit' | 'analytics';
 
 export default function AdminPanel() {
+  return (
+    <RenderErrorBoundary name="admin">
+      <AdminPanelInner />
+    </RenderErrorBoundary>
+  );
+}
+
+function AdminPanelInner() {
   const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');

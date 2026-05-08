@@ -4,9 +4,18 @@ import { useAuth } from '@festie/shared';
 import { useToast } from '../lib/toastContext';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { CheckCircle } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
+  return (
+    <RenderErrorBoundary name="forgot-password">
+      <ForgotPasswordPageInner />
+    </RenderErrorBoundary>
+  );
+}
+
+function ForgotPasswordPageInner() {
   const { forgotPassword, isLoading, error } = useAuth();
   const { toast } = useToast();
 

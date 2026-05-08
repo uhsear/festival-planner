@@ -2,8 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { useAuth } from '@festie/shared';
 import { useToast } from '../lib/toastContext';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 
 export default function LoginPage() {
+  return (
+    <RenderErrorBoundary name="login">
+      <LoginPageInner />
+    </RenderErrorBoundary>
+  );
+}
+
+function LoginPageInner() {
   const navigate = useNavigate();
   const { login, isLoading, error } = useAuth();
   const { toast } = useToast();
