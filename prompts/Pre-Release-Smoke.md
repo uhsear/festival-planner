@@ -73,7 +73,7 @@ SW registered, manifest loads, install prompt works on Chrome/Edge.
 ===============================================================
 PHASE 6 -- Multi-device (Playwright MCP)
 ===============================================================
-Routes x {guest, logged-in} x {iPhone SE 320x568, iPhone 14, iPhone 14 Pro Max, Pixel 7}: /, /picks, /crew, /grid, /timeline.
+Routes x {guest, logged-in} x {iPhone SE 320x568, iPhone 14, iPhone 14 Pro Max, Pixel 7}: /, /cards, /picks, /crew, /grid, /timeline, /account, /wrap, /compare, /festival-mode.
 
 Per cell, verify via browser_snapshot:
 - view matches URL

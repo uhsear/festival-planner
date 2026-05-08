@@ -30,7 +30,7 @@ Personas:
                 After register: `.profile-badge` visible, `.admin-badge` absent.
   3. ADMIN    -- username `asir`, app password from `$FP_APP_TEST_PASS` env var.
 
-Routes (per persona): /, /picks, /crew, /grid, /timeline, admin panel (admin only).
+Routes (per persona): /, /cards, /picks, /crew, /grid, /timeline, /account, /wrap, /compare, /festival-mode, admin panel (admin only).
 Plus: open a set detail card, the user menu, the festival switcher.
 
 ===================================================================
@@ -91,7 +91,7 @@ PASS N:
 
 3. FIX (sequential, single-thread -- shared files are serialized)
    - Tailwind utility classes in component files for layout/spacing/sizing changes.
-   - Custom CSS in `packages/web/src/styles/globals.css` for anything beyond utilities.
+   - Custom CSS in `packages/web/src/styles/components.css` or `pages.css` for anything beyond utilities.
    - Markup/component: edit the precise `packages/web/src/routes/*.tsx` or `packages/web/src/components/**/*.tsx`.
    - No console.log. No magic px -- use Tailwind spacing/sizing tokens. Touch targets via `min-h-11 min-w-11` (44px).
 

@@ -49,7 +49,7 @@ COMMON REGRESSIONS (from 2026-04-14 sprints):
   - Migration runner (lib/planner-db-pg.js): skip when NODE_ENV=test or DB URL matches /_test(\?|$)/ to avoid re-applying into the test harness schema.
   - Test DB pollution: each integration suite must run `truncateAllTables()` + its own `ensureTestSchema()` so cross-suite state doesn't leak.
   - Zustand store not re-fetching after auth state changes: stores that cache user-scoped data must subscribe to auth state and invalidate on login/logout.
-  - Tailwind preflight re-enabled: must stay disabled -- `globals.css` imports only `theme.css` + `utilities.css`. If preflight is on, component styles break.
+  - Tailwind preflight re-enabled: must stay disabled -- `globals.css` imports `theme.css`, `base.css`, `components.css`, `animations.css`, `pages.css`, `light-theme.css`. If preflight is on, component styles break.
   - `pnpm build` must succeed before deploy: TypeScript errors block the Vite build. Never skip the build step.
   - Vite proxy config (`vite.config.ts`): Origin header rewrite required for CSRF, cookie Secure flag must be stripped for local dev. Do not remove proxy rewrites without verifying CSRF + auth still work.
 

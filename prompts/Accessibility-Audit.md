@@ -15,7 +15,7 @@ STANDARD: WCAG 2.2 AA. If a skill references older WCAG, prefer 2.2 and note the
 
 SCOPE per persona x route (critical 5 routes):
   Personas: GUEST, REGULAR (register fresh: qabot_<epoch36>/Qa!bot1234test), ADMIN (asir / password from $FP_APP_TEST_PASS)
-  Routes: /, /picks, /crew, /grid, /timeline
+  Routes: /, /cards, /picks, /crew, /grid, /timeline, /account, /wrap, /compare, /festival-mode
 
 PARALLEL (Agent tool, run_in_background: true):
   - Agent per persona-route matrix (each agent runs independent Playwright MCP calls and produces a per-cell report)
@@ -54,7 +54,7 @@ WCAG Success Criteria to check explicitly:
 - 4.1.2 Name, Role, Value -- aria on custom components
 
 ## Phase 3 -- Fix
-Component fixes: edit the precise React component under `packages/web/src/routes/*.tsx` or `packages/web/src/components/**/*.tsx` via Edit tool. Use Tailwind utilities for spacing/sizing adjustments. For custom CSS beyond utilities, add to `packages/web/src/styles/globals.css`.
+Component fixes: edit the precise React component under `packages/web/src/routes/*.tsx` or `packages/web/src/components/**/*.tsx` via Edit tool. Use Tailwind utilities for spacing/sizing adjustments. For custom CSS beyond utilities, add to `packages/web/src/styles/components.css` or `pages.css`.
 Ship via paramiko SFTP (test gate -> commit -> `pnpm build` -> `pm2 restart festie` -> health). Vite produces content-hashed filenames -- no manual cache-bust needed.
 
 ## Phase 4 -- Re-verify
