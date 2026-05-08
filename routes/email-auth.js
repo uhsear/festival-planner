@@ -250,10 +250,10 @@ module.exports = function createEmailAuthRoutes(deps) {
   async function resolveResetToken(token) {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    if (state._adminResetTokens?.has(token)) {
-      const tokenData = state._adminResetTokens.get(token);
+    if (state._adminResetTokens?.has(tokenHash)) {
+      const tokenData = state._adminResetTokens.get(tokenHash);
       if (Date.now() > tokenData.expiresAt) {
-        state._adminResetTokens.delete(token);
+        state._adminResetTokens.delete(tokenHash);
         return { error: { status: 400, message: 'Reset link has expired', code: ErrorCodes.INVALID_INPUT } };
       }
       return { userId: tokenData.userId };
@@ -281,10 +281,11 @@ module.exports = function createEmailAuthRoutes(deps) {
         return sendError(res, resolved.error.status, resolved.error.message, resolved.error.code);
       }
       const { userId: targetUserId } = resolved;
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
       const user = await getUserById(targetUserId);
       if (!user) {
-        state._adminResetTokens.delete(token);
+        state._adminResetTokens.delete(tokenHash);
         return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
       }
 
@@ -292,7 +293,7 @@ module.exports = function createEmailAuthRoutes(deps) {
       invalidateUserCache();
       await invalidateUserSessions(targetUserId);
       disconnectUserSockets(targetUserId, io);
-      state._adminResetTokens.delete(token);
+      state._adminResetTokens.delete(tokenHash);
 
       const auditLog = createAuditLog('user_reset_password', 'user', {
         userId: targetUserId,

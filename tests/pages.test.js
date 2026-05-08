@@ -188,9 +188,10 @@ describe('pages: /reset/:token', () => {
 
   it('shows form page for valid token found in admin reset tokens', async () => {
     const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const state = {
       _adminResetTokens: new Map([
-        [token, { userId: 'user-1', expiresAt: Date.now() + 3600000 }],
+        [tokenHash, { userId: 'user-1', expiresAt: Date.now() + 3600000 }],
       ]),
     };
     const router = createPageRoutes(buildDeps({ state }));
@@ -206,9 +207,10 @@ describe('pages: /reset/:token', () => {
 
   it('shows error for expired admin token', async () => {
     const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const state = {
       _adminResetTokens: new Map([
-        [token, { userId: 'user-1', expiresAt: Date.now() - 1000 }],
+        [tokenHash, { userId: 'user-1', expiresAt: Date.now() - 1000 }],
       ]),
     };
     const router = createPageRoutes(buildDeps({ state }));

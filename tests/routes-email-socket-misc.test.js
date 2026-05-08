@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { describe, test, mock, beforeEach } = require('node:test');
+const crypto = require('crypto');
 const express = require('express');
 const request = require('supertest');
 
@@ -512,7 +513,8 @@ describe('routes/email-auth', () => {
 
   test('POST /reset-password — succeeds with admin in-memory token', async () => {
     const deps = buildEmailAuthDeps();
-    deps.state._adminResetTokens.set('admin-tok', { userId: 'user-1', expiresAt: Date.now() + 60_000 });
+    const adminTokHash = crypto.createHash('sha256').update('admin-tok').digest('hex');
+    deps.state._adminResetTokens.set(adminTokHash, { userId: 'user-1', expiresAt: Date.now() + 60_000 });
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -523,13 +525,14 @@ describe('routes/email-auth', () => {
       .expect(200);
 
     assert.equal(res.body.ok, true);
-    // Token should be deleted after use
-    assert.equal(deps.state._adminResetTokens.has('admin-tok'), false);
+    // Token hash should be deleted after use
+    assert.equal(deps.state._adminResetTokens.has(adminTokHash), false);
   });
 
   test('POST /reset-password — rejects expired admin token', async () => {
     const deps = buildEmailAuthDeps();
-    deps.state._adminResetTokens.set('expired-tok', { userId: 'user-1', expiresAt: Date.now() - 1000 });
+    const expiredTokHash = crypto.createHash('sha256').update('expired-tok').digest('hex');
+    deps.state._adminResetTokens.set(expiredTokHash, { userId: 'user-1', expiresAt: Date.now() - 1000 });
     // consumeResetToken returns null by default (no DB token fallback)
     createEmailAuthRoutes = require('../routes/email-auth');
     const router = createEmailAuthRoutes(deps);

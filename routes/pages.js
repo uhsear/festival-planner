@@ -24,27 +24,29 @@ module.exports = function createPageRoutes(deps) {
 
   // GET /reset/:token — Password reset form page (admin-initiated)
   router.get('/reset/:token', rateLimit(config.AUTH_RATE_LIMIT_MAX, 'reset-form'), async (req, res) => {
-    const setResetHeaders = () => {
+    const nonce = crypto.randomBytes(16).toString('base64');
+    const setResetHeaders = (includeScript) => {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'");
+      const scriptSrc = includeScript ? ` script-src 'nonce-${nonce}';` : '';
+      res.setHeader('Content-Security-Policy', `default-src 'none'; style-src 'nonce-${nonce}';${scriptSrc} connect-src 'self'; frame-ancestors 'none'`);
     };
     try {
       const token = String(req.params.token || '').trim();
       if (!token || !/^[a-f0-9]{64}$/.test(token)) {
-        setResetHeaders();
-        return res.send(renderResetErrorPage('Invalid or expired reset link'));
+        setResetHeaders(false);
+        return res.send(renderResetErrorPage('Invalid or expired reset link', nonce));
       }
 
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       let tokenValid = false;
 
-      if (state._adminResetTokens?.has(token)) {
-        const tokenData = state._adminResetTokens.get(token);
+      if (state._adminResetTokens?.has(tokenHash)) {
+        const tokenData = state._adminResetTokens.get(tokenHash);
         if (Date.now() <= tokenData.expiresAt) {
           tokenValid = true;
         } else {
-          state._adminResetTokens.delete(token);
+          state._adminResetTokens.delete(tokenHash);
         }
       }
 
@@ -58,38 +60,41 @@ module.exports = function createPageRoutes(deps) {
         if (dbResult.rows.length > 0) {
           const row = dbResult.rows[0];
           tokenValid = true;
-          state._adminResetTokens.set(token, { userId: row.userId, expiresAt: new Date(row.expiresAt).getTime() });
+          state._adminResetTokens.set(tokenHash, { userId: row.userId, expiresAt: new Date(row.expiresAt).getTime() });
         }
       }
 
       if (!tokenValid) {
-        setResetHeaders();
-        return res.send(renderResetErrorPage('Invalid or expired reset link'));
+        setResetHeaders(false);
+        return res.send(renderResetErrorPage('Invalid or expired reset link', nonce));
       }
 
-      setResetHeaders();
-      return res.send(renderResetFormPage(token, config.PUBLIC_ORIGIN));
+      setResetHeaders(true);
+      return res.send(renderResetFormPage(token, config.PUBLIC_ORIGIN, nonce));
     } catch (error) {
       log.error('reset page error', { error: error.message });
+      const errorNonce = crypto.randomBytes(16).toString('base64');
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'");
-      return res.send(renderResetErrorPage('Failed to load reset page'));
+      res.setHeader('Content-Security-Policy', `default-src 'none'; style-src 'nonce-${errorNonce}'; frame-ancestors 'none'`);
+      return res.send(renderResetErrorPage('Failed to load reset page', errorNonce));
     }
   });
 
   // GET /reset-password — Self-service password reset form (from forgot-password email)
   router.get('/reset-password', rateLimit(10, 'reset-page'), async (req, res) => {
-    const setResetHeaders = () => {
+    const nonce = crypto.randomBytes(16).toString('base64');
+    const setResetHeaders = (includeScript) => {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'");
+      const scriptSrc = includeScript ? ` script-src 'nonce-${nonce}';` : '';
+      res.setHeader('Content-Security-Policy', `default-src 'none'; style-src 'nonce-${nonce}';${scriptSrc} connect-src 'self'; frame-ancestors 'none'`);
       res.setHeader('Referrer-Policy', 'no-referrer');
     };
     try {
       const token = String(req.query.token || '').trim();
       if (!token || !/^[a-f0-9]{64}$/.test(token)) {
-        setResetHeaders();
-        return res.send(renderResetErrorPage('Invalid or expired reset link'));
+        setResetHeaders(false);
+        return res.send(renderResetErrorPage('Invalid or expired reset link', nonce));
       }
 
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -99,17 +104,18 @@ module.exports = function createPageRoutes(deps) {
       );
 
       if (result.rows.length === 0) {
-        setResetHeaders();
-        return res.send(renderResetErrorPage('This reset link has expired or already been used'));
+        setResetHeaders(false);
+        return res.send(renderResetErrorPage('This reset link has expired or already been used', nonce));
       }
 
-      setResetHeaders();
-      return res.send(renderResetFormPage(token, config.PUBLIC_ORIGIN));
+      setResetHeaders(true);
+      return res.send(renderResetFormPage(token, config.PUBLIC_ORIGIN, nonce));
     } catch (error) {
       log.error('reset-password page error', { error: error.message });
+      const errorNonce = crypto.randomBytes(16).toString('base64');
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'");
-      return res.send(renderResetErrorPage('Failed to load reset page'));
+      res.setHeader('Content-Security-Policy', `default-src 'none'; style-src 'nonce-${errorNonce}'; frame-ancestors 'none'`);
+      return res.send(renderResetErrorPage('Failed to load reset page', errorNonce));
     }
   });
 
