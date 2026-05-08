@@ -1021,7 +1021,7 @@ describe('routes/crew-features', () => {
     const res = await request(app)
       .post('/crew-1/meeting-points')
       .send({ label: 'Water Station', location: 'Near stage 3', type: 'during' })
-      .expect(200);
+      .expect(201);
 
     assert.equal(res.body.ok, true);
   });
