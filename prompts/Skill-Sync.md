@@ -21,7 +21,7 @@ GATHER from production (paramiko script from main thread):
 - Dependencies: npm ls --depth=0, npm audit --json summary
 - Tests: `cd /home/asir/festival-planner && npm test` -- record pass/fail counts. Any regression -> halt and flag.
 - Security: Helmet config, CORS allowlist, rate-limit table, auth middleware mounts, CSP directives
-- Frontend: React 19 + TanStack Router + Zustand + Vite 6 + Tailwind CSS 4. Source at `packages/web/src/`. Shared at `packages/shared/src/`. Scan for drift.
+- Frontend: React 19 + TanStack Router + Zustand + Vite 8 + Tailwind CSS 4. Source at `packages/web/src/`. Shared at `packages/shared/src/`. Scan for drift.
 - CI: `gh run list --limit 5` -- latest main-branch run must be success
 
 COMPARE each skill at .claude/skills/<name>/SKILL.md against gathered state for drift:

@@ -10,7 +10,7 @@ Real-time festival crew coordination app. Create festivals, pick sets from the l
 |-------|-----------|
 | Backend | Node.js 22, Express 5, Socket.IO 4 |
 | Database | PostgreSQL 16, Redis 7 |
-| Frontend | React 19, Vite 6, TypeScript, TanStack Router, Zustand, Tailwind CSS 4 |
+| Frontend | React 19, Vite 8, TypeScript, TanStack Router, Zustand, Tailwind CSS 4 |
 | Monorepo | pnpm workspaces + Turborepo |
 | Testing | Node built-in test runner, Playwright |
 | Deployment | PM2 cluster, Cloudflare Tunnel, Docker |

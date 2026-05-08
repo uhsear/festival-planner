@@ -98,7 +98,7 @@ PASS N:
 4. SHIP (paramiko deploy)
    - Test gate (`npm test`, 0 fails required).
    - git commit + push.
-   - `pnpm build` (Vite 6 produces content-hashed assets in `packages/web/dist/` -- no manual cache-bust needed). Vite-PWA generates sw.js in dist/.
+   - `pnpm build` (Vite 8 produces content-hashed assets in `packages/web/dist/` -- no manual cache-bust needed). Vite-PWA generates sw.js in dist/.
    - SFTP dist + changed files -> `pm2 restart festie`.
    - Health check.
 

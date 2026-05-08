@@ -24,7 +24,7 @@ Do **not** open public issues for security findings. Report them per [SECURITY.m
 ## Tech Stack
 
 - **Backend:** Node.js 22, Express 4, Socket.IO 4, PostgreSQL 16, Redis 7
-- **Frontend:** React 19 + Vite 6 + TypeScript (`packages/web/`)
+- **Frontend:** React 19 + Vite 8 + TypeScript (`packages/web/`)
 - **State:** Zustand (client), TanStack Router (routing)
 - **Workspace:** pnpm monorepo (`packages/`)
 

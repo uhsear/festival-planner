@@ -26,7 +26,7 @@ Default: `/spec` -> `/plan` -> `/build` -> `/test` -> `/review` -> `/ship`. Skip
 
 **Playwright MCP** (user-scope): `mcp__playwright__browser_navigate`, `browser_snapshot`, `browser_take_screenshot`, `browser_console_messages`, `browser_click`, `browser_type`, `browser_press_key`, `browser_resize`, `browser_evaluate`, `browser_close`. Screenshots to `.playwright-mcp/<flow>-<date>/`.
 
-**Context7 MCP**: `mcp__claude_ai_Context7__query-docs` for up-to-date library docs (React 19, Vite 6, TanStack Router, Express 5, etc.).
+**Context7 MCP**: `mcp__claude_ai_Context7__query-docs` for up-to-date library docs (React 19, Vite 8, TanStack Router, Express 5, etc.).
 
 **Code-review-graph MCP**: For token-efficient code context -- `get_review_context_tool`, `get_impact_radius_tool`, `get_architecture_overview_tool`, `detect_changes_tool`, `find_large_functions_tool`. Build/update graph with `build_or_update_graph_tool`.
 
@@ -40,7 +40,7 @@ Default: `/spec` -> `/plan` -> `/build` -> `/test` -> `/review` -> `/ship`. Skip
 7. Health check: `curl http://127.0.0.1:4000/api/health`
 8. CI watch: `gh run list --limit 1` then `gh run view <id>`
 
-**Stack**: Node 22 + Express 5 + Socket.IO 4 + PostgreSQL 16 + Redis 7. React 19 + Vite 6 + TanStack Router + Zustand + Tailwind CSS 4. Monorepo: backend at root (npm), `packages/web/` + `packages/shared/` (pnpm). Vite produces content-hashed assets -- no manual cache-bust.
+**Stack**: Node 22 + Express 5 + Socket.IO 4 + PostgreSQL 16 + Redis 7. React 19 + Vite 8 + TanStack Router + Zustand + Tailwind CSS 4. Monorepo: backend at root (npm), `packages/web/` + `packages/shared/` (pnpm). Vite produces content-hashed assets -- no manual cache-bust.
 
 **Parallel work**: Agent tool with `run_in_background: true` for independent pieces. Sequential only for writes to shared files.
 

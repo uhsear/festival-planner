@@ -56,7 +56,7 @@ Dispatch Agent tool (run_in_background: true) for independent pieces (e.g., fron
 Run /review or dispatch review agent. Fix CRITICAL + HIGH before shipping. Document MEDIUM/LOW in feature notes.
 
 ## Phase 6 -- Ship (paramiko deploy)
-Steps: SFTP files to server -> `npm test` on server (halt on regression) -> git commit/push -> `pnpm build` (Vite 6 produces content-hashed assets in `packages/web/dist/`) -> `pm2 restart festie` -> health check -> `gh run list` for CI.
+Steps: SFTP files to server -> `npm test` on server (halt on regression) -> git commit/push -> `pnpm build` (Vite 8 produces content-hashed assets in `packages/web/dist/`) -> `pm2 restart festie` -> health check -> `gh run list` for CI.
 Vite hashed filenames -- no manual cache-bust needed. Vite-PWA generates sw.js + workbox precaching in dist/.
 
 ## Phase 7 -- Verify (Playwright MCP)

@@ -43,7 +43,7 @@ No console.log in prod code. .env complete (RESEND_API_KEY, EMAIL_FROM, SPOTIFY_
 ESLint `preserve-caught-error`: every re-thrown Error carries `{ cause: origErr }`.
 
 ### Layer 4 -- Frontend (Playwright MCP)
-No JS errors, no failed requests, no mixed content. React 19 frontend served from `packages/web/dist/` (Vite 6, TanStack Router). Client-side routing (/cards, /crew, /picks, /timeline) works on direct access + back/forward. Vite hashed assets -- no manual cache-bust needed. Vite-PWA generates `sw.js` + workbox precaching in `dist/`. Socket connected. Security headers present.
+No JS errors, no failed requests, no mixed content. React 19 frontend served from `packages/web/dist/` (Vite 8, TanStack Router). Client-side routing (/cards, /crew, /picks, /timeline) works on direct access + back/forward. Vite hashed assets -- no manual cache-bust needed. Vite-PWA generates `sw.js` + workbox precaching in `dist/`. Socket connected. Security headers present.
 
 Multi-device pass: iPhone SE 320x568, iPhone 14, Pixel 7 x {/, /picks, /crew, /grid, /timeline} x {guest, logged-in}.
 Per cell: browser_snapshot -> view matches URL; bottom-nav not occluded; touch >= 44px; no horizontal scroll; browser_console_messages level=error returns only expected guest 401s.
