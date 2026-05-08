@@ -590,6 +590,11 @@ describe('lib/socket-setup.js', () => {
     return {
       config: {
         ALLOWED_ORIGINS: ['https://example.com'],
+        SOCKET_KEEPALIVE_TIMEOUT: 65_000,
+        SOCKET_HEADERS_TIMEOUT: 66_000,
+        SOCKET_PING_TIMEOUT: 60_000,
+        SOCKET_PING_INTERVAL: 25_000,
+        SOCKET_MAX_HTTP_BUFFER: 100_000,
         ...overrides.config,
       },
       log: {

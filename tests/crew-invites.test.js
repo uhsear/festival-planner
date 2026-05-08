@@ -119,7 +119,8 @@ function makeInviteDeps(overrides = {}) {
     },
     rateLimit: overrides.rateLimit || (() => (_req, _res, next) => next()),
     validate: overrides.validate || (() => (req, _res, next) => { req.validatedBody = req.body; next(); }),
-    schemas: { crewJoin: {} },
+    validateParams: overrides.validateParams || (() => (req, _res, next) => { req.validatedParams = req.params; next(); }),
+    schemas: { crewJoin: {}, crewIdParams: {} },
     io: overrides.io !== undefined ? overrides.io : ioObj,
     stores,
     _crewHelpers: {

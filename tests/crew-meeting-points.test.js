@@ -88,7 +88,7 @@ function makeDeps(overrides = {}) {
     }),
     sanitizeIdentifier: overrides.sanitizeIdentifier || ((s) => (typeof s === 'string' ? s.trim() : '')),
     createOpaqueId: overrides.createOpaqueId || mock.fn(() => 'mp-new-1'),
-    sendSuccess: (res, data, status) => res.status(status || 200).json({ ok: true, ...data }),
+    sendSuccess: (res, data) => res.json({ ok: true, ...data }),
     sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
