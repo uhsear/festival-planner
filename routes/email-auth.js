@@ -313,6 +313,7 @@ module.exports = function createEmailAuthRoutes(deps) {
 
 // ── Email verification result page ──────────────────────────────────────
 function _verifyEmailPage(message, success) {
+  const { escapeHtml } = require('../lib/helpers/sanitize');
   const icon = success ? '&#10003;' : '&#10007;';
   const color = success ? '#22c55e' : '#ef4444';
   return `<!DOCTYPE html>
@@ -323,7 +324,7 @@ function _verifyEmailPage(message, success) {
 <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:48px;text-align:center;max-width:400px">
   <div style="font-size:48px;color:${color};margin-bottom:16px">${icon}</div>
   <h1 style="color:#e4e4e7;font-size:20px;margin:0 0 12px">Festie</h1>
-  <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0">${message}</p>
+  <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0">${escapeHtml(message)}</p>
 </div>
 </body>
 </html>`;
