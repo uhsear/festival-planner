@@ -35,6 +35,14 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
     onSelectDay: setSelectedDay,
   });
 
+  const handleDaySelect = useCallback(
+    (dayIndex: number) => {
+      selectHaptic();
+      setSelectedDay(dayIndex);
+    },
+    [selectHaptic, setSelectedDay],
+  );
+
   const handleFestivalChange = useCallback(
     async (e: React.ChangeEvent<HTMLSelectElement>) => {
       const id = e.target.value;
@@ -100,7 +108,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                 aria-selected={selectedDay === i}
                 aria-controls="main-content"
                 tabIndex={selectedDay === i ? 0 : -1}
-                onClick={() => { selectHaptic(); setSelectedDay(i); }}
+                onClick={() => handleDaySelect(i)}
               >
                 {day.label || day.date}
               </button>

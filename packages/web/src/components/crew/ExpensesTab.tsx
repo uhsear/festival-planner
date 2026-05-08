@@ -128,6 +128,10 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
     setSplitWith((prev) => (prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]));
   }
 
+  function handleSettle(toUserId: string, theirBalance: number) {
+    settle.mutate({ toUserId, amount: Math.min(Math.abs(myBalance), theirBalance) });
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const amt = Number(amount);
@@ -176,7 +180,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
                   </span>
                 </span>
                 {iOwe && (
-                  <Button variant="outline" onClick={() => settle.mutate({ toUserId: b.userId, amount: Math.min(Math.abs(myBalance), b.balance) })}
+                  <Button variant="outline" onClick={() => handleSettle(b.userId, b.balance)}
                     className="!py-1 !px-3 text-xs min-h-11">
                     <HandCoins className="w-3.5 h-3.5" aria-hidden="true" /> Settle up
                   </Button>

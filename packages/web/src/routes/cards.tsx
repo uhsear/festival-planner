@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
@@ -30,6 +30,14 @@ function CardsViewInner() {
   const setDetailAutoSpotify = useUIStore((state) => state.setDetailAutoSpotify);
   const { getMyPick, getOtherPicks } = usePicks();
   const { getStageColor, getStageName } = useFestival();
+
+  const handlePreview = useCallback(
+    (set: Parameters<typeof setDetailSet>[0]) => {
+      setDetailAutoSpotify(true);
+      setDetailSet(set);
+    },
+    [setDetailAutoSpotify, setDetailSet],
+  );
 
   // Filter sets by day, stages, and search query — mirrors legacy filteredSets()
   const filteredSets = useMemo(() => {
@@ -122,7 +130,7 @@ function CardsViewInner() {
                 <SetCard
                   set={set}
                   onTap={() => setDetailSet(set)}
-                  onPreview={() => { setDetailAutoSpotify(true); setDetailSet(set); }}
+                  onPreview={() => handlePreview(set)}
                   showPicks={!!currentProfile}
                   stageName={sn}
                   stageColor={sc}

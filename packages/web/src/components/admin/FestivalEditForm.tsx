@@ -69,6 +69,20 @@ export default function FestivalEditForm({
     });
   };
 
+  const handleStageName = (index: number, value: string) => {
+    const updated = (formData.stages || []).map((s, i) =>
+      i === index ? { ...s, name: value } : s,
+    );
+    setFormData({ ...formData, stages: updated });
+  };
+
+  const handleStageColor = (index: number, value: string) => {
+    const updated = (formData.stages || []).map((s, i) =>
+      i === index ? { ...s, color: value } : s,
+    );
+    setFormData({ ...formData, stages: updated });
+  };
+
   // ── Days ──────────────────────────────────────────────────────
   const handleAddDay = () => {
     setFormData({
@@ -174,21 +188,13 @@ export default function FestivalEditForm({
                 type="text"
                 placeholder="Stage name"
                 value={stage.name}
-                onChange={(e) => {
-                  const updated = [...(formData.stages || [])];
-                  if (updated[i]) updated[i].name = e.target.value;
-                  setFormData({ ...formData, stages: updated });
-                }}
+                onChange={(e) => handleStageName(i, e.target.value)}
                 className="flex-1 px-3 py-2 rounded-lg bg-bg-primary border border-glass-border text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
               />
               <input
                 type="color"
                 value={stage.color}
-                onChange={(e) => {
-                  const updated = [...(formData.stages || [])];
-                  if (updated[i]) updated[i].color = e.target.value;
-                  setFormData({ ...formData, stages: updated });
-                }}
+                onChange={(e) => handleStageColor(i, e.target.value)}
                 className="w-12 h-10 rounded-lg cursor-pointer"
               />
               <button
