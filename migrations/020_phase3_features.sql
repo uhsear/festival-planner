@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS crew_expenses (
   description TEXT NOT NULL,
   amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
   split_with JSONB DEFAULT '[]',
+  category VARCHAR(20) DEFAULT 'other',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
