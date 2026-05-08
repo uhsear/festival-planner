@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { Priority } from '@festie/shared/types';
 
 const PRIORITY_STYLE: Record<Priority, { label: string; bg: string; fg: string }> = {
@@ -11,7 +11,7 @@ export interface CompareCellProps {
   priority: Priority | undefined;
 }
 
-export default function CompareCell({ priority }: CompareCellProps) {
+export default memo(function CompareCell({ priority }: CompareCellProps) {
   return (
     <td className="py-3 px-2 text-center align-middle">
       {priority ? (
@@ -26,4 +26,4 @@ export default function CompareCell({ priority }: CompareCellProps) {
       )}
     </td>
   );
-}
+});

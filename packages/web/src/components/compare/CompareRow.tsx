@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { formatTime } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import CompareCell from './CompareCell';
@@ -28,7 +28,7 @@ function pickFor(
   return others?.find((o) => o.profileId === profileId)?.priority;
 }
 
-export default function CompareRow({
+export default memo(function CompareRow({
   set,
   mine,
   others,
@@ -60,4 +60,4 @@ export default function CompareRow({
       ))}
     </tr>
   );
-}
+});

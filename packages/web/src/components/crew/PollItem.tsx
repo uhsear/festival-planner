@@ -59,7 +59,7 @@ export default function PollItem({
           const winning = votes === maxCount && votes > 0;
           return (
             <PollOptionButton
-              key={i}
+              key={`${poll.id}-${i}`}
               pollId={poll.id}
               optionIndex={i}
               text={text}
@@ -79,7 +79,7 @@ export default function PollItem({
           disabled={isClosePending}
           className="min-h-11 flex items-center gap-2 text-xs text-accent-coral hover:opacity-80"
         >
-          <Trash2 className="w-3.5 h-3.5" /> Close poll
+          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" /> Close poll
         </button>
       )}
     </div>

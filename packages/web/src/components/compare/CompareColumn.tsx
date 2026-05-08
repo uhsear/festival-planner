@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import Avatar from '../ui/Avatar';
 
 export interface CompareColumnProps {
@@ -7,7 +7,7 @@ export interface CompareColumnProps {
   isMe: boolean;
 }
 
-export default function CompareColumn({ name, isMe }: CompareColumnProps) {
+export default memo(function CompareColumn({ name, isMe }: CompareColumnProps) {
   return (
     <th className="py-2 px-2 text-center min-w-[72px]">
       <div className="flex flex-col items-center gap-1">
@@ -18,4 +18,4 @@ export default function CompareColumn({ name, isMe }: CompareColumnProps) {
       </div>
     </th>
   );
-}
+});
