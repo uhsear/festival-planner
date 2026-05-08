@@ -45,6 +45,7 @@ module.exports = function createAdminStatusRoutes(deps) {
   }
 
   router.get('/admin/health', adminAuth, async (req, res) => {
+    try {
     setNoStore(res);
     const mem = process.memoryUsage();
 
@@ -95,41 +96,50 @@ module.exports = function createAdminStatusRoutes(deps) {
       } : null,
       startedAt: metrics?.startedAt || null,
     });
+    } catch (error) {
+      log.error('admin health failed', { error: error.message });
+      return sendError(res, 500, 'Failed to generate health data', ErrorCodes.INTERNAL_ERROR);
+    }
   });
 
   // Admin status page — HTML dashboard view
   router.get('/admin/status', adminAuth, async (req, res) => {
-    setNoStore(res);
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    try {
+      setNoStore(res);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
 
-    const cspNonce = res.locals.cspNonce || '';
-    res.setHeader('Content-Security-Policy', buildStrictNonceCSP(cspNonce));
+      const cspNonce = res.locals.cspNonce || '';
+      res.setHeader('Content-Security-Policy', buildStrictNonceCSP(cspNonce));
 
-    const uptime = Math.round(process.uptime());
-    const days = Math.floor(uptime / 86400);
-    const hours = Math.floor((uptime % 86400) / 3600);
-    const mins = Math.floor((uptime % 3600) / 60);
-    const secs = uptime % 60;
-    let uptimeStr;
-    if (days > 0) uptimeStr = `${days}d ${hours}h ${mins}m`;
-    else if (hours > 0) uptimeStr = `${hours}h ${mins}m ${secs}s`;
-    else if (mins > 0) uptimeStr = `${mins}m ${secs}s`;
-    else uptimeStr = `${secs}s`;
+      const uptime = Math.round(process.uptime());
+      const days = Math.floor(uptime / 86400);
+      const hours = Math.floor((uptime % 86400) / 3600);
+      const mins = Math.floor((uptime % 3600) / 60);
+      const secs = uptime % 60;
+      let uptimeStr;
+      if (days > 0) uptimeStr = `${days}d ${hours}h ${mins}m`;
+      else if (hours > 0) uptimeStr = `${hours}h ${mins}m ${secs}s`;
+      else if (mins > 0) uptimeStr = `${mins}m ${secs}s`;
+      else uptimeStr = `${secs}s`;
 
-    const html = renderStatusPage({
-      nonceAttr: cspNonce ? ` nonce="${cspNonce}"` : '',
-      uptimeStr,
-      workerId: process.pid,
-      mem: process.memoryUsage(),
-      connections: io.engine?.clientsCount || 0,
-      onlineUsers: state.onlineUsers.size,
-      totalUsers: await stores.users.countActive(),
-      totalFestivals: (await getFestivals()).length,
-      totalProfiles: (await getProfiles()).length,
-      metrics: deps.metrics,
-    });
+      const html = renderStatusPage({
+        nonceAttr: cspNonce ? ` nonce="${cspNonce}"` : '',
+        uptimeStr,
+        workerId: process.pid,
+        mem: process.memoryUsage(),
+        connections: io.engine?.clientsCount || 0,
+        onlineUsers: state.onlineUsers.size,
+        totalUsers: await stores.users.countActive(),
+        totalFestivals: (await getFestivals()).length,
+        totalProfiles: (await getProfiles()).length,
+        metrics: deps.metrics,
+      });
 
-    return res.send(html);
+      return res.send(html);
+    } catch (error) {
+      log.error('admin status page failed', { error: error.message });
+      return sendError(res, 500, 'Failed to generate status page', ErrorCodes.INTERNAL_ERROR);
+    }
   });
 
   // Admin Analytics Dashboard — aggregated stats for festival management

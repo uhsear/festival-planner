@@ -16,7 +16,7 @@
 module.exports = function createAdminMetricsRoutes(deps) {
   const {
     express,
-    adminAuth, setNoStore,
+    adminAuth, setNoStore, log,
     getUsers: _getUsers, getFestivals, getProfiles, io, stores, state, pool,
     sendSuccess, sendError, ErrorCodes,
   } = deps;
@@ -32,6 +32,7 @@ module.exports = function createAdminMetricsRoutes(deps) {
 
   // Prometheus-compatible metrics endpoint for monitoring tools
   router.get('/metrics', adminAuth, async (req, res) => {
+    try {
     setNoStore(res);
     const metrics = deps.metrics;
     const mem = process.memoryUsage();
@@ -209,6 +210,10 @@ module.exports = function createAdminMetricsRoutes(deps) {
 
     res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
     return res.send(lines.join('\n') + '\n');
+    } catch (error) {
+      log.error('metrics endpoint failed', { error: error.message });
+      return sendError(res, 500, 'Failed to generate metrics', ErrorCodes.INTERNAL_ERROR);
+    }
   });
 
   // Certificate Pinning — public key pin hashes for mobile clients
