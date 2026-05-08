@@ -103,7 +103,7 @@ function CrewViewInner() {
   const isOwner = (meMember?.role === 'owner') || crew?.createdBy === user.id || crew?.owner === user.id;
 
   return (
-    <div className="crew-page space-y-2 pb-20 max-w-2xl mx-auto px-3 min-w-0 w-full">
+    <div className="crew-page space-y-2 pb-6 max-w-2xl mx-auto px-3 min-w-0 w-full">
       {crews.length > 0 && (
         <CrewSelector crews={crews} selectedCrewId={activeCrew?.id}
           onSelectCrew={handleSelectCrew} onCreateCrew={handleCreateCrew} onJoinCrew={handleJoinCrew} />

@@ -119,7 +119,11 @@
   max-height: none !important;
   height: auto !important;
   overscroll-behavior: contain;
-  padding-bottom: max(28px, env(safe-area-inset-bottom)) !important;
+  padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+}
+
+.detail-panel.detail-panel--drawer > :last-child {
+  margin-bottom: 0 !important;
 }
 
 /* ── R31 (2026-04-17) — Grid view redesign ────────────────────────────────
@@ -390,7 +394,7 @@
   padding: 16px;
   max-width: 500px;
   margin: 0 auto;
-  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
 }
 .fm-header {
   display: flex;

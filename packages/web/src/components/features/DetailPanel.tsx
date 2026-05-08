@@ -148,16 +148,16 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
       handleOnly
     >
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+        <Drawer.Overlay className="fixed inset-0 z-50 bg-black/20" />
         <Drawer.Content
           aria-label="Set detail panel"
           className="fixed bottom-0 inset-x-0 z-50 max-h-[min(90dvh,calc(100dvh-32px))] flex flex-col
-                     rounded-t-2xl bg-bg-primary border-t border-border-light
-                     shadow-2xl outline-none
+                     rounded-t-2xl bg-bg-primary border border-border-light
+                     shadow-lg outline-none
                      lg:bottom-auto lg:inset-x-auto lg:top-1/2 lg:left-1/2
                      lg:-translate-x-1/2 lg:-translate-y-1/2
-                     lg:w-[min(640px,calc(100vw-2rem))] lg:max-h-[85dvh]
-                     lg:rounded-2xl lg:border lg:border-border-light lg:border-t-0"
+                     lg:w-[min(540px,calc(100vw-2rem))] lg:max-h-[85dvh]
+                     lg:rounded-2xl"
           onOpenAutoFocus={(e: Event) => { e.preventDefault(); closeBtnRef.current?.focus(); }}
         >
           <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0 lg:hidden" />

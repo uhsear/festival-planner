@@ -131,7 +131,7 @@
   }
 
   .safe-bottom {
-    padding-bottom: max(5rem, env(safe-area-inset-bottom));
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
   }
 
 /* Custom utilities (no-layer; same reason as above) */

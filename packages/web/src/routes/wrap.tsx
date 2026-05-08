@@ -158,7 +158,7 @@ function WrapPageInner() {
     // max-w-lg + centered mirrors /account so the wrap doesn't stretch
     // 1400px wide on desktop (stats grid went 2-col × ~650px each before,
     // reading as sparse placeholder chrome rather than a dense highlight page).
-    <div className="max-w-lg mx-auto space-y-4 px-3 pt-2 pb-20">
+    <div className="max-w-lg mx-auto space-y-4 px-3 pt-2 pb-6">
       <header className="text-center space-y-1">
         <div className="inline-flex items-center gap-2 text-accent-aqua text-xs uppercase tracking-widest">
           <Sparkles className="w-4 h-4" aria-hidden="true" />

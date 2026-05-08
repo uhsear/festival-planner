@@ -35,7 +35,7 @@ export default function GuestTeaser({ mode, className }: GuestTeaserProps) {
   return (
     <section
       aria-labelledby={`guest-teaser-${mode}-heading`}
-      className={cn('flex flex-col items-center justify-center py-16 px-4', className)}
+      className={cn('flex flex-col items-center justify-center py-8 px-4', className)}
     >
       <div aria-hidden="true" className="text-6xl mb-6">{config.icon}</div>
       <h2
