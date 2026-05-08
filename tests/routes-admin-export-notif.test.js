@@ -557,16 +557,16 @@ describe('routes/admin-metrics.js', () => {
     const deps = makeDeps();
     const { router } = createAdminMetricsRoutes(deps);
 
-    // Express computes req.ip from trust proxy + connection, so we
-    // must use trust proxy + X-Forwarded-For to override it reliably.
     const appWithIp = express();
-    appWithIp.set('trust proxy', true);
     appWithIp.use(express.json());
+    appWithIp.use((req, _res, next) => {
+      Object.defineProperty(req.socket, 'remoteAddress', { value: '10.0.0.5', configurable: true });
+      next();
+    });
     appWithIp.use(router);
 
     const res = await request(appWithIp)
       .get('/internal/metrics-json')
-      .set('X-Forwarded-For', '10.0.0.5')
       .expect(403);
     assert.equal(res.body.ok, false);
   });

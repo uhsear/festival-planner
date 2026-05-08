@@ -25,10 +25,13 @@ module.exports = function createCrewMemberRoutes(deps) {
       const q = (req.validatedQuery.q || '').trim();
       if (!q || q.length < 1) return sendSuccess(res, []);
 
+      // Escape LIKE metacharacters to prevent wildcard injection
+      const escaped = q.replace(/[%_\\]/g, '\\$&');
+
       // Targeted query instead of readAll() + filter
       const { rows: matches } = await pool.query(
         'SELECT id, username FROM users WHERE username ILIKE $1 AND deleted_at IS NULL LIMIT 20',
-        [`%${q}%`]
+        [`%${escaped}%`]
       );
 
       return sendSuccess(res, matches);

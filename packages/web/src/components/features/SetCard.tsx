@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { memo, useRef, useState, useEffect } from 'react';
 import { FestivalSet, Priority } from '@festie/shared/types';
 import { usePicks } from '@festie/shared/hooks';
 import { formatTime, artistDisplayName, artistSubtitle } from '@festie/shared/utils';
@@ -42,7 +42,7 @@ const PRI_MAP: Record<string, string> = {
   maybe: 'maybe',
 };
 
-export default function SetCard({
+function SetCard({
   set,
   onTap,
   onPreview,
@@ -294,3 +294,56 @@ export default function SetCard({
     </div>
   );
 }
+
+/**
+ * Shallow-compare the props that actually affect rendered output.
+ *
+ * Callback props (onTap, onPreview) are intentionally skipped — parent
+ * components pass inline arrows whose references change every render, but
+ * whose behavior is stable (they close over the same set object captured in
+ * the loop). Comparing them would defeat memoization entirely.
+ *
+ * Array props (friendProfiles, conflicts) are compared by length + element
+ * identity so we re-render when the list content changes but not when the
+ * parent builds a new array reference with identical items.
+ */
+function setCardPropsAreEqual(
+  prev: Readonly<SetCardProps>,
+  next: Readonly<SetCardProps>,
+): boolean {
+  // Core identity — if the set changed, re-render
+  if (prev.set.id !== next.set.id) return false;
+
+  // Set data that affects display (updatedAt covers field mutations)
+  if (prev.set.updatedAt !== next.set.updatedAt) return false;
+  if (prev.set.startTime !== next.set.startTime) return false;
+  if (prev.set.endTime !== next.set.endTime) return false;
+
+  // Visual props
+  if (prev.stageColor !== next.stageColor) return false;
+  if (prev.stageName !== next.stageName) return false;
+  if (prev.showPicks !== next.showPicks) return false;
+  if (prev.b2bSeparator !== next.b2bSeparator) return false;
+
+  // friendProfiles — compare length + element identity
+  const prevFriends = prev.friendProfiles ?? [];
+  const nextFriends = next.friendProfiles ?? [];
+  if (prevFriends.length !== nextFriends.length) return false;
+  for (let i = 0; i < prevFriends.length; i++) {
+    const pf = prevFriends[i]!;
+    const nf = nextFriends[i]!;
+    if (pf.profileId !== nf.profileId || pf.priority !== nf.priority) return false;
+  }
+
+  // conflicts — compare by length + set IDs
+  const prevConflicts = prev.conflicts ?? [];
+  const nextConflicts = next.conflicts ?? [];
+  if (prevConflicts.length !== nextConflicts.length) return false;
+  for (let i = 0; i < prevConflicts.length; i++) {
+    if (prevConflicts[i]!.id !== nextConflicts[i]!.id) return false;
+  }
+
+  return true;
+}
+
+export default memo(SetCard, setCardPropsAreEqual);

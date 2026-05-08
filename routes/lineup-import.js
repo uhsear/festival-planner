@@ -29,8 +29,6 @@ const importLineupSchema = z.object({
   skipSpotify: z.boolean().default(false),
 });
 
-const MAX_IMPORT_SETS = 500;
-
 module.exports = function createLineupImportRoute(deps) {
   const {
     express, log, config,
@@ -170,8 +168,8 @@ module.exports = function createLineupImportRoute(deps) {
       for (let i = 0; i < dataLines.length; i++) {
         const lineNum = hasHeader ? i + 2 : i + 1;
         const fields = parseLine(dataLines[i], delimiter);
-        if (imported.length >= MAX_IMPORT_SETS) {
-          warnings.push(`Line ${lineNum}: max import limit (${MAX_IMPORT_SETS}) reached, remaining lines skipped`);
+        if (imported.length >= config.MAX_IMPORT_SETS) {
+          warnings.push(`Line ${lineNum}: max import limit (${config.MAX_IMPORT_SETS}) reached, remaining lines skipped`);
           break;
         }
 

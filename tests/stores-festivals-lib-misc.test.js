@@ -1169,6 +1169,8 @@ describe('routes/spotify.js', () => {
       config: {
         SPOTIFY_CLIENT_ID: 'test-id',
         SPOTIFY_CLIENT_SECRET: 'test-secret',
+        SPOTIFY_CACHE_TTL_MS: 86_400_000,
+        SPOTIFY_CACHE_MAX: 500,
       },
       log: { info: mock.fn(), warn: mock.fn(), error: mock.fn(), debug: mock.fn() },
       rateLimit: () => (req, res, next) => next(),

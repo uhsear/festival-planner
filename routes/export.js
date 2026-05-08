@@ -47,7 +47,7 @@ module.exports = function createExportRoutes(deps) {
   const MAX_CONCURRENT_EXPORTS = config.MAX_CONCURRENT_EXPORTS || 4;
   const MAX_CREW_IN_EXPORT = config.MAX_CREW_IN_EXPORT || 20;
   const EXPORT_COOLDOWN_MS = config.EXPORT_COOLDOWN_MS || 5_000;
-  const MAX_COOLDOWN_ENTRIES = 1_000;
+  const MAX_COOLDOWN_ENTRIES = config.MAX_EXPORT_COOLDOWN_ENTRIES;
   const exportCooldowns = new Map();
   const cooldownCleanup = setInterval(() => {
     const now = Date.now();

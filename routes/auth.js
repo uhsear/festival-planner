@@ -141,8 +141,7 @@ module.exports = function createAuthRoutes(deps) {
 
 
 
-    // eslint-disable-next-line no-unused-vars
-    pool, state, _hashSessionToken, createAuditLog, getRequestIp,
+    _pool, _state, _hashSessionToken, _createAuditLog, _getRequestIp,
   } = deps;
 
   const router = express.Router();

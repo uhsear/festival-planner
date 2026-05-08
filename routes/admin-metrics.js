@@ -233,8 +233,9 @@ module.exports = function createAdminMetricsRoutes(deps) {
   // Internal metrics JSON endpoint — localhost-only, no auth required.
   // Used by scripts/metrics-rollup.js cron job.
   router.get('/internal/metrics-json', (req, res) => {
-    // Only allow requests from localhost
-    const ip = req.ip || req.connection?.remoteAddress || '';
+    // Only allow requests from localhost — use the raw TCP peer address so this
+    // check cannot be bypassed via X-Forwarded-For when TRUST_PROXY is enabled.
+    const ip = req.socket?.remoteAddress || req.connection?.remoteAddress || '';
     const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
     if (!isLocal) return sendError(res, 403, 'Localhost only', ErrorCodes.FORBIDDEN);
     setNoStore(res);

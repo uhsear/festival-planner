@@ -10,9 +10,7 @@ const { renderResetFormPage, renderResetErrorPage } = require('../lib/reset-page
 module.exports = function createPageRoutes(deps) {
   const {
     express, config, rateLimit, pool, state, log,
-     
-    // eslint-disable-next-line no-unused-vars
-    sendError, ErrorCodes,
+    _sendError, _ErrorCodes,
   } = deps;
 
   const router = express.Router();

@@ -6,8 +6,8 @@ module.exports = function createSpotifyRoutes(deps) {
   const { getToken } = require("../lib/spotify");
 
   const previewCache = new Map();
-  const CACHE_TTL = 24 * 60 * 60 * 1000;
-  const MAX_CACHE_SIZE = 500;
+  const CACHE_TTL = config.SPOTIFY_CACHE_TTL_MS;
+  const MAX_CACHE_SIZE = config.SPOTIFY_CACHE_MAX;
 
   function getCachedPreview(setId) {
     const entry = previewCache.get(setId);
