@@ -20,7 +20,11 @@ function makeDeps(overrides = {}) {
       ...overrides.notificationService,
     },
     log: { info() {}, warn() {}, error() {}, debug() {} },
-    config: {},
+    config: {
+      REMINDER_TICK_INTERVAL_MS: 60_000,
+      REMINDER_FIRE_WINDOW_MS: 65_000,
+      REMINDER_DEDUP_TTL_MS: 7_200_000,
+    },
     ...overrides,
   };
 }

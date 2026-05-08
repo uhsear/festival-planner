@@ -6,7 +6,7 @@ const { Router } = require('express');
 const weatherCache = new Map();
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 
-function createWeatherRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCodes, rateLimit, schemas, validateParams }) {
+function createWeatherRoutes({ config, stores, userAuth, sendSuccess, sendError, ErrorCodes, rateLimit, schemas, validateParams }) {
   const router = Router();
 
   // GET /weather/:festivalId — returns weather for festival's coordinates
@@ -40,7 +40,7 @@ function createWeatherRoutes({ stores, userAuth, sendSuccess, sendError, ErrorCo
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode&hourly=temperature_2m,precipitation_probability,weathercode&timezone=auto&forecast_days=7`;
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), config.WEATHER_API_TIMEOUT_MS);
 
       const resp = await fetch(url, { signal: controller.signal });
       clearTimeout(timeout);
