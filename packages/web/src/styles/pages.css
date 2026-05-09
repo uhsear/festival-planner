@@ -1270,28 +1270,30 @@
 
 /* 6. Card visual tightening — stronger surface, compact spacing. */
 .card-grid .set-card {
+  display: flex !important;
+  flex-direction: column !important;
   background: rgba(22, 22, 44, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.13);
-  padding: 10px 14px;
+  padding: 10px 14px !important;
   gap: 0;
 }
 .card-grid .set-card .card-stage {
-  margin-bottom: 4px;
+  margin-bottom: 4px !important;
   padding: 2px 9px;
   font-size: 10px;
   letter-spacing: 0.9px;
 }
 .card-grid .set-card .card-artist {
-  margin-bottom: 2px;
+  margin-bottom: 2px !important;
   line-height: 1.2;
 }
 .card-grid .set-card .card-artist-sub {
-  margin-bottom: 2px;
+  margin-bottom: 2px !important;
   font-size: 12px;
   opacity: 0.6;
 }
 .card-grid .set-card .card-time {
-  margin-bottom: 4px;
+  margin-bottom: 4px !important;
   font-size: 12px;
 }
 .card-grid .set-card .card-footer {

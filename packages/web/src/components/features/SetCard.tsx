@@ -200,10 +200,10 @@ function SetCard({
       )}
 
       {/* Note indicator */}
-      {myNote && <div className="card-note-indicator relative z-[2]" aria-label="Has note">📝</div>}
+      {myNote && <div className="card-note-indicator absolute z-[2]" aria-label="Has note">📝</div>}
 
       {/* Conflict badge */}
-      {conflicts.length > 0 && <div className="conflict-badge relative z-[2]">⚠ Conflict</div>}
+      {conflicts.length > 0 && <div className="conflict-badge absolute z-[2]">⚠ Conflict</div>}
 
       <span
         className="card-stage relative z-[2] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
