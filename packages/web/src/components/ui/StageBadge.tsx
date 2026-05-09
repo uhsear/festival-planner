@@ -48,7 +48,7 @@ function toHex(r: number, g: number, b: number): string {
 }
 
 // Darkens a hex color just enough so white (#fff) text reaches 4.5:1.
-function ensureWhiteContrast(hex: string): string {
+export function ensureWhiteContrast(hex: string): string {
   const rgb = parseHex(hex);
   if (!rgb) return hex;
   const [r, g, b] = rgb;

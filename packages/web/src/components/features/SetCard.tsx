@@ -8,6 +8,7 @@ import { useSetStatus } from '@/hooks/useSetStatus';
 import { useToast } from '@/lib/toastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import LiveBadge from './LiveBadge';
+import { ensureWhiteContrast } from '../ui/StageBadge';
 
 interface SpotifyPreviewResponse {
   /** Direct mp3 URL if the backend has one. */
@@ -204,11 +205,9 @@ function SetCard({
       {/* Conflict badge */}
       {conflicts.length > 0 && <div className="conflict-badge relative z-[2]">⚠ Conflict</div>}
 
-      {/* Stage label — solid bg + white text passes AA for all palette colors,
-          including dark purples where the old faded-tint style failed contrast. */}
       <span
         className="card-stage relative z-[2] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
-        style={{ background: stageColor }}
+        style={{ background: ensureWhiteContrast(stageColor) }}
       >
         {stageName}
       </span>

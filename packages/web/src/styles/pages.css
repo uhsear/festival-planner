@@ -1306,6 +1306,12 @@
   min-width: 36px;
   min-height: 36px;
   font-size: 13px;
+  position: relative;
+}
+.card-grid .card-priority-btn::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
 }
 .card-grid .card-preview-btn {
   width: 30px;
