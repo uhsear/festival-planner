@@ -1272,11 +1272,11 @@
 .card-grid .set-card {
   background: rgba(22, 22, 44, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.13);
-  padding: 14px 16px;
+  padding: 10px 14px;
   gap: 0;
 }
 .card-grid .set-card .card-stage {
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   padding: 2px 9px;
   font-size: 10px;
   letter-spacing: 0.9px;
@@ -1291,11 +1291,11 @@
   opacity: 0.6;
 }
 .card-grid .set-card .card-time {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   font-size: 12px;
 }
 .card-grid .set-card .card-footer {
-  gap: 8px;
+  gap: 6px;
 }
 .card-grid .card-priority {
   gap: 6px;
@@ -1373,6 +1373,7 @@
 @media (max-width: 768px) {
   #main-content:has(.timeline-view),
   #main-content:has(.fk-grid) {
+    position: relative;
     min-height: 0 !important;
     overflow: hidden !important;
     display: flex;
@@ -1404,6 +1405,11 @@
     overflow-x: auto !important;
     overflow-y: hidden !important;
   }
+  /* Body delegates horizontal scroll to .fk-grid so header + body stay in sync */
+  .fk-grid__body {
+    overflow-x: visible !important;
+    min-width: max-content;
+  }
   #main-content:has(.fk-grid) .fk-grid__col {
     min-width: 92px !important;
   }
@@ -1415,6 +1421,21 @@
   }
   .fk-grid__head {
     min-width: max-content;
+  }
+
+  /* Scroll fade: right-edge gradient on the non-scrolling parent so
+     it stays fixed while the grid/timeline scrolls beneath it. */
+  #main-content:has(.fk-grid)::after,
+  #main-content:has(.timeline-view)::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 24px;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, var(--color-bg-primary, #0d0d1a));
+    z-index: 20;
   }
 
   /* Crew: page-level scroll — no internal scroll trapping.
@@ -1509,9 +1530,17 @@
    F3: Timeline column headers allow wrapping.
    ─────────────────────────────────────────────────────────────────────── */
 
-/* F1 — Bottom nav: hide labels at <=359px so 7 icon tabs fit without
-   truncation. 320÷7 = 45.7px per tab — enough for 44px touch targets
-   but not for text. Icon-only matches iOS/Android compact tab bars. */
+/* F1a — Bottom nav: add explicit gap between tabs so adjacent touch
+   targets never share a boundary. 2px gap × 6 gaps = 12px; at 320px
+   with 7 tabs: (320-12)/7 = 44px each — exactly at WCAG minimum. */
+@media (max-width: 768px) {
+  .bottom-nav-inner {
+    gap: 2px;
+  }
+}
+
+/* F1b — Bottom nav: hide labels at <=359px so 7 icon tabs fit without
+   truncation. With 2px gap: (320-12)/7 = 44px per tab. */
 @media (max-width: 359px) {
   .bottom-nav-inner > button > span {
     display: none;
