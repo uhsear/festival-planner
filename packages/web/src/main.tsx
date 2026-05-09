@@ -1,5 +1,6 @@
 import React, { Component, type ReactNode, type ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
+import * as Sentry from '@sentry/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { LazyMotion, domAnimation } from 'motion/react';
@@ -8,6 +9,23 @@ import { initWebVitals } from './lib/web-vitals';
 import { ToastProvider } from './lib/toastContext';
 import Toast from './components/layout/Toast';
 import './styles/globals.css';
+
+// ── Sentry initialization ───────────────────────────────────────────────
+// Mirrors the backend lib/sentry.js pattern: optional, no-op when DSN is
+// unset. Uses VITE_SENTRY_DSN (Vite exposes VITE_-prefixed env vars to
+// the client bundle).
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    environment: import.meta.env.MODE,
+    release: import.meta.env.VITE_APP_VERSION || 'dev',
+    tracesSampleRate: Number(import.meta.env.VITE_SENTRY_TRACES_RATE ?? 0.05),
+    sendDefaultPii: false,
+    integrations: [
+      Sentry.tanstackRouterBrowserTracingIntegration(router),
+    ],
+  });
+}
 
 // ── Global error boundary ────────────────────────────────────────────────
 // Catches unhandled render errors anywhere in the tree. TanStack Router's
@@ -25,6 +43,7 @@ class GlobalErrorBoundary extends Component<
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Unhandled error:', error, info);
+    Sentry.captureException(error, { contexts: { react: { componentStack: info.componentStack } } });
   }
 
   render() {

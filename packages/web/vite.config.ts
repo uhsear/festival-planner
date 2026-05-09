@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
 
 export default defineConfig({
@@ -22,6 +23,7 @@ export default defineConfig({
           if (id.includes('vaul') || id.includes('@radix-ui') || id.includes('/motion/') || id.includes('@use-gesture')) return 'ui-motion';
           if (id.includes('lucide-react')) return 'icons';
           if (id.includes('html-to-image')) return 'export-tools';
+          if (id.includes('@sentry')) return 'telemetry';
           if (id.includes('web-vitals') || id.includes('workbox')) return 'telemetry';
         },
       },
@@ -30,6 +32,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    process.env.ANALYZE && visualizer({ open: true, gzipSize: true, brotliSize: true }),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],

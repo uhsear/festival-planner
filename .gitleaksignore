@@ -1,0 +1,15 @@
+# .gitleaksignore — paths and fingerprints excluded from gitleaks scanning
+
+# Example environment file (contains only placeholder values, not real secrets)
+.env.example
+
+# Test fixtures — fake credentials used in automated tests
+tests/_integration-helpers.js
+tests/account.test.js
+tests/server-app.test.js
+tests/crypto-auth.test.js
+tests/coverage-auth.test.js
+tests/coverage-routes.test.js
+tests/integration-notifications.test.js
+tests/app-context-schemas.test.js
+tests/hardening.test.js

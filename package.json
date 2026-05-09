@@ -60,9 +60,22 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.59.1",
     "c8": "^11.0.0",
+    "dependency-cruiser": "^16.10.4",
     "eslint": "^10.1.0",
+    "eslint-plugin-sql": "^3.4.1",
     "globals": "^17.4.0",
+    "knip": "^6.12.1",
+    "lint-staged": "^17.0.3",
+    "simple-git-hooks": "^2.13.1",
     "socket.io-client": "^4.8.3",
-    "supertest": "^7.2.2"
+    "supertest": "^7.2.2",
+    "syncpack": "^15.0.0"
+  },
+  "lint-staged": {
+    "*.{js,cjs}": "eslint --fix",
+    "*.{ts,tsx}": "eslint --fix"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
   }
 }

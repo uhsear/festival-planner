@@ -7,6 +7,17 @@ on:
     branches: [main, develop, master]
 
 jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: zricethezav/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -161,6 +172,27 @@ jobs:
       - name: Run Lighthouse CI
         working-directory: packages/web
         run: pnpm exec lhci autorun --config=.lighthouserc.cjs
+
+  bundle-size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - name: Install web workspace deps
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
+      - name: Build frontend
+        working-directory: packages
+        run: pnpm --filter @festie/web build
+      - name: Check bundle size
+        working-directory: packages
+        run: pnpm --filter @festie/web exec bundlemon
 
   docker:
     needs: test

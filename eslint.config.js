@@ -3,6 +3,7 @@
 
 const js = require('@eslint/js');
 const globals = require('globals');
+const sqlPlugin = require('eslint-plugin-sql').default;
 
 module.exports = [
   // Base recommended rules
@@ -16,6 +17,9 @@ module.exports = [
   // Server-side JS (lib/, routes/, server.js)
   {
     files: ['lib/**/*.js', 'routes/**/*.js', 'server.js', 'eslint.config.js'],
+    plugins: {
+      sql: sqlPlugin,
+    },
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'commonjs',
@@ -45,6 +49,25 @@ module.exports = [
       'no-control-regex': 'warn',
       'no-undef': 'warn',
       'no-dupe-keys': 'warn',
+      // SQL linting — format check for SQL in template literals
+      'sql/format': ['warn', {
+        ignoreExpressions: true,
+        ignoreInline: true,
+        ignoreTagless: false,
+        ignoreStartWithNewLine: true,
+        retainBaseIndent: true,
+      }, {
+        language: 'postgresql',
+        keywordCase: 'preserve',
+        dataTypeCase: 'preserve',
+        functionCase: 'preserve',
+        identifierCase: 'preserve',
+        paramTypes: { numbered: ['$'] },
+        tabWidth: 2,
+      }],
+      // no-unsafe-query is off — the codebase uses raw parameterized queries,
+      // not tagged template literals, so requiring a `sql` tag is not applicable.
+      'sql/no-unsafe-query': 'off',
     },
   },
 
