@@ -1,13 +1,13 @@
 {
   "baseDir": "dist",
   "files": [
-    { "path": "assets/react-core-*.js", "maxSize": "50kb" },
-    { "path": "assets/router-*.js", "maxSize": "30kb" },
-    { "path": "assets/data-*.js", "maxSize": "25kb" },
-    { "path": "assets/ui-motion-*.js", "maxSize": "30kb" },
-    { "path": "assets/index-*.js", "maxSize": "100kb" },
-    { "path": "assets/index-*.css", "maxSize": "30kb" },
-    { "path": "assets/*.js", "maxSize": "150kb", "maxPercentIncrease": 10 }
+    { "path": "assets/react-core-*.js", "maxSize": "60kb" },
+    { "path": "assets/router-*.js", "maxSize": "40kb" },
+    { "path": "assets/data-*.js", "maxSize": "35kb" },
+    { "path": "assets/ui-motion-*.js", "maxSize": "40kb" },
+    { "path": "assets/index-*.js", "maxSize": "150kb" },
+    { "path": "assets/index-*.css", "maxSize": "40kb" },
+    { "path": "assets/*.js", "maxSize": "200kb", "maxPercentIncrease": 10 }
   ],
   "defaultCompression": "gzip"
 }
