@@ -191,8 +191,8 @@ jobs:
         working-directory: packages
         run: pnpm --filter @festie/web build
       - name: Check bundle size
-        working-directory: packages
-        run: pnpm --filter @festie/web exec bundlemon
+        working-directory: packages/web
+        run: pnpm exec bundlemon
 
   docker:
     needs: test
