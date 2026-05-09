@@ -44,8 +44,8 @@ function makeCrewDeps(overrides = {}) {
     createOpaqueId: (prefix) => `${prefix}-mock-id`,
     _getRequestIp: () => '127.0.0.1',
     getFestivalById: mock.fn(async (id) => ({ id, name: 'Test Fest', festivalId: id })),
-    sendSuccess: (res, data) => res.json({ ok: true, ...data }),
-    sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg }),
+    sendSuccess: (res, data) => res.json({ data, error: null }),
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT', NOT_FOUND: 'NOT_FOUND', FORBIDDEN: 'FORBIDDEN',
       MISSING_FIELD: 'MISSING_FIELD', INTERNAL_ERROR: 'INTERNAL_ERROR',
@@ -148,7 +148,7 @@ describe('routes/crews.js', () => {
         .post('/crews')
         .send({ name: '', festivalId: 'f1' });
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'MISSING_FIELD');
+      assert.equal(res.body.error.code, 'MISSING_FIELD');
     });
 
     test('returns 400 when festivalId is empty', async () => {
@@ -160,7 +160,7 @@ describe('routes/crews.js', () => {
         .post('/crews')
         .send({ name: 'Crew Name', festivalId: '' });
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'MISSING_FIELD');
+      assert.equal(res.body.error.code, 'MISSING_FIELD');
     });
 
     test('returns 404 when festival not found', async () => {
@@ -173,7 +173,7 @@ describe('routes/crews.js', () => {
         .post('/crews')
         .send({ name: 'Crew', festivalId: 'nonexistent' });
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
 
     test('returns 403 when user has no festival profile', async () => {
@@ -189,7 +189,7 @@ describe('routes/crews.js', () => {
         .post('/crews')
         .send({ name: 'Crew', festivalId: 'f1' });
       assert.equal(res.status, 403);
-      assert.equal(res.body.code, 'FORBIDDEN');
+      assert.equal(res.body.error.code, 'FORBIDDEN');
     });
 
     test('returns 400 when user already has max crews for festival', async () => {
@@ -208,7 +208,7 @@ describe('routes/crews.js', () => {
         .post('/crews')
         .send({ name: 'Crew', festivalId: 'f1' });
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'MAX_LIMIT_REACHED');
+      assert.equal(res.body.error.code, 'MAX_LIMIT_REACHED');
     });
 
     test('returns 500 when listByUserAndFestival throws', async () => {
@@ -255,8 +255,8 @@ describe('routes/crews.js', () => {
         .post('/crews')
         .send({ name: 'Test Crew', festivalId: 'f1' });
       assert.equal(res.status, 201);
-      assert.equal(res.body.ok, true);
-      assert.equal(res.body.name, 'Test Crew');
+      assert.equal(res.body.error, null);
+      assert.equal(res.body.data.name, 'Test Crew');
     });
 
     test('returns 500 when crew creation store throws', async () => {
@@ -314,7 +314,7 @@ describe('routes/crews.js', () => {
       const res = await request(app)
         .get('/crews?festivalId=f1');
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
 
     test('returns all crews when no festivalId', async () => {
@@ -328,7 +328,7 @@ describe('routes/crews.js', () => {
       });
       const res = await request(app).get('/crews');
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
 
     test('returns 500 when list throws', async () => {
@@ -391,9 +391,9 @@ describe('routes/crews.js', () => {
       });
       const res = await request(app).get('/crews/c1');
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.equal(res.body.name, 'Crew');
-      assert.ok(Array.isArray(res.body.members));
+      assert.equal(res.body.error, null);
+      assert.equal(res.body.data.name, 'Crew');
+      assert.ok(Array.isArray(res.body.data.members));
     });
 
     test('returns 500 on store error', async () => {
@@ -459,7 +459,7 @@ describe('routes/crews.js', () => {
       });
       const res = await request(app).put('/crews/c1').send({ name: 'NewName', maxMembers: 50 });
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       // Verify io.to was called for broadcast
       assert.ok(deps.io.to.mock.calls.length > 0);
     });
@@ -530,7 +530,7 @@ describe('routes/crews.js', () => {
       });
       const res = await request(app).delete('/crews/c1');
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       assert.ok(deps.io.to.mock.calls.length > 0);
     });
   });
@@ -591,7 +591,7 @@ describe('routes/crews.js', () => {
         .post('/crews/join')
         .send({ inviteCode: 'ABCDEF' });
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'ALREADY_EXISTS');
+      assert.equal(res.body.error.code, 'ALREADY_EXISTS');
     });
 
     test('returns 400 when max crews per festival reached', async () => {
@@ -608,7 +608,7 @@ describe('routes/crews.js', () => {
         .post('/crews/join')
         .send({ inviteCode: 'ABCDEF' });
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'MAX_LIMIT_REACHED');
+      assert.equal(res.body.error.code, 'MAX_LIMIT_REACHED');
     });
 
     test('returns 400 when crew is full', async () => {
@@ -654,7 +654,7 @@ describe('routes/crews.js', () => {
         .post('/crews/join')
         .send({ inviteCode: 'ABCDEF' });
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       assert.ok(deps.io.to.mock.calls.length > 0);
     });
   });
@@ -714,7 +714,7 @@ describe('routes/crews.js', () => {
       });
       const res = await request(app).delete('/crews/c1/leave');
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
   });
 
@@ -780,7 +780,7 @@ describe('routes/crews.js', () => {
       });
       const res = await request(app).delete('/crews/c1/members/user-2');
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
   });
 
@@ -869,7 +869,7 @@ describe('routes/crews.js', () => {
       });
       const res = await request(app).put('/crews/c1/transfer').send({ userId: 'user-2' });
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
   });
 
@@ -895,7 +895,7 @@ describe('routes/crews.js', () => {
       });
       const res = await request(app).post('/crews/c1/invite');
       assert.equal(res.status, 200);
-      assert.ok(res.body.inviteCode);
+      assert.ok(res.body.data.inviteCode);
     });
   });
 
@@ -943,9 +943,9 @@ describe('routes/crews.js', () => {
       });
       const res = await request(app).get('/crews/c1/overlap');
       assert.equal(res.status, 200);
-      assert.ok(res.body.overlap);
-      assert.equal(res.body.overlap['set-a'].length, 2);
-      assert.equal(res.body.overlap['set-b'].length, 1);
+      assert.ok(res.body.data.overlap);
+      assert.equal(res.body.data.overlap['set-a'].length, 2);
+      assert.equal(res.body.data.overlap['set-b'].length, 1);
     });
 
     test('handles invalid JSON in picksJson gracefully', async () => {
@@ -963,7 +963,7 @@ describe('routes/crews.js', () => {
       });
       const res = await request(app).get('/crews/c1/overlap');
       assert.equal(res.status, 200);
-      assert.deepStrictEqual(res.body.overlap, {});
+      assert.deepStrictEqual(res.body.data.overlap, {});
     });
 
     test('skips __proto__ keys in picks (prototype pollution guard)', async () => {
@@ -982,9 +982,9 @@ describe('routes/crews.js', () => {
       const res = await request(app).get('/crews/c1/overlap');
       assert.equal(res.status, 200);
       // __proto__ should be skipped, only set-a should appear
-      assert.ok(res.body.overlap['set-a']);
+      assert.ok(res.body.data.overlap['set-a']);
       // The overlap object won't have __proto__ as an own property with array value
-      const protoVal = res.body.overlap['__proto__'];
+      const protoVal = res.body.data.overlap['__proto__'];
       assert.ok(!Array.isArray(protoVal) || protoVal.length === 0);
     });
 
@@ -1003,7 +1003,7 @@ describe('routes/crews.js', () => {
       });
       const res = await request(app).get('/crews/c1/overlap');
       assert.equal(res.status, 200);
-      assert.deepStrictEqual(res.body.overlap, {});
+      assert.deepStrictEqual(res.body.data.overlap, {});
     });
   });
 
@@ -1206,7 +1206,7 @@ describe('routes/crews.js', () => {
         .post('/crews/c1/members')
         .send({ userId: 'user-2' });
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
   });
 });
@@ -1245,8 +1245,8 @@ function makeProfileDeps(overrides = {}) {
     serializeOwnProfile: mock.fn((profile, user) => ({ ...profile, username: user?.username })),
     _buildAvatarUrl: () => '',
     createOpaqueId: (prefix) => `${prefix}-mock-id`,
-    sendSuccess: (res, data, extra) => res.json({ ok: true, ...data, ...(extra || {}) }),
-    sendError: (res, status, msg, code, extra) => res.status(status).json({ ok: false, code, message: msg, ...(extra || {}) }),
+    sendSuccess: (res, data, meta) => { const body = { data, error: null }; if (meta) body.meta = meta; return res.json(body); },
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT', NOT_FOUND: 'NOT_FOUND', FORBIDDEN: 'FORBIDDEN',
       MISSING_FIELD: 'MISSING_FIELD', INTERNAL_ERROR: 'INTERNAL_ERROR',
@@ -1344,7 +1344,7 @@ describe('routes/profiles.js', () => {
       });
       const res = await request(app).get('/profiles/f1');
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
 
     test('supports paginated response with cursor param', async () => {
@@ -1403,7 +1403,7 @@ describe('routes/profiles.js', () => {
         .post('/profiles')
         .send({ festivalId: '' });
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'MISSING_FIELD');
+      assert.equal(res.body.error.code, 'MISSING_FIELD');
     });
 
     test('returns 404 when festival not found', async () => {
@@ -1427,7 +1427,7 @@ describe('routes/profiles.js', () => {
         .post('/profiles')
         .send({ festivalId: 'f1' });
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
 
     test('returns 404 when user not found after existing profile', async () => {
@@ -1479,7 +1479,7 @@ describe('routes/profiles.js', () => {
         .post('/profiles')
         .send({ festivalId: 'f1' });
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'MAX_LIMIT_REACHED');
+      assert.equal(res.body.error.code, 'MAX_LIMIT_REACHED');
     });
 
     test('creates new profile successfully', async () => {
@@ -1491,7 +1491,7 @@ describe('routes/profiles.js', () => {
         .post('/profiles')
         .send({ festivalId: 'f1' });
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       assert.ok(deps.emitter.profileCreated.mock.calls.length > 0);
     });
 
@@ -1606,7 +1606,7 @@ describe('routes/profiles.js', () => {
         .put('/profiles/p1')
         .send({ picks: { 'unknown-set': 'must' } });
       assert.equal(res.status, 400);
-      assert.ok(res.body.message.includes('unknown set'));
+      assert.ok(res.body.error.message.includes('unknown set'));
     });
 
     test('returns 400 when notes reference unknown set', async () => {
@@ -1682,7 +1682,7 @@ describe('routes/profiles.js', () => {
         .put('/profiles/p1')
         .send({ picks: { 'set-a': 'must' } });
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       // Check ETag is set
       assert.ok(res.headers.etag);
       assert.ok(deps.emitter.profileUpdated.mock.calls.length > 0);
@@ -1723,7 +1723,7 @@ describe('routes/profiles.js', () => {
         .put('/profiles/p1')
         .send({ notes: bigNotes });
       assert.equal(res.status, 400);
-      assert.ok(res.body.message.includes('200'));
+      assert.ok(res.body.error.message.includes('200'));
     });
 
     test('returns 400 when a note exceeds 1000 chars', async () => {
@@ -1742,7 +1742,7 @@ describe('routes/profiles.js', () => {
         .put('/profiles/p1')
         .send({ notes: longNote });
       assert.equal(res.status, 400);
-      assert.ok(res.body.message.includes('1000'));
+      assert.ok(res.body.error.message.includes('1000'));
     });
 
     test('returns 400 when reminders exceed 200 count', async () => {
@@ -1779,7 +1779,7 @@ describe('routes/profiles.js', () => {
         .put('/profiles/p1')
         .send({ reminders: { 'set-a': -1 } });
       assert.equal(res.status, 400);
-      assert.ok(res.body.message.includes('positive integer'));
+      assert.ok(res.body.error.message.includes('positive integer'));
     });
   });
 
@@ -1828,7 +1828,7 @@ describe('routes/profiles.js', () => {
       });
       const res = await request(app).delete('/profiles/p1');
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       assert.ok(deps.removeProfileSockets.mock.calls.length > 0);
       assert.ok(deps.emitter.profileDeleted.mock.calls.length > 0);
     });
@@ -1881,8 +1881,8 @@ function makeShareDeps(overrides = {}) {
     getUserById: mock.fn(async (id) => ({ id, username: 'testuser' })),
     buildAvatarUrl: mock.fn(() => ''),
     rateLimit: () => (_req, _res, next) => next(),
-    sendSuccess: (res, data) => res.json({ ok: true, ...data }),
-    sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg }),
+    sendSuccess: (res, data) => res.json({ data, error: null }),
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT', NOT_FOUND: 'NOT_FOUND', INTERNAL_ERROR: 'INTERNAL_ERROR',
     },
@@ -2188,13 +2188,13 @@ describe('routes/share.js', () => {
       });
       const res = await request(app).get('/s/p1/json');
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.equal(res.body.username, 'testuser');
-      assert.equal(res.body.festivalName, 'Test Fest');
-      assert.deepStrictEqual(res.body.picks, { 'set-a': 'must' });
-      assert.ok(res.body.festival);
-      assert.ok(res.body.festival.stages);
-      assert.ok(res.body.festival.days);
+      assert.equal(res.body.error, null);
+      assert.equal(res.body.data.username, 'testuser');
+      assert.equal(res.body.data.festivalName, 'Test Fest');
+      assert.deepStrictEqual(res.body.data.picks, { 'set-a': 'must' });
+      assert.ok(res.body.data.festival);
+      assert.ok(res.body.data.festival.stages);
+      assert.ok(res.body.data.festival.days);
     });
 
     test('uses Anonymous when user not found', async () => {
@@ -2212,7 +2212,7 @@ describe('routes/share.js', () => {
       });
       const res = await request(app).get('/s/p1/json');
       assert.equal(res.status, 200);
-      assert.equal(res.body.username, 'Anonymous');
+      assert.equal(res.body.data.username, 'Anonymous');
     });
 
     test('returns 500 on internal error', async () => {

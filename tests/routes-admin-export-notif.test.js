@@ -25,8 +25,8 @@ function makeDeps(overrides = {}) {
       EXPORT_COOLDOWN_MS: 0,
     },
     log: { info() {}, warn() {}, error() {}, debug() {} },
-    sendSuccess: (res, data, extra) => res.json({ ok: true, data, ...extra }),
-    sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg }),
+    sendSuccess: (res, data, meta) => { const body = { data, error: null }; if (meta) body.meta = meta; return res.json(body); },
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       NOT_FOUND: 'NOT_FOUND',
@@ -268,7 +268,7 @@ describe('routes/admin-status.js', () => {
     const app = buildApp(router);
 
     const res = await request(app).get('/admin/health').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.status, 'ok');
     assert.ok(typeof res.body.data.uptime === 'number');
     assert.ok(res.body.data.memory);
@@ -361,7 +361,7 @@ describe('routes/admin-status.js', () => {
     const app = buildApp(router);
 
     const res = await request(app).get('/admin/analytics').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(res.body.data.topSets);
     assert.ok(res.body.data.activeUsers);
     assert.ok(res.body.data.crews);
@@ -389,7 +389,7 @@ describe('routes/admin-status.js', () => {
     const app = buildApp(router);
 
     const res = await request(app).get('/admin/analytics').expect(500);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /admin/analytics/view returns HTML', async () => {
@@ -538,7 +538,7 @@ describe('routes/admin-metrics.js', () => {
     const app = buildApp(router);
 
     const res = await request(app).get('/cert-pins').expect(503);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /cert-pins returns pins when configured', async () => {
@@ -550,7 +550,7 @@ describe('routes/admin-metrics.js', () => {
     const app = buildApp(router);
 
     const res = await request(app).get('/cert-pins').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.cert_pins.primary, 'sha256/abc123');
     assert.equal(res.body.data.cert_pins.backup, 'sha256/def456');
   });
@@ -571,7 +571,7 @@ describe('routes/admin-metrics.js', () => {
     const res = await request(appWithIp)
       .get('/internal/metrics-json')
       .expect(403);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /internal/metrics-json returns metrics for localhost', async () => {
@@ -587,7 +587,7 @@ describe('routes/admin-metrics.js', () => {
     app.use(router);
 
     const res = await request(app).get('/internal/metrics-json').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.totalRequests, 100);
     assert.equal(res.body.data.totalErrors, 2);
   });
@@ -605,10 +605,10 @@ describe('routes/admin-audit.js', () => {
     const app = buildApp(router);
 
     const res = await request(app).get('/audit').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data));
     assert.ok(res.body.meta);
-    assert.equal(res.body.meta.total, 1);
+    assert.equal(res.body.meta.meta.total, 1);
   });
 
   test('GET /audit passes query filters to store', async () => {
@@ -636,7 +636,7 @@ describe('routes/admin-audit.js', () => {
     const app = buildApp(router);
 
     const res = await request(app).get('/audit').expect(500);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 });
 
@@ -660,7 +660,7 @@ describe('routes/admin-users.js', () => {
   test('GET /users returns user list with roles and profiles', async () => {
     const { app } = buildUserRouter();
     const res = await request(app).get('/users').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data));
     assert.ok(res.body.data.length > 0);
     assert.ok(res.body.data[0].roles);
@@ -669,7 +669,7 @@ describe('routes/admin-users.js', () => {
   test('GET /users supports search filter', async () => {
     const { app } = buildUserRouter();
     const res = await request(app).get('/users?search=bob').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     // Should only include bob since search is 'bob'
     const usernames = res.body.data.map((u) => u.username);
     assert.ok(usernames.includes('bob'));
@@ -680,7 +680,7 @@ describe('routes/admin-users.js', () => {
       getUsers: mock.fn(async () => { throw new Error('fail'); }),
     });
     const res = await request(app).get('/users').expect(500);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /users/:id/roles grants a role', async () => {
@@ -689,7 +689,7 @@ describe('routes/admin-users.js', () => {
       .post('/users/user-2/roles')
       .send({ role: 'admin' })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.userId, 'user-2');
     assert.ok(deps.stores.roles.grantRole.mock.calls.length > 0);
   });
@@ -700,7 +700,7 @@ describe('routes/admin-users.js', () => {
       .post('/users/user-2/roles')
       .send({ role: 'superadmin' })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /users/:id/roles returns 404 for missing user', async () => {
@@ -711,7 +711,7 @@ describe('routes/admin-users.js', () => {
       .post('/users/missing-user/roles')
       .send({ role: 'admin' })
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /users/:id/roles returns 400 for empty id', async () => {
@@ -722,7 +722,7 @@ describe('routes/admin-users.js', () => {
       .post('/users/%20/roles')
       .send({ role: 'admin' })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('DELETE /users/:id/roles/:role revokes a role', async () => {
@@ -730,7 +730,7 @@ describe('routes/admin-users.js', () => {
     const res = await request(app)
       .delete('/users/user-2/roles/admin')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(deps.stores.roles.revokeRole.mock.calls.length > 0);
   });
 
@@ -746,8 +746,8 @@ describe('routes/admin-users.js', () => {
     const res = await request(app)
       .delete('/users/admin-1/roles/admin')
       .expect(400);
-    assert.equal(res.body.ok, false);
-    assert.ok(res.body.message.includes('Cannot revoke your own'));
+    assert.equal(res.body.data, null);
+    assert.ok(res.body.error.message.includes('Cannot revoke your own'));
   });
 
   test('DELETE /users/:id/roles/:role rejects invalid role name', async () => {
@@ -755,7 +755,7 @@ describe('routes/admin-users.js', () => {
     const res = await request(app)
       .delete('/users/user-2/roles/superuser')
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('DELETE /users/:id/roles/:role returns 404 for missing user', async () => {
@@ -765,7 +765,7 @@ describe('routes/admin-users.js', () => {
     const res = await request(app)
       .delete('/users/missing/roles/admin')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /users/:id/reset-link generates reset URL', async () => {
@@ -773,7 +773,7 @@ describe('routes/admin-users.js', () => {
     const res = await request(app)
       .post('/users/user-2/reset-link')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(res.body.data.resetUrl);
     assert.ok(res.body.data.resetUrl.includes('http://localhost:3000/reset/'));
     assert.equal(res.body.data.username, 'bob');
@@ -792,7 +792,7 @@ describe('routes/admin-users.js', () => {
     const res = await request(app)
       .post('/users/user-2/reset-link')
       .expect(500);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /users/:id/reset-link returns 404 for missing user', async () => {
@@ -802,7 +802,7 @@ describe('routes/admin-users.js', () => {
     const res = await request(app)
       .post('/users/missing/reset-link')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('PUT /users/:id/reset-password resets password', async () => {
@@ -811,7 +811,7 @@ describe('routes/admin-users.js', () => {
       .put('/users/user-2/reset-password')
       .send({ newPassword: 'newpass12345' })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.success, true);
     assert.ok(deps.stores.users.update.mock.calls.length > 0);
     assert.ok(deps.invalidateUserSessions.mock.calls.length > 0);
@@ -823,7 +823,7 @@ describe('routes/admin-users.js', () => {
       .put('/users/user-2/reset-password')
       .send({ newPassword: 'short' })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('PUT /users/:id/reset-password returns 404 for missing user', async () => {
@@ -834,7 +834,7 @@ describe('routes/admin-users.js', () => {
       .put('/users/missing/reset-password')
       .send({ newPassword: 'longenoughpassword' })
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('DELETE /users/:id deletes user and cleans up', async () => {
@@ -842,7 +842,7 @@ describe('routes/admin-users.js', () => {
     const res = await request(app)
       .delete('/users/user-2')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.success, true);
     assert.ok(deps.invalidateUserCache.mock.calls.length > 0);
     assert.ok(deps.invalidateUserSessions.mock.calls.length > 0);
@@ -855,7 +855,7 @@ describe('routes/admin-users.js', () => {
     const res = await request(app)
       .delete('/users/missing')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('DELETE /users/:id returns 400 for invalid id', async () => {
@@ -865,7 +865,7 @@ describe('routes/admin-users.js', () => {
     const res = await request(app)
       .delete('/users/%20')
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 });
 
@@ -889,7 +889,7 @@ describe('routes/admin-bulk.js', () => {
       .post('/bulk/deactivate')
       .send({ userIds: ['user-1', 'user-2'] })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data.results));
     assert.equal(res.body.data.results.length, 2);
     assert.equal(res.body.data.results[0].status, 'deactivated');
@@ -903,7 +903,7 @@ describe('routes/admin-bulk.js', () => {
       .post('/bulk/deactivate')
       .send({ userIds })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /bulk/deactivate handles partial failures', async () => {
@@ -933,7 +933,7 @@ describe('routes/admin-bulk.js', () => {
       .post('/bulk/archive-festivals')
       .send({ festivalIds: ['f1', 'f2'] })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.results.length, 2);
     assert.ok(deps.stores.auditLog.insert.mock.calls.length > 0);
   });
@@ -945,7 +945,7 @@ describe('routes/admin-bulk.js', () => {
       .post('/bulk/archive-festivals')
       .send({ festivalIds })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /bulk/archive-festivals handles individual archive errors', async () => {
@@ -979,7 +979,7 @@ describe('routes/admin-bulk.js', () => {
     const app = buildApp(router);
 
     const res = await request(app).get('/crews').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data));
     assert.equal(res.body.data[0].name, 'Crew A');
   });
@@ -993,13 +993,13 @@ describe('routes/admin-bulk.js', () => {
     const app = buildApp(router);
 
     const res = await request(app).get('/crews').expect(500);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /crews/:id/members returns crew members', async () => {
     const { app } = buildBulkRouter();
     const res = await request(app).get('/crews/crew-1/members').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data));
   });
 
@@ -1008,7 +1008,7 @@ describe('routes/admin-bulk.js', () => {
       sanitizeIdentifier: () => null,
     });
     const res = await request(app).get('/crews/%20/members').expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('DELETE /crews/:id/members/:userId removes a member', async () => {
@@ -1016,7 +1016,7 @@ describe('routes/admin-bulk.js', () => {
     const res = await request(app)
       .delete('/crews/crew-1/members/user-2')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(deps.stores.crews.removeMember.mock.calls.length > 0);
   });
 
@@ -1025,7 +1025,7 @@ describe('routes/admin-bulk.js', () => {
     const res = await request(app)
       .delete('/crews/crew-1/members/user-999')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('DELETE /crews/:id/members/:userId returns 400 for invalid IDs', async () => {
@@ -1035,7 +1035,7 @@ describe('routes/admin-bulk.js', () => {
     const res = await request(app)
       .delete('/crews/%20/members/%20')
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('DELETE /crews/:id deletes a crew', async () => {
@@ -1043,7 +1043,7 @@ describe('routes/admin-bulk.js', () => {
     const res = await request(app)
       .delete('/crews/crew-1')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(deps.stores.crews.delete.mock.calls.length > 0);
     assert.ok(deps.stores.auditLog.insert.mock.calls.length > 0);
   });
@@ -1053,7 +1053,7 @@ describe('routes/admin-bulk.js', () => {
     const res = await request(app)
       .delete('/crews/missing-crew')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('DELETE /crews/:id returns 400 for invalid crew ID', async () => {
@@ -1063,7 +1063,7 @@ describe('routes/admin-bulk.js', () => {
     const res = await request(app)
       .delete('/crews/%20')
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 });
 
@@ -1090,7 +1090,7 @@ describe('routes/admin.js', () => {
   test('GET /dashboard returns aggregated stats', async () => {
     const { app } = buildAdminApp();
     const res = await request(app).get('/dashboard').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(res.body.data.stats);
     assert.ok(typeof res.body.data.stats.users === 'number');
     assert.ok(typeof res.body.data.stats.festivals === 'number');
@@ -1129,7 +1129,7 @@ describe('routes/admin.js', () => {
       getUsers: mock.fn(async () => { throw new Error('fail'); }),
     });
     const res = await request(app).get('/dashboard').expect(500);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /festivals/:id/backfill-spotify returns 400 when credentials missing', async () => {
@@ -1137,8 +1137,8 @@ describe('routes/admin.js', () => {
     const res = await request(app)
       .post('/festivals/f1/backfill-spotify')
       .expect(400);
-    assert.equal(res.body.ok, false);
-    assert.ok(res.body.message.includes('Spotify'));
+    assert.equal(res.body.data, null);
+    assert.ok(res.body.error.message.includes('Spotify'));
   });
 
   test('POST /festivals/:id/backfill-spotify returns 404 for missing festival', async () => {
@@ -1153,7 +1153,7 @@ describe('routes/admin.js', () => {
     const res = await request(app)
       .post('/festivals/missing/backfill-spotify')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /festivals/:id/backfill-spotify reports all sets already linked', async () => {
@@ -1174,7 +1174,7 @@ describe('routes/admin.js', () => {
     const res = await request(app)
       .post('/festivals/f1/backfill-spotify')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.updated, 0);
     assert.ok(res.body.data.message.includes('already'));
   });
@@ -1218,7 +1218,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/export/missing/p1/calendar')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /export/:festivalId/:profileId/calendar returns 404 for missing profile', async () => {
@@ -1231,7 +1231,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/export/f1/missing/calendar')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /export/:festivalId/:profileId/calendar returns 403 for wrong user', async () => {
@@ -1246,7 +1246,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/export/f1/p2/calendar')
       .expect(403);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /export/:festivalId/:profileId/calendar returns 400 for invalid IDs', async () => {
@@ -1259,7 +1259,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/export/%20/%20/calendar')
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /export/:festivalId/:profileId returns 400 for invalid IDs', async () => {
@@ -1272,7 +1272,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/export/%20/%20')
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /export/:festivalId/:profileId returns 404 for missing festival', async () => {
@@ -1280,7 +1280,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/export/missing/p1')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /presence/:festivalId returns online users', async () => {
@@ -1288,7 +1288,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/presence/f1')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data.online));
   });
 
@@ -1297,7 +1297,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/presence/missing')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /presence/:festivalId returns 403 when not joined', async () => {
@@ -1310,7 +1310,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/presence/f1')
       .expect(403);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /presence/:festivalId returns 400 for invalid ID', async () => {
@@ -1323,7 +1323,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/presence/%20')
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /festivals/:festivalId/calendar returns calendar events', async () => {
@@ -1331,7 +1331,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/festivals/f1/calendar')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(res.body.data.festival);
     assert.ok(Array.isArray(res.body.data.events));
   });
@@ -1341,7 +1341,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/festivals/missing/calendar')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /festivals/:festivalId/calendar returns 404 when not joined', async () => {
@@ -1354,7 +1354,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/festivals/f1/calendar')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /export-card/:festivalId returns 404 for missing festival', async () => {
@@ -1362,7 +1362,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/export-card/missing')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /export-card/:festivalId returns 404 when not joined', async () => {
@@ -1375,7 +1375,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/export-card/f1')
       .expect(404);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /export-card/:festivalId returns 400 for invalid ID', async () => {
@@ -1388,7 +1388,7 @@ describe('routes/export.js', () => {
     const res = await request(app)
       .get('/export-card/%20')
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 });
 
@@ -1417,7 +1417,7 @@ describe('routes/notifications.js', () => {
       .post('/token')
       .send({ token: 'a'.repeat(30), platform: 'web', deviceName: 'Chrome' })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.success, true);
     assert.ok(res.body.data.id);
     assert.ok(deps.stores.deviceTokens.register.mock.calls.length > 0);
@@ -1429,7 +1429,7 @@ describe('routes/notifications.js', () => {
       .post('/token')
       .send({ token: 'short', platform: 'web' })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /token rejects empty token', async () => {
@@ -1438,7 +1438,7 @@ describe('routes/notifications.js', () => {
       .post('/token')
       .send({ token: '                              ', platform: 'web' })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /token rejects invalid platform', async () => {
@@ -1447,7 +1447,7 @@ describe('routes/notifications.js', () => {
       .post('/token')
       .send({ token: 'a'.repeat(30), platform: 'windows' })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /token rejects token with control characters', async () => {
@@ -1456,7 +1456,7 @@ describe('routes/notifications.js', () => {
       .post('/token')
       .send({ token: 'a'.repeat(20) + '\x00' + 'b'.repeat(10), platform: 'web' })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /token rejects token belonging to another user', async () => {
@@ -1470,7 +1470,7 @@ describe('routes/notifications.js', () => {
       .post('/token')
       .send({ token: 'a'.repeat(30), platform: 'web' })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /token evicts oldest token when at cap', async () => {
@@ -1485,7 +1485,7 @@ describe('routes/notifications.js', () => {
       .post('/token')
       .send({ token: 'a'.repeat(30), platform: 'web' })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(deps.stores.deviceTokens.unregister.mock.calls.length > 0);
   });
 
@@ -1500,7 +1500,7 @@ describe('routes/notifications.js', () => {
       .post('/token')
       .send({ token: 'a'.repeat(30), platform: 'web' })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('DELETE /token unregisters a device token', async () => {
@@ -1509,7 +1509,7 @@ describe('routes/notifications.js', () => {
       .delete('/token')
       .send({ token: 'my-token-to-delete' })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(deps.stores.deviceTokens.unregister.mock.calls.length > 0);
   });
 
@@ -1519,7 +1519,7 @@ describe('routes/notifications.js', () => {
       .delete('/token')
       .send({})
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /prefs returns notification preferences', async () => {
@@ -1527,7 +1527,7 @@ describe('routes/notifications.js', () => {
     const res = await request(app)
       .get('/prefs')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(typeof res.body.data.crewUpdates !== 'undefined');
   });
 
@@ -1537,7 +1537,7 @@ describe('routes/notifications.js', () => {
       .post('/read')
       .send({ festivalId: 'f1' })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.badgeCount, 0);
     assert.ok(deps.stores.notificationCounts.reset.mock.calls.length > 0);
   });
@@ -1548,7 +1548,7 @@ describe('routes/notifications.js', () => {
       .post('/read')
       .send({})
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(deps.stores.notificationCounts.resetAll.mock.calls.length > 0);
   });
 
@@ -1563,7 +1563,7 @@ describe('routes/notifications.js', () => {
       .post('/read')
       .send({ festivalId: '   ' })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /unread returns unread counts', async () => {
@@ -1571,7 +1571,7 @@ describe('routes/notifications.js', () => {
     const res = await request(app)
       .get('/unread')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.total, 3);
     assert.ok(Array.isArray(res.body.data.byFestival));
     assert.equal(res.body.data.byFestival[0].festivalId, 'f1');
@@ -1583,9 +1583,9 @@ describe('routes/notifications.js', () => {
     const res = await request(app)
       .get('/history')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data));
-    assert.ok(res.body.pagination);
+    assert.ok(res.body.meta);
   });
 
   test('PUT /prefs updates notification preferences', async () => {
@@ -1594,7 +1594,7 @@ describe('routes/notifications.js', () => {
       .put('/prefs')
       .send({ crewUpdates: false })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(deps.stores.notificationPrefs.upsert.mock.calls.length > 0);
   });
 
@@ -1604,7 +1604,7 @@ describe('routes/notifications.js', () => {
       .patch('/prefs')
       .send({ setReminders: true })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(deps.stores.notificationPrefs.upsert.mock.calls.length > 0);
   });
 
@@ -1614,7 +1614,7 @@ describe('routes/notifications.js', () => {
       .put('/prefs')
       .send({ unknownField: true })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('PUT /prefs rejects empty body', async () => {
@@ -1623,7 +1623,7 @@ describe('routes/notifications.js', () => {
       .put('/prefs')
       .send({})
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('PUT /prefs validates dndStart format', async () => {
@@ -1632,8 +1632,8 @@ describe('routes/notifications.js', () => {
       .put('/prefs')
       .send({ dndStart: 'invalid' })
       .expect(400);
-    assert.equal(res.body.ok, false);
-    assert.ok(res.body.message.includes('HH:MM'));
+    assert.equal(res.body.data, null);
+    assert.ok(res.body.error.message.includes('HH:MM'));
   });
 
   test('PUT /prefs validates dndEnd format', async () => {
@@ -1642,7 +1642,7 @@ describe('routes/notifications.js', () => {
       .put('/prefs')
       .send({ dndEnd: '25:00' })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('PUT /prefs allows null dndStart/dndEnd to clear', async () => {
@@ -1651,7 +1651,7 @@ describe('routes/notifications.js', () => {
       .put('/prefs')
       .send({ dndStart: null, dndEnd: null })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('PUT /prefs allows empty string dndStart/dndEnd to clear', async () => {
@@ -1660,7 +1660,7 @@ describe('routes/notifications.js', () => {
       .put('/prefs')
       .send({ dndStart: '', dndEnd: '' })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('PUT /prefs accepts valid HH:MM dndStart', async () => {
@@ -1669,7 +1669,7 @@ describe('routes/notifications.js', () => {
       .put('/prefs')
       .send({ dndStart: '22:00' })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('GET /topics/:festivalId returns topic subscriptions', async () => {
@@ -1677,7 +1677,7 @@ describe('routes/notifications.js', () => {
     const res = await request(app)
       .get('/topics/f1')
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.crew, true);
     assert.equal(res.body.data.schedule, false);
   });
@@ -1706,7 +1706,7 @@ describe('routes/notifications.js', () => {
     const res = await request(app)
       .get('/topics/f1')
       .expect(403);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /topics/:festivalId returns 400 for invalid ID', async () => {
@@ -1719,7 +1719,7 @@ describe('routes/notifications.js', () => {
     const res = await request(app)
       .get('/topics/%20')
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('PUT /topics/:festivalId updates topic subscriptions', async () => {
@@ -1728,7 +1728,7 @@ describe('routes/notifications.js', () => {
       .put('/topics/f1')
       .send({ crew: false, schedule: true })
       .expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.crew, false);
     assert.equal(res.body.data.schedule, true);
     assert.ok(deps.stores.topicSubscriptions.setSubscription.mock.calls.length >= 2);
@@ -1740,7 +1740,7 @@ describe('routes/notifications.js', () => {
       .put('/topics/f1')
       .send({ invalidTopic: true })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('PUT /topics/:festivalId returns 403 when not a member', async () => {
@@ -1754,7 +1754,7 @@ describe('routes/notifications.js', () => {
       .put('/topics/f1')
       .send({ crew: false })
       .expect(403);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('PUT /topics/:festivalId returns 400 for invalid festival ID', async () => {
@@ -1768,6 +1768,6 @@ describe('routes/notifications.js', () => {
       .put('/topics/%20')
       .send({ crew: true })
       .expect(400);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 });

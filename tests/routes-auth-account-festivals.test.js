@@ -83,8 +83,8 @@ function makeMockDeps(overrides = {}) {
     disconnectSessionTokens: mock.fn(),
     createOpaqueId: mock.fn(() => 'opaque-123'),
     serializePublicUser: mock.fn((u) => ({ id: u.id, username: u.username })),
-    sendSuccess: (res, data) => res.json({ ok: true, ...data }),
-    sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg }),
+    sendSuccess: (res, data) => res.json({ data, error: null }),
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       NOT_FOUND: 'NOT_FOUND',
@@ -242,9 +242,9 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: 'newuser', password: 'password123', confirmPassword: 'password123' });
 
       assert.equal(res.status, 201);
-      assert.equal(res.body.ok, true);
-      assert.ok(res.body.token);
-      assert.ok(res.body.user);
+      assert.equal(res.body.error, null);
+      assert.ok(res.body.data.token);
+      assert.ok(res.body.data.user);
     });
 
     test('returns 400 when username validation fails', async () => {
@@ -257,7 +257,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: '!', password: 'password123', confirmPassword: 'password123' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'INVALID_INPUT');
+      assert.equal(res.body.error.code, 'INVALID_INPUT');
     });
 
     test('returns 400 when password validation fails', async () => {
@@ -270,7 +270,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: 'newuser', password: 'short', confirmPassword: 'short' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'INVALID_INPUT');
+      assert.equal(res.body.error.code, 'INVALID_INPUT');
     });
 
     test('returns 400 when passwords do not match', async () => {
@@ -283,7 +283,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: 'newuser', password: 'password123', confirmPassword: 'different456' });
 
       assert.equal(res.status, 400);
-      assert.match(res.body.message, /do not match/);
+      assert.match(res.body.error.message, /do not match/);
     });
 
     test('returns 400 when username already taken', async () => {
@@ -297,7 +297,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: 'newuser', password: 'password123', confirmPassword: 'password123' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'ALREADY_EXISTS');
+      assert.equal(res.body.error.code, 'ALREADY_EXISTS');
     });
 
     test('returns 400 when max users reached', async () => {
@@ -314,7 +314,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: 'brand_new', password: 'password123', confirmPassword: 'password123' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'MAX_LIMIT_REACHED');
+      assert.equal(res.body.error.code, 'MAX_LIMIT_REACHED');
     });
 
     test('returns 400 when email already in use', async () => {
@@ -345,7 +345,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: 'newuser', password: 'password123', confirmPassword: 'password123', email: 'taken@example.com' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'ALREADY_EXISTS');
+      assert.equal(res.body.error.code, 'ALREADY_EXISTS');
     });
 
     test('returns 500 on internal error', async () => {
@@ -359,7 +359,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: 'newuser', password: 'password123', confirmPassword: 'password123' });
 
       assert.equal(res.status, 500);
-      assert.equal(res.body.code, 'INTERNAL_ERROR');
+      assert.equal(res.body.error.code, 'INTERNAL_ERROR');
     });
   });
 
@@ -378,8 +378,8 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: 'testuser', password: 'password123' });
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.ok(res.body.token);
+      assert.equal(res.body.error, null);
+      assert.ok(res.body.data.token);
     });
 
     test('returns 400 when username or password missing', async () => {
@@ -392,7 +392,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: '', password: '' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'MISSING_FIELD');
+      assert.equal(res.body.error.code, 'MISSING_FIELD');
     });
 
     test('returns 401 when user not found (timing-safe)', async (t) => {
@@ -410,7 +410,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       // Login failures use setTimeout for jitter -- status is 401
       assert.equal(res.status, 401);
-      assert.equal(res.body.code, 'INVALID_CREDENTIALS');
+      assert.equal(res.body.error.code, 'INVALID_CREDENTIALS');
     });
 
     test('returns 401 when password is wrong', async () => {
@@ -426,7 +426,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: 'testuser', password: 'wrong' });
 
       assert.equal(res.status, 401);
-      assert.equal(res.body.code, 'INVALID_CREDENTIALS');
+      assert.equal(res.body.error.code, 'INVALID_CREDENTIALS');
     });
 
     test('reactivates soft-deleted account on successful login', async () => {
@@ -464,7 +464,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ username: 'testuser', password: 'password123' });
 
       assert.equal(res.status, 500);
-      assert.equal(res.body.code, 'INTERNAL_ERROR');
+      assert.equal(res.body.error.code, 'INTERNAL_ERROR');
     });
   });
 
@@ -483,8 +483,8 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .set('Authorization', 'Bearer valid-token');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.equal(res.body.valid, true);
+      assert.equal(res.body.error, null);
+      assert.equal(res.body.data.valid, true);
     });
 
     test('returns 401 when session is invalid', async () => {
@@ -499,7 +499,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .set('Authorization', 'Bearer bad-token');
 
       assert.equal(res.status, 401);
-      assert.equal(res.body.code, 'AUTH_REQUIRED');
+      assert.equal(res.body.error.code, 'AUTH_REQUIRED');
     });
 
     test('returns 401 when user not found for session', async () => {
@@ -515,7 +515,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .set('Authorization', 'Bearer valid-token');
 
       assert.equal(res.status, 401);
-      assert.equal(res.body.code, 'AUTH_REQUIRED');
+      assert.equal(res.body.error.code, 'AUTH_REQUIRED');
     });
   });
 
@@ -535,11 +535,11 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const res = await request(app).get('/me');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.ok(res.body.user);
+      assert.equal(res.body.error, null);
+      assert.ok(res.body.data.user);
       // Should only include profiles for user-1
-      assert.equal(res.body.festivals.length, 1);
-      assert.equal(res.body.festivals[0].festivalId, 'f-1');
+      assert.equal(res.body.data.festivals.length, 1);
+      assert.equal(res.body.data.festivals[0].festivalId, 'f-1');
     });
 
     test('returns 401 when user not found', async () => {
@@ -552,7 +552,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const res = await request(app).get('/me');
 
       assert.equal(res.status, 401);
-      assert.equal(res.body.code, 'AUTH_REQUIRED');
+      assert.equal(res.body.error.code, 'AUTH_REQUIRED');
     });
   });
 
@@ -576,7 +576,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .set('Authorization', 'Bearer my-token');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       assert.equal(deleteSession.mock.calls.length, 1);
       assert.equal(clearCookie.mock.calls.length, 1);
     });
@@ -593,7 +593,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const res = await request(app).post('/logout');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       assert.equal(clearCookie.mock.calls.length, 1);
     });
   });
@@ -615,8 +615,8 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ currentPassword: 'old123456', newPassword: 'new1234567', confirmPassword: 'new1234567' });
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.ok(res.body.token);
+      assert.equal(res.body.error, null);
+      assert.ok(res.body.data.token);
       assert.equal(updateUser.mock.calls.length, 1);
     });
 
@@ -630,7 +630,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({});
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'MISSING_FIELD');
+      assert.equal(res.body.error.code, 'MISSING_FIELD');
     });
 
     test('returns 400 when new password is weak', async () => {
@@ -645,7 +645,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ currentPassword: 'old12345', newPassword: 'short', confirmPassword: 'short' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'INVALID_INPUT');
+      assert.equal(res.body.error.code, 'INVALID_INPUT');
     });
 
     test('returns 400 when new passwords do not match', async () => {
@@ -658,7 +658,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ currentPassword: 'old12345', newPassword: 'new1234567', confirmPassword: 'different' });
 
       assert.equal(res.status, 400);
-      assert.match(res.body.message, /do not match/);
+      assert.match(res.body.error.message, /do not match/);
     });
 
     test('returns 404 when user not found', async () => {
@@ -673,7 +673,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ currentPassword: 'old12345', newPassword: 'new1234567', confirmPassword: 'new1234567' });
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
 
     test('returns 400 when current password is wrong', async () => {
@@ -688,7 +688,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ currentPassword: 'wrong', newPassword: 'new1234567', confirmPassword: 'new1234567' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'PASSWORD_INCORRECT');
+      assert.equal(res.body.error.code, 'PASSWORD_INCORRECT');
     });
   });
 
@@ -707,8 +707,8 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const res = await request(app).post('/refresh');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.ok(res.body.token);
+      assert.equal(res.body.error, null);
+      assert.ok(res.body.data.token);
       assert.equal(deleteSession.mock.calls.length, 1);
     });
 
@@ -726,7 +726,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const res = await request(app).post('/refresh');
 
       assert.equal(res.status, 401);
-      assert.equal(res.body.code, 'AUTH_REQUIRED');
+      assert.equal(res.body.error.code, 'AUTH_REQUIRED');
     });
   });
 
@@ -758,7 +758,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ refreshToken: 'rt-invalid' });
 
       assert.equal(res.status, 401);
-      assert.equal(res.body.code, 'TOKEN_EXPIRED');
+      assert.equal(res.body.error.code, 'TOKEN_EXPIRED');
     });
 
     test('rotates tokens on valid refresh', async () => {
@@ -777,9 +777,9 @@ describe('routes/auth.js — createAuthRoutes', () => {
         .send({ refreshToken: 'rt-valid' });
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.ok(res.body.token);
-      assert.ok(res.body.refreshToken);
+      assert.equal(res.body.error, null);
+      assert.ok(res.body.data.token);
+      assert.ok(res.body.data.refreshToken);
       assert.equal(rotateFn.mock.calls.length, 1);
     });
   });
@@ -798,7 +798,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const res = await request(app).get('/sessions');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       // Items are spread into the response
       assert.ok(Array.isArray(Object.keys(res.body)));
     });
@@ -817,7 +817,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const res = await request(app).delete('/sessions');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       assert.equal(invalidateFn.mock.calls.length, 1);
     });
   });
@@ -832,7 +832,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const res = await request(app).delete('/sessions/too-short');
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'INVALID_INPUT');
+      assert.equal(res.body.error.code, 'INVALID_INPUT');
     });
 
     test('returns 404 when session not found', async () => {
@@ -844,7 +844,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const res = await request(app).delete('/sessions/abcdef0123456789');
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
   });
 });
@@ -872,7 +872,7 @@ describe('routes/account.js — createAccountRoutes', () => {
       const res = await request(app).post('/avatar');
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'MISSING_FIELD');
+      assert.equal(res.body.error.code, 'MISSING_FIELD');
     });
 
     test('uploads avatar successfully', async () => {
@@ -901,7 +901,7 @@ describe('routes/account.js — createAccountRoutes', () => {
       const res = await request(app).post('/avatar');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
 
     test('returns 404 when user not found during avatar upload', async () => {
@@ -919,7 +919,7 @@ describe('routes/account.js — createAccountRoutes', () => {
       const res = await request(app).post('/avatar');
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
   });
 
@@ -947,7 +947,7 @@ describe('routes/account.js — createAccountRoutes', () => {
       const res = await request(app).delete('/avatar');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
 
     test('returns 404 when user not found during avatar delete', async () => {
@@ -961,7 +961,7 @@ describe('routes/account.js — createAccountRoutes', () => {
       const res = await request(app).delete('/avatar');
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
   });
 
@@ -980,7 +980,7 @@ describe('routes/account.js — createAccountRoutes', () => {
         .send({ username: 'newname' });
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       assert.equal(updateFn.mock.calls.length, 1);
     });
 
@@ -997,7 +997,7 @@ describe('routes/account.js — createAccountRoutes', () => {
         .send({ username: 'patchname' });
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
 
     test('returns 400 when username validation fails', async () => {
@@ -1012,7 +1012,7 @@ describe('routes/account.js — createAccountRoutes', () => {
         .send({ username: '!' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'INVALID_INPUT');
+      assert.equal(res.body.error.code, 'INVALID_INPUT');
     });
 
     test('returns 404 when current user not found', async () => {
@@ -1028,7 +1028,7 @@ describe('routes/account.js — createAccountRoutes', () => {
         .send({ username: 'newname' });
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
 
     test('returns 400 when username is already taken by another user', async () => {
@@ -1042,7 +1042,7 @@ describe('routes/account.js — createAccountRoutes', () => {
         .send({ username: 'taken' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'ALREADY_EXISTS');
+      assert.equal(res.body.error.code, 'ALREADY_EXISTS');
     });
 
     test('returns 400 on unique constraint violation from DB', async () => {
@@ -1059,7 +1059,7 @@ describe('routes/account.js — createAccountRoutes', () => {
         .send({ username: 'racecondition' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'ALREADY_EXISTS');
+      assert.equal(res.body.error.code, 'ALREADY_EXISTS');
     });
   });
 
@@ -1092,8 +1092,8 @@ describe('routes/account.js — createAccountRoutes', () => {
         .send({ password: 'password123' });
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.ok(res.body.deletionDate);
+      assert.equal(res.body.error, null);
+      assert.ok(res.body.data.deletionDate);
       assert.equal(updateUser.mock.calls.length, 1);
     });
 
@@ -1113,7 +1113,7 @@ describe('routes/account.js — createAccountRoutes', () => {
         .send({ password: 'password123' });
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
 
     test('returns 400 when account is already deleted', async () => {
@@ -1135,7 +1135,7 @@ describe('routes/account.js — createAccountRoutes', () => {
         .send({ password: 'password123' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'INVALID_INPUT');
+      assert.equal(res.body.error.code, 'INVALID_INPUT');
     });
 
     test('returns 403 when password is incorrect', async () => {
@@ -1156,7 +1156,7 @@ describe('routes/account.js — createAccountRoutes', () => {
         .send({ password: 'wrong' });
 
       assert.equal(res.status, 403);
-      assert.equal(res.body.code, 'PASSWORD_INCORRECT');
+      assert.equal(res.body.error.code, 'PASSWORD_INCORRECT');
     });
   });
 
@@ -1182,10 +1182,10 @@ describe('routes/account.js — createAccountRoutes', () => {
       const res = await request(app).get('/export');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.ok(res.body.user);
-      assert.equal(res.body.profiles.length, 1);
-      assert.ok(res.body.exportDate);
+      assert.equal(res.body.error, null);
+      assert.ok(res.body.data.user);
+      assert.equal(res.body.data.profiles.length, 1);
+      assert.ok(res.body.data.exportDate);
     });
 
     test('returns 404 when user not found', async () => {
@@ -1198,7 +1198,7 @@ describe('routes/account.js — createAccountRoutes', () => {
       const res = await request(app).get('/export');
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
 
     test('includes crew and session data when stores are available', async () => {
@@ -1241,11 +1241,11 @@ describe('routes/account.js — createAccountRoutes', () => {
       const res = await request(app).get('/export');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.equal(res.body.sessions.length, 1);
-      assert.equal(res.body.deviceTokens.length, 1);
-      assert.equal(res.body.crews.length, 1);
-      assert.deepEqual(res.body.notificationPreferences, { push: true });
+      assert.equal(res.body.error, null);
+      assert.equal(res.body.data.sessions.length, 1);
+      assert.equal(res.body.data.deviceTokens.length, 1);
+      assert.equal(res.body.data.crews.length, 1);
+      assert.deepEqual(res.body.data.notificationPreferences, { push: true });
     });
   });
 });
@@ -1278,9 +1278,9 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).get('/');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       // The response data is spread directly, so the array of festivals is the non-ok fields
-      // Actually sendSuccess spreads the array, so check it's present
+      // sendSuccess wraps in { data, error: null }, so check data is present
       assert.ok(res.body);
     });
 
@@ -1316,7 +1316,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).get('/');
 
       assert.equal(res.status, 500);
-      assert.equal(res.body.code, 'INTERNAL_ERROR');
+      assert.equal(res.body.error.code, 'INTERNAL_ERROR');
     });
   });
 
@@ -1337,8 +1337,8 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).get('/f-1');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.equal(res.body.id, 'f-1');
+      assert.equal(res.body.error, null);
+      assert.equal(res.body.data.id, 'f-1');
     });
 
     test('returns L1 structural data for depth=1', async () => {
@@ -1360,10 +1360,10 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).get('/f-1?depth=1');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.equal(res.body.id, 'f-1');
-      assert.equal(res.body.stages.length, 1);
-      assert.equal(res.body.days[0].sets[0].artist, 'DJ X');
+      assert.equal(res.body.error, null);
+      assert.equal(res.body.data.id, 'f-1');
+      assert.equal(res.body.data.stages.length, 1);
+      assert.equal(res.body.data.days[0].sets[0].artist, 'DJ X');
     });
 
     test('returns 404 when festival not found', async () => {
@@ -1376,7 +1376,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).get('/nonexistent');
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
 
     test('returns 500 on internal error', async () => {
@@ -1389,7 +1389,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).get('/f-1');
 
       assert.equal(res.status, 500);
-      assert.equal(res.body.code, 'INTERNAL_ERROR');
+      assert.equal(res.body.error.code, 'INTERNAL_ERROR');
     });
   });
 
@@ -1415,7 +1415,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
         .send({ name: 'New Fest', location: 'NYC' });
 
       assert.equal(res.status, 201);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       assert.equal(createFn.mock.calls.length, 1);
       assert.equal(deps.emitter.festivalCreated.mock.calls.length, 1);
     });
@@ -1432,8 +1432,8 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
         .send({});
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'INVALID_INPUT');
-      assert.match(res.body.message, /Name is required/);
+      assert.equal(res.body.error.code, 'INVALID_INPUT');
+      assert.match(res.body.error.message, /Name is required/);
     });
 
     test('returns 500 on internal error', async () => {
@@ -1455,7 +1455,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
         .send({ name: 'New Fest', location: 'NYC' });
 
       assert.equal(res.status, 500);
-      assert.equal(res.body.code, 'INTERNAL_ERROR');
+      assert.equal(res.body.error.code, 'INTERNAL_ERROR');
     });
   });
 
@@ -1483,7 +1483,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
         .send({ name: 'New Name', location: 'New Place' });
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
       assert.equal(updateFn.mock.calls.length, 1);
       assert.equal(deps.emitter.festivalUpdated.mock.calls.length, 1);
     });
@@ -1500,7 +1500,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
         .send({ name: 'Updated' });
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
 
     test('returns 400 when validation fails', async () => {
@@ -1516,7 +1516,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
         .send({ name: 'Updated' });
 
       assert.equal(res.status, 400);
-      assert.equal(res.body.code, 'INVALID_INPUT');
+      assert.equal(res.body.error.code, 'INVALID_INPUT');
     });
   });
 
@@ -1541,8 +1541,8 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).delete('/f-1');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.equal(res.body.softDeleted, true);
+      assert.equal(res.body.error, null);
+      assert.equal(res.body.data.softDeleted, true);
       assert.equal(softDeleteFn.mock.calls.length, 1);
       assert.equal(deps.emitter.festivalDeleted.mock.calls.length, 1);
     });
@@ -1567,8 +1567,8 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).delete('/f-1?hard=true');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.equal(res.body.softDeleted, false);
+      assert.equal(res.body.error, null);
+      assert.equal(res.body.data.softDeleted, false);
       // Should have called stores.festivals.hardDelete
       assert.equal(hardDeleteFn.mock.calls.length, 1);
       assert.equal(hardDeleteFn.mock.calls[0].arguments[0], 'f-1');
@@ -1584,7 +1584,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).delete('/nonexistent');
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
 
     test('returns 500 on internal error', async () => {
@@ -1607,7 +1607,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).delete('/f-1');
 
       assert.equal(res.status, 500);
-      assert.equal(res.body.code, 'INTERNAL_ERROR');
+      assert.equal(res.body.error.code, 'INTERNAL_ERROR');
     });
   });
 
@@ -1641,8 +1641,8 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
         .send({ linkUrl: 'https://open.spotify.com/track/123' });
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.equal(res.body.setId, 'set-1');
+      assert.equal(res.body.error, null);
+      assert.equal(res.body.data.setId, 'set-1');
       // Should have issued UPDATE queries
       assert.ok(poolQuery.mock.calls.length >= 2);
     });
@@ -1659,7 +1659,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
         .send({ linkUrl: 'https://example.com' });
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
 
     test('returns 404 when set not found in festival', async () => {
@@ -1678,7 +1678,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
         .send({ linkUrl: 'https://example.com' });
 
       assert.equal(res.status, 404);
-      assert.equal(res.body.code, 'NOT_FOUND');
+      assert.equal(res.body.error.code, 'NOT_FOUND');
     });
 
     test('clears link when linkUrl is empty', async () => {
@@ -1706,8 +1706,8 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
         .send({ linkUrl: '' });
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
-      assert.equal(res.body.linkUrl, null);
+      assert.equal(res.body.error, null);
+      assert.equal(res.body.data.linkUrl, null);
     });
   });
 
@@ -1735,7 +1735,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).get('/f-1/sets/links');
 
       assert.equal(res.status, 200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     });
 
     test('returns 500 on internal error', async () => {
@@ -1755,7 +1755,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const res = await request(app).get('/f-1/sets/links');
 
       assert.equal(res.status, 500);
-      assert.equal(res.body.code, 'INTERNAL_ERROR');
+      assert.equal(res.body.error.code, 'INTERNAL_ERROR');
     });
   });
 });

@@ -120,8 +120,8 @@ function makeDeps(overrides = {}) {
     }),
     setNoStore: overrides.setNoStore || ((_res) => {}),
     sanitizeIdentifier: overrides.sanitizeIdentifier || ((s, _max) => (typeof s === 'string' ? s.trim() : '')),
-    sendSuccess: (res, data) => res.json({ ok: true, ...data }),
-    sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg }),
+    sendSuccess: (res, data) => res.json({ data, error: null }),
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       NOT_FOUND: 'NOT_FOUND',
@@ -190,10 +190,9 @@ describe('routes/crew-members.js — GET /search-users', () => {
       .get('/search-users?q=ali');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    // sendSuccess spreads the array: { ok: true, 0: {...}, 1: {...} }
-    assert.equal(res.body['0'].username, 'alice');
-    assert.equal(res.body['1'].username, 'alicia');
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data[0].username, 'alice');
+    assert.equal(res.body.data[1].username, 'alicia');
   });
 
   test('returns empty array for empty query string', async () => {
@@ -207,8 +206,8 @@ describe('routes/crew-members.js — GET /search-users', () => {
       .get('/search-users?q=');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    // sendSuccess spreads the empty array, so body should have ok: true but no results
+    assert.equal(res.body.error, null);
+    // sendSuccess wraps in { data, error: null }, so data is empty array
   });
 
   test('returns empty array when query is only whitespace', async () => {
@@ -222,7 +221,7 @@ describe('routes/crew-members.js — GET /search-users', () => {
       .get('/search-users?q=%20%20');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   // ── Permission checks ────────────────────────────────────────────
@@ -237,8 +236,8 @@ describe('routes/crew-members.js — GET /search-users', () => {
       .get('/search-users?q=test');
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
-    assert.match(res.body.message, /Admin access required/i);
+    assert.equal(res.body.error.code, 'FORBIDDEN');
+    assert.match(res.body.error.message, /Admin access required/i);
   });
 
   // ── LIKE metacharacter escaping ───────────────────────────────────
@@ -275,7 +274,7 @@ describe('routes/crew-members.js — GET /search-users', () => {
       .get('/search-users?q=test');
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -301,8 +300,8 @@ describe('routes/crew-members.js — DELETE /:crewId/leave', () => {
       .delete('/crew-1/leave');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.success, true);
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.success, true);
     assert.equal(removeMember.mock.calls.length, 1);
     assert.equal(removeMember.mock.calls[0].arguments[0], 'crew-1');
     assert.equal(removeMember.mock.calls[0].arguments[1], 'user-1');
@@ -349,8 +348,8 @@ describe('routes/crew-members.js — DELETE /:crewId/leave', () => {
       .delete('/crew-1/leave');
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'FORBIDDEN');
-    assert.match(res.body.message, /Transfer ownership/i);
+    assert.equal(res.body.error.code, 'FORBIDDEN');
+    assert.match(res.body.error.message, /Transfer ownership/i);
   });
 
   // ── Not a member ──────────────────────────────────────────────────
@@ -368,8 +367,8 @@ describe('routes/crew-members.js — DELETE /:crewId/leave', () => {
       .delete('/crew-1/leave');
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'INVALID_INPUT');
-    assert.match(res.body.message, /Not a member/i);
+    assert.equal(res.body.error.code, 'INVALID_INPUT');
+    assert.match(res.body.error.message, /Not a member/i);
   });
 
   // ── Crew not found ────────────────────────────────────────────────
@@ -386,7 +385,7 @@ describe('routes/crew-members.js — DELETE /:crewId/leave', () => {
       .delete('/crew-nonexistent/leave');
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   // ── Invalid crew ID ───────────────────────────────────────────────
@@ -399,7 +398,7 @@ describe('routes/crew-members.js — DELETE /:crewId/leave', () => {
       .delete('/%20/leave');
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'INVALID_INPUT');
+    assert.equal(res.body.error.code, 'INVALID_INPUT');
   });
 
   // ── No Socket.IO ──────────────────────────────────────────────────
@@ -419,7 +418,7 @@ describe('routes/crew-members.js — DELETE /:crewId/leave', () => {
       .delete('/crew-1/leave');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   // ── Internal error ────────────────────────────────────────────────
@@ -436,7 +435,7 @@ describe('routes/crew-members.js — DELETE /:crewId/leave', () => {
       .delete('/crew-1/leave');
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -466,8 +465,8 @@ describe('routes/crew-members.js — DELETE /:crewId/members/:userId', () => {
       .delete('/crew-1/members/user-2');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.success, true);
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.success, true);
     assert.equal(removeMember.mock.calls.length, 1);
     assert.equal(removeMember.mock.calls[0].arguments[0], 'crew-1');
     assert.equal(removeMember.mock.calls[0].arguments[1], 'user-2');
@@ -515,15 +514,15 @@ describe('routes/crew-members.js — DELETE /:crewId/members/:userId', () => {
       .delete('/crew-1/members/user-1');
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'INVALID_INPUT');
-    assert.match(res.body.message, /Cannot kick yourself/i);
+    assert.equal(res.body.error.code, 'INVALID_INPUT');
+    assert.match(res.body.error.message, /Cannot kick yourself/i);
   });
 
   // ── Non-owner rejected ────────────────────────────────────────────
   test('returns 403 when non-owner tries to kick', async () => {
     const { app } = buildApp({
       resolveCrewOwnership: mock.fn(async (res) => {
-        res.status(403).json({ ok: false, code: 'FORBIDDEN', message: 'Only the crew owner can kick members' });
+        res.status(403).json({ data: null, error: { message: 'Only the crew owner can kick members', status: 403, code: 'FORBIDDEN' } });
         return null;
       }),
     });
@@ -532,7 +531,7 @@ describe('routes/crew-members.js — DELETE /:crewId/members/:userId', () => {
       .delete('/crew-1/members/user-2');
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   // ── Target not a member ───────────────────────────────────────────
@@ -553,8 +552,8 @@ describe('routes/crew-members.js — DELETE /:crewId/members/:userId', () => {
       .delete('/crew-1/members/user-999');
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
-    assert.match(res.body.message, /Member not found/i);
+    assert.equal(res.body.error.code, 'NOT_FOUND');
+    assert.match(res.body.error.message, /Member not found/i);
   });
 
   // ── Invalid IDs ───────────────────────────────────────────────────
@@ -567,8 +566,8 @@ describe('routes/crew-members.js — DELETE /:crewId/members/:userId', () => {
       .delete('/%20/members/%20');
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'INVALID_INPUT');
-    assert.match(res.body.message, /Invalid IDs/i);
+    assert.equal(res.body.error.code, 'INVALID_INPUT');
+    assert.match(res.body.error.message, /Invalid IDs/i);
   });
 
   // ── Internal error ────────────────────────────────────────────────
@@ -581,7 +580,7 @@ describe('routes/crew-members.js — DELETE /:crewId/members/:userId', () => {
       .delete('/crew-1/members/user-2');
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -617,8 +616,8 @@ describe('routes/crew-members.js — PUT /:crewId/transfer', () => {
       .send({ userId: 'user-2' });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.id, 'crew-1');
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.id, 'crew-1');
     // updateMemberRole should be called twice: once for new owner, once for old owner
     assert.equal(updateMemberRole.mock.calls.length, 2);
     assert.equal(updateMemberRole.mock.calls[0].arguments[1], 'user-2');
@@ -673,8 +672,8 @@ describe('routes/crew-members.js — PUT /:crewId/transfer', () => {
       .send({ userId: 'user-1' });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'INVALID_INPUT');
-    assert.match(res.body.message, /Already the owner/i);
+    assert.equal(res.body.error.code, 'INVALID_INPUT');
+    assert.match(res.body.error.message, /Already the owner/i);
   });
 
   // ── Target not a member ───────────────────────────────────────────
@@ -696,15 +695,15 @@ describe('routes/crew-members.js — PUT /:crewId/transfer', () => {
       .send({ userId: 'user-999' });
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
-    assert.match(res.body.message, /not a crew member/i);
+    assert.equal(res.body.error.code, 'NOT_FOUND');
+    assert.match(res.body.error.message, /not a crew member/i);
   });
 
   // ── Non-owner rejected ────────────────────────────────────────────
   test('returns 403 when non-owner tries to transfer', async () => {
     const { app } = buildApp({
       resolveCrewOwnership: mock.fn(async (res) => {
-        res.status(403).json({ ok: false, code: 'FORBIDDEN', message: 'Only the crew owner can transfer' });
+        res.status(403).json({ data: null, error: { message: 'Only the crew owner can transfer', status: 403, code: 'FORBIDDEN' } });
         return null;
       }),
     });
@@ -714,7 +713,7 @@ describe('routes/crew-members.js — PUT /:crewId/transfer', () => {
       .send({ userId: 'user-2' });
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   // ── Missing target userId ─────────────────────────────────────────
@@ -732,7 +731,7 @@ describe('routes/crew-members.js — PUT /:crewId/transfer', () => {
       .send({});
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'MISSING_FIELD');
+    assert.equal(res.body.error.code, 'MISSING_FIELD');
   });
 
   // ── Internal error ────────────────────────────────────────────────
@@ -746,7 +745,7 @@ describe('routes/crew-members.js — PUT /:crewId/transfer', () => {
       .send({ userId: 'user-2' });
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -775,13 +774,13 @@ describe('routes/crew-members.js — GET /:crewId/overlap', () => {
       .get('/crew-1/overlap');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.crewId, 'crew-1');
-    assert.equal(res.body.festivalId, 'fest-1');
-    assert.equal(res.body.memberCount, 2);
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.crewId, 'crew-1');
+    assert.equal(res.body.data.festivalId, 'fest-1');
+    assert.equal(res.body.data.memberCount, 2);
     // set-A should have 2 pickers, set-B should have 1
-    assert.equal(res.body.overlap['set-A'].length, 2);
-    assert.equal(res.body.overlap['set-B'].length, 1);
+    assert.equal(res.body.data.overlap['set-A'].length, 2);
+    assert.equal(res.body.data.overlap['set-B'].length, 1);
   });
 
   // ── Non-member rejected ───────────────────────────────────────────
@@ -799,7 +798,7 @@ describe('routes/crew-members.js — GET /:crewId/overlap', () => {
       .get('/crew-1/overlap');
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   // ── Crew not found ────────────────────────────────────────────────
@@ -816,7 +815,7 @@ describe('routes/crew-members.js — GET /:crewId/overlap', () => {
       .get('/crew-nonexistent/overlap');
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   // ── Handles malformed picksJson ───────────────────────────────────
@@ -839,10 +838,10 @@ describe('routes/crew-members.js — GET /:crewId/overlap', () => {
       .get('/crew-1/overlap');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.memberCount, 2);
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.memberCount, 2);
     // No valid picks, so overlap should be empty
-    assert.deepEqual(res.body.overlap, {});
+    assert.deepEqual(res.body.data.overlap, {});
   });
 
   // ── Filters prototype pollution keys ──────────────────────────────
@@ -864,9 +863,9 @@ describe('routes/crew-members.js — GET /:crewId/overlap', () => {
       .get('/crew-1/overlap');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.overlap['valid-set'].length, 1);
+    assert.equal(res.body.data.overlap['valid-set'].length, 1);
     // constructor and prototype keys should be filtered by the route
-    const overlapKeys = Object.keys(res.body.overlap);
+    const overlapKeys = Object.keys(res.body.data.overlap);
     assert.ok(!overlapKeys.includes('constructor'), 'constructor key should be filtered');
     assert.ok(!overlapKeys.includes('prototype'), 'prototype key should be filtered');
     assert.ok(overlapKeys.includes('valid-set'), 'valid-set key should be present');
@@ -904,9 +903,9 @@ describe('routes/crew-members.js — POST /:crewId/members (admin force-add)', (
       .send({ userId: 'user-3' });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.id, 'crew-1');
-    assert.equal(res.body.memberCount, 3);
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.id, 'crew-1');
+    assert.equal(res.body.data.memberCount, 3);
     assert.equal(addMember.mock.calls.length, 1);
     assert.equal(addMember.mock.calls[0].arguments[0].userId, 'user-3');
     assert.equal(addMember.mock.calls[0].arguments[0].role, 'member');
@@ -956,7 +955,7 @@ describe('routes/crew-members.js — POST /:crewId/members (admin force-add)', (
       .send({ userId: 'user-3' });
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   // ── Crew not found ────────────────────────────────────────────────
@@ -975,8 +974,8 @@ describe('routes/crew-members.js — POST /:crewId/members (admin force-add)', (
       .send({ userId: 'user-3' });
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
-    assert.match(res.body.message, /Crew not found/i);
+    assert.equal(res.body.error.code, 'NOT_FOUND');
+    assert.match(res.body.error.message, /Crew not found/i);
   });
 
   // ── User not found ────────────────────────────────────────────────
@@ -996,8 +995,8 @@ describe('routes/crew-members.js — POST /:crewId/members (admin force-add)', (
       .send({ userId: 'user-999' });
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
-    assert.match(res.body.message, /User not found/i);
+    assert.equal(res.body.error.code, 'NOT_FOUND');
+    assert.match(res.body.error.message, /User not found/i);
   });
 
   // ── Already a member ──────────────────────────────────────────────
@@ -1018,7 +1017,7 @@ describe('routes/crew-members.js — POST /:crewId/members (admin force-add)', (
       .send({ userId: 'user-2' });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'ALREADY_EXISTS');
+    assert.equal(res.body.error.code, 'ALREADY_EXISTS');
   });
 
   // ── Crew is full ──────────────────────────────────────────────────
@@ -1041,8 +1040,8 @@ describe('routes/crew-members.js — POST /:crewId/members (admin force-add)', (
       .send({ userId: 'user-3' });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'MAX_LIMIT_REACHED');
-    assert.match(res.body.message, /full/i);
+    assert.equal(res.body.error.code, 'MAX_LIMIT_REACHED');
+    assert.match(res.body.error.message, /full/i);
   });
 
   // ── Internal error ────────────────────────────────────────────────
@@ -1058,7 +1057,7 @@ describe('routes/crew-members.js — POST /:crewId/members (admin force-add)', (
       .send({ userId: 'user-3' });
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -1082,7 +1081,7 @@ describe('routes/crew-members.js — rate limiting', () => {
         },
       },
       resolveCrewOwnership: mock.fn(async (res) => {
-        res.status(404).json({ ok: false, code: 'NOT_FOUND', message: 'Crew not found' });
+        res.status(404).json({ data: null, error: { message: 'Crew not found', status: 404, code: 'NOT_FOUND' } });
         return null;
       }),
     });

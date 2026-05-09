@@ -76,8 +76,8 @@ function buildDeps(overrides = {}) {
       ...overrides.stores,
     },
     userAuth: (_req, _res, next) => next(),
-    sendSuccess: (res, data) => res.json({ ok: true, ...data }),
-    sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg }),
+    sendSuccess: (res, data) => res.json({ data, error: null }),
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       FORBIDDEN: 'FORBIDDEN',
@@ -155,11 +155,11 @@ describe('activity: GET /crews/:crewId/activity', () => {
     await handler(req, res);
 
     assert.equal(res._status, 200);
-    assert.equal(res._sent.ok, true);
-    assert.ok(Array.isArray(res._sent.items));
-    assert.equal(res._sent.items.length, 1);
-    assert.equal(res._sent.items[0].id, 'act-1');
-    assert.equal(res._sent.nextCursor, null);
+    assert.equal(res._sent.error, null);
+    assert.ok(Array.isArray(res._sent.data.items));
+    assert.equal(res._sent.data.items.length, 1);
+    assert.equal(res._sent.data.items[0].id, 'act-1');
+    assert.equal(res._sent.data.nextCursor, null);
   });
 
   it('returns 400 for invalid crew ID', async () => {
@@ -174,8 +174,8 @@ describe('activity: GET /crews/:crewId/activity', () => {
     await handler(req, res);
 
     assert.equal(res._status, 400);
-    assert.equal(res._sent.ok, false);
-    assert.equal(res._sent.code, 'INVALID_INPUT');
+    assert.equal(res._sent.data, null);
+    assert.equal(res._sent.error.code, 'INVALID_INPUT');
   });
 
   it('returns 403 when user is not a crew member', async () => {
@@ -193,8 +193,8 @@ describe('activity: GET /crews/:crewId/activity', () => {
     await handler(req, res);
 
     assert.equal(res._status, 403);
-    assert.equal(res._sent.ok, false);
-    assert.equal(res._sent.code, 'FORBIDDEN');
+    assert.equal(res._sent.data, null);
+    assert.equal(res._sent.error.code, 'FORBIDDEN');
   });
 
   it('returns 500 when store throws an error', async () => {
@@ -212,8 +212,8 @@ describe('activity: GET /crews/:crewId/activity', () => {
     await handler(req, res);
 
     assert.equal(res._status, 500);
-    assert.equal(res._sent.ok, false);
-    assert.equal(res._sent.code, 'INTERNAL_ERROR');
+    assert.equal(res._sent.data, null);
+    assert.equal(res._sent.error.code, 'INTERNAL_ERROR');
     assert.equal(deps.log.error.mock.callCount(), 1);
   });
 
@@ -243,7 +243,7 @@ describe('activity: GET /crews/:crewId/activity', () => {
     assert.equal(crewId, 'crew-1');
     assert.equal(opts.cursor, 'cursor-1');
     assert.equal(opts.limit, 25);
-    assert.equal(res._sent.nextCursor, 'cursor-2');
+    assert.equal(res._sent.data.nextCursor, 'cursor-2');
   });
 
   it('returns 500 when activity store throws', async () => {
@@ -261,8 +261,8 @@ describe('activity: GET /crews/:crewId/activity', () => {
     await handler(req, res);
 
     assert.equal(res._status, 500);
-    assert.equal(res._sent.ok, false);
-    assert.equal(res._sent.code, 'INTERNAL_ERROR');
+    assert.equal(res._sent.data, null);
+    assert.equal(res._sent.error.code, 'INTERNAL_ERROR');
   });
 
   it('uses noopLimit when rateLimit is not a function', () => {

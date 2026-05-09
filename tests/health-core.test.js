@@ -24,8 +24,8 @@ function makeDeps(overrides = {}) {
       MAX_NOTE_LENGTH: 500,
       MAX_STATUS_TEXT: 100,
     },
-    sendSuccess: (res, data) => res.json({ ok: true, ...data }),
-    sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg }),
+    sendSuccess: (res, data) => res.json({ data, error: null }),
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: { MISSING_FIELD: 'MISSING_FIELD', INVALID_INPUT: 'INVALID_INPUT' },
     rateLimit: () => (req, res, next) => next(),
     redis: overrides.redis || null,
@@ -80,8 +80,8 @@ describe('health-core: GET /health', () => {
     const { app } = testApp(deps);
     const res = await request(app, 'GET', '/health');
     assert.equal(res.status, 200);
-    assert.equal(res.body.status, 'ok');
-    assert.equal(typeof res.body.uptime, 'number');
+    assert.equal(res.body.data.status, 'ok');
+    assert.equal(typeof res.body.data.uptime, 'number');
   });
 
   it('sets Cache-Control header', async () => {
@@ -100,7 +100,7 @@ describe('health-core: GET /ready', () => {
     const { app } = testApp(deps);
     const res = await request(app, 'GET', '/ready');
     assert.equal(res.status, 503);
-    assert.equal(res.body.status, 'not_ready');
+    assert.equal(res.body.data.status, 'not_ready');
   });
 
   it('returns 200 when ready', async () => {
@@ -109,8 +109,8 @@ describe('health-core: GET /ready', () => {
     setReady(true);
     const res = await request(app, 'GET', '/ready');
     assert.equal(res.status, 200);
-    assert.equal(res.body.status, 'ready');
-    assert.ok(res.body.checks);
+    assert.equal(res.body.data.status, 'ready');
+    assert.ok(res.body.data.checks);
   });
 
   it('reports redis as disabled when REDIS_ENABLED is false', async () => {
@@ -118,7 +118,7 @@ describe('health-core: GET /ready', () => {
     const { app, setReady } = testApp(deps);
     setReady(true);
     const res = await request(app, 'GET', '/ready');
-    assert.equal(res.body.checks.redis, 'disabled');
+    assert.equal(res.body.data.checks.redis, 'disabled');
   });
 
   it('reports database degraded when stores.pool.query is missing', async () => {
@@ -126,7 +126,7 @@ describe('health-core: GET /ready', () => {
     const { app, setReady } = testApp(deps);
     setReady(true);
     const res = await request(app, 'GET', '/ready');
-    assert.equal(res.body.checks.database, 'degraded');
+    assert.equal(res.body.data.checks.database, 'degraded');
   });
 });
 
@@ -138,26 +138,26 @@ describe('health-core: GET /info', () => {
     const { app } = testApp(deps);
     const res = await request(app, 'GET', '/info');
     assert.equal(res.status, 200);
-    assert.equal(res.body.apiVersion, '1');
-    assert.ok(res.body.features);
-    assert.equal(res.body.features.export, true);
-    assert.equal(res.body.features.avatars, true);
+    assert.equal(res.body.data.apiVersion, '1');
+    assert.ok(res.body.data.features);
+    assert.equal(res.body.data.features.export, true);
+    assert.equal(res.body.data.features.avatars, true);
   });
 
   it('returns limits from config', async () => {
     const deps = makeDeps();
     const { app } = testApp(deps);
     const res = await request(app, 'GET', '/info');
-    assert.equal(res.body.limits.maxPicks, 100);
-    assert.equal(res.body.limits.maxNotes, 20);
+    assert.equal(res.body.data.limits.maxPicks, 100);
+    assert.equal(res.body.data.limits.maxNotes, 20);
   });
 
   it('returns mobile auth methods', async () => {
     const deps = makeDeps();
     const { app } = testApp(deps);
     const res = await request(app, 'GET', '/info');
-    assert.ok(Array.isArray(res.body.mobile.authMethods));
-    assert.ok(res.body.mobile.authMethods.includes('bearer'));
+    assert.ok(Array.isArray(res.body.data.mobile.authMethods));
+    assert.ok(res.body.data.mobile.authMethods.includes('bearer'));
   });
 });
 
@@ -169,7 +169,7 @@ describe('health-core: POST /metrics/client', () => {
     const { app } = testApp(deps);
     const res = await request(app, 'POST', '/metrics/client', { lcp: 1500, fid: 50 });
     assert.equal(res.status, 200);
-    assert.equal(res.body.received, true);
+    assert.equal(res.body.data.received, true);
   });
 
   it('rejects missing lcp/fid', async () => {

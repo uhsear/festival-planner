@@ -1174,8 +1174,8 @@ describe('routes/spotify.js', () => {
       },
       log: { info: mock.fn(), warn: mock.fn(), error: mock.fn(), debug: mock.fn() },
       rateLimit: () => (req, res, next) => next(),
-      sendSuccess: mock.fn((res, data) => res.json({ ok: true, ...data })),
-      sendError: mock.fn((res, status, message, code) => res.status(status).json({ ok: false, code, message })),
+      sendSuccess: mock.fn((res, data) => res.json({ data, error: null })),
+      sendError: mock.fn((res, status, message, code) => res.status(status).json({ data: null, error: { message, status, code: code || 'ERROR' } })),
       ErrorCodes: { NOT_FOUND: 'NOT_FOUND', INTERNAL_ERROR: 'INTERNAL_ERROR' },
       stores: {
         pool: makePool(),

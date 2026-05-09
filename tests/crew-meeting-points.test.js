@@ -88,8 +88,8 @@ function makeDeps(overrides = {}) {
     }),
     sanitizeIdentifier: overrides.sanitizeIdentifier || ((s) => (typeof s === 'string' ? s.trim() : '')),
     createOpaqueId: overrides.createOpaqueId || mock.fn(() => 'mp-new-1'),
-    sendSuccess: (res, data) => res.json({ ok: true, ...data }),
-    sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg }),
+    sendSuccess: (res, data) => res.json({ data, error: null }),
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       NOT_FOUND: 'NOT_FOUND',
@@ -153,8 +153,8 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       .send({ location: 'Gate A', time: '3pm' });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.ok(res.body.crew);
+    assert.equal(res.body.error, null);
+    assert.ok(res.body.data.crew);
     assert.equal(updateHomeBase.mock.calls.length, 1);
     assert.equal(updateHomeBase.mock.calls[0].arguments[0], 'crew-1');
     assert.deepEqual(updateHomeBase.mock.calls[0].arguments[1], { location: 'Gate A', time: '3pm' });
@@ -223,8 +223,8 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       .send({ location: 'Gate A' });
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
-    assert.match(res.body.message, /Not a crew member/);
+    assert.equal(res.body.error.code, 'FORBIDDEN');
+    assert.match(res.body.error.message, /Not a crew member/);
   });
 
   test('returns 403 when user is a member but not owner', async () => {
@@ -241,8 +241,8 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       .send({ location: 'Gate A' });
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
-    assert.match(res.body.message, /Only owner/);
+    assert.equal(res.body.error.code, 'FORBIDDEN');
+    assert.match(res.body.error.message, /Only owner/);
   });
 
   // ── Edge cases ────────────────────────────────────────────────────
@@ -261,7 +261,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       .send({ location: null, time: null });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('activity log detail is null when location is falsy', async () => {
@@ -298,7 +298,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       .send({ location: 'Gate A' });
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -326,10 +326,10 @@ describe('routes/crew-meeting-points.js -- GET /:crewId/meeting-points', () => {
     const res = await request(app).get('/crew-1/meeting-points');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.meetingPoints.length, 2);
-    assert.equal(res.body.meetingPoints[0].id, 'mp-1');
-    assert.equal(res.body.meetingPoints[1].id, 'mp-2');
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.meetingPoints.length, 2);
+    assert.equal(res.body.data.meetingPoints[0].id, 'mp-1');
+    assert.equal(res.body.data.meetingPoints[1].id, 'mp-2');
   });
 
   test('returns empty array when crew has no meeting points', async () => {
@@ -347,7 +347,7 @@ describe('routes/crew-meeting-points.js -- GET /:crewId/meeting-points', () => {
     const res = await request(app).get('/crew-1/meeting-points');
 
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body.meetingPoints, []);
+    assert.deepEqual(res.body.data.meetingPoints, []);
   });
 
   test('returns 403 when user is not a crew member', async () => {
@@ -362,7 +362,7 @@ describe('routes/crew-meeting-points.js -- GET /:crewId/meeting-points', () => {
     const res = await request(app).get('/crew-1/meeting-points');
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   test('returns 500 on internal error', async () => {
@@ -377,7 +377,7 @@ describe('routes/crew-meeting-points.js -- GET /:crewId/meeting-points', () => {
     const res = await request(app).get('/crew-1/meeting-points');
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -405,11 +405,11 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
       .send({ label: 'Main Stage', location: 'Left side', type: 'during' });
 
     assert.equal(res.status, 201);
-    assert.equal(res.body.ok, true);
-    assert.ok(res.body.meetingPoint);
-    assert.equal(res.body.meetingPoint.label, 'Main Stage');
-    assert.equal(res.body.meetingPoint.crewId, 'crew-1');
-    assert.equal(res.body.meetingPoint.createdBy, 'user-1');
+    assert.equal(res.body.error, null);
+    assert.ok(res.body.data.meetingPoint);
+    assert.equal(res.body.data.meetingPoint.label, 'Main Stage');
+    assert.equal(res.body.data.meetingPoint.crewId, 'crew-1');
+    assert.equal(res.body.data.meetingPoint.createdBy, 'user-1');
     assert.equal(createFn.mock.calls.length, 1);
   });
 
@@ -545,8 +545,8 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
       .send({ label: 'One more', location: 'Nope' });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'VALIDATION_ERROR');
-    assert.match(res.body.message, /Maximum 20/);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
+    assert.match(res.body.error.message, /Maximum 20/);
   });
 
   // ── Permission checks ─────────────────────────────────────────────
@@ -564,7 +564,7 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
       .send({ label: 'Test', location: 'Here' });
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   test('returns 500 on internal error', async () => {
@@ -581,7 +581,7 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
       .send({ label: 'Test', location: 'Here' });
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -609,8 +609,8 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       .send({ label: 'Updated Label' });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.meetingPoint.label, 'Updated Label');
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.meetingPoint.label, 'Updated Label');
     assert.equal(updateFn.mock.calls[0].arguments[0], 'mp-1');
   });
 
@@ -633,7 +633,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       .send({ label: 'Owner Edit' });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('broadcasts crew:meeting-point-updated via Socket.IO', async () => {
@@ -677,7 +677,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       .send({ label: 'Updated' });
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('returns 404 when meeting point belongs to different crew', async () => {
@@ -698,7 +698,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       .send({ label: 'Updated' });
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('returns 404 when meeting point is inactive', async () => {
@@ -719,7 +719,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       .send({ label: 'Updated' });
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   // ── Permission checks ─────────────────────────────────────────────
@@ -741,8 +741,8 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       .send({ label: 'Updated' });
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
-    assert.match(res.body.message, /creator or crew owner/);
+    assert.equal(res.body.error.code, 'FORBIDDEN');
+    assert.match(res.body.error.message, /creator or crew owner/);
   });
 
   test('returns 403 when user is not a crew member', async () => {
@@ -759,7 +759,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       .send({ label: 'Updated' });
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   test('returns 500 on internal error', async () => {
@@ -776,7 +776,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       .send({ label: 'Updated' });
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -802,8 +802,8 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
     const res = await request(app).delete('/crew-1/meeting-points/mp-1');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.removed, true);
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.removed, true);
     assert.equal(deactivateFn.mock.calls.length, 1);
     assert.equal(deactivateFn.mock.calls[0].arguments[0], 'mp-1');
   });
@@ -826,7 +826,7 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
     const res = await request(app).delete('/crew-1/meeting-points/mp-1');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.removed, true);
+    assert.equal(res.body.data.removed, true);
     assert.equal(deactivateFn.mock.calls.length, 1);
   });
 
@@ -867,7 +867,7 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
     const res = await request(app).delete('/crew-1/meeting-points/mp-nonexistent');
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('returns 404 when meeting point belongs to different crew', async () => {
@@ -885,7 +885,7 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
     const res = await request(app).delete('/crew-1/meeting-points/mp-1');
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('returns 404 when meeting point is already inactive', async () => {
@@ -903,7 +903,7 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
     const res = await request(app).delete('/crew-1/meeting-points/mp-1');
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('returns 403 when non-creator non-owner tries to delete', async () => {
@@ -921,8 +921,8 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
     const res = await request(app).delete('/crew-1/meeting-points/mp-1');
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
-    assert.match(res.body.message, /creator or crew owner/);
+    assert.equal(res.body.error.code, 'FORBIDDEN');
+    assert.match(res.body.error.message, /creator or crew owner/);
   });
 
   test('returns 403 when user is not a crew member', async () => {
@@ -937,7 +937,7 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
     const res = await request(app).delete('/crew-1/meeting-points/mp-1');
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   test('returns 500 on internal error', async () => {
@@ -952,6 +952,6 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
     const res = await request(app).delete('/crew-1/meeting-points/mp-1');
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });

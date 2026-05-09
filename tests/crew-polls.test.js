@@ -82,8 +82,8 @@ function makePollDeps(overrides = {}) {
       next();
     }),
     sanitizeIdentifier: overrides.sanitizeIdentifier || ((s) => (typeof s === 'string' ? s.trim() : '')),
-    sendSuccess: (res, data) => res.json({ ok: true, ...data }),
-    sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg }),
+    sendSuccess: (res, data) => res.json({ data, error: null }),
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       NOT_FOUND: 'NOT_FOUND',
@@ -147,10 +147,10 @@ describe('routes/crew-polls.js — GET /:crewId/polls', () => {
     const res = await request(app).get('/crew-1/polls');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.polls.length, 2);
-    assert.equal(res.body.polls[0].id, 'poll-1');
-    assert.equal(res.body.polls[1].id, 'poll-2');
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.polls.length, 2);
+    assert.equal(res.body.data.polls[0].id, 'poll-1');
+    assert.equal(res.body.data.polls[1].id, 'poll-2');
   });
 
   test('returns empty array when crew has no polls', async () => {
@@ -168,8 +168,8 @@ describe('routes/crew-polls.js — GET /:crewId/polls', () => {
     const res = await request(app).get('/crew-1/polls');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.deepEqual(res.body.polls, []);
+    assert.equal(res.body.error, null);
+    assert.deepEqual(res.body.data.polls, []);
   });
 
   // ── Permission: non-member ────────────────────────────────────────
@@ -185,8 +185,8 @@ describe('routes/crew-polls.js — GET /:crewId/polls', () => {
     const res = await request(app).get('/crew-1/polls');
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
-    assert.match(res.body.message, /Not a crew member/i);
+    assert.equal(res.body.error.code, 'FORBIDDEN');
+    assert.match(res.body.error.message, /Not a crew member/i);
   });
 
   // ── Internal error ────────────────────────────────────────────────
@@ -202,7 +202,7 @@ describe('routes/crew-polls.js — GET /:crewId/polls', () => {
     const res = await request(app).get('/crew-1/polls');
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -238,9 +238,9 @@ describe('routes/crew-polls.js — POST /:crewId/polls', () => {
       .send({ question: 'Where to camp?', options: ['North', 'South'] });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.poll.id, 'poll-new');
-    assert.equal(res.body.poll.question, 'Where to camp?');
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.poll.id, 'poll-new');
+    assert.equal(res.body.data.poll.question, 'Where to camp?');
     assert.equal(createFn.mock.calls.length, 1);
     assert.equal(createFn.mock.calls[0].arguments[0].crewId, 'crew-1');
     assert.equal(createFn.mock.calls[0].arguments[0].createdBy, 'user-1');
@@ -273,7 +273,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls', () => {
       .send({ question: 'Meeting time?', options: ['10am', '2pm'], closesAt });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     // closesAt should be passed as a Date to the store
     const passedClosesAt = createFn.mock.calls[0].arguments[0].closesAt;
     assert.ok(passedClosesAt instanceof Date);
@@ -394,8 +394,8 @@ describe('routes/crew-polls.js — POST /:crewId/polls', () => {
       .send({ question: 'Too many?', options: ['Yes', 'No'] });
 
     assert.equal(res.status, 409);
-    assert.equal(res.body.code, 'CONFLICT');
-    assert.match(res.body.message, /Max 3 active polls/i);
+    assert.equal(res.body.error.code, 'CONFLICT');
+    assert.match(res.body.error.message, /Max 3 active polls/i);
   });
 
   test('allows creating a poll when crew has fewer than 3 active polls', async () => {
@@ -420,7 +420,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls', () => {
       .send({ question: 'Almost full?', options: ['Yes', 'No'] });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   // ── Permission: non-member ────────────────────────────────────────
@@ -438,7 +438,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls', () => {
       .send({ question: 'Where?', options: ['A', 'B'] });
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   // ── Activity log failure does not break response ──────────────────
@@ -467,7 +467,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls', () => {
       .send({ question: 'Still works?', options: ['Yes', 'No'] });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   // ── Internal error ────────────────────────────────────────────────
@@ -488,7 +488,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls', () => {
       .send({ question: 'Crash?', options: ['Yes', 'No'] });
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -517,8 +517,8 @@ describe('routes/crew-polls.js — POST /:crewId/polls/:pollId/vote', () => {
       .send({ optionIndex: 1 });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.voted, true);
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.voted, true);
     assert.equal(voteFn.mock.calls.length, 1);
     assert.equal(voteFn.mock.calls[0].arguments[0], 'poll-1');
     assert.equal(voteFn.mock.calls[0].arguments[1], 'user-1');
@@ -600,8 +600,8 @@ describe('routes/crew-polls.js — POST /:crewId/polls/:pollId/vote', () => {
       .send({ optionIndex: 3 });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'INVALID_INPUT');
-    assert.match(res.body.message, /Invalid option index/i);
+    assert.equal(res.body.error.code, 'INVALID_INPUT');
+    assert.match(res.body.error.message, /Invalid option index/i);
   });
 
   test('returns 400 when optionIndex equals options length', async () => {
@@ -622,7 +622,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls/:pollId/vote', () => {
       .send({ optionIndex: 2 });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'INVALID_INPUT');
+    assert.equal(res.body.error.code, 'INVALID_INPUT');
   });
 
   // ── Poll not found ────────────────────────────────────────────────
@@ -643,7 +643,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls/:pollId/vote', () => {
       .send({ optionIndex: 0 });
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   // ── Poll belongs to different crew ────────────────────────────────
@@ -665,7 +665,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls/:pollId/vote', () => {
       .send({ optionIndex: 0 });
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   // ── Permission: non-member ────────────────────────────────────────
@@ -683,7 +683,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls/:pollId/vote', () => {
       .send({ optionIndex: 0 });
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   // ── Duplicate vote (store throws) ─────────────────────────────────
@@ -705,7 +705,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls/:pollId/vote', () => {
       .send({ optionIndex: 0 });
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 
   // ── Internal error ────────────────────────────────────────────────
@@ -723,7 +723,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls/:pollId/vote', () => {
       .send({ optionIndex: 0 });
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -750,8 +750,8 @@ describe('routes/crew-polls.js — DELETE /:crewId/polls/:pollId', () => {
     const res = await request(app).delete('/crew-1/polls/poll-1');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.ok(res.body.closed);
+    assert.equal(res.body.error, null);
+    assert.ok(res.body.data.closed);
     assert.equal(closeFn.mock.calls.length, 1);
     assert.equal(closeFn.mock.calls[0].arguments[0], 'poll-1');
   });
@@ -774,7 +774,7 @@ describe('routes/crew-polls.js — DELETE /:crewId/polls/:pollId', () => {
     const res = await request(app).delete('/crew-1/polls/poll-1');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(closeFn.mock.calls.length, 1);
   });
 
@@ -817,8 +817,8 @@ describe('routes/crew-polls.js — DELETE /:crewId/polls/:pollId', () => {
     const res = await request(app).delete('/crew-1/polls/poll-1');
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
-    assert.match(res.body.message, /Only creator or owner/i);
+    assert.equal(res.body.error.code, 'FORBIDDEN');
+    assert.match(res.body.error.message, /Only creator or owner/i);
   });
 
   // ── Permission: non-member ────────────────────────────────────────
@@ -834,7 +834,7 @@ describe('routes/crew-polls.js — DELETE /:crewId/polls/:pollId', () => {
     const res = await request(app).delete('/crew-1/polls/poll-1');
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   // ── Poll not found ────────────────────────────────────────────────
@@ -853,7 +853,7 @@ describe('routes/crew-polls.js — DELETE /:crewId/polls/:pollId', () => {
     const res = await request(app).delete('/crew-1/polls/poll-missing');
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   // ── Poll belongs to different crew ────────────────────────────────
@@ -872,7 +872,7 @@ describe('routes/crew-polls.js — DELETE /:crewId/polls/:pollId', () => {
     const res = await request(app).delete('/crew-1/polls/poll-1');
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   // ── Internal error ────────────────────────────────────────────────
@@ -892,7 +892,7 @@ describe('routes/crew-polls.js — DELETE /:crewId/polls/:pollId', () => {
     const res = await request(app).delete('/crew-1/polls/poll-1');
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 

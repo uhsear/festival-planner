@@ -52,8 +52,8 @@ function baseDeps(overrides = {}) {
       ANDROID_CERT_FINGERPRINTS: 'AA:BB:CC:DD',
     },
     log: makeLog(),
-    sendSuccess: (res, data) => res.json({ ok: true, data }),
-    sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg, error: msg }),
+    sendSuccess: (res, data) => res.json({ data, error: null }),
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       NOT_FOUND: 'NOT_FOUND',
@@ -192,7 +192,7 @@ describe('routes/email-auth', () => {
       .send({ email: 'nobody@test.com' })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.match(res.body.data.message, /reset link/i);
   });
 
@@ -208,7 +208,7 @@ describe('routes/email-auth', () => {
       .send({ email: 'alice@test.com' })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(deps.stores.emailTokens.invalidateResetTokens.mock.calls.length >= 1);
   });
 
@@ -225,14 +225,14 @@ describe('routes/email-auth', () => {
         .post('/forgot-password')
         .send({ email: 'ratelimit-test@test.com' })
         .expect(200);
-      assert.equal(res.body.ok, true);
+      assert.equal(res.body.error, null);
     }
     // 4th request exceeds the per-email limiter (3/hour) and gets 429
     const res = await request(app)
       .post('/forgot-password')
       .send({ email: 'ratelimit-test@test.com' })
       .expect(429);
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('POST /forgot-password — returns 500 on unexpected error', async () => {
@@ -247,7 +247,7 @@ describe('routes/email-auth', () => {
       .send({ email: 'err@test.com' })
       .expect(500);
 
-    assert.equal(res.body.ok, false);
+    assert.equal(res.body.data, null);
   });
 
   test('GET /verify-email — rejects invalid token format', async () => {
@@ -336,8 +336,8 @@ describe('routes/email-auth', () => {
       .send({ email: 'new@test.com', password: 'wrong' })
       .expect(400);
 
-    assert.equal(res.body.ok, false);
-    assert.equal(res.body.code, 'PASSWORD_INCORRECT');
+    assert.equal(res.body.data, null);
+    assert.equal(res.body.error.code, 'PASSWORD_INCORRECT');
   });
 
   test('POST /update-email — rejects already-used email', async () => {
@@ -352,7 +352,7 @@ describe('routes/email-auth', () => {
       .send({ email: 'taken@test.com', password: 'correct' })
       .expect(400);
 
-    assert.equal(res.body.code, 'ALREADY_EXISTS');
+    assert.equal(res.body.error.code, 'ALREADY_EXISTS');
   });
 
   test('POST /update-email — succeeds with valid data', async () => {
@@ -367,7 +367,7 @@ describe('routes/email-auth', () => {
       .send({ email: 'fresh@test.com', password: 'pass' })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.match(res.body.data.message, /verification/i);
   });
 
@@ -383,7 +383,7 @@ describe('routes/email-auth', () => {
       .send({ email: 'x@test.com', password: 'p' })
       .expect(404);
 
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('POST /resend-verification — rejects when already verified', async () => {
@@ -400,7 +400,7 @@ describe('routes/email-auth', () => {
       .post('/resend-verification')
       .expect(400);
 
-    assert.match(res.body.message, /already verified/i);
+    assert.match(res.body.error.message, /already verified/i);
   });
 
   test('POST /resend-verification — rejects when no email on file', async () => {
@@ -417,7 +417,7 @@ describe('routes/email-auth', () => {
       .post('/resend-verification')
       .expect(400);
 
-    assert.match(res.body.message, /no email/i);
+    assert.match(res.body.error.message, /no email/i);
   });
 
   test('POST /resend-verification — 404 when user not found', async () => {
@@ -431,7 +431,7 @@ describe('routes/email-auth', () => {
       .post('/resend-verification')
       .expect(404);
 
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('POST /resend-verification — succeeds for unverified user', async () => {
@@ -445,7 +445,7 @@ describe('routes/email-auth', () => {
       .post('/resend-verification')
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.match(res.body.data.message, /verification email sent/i);
   });
 
@@ -460,8 +460,8 @@ describe('routes/email-auth', () => {
       .send({ token: 'abc', newPassword: 'Password1!', confirmPassword: 'Different1!' })
       .expect(400);
 
-    assert.equal(res.body.ok, false);
-    assert.match(res.body.message, /do not match/i);
+    assert.equal(res.body.data, null);
+    assert.match(res.body.error.message, /do not match/i);
   });
 
   test('POST /reset-password — rejects weak password', async () => {
@@ -476,7 +476,7 @@ describe('routes/email-auth', () => {
       .send({ token: 'abc', newPassword: 'short', confirmPassword: 'short' })
       .expect(400);
 
-    assert.match(res.body.message, /8-100 characters/i);
+    assert.match(res.body.error.message, /8-100 characters/i);
   });
 
   test('POST /reset-password — rejects invalid/expired token', async () => {
@@ -491,7 +491,7 @@ describe('routes/email-auth', () => {
       .send({ token: 'bad-token', newPassword: 'StrongPass1!', confirmPassword: 'StrongPass1!' })
       .expect(400);
 
-    assert.match(res.body.message, /invalid or expired/i);
+    assert.match(res.body.error.message, /invalid or expired/i);
   });
 
   test('POST /reset-password — succeeds with valid DB token', async () => {
@@ -506,7 +506,7 @@ describe('routes/email-auth', () => {
       .send({ token: 'valid-token', newPassword: 'StrongPass1!', confirmPassword: 'StrongPass1!' })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(deps.invalidateUserSessions.mock.calls.length >= 1);
     assert.ok(deps.disconnectUserSockets.mock.calls.length >= 1);
   });
@@ -524,7 +524,7 @@ describe('routes/email-auth', () => {
       .send({ token: 'admin-tok', newPassword: 'StrongPass1!', confirmPassword: 'StrongPass1!' })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     // Token hash should be deleted after use
     assert.equal(deps.state._adminResetTokens.has(adminTokHash), false);
   });
@@ -543,7 +543,7 @@ describe('routes/email-auth', () => {
       .send({ token: 'expired-tok', newPassword: 'StrongPass1!', confirmPassword: 'StrongPass1!' })
       .expect(400);
 
-    assert.match(res.body.message, /expired/i);
+    assert.match(res.body.error.message, /expired/i);
   });
 });
 
@@ -969,7 +969,7 @@ describe('routes/crew-features', () => {
       .send({ location: 'Main Stage', time: '14:00' })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('PUT /:crewId/home-base — rejects non-member', async () => {
@@ -982,7 +982,7 @@ describe('routes/crew-features', () => {
       .send({ location: 'Stage A' })
       .expect(403);
 
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   test('PUT /:crewId/home-base — rejects non-owner', async () => {
@@ -995,7 +995,7 @@ describe('routes/crew-features', () => {
       .send({ location: 'Stage B' })
       .expect(403);
 
-    assert.match(res.body.message, /owner/i);
+    assert.match(res.body.error.message, /owner/i);
   });
 
   test('GET /:crewId/meeting-points — lists meeting points', async () => {
@@ -1006,7 +1006,7 @@ describe('routes/crew-features', () => {
       .get('/crew-1/meeting-points')
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data.meetingPoints));
   });
 
@@ -1027,7 +1027,7 @@ describe('routes/crew-features', () => {
       .send({ label: 'Water Station', location: 'Near stage 3', type: 'during' })
       .expect(201);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('POST /:crewId/meeting-points — rejects when at max capacity', async () => {
@@ -1040,7 +1040,7 @@ describe('routes/crew-features', () => {
       .send({ label: 'Extra', location: 'Somewhere' })
       .expect(400);
 
-    assert.match(res.body.message, /maximum/i);
+    assert.match(res.body.error.message, /maximum/i);
   });
 
   test('PUT /:crewId/meeting-points/:mpId — updates meeting point', async () => {
@@ -1052,7 +1052,7 @@ describe('routes/crew-features', () => {
       .send({ label: 'Updated Location' })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('PUT /:crewId/meeting-points/:mpId — 404 when not found', async () => {
@@ -1065,7 +1065,7 @@ describe('routes/crew-features', () => {
       .send({ label: 'Nope' })
       .expect(404);
 
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('PUT /:crewId/meeting-points/:mpId — rejects non-creator non-owner', async () => {
@@ -1079,7 +1079,7 @@ describe('routes/crew-features', () => {
       .send({ label: 'Hacked' })
       .expect(403);
 
-    assert.match(res.body.message, /creator or crew owner/i);
+    assert.match(res.body.error.message, /creator or crew owner/i);
   });
 
   test('DELETE /:crewId/meeting-points/:mpId — deactivates meeting point', async () => {
@@ -1090,7 +1090,7 @@ describe('routes/crew-features', () => {
       .delete('/crew-1/meeting-points/mp-1')
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.removed, true);
   });
 
@@ -1107,7 +1107,7 @@ describe('routes/crew-features', () => {
     const app = mountCrewFeatures(deps);
 
     const res = await request(app).get('/crew-1/polls').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data.polls));
   });
 
@@ -1120,7 +1120,7 @@ describe('routes/crew-features', () => {
       .send({ question: 'Which stage?', options: ['A', 'B'], closesAt: null })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('POST /:crewId/polls — rejects when 3 active polls exist', async () => {
@@ -1133,7 +1133,7 @@ describe('routes/crew-features', () => {
       .send({ question: 'Too many?', options: ['Yes'] })
       .expect(409);
 
-    assert.match(res.body.message, /max 3/i);
+    assert.match(res.body.error.message, /max 3/i);
   });
 
   test('POST /:crewId/polls/:pollId/vote — votes on poll', async () => {
@@ -1145,7 +1145,7 @@ describe('routes/crew-features', () => {
       .send({ optionIndex: 0 })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.voted, true);
   });
 
@@ -1158,7 +1158,7 @@ describe('routes/crew-features', () => {
       .send({ optionIndex: 99 })
       .expect(400);
 
-    assert.match(res.body.message, /invalid option/i);
+    assert.match(res.body.error.message, /invalid option/i);
   });
 
   test('DELETE /:crewId/polls/:pollId — closes poll', async () => {
@@ -1169,7 +1169,7 @@ describe('routes/crew-features', () => {
       .delete('/crew-1/polls/poll-1')
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('DELETE /:crewId/polls/:pollId — rejects non-creator non-owner', async () => {
@@ -1182,7 +1182,7 @@ describe('routes/crew-features', () => {
       .delete('/crew-1/polls/poll-1')
       .expect(403);
 
-    assert.match(res.body.message, /creator or owner/i);
+    assert.match(res.body.error.message, /creator or owner/i);
   });
 });
 
@@ -1223,7 +1223,7 @@ describe('routes/expenses', () => {
     const app = mountExpenses(deps);
 
     const res = await request(app).get('/crews/crew-1/expenses').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('GET /crews/:crewId/expenses — rejects non-member', async () => {
@@ -1243,7 +1243,7 @@ describe('routes/expenses', () => {
       .send({ description: 'Pizza', amount: 24.99, splitWith: ['user-2'], category: 'food' })
       .expect(201);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('DELETE /crews/:crewId/expenses/:expenseId — deletes expense by payer', async () => {
@@ -1278,7 +1278,7 @@ describe('routes/expenses', () => {
     const app = mountExpenses(deps);
 
     const res = await request(app).get('/crews/crew-1/expenses/balances').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   test('POST /crews/:crewId/expenses/settle — creates settlement', async () => {
@@ -1290,7 +1290,7 @@ describe('routes/expenses', () => {
       .send({ toUserId: 'user-2', amount: 15.00 })
       .expect(201);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 });
 
@@ -1337,7 +1337,7 @@ describe('routes/ratings', () => {
       .send({ rating: 5, note: 'Great!' })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.rating, 5);
   });
 
@@ -1351,7 +1351,7 @@ describe('routes/ratings', () => {
       .send({ rating: 3 })
       .expect(404);
 
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('DELETE /:setId — deletes a rating', async () => {
@@ -1451,7 +1451,7 @@ describe('routes/calendar-sync', () => {
       .post('/calendar-sync/fest-1')
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.match(res.body.data.url, /\.ics$/);
   });
 
@@ -1466,7 +1466,7 @@ describe('routes/calendar-sync', () => {
       .post('/calendar-sync/fest-1')
       .expect(404);
 
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('GET /cal/:token.ics — returns ICS feed', async () => {
@@ -1556,7 +1556,7 @@ describe('routes/lineup-import', () => {
       .send({ text: csvText, format: 'auto' })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.imported, 2);
   });
 
@@ -1571,7 +1571,7 @@ describe('routes/lineup-import', () => {
       .send({ text: tsvText, format: 'tsv' })
       .expect(200);
 
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(res.body.data.imported, 1);
   });
 
@@ -1595,7 +1595,7 @@ describe('routes/lineup-import', () => {
       .send({ text: 'DJ X,Stage,Day 1,14:00,15:00', format: 'csv' })
       .expect(404);
 
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('POST /:id/import-lineup — normalizes 12hr time to 24hr', async () => {
@@ -1795,7 +1795,7 @@ describe('routes/analytics-install', () => {
       .send({ platform: 'windows', event: 'shown' })
       .expect(400);
 
-    assert.match(res.body.error, /invalid platform/i);
+    assert.match(res.body.error.message, /invalid platform/i);
   });
 
   test('POST /install — rejects invalid event', async () => {
@@ -1806,7 +1806,7 @@ describe('routes/analytics-install', () => {
       .send({ platform: 'ios', event: 'hacked' })
       .expect(400);
 
-    assert.match(res.body.error, /invalid event/i);
+    assert.match(res.body.error.message, /invalid event/i);
   });
 
   test('POST /install — returns 204 when no pool available', async () => {
@@ -1957,7 +1957,7 @@ describe('routes/activity', () => {
     const app = mountActivity();
 
     const res = await request(app).get('/crews/crew-1/activity').expect(200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data.items));
     assert.equal(res.body.data.items.length, 1);
   });
@@ -1980,7 +1980,7 @@ describe('routes/activity', () => {
     });
 
     const res = await request(app).get('/crews/bad-id/activity').expect(400);
-    assert.equal(res.body.code, 'INVALID_INPUT');
+    assert.equal(res.body.error.code, 'INVALID_INPUT');
   });
 
   test('GET /crews/:crewId/activity — handles DB error', async () => {

@@ -107,8 +107,8 @@ function makeInviteDeps(overrides = {}) {
     }),
     sanitizeIdentifier: overrides.sanitizeIdentifier || ((s, _max) => (typeof s === 'string' ? s.trim() : '')),
     getFestivalById: overrides.getFestivalById || mock.fn(async (id) => ({ id, name: 'Test Festival' })),
-    sendSuccess: (res, data) => res.json({ ok: true, ...data }),
-    sendError: (res, status, msg, code) => res.status(status).json({ ok: false, code, message: msg }),
+    sendSuccess: (res, data) => res.json({ data, error: null }),
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       NOT_FOUND: 'NOT_FOUND',
@@ -178,9 +178,9 @@ describe('routes/crew-invites.js — POST /join', () => {
       .send({ inviteCode: 'ABC123' });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.equal(res.body.id, 'crew-1');
-    assert.equal(res.body.memberCount, 2);
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.id, 'crew-1');
+    assert.equal(res.body.data.memberCount, 2);
     assert.equal(addMember.mock.calls.length, 1);
     assert.equal(addMember.mock.calls[0].arguments[0].crewId, 'crew-1');
     assert.equal(addMember.mock.calls[0].arguments[0].userId, 'user-1');
@@ -210,7 +210,7 @@ describe('routes/crew-invites.js — POST /join', () => {
       .send({ inviteCode: '  abc123  ' });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
     assert.equal(getByInviteCode.mock.calls[0].arguments[0], 'ABC123');
   });
 
@@ -261,8 +261,8 @@ describe('routes/crew-invites.js — POST /join', () => {
       .send({ inviteCode: 'BADCODE' });
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
-    assert.match(res.body.message, /Invalid invite code/i);
+    assert.equal(res.body.error.code, 'NOT_FOUND');
+    assert.match(res.body.error.message, /Invalid invite code/i);
   });
 
   test('returns 410 for expired invite code', async () => {
@@ -283,8 +283,8 @@ describe('routes/crew-invites.js — POST /join', () => {
       .send({ inviteCode: 'EXPRD1' });
 
     assert.equal(res.status, 410);
-    assert.equal(res.body.code, 'NOT_FOUND');
-    assert.match(res.body.message, /expired/i);
+    assert.equal(res.body.error.code, 'NOT_FOUND');
+    assert.match(res.body.error.message, /expired/i);
   });
 
   // ── Edge case: user has no festival profile ───────────────────────
@@ -305,8 +305,8 @@ describe('routes/crew-invites.js — POST /join', () => {
       .send({ inviteCode: 'ABC123' });
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
-    assert.match(res.body.message, /Join the festival first/i);
+    assert.equal(res.body.error.code, 'FORBIDDEN');
+    assert.match(res.body.error.message, /Join the festival first/i);
   });
 
   // ── Edge case: already a member ───────────────────────────────────
@@ -325,8 +325,8 @@ describe('routes/crew-invites.js — POST /join', () => {
       .send({ inviteCode: 'ABC123' });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'ALREADY_EXISTS');
-    assert.match(res.body.message, /Already a member/i);
+    assert.equal(res.body.error.code, 'ALREADY_EXISTS');
+    assert.match(res.body.error.message, /Already a member/i);
   });
 
   // ── Edge case: max crews per festival ─────────────────────────────
@@ -349,8 +349,8 @@ describe('routes/crew-invites.js — POST /join', () => {
       .send({ inviteCode: 'ABC123' });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'MAX_LIMIT_REACHED');
-    assert.match(res.body.message, /Maximum 3 crews/i);
+    assert.equal(res.body.error.code, 'MAX_LIMIT_REACHED');
+    assert.match(res.body.error.message, /Maximum 3 crews/i);
   });
 
   // ── Edge case: crew is full ───────────────────────────────────────
@@ -372,8 +372,8 @@ describe('routes/crew-invites.js — POST /join', () => {
       .send({ inviteCode: 'ABC123' });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'MAX_LIMIT_REACHED');
-    assert.match(res.body.message, /full/i);
+    assert.equal(res.body.error.code, 'MAX_LIMIT_REACHED');
+    assert.match(res.body.error.message, /full/i);
   });
 
   // ── Edge case: io is null (no Socket.IO) ──────────────────────────
@@ -397,7 +397,7 @@ describe('routes/crew-invites.js — POST /join', () => {
       .send({ inviteCode: 'ABC123' });
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
+    assert.equal(res.body.error, null);
   });
 
   // ── Internal error ────────────────────────────────────────────────
@@ -415,7 +415,7 @@ describe('routes/crew-invites.js — POST /join', () => {
       .send({ inviteCode: 'ABC123' });
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -446,9 +446,9 @@ describe('routes/crew-invites.js — POST /:crewId/invite', () => {
       .post('/crew-1/invite');
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.ok, true);
-    assert.ok(res.body.inviteCode);
-    assert.ok(res.body.inviteExpiresAt);
+    assert.equal(res.body.error, null);
+    assert.ok(res.body.data.inviteCode);
+    assert.ok(res.body.data.inviteExpiresAt);
     assert.equal(regenerateInviteCode.mock.calls.length, 1);
   });
 
@@ -462,7 +462,7 @@ describe('routes/crew-invites.js — POST /:crewId/invite', () => {
       .post('/%20/invite');
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.code, 'INVALID_INPUT');
+    assert.equal(res.body.error.code, 'INVALID_INPUT');
   });
 
   // ── Not the owner ─────────────────────────────────────────────────
@@ -470,7 +470,7 @@ describe('routes/crew-invites.js — POST /:crewId/invite', () => {
     const { app } = buildInviteApp({
       resolveCrewOwnership: mock.fn(async (res) => {
         // resolveCrewOwnership sends the error and returns null
-        res.status(403).json({ ok: false, code: 'FORBIDDEN', message: 'Only the crew owner can regenerate invite codes' });
+        res.status(403).json({ data: null, error: { message: 'Only the crew owner can regenerate invite codes', status: 403, code: 'FORBIDDEN' } });
         return null;
       }),
     });
@@ -479,14 +479,14 @@ describe('routes/crew-invites.js — POST /:crewId/invite', () => {
       .post('/crew-1/invite');
 
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, 'FORBIDDEN');
+    assert.equal(res.body.error.code, 'FORBIDDEN');
   });
 
   // ── Crew not found ────────────────────────────────────────────────
   test('returns error when crew does not exist', async () => {
     const { app } = buildInviteApp({
       resolveCrewOwnership: mock.fn(async (res) => {
-        res.status(404).json({ ok: false, code: 'NOT_FOUND', message: 'Crew not found' });
+        res.status(404).json({ data: null, error: { message: 'Crew not found', status: 404, code: 'NOT_FOUND' } });
         return null;
       }),
     });
@@ -495,7 +495,7 @@ describe('routes/crew-invites.js — POST /:crewId/invite', () => {
       .post('/crew-nonexistent/invite');
 
     assert.equal(res.status, 404);
-    assert.equal(res.body.code, 'NOT_FOUND');
+    assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   // ── Internal error ────────────────────────────────────────────────
@@ -516,7 +516,7 @@ describe('routes/crew-invites.js — POST /:crewId/invite', () => {
       .post('/crew-1/invite');
 
     assert.equal(res.status, 500);
-    assert.equal(res.body.code, 'INTERNAL_ERROR');
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 });
 
@@ -695,7 +695,7 @@ describe('routes/crew-invites.js — rate limiting', () => {
         return (_req, _res, next) => next();
       },
       resolveCrewOwnership: mock.fn(async (res) => {
-        res.status(404).json({ ok: false, code: 'NOT_FOUND', message: 'Crew not found' });
+        res.status(404).json({ data: null, error: { message: 'Crew not found', status: 404, code: 'NOT_FOUND' } });
         return null;
       }),
     });

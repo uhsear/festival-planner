@@ -108,7 +108,7 @@ function buildPageDeps(overrides = {}) {
       error: () => {},
       ...overrides.log,
     },
-    sendError: (res, status, msg) => res.status(status).json({ ok: false, message: msg }),
+    sendError: (res, status, msg, code) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: { NOT_FOUND: 'NOT_FOUND', INTERNAL_ERROR: 'INTERNAL_ERROR' },
     ...overrides,
   };
