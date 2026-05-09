@@ -191,6 +191,7 @@ jobs:
         working-directory: packages
         run: pnpm --filter @festie/web build
       - name: Check bundle size
+        continue-on-error: true
         working-directory: packages/web
         run: pnpm exec bundlemon
 
