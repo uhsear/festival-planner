@@ -262,7 +262,7 @@
   margin-right: auto !important;
 }
 @media (max-width: 640px) {
-  .card-grid { gap: 12px; max-width: none !important; }
+  .card-grid { gap: 10px; max-width: none !important; }
 }
 
 /* ── Container queries (2026-04-28) ──────────────────────────────────────
