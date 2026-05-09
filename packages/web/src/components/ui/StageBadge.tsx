@@ -48,13 +48,14 @@ function toHex(r: number, g: number, b: number): string {
 }
 
 // Darkens a hex color just enough so white (#fff) text reaches 4.5:1.
+// Targets 4.6:1 to absorb rounding error from 8-bit RGB quantization.
 export function ensureWhiteContrast(hex: string): string {
   const rgb = parseHex(hex);
   if (!rgb) return hex;
   const [r, g, b] = rgb;
   const lum = relativeLuminance(r, g, b);
-  if (1.05 / (lum + 0.05) >= 4.5) return hex;
-  const target = 1.05 / 4.5 - 0.05;
+  if (1.05 / (lum + 0.05) >= 4.6) return hex;
+  const target = 1.05 / 4.6 - 0.05;
   const k = target / lum;
   return toHex(
     linearToSrgb(srgbToLinear(r) * k),
