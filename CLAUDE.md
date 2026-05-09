@@ -109,8 +109,8 @@ PostgreSQL 16 with connection pooling (pg, min 2 / max 20). Key tables: `users`,
 
 - **Style**: 2-space indent, single quotes, trailing commas, semicolons, `const`/`let` only (enforced by ESLint flat config + Prettier)
 - **Backend is CommonJS** (`require`/`module.exports`), frontend is ESM/TypeScript
-- **API error responses**: `{ ok: false, code: 'ERROR_CODE', message: '...' }`
-- **API success responses**: `{ ok: true, ...data }`
+- **API error responses**: `{ data: null, error: { message, status, code, retryable } }`
+- **API success responses**: `{ data: {...}, error: null }`
 - **Validation**: Zod schemas in `lib/schemas.js` for all API endpoints
 - **Logging**: Pino with JSON output; sensitive fields are sanitized
 - **Config**: All env vars read through `lib/config.js` with `DEFAULTS` object and typed readers (`readInt`, `readBool`, `readList`)
