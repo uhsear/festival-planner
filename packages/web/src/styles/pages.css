@@ -1720,8 +1720,6 @@
 
 /* ── Card grid & set cards (from legacy) ───────────────────────────────── */
 .card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   padding-bottom: 20px;
 }
 .set-card {
@@ -2288,6 +2286,7 @@ button.card-overlap {
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   cursor: pointer;
+  transition: background 0.15s ease;
 }
 .timeline-tba-card:hover,
 .timeline-tba-card:focus-visible {
