@@ -101,3 +101,126 @@
 
   --measure-prose: 65ch;
 }
+
+/* ── Legacy-only tokens (no @theme equivalent) ───────────────────────────
+   These lived in legacy.css but are plain :root custom properties that
+   theme.css should own. They are NOT inside @theme because Tailwind v4
+   only allows --color-*/--font-*/--space-* namespaced tokens there.
+   ─────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Backgrounds & elevation */
+  --bg-hover: rgba(32, 32, 58, .8);
+  --bg-elevated: rgba(24, 24, 44, .9);
+
+  /* Coral RGB channel token (used in rgba() expressions) */
+  --accent-coral-rgb: 255, 51, 102;
+
+  /* Glow shadows */
+  --glow-coral: 0 0 24px rgba(var(--accent-coral-rgb), .35);
+  --glow-aqua: 0 0 24px rgba(0, 232, 208, .3);
+  --glow-amber: 0 0 20px rgba(255, 176, 32, .3);
+  --glow-green: 0 0 20px rgba(57, 255, 20, .3);
+
+  /* Text-on variants */
+  --text-on-accent: #fff;
+  --text-on-light-accent: #080810;
+  --text-on-dark: #000;
+  --text-on-poster: #fff;
+  --text-danger: #f87171;
+
+  /* Status colors */
+  --status-verified: #22c55e;
+  --status-unverified: #fbbf24;
+  --status-verified-bg: rgba(34, 197, 94, .15);
+  --status-unverified-bg: rgba(251, 191, 36, .15);
+  --status-warning: #f0a030;
+  --status-error: #ff6b6b;
+
+  /* Border radii */
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  --radius-xs: 4px;
+  --radius-md: 10px;
+  --radius-pill: 999px;
+
+  /* Transitions & easings */
+  --transition: all .25s cubic-bezier(.4, 0, .2, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-quart: cubic-bezier(0.5, 0, 0.75, 0);
+
+  /* Fonts (legacy aliases) */
+  --font-main: 'Space Grotesk', system-ui, sans-serif;
+  --font-display: 'Syncopate', sans-serif;
+
+  /* Backdrop */
+  --glass: saturate(180%) blur(16px);
+
+  /* Overlay & shade scales */
+  --overlay-1: rgba(255, 255, 255, .03);
+  --overlay-2: rgba(255, 255, 255, .04);
+  --overlay-3: rgba(255, 255, 255, .06);
+  --overlay-4: rgba(255, 255, 255, .08);
+  --overlay-5: rgba(255, 255, 255, .1);
+  --overlay-hi: rgba(255, 255, 255, .95);
+  --shade-1: rgba(0, 0, 0, .04);
+  --shade-2: rgba(0, 0, 0, .06);
+  --shade-3: rgba(0, 0, 0, .08);
+  --shade-4: rgba(0, 0, 0, .1);
+  --shade-5: rgba(0, 0, 0, .12);
+  --shade-6: rgba(0, 0, 0, .15);
+  --shade-7: rgba(0, 0, 0, .2);
+  --shade-8: rgba(0, 0, 0, .4);
+  --shade-9: rgba(0, 0, 0, .45);
+  --shade-10: rgba(0, 0, 0, .75);
+
+  /* Aqua alpha scale */
+  --aqua-a06: rgba(0, 232, 208, .06);
+  --aqua-a08: rgba(0, 232, 208, .08);
+  --aqua-a1: rgba(0, 232, 208, .1);
+  --aqua-a12: rgba(0, 232, 208, .12);
+  --aqua-a15: rgba(0, 232, 208, .15);
+  --aqua-a2: rgba(0, 232, 208, .2);
+  --aqua-a3: rgba(0, 232, 208, .3);
+
+  /* Amber alpha scale */
+  --amber-a08: rgba(255, 176, 32, .08);
+  --amber-a12: rgba(255, 176, 32, .12);
+  --amber-a2: rgba(255, 176, 32, .2);
+  --amber-a3: rgba(255, 176, 32, .3);
+
+  /* Legacy px spacing (kept for existing selectors; prefer @theme --space-*) */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* Spotify */
+  --spotify-brand: #1DB954;
+  --spotify-brand-rgb: 29, 185, 84;
+
+  /* Cookie banner */
+  --cookie-banner-text-light: #1f2937;
+
+  /* Wrap poster backgrounds */
+  --wrap-poster-bg-1: #0a0a1a;
+  --wrap-poster-bg-2: #1a0a2e;
+  --wrap-poster-bg-3: #0a1a2e;
+
+  /* Accessibility: disabled + placeholder contrast (WCAG AA) */
+  --text-disabled: #a8a8c0;
+  --text-placeholder: #a8a8c0;
+
+  /* Z-index token ladder */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-dropdown: 100;
+  --z-overlay: 1000;
+  --z-modal: 2000;
+  --z-toast: 3000;
+  --z-cookie: 4000;
+  --z-top: 9999;
+}

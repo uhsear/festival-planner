@@ -1,5 +1,15 @@
 /* Base styles (no-layer; Tailwind v4 with preflight disabled has no predefined
    @layer base, so we skip the wrapper and let these rules cascade normally) */
+
+/* Universal reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 * {
   border-color: var(--color-border);
 }
@@ -7,12 +17,17 @@
 html {
     scroll-behavior: smooth;
     color-scheme: dark;
+    height: 100%;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     background-color: var(--color-bg-primary);
     color: var(--color-text-primary);
     font-family: var(--font-family-body);
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* Body rhythm: Space Grotesk benefits from slight negative tracking and
@@ -20,6 +35,92 @@ html {
     line-height: var(--line-height-normal);
     letter-spacing: var(--letter-spacing-body);
     text-rendering: optimizeLegibility;
+  }
+
+  /* Ambient gradient overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 80%, rgba(var(--accent-coral-rgb), .04) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 50% at 80% 20%, rgba(0, 232, 208, .03) 0%, transparent 70%);
+  }
+
+  /* Noise texture overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: .035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 128px 128px;
+  }
+
+  /* Link reset */
+  a {
+    color: var(--accent-aqua);
+    text-decoration: none;
+  }
+
+  /* Form element base styles */
+  input,
+  select,
+  textarea {
+    font-family: var(--font-family-body);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    outline: none;
+    transition: var(--transition);
+    -webkit-appearance: none;
+    backdrop-filter: blur(8px);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+  }
+
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    border-color: var(--accent-aqua);
+    box-shadow: 0 0 0 3px var(--aqua-a12);
+    outline: 2px solid var(--accent-aqua);
+    outline-offset: 2px;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: var(--accent-aqua);
+    box-shadow: 0 0 0 3px var(--aqua-a12);
+  }
+
+  /* Custom select arrow */
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238888a8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+  }
+
+  /* App root layout */
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    position: relative;
+    z-index: 1;
   }
 
   /* Heading hierarchy — display font + tight leading + caps tracking.
@@ -108,6 +209,11 @@ html {
    bare buttons don't bleed contrast-failing gray into the design. */
 button {
   background-color: transparent;
+  font-family: var(--font-family-body);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  -webkit-appearance: none;
 }
 
 /* Skip-link (WCAG 2.4.1). Hidden until focused; jumps past the ~20 chrome
