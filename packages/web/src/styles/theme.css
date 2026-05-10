@@ -102,11 +102,7 @@
   --measure-prose: 65ch;
 }
 
-/* ── Legacy-only tokens (no @theme equivalent) ───────────────────────────
-   These lived in legacy.css but are plain :root custom properties that
-   theme.css should own. They are NOT inside @theme because Tailwind v4
-   only allows --color-*/--font-*/--space-* namespaced tokens there.
-   ─────────────────────────────────────────────────────────────────────── */
+/* Legacy-only tokens — plain :root custom properties, not inside @theme */
 :root {
   /* Backgrounds & elevation */
   --bg-hover: rgba(32, 32, 58, .8);
