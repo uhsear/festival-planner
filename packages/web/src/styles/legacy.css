@@ -1,36 +1,30 @@
 /**
- * Festie Stylesheet — app.css
- *
- * SCOPE: This file provides CSS custom properties (design tokens), base resets,
- * and component-level styles consumed by the React SPA (packages/web/).
- * No server-rendered page references this file — reset-pages, share, export,
- * privacy, terms, security-whitepaper, and offline all use inline <style> tags.
- *
- * The React app loads this file alongside Tailwind CSS 4 / globals.css. The
- * :root variables here (--bg-*, --accent-*, --text-*, etc.) are the runtime
- * token layer; globals.css defines parallel Tailwind @theme tokens (--color-*
- * prefix) for utility classes. Both systems coexist: legacy component CSS below
- * reads :root vars, while new Tailwind-authored components read --color-* vars.
- *
- * Architecture: primitives -> semantic -> component.
- * Coral/aqua/amber accents on near-black bg. Light theme via [data-theme="light"].
- * Mobile-first; @media breakpoints for tablet/desktop overrides.
- *
- * Last audited: 2026-05-01. Dead legacy admin UI sections removed.
+ * Legacy component styles (migrated from public/app.css).
+ * Design tokens bridge to theme.css via var(--color-*) aliases.
+ * Do NOT add new tokens here — add them to theme.css instead.
  */
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 *{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 :root{
-  --bg-primary:#080810;--bg-secondary:#0e0e1a;--bg-card:rgba(20,20,38,.65);--bg-card-hover:rgba(32,32,58,.8);
+  /* Bridge aliases — canonical values live in theme.css (@theme --color-*) */
+  --bg-primary:var(--color-bg-primary);--bg-secondary:var(--color-bg-secondary);
+  --bg-card:var(--color-bg-card);--bg-card-hover:var(--color-bg-card-hover);
+  --bg-input:var(--color-bg-input);
+  --text-primary:var(--color-text-primary);--text-secondary:var(--color-text-secondary);
+  --text-muted:var(--color-text-muted);
+  --accent-coral:var(--color-accent-coral);--accent-aqua:var(--color-accent-aqua);
+  --accent-amber:var(--color-accent-amber);--accent-green:var(--color-accent-green);
+  --accent-blue:var(--color-accent-blue);
+  --border:var(--color-border);--border-light:var(--color-border-light);
+  --priority-must:var(--color-priority-must);--priority-want:var(--color-priority-want);
+  --priority-maybe:var(--color-priority-maybe);
+
+  /* Legacy-only tokens (no theme.css equivalent) */
   --bg-hover:rgba(32,32,58,.8);--bg-elevated:rgba(24,24,44,.9);
-  --bg-input:rgba(16,16,34,.8);--border:rgba(255,255,255,.06);--border-light:rgba(255,255,255,.1);
-  --text-primary:#eaeaf2;--text-secondary:#9999bb;--text-muted:#6a6a88;
-  --accent-coral:#e62958;--accent-coral-rgb:230,41,88;--accent-aqua:#00e8d0;--accent-amber:#ffb020;
-  --accent-green:#39ff14;--accent-blue:#4488ff;
+  --accent-coral-rgb:255,51,102;
   --glow-coral:0 0 24px rgba(var(--accent-coral-rgb),.35);--glow-aqua:0 0 24px rgba(0,232,208,.3);
   --glow-amber:0 0 20px rgba(255,176,32,.3);--glow-green:0 0 20px rgba(57,255,20,.3);
-  --priority-must:#e62958;--priority-want:#00e8d0;--priority-maybe:#ffb020;
   --text-on-accent:#fff;--text-on-light-accent:#080810;--text-on-dark:#000;
   --text-on-poster:#fff;--text-danger:#f87171;
   --status-verified:#22c55e;--status-unverified:#fbbf24;--status-verified-bg:rgba(34,197,94,.15);--status-unverified-bg:rgba(251,191,36,.15);
@@ -61,22 +55,6 @@
   --status-warning:#f0a030;--status-error:#ff6b6b;
   --cookie-banner-text-light:#1f2937;
   --wrap-poster-bg-1:#0a0a1a;--wrap-poster-bg-2:#1a0a2e;--wrap-poster-bg-3:#0a1a2e;
-}
-@supports (color: oklch(0 0 0)) {
-  :root {
-    --accent-coral: oklch(0.65 0.25 15);
-    --accent-aqua: oklch(0.82 0.16 180);
-    --accent-amber: oklch(0.78 0.16 75);
-    --accent-green: oklch(0.80 0.28 140);
-    --accent-blue: oklch(0.62 0.17 255);
-    --priority-must: oklch(0.65 0.25 15);
-    --priority-want: oklch(0.82 0.16 180);
-    --priority-maybe: oklch(0.78 0.16 75);
-    --glow-coral: 0 0 24px oklch(0.65 0.25 15 / 0.35);
-    --glow-aqua: 0 0 24px oklch(0.82 0.16 180 / 0.3);
-    --glow-amber: 0 0 20px oklch(0.78 0.16 75 / 0.3);
-    --glow-green: 0 0 20px oklch(0.80 0.28 140 / 0.3);
-  }
 }
 html,body{height:100%;font-family:var(--font-main);background:var(--bg-primary);color:var(--text-primary);overflow:hidden;overscroll-behavior:none;-webkit-text-size-adjust:100%}
 body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:
@@ -171,12 +149,8 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .card-priority-btn.active-must{background:var(--priority-must);color:var(--text-on-accent);border-color:var(--priority-must);box-shadow:var(--glow-coral);animation:pulseGlow 2s ease-in-out infinite}
 .card-priority-btn.active-want{background:var(--priority-want);color:var(--text-on-light-accent);border-color:var(--priority-want);box-shadow:var(--glow-aqua)}
 .card-priority-btn.active-maybe{background:var(--priority-maybe);color:var(--text-on-light-accent);border-color:var(--priority-maybe);box-shadow:var(--glow-amber)}
-@keyframes pulseGlow{0%,100%{box-shadow:var(--glow-coral)}50%{box-shadow:0 0 32px rgba(var(--accent-coral-rgb),.5)}}
-@keyframes pickPop{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
 .card-priority-btn.just-picked{animation:pickPop .25s cubic-bezier(.4,0,.2,1)}
-@keyframes shimmer{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
 .skeleton-loading{animation:shimmer 1.5s ease-in-out infinite}
-@keyframes cardFadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .set-card.card-enter{animation:cardFadeUp .3s var(--ease-out-expo) both}
 .pick-item.card-enter{animation:cardFadeUp .25s var(--ease-out-expo) both}
 .group-member.card-enter{animation:cardFadeUp .25s var(--ease-out-expo) both}
@@ -223,8 +197,6 @@ body.modal-open{overflow:hidden!important}
 .detail-panel{background:rgba(14,14,26,.95);backdrop-filter:var(--glass);border-radius:var(--radius-lg) var(--radius-lg) 0 0;width:100%;max-width:500px;min-height:200px;max-height:80vh;max-height:80dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:28px;padding-bottom:max(28px,env(safe-area-inset-bottom));position:relative;border:1px solid var(--border-light);border-bottom:none}
 .detail-panel.panel-entering{animation:slideUp .3s var(--ease-out-quart)}
 .detail-panel.panel-exiting{animation:slideDown .225s var(--ease-in-quart) forwards}
-@keyframes slideUp{from{transform:translateY(100%);opacity:.8}to{transform:translateY(0);opacity:1}}
-@keyframes slideDown{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:.8}}
 .detail-panel .detail-close{position:absolute;top:var(--space-8);right:var(--space-8);width:44px;height:44px;min-width:44px;min-height:44px;border-radius:50%;background:var(--bg-card);border:1px solid var(--border-light);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:18px;cursor:pointer;transition:var(--transition)}
 .detail-panel .detail-close:hover{background:var(--accent-coral);color:var(--text-on-accent);border-color:var(--accent-coral)}
 .detail-panel .detail-close:focus-visible{outline:2px solid var(--accent-aqua);outline-offset:2px;border-color:var(--accent-aqua)}
@@ -274,7 +246,6 @@ body.modal-open{overflow:hidden!important}
 /* Auth screens */
 .auth-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:40px 20px;position:relative}
 .auth-screen::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(500px,80vw);height:min(500px,80vw);border-radius:50%;background:radial-gradient(circle,rgba(var(--accent-coral-rgb),.06) 0%,rgba(0,232,208,.03) 50%,transparent 70%);pointer-events:none;animation:breathe 6s ease-in-out infinite}
-@keyframes breathe{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.8}50%{transform:translate(-50%,-50%) scale(1.1);opacity:1}}
 .auth-screen .logo-big{font-family:var(--font-display);font-size:clamp(22px,5vw,36px);font-weight:700;letter-spacing:6px;text-transform:uppercase;color:var(--accent-coral);margin-bottom:12px;position:relative;z-index:1}
 .auth-screen .tagline{color:var(--text-secondary);font-size:15px;margin-bottom:44px;letter-spacing:.5px;position:relative;z-index:1}
 .auth-form{width:100%;max-width:360px;position:relative;z-index:1}
@@ -414,12 +385,10 @@ body.modal-open{overflow:hidden!important}
 .toast-success{background:rgba(57,255,20,.1);border:1px solid rgba(57,255,20,.3);color:var(--accent-green)}
 .toast-info{background:var(--aqua-a1);border:1px solid var(--aqua-a3);color:var(--accent-aqua)}
 .toast-error{background:rgba(var(--accent-coral-rgb),.1);border:1px solid rgba(var(--accent-coral-rgb),.3);color:var(--accent-coral)}
-@keyframes fadeInRight{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 .conn-status{width:8px;height:8px;border-radius:50%;margin-right:4px;flex-shrink:0}
 .conn-status.connected{background:var(--accent-green);box-shadow:0 0 8px var(--accent-green)}
 .conn-status.disconnected{background:var(--accent-coral);box-shadow:0 0 8px var(--accent-coral);animation:blink 1.5s infinite}
 .conn-status.fallback{background:var(--accent-amber);box-shadow:0 0 8px var(--accent-amber);animation:blink 2s infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .profile-badge{padding:8px 12px;gap:var(--space-5);text-align:left}
 .profile-copy{display:flex;flex-direction:column;align-items:flex-start;min-width:0;line-height:1.1}
 .profile-copy strong{font-size:13px;font-weight:700;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -496,9 +465,7 @@ body.modal-open{overflow:hidden!important}
   .join-callout-stats{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important;scroll-behavior:auto !important}
   .skeleton-loading{animation:none;opacity:0.6}
-  .card-priority-btn.active-must{animation:none}
 }
 
 /* === QOL Update Styles === */
@@ -562,7 +529,6 @@ body.modal-open{overflow:hidden!important}
 .empty-state-action{margin-top:6px}
 
 /* ===== Design Pass: View Transitions ===== */
-@keyframes viewFadeIn{from{opacity:0}to{opacity:1}}
 .content-area.view-switching>*{animation:viewFadeIn .2s ease-out}
 
 /* ===== Design Pass: Export Section ===== */
@@ -601,8 +567,6 @@ button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid 
 .cookie-banner-btn{background:var(--accent-coral);color:var(--text-on-accent);border:none;padding:10px 20px;min-height:44px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
 .cookie-banner-btn:hover{filter:brightness(1.08)}
 .cookie-banner-btn:focus-visible{outline:2px solid var(--accent-aqua);outline-offset:2px}
-[data-theme="light"] .cookie-banner{background:rgba(255,255,255,.96);border-top-color:rgba(var(--accent-coral-rgb),.3);box-shadow:0 -4px 24px var(--shade-3)}
-[data-theme="light"] .cookie-banner-text{color:var(--cookie-banner-text-light)}
 
 /* Improve secondary text contrast — use semantic variable for AA compliance */
 .text-secondary,.empty-state-text{color:var(--text-secondary)}
@@ -757,54 +721,7 @@ body.keyboard-open .content-area{padding-bottom:calc(16px + var(--keyboard-heigh
 /* Screen reader only label */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-/* ── Light theme override ─────────────────────────────────────── */
-[data-theme="light"]{
-  --bg-primary:#f0f0f5;--bg-secondary:#e2e2ec;--bg-card:rgba(255,255,255,.92);--bg-card-hover:rgba(255,255,255,1);
-  --bg-input:rgba(230,230,240,.95);--bg-elevated:rgba(255,255,255,.98);
-  --border:var(--shade-5);--border-light:rgba(0,0,0,.18);
-  --text-primary:#1a1a2e;--text-secondary:#3d3d5c;--text-muted:#5a5a78;
-  --text-on-accent:#fff;--text-on-light-accent:#1a1a2e;--text-on-dark:#1a1a2e;
-  --text-on-poster:#fff;--text-danger:#dc2626;
-  --glass:saturate(120%) blur(16px);
-  --glow-coral:0 2px 8px rgba(var(--accent-coral-rgb),.15);--glow-aqua:0 2px 8px rgba(0,180,160,.15);
-  --glow-amber:0 2px 8px rgba(200,140,20,.15);--glow-green:0 2px 8px rgba(40,180,20,.15);
-}
-[data-theme="light"] body{background:var(--bg-primary);color:var(--text-primary)}
-[data-theme="light"] body::before,[data-theme="light"] body::after{display:none}
-[data-theme="light"] .header{background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--shade-4);box-shadow:0 1px 3px var(--shade-2)}
-[data-theme="light"] .sub-header{background:rgba(240,240,245,.95);border-bottom:1px solid var(--shade-2)}
-[data-theme="light"] .auth-screen{background:var(--bg-primary)}
-[data-theme="light"] .set-card{border:1px solid var(--shade-4);box-shadow:0 1px 4px var(--shade-2);background:rgba(255,255,255,.95)}
-[data-theme="light"] .set-card:hover{box-shadow:0 2px 8px var(--shade-4)}
-[data-theme="light"] .detail-panel{background:rgba(255,255,255,.98);border-color:var(--shade-4);box-shadow:0 -4px 24px var(--shade-5)}
-[data-theme="light"] .detail-overlay{background:rgba(0,0,0,.35)}
-[data-theme="light"] .bottom-nav{background:rgba(255,255,255,.95);border-top:1px solid var(--shade-4);box-shadow:0 -1px 3px rgba(0,0,0,.05)}
-[data-theme="light"] .toast{background:rgba(255,255,255,.98);color:var(--text-primary);border:1px solid var(--shade-4);box-shadow:0 4px 12px var(--shade-4)}
-[data-theme="light"] .guest-banner{background:rgba(var(--accent-coral-rgb),.06);border:1px solid rgba(var(--accent-coral-rgb),.18);color:var(--text-primary)}
-[data-theme="light"] .guest-banner .btn{background:var(--accent-coral);color:var(--text-on-accent)}
-[data-theme="light"] .offline-banner{background:rgba(220,80,30,.08);border:1px solid rgba(220,80,30,.2);color:var(--text-primary)}
-[data-theme="light"] .logo{color:var(--text-primary)}
-[data-theme="light"] .util-btn{background:var(--shade-1);border-color:var(--shade-5);color:var(--text-muted)}
-[data-theme="light"] .util-btn:hover{background:var(--shade-3);color:var(--text-primary)}
-[data-theme="light"] .search-box input{background:rgba(230,230,240,.95);border:1px solid var(--shade-5);color:var(--text-primary)}
-[data-theme="light"] .search-box input::placeholder{color:var(--text-muted)}
-[data-theme="light"] .day-tab:not(.active){background:rgba(255,255,255,.9);border-color:var(--shade-5);color:var(--text-secondary)}
-[data-theme="light"] .day-tab.active{background:var(--accent-coral);color:var(--text-on-accent);border-color:var(--accent-coral)}
-[data-theme="light"] .festival-card{border:1px solid var(--shade-4);box-shadow:0 1px 4px var(--shade-2)}
-[data-theme="light"] .timeline-cell{border-color:var(--shade-3)}
-[data-theme="light"] .timeline-set{color:var(--text-primary);text-shadow:none}
-[data-theme="light"] .timeline-set .set-artist{color:var(--text-primary)}
-[data-theme="light"] .timeline-set .set-time{color:var(--text-secondary);opacity:.8}
-[data-theme="light"] .btn-ghost{border-color:var(--shade-6);color:var(--text-secondary)}
-[data-theme="light"] .btn-ghost:hover{border-color:var(--text-primary);color:var(--text-primary)}
-[data-theme="light"] .stage-header{color:var(--text-primary);border-bottom:2px solid var(--shade-4)}
-[data-theme="light"] .time-label{color:var(--text-secondary)}
-[data-theme="light"] .countdown-strip{background:rgba(0,180,160,.06);border-color:rgba(0,180,160,.15)}
-[data-theme="light"] input,[data-theme="light"] select,[data-theme="light"] textarea{background:rgba(230,230,240,.9);color:var(--text-primary);border-color:var(--shade-5)}
-[data-theme="light"] .nav-btn{color:var(--text-muted)}
-[data-theme="light"] .nav-btn.active{color:var(--accent-coral)}
-[data-theme="light"] .crew-card{border:1px solid var(--shade-4);background:rgba(255,255,255,.95)}
-[data-theme="light"] .picks-summary{background:rgba(255,255,255,.95);border:1px solid var(--shade-4)}
+/* [REMOVED] Light theme override — migrated to light-theme.css */
 
 /* [REMOVED] countdown-strip, lineup-diff-banner — legacy JS SPA. ~10 lines removed. */
 
@@ -824,7 +741,6 @@ body.keyboard-open .content-area{padding-bottom:calc(16px + var(--keyboard-heigh
 .skeleton-title{height:18px;width:60%}
 .skeleton-time{height:14px;width:40%}
 .skeleton-stage{height:14px;width:30%}
-@keyframes skeleton-pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
 /* ── Touch Affordance Improvements ─────────────────────────────── */
 
@@ -866,12 +782,6 @@ body.keyboard-open .content-area{padding-bottom:calc(16px + var(--keyboard-heigh
 .conflict-vs{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--accent-coral);letter-spacing:1px;min-width:28px;opacity:.7}
 @media(max-width:768px){.conflict-row{flex-direction:column;gap:var(--space-3)}.conflict-vs{padding:2px 0;min-width:auto}}
 
-/* ── Light mode: button contrast fix ─────────────────────────── */
-[data-theme="light"] .card-priority-btn{background:rgba(220,220,232,.7);border:1.5px solid var(--shade-7);color:var(--text-secondary)}
-[data-theme="light"] .card-priority-btn:hover{border-color:rgba(0,0,0,.35);background:rgba(210,210,225,.85)}
-[data-theme="light"] .conflict-set{background:rgba(0,0,0,.03)}
-[data-theme="light"] .conflict-set:hover{background:var(--shade-2)}
-[data-theme="light"] .conflict-card{border-color:var(--shade-5);background:rgba(255,255,255,.95)}
 
 /* [REMOVED] ~160 lines of legacy admin UI CSS (admin-dash-grid, admin-stat-*,
    admin-section-title, admin-health-*, admin-activity-*, admin-search-*,
@@ -1011,18 +921,7 @@ body.keyboard-open .content-area{padding-bottom:calc(16px + var(--keyboard-heigh
 .bottom-nav button.active svg{filter:drop-shadow(0 0 6px rgba(0,232,208,.4))}
 
 /* ── 4. Enhanced Modal / Overlay Animations ───────────────────── */
-@keyframes overlayFadeIn{from{opacity:0}to{opacity:1}}
-@keyframes overlayFadeOut{from{opacity:1}to{opacity:0}}
 .detail-overlay.open{animation:overlayFadeIn .2s ease-out}
-
-@keyframes slideUpSmooth{
-  from{transform:translateY(100%) scale(.98);opacity:0}
-  to{transform:translateY(0) scale(1);opacity:1}
-}
-@keyframes slideDownSmooth{
-  from{transform:translateY(0) scale(1);opacity:1}
-  to{transform:translateY(100%) scale(.98);opacity:0}
-}
 .detail-panel.panel-entering{animation:slideUpSmooth .35s var(--ease-out-expo)}
 .detail-panel.panel-exiting{animation:slideDownSmooth .25s var(--ease-in-quart) forwards}
 
@@ -1041,7 +940,6 @@ body.keyboard-open .content-area{padding-bottom:calc(16px + var(--keyboard-heigh
 .detail-panel.panel-entering .detail-priority-group{animation-delay:.14s}
 .detail-panel.panel-entering .detail-friends{animation-delay:.18s}
 .detail-panel.panel-entering .detail-notes{animation-delay:.22s}
-@keyframes detailContentFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 /* [REMOVED] Legacy admin overlay entrance animations — not used by React SPA */
 
@@ -1055,10 +953,6 @@ body.keyboard-open .content-area{padding-bottom:calc(16px + var(--keyboard-heigh
 ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
 ::-webkit-scrollbar-thumb:active{background:var(--aqua-a3)}
 *{scrollbar-width:thin;scrollbar-color:var(--overlay-5) transparent}
-[data-theme="light"] ::-webkit-scrollbar-thumb{background:var(--shade-5)}
-[data-theme="light"] ::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.22)}
-[data-theme="light"] ::-webkit-scrollbar-thumb:active{background:rgba(0,180,160,.35)}
-[data-theme="light"] *{scrollbar-color:var(--shade-5) transparent}
 
 /* ── 6. Multi-Layer Input Focus Glow ──────────────────────────── */
 input:focus,select:focus,textarea:focus{
@@ -1072,14 +966,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 }
 
 /* ── 7. Toast Enhancements ────────────────────────────────────── */
-@keyframes toastSlideIn{
-  from{transform:translateX(120%) scale(.9);opacity:0}
-  to{transform:translateX(0) scale(1);opacity:1}
-}
-@keyframes toastSlideOut{
-  from{transform:translateX(0) scale(1);opacity:1}
-  to{transform:translateX(120%) scale(.9);opacity:0}
-}
 .toast{
   animation:toastSlideIn .35s var(--ease-out-expo);
   border-radius:var(--radius);
@@ -1114,10 +1000,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 /* [REMOVED] .admin-section-title polish — legacy admin, not used by React */
 
 /* ── 10. Enhanced Loading / Skeleton States ───────────────────── */
-@keyframes skeletonShimmer{
-  0%{background-position:-200% 0}
-  100%{background-position:200% 0}
-}
 .skeleton-card{
   animation:none;
   background:var(--bg-card);
@@ -1212,43 +1094,8 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
 }
 
 /* ── 19. View Transition Enhancement ──────────────────────────── */
-@keyframes viewFadeScale{
-  from{opacity:0;transform:scale(.99) translateY(4px)}
-  to{opacity:1;transform:scale(1) translateY(0)}
-}
 .content-area.view-switching>*{animation:viewFadeScale .25s var(--ease-out-expo)}
 
-/* ── 20. Light Theme Modernization ────────────────────────────── */
-[data-theme="light"] .set-card{
-  box-shadow:0 1px 3px var(--shade-2),0 1px 2px var(--shade-1);
-  transition:transform .3s var(--ease-out-expo),box-shadow .3s ease;
-}
-[data-theme="light"] .set-card:hover{
-  transform:translateY(-6px) scale(1.008);
-  box-shadow:0 16px 32px var(--shade-4),0 4px 8px var(--shade-2);
-}
-[data-theme="light"] .header{
-  box-shadow:0 1px 0 var(--shade-2),0 4px 12px var(--shade-1);
-}
-[data-theme="light"] .bottom-nav{
-  box-shadow:0 -1px 0 var(--shade-2),0 -4px 12px rgba(0,0,0,.03);
-}
-[data-theme="light"] .detail-panel{
-  box-shadow:0 -8px 32px var(--shade-5),0 -2px 8px var(--shade-2);
-}
-[data-theme="light"] .user-menu{
-  box-shadow:0 20px 48px var(--shade-5),0 4px 12px var(--shade-2);
-}
-[data-theme="light"] .toast{
-  box-shadow:0 8px 24px var(--shade-3),0 1px 4px var(--shade-1);
-}
-[data-theme="light"] .admin-stat-card:hover{
-  box-shadow:0 12px 28px var(--shade-3);
-}
-[data-theme="light"] .skeleton-line{
-  background:linear-gradient(90deg,var(--shade-1) 25%,var(--shade-3) 50%,var(--shade-1) 75%);
-  background-size:200% 100%;
-}
 
 /* ── Reduced Motion: disable all new animations ───────────────── */
 @media(prefers-reduced-motion:reduce){
@@ -1288,12 +1135,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
   border-color:var(--accent-aqua);
   box-shadow:0 0 0 3px var(--aqua-a12),0 0 16px var(--aqua-a06);
   background:var(--overlay-3);
-}
-[data-theme="light"] .input{background:var(--bg-primary);border-color:var(--border)}
-[data-theme="light"] .input:hover{border-color:var(--shade-7)}
-[data-theme="light"] .input:focus{
-  border-color:var(--accent-aqua);
-  box-shadow:0 0 0 3px rgba(0,180,160,.12),0 0 12px rgba(0,180,160,.06);
 }
 
 /* ── Crew Code Input (special monospace styling) ─────────────────── */
@@ -1392,16 +1233,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
   box-shadow:0 4px 20px var(--shade-6);
 }
 
-/* ── Light theme overrides for new components ────────────────────── */
-[data-theme="light"] .crew-action-section{background:rgba(0,0,0,.02);border-color:var(--border)}
-[data-theme="light"] .crew-danger-zone{background:rgba(var(--accent-coral-rgb),.03);border-color:rgba(var(--accent-coral-rgb),.15)}
-[data-theme="light"] .crew-leave-section{background:rgba(var(--accent-coral-rgb),.02);border-color:rgba(var(--accent-coral-rgb),.1)}
-[data-theme="light"] .crew-member-row:hover{background:rgba(0,0,0,.02)}
-[data-theme="light"] .crew-member-self{background:rgba(0,180,160,.04)}
-[data-theme="light"] .crew-invite-row{background:rgba(255,176,32,.04);border-color:var(--amber-a2)}
-[data-theme="light"] .home-base-card:hover{box-shadow:0 4px 12px var(--shade-2)}
-[data-theme="light"] .home-base-ghost:hover{background:rgba(0,180,160,.03)}
-[data-theme="light"] .conflict-card:hover{box-shadow:0 4px 12px var(--shade-2)}
 
 /* ── Error boundary (crash fallback) ─────────────────────────────── */
 .error-boundary{padding:2rem;color:var(--accent-coral);font-family:sans-serif}
@@ -2277,9 +2108,6 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
     border-radius: var(--radius-lg) !important;
   }
 }
-[data-theme="light"] .detail-panel {
-  border-bottom-color: rgba(0, 0, 0, 0.1) !important;
-}
 /* ── end round 6 ──────────────────────────────────────────────────────────── */
 
 /* Round 6.1 — force util-btn perfect centering via grid (text node with letter-spacing kept icon 1-2px off) */
@@ -2924,10 +2752,6 @@ body:has(.admin-login-overlay.open) .cookie-banner {
   padding: 0 4px;
   line-height: 1;
 }
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
 
 /* ── Set Reminders ───────────────────────────────────────────── */
 .detail-reminder-section {
@@ -3112,8 +2936,6 @@ body:has(.admin-login-overlay.open) .cookie-banner {
 
 /* --- Round 16.1 — text-muted contrast (light + dark themes) --- */
 :root { --text-muted: #8a8aa8 !important; }
-html[data-theme="light"],
-body[data-theme="light"] { --text-muted: #4a4a68 !important; }
 
 /* ═══════════════════════════════════════════════════════════════
    Round 20 (2026-04-15) — a11y hardening pass (WCAG 2.2 AA)
@@ -3156,11 +2978,6 @@ body[data-theme="light"] { --text-muted: #4a4a68 !important; }
 :root {
   --text-disabled: #a8a8c0;
   --text-placeholder: #a8a8c0;
-}
-html[data-theme="light"],
-body[data-theme="light"] {
-  --text-disabled: #5a5a78;
-  --text-placeholder: #4a4a68;
 }
 
 .btn:disabled,
@@ -3243,21 +3060,7 @@ html {
   line-height: 1.5;
 }
 
-/* --- Round 20.4 — Global prefers-reduced-motion wrap (axis M1) ------
-   Nukes animations + transitions for users who opted in. Covers all
-   @keyframes sites (iOS-install sheet, toast, cookie banner, card
-   transitions) without selector-hunting. Scroll-behavior forced auto.
-   -------------------------------------------------------------------- */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
+/* [REMOVED] Round 20.4 — prefers-reduced-motion:reduce moved to animations.css */
 
 /* --- Round 20.5 — #0b0b0f → #080810 fallback alignment --------------
    Applied in-place at L3574 (`.crew-tabs { background: var(--bg, ...) }`).
@@ -3408,8 +3211,7 @@ button[aria-label="Open admin panel"] {
    Original accent-coral is oklch(0.65 0.25 15) which gives ~3.5:1 with white.
    Shifting to oklch(0.5 0.25 15) darkens the chip without killing the brand
    feel; white on this darker coral yields ~5.3:1 (AA pass). */
-.day-tab.active,
-[data-theme="light"] .day-tab.active {
+.day-tab.active {
   background: oklch(0.5 0.22 15) !important;
   background: #c01d3a !important;  /* fallback for browsers without oklch */
   border-color: oklch(0.5 0.22 15) !important;

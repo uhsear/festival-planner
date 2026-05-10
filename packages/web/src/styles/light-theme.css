@@ -133,8 +133,9 @@
   color: #fff;
 }
 
-/* Timeline set artist text-shadow — lighter shadow on light bg. */
+/* Timeline set artist — color + text-shadow for light bg. */
 [data-theme="light"] .timeline-set .set-artist {
+  color: var(--text-primary);
   text-shadow:
     0 1px 2px rgba(255, 255, 255, 0.6),
     0 0 1px rgba(255, 255, 255, 0.8);
@@ -144,4 +145,348 @@
 [data-theme="light"] .admin-mobile-only button.bg-accent-aqua.text-bg-primary,
 [data-theme="light"] .admin-desktop-sidebar button.bg-accent-aqua.text-bg-primary {
   color: var(--color-bg-primary);
+}
+
+/* ── Legacy component overrides (migrated from legacy.css) ───────────────── */
+
+/* Cookie banner */
+[data-theme="light"] .cookie-banner {
+  background: rgba(255, 255, 255, 0.96);
+  border-top-color: rgba(var(--accent-coral-rgb), 0.3);
+  box-shadow: 0 -4px 24px var(--shade-3);
+}
+[data-theme="light"] .cookie-banner-text {
+  color: var(--cookie-banner-text-light);
+}
+
+/* Legacy variable overrides (--bg-*, --text-*, --glow-* tokens still used
+   by components that haven't migrated to the --color-* system yet). */
+[data-theme="light"] {
+  --bg-primary: #f0f0f5;
+  --bg-secondary: #e2e2ec;
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --bg-card-hover: rgba(255, 255, 255, 1);
+  --bg-input: rgba(230, 230, 240, 0.95);
+  --bg-elevated: rgba(255, 255, 255, 0.98);
+  --border: var(--shade-5);
+  --border-light: rgba(0, 0, 0, 0.18);
+  --text-primary: #1a1a2e;
+  --text-secondary: #3d3d5c;
+  --text-muted: #5a5a78;
+  --text-on-accent: #fff;
+  --text-on-light-accent: #1a1a2e;
+  --text-on-dark: #1a1a2e;
+  --text-on-poster: #fff;
+  --text-danger: #dc2626;
+  --glass: saturate(120%) blur(16px);
+  --glow-coral: 0 2px 8px rgba(var(--accent-coral-rgb), 0.15);
+  --glow-aqua: 0 2px 8px rgba(0, 180, 160, 0.15);
+  --glow-amber: 0 2px 8px rgba(200, 140, 20, 0.15);
+  --glow-green: 0 2px 8px rgba(40, 180, 20, 0.15);
+}
+
+/* Body */
+[data-theme="light"] body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+[data-theme="light"] body::before,
+[data-theme="light"] body::after {
+  display: none;
+}
+
+/* Header + sub-header */
+[data-theme="light"] .header {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--shade-4);
+  box-shadow: 0 1px 0 var(--shade-2), 0 4px 12px var(--shade-1);
+}
+[data-theme="light"] .sub-header {
+  background: rgba(240, 240, 245, 0.95);
+  border-bottom: 1px solid var(--shade-2);
+}
+
+/* Auth */
+[data-theme="light"] .auth-screen {
+  background: var(--bg-primary);
+}
+
+/* Set cards */
+[data-theme="light"] .set-card {
+  border: 1px solid var(--shade-4);
+  box-shadow: 0 1px 3px var(--shade-2), 0 1px 2px var(--shade-1);
+  background: rgba(255, 255, 255, 0.95);
+  transition: transform 0.3s var(--ease-out-expo), box-shadow 0.3s ease;
+}
+[data-theme="light"] .set-card:hover {
+  transform: translateY(-6px) scale(1.008);
+  box-shadow: 0 16px 32px var(--shade-4), 0 4px 8px var(--shade-2);
+}
+
+/* Detail panel + overlay */
+[data-theme="light"] .detail-panel {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: var(--shade-4);
+  border-bottom-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 -8px 32px var(--shade-5), 0 -2px 8px var(--shade-2);
+}
+[data-theme="light"] .detail-overlay {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+/* Bottom nav */
+[data-theme="light"] .bottom-nav {
+  background: rgba(255, 255, 255, 0.95);
+  border-top: 1px solid var(--shade-4);
+  box-shadow: 0 -1px 0 var(--shade-2), 0 -4px 12px rgba(0, 0, 0, 0.03);
+}
+
+/* Toast */
+[data-theme="light"] .toast {
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--text-primary);
+  border: 1px solid var(--shade-4);
+  box-shadow: 0 8px 24px var(--shade-3), 0 1px 4px var(--shade-1);
+}
+
+/* User menu */
+[data-theme="light"] .user-menu {
+  box-shadow: 0 20px 48px var(--shade-5), 0 4px 12px var(--shade-2);
+}
+
+/* Guest + offline banners */
+[data-theme="light"] .guest-banner {
+  background: rgba(var(--accent-coral-rgb), 0.06);
+  border: 1px solid rgba(var(--accent-coral-rgb), 0.18);
+  color: var(--text-primary);
+}
+[data-theme="light"] .guest-banner .btn {
+  background: var(--accent-coral);
+  color: var(--text-on-accent);
+}
+[data-theme="light"] .offline-banner {
+  background: rgba(220, 80, 30, 0.08);
+  border: 1px solid rgba(220, 80, 30, 0.2);
+  color: var(--text-primary);
+}
+
+/* Logo */
+[data-theme="light"] .logo {
+  color: var(--text-primary);
+}
+
+/* Util buttons */
+[data-theme="light"] .util-btn {
+  background: var(--shade-1);
+  border-color: var(--shade-5);
+  color: var(--text-muted);
+}
+[data-theme="light"] .util-btn:hover {
+  background: var(--shade-3);
+  color: var(--text-primary);
+}
+
+/* Search */
+[data-theme="light"] .search-box input {
+  background: rgba(230, 230, 240, 0.95);
+  border: 1px solid var(--shade-5);
+  color: var(--text-primary);
+}
+[data-theme="light"] .search-box input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Day tabs */
+[data-theme="light"] .day-tab:not(.active) {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--shade-5);
+  color: var(--text-secondary);
+}
+[data-theme="light"] .day-tab.active {
+  background: oklch(0.5 0.22 15) !important;
+  background: #c01d3a !important;
+  border-color: oklch(0.5 0.22 15) !important;
+  border-color: #c01d3a !important;
+  color: #fff !important;
+}
+
+/* Festival card */
+[data-theme="light"] .festival-card {
+  border: 1px solid var(--shade-4);
+  box-shadow: 0 1px 4px var(--shade-2);
+}
+
+/* Timeline */
+[data-theme="light"] .timeline-cell {
+  border-color: var(--shade-3);
+}
+[data-theme="light"] .timeline-set {
+  color: var(--text-primary);
+  text-shadow: none;
+}
+[data-theme="light"] .timeline-set .set-time {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+/* Ghost buttons */
+[data-theme="light"] .btn-ghost {
+  border-color: var(--shade-6);
+  color: var(--text-secondary);
+}
+[data-theme="light"] .btn-ghost:hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+/* Stage header + time label */
+[data-theme="light"] .stage-header {
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--shade-4);
+}
+[data-theme="light"] .time-label {
+  color: var(--text-secondary);
+}
+
+/* Countdown */
+[data-theme="light"] .countdown-strip {
+  background: rgba(0, 180, 160, 0.06);
+  border-color: rgba(0, 180, 160, 0.15);
+}
+
+/* Generic form inputs */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background: rgba(230, 230, 240, 0.9);
+  color: var(--text-primary);
+  border-color: var(--shade-5);
+}
+
+/* Nav buttons */
+[data-theme="light"] .nav-btn {
+  color: var(--text-muted);
+}
+[data-theme="light"] .nav-btn.active {
+  color: var(--accent-coral);
+}
+
+/* Crew card + picks */
+[data-theme="light"] .crew-card {
+  border: 1px solid var(--shade-4);
+  background: rgba(255, 255, 255, 0.95);
+}
+[data-theme="light"] .picks-summary {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--shade-4);
+}
+
+/* Priority button contrast */
+[data-theme="light"] .card-priority-btn {
+  background: rgba(220, 220, 232, 0.7);
+  border: 1.5px solid var(--shade-7);
+  color: var(--text-secondary);
+}
+[data-theme="light"] .card-priority-btn:hover {
+  border-color: rgba(0, 0, 0, 0.35);
+  background: rgba(210, 210, 225, 0.85);
+}
+
+/* Conflict cards */
+[data-theme="light"] .conflict-set {
+  background: rgba(0, 0, 0, 0.03);
+}
+[data-theme="light"] .conflict-set:hover {
+  background: var(--shade-2);
+}
+[data-theme="light"] .conflict-card {
+  border-color: var(--shade-5);
+  background: rgba(255, 255, 255, 0.95);
+}
+[data-theme="light"] .conflict-card:hover {
+  box-shadow: 0 4px 12px var(--shade-2);
+}
+
+/* Scrollbar (thumb) */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: var(--shade-5);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.22);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:active {
+  background: rgba(0, 180, 160, 0.35);
+}
+[data-theme="light"] * {
+  scrollbar-color: var(--shade-5) transparent;
+}
+
+/* .input class (crew/settings forms) */
+[data-theme="light"] .input {
+  background: var(--bg-primary);
+  border-color: var(--border);
+}
+[data-theme="light"] .input:hover {
+  border-color: var(--shade-7);
+}
+[data-theme="light"] .input:focus {
+  border-color: var(--accent-aqua);
+  box-shadow: 0 0 0 3px rgba(0, 180, 160, 0.12), 0 0 12px rgba(0, 180, 160, 0.06);
+}
+
+/* Crew management sections */
+[data-theme="light"] .crew-action-section {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: var(--border);
+}
+[data-theme="light"] .crew-danger-zone {
+  background: rgba(var(--accent-coral-rgb), 0.03);
+  border-color: rgba(var(--accent-coral-rgb), 0.15);
+}
+[data-theme="light"] .crew-leave-section {
+  background: rgba(var(--accent-coral-rgb), 0.02);
+  border-color: rgba(var(--accent-coral-rgb), 0.1);
+}
+[data-theme="light"] .crew-member-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+[data-theme="light"] .crew-member-self {
+  background: rgba(0, 180, 160, 0.04);
+}
+[data-theme="light"] .crew-invite-row {
+  background: rgba(255, 176, 32, 0.04);
+  border-color: var(--amber-a2);
+}
+[data-theme="light"] .home-base-card:hover {
+  box-shadow: 0 4px 12px var(--shade-2);
+}
+[data-theme="light"] .home-base-ghost:hover {
+  background: rgba(0, 180, 160, 0.03);
+}
+
+/* Admin stat card */
+[data-theme="light"] .admin-stat-card:hover {
+  box-shadow: 0 12px 28px var(--shade-3);
+}
+
+/* Skeleton shimmer (legacy class) */
+[data-theme="light"] .skeleton-line {
+  background: linear-gradient(90deg, var(--shade-1) 25%, var(--shade-3) 50%, var(--shade-1) 75%);
+  background-size: 200% 100%;
+}
+
+/* ── A11y hardening overrides ────────────────────────────────────────────── */
+
+/* text-muted contrast */
+html[data-theme="light"],
+body[data-theme="light"] {
+  --text-muted: #4a4a68 !important;
+}
+
+/* Disabled/placeholder tokens */
+html[data-theme="light"],
+body[data-theme="light"] {
+  --text-disabled: #5a5a78;
+  --text-placeholder: #4a4a68;
 }
