@@ -1274,6 +1274,7 @@
   flex-direction: column !important;
   background: rgba(22, 22, 44, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.13);
+  border-left: 1px solid rgba(255, 255, 255, 0.13);
   padding: 10px 14px !important;
   gap: 0;
 }
@@ -1282,6 +1283,7 @@
   padding: 2px 9px;
   font-size: 10px;
   letter-spacing: 0.9px;
+  width: fit-content;
 }
 .card-grid .set-card .card-artist {
   margin-bottom: 2px !important;
@@ -1318,6 +1320,8 @@
 .card-grid .card-preview-btn {
   width: 30px;
   height: 30px;
+  min-inline-size: 30px;
+  min-block-size: 30px;
   font-size: 11px;
   top: 10px;
   right: 10px;
@@ -1718,7 +1722,6 @@
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
-  gap: 18px;
   padding-bottom: 20px;
 }
 .set-card {
@@ -3153,10 +3156,7 @@ body.keyboard-open .content-area { padding-bottom: calc(16px + var(--keyboard-he
   .bottom-nav-inner { gap: 2px; }
 
   /* ── Card grid ────────────────────────────────────────────────────────── */
-  .card-grid { grid-template-columns: 1fr; gap: var(--space-6); }
-  .set-card { padding: var(--space-7); }
-  .set-card .card-artist { font-size: 17px; }
-  .set-card .card-time { font-size: 13px; }
+  .card-grid { grid-template-columns: 1fr; }
   .card-priority-btn { width: 44px; height: 44px; font-size: 16px; }
   .card-overlap .mini-avatar { width: 28px; height: 28px; font-size: 11px; }
 
