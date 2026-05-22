@@ -32,7 +32,7 @@ Default: `/spec` -> `/plan` -> `/build` -> `/test` -> `/review` -> `/ship`. Skip
 
 **Deploy** (paramiko SFTP from main thread):
 1. SFTP files to `/home/asir/festival-planner/`
-2. `node --check` changed JS files
+2. `node --check` changed TS files (via tsx)
 3. `npm test` on server (halt if fail != 0)
 4. `pnpm build` in `packages/web/` (must exit 0)
 5. git commit/push
@@ -40,7 +40,7 @@ Default: `/spec` -> `/plan` -> `/build` -> `/test` -> `/review` -> `/ship`. Skip
 7. Health check: `curl http://127.0.0.1:4000/api/health`
 8. CI watch: `gh run list --limit 1` then `gh run view <id>`
 
-**Stack**: Node 22 + Express 5 + Socket.IO 4 + PostgreSQL 16 + Redis 7. React 19 + Vite 8 + TanStack Router + Zustand + Tailwind CSS 4. Monorepo: backend at root (npm), `packages/web/` + `packages/shared/` (pnpm). Vite produces content-hashed assets -- no manual cache-bust.
+**Stack**: Node 22 + Express 5 + TypeScript + Socket.IO 4 + PostgreSQL 16 + Redis 7. React 19 + Vite 8 + TanStack Router + Zustand + Tailwind CSS 4. Monorepo: all packages use pnpm workspaces + Turborepo. Full-stack TypeScript (backend, frontend, shared). Vite produces content-hashed assets -- no manual cache-bust.
 
 **Parallel work**: Agent tool with `run_in_background: true` for independent pieces. Sequential only for writes to shared files.
 

@@ -8,9 +8,10 @@ Festie is a real-time festival crew coordination app. Users create/join festival
 
 ## Tech Stack
 
-- **Backend**: Node.js 22 + Express 5 + Socket.IO 4 + PostgreSQL 16 + Redis 7
+- **Backend**: Node.js 22 + Express 5 + **TypeScript** + Socket.IO 4 + PostgreSQL 16 + Redis 7
 - **Frontend**: React 19 + Vite 8 + TypeScript + TanStack Router + Zustand + Tailwind CSS 4
 - **Monorepo**: Backend at root (npm), frontend + shared packages under `packages/` (pnpm workspaces + Turborepo)
+- **Migration Status**: Backend TypeScript migration in progress (ESM + TypeScript). See `docs/TYPESCRIPT_MIGRATION.md` for plan.
 
 See `ARCHITECTURE.md` for detailed design patterns, module inventory, and codebase statistics.
 
@@ -53,11 +54,12 @@ npm test                       # All backend tests (sequential, ~27 test files)
 npm run test:unit              # Unit tests only
 npm run test:e2e               # Playwright E2E
 npm run test:coverage          # c8 coverage (text + lcov + json-summary)
-node --test tests/integration-auth.test.js   # Single test file
+node --loader tsx --test tests/integration-auth.test.ts   # Single test file
 
 # Linting & Types
-npm run lint                   # ESLint on lib/, routes/, server.js
+npm run lint                   # ESLint on lib/, routes/, server.ts
 npm run lint:fix               # Auto-fix
+npm run typecheck                # Backend TypeScript check
 pnpm --filter @festie/web typecheck   # Frontend TypeScript check
 pnpm --filter @festie/web lint        # Frontend ESLint
 
@@ -70,24 +72,27 @@ pnpm build                     # TypeScript + Vite production build
 
 ### Backend (root)
 
-**Entry point**: `server.js` -- Express app, Socket.IO setup, middleware stack, route mounting, graceful shutdown.
+**Entry point**: `server.ts` -- Express app, Socket.IO setup, middleware stack, route mounting, graceful shutdown.
 
 **Key pattern -- Dependency Injection via Factory Functions**: Every route module exports a factory function that receives a `deps` object (db pool, redis, config, logger, etc.) and returns an Express Router. This is the central architectural pattern:
 
-```js
-// routes/feature.js
-module.exports = function createFeatureRoutes({ pool, redis, config, io }) {
-  const router = express.Router();
+```ts
+// routes/feature.ts
+import { Router } from 'express';
+import type { AppContext } from '../lib/app-context/types.js';
+
+export default function createFeatureRoutes({ pool, redis, config, io }: AppContext): Router {
+  const router = Router();
   // ...
   return router;
-};
+}
 ```
 
-**`lib/`** -- Core modules: `config.js` (centralized env vars with typed readers and defaults), `schemas.js` (Zod validation for all API inputs), database pool, Redis client, auth middleware, rate limiting, logging (Pino). Sub-directories: `lib/app-context/` (CSP, cookies, avatars, request helpers), `lib/db/stores/` (data access layer per table), `lib/helpers/` (export-utils, sanitize, validation), `lib/notifications/` (push notification subsystem).
+**`lib/`** -- Core modules: `config.ts` (centralized env vars with typed readers and defaults), `schemas.ts` (Zod validation for all API inputs — types inferred via `z.infer`), database pool, Redis client, auth middleware, rate limiting, logging (Pino). Sub-directories: `lib/app-context/` (CSP, cookies, avatars, request helpers), `lib/db/stores/` (typed data access layer per table), `lib/helpers/` (export-utils, sanitize, validation), `lib/notifications/` (push notification subsystem).
 
-**`routes/`** -- Route factories. `socket.js` handles all real-time events (presence, chat, reactions, crew updates).
+**`routes/`** -- Route factories. `socket.ts` handles all real-time events (presence, chat, reactions, crew updates).
 
-**API docs** are available at `/api/docs` (Swagger UI), served by `lib/openapi.js`.
+**API docs** are available at `/api/docs` (Swagger UI), served by `lib/openapi.ts`.
 
 **`migrations/`** -- PostgreSQL migrations (004 baseline onward; run `ls migrations/` for current set). Must be idempotent. All use parameterized queries (`$1, $2`).
 
@@ -108,12 +113,12 @@ PostgreSQL 16 with connection pooling (pg, min 2 / max 20). Key tables: `users`,
 ## Code Conventions
 
 - **Style**: 2-space indent, single quotes, trailing commas, semicolons, `const`/`let` only (enforced by ESLint flat config + Prettier)
-- **Backend is CommonJS** (`require`/`module.exports`), frontend is ESM/TypeScript
+- **All code is ESM TypeScript** — backend, frontend, and shared. Legacy CommonJS files are being migrated per `docs/TYPESCRIPT_MIGRATION.md`
 - **API error responses**: `{ data: null, error: { message, status, code, retryable } }`
 - **API success responses**: `{ data: {...}, error: null }`
-- **Validation**: Zod schemas in `lib/schemas.js` for all API endpoints
+- **Validation**: Zod schemas in `lib/schemas.ts` for all API endpoints
 - **Logging**: Pino with JSON output; sensitive fields are sanitized
-- **Config**: All env vars read through `lib/config.js` with `DEFAULTS` object and typed readers (`readInt`, `readBool`, `readList`)
+- **Config**: All env vars read through `lib/config.ts` with `DEFAULTS` object and typed readers (`readInt`, `readBool`, `readList`)
 
 ## Security Model
 
@@ -127,28 +132,28 @@ PostgreSQL 16 with connection pooling (pg, min 2 / max 20). Key tables: `users`,
 
 Tests use **Node's built-in test runner** (`node:test` + `node:assert`). Test files:
 
-- `tests/unit.test.js` -- isolated function tests
-- `tests/integration-*.test.js` -- full app with test database (~20 files covering auth, festivals, crews, chat, etc.)
-- `tests/critical-paths.test.js` -- end-to-end user journeys
-- `tests/hardening.test.js` -- security, rate limits, session edge cases
-- `tests/e2e/*.spec.js` -- Playwright browser automation
+- `tests/unit.test.ts` -- isolated function tests
+- `tests/integration-*.test.ts` -- full app with test database (~20 files covering auth, festivals, crews, chat, etc.)
+- `tests/critical-paths.test.ts` -- end-to-end user journeys
+- `tests/hardening.test.ts` -- security, rate limits, session edge cases
+- `tests/e2e/*.spec.ts` -- Playwright browser automation
 
 ## Adding a New API Endpoint
 
-1. Add Zod schema to `lib/schemas.js`
-2. Create route factory in `routes/` (or add to existing one)
-3. Mount router in `server.js`
+1. Add Zod schema to `lib/schemas.ts`
+2. Create route factory in `routes/` (or add to existing `.ts` file)
+3. Mount router in `server.ts`
 4. Write integration test in `tests/`
 
-For real-time features: add Socket.IO event handler in `routes/socket.js`, client-side listener in `packages/shared/src/services/socket.ts`.
+For real-time features: add Socket.IO event handler in `routes/socket.ts`, client-side listener in `packages/shared/src/services/socket.ts`.
 
 ## Critical Rules
 
 ### Code Quality
-Use `/review` before merging. Functions <50 lines, files <800 lines, nesting <4 levels. Parameterized queries only (`$1, $2`). No hardcoded values (use `config.js`).
+Use `/review` before merging. Functions <50 lines, files <800 lines, nesting <4 levels. Parameterized queries only (`$1, $2`). No hardcoded values (use `config.ts`).
 
 ### Security
-Use security-and-hardening skill before commits. Festie-specific: all inputs via Zod in `lib/schemas.js`, parameterized SQL, rate limiting on public endpoints, CSP headers. Grep diff for secrets (`sk-`, `ghp_`, `AKIA`, `password=`, `secret=`).
+Use security-and-hardening skill before commits. Festie-specific: all inputs via Zod in `lib/schemas.ts`, parameterized SQL, rate limiting on public endpoints, CSP headers. Grep diff for secrets (`sk-`, `ghp_`, `AKIA`, `password=`, `secret=`).
 
 ### Performance
 Use performance-optimization skill. Festie-specific: cursor pagination (`WHERE id > $last_id`) over OFFSET, `CREATE INDEX CONCURRENTLY`, `content-visibility: auto` for scrollable lists, animate only `transform`/`opacity`.
@@ -160,7 +165,7 @@ For features touching 3+ files or new API endpoints: use `/spec` then `/plan`, t
 Use `/plan` to break work into atomic tasks, then `/build` to execute with verification at each step.
 
 ## Verification Workflow
-Run `/ship` or manually: `pnpm --filter @festie/web typecheck && npm run lint && pnpm --filter @festie/web lint && npm test`. Grep diff for secrets.
+Run `/ship` or manually: `npm run typecheck && pnpm --filter @festie/web typecheck && npm run lint && pnpm --filter @festie/web lint && npm test`. Grep diff for secrets.
 
 ## CI
 

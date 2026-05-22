@@ -37,10 +37,11 @@ New migration file under `migrations/` (next number; check `ls migrations/ | tai
 - Pre-apply sanity: `psql -f migrations/NNN.sql` on a dev DB first
 
 ## Phase 3 -- Implement (parallel where independent)
-- Backend: route handler + lib + store method. Parameterized queries only. `deleted_at IS NULL` on all festival_profiles queries.
+- Backend: route handler (.ts) + lib + store method. Parameterized queries only. `deleted_at IS NULL` on all festival_profiles queries.
 - Frontend: React component edits under `packages/web/src/` (routes, components, hooks). Keep each component under 300 lines. Shared state/logic at `packages/shared/src/` (Zustand stores, hooks, types).
 - Socket.IO events if real-time. Include per-event rate limits (lib/rate-limiting.js).
 - No console.log. Structured logger. Sanitize log meta.
+- Strict TypeScript — no `any`. Use `AppContext` type for deps. Infer request body types from Zod schemas.
 - Every async store-method call is awaited.
 - Every re-thrown Error carries `{ cause }`.
 

@@ -40,7 +40,7 @@ File: `migrations/<NNN>_<slug>.sql`. Rules:
 - DO NOT insert into schema_migrations by hand -- the runner does that in-txn.
 
 ## Phase 4 -- Store Method
-Update `lib/db/stores/<table>.js` (or create new store) with CRUD methods.
+Update `lib/db/stores/<table>.ts` (or create new store) with CRUD methods.
 If the migration changes API response shapes (column renames, new fields, removed fields), also update:
   - `packages/shared/src/types/` -- shared TypeScript types consumed by the React frontend
   - Any Zustand stores or React Query hooks in `packages/web/src/` that depend on the affected API responses
@@ -48,13 +48,13 @@ If the migration changes API response shapes (column renames, new fields, remove
 - Parameterized queries only. Never concatenate.
 - Reads: `WHERE deleted_at IS NULL` if soft-deletable.
 - Throws errors with `{ cause: origErr }` on re-throw (ESLint rule).
-- Register new store in `lib/db/index.js` if adding a whole new store module.
+- Register new store in `lib/db/index.ts` if adding a whole new store module.
 
 ## Phase 5 -- Test
 - Add integration test to the relevant `tests/integration-<feature>.test.js` that exercises the new column/table.
 - If change is cross-suite: also add skip-gated test in `tests/critical-paths.test.js`.
 - Apply migration twice on a throwaway DB to prove idempotency: `psql -f migrations/NNN.sql && psql -f migrations/NNN.sql` -- second run must be a no-op.
-- `node --check` any JS store edits.
+- Run `npm run typecheck` to verify store type safety.
 - Deploy via paramiko SFTP. Test gate must show `# fail 0`.
 
 ## Phase 6 -- Ship
