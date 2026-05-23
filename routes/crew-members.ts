@@ -7,7 +7,7 @@ export default function createCrewMemberRoutes(deps: any) {
     sanitizeIdentifier,
     sendSuccess, sendError, ErrorCodes,
     rateLimit, stores,
-    schemas, validate, validateQuery,
+    schemas, validate, validateQuery, validateParams,
     io,
   } = deps;
 
@@ -42,9 +42,9 @@ export default function createCrewMemberRoutes(deps: any) {
   });
 
   // ── DELETE /:crewId/leave — Leave a crew ────────────────────────
-  router.delete('/:crewId/leave', userAuth, rateLimit(10, 'crew-leave'), async (req: any, res: any) => {
+  router.delete('/:crewId/leave', userAuth, rateLimit(10, 'crew-leave'), validateParams(schemas.crewIdParams), async (req: any, res: any) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId, 100);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
 
       const crew = await stores.crews.getById(crewId);
@@ -70,15 +70,15 @@ export default function createCrewMemberRoutes(deps: any) {
       log.info('crew:left', { crewId, userId: req.user.userId });
       return sendSuccess(res, { success: true });
     } catch (error: any) {
-      log.error('crew leave failed', { error: error.message, crewId: req.params.crewId });
+      log.error('crew leave failed', { error: error.message, crewId: req.validatedParams?.crewId });
       return sendError(res, 500, 'Failed to leave crew', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
   // ── DELETE /:crewId/members/:userId — Kick a member (owner only)
-  router.delete('/:crewId/members/:userId', userAuth, rateLimit(10, 'crew-kick'), async (req: any, res: any) => {
+  router.delete('/:crewId/members/:userId', userAuth, rateLimit(10, 'crew-kick'), validateParams(schemas.crewIdParams), async (req: any, res: any) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId, 100);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
       const targetUserId = sanitizeIdentifier(req.params.userId, 100);
       if (!crewId || !targetUserId) return sendError(res, 400, 'Invalid IDs', ErrorCodes.INVALID_INPUT);
 
@@ -104,15 +104,15 @@ export default function createCrewMemberRoutes(deps: any) {
       log.info('crew:member-kicked', { crewId, targetUserId, byUserId: req.user.userId });
       return sendSuccess(res, { success: true });
     } catch (error: any) {
-      log.error('crew kick failed', { error: error.message, crewId: req.params.crewId });
+      log.error('crew kick failed', { error: error.message, crewId: req.validatedParams?.crewId });
       return sendError(res, 500, 'Failed to kick member', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
   // ── PUT /:crewId/transfer — Transfer ownership (owner only) ────
-  router.put('/:crewId/transfer', userAuth, rateLimit(5, 'crew-transfer'), validate(schemas.crewTransfer), async (req: any, res: any) => {
+  router.put('/:crewId/transfer', userAuth, rateLimit(5, 'crew-transfer'), validateParams(schemas.crewIdParams), validate(schemas.crewTransfer), async (req: any, res: any) => {
     try {
-      const crewId = sanitizeIdentifier(req.params.crewId, 100);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
 
       const resolved = await resolveCrewOwnership(res, crewId, req.user.userId, 'transfer');
@@ -126,8 +126,13 @@ export default function createCrewMemberRoutes(deps: any) {
       const target = await stores.crews.getMember(crewId, targetUserId);
       if (!target) return sendError(res, 404, 'Target is not a crew member', ErrorCodes.NOT_FOUND);
 
-      await stores.crews.updateMemberRole(crewId, targetUserId, 'owner');
-      await stores.crews.updateMemberRole(crewId, req.user.userId, 'member');
+      // Use transactional transferOwnership when available; fallback to separate calls
+      if (stores.crews.transferOwnership) {
+        await stores.crews.transferOwnership(crewId, req.user.userId, targetUserId);
+      } else {
+        await stores.crews.updateMemberRole(crewId, targetUserId, 'owner');
+        await stores.crews.updateMemberRole(crewId, req.user.userId, 'member');
+      }
 
       const members = await stores.crews.getMembers(crewId);
 
@@ -140,16 +145,16 @@ export default function createCrewMemberRoutes(deps: any) {
       log.info('crew:ownership-transferred', { crewId, from: req.user.userId, to: targetUserId });
       return sendSuccess(res, serializeCrewWithMembers(crew, members, req.user.userId));
     } catch (error: any) {
-      log.error('crew transfer failed', { error: error.message, crewId: req.params.crewId });
+      log.error('crew transfer failed', { error: error.message, crewId: req.validatedParams?.crewId });
       return sendError(res, 500, 'Failed to transfer ownership', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
   // ── GET /:crewId/overlap — Get crew pick overlap ───────────────
-  router.get('/:crewId/overlap', userAuth, rateLimit(60, 'crew-overlap'), async (req: any, res: any) => {
+  router.get('/:crewId/overlap', userAuth, rateLimit(60, 'crew-overlap'), validateParams(schemas.crewIdParams), async (req: any, res: any) => {
     try {
       setNoStore(res);
-      const crewId = sanitizeIdentifier(req.params.crewId, 100);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
 
       const crew = await stores.crews.getById(crewId);
@@ -161,7 +166,7 @@ export default function createCrewMemberRoutes(deps: any) {
       const rows = await stores.crews.getCrewPickOverlap(crew.festivalId, crewId);
 
       // Aggregate picks by setId — use null-prototype object to prevent pollution
-      const overlap = Object.create(null);
+      const overlap: any = Object.create(null);
       for (const row of rows) {
         let picks;
         try { picks = row.picksJson ? JSON.parse(row.picksJson) : {}; } catch { picks = {}; }
@@ -179,18 +184,18 @@ export default function createCrewMemberRoutes(deps: any) {
         overlap,
       });
     } catch (error: any) {
-      log.error('crew overlap failed', { error: error.message, crewId: req.params.crewId });
+      log.error('crew overlap failed', { error: error.message, crewId: req.validatedParams?.crewId });
       return sendError(res, 500, 'Failed to get overlap', ErrorCodes.INTERNAL_ERROR);
     }
   });
 
   // ── POST /:crewId/members — Admin: add any user to a crew ─────
-  router.post('/:crewId/members', userAuth, rateLimit(10, 'crew-add-member'), validate(schemas.crewAddMember), async (req: any, res: any) => {
+  router.post('/:crewId/members', userAuth, rateLimit(10, 'crew-add-member'), validateParams(schemas.crewIdParams), validate(schemas.crewAddMember), async (req: any, res: any) => {
     try {
       const isAdmin = await stores.roles.hasRole(req.user.userId, 'admin');
       if (!isAdmin) return sendError(res, 403, 'Admin access required', ErrorCodes.FORBIDDEN);
 
-      const crewId = sanitizeIdentifier(req.params.crewId, 100);
+      const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
       if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
 
       const targetUserId = sanitizeIdentifier(req.validatedBody.userId, 100);
@@ -229,7 +234,7 @@ export default function createCrewMemberRoutes(deps: any) {
       log.info('crew:admin-add-member', { crewId: crew.id, targetUserId, byAdmin: req.user.userId });
       return sendSuccess(res, serializeCrewWithMembers(crew, members, req.user.userId));
     } catch (error: any) {
-      log.error('crew admin add member failed', { error: error.message, crewId: req.params.crewId });
+      log.error('crew admin add member failed', { error: error.message, crewId: req.validatedParams?.crewId });
       return sendError(res, 500, 'Failed to add member', ErrorCodes.INTERNAL_ERROR);
     }
   });

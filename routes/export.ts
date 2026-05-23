@@ -15,7 +15,7 @@ import path from 'path';
 import fs from 'fs';
 import { Worker } from 'worker_threads';
 import sharp from 'sharp';
-import { validateIcsTime, buildVCalendar } from '../lib/helpers/ics-builder.js';
+import { buildVCalendar, buildIcsEventsFromPicks } from '../lib/helpers/ics-builder.js';
 import { buildPicksCardSvg } from '../lib/helpers/export-image.js';
 import { buildExportHtml } from '../lib/helpers/export-utils.js';
 
@@ -166,42 +166,7 @@ export default function createExportRoutes(deps: any) {
   // Shared: build ICS events from festival picks
   // ═══════════════════════════════════════════════════════════════════
 
-  function buildIcsEventsFromPicks(festival: any, profile: any, origin: any) {
-    const picks = profile.picks || {};
-    const notes = profile.notes || {};
-    const sets = (festival.days || []).flatMap((day: any) =>
-      (day.sets || []).filter((s: any) => picks[s.id]).map((s: any) => ({ ...s, date: day.date, dayLabel: day.label }))
-    );
-    const stageMap = new Map<string, any>((festival.stages || []).map((s: any) => [s.id, s]));
-
-    const events = [];
-    for (const set of sets) {
-      if (!set.date || !/^\d{4}-\d{2}-\d{2}$/.test(set.date) || !set.startTime || !set.endTime) continue;
-      const startTime = validateIcsTime(set.startTime);
-      const endTime = validateIcsTime(set.endTime);
-      if (!startTime || !endTime) continue;
-
-      const stage = stageMap.get(set.stageId);
-      const dtstart = set.date.replace(/-/g, '') + 'T' + startTime.replace(':', '') + '00';
-      const dtend = set.date.replace(/-/g, '') + 'T' + endTime.replace(':', '') + '00';
-      const priority = picks[set.id] || '';
-      const note = notes[set.id] || '';
-      const description = [priority && `Priority: ${priority}`, note].filter(Boolean).join('\\n');
-      const location = stage
-        ? stage.name + (festival.location ? ' - ' + festival.location : '')
-        : undefined;
-
-      events.push({
-        uid: `${set.id}-${festival.id}@${origin}`,
-        summary: set.artist,
-        dtstart,
-        dtend,
-        location,
-        description: description || undefined,
-      });
-    }
-    return events;
-  }
+  // buildIcsEventsFromPicks is imported from lib/helpers/ics-builder.ts
 
   // ═══════════════════════════════════════════════════════════════════
   // Routes

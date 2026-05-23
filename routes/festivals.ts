@@ -188,10 +188,10 @@ export default function createFestivalsRoutes(deps: any) {
         // Soft-delete: mark as deleted, preserve data for potential restore
         await stores.festivals.softDelete(festivalId);
       } else {
-        // Hard delete: permanently remove all data inside a transaction.
-        // Migration 031 changed all festival FKs from CASCADE to RESTRICT,
-        // so we must delete child rows explicitly in dependency order.
-        if (stores.crews?.deleteByFestival) await stores.crews.deleteByFestival(festivalId);
+        // Hard delete: permanently remove all data (including crew children)
+        // inside a single transaction. Migration 031 changed all festival FKs
+        // from CASCADE to RESTRICT, so hardDelete deletes child rows
+        // explicitly in dependency order.
         await stores.festivals.hardDelete(festivalId);
       }
       invalidateFestivalCache();

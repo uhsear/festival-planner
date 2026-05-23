@@ -88,3 +88,45 @@ export function buildVCalendar(events: any, { calendarName, prodId, extraHeaders
   lines.push('END:VCALENDAR');
   return lines.join('\r\n');
 }
+
+/**
+ * Transform a festival + profile into an array of ICS event descriptors
+ * suitable for `buildVCalendar`. Shared by the one-off export route and the
+ * subscribable calendar-sync feed.
+ */
+export function buildIcsEventsFromPicks(festival: any, profile: any, origin: string) {
+  const picks = profile.picks || {};
+  const notes = profile.notes || {};
+  const sets = (festival.days || []).flatMap((day: any) =>
+    (day.sets || []).filter((s: any) => picks[s.id]).map((s: any) => ({ ...s, date: day.date, dayLabel: day.label }))
+  );
+  const stageMap = new Map<string, any>((festival.stages || []).map((s: any) => [s.id, s]));
+
+  const events = [];
+  for (const set of sets) {
+    if (!set.date || !/^\d{4}-\d{2}-\d{2}$/.test(set.date) || !set.startTime || !set.endTime) continue;
+    const startTime = validateIcsTime(set.startTime);
+    const endTime = validateIcsTime(set.endTime);
+    if (!startTime || !endTime) continue;
+
+    const stage = stageMap.get(set.stageId);
+    const dtstart = set.date.replace(/-/g, '') + 'T' + startTime.replace(':', '') + '00';
+    const dtend = set.date.replace(/-/g, '') + 'T' + endTime.replace(':', '') + '00';
+    const priority = picks[set.id] || '';
+    const note = notes[set.id] || '';
+    const description = [priority && `Priority: ${priority}`, note].filter(Boolean).join('\\n');
+    const location = stage
+      ? stage.name + (festival.location ? ' - ' + festival.location : '')
+      : undefined;
+
+    events.push({
+      uid: `${set.id}-${festival.id}@${origin}`,
+      summary: set.artist,
+      dtstart,
+      dtend,
+      location,
+      description: description || undefined,
+    });
+  }
+  return events;
+}

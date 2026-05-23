@@ -133,8 +133,10 @@ function makeDeps(overrides: any = {}) {
     rateLimit: overrides.rateLimit || ((_max: any, _key: any) => (_req: any, _res: any, next: any) => next()),
     validate: overrides.validate || ((_schema: any) => (req: any, _res: any, next: any) => { req.validatedBody = req.body; next(); }),
     validateQuery: overrides.validateQuery || ((_schema: any) => (req: any, _res: any, next: any) => { req.validatedQuery = req.query; next(); }),
+    validateParams: overrides.validateParams || ((_schema: any) => (req: any, _res: any, next: any) => { req.validatedParams = req.params; next(); }),
     schemas: {
       crewUserSearchQuery: {},
+      crewIdParams: {},
       crewTransfer: {},
       crewAddMember: {},
     },

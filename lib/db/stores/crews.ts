@@ -263,6 +263,45 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
       return result.rows;
     },
 
+    /**
+     * Batch-load members for multiple crews in a single query.
+     * Returns a Map keyed by crewId, each value an array of member rows.
+     * Used by the crew list endpoint to avoid N+1 queries.
+     */
+    async getMembersForCrews(crewIds: string[]): Promise<Map<string, any[]>> {
+      const membersByCrewId = new Map<string, any[]>();
+      if (crewIds.length === 0) return membersByCrewId;
+
+      const result = await pool.query(`
+        SELECT
+          cm.crew_id AS "crewId",
+          cm.user_id AS "userId",
+          cm.role,
+          cm.joined_at AS "joinedAt",
+          u.username,
+          u.avatar_key AS "avatarKey",
+          u.avatar_version AS "avatarVersion"
+        FROM
+          crew_members cm
+          JOIN users u ON u.id = cm.user_id
+          AND u.deleted_at IS NULL
+        WHERE
+          cm.crew_id = ANY($1)
+        ORDER BY
+          cm.crew_id,
+          cm.joined_at ASC
+      `, [crewIds]);
+
+      // Initialize empty arrays for all requested crew IDs
+      for (const id of crewIds) membersByCrewId.set(id, []);
+      // Group rows by crewId
+      for (const row of result.rows) {
+        const members = membersByCrewId.get(row.crewId);
+        if (members) members.push(row);
+      }
+      return membersByCrewId;
+    },
+
     async getMember(crewId: string, userId: string) {
       const result = await pool.query(
         'SELECT crew_id AS "crewId", user_id AS "userId", role, joined_at AS "joinedAt" FROM crew_members WHERE crew_id = $1 AND user_id = $2',

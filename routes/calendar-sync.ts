@@ -6,6 +6,7 @@
  */
 
 import { Router } from 'express';
+import { buildVCalendar, buildIcsEventsFromPicks } from '../lib/helpers/ics-builder.js';
 
 export default function createCalendarSyncRoutes(deps: any) {
   const router = Router();
@@ -67,79 +68,29 @@ export function createCalendarFeedRoute(deps: any) {
       const profile = await stores.profiles.getById(token.profile_id);
       if (!profile) return res.status(404).send('Profile not found');
 
-      const picks = profile.picks || {};
-      const notes = profile.notes || {};
-      const sets = (festival.days || []).flatMap((day: any) =>
-        (day.sets || []).filter((s: any) => picks[s.id]).map((s: any) => ({ ...s, date: day.date, dayLabel: day.label }))
-      );
-      const stageMap: Map<string, any> = new Map((festival.stages || []).map((s: any) => [s.id, s]));
-
-      function escIcs(v: any) {
-        return String(v || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n').replace(/\r/g, '');
-      }
-      function validateIcsTime(t: string) {
-        if (!/^\d{2}:\d{2}$/.test(t)) return null;
-        const [hh, mm] = t.split(':').map(Number) as [number, number];
-        if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
-        return t;
-      }
-      function foldIcsLine(line: string) {
-        if (line.length <= 75) return line;
-        let folded = line.substring(0, 75);
-        let rest = line.substring(75);
-        while (rest.length > 0) {
-          folded += '\r\n ' + rest.substring(0, 74);
-          rest = rest.substring(74);
-        }
-        return folded;
-      }
-
       const origin = (config.PUBLIC_ORIGIN || 'localhost').replace(/^https?:\/\//, '');
 
-      const icsLines = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//FestivalPlanner//EN',
-        'CALSCALE:GREGORIAN',
-        'METHOD:PUBLISH',
-        foldIcsLine(`X-WR-CALNAME:${escIcs(festival.name)} (Festie)`),
-        // Refresh hint for calendar clients
-        'X-PUBLISHED-TTL:PT15M',
-        `REFRESH-INTERVAL;VALUE=DURATION:PT15M`,
-      ];
+      // Build event descriptors using the shared helper
+      const events = buildIcsEventsFromPicks(festival, profile, origin);
 
-      sets.forEach((set: any) => {
-        if (!set.date || !/^\d{4}-\d{2}-\d{2}$/.test(set.date) || !set.startTime || !set.endTime) return;
-        const startTime = validateIcsTime(set.startTime);
-        const endTime = validateIcsTime(set.endTime);
-        if (!startTime || !endTime) return;
-        const stage = stageMap.get(set.stageId);
-        const dtStart = set.date.replace(/-/g, '') + 'T' + startTime.replace(':', '') + '00';
-        const dtEnd = set.date.replace(/-/g, '') + 'T' + endTime.replace(':', '') + '00';
-        const priority = picks[set.id] || '';
-        const note = notes[set.id] || '';
-        const description = [priority && `Priority: ${priority}`, note].filter(Boolean).join('\\n');
-        const dtstamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+      // Add SEQUENCE so calendar apps detect changes on each refresh
+      const sequence = Math.floor(Date.now() / 60000) % 10000;
+      for (const event of events) {
+        (event as any).sequence = sequence;
+      }
 
-        icsLines.push('BEGIN:VEVENT');
-        icsLines.push(`DTSTAMP:${dtstamp}`);
-        icsLines.push(`DTSTART:${dtStart}`);
-        icsLines.push(`DTEND:${dtEnd}`);
-        icsLines.push(foldIcsLine(`SUMMARY:${escIcs(set.artist)}`));
-        if (stage) icsLines.push(foldIcsLine(`LOCATION:${escIcs(stage.name)}${festival.location ? ' - ' + escIcs(festival.location) : ''}`));
-        if (description) icsLines.push(foldIcsLine(`DESCRIPTION:${escIcs(description)}`));
-        icsLines.push(`UID:${set.id}-${festival.id}@${origin}`);
-        icsLines.push('STATUS:CONFIRMED');
-        // SEQUENCE increments so calendar apps detect changes
-        icsLines.push(`SEQUENCE:${Math.floor(Date.now() / 60000) % 10000}`);
-        icsLines.push('END:VEVENT');
+      const ics = buildVCalendar(events, {
+        calendarName: `${festival.name} (Festie)`,
+        extraHeaders: [
+          // Refresh hint for calendar clients
+          'X-PUBLISHED-TTL:PT15M',
+          'REFRESH-INTERVAL;VALUE=DURATION:PT15M',
+        ],
       });
-
-      icsLines.push('END:VCALENDAR');
 
       res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      return res.send(icsLines.join('\r\n'));
+      return res.send(ics);
     } catch (err: any) {
       log.error('calendar feed failed', { error: err.message });
       return res.status(500).send('Calendar error');
