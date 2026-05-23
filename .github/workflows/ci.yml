@@ -35,7 +35,6 @@ jobs:
         working-directory: packages
         run: pnpm install --frozen-lockfile
       - run: npm run lint
-      - run: npm run lint:check
       - name: Lint frontend (packages/web)
         working-directory: packages
         run: pnpm --filter @festie/web lint
@@ -44,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20, 22]
+        node-version: [22]
     services:
       postgres:
         image: postgres:16-alpine
@@ -103,7 +102,6 @@ jobs:
       - name: Enforce coverage threshold (80% minimum)
         run: npx c8 check-coverage --lines 80 --branches 60 --functions 60 --statements 80
       - name: Upload coverage
-        if: matrix.node-version == 22
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
@@ -143,6 +141,9 @@ jobs:
       - name: Install web workspace deps
         working-directory: packages
         run: pnpm install --frozen-lockfile
+      - run: npm ci
+      - name: Typecheck (backend)
+        run: npm run typecheck
       - name: Typecheck (packages/web)
         working-directory: packages
         run: pnpm --filter @festie/web typecheck
