@@ -83,23 +83,40 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
 
       // Get all crews with member counts and festival names
       const { rows: crewRows } = await pool.query(`
-        SELECT c.id, c.name, c.festival_id AS "festivalId",
-               c.created_by AS "createdBy", c.invite_code AS "inviteCode",
-               c.max_members AS "maxMembers",
-               c.home_base_location AS "homeBaseLocation",
-               c.home_base_time AS "homeBaseTime",
-               c.created_at AS "createdAt",
-               f.name AS "festivalName",
-               u.username AS "creatorUsername",
-               COUNT(cm.user_id) AS "memberCount"
-        FROM crews c
-        LEFT JOIN festivals f ON f.id = c.festival_id AND f.deleted_at IS NULL
-        LEFT JOIN users u ON u.id = c.created_by AND u.deleted_at IS NULL
-        LEFT JOIN crew_members cm ON cm.crew_id = c.id
-        GROUP BY c.id, c.name, c.festival_id, c.created_by, c.invite_code,
-                 c.max_members, c.home_base_location, c.home_base_time,
-                 c.created_at, f.name, u.username
-        ORDER BY c.created_at DESC
+        SELECT
+          c.id,
+          c.name,
+          c.festival_id AS "festivalId",
+          c.created_by AS "createdBy",
+          c.invite_code AS "inviteCode",
+          c.max_members AS "maxMembers",
+          c.home_base_location AS "homeBaseLocation",
+          c.home_base_time AS "homeBaseTime",
+          c.created_at AS "createdAt",
+          f.name AS "festivalName",
+          u.username AS "creatorUsername",
+          COUNT(cm.user_id) AS "memberCount"
+        FROM
+          crews c
+          LEFT JOIN festivals f ON f.id = c.festival_id
+          AND f.deleted_at IS NULL
+          LEFT JOIN users u ON u.id = c.created_by
+          AND u.deleted_at IS NULL
+          LEFT JOIN crew_members cm ON cm.crew_id = c.id
+        GROUP BY
+          c.id,
+          c.name,
+          c.festival_id,
+          c.created_by,
+          c.invite_code,
+          c.max_members,
+          c.home_base_location,
+          c.home_base_time,
+          c.created_at,
+          f.name,
+          u.username
+        ORDER BY
+          c.created_at DESC
       `);
 
       return sendSuccess(res, crewRows);

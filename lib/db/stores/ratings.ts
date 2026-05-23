@@ -17,14 +17,28 @@ export function createRatingsStore(pool: Pool) {
 
     async getByUser(userId: string, festivalId: string) {
       const result = await pool.query(`
-        SELECT r.id, r.set_id AS "setId", r.rating, r.note,
-               r.created_at AS "createdAt", r.updated_at AS "updatedAt",
-               s.artist, s.stage_id AS "stageId", s.start_time AS "startTime", s.end_time AS "endTime",
-               s.day_index AS "dayIndex"
-        FROM set_ratings r
-        JOIN festival_sets s ON s.id = r.set_id
-        WHERE r.user_id = $1 AND s.festival_id = $2
-        ORDER BY r.rating DESC, s.day_index, s.start_time
+        SELECT
+          r.id,
+          r.set_id AS "setId",
+          r.rating,
+          r.note,
+          r.created_at AS "createdAt",
+          r.updated_at AS "updatedAt",
+          s.artist,
+          s.stage_id AS "stageId",
+          s.start_time AS "startTime",
+          s.end_time AS "endTime",
+          s.day_index AS "dayIndex"
+        FROM
+          set_ratings r
+          JOIN festival_sets s ON s.id = r.set_id
+        WHERE
+          r.user_id = $1
+          AND s.festival_id = $2
+        ORDER BY
+          r.rating DESC,
+          s.day_index,
+          s.start_time
       `, [userId, festivalId]);
       return result.rows;
     },

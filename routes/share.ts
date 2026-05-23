@@ -47,9 +47,19 @@ export default function createShareRoutes(deps: any) {
 
       // Find their most recent profile (targeted query, not readAll)
       const { rows: profileRows } = await stores.pool.query(
-        `SELECT id FROM festival_profiles
-         WHERE user_id = $1 AND deleted_at IS NULL
-         ORDER BY created_at DESC LIMIT 1`,
+        `
+  SELECT
+    id
+  FROM
+    festival_profiles
+  WHERE
+    user_id = $1
+    AND deleted_at IS NULL
+  ORDER BY
+    created_at DESC
+  LIMIT
+    1
+`,
         [user.id],
       );
       if (profileRows.length === 0) {

@@ -52,9 +52,17 @@ export default function createPageRoutes(deps: any) {
 
       if (!tokenValid) {
         const dbResult = await pool.query(
-          `SELECT user_id AS "userId", expires_at AS "expiresAt"
-           FROM password_reset_tokens
-           WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()`,
+          `
+  SELECT
+    user_id AS "userId",
+    expires_at AS "expiresAt"
+  FROM
+    password_reset_tokens
+  WHERE
+    token_hash = $1
+    AND used_at IS NULL
+    AND expires_at > NOW()
+`,
           [tokenHash]
         );
         if (dbResult.rows.length > 0) {

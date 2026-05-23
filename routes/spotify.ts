@@ -55,9 +55,17 @@ export default function createSpotifyRoutes(deps: any) {
       if (cached) return sendSuccess(res, cached);
 
       const result = await pool.query(
-        `SELECT fs.id, fs.artists FROM festival_sets fs
-         JOIN festivals f ON fs.festival_id = f.id AND f.deleted_at IS NULL
-         WHERE fs.id = $1`, [setId]);
+        `
+  SELECT
+    fs.id,
+    fs.artists
+  FROM
+    festival_sets fs
+    JOIN festivals f ON fs.festival_id = f.id
+    AND f.deleted_at IS NULL
+  WHERE
+    fs.id = $1
+`, [setId]);
       if (!result.rows.length) return sendError(res, 404, 'Set not found', ErrorCodes.NOT_FOUND);
 
       const artists = result.rows[0].artists || [];

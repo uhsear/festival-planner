@@ -147,59 +147,113 @@ export default function createAdminStatusRoutes(deps: any): { router: Router } {
   router.get('/admin/analytics', adminAuth, async (req: any, res: any) => {
     try {
       setNoStore(res);
-      // eslint-disable-next-line no-shadow
+       
       const pool = deps.pool || stores?.pool;
       if (!pool) return res.json({ data: null, error: { message: 'Database not available' } });
 
       const [topSetsResult, activeUsersResult, crewsResult, festivalStatsResult] = await Promise.all([
         pool.query(`
-          SELECT fs.artist, fs.stage_id AS "stageId", fs.start_time AS "startTime", fs.end_time AS "endTime",
-                 fs.day_index AS "dayIndex", fs.festival_id AS "festivalId",
-                 COUNT(*) AS "pickCount",
-                 COUNT(*) FILTER (WHERE fpp.priority = 'must') AS "mustCount",
-                 COUNT(*) FILTER (WHERE fpp.priority = 'want-to-see') AS "wantCount",
-                 COUNT(*) FILTER (WHERE fpp.priority = 'maybe') AS "maybeCount"
-          FROM festival_profile_picks fpp
-          JOIN festival_sets fs ON fpp.set_id = fs.id
-          JOIN festival_profiles fp ON fpp.profile_id = fp.id AND fp.deleted_at IS NULL
-          GROUP BY fs.id, fs.artist, fs.stage_id, fs.start_time, fs.end_time, fs.day_index, fs.festival_id
-          ORDER BY "pickCount" DESC
-          LIMIT 20
+          SELECT
+            fs.artist,
+            fs.stage_id AS "stageId",
+            fs.start_time AS "startTime",
+            fs.end_time AS "endTime",
+            fs.day_index AS "dayIndex",
+            fs.festival_id AS "festivalId",
+            COUNT(*) AS "pickCount",
+            COUNT(*) FILTER (
+              WHERE
+                fpp.priority = 'must'
+            ) AS "mustCount",
+            COUNT(*) FILTER (
+              WHERE
+                fpp.priority = 'want-to-see'
+            ) AS "wantCount",
+            COUNT(*) FILTER (
+              WHERE
+                fpp.priority = 'maybe'
+            ) AS "maybeCount"
+          FROM
+            festival_profile_picks fpp
+            JOIN festival_sets fs ON fpp.set_id = fs.id
+            JOIN festival_profiles fp ON fpp.profile_id = fp.id
+            AND fp.deleted_at IS NULL
+          GROUP BY
+            fs.id,
+            fs.artist,
+            fs.stage_id,
+            fs.start_time,
+            fs.end_time,
+            fs.day_index,
+            fs.festival_id
+          ORDER BY
+            "pickCount" DESC
+          LIMIT
+            20
         `),
         pool.query(`
-          SELECT u.id, u.username, u.avatar_key AS "avatarKey",
-                 COUNT(DISTINCT fp.id) AS "profileCount",
-                 COUNT(fpp.set_id) AS "totalPicks",
-                 MAX(fp.updated_at) AS "lastActive"
-          FROM users u
-          JOIN festival_profiles fp ON fp.user_id = u.id AND fp.deleted_at IS NULL
-          LEFT JOIN festival_profile_picks fpp ON fpp.profile_id = fp.id
-          WHERE u.deleted_at IS NULL
-          GROUP BY u.id, u.username, u.avatar_key
-          ORDER BY "lastActive" DESC NULLS LAST
-          LIMIT 50
+          SELECT
+            u.id,
+            u.username,
+            u.avatar_key AS "avatarKey",
+            COUNT(DISTINCT fp.id) AS "profileCount",
+            COUNT(fpp.set_id) AS "totalPicks",
+            MAX(fp.updated_at) AS "lastActive"
+          FROM
+            users u
+            JOIN festival_profiles fp ON fp.user_id = u.id
+            AND fp.deleted_at IS NULL
+            LEFT JOIN festival_profile_picks fpp ON fpp.profile_id = fp.id
+          WHERE
+            u.deleted_at IS NULL
+          GROUP BY
+            u.id,
+            u.username,
+            u.avatar_key
+          ORDER BY
+            "lastActive" DESC NULLS LAST
+          LIMIT
+            50
         `),
         pool.query(`
-          SELECT c.id, c.name, c.festival_id AS "festivalId",
-                 COUNT(cm.user_id) AS "memberCount",
-                 c.created_at AS "createdAt"
-          FROM crews c
-          LEFT JOIN crew_members cm ON cm.crew_id = c.id
-          GROUP BY c.id, c.name, c.festival_id, c.created_at
-          ORDER BY "memberCount" DESC
-          LIMIT 20
+          SELECT
+            c.id,
+            c.name,
+            c.festival_id AS "festivalId",
+            COUNT(cm.user_id) AS "memberCount",
+            c.created_at AS "createdAt"
+          FROM
+            crews c
+            LEFT JOIN crew_members cm ON cm.crew_id = c.id
+          GROUP BY
+            c.id,
+            c.name,
+            c.festival_id,
+            c.created_at
+          ORDER BY
+            "memberCount" DESC
+          LIMIT
+            20
         `),
         pool.query(`
-          SELECT f.id, f.name,
-                 COUNT(DISTINCT fp.id) AS "profileCount",
-                 COUNT(DISTINCT fpp.set_id) AS "uniqueSetsPicked",
-                 COUNT(fpp.*) AS "totalPicks"
-          FROM festivals f
-          LEFT JOIN festival_profiles fp ON fp.festival_id = f.id AND fp.deleted_at IS NULL
-          LEFT JOIN festival_profile_picks fpp ON fpp.profile_id = fp.id
-          WHERE f.deleted_at IS NULL
-          GROUP BY f.id, f.name
-          ORDER BY "profileCount" DESC
+          SELECT
+            f.id,
+            f.name,
+            COUNT(DISTINCT fp.id) AS "profileCount",
+            COUNT(DISTINCT fpp.set_id) AS "uniqueSetsPicked",
+            COUNT(fpp.*) AS "totalPicks"
+          FROM
+            festivals f
+            LEFT JOIN festival_profiles fp ON fp.festival_id = f.id
+            AND fp.deleted_at IS NULL
+            LEFT JOIN festival_profile_picks fpp ON fpp.profile_id = fp.id
+          WHERE
+            f.deleted_at IS NULL
+          GROUP BY
+            f.id,
+            f.name
+          ORDER BY
+            "profileCount" DESC
         `),
       ]);
 

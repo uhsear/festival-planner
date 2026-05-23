@@ -334,7 +334,7 @@ export default function createAuthRoutes(deps: any): Router {
     try {
       setNoStore(res);
       const { token } = resolveRequestToken(req, 'x-user-token', config.USER_SESSION_COOKIE);
-      // eslint-disable-next-line no-shadow
+       
       const { stores, hashSessionToken } = deps;
       if (token) {
         await stores.sessions.deleteUserSession(hashSessionToken(token));
@@ -426,7 +426,7 @@ export default function createAuthRoutes(deps: any): Router {
   router.get('/sessions', userAuth, rateLimit(60, 'get-sessions'), async (req: Request, res: Response) => {
     try {
       setNoStore(res);
-      // eslint-disable-next-line no-shadow
+       
       const { stores, hashSessionToken: hashToken } = deps;
       const sessions = await stores.sessions.listUserSessions(req.user.userId);
       const currentTokenHash = req.userToken ? hashToken(req.userToken) : null;
@@ -447,7 +447,7 @@ export default function createAuthRoutes(deps: any): Router {
   router.delete('/sessions/:id', userAuth, rateLimit(10, 'del-session'), async (req: Request, res: Response) => {
     try {
       setNoStore(res);
-      // eslint-disable-next-line no-shadow
+       
       const { stores, hashSessionToken: hashToken } = deps;
       const sessionId = req.params.id as string;
       if (!sessionId || sessionId.length !== 16 || !/^[a-f0-9]+$/i.test(sessionId)) {

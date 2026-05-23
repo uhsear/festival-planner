@@ -18,8 +18,18 @@ export function createCalendarTokensStore(pool: Pool) {
 
     async getByToken(tokenId: string) {
       const { rows } = await pool.query(
-        `SELECT id, user_id, festival_id, profile_id, created_at
-         FROM calendar_tokens WHERE id = $1`,
+        `
+  SELECT
+    id,
+    user_id,
+    festival_id,
+    profile_id,
+    created_at
+  FROM
+    calendar_tokens
+  WHERE
+    id = $1
+`,
         [tokenId]
       );
       return rows[0] || null;

@@ -17,12 +17,26 @@ export function createExpensesStore(pool: Pool) {
 
     async getByCrew(crewId: string) {
       const { rows } = await pool.query(
-        `SELECT e.id, e.crew_id, e.paid_by, e.description, e.amount, e.split_with, e.category, e.created_at,
-                u.username as paid_by_name
-         FROM crew_expenses e
-         JOIN users u ON u.id = e.paid_by AND u.deleted_at IS NULL
-         WHERE e.crew_id = $1
-         ORDER BY e.created_at DESC`,
+        `
+  SELECT
+    e.id,
+    e.crew_id,
+    e.paid_by,
+    e.description,
+    e.amount,
+    e.split_with,
+    e.category,
+    e.created_at,
+    u.username as paid_by_name
+  FROM
+    crew_expenses e
+    JOIN users u ON u.id = e.paid_by
+    AND u.deleted_at IS NULL
+  WHERE
+    e.crew_id = $1
+  ORDER BY
+    e.created_at DESC
+`,
         [crewId]
       );
       return rows.map((r: any) => {
@@ -36,8 +50,21 @@ export function createExpensesStore(pool: Pool) {
 
     async getById(expenseId: string) {
       const { rows } = await pool.query(
-        `SELECT id, crew_id, paid_by, description, amount, split_with, category, created_at
-         FROM crew_expenses WHERE id = $1`,
+        `
+  SELECT
+    id,
+    crew_id,
+    paid_by,
+    description,
+    amount,
+    split_with,
+    category,
+    created_at
+  FROM
+    crew_expenses
+  WHERE
+    id = $1
+`,
         [expenseId],
       );
       return rows[0] || null;
@@ -50,14 +77,35 @@ export function createExpensesStore(pool: Pool) {
     async getBalances(crewId: string) {
       // Get all expenses for the crew
       const { rows: expenses } = await pool.query(
-        `SELECT id, crew_id, paid_by, description, amount, split_with, category, created_at
-         FROM crew_expenses WHERE crew_id = $1`, [crewId]
+        `
+  SELECT
+    id,
+    crew_id,
+    paid_by,
+    description,
+    amount,
+    split_with,
+    category,
+    created_at
+  FROM
+    crew_expenses
+  WHERE
+    crew_id = $1
+`, [crewId]
       );
       // Get all crew members
       const { rows: members } = await pool.query(
-        `SELECT cm.user_id, u.username FROM crew_members cm
-         JOIN users u ON u.id = cm.user_id AND u.deleted_at IS NULL
-         WHERE cm.crew_id = $1`, [crewId]
+        `
+  SELECT
+    cm.user_id,
+    u.username
+  FROM
+    crew_members cm
+    JOIN users u ON u.id = cm.user_id
+    AND u.deleted_at IS NULL
+  WHERE
+    cm.crew_id = $1
+`, [crewId]
       );
 
       const memberIds = members.map((m: any) => m.user_id);

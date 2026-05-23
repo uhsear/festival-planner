@@ -6,8 +6,12 @@ export function createActivityStore(pool: Pool) {
     async log({ crewId, userId, type, detail }: any) {
       const id = randomUUID();
       await pool.query(
-        `INSERT INTO crew_activity (id, crew_id, user_id, type, detail, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        `
+  INSERT INTO
+    crew_activity (id, crew_id, user_id, type, detail, created_at)
+  VALUES
+    ($1, $2, $3, $4, $5, NOW())
+`,
         [id, crewId, userId, type, detail || null]
       );
     },

@@ -110,8 +110,21 @@ export default function createNotificationsStore(pool: Pool, _utils: any) {
   const notificationLog = {
     async insert(entry: any) {
       await pool.query(`
-        INSERT INTO notification_log (id, user_id, type, title, body, data_json, status, platform, error_message, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+        INSERT INTO
+          notification_log (
+            id,
+            user_id,
+            type,
+            title,
+            body,
+            data_json,
+            status,
+            platform,
+            error_message,
+            created_at
+          )
+        VALUES
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
       `, [
         entry.id,
         entry.userId,
@@ -127,11 +140,23 @@ export default function createNotificationsStore(pool: Pool, _utils: any) {
 
     async listByUser(userId: string, limit: number = 50) {
       const result = await pool.query(`
-        SELECT id, user_id AS "userId", type, title, body, status, platform, created_at AS "createdAt"
-        FROM notification_log
-        WHERE user_id = $1
-        ORDER BY created_at DESC
-        LIMIT $2
+        SELECT
+          id,
+          user_id AS "userId",
+          type,
+          title,
+          body,
+          status,
+          platform,
+          created_at AS "createdAt"
+        FROM
+          notification_log
+        WHERE
+          user_id = $1
+        ORDER BY
+          created_at DESC
+        LIMIT
+          $2
       `, [userId, limit]);
       return result.rows;
     },

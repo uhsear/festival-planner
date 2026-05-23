@@ -158,10 +158,15 @@ function createReminderScheduler({ pool, stores, notificationService, log, confi
 
         // 3. Query profiles with active reminders for this festival
         const { rows: profiles } = await pool.query(`
-          SELECT fp.id, fp.user_id AS "userId", fp.reminders_json AS "remindersJson",
-                 fp.picks_json AS "picksJson"
-          FROM festival_profiles fp
-          WHERE fp.festival_id = $1
+          SELECT
+            fp.id,
+            fp.user_id AS "userId",
+            fp.reminders_json AS "remindersJson",
+            fp.picks_json AS "picksJson"
+          FROM
+            festival_profiles fp
+          WHERE
+            fp.festival_id = $1
             AND fp.reminders_json IS NOT NULL
             AND fp.reminders_json != '{}'::jsonb
             AND fp.deleted_at IS NULL

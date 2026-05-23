@@ -14,9 +14,17 @@ export function createRatingsRoutes({ stores, userAuth, log, sendSuccess, sendEr
 
       // Verify set exists
       const setCheck = await stores.pool.query(
-        `SELECT fs.id, fs.festival_id FROM festival_sets fs
-         JOIN festivals f ON fs.festival_id = f.id AND f.deleted_at IS NULL
-         WHERE fs.id = $1`, [setId]);
+        `
+  SELECT
+    fs.id,
+    fs.festival_id
+  FROM
+    festival_sets fs
+    JOIN festivals f ON fs.festival_id = f.id
+    AND f.deleted_at IS NULL
+  WHERE
+    fs.id = $1
+`, [setId]);
       if (setCheck.rows.length === 0) {
         return sendError(res, 404, 'Set not found', ErrorCodes.NOT_FOUND);
       }

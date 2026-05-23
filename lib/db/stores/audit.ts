@@ -19,8 +19,36 @@ export default function createAuditStore(pool: Pool, _utils: any) {
       const status = entry.status || 'success';
 
       await pool.query(`
-        INSERT INTO audit_log (id, actor_type, actor_id, action, target_type, target_id, details_json, ip, user_agent, request_id, status, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+        INSERT INTO
+          audit_log (
+            id,
+            actor_type,
+            actor_id,
+            action,
+            target_type,
+            target_id,
+            details_json,
+            ip,
+            user_agent,
+            request_id,
+            status,
+            created_at
+          )
+        VALUES
+          (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7,
+            $8,
+            $9,
+            $10,
+            $11,
+            NOW()
+          )
       `, [id, actorType, actorId, entry.action, targetType, targetId, detailsJson, entry.ip || null, userAgent, requestId, status]);
 
       return id;

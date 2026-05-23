@@ -41,8 +41,19 @@ export default function createAnalyticsInstallRoutes(deps: any) {
       }
 
       await pool.query(
-        `INSERT INTO install_events (platform, event, reason, engagement_ms, user_agent, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        `
+  INSERT INTO
+    install_events (
+      platform,
+      event,
+      reason,
+      engagement_ms,
+      user_agent,
+      created_at
+    )
+  VALUES
+    ($1, $2, $3, $4, $5, NOW())
+`,
         [platform, event, reasonClean, engagementMs, ua]
       );
 

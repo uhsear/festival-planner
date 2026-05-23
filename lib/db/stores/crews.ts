@@ -6,8 +6,14 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
   const topicSubscriptions = {
     async getForUser(userId: string, festivalId: string) {
       const result = await pool.query(`
-        SELECT topic, subscribed FROM notification_topic_subs
-        WHERE user_id = $1 AND festival_id = $2
+        SELECT
+          topic,
+          subscribed
+        FROM
+          notification_topic_subs
+        WHERE
+          user_id = $1
+          AND festival_id = $2
       `, [userId, festivalId]);
       const subs: Record<string, boolean> = Object.create(null);
       for (const row of result.rows) subs[row.topic] = !!row.subscribed;
@@ -26,8 +32,14 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
 
     async isSubscribed(userId: string, festivalId: string, topic: string) {
       const result = await pool.query(`
-        SELECT subscribed FROM notification_topic_subs
-        WHERE user_id = $1 AND festival_id = $2 AND topic = $3
+        SELECT
+          subscribed
+        FROM
+          notification_topic_subs
+        WHERE
+          user_id = $1
+          AND festival_id = $2
+          AND topic = $3
       `, [userId, festivalId, topic]);
       // Default to subscribed if no explicit preference
       return result.rows[0] ? !!result.rows[0].subscribed : true;
@@ -35,8 +47,14 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
 
     async getUnsubscribedUsers(festivalId: string, topic: string) {
       const result = await pool.query(`
-        SELECT user_id AS "userId" FROM notification_topic_subs
-        WHERE festival_id = $1 AND topic = $2 AND subscribed = 0
+        SELECT
+          user_id AS "userId"
+        FROM
+          notification_topic_subs
+        WHERE
+          festival_id = $1
+          AND topic = $2
+          AND subscribed = 0
       `, [festivalId, topic]);
       return new Set(result.rows.map((r: any) => r.userId));
     },
@@ -48,8 +66,20 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
   const crews: any = {
     async create(data: any) {
       await pool.query(`
-        INSERT INTO crews (id, festival_id, name, created_by, invite_code, invite_expires_at, max_members, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+        INSERT INTO
+          crews (
+            id,
+            festival_id,
+            name,
+            created_by,
+            invite_code,
+            invite_expires_at,
+            max_members,
+            created_at,
+            updated_at
+          )
+        VALUES
+          ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
       `, [data.id, data.festivalId, data.name, data.createdBy, data.inviteCode, data.inviteExpiresAt || null, data.maxMembers]);
       const result = await pool.query(`SELECT ${CREW_COLUMNS} FROM crews WHERE id = $1`, [data.id]);
       return result.rows[0] || null;
@@ -62,12 +92,26 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
     async createWithOwner(data: any) {
       return withTransaction(pool, async (client) => {
         await client.query(`
-          INSERT INTO crews (id, festival_id, name, created_by, invite_code, invite_expires_at, max_members, created_at, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+          INSERT INTO
+            crews (
+              id,
+              festival_id,
+              name,
+              created_by,
+              invite_code,
+              invite_expires_at,
+              max_members,
+              created_at,
+              updated_at
+            )
+          VALUES
+            ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
         `, [data.id, data.festivalId, data.name, data.createdBy, data.inviteCode, data.inviteExpiresAt || null, data.maxMembers]);
         await client.query(`
-          INSERT INTO crew_members (crew_id, user_id, role, joined_at)
-          VALUES ($1, $2, 'owner', NOW())
+          INSERT INTO
+            crew_members (crew_id, user_id, role, joined_at)
+          VALUES
+            ($1, $2, 'owner', NOW())
         `, [data.id, data.createdBy]);
         const result = await client.query(`SELECT ${CREW_COLUMNS} FROM crews WHERE id = $1`, [data.id]);
         return result.rows[0] || null;
@@ -76,8 +120,13 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
 
     async update(data: any) {
       await pool.query(`
-        UPDATE crews SET name = $1, max_members = $2, updated_at = NOW()
-        WHERE id = $3
+        UPDATE crews
+        SET
+          name = $1,
+          max_members = $2,
+          updated_at = NOW()
+        WHERE
+          id = $3
       `, [data.name, data.maxMembers, data.id]);
       const result = await pool.query(`SELECT ${CREW_COLUMNS} FROM crews WHERE id = $1`, [data.id]);
       return result.rows[0] || null;
@@ -99,7 +148,14 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
 
     async getExpiredByInviteCode(code: string) {
       const result = await pool.query(`
-        SELECT id FROM crews WHERE invite_code = $1 AND invite_expires_at IS NOT NULL AND invite_expires_at <= NOW()
+        SELECT
+          id
+        FROM
+          crews
+        WHERE
+          invite_code = $1
+          AND invite_expires_at IS NOT NULL
+          AND invite_expires_at <= NOW()
       `, [code]);
       return result.rows[0] || null;
     },
@@ -111,24 +167,57 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
 
     async listByUser(userId: string) {
       const result = await pool.query(`
-        SELECT c.id, c.festival_id AS "festivalId", c.name, c.created_by AS "createdBy",
-               c.invite_code AS "inviteCode", c.invite_expires_at AS "inviteExpiresAt", c.max_members AS "maxMembers", c.home_base_location AS "homeBaseLocation", c.home_base_time AS "homeBaseTime", c.home_base_updated_at AS "homeBaseUpdatedAt", c.created_at AS "createdAt", c.updated_at AS "updatedAt",
-               cm.role, cm.joined_at AS "joinedAt"
-        FROM crews c JOIN crew_members cm ON cm.crew_id = c.id
-        WHERE cm.user_id = $1 ORDER BY c.created_at ASC
+        SELECT
+          c.id,
+          c.festival_id AS "festivalId",
+          c.name,
+          c.created_by AS "createdBy",
+          c.invite_code AS "inviteCode",
+          c.invite_expires_at AS "inviteExpiresAt",
+          c.max_members AS "maxMembers",
+          c.home_base_location AS "homeBaseLocation",
+          c.home_base_time AS "homeBaseTime",
+          c.home_base_updated_at AS "homeBaseUpdatedAt",
+          c.created_at AS "createdAt",
+          c.updated_at AS "updatedAt",
+          cm.role,
+          cm.joined_at AS "joinedAt"
+        FROM
+          crews c
+          JOIN crew_members cm ON cm.crew_id = c.id
+        WHERE
+          cm.user_id = $1
+        ORDER BY
+          c.created_at ASC
       `, [userId]);
       return result.rows;
     },
 
     async listByUserAndFestival(userId: string, festivalId: string) {
       const result = await pool.query(`
-        SELECT c.id, c.festival_id AS "festivalId", c.name, c.created_by AS "createdBy",
-               c.invite_code AS "inviteCode", c.invite_expires_at AS "inviteExpiresAt", c.max_members AS "maxMembers", c.home_base_location AS "homeBaseLocation", c.home_base_time AS "homeBaseTime", c.home_base_updated_at AS "homeBaseUpdatedAt", c.created_at AS "createdAt", c.updated_at AS "updatedAt",
-               cm.role, cm.joined_at AS "joinedAt"
-        FROM crews c
-        JOIN crew_members cm ON cm.crew_id = c.id
-        WHERE cm.user_id = $1 AND c.festival_id = $2
-        ORDER BY c.created_at ASC
+        SELECT
+          c.id,
+          c.festival_id AS "festivalId",
+          c.name,
+          c.created_by AS "createdBy",
+          c.invite_code AS "inviteCode",
+          c.invite_expires_at AS "inviteExpiresAt",
+          c.max_members AS "maxMembers",
+          c.home_base_location AS "homeBaseLocation",
+          c.home_base_time AS "homeBaseTime",
+          c.home_base_updated_at AS "homeBaseUpdatedAt",
+          c.created_at AS "createdAt",
+          c.updated_at AS "updatedAt",
+          cm.role,
+          cm.joined_at AS "joinedAt"
+        FROM
+          crews c
+          JOIN crew_members cm ON cm.crew_id = c.id
+        WHERE
+          cm.user_id = $1
+          AND c.festival_id = $2
+        ORDER BY
+          c.created_at ASC
       `, [userId, festivalId]);
       return result.rows;
     },
@@ -141,8 +230,10 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
 
     async addMember(data: any) {
       await pool.query(`
-        INSERT INTO crew_members (crew_id, user_id, role, joined_at)
-        VALUES ($1, $2, $3, NOW())
+        INSERT INTO
+          crew_members (crew_id, user_id, role, joined_at)
+        VALUES
+          ($1, $2, $3, NOW())
       `, [data.crewId, data.userId, data.role]);
     },
 
@@ -152,12 +243,22 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
 
     async getMembers(crewId: string) {
       const result = await pool.query(`
-        SELECT cm.crew_id AS "crewId", cm.user_id AS "userId", cm.role, cm.joined_at AS "joinedAt",
-               u.username, u.avatar_key AS "avatarKey", u.avatar_version AS "avatarVersion"
-        FROM crew_members cm
-        JOIN users u ON u.id = cm.user_id AND u.deleted_at IS NULL
-        WHERE cm.crew_id = $1
-        ORDER BY cm.joined_at ASC
+        SELECT
+          cm.crew_id AS "crewId",
+          cm.user_id AS "userId",
+          cm.role,
+          cm.joined_at AS "joinedAt",
+          u.username,
+          u.avatar_key AS "avatarKey",
+          u.avatar_version AS "avatarVersion"
+        FROM
+          crew_members cm
+          JOIN users u ON u.id = cm.user_id
+          AND u.deleted_at IS NULL
+        WHERE
+          cm.crew_id = $1
+        ORDER BY
+          cm.joined_at ASC
       `, [crewId]);
       return result.rows;
     },
@@ -192,11 +293,19 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
 
     async getCrewPickOverlap(festivalId: string, crewId: string) {
       const result = await pool.query(`
-        SELECT fp.user_id AS "userId", fp.picks_json AS "picksJson", u.username
-        FROM festival_profiles fp
-        JOIN crew_members cm ON cm.user_id = fp.user_id
-        JOIN users u ON u.id = fp.user_id AND u.deleted_at IS NULL
-        WHERE fp.festival_id = $1 AND cm.crew_id = $2 AND fp.deleted_at IS NULL
+        SELECT
+          fp.user_id AS "userId",
+          fp.picks_json AS "picksJson",
+          u.username
+        FROM
+          festival_profiles fp
+          JOIN crew_members cm ON cm.user_id = fp.user_id
+          JOIN users u ON u.id = fp.user_id
+          AND u.deleted_at IS NULL
+        WHERE
+          fp.festival_id = $1
+          AND cm.crew_id = $2
+          AND fp.deleted_at IS NULL
       `, [festivalId, crewId]);
       return result.rows;
     },
@@ -220,32 +329,92 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
   const meetingPoints = {
     async create(data: any) {
       await pool.query(`
-        INSERT INTO crew_meeting_points (id, crew_id, created_by, label, location, type, meet_at, stage_reference, expires_at, active, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, NOW(), NOW())
+        INSERT INTO
+          crew_meeting_points (
+            id,
+            crew_id,
+            created_by,
+            label,
+            location,
+            type,
+            meet_at,
+            stage_reference,
+            expires_at,
+            active,
+            created_at,
+            updated_at
+          )
+        VALUES
+          (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7,
+            $8,
+            $9,
+            TRUE,
+            NOW(),
+            NOW()
+          )
       `, [data.id, data.crewId, data.createdBy, data.label, data.location, data.type || 'during',
            data.meetAt || null, data.stageReference || null, data.expiresAt || null]);
       const result = await pool.query(`
-        SELECT id, crew_id AS "crewId", created_by AS "createdBy", label, location, type,
-               meet_at AS "meetAt", stage_reference AS "stageReference", expires_at AS "expiresAt",
-               active, created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM crew_meeting_points WHERE id = $1
+        SELECT
+          id,
+          crew_id AS "crewId",
+          created_by AS "createdBy",
+          label,
+          location,
+          type,
+          meet_at AS "meetAt",
+          stage_reference AS "stageReference",
+          expires_at AS "expiresAt",
+          active,
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM
+          crew_meeting_points
+        WHERE
+          id = $1
       `, [data.id]);
       return result.rows[0] || null;
     },
 
     async listByCrew(crewId: string) {
       const result = await pool.query(`
-        SELECT mp.id, mp.crew_id AS "crewId", mp.created_by AS "createdBy", mp.label, mp.location,
-               mp.type, mp.meet_at AS "meetAt", mp.stage_reference AS "stageReference",
-               mp.expires_at AS "expiresAt", mp.active,
-               mp.created_at AS "createdAt", mp.updated_at AS "updatedAt",
-               u.username AS "creatorName"
-        FROM crew_meeting_points mp
-        JOIN users u ON u.id = mp.created_by AND u.deleted_at IS NULL
-        WHERE mp.crew_id = $1 AND mp.active = TRUE
+        SELECT
+          mp.id,
+          mp.crew_id AS "crewId",
+          mp.created_by AS "createdBy",
+          mp.label,
+          mp.location,
+          mp.type,
+          mp.meet_at AS "meetAt",
+          mp.stage_reference AS "stageReference",
+          mp.expires_at AS "expiresAt",
+          mp.active,
+          mp.created_at AS "createdAt",
+          mp.updated_at AS "updatedAt",
+          u.username AS "creatorName"
+        FROM
+          crew_meeting_points mp
+          JOIN users u ON u.id = mp.created_by
+          AND u.deleted_at IS NULL
+        WHERE
+          mp.crew_id = $1
+          AND mp.active = TRUE
         ORDER BY
-          CASE mp.type WHEN 'emergency' THEN 0 WHEN 'pre-show' THEN 1 WHEN 'during' THEN 2
-               WHEN 'post-show' THEN 3 WHEN 'post-event' THEN 4 ELSE 5 END,
+          CASE mp.type
+            WHEN 'emergency' THEN 0
+            WHEN 'pre-show' THEN 1
+            WHEN 'during' THEN 2
+            WHEN 'post-show' THEN 3
+            WHEN 'post-event' THEN 4
+            ELSE 5
+          END,
           mp.meet_at NULLS LAST,
           mp.created_at ASC
       `, [crewId]);
@@ -266,10 +435,23 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
       vals.push(id);
       await pool.query('UPDATE crew_meeting_points SET ' + sets.join(', ') + ' WHERE id = $' + idx, vals);
       const result = await pool.query(`
-        SELECT id, crew_id AS "crewId", created_by AS "createdBy", label, location, type,
-               meet_at AS "meetAt", stage_reference AS "stageReference", expires_at AS "expiresAt",
-               active, created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM crew_meeting_points WHERE id = $1
+        SELECT
+          id,
+          crew_id AS "crewId",
+          created_by AS "createdBy",
+          label,
+          location,
+          type,
+          meet_at AS "meetAt",
+          stage_reference AS "stageReference",
+          expires_at AS "expiresAt",
+          active,
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM
+          crew_meeting_points
+        WHERE
+          id = $1
       `, [id]);
       return result.rows[0] || null;
     },
@@ -280,10 +462,23 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
 
     async getById(id: string) {
       const result = await pool.query(`
-        SELECT id, crew_id AS "crewId", created_by AS "createdBy", label, location, type,
-               meet_at AS "meetAt", stage_reference AS "stageReference", expires_at AS "expiresAt",
-               active, created_at AS "createdAt", updated_at AS "updatedAt"
-        FROM crew_meeting_points WHERE id = $1
+        SELECT
+          id,
+          crew_id AS "crewId",
+          created_by AS "createdBy",
+          label,
+          location,
+          type,
+          meet_at AS "meetAt",
+          stage_reference AS "stageReference",
+          expires_at AS "expiresAt",
+          active,
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM
+          crew_meeting_points
+        WHERE
+          id = $1
       `, [id]);
       return result.rows[0] || null;
     },

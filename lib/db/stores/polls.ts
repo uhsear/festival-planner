@@ -85,16 +85,34 @@ export default function createPollsStore(pool: Pool, _utils: any) {
 
     async countActiveByCrew(crewId: string) {
       const result = await pool.query(`
-        SELECT COUNT(*) as count FROM crew_polls
-        WHERE crew_id = $1 AND closed = FALSE
+        SELECT
+          COUNT(*) as count
+        FROM
+          crew_polls
+        WHERE
+          crew_id = $1
+          AND closed = FALSE
       `, [crewId]);
       return result.rows[0].count;
     },
 
     async getById(pollId: string) {
       const result = await pool.query(
-        `SELECT id, crew_id, created_by, question, options, closes_at, closed, created_at
-         FROM crew_polls WHERE id = $1`,
+        `
+  SELECT
+    id,
+    crew_id,
+    created_by,
+    question,
+    options,
+    closes_at,
+    closed,
+    created_at
+  FROM
+    crew_polls
+  WHERE
+    id = $1
+`,
         [pollId]
       );
       if (!result.rows.length) return null;

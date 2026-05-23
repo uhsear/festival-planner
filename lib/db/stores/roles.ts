@@ -32,11 +32,15 @@ export default function createRolesStore(pool: Pool, { nodeEnv }: { nodeEnv?: st
       }
 
       const result = await pool.query(`
-        SELECT r.name
-        FROM user_roles ur
-        JOIN roles r ON r.id = ur.role_id
-        WHERE ur.user_id = $1
-        ORDER BY r.name
+        SELECT
+          r.name
+        FROM
+          user_roles ur
+          JOIN roles r ON r.id = ur.role_id
+        WHERE
+          ur.user_id = $1
+        ORDER BY
+          r.name
       `, [userId]);
 
       const roles = result.rows.map((row: any) => row.name);
@@ -75,8 +79,16 @@ export default function createRolesStore(pool: Pool, { nodeEnv }: { nodeEnv?: st
     async revokeRole(userId: string, roleName: string) {
       await pool.query(`
         DELETE FROM user_roles
-        WHERE user_id = $1
-          AND role_id = (SELECT id FROM roles WHERE name = $2)
+        WHERE
+          user_id = $1
+          AND role_id = (
+            SELECT
+              id
+            FROM
+              roles
+            WHERE
+              name = $2
+          )
       `, [userId, roleName]);
       invalidateCache(userId);
     },
@@ -86,8 +98,15 @@ export default function createRolesStore(pool: Pool, { nodeEnv }: { nodeEnv?: st
      */
     async listRoles() {
       const result = await pool.query(`
-        SELECT id, name, description, created_at AS "createdAt"
-        FROM roles ORDER BY id
+        SELECT
+          id,
+          name,
+          description,
+          created_at AS "createdAt"
+        FROM
+          roles
+        ORDER BY
+          id
       `);
       return result.rows;
     },
@@ -97,12 +116,20 @@ export default function createRolesStore(pool: Pool, { nodeEnv }: { nodeEnv?: st
      */
     async getUsersByRole(roleName: string) {
       const result = await pool.query(`
-        SELECT u.id, u.username, ur.granted_at AS "grantedAt", ur.granted_by AS "grantedBy"
-        FROM user_roles ur
-        JOIN users u ON u.id = ur.user_id
-        JOIN roles r ON r.id = ur.role_id
-        WHERE r.name = $1 AND u.deleted_at IS NULL
-        ORDER BY ur.granted_at
+        SELECT
+          u.id,
+          u.username,
+          ur.granted_at AS "grantedAt",
+          ur.granted_by AS "grantedBy"
+        FROM
+          user_roles ur
+          JOIN users u ON u.id = ur.user_id
+          JOIN roles r ON r.id = ur.role_id
+        WHERE
+          r.name = $1
+          AND u.deleted_at IS NULL
+        ORDER BY
+          ur.granted_at
       `, [roleName]);
       return result.rows;
     },
@@ -110,11 +137,16 @@ export default function createRolesStore(pool: Pool, { nodeEnv }: { nodeEnv?: st
     async getUserRolesBatch(userIds: string[]) {
       if (userIds.length === 0) return new Map();
       const result = await pool.query(`
-        SELECT ur.user_id, r.name
-        FROM user_roles ur
-        JOIN roles r ON r.id = ur.role_id
-        WHERE ur.user_id = ANY($1)
-        ORDER BY r.name
+        SELECT
+          ur.user_id,
+          r.name
+        FROM
+          user_roles ur
+          JOIN roles r ON r.id = ur.role_id
+        WHERE
+          ur.user_id = ANY ($1)
+        ORDER BY
+          r.name
       `, [userIds]);
       const map = new Map<string, string[]>();
       for (const row of result.rows) {

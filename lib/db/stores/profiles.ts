@@ -77,11 +77,20 @@ export default function createProfilesStore(pool: Pool, utils: any) {
 
     async getByUserId(userId: string) {
       const result = await pool.query(`
-        SELECT fp.id, fp.festival_id AS "festivalId", fp.user_id AS "userId", fp.name,
-               fp.created_at AS "createdAt", fp.updated_at AS "updatedAt"
-        FROM festival_profiles fp
-        WHERE fp.user_id = $1 AND fp.deleted_at IS NULL
-        ORDER BY fp.created_at ASC
+        SELECT
+          fp.id,
+          fp.festival_id AS "festivalId",
+          fp.user_id AS "userId",
+          fp.name,
+          fp.created_at AS "createdAt",
+          fp.updated_at AS "updatedAt"
+        FROM
+          festival_profiles fp
+        WHERE
+          fp.user_id = $1
+          AND fp.deleted_at IS NULL
+        ORDER BY
+          fp.created_at ASC
       `, [userId]);
       return result.rows;
     },
@@ -167,8 +176,21 @@ export default function createProfilesStore(pool: Pool, utils: any) {
       // Use transaction to ensure main record and normalized tables stay in sync
       return withTransaction(pool, async (client) => {
         await client.query(
-          `INSERT INTO festival_profiles (id, festival_id, user_id, name, picks_json, notes_json, reminders_json, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          `
+  INSERT INTO
+    festival_profiles (
+      id,
+      festival_id,
+      user_id,
+      name,
+      picks_json,
+      notes_json,
+      reminders_json,
+      created_at
+    )
+  VALUES
+    ($1, $2, $3, $4, $5, $6, $7, $8)
+`,
           [id, festivalId, userId || null, name, serializeJson(picks || {}), serializeJson(notes || {}), serializeJson(reminders || {}), createdAt || new Date().toISOString()]
         );
         // Sync normalized picks/notes/reminders tables (batch)
@@ -245,8 +267,16 @@ export default function createProfilesStore(pool: Pool, utils: any) {
 
     async deleteByUserId(userId: string, { deletedBy, reason }: { deletedBy?: string; reason?: string } = {}) {
       const { rows } = await pool.query(`
-        SELECT id, festival_id AS "festivalId", user_id AS "userId", name
-        FROM festival_profiles WHERE user_id = $1 AND deleted_at IS NULL
+        SELECT
+          id,
+          festival_id AS "festivalId",
+          user_id AS "userId",
+          name
+        FROM
+          festival_profiles
+        WHERE
+          user_id = $1
+          AND deleted_at IS NULL
       `, [userId]);
       if (rows.length > 0) {
         const profileIds = rows.map((r: any) => r.id);
@@ -291,20 +321,33 @@ export default function createProfilesStore(pool: Pool, utils: any) {
   const picks = {
     async bySetId(setId: string) {
       const result = await pool.query(`
-        SELECT p.profile_id AS "profileId", fp.user_id AS "userId", fp.name AS "profileName", p.priority
-        FROM festival_profile_picks p
-        JOIN festival_profiles fp ON fp.id = p.profile_id
-        WHERE p.set_id = $1 AND fp.deleted_at IS NULL
+        SELECT
+          p.profile_id AS "profileId",
+          fp.user_id AS "userId",
+          fp.name AS "profileName",
+          p.priority
+        FROM
+          festival_profile_picks p
+          JOIN festival_profiles fp ON fp.id = p.profile_id
+        WHERE
+          p.set_id = $1
+          AND fp.deleted_at IS NULL
       `, [setId]);
       return result.rows;
     },
 
     async byFestival(festivalId: string) {
       const result = await pool.query(`
-        SELECT p.set_id AS "setId", p.priority, fp.user_id AS "userId"
-        FROM festival_profile_picks p
-        JOIN festival_profiles fp ON fp.id = p.profile_id
-        WHERE fp.festival_id = $1 AND fp.deleted_at IS NULL
+        SELECT
+          p.set_id AS "setId",
+          p.priority,
+          fp.user_id AS "userId"
+        FROM
+          festival_profile_picks p
+          JOIN festival_profiles fp ON fp.id = p.profile_id
+        WHERE
+          fp.festival_id = $1
+          AND fp.deleted_at IS NULL
       `, [festivalId]);
       return result.rows;
     },

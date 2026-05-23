@@ -6,8 +6,10 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
     async createUserSession({ token, userId, username, createdAt, lastAccess, maxPerUser }: any) {
       return withTransaction(pool, async (client) => {
         await client.query(`
-          INSERT INTO user_sessions (token, user_id, username, created_at, last_access)
-          VALUES ($1, $2, $3, $4, $5)
+          INSERT INTO
+            user_sessions (token, user_id, username, created_at, last_access)
+          VALUES
+            ($1, $2, $3, $4, $5)
         `, [token, userId, username, createdAt, lastAccess]);
 
         // FOR UPDATE locks rows to prevent concurrent session creation from racing on eviction count
@@ -30,9 +32,16 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
 
     async validateUserSession(token: string, sessionTtlMs: number) {
       const result = await pool.query(`
-        SELECT token, user_id AS "userId", username, created_at AS "createdAt", last_access AS "lastAccess"
-        FROM user_sessions
-        WHERE token = $1
+        SELECT
+          token,
+          user_id AS "userId",
+          username,
+          created_at AS "createdAt",
+          last_access AS "lastAccess"
+        FROM
+          user_sessions
+        WHERE
+          token = $1
       `, [token]);
 
       const session = result.rows[0];
@@ -57,10 +66,19 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
 
     async listUserSessions(userId: string) {
       const result = await pool.query(`
-        SELECT token, user_id AS "userId", username, created_at AS "createdAt", last_access AS "lastAccess"
-        FROM user_sessions
-        WHERE user_id = $1
-        ORDER BY last_access ASC, token ASC
+        SELECT
+          token,
+          user_id AS "userId",
+          username,
+          created_at AS "createdAt",
+          last_access AS "lastAccess"
+        FROM
+          user_sessions
+        WHERE
+          user_id = $1
+        ORDER BY
+          last_access ASC,
+          token ASC
       `, [userId]);
       return result.rows;
     },
@@ -184,16 +202,50 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
   const metricsRollups = {
     async insert(rollup: any) {
       await pool.query(`
-        INSERT INTO metrics_rollups (bucket_start, bucket_end, total_requests, total_errors, avg_duration_ms, status_2xx, status_4xx, status_5xx, peak_connections, active_users)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        INSERT INTO
+          metrics_rollups (
+            bucket_start,
+            bucket_end,
+            total_requests,
+            total_errors,
+            avg_duration_ms,
+            status_2xx,
+            status_4xx,
+            status_5xx,
+            peak_connections,
+            active_users
+          )
+        VALUES
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       `, [rollup.bucketStart, rollup.bucketEnd, rollup.totalRequests, rollup.totalErrors, rollup.avgDurationMs, rollup.status2xx, rollup.status4xx, rollup.status5xx, rollup.peakConnections, rollup.activeUsers]);
     },
     async query(since: any, until: any, limit: number = 168) {
       const result = await pool.query(
-        `SELECT id, bucket_start, bucket_end, total_requests, total_errors,
-                avg_duration_ms, p95_duration_ms, status_2xx, status_4xx, status_5xx,
-                peak_connections, active_users, created_at
-         FROM metrics_rollups WHERE bucket_start >= $1 AND bucket_start < $2 ORDER BY bucket_start DESC LIMIT $3`,
+        `
+  SELECT
+    id,
+    bucket_start,
+    bucket_end,
+    total_requests,
+    total_errors,
+    avg_duration_ms,
+    p95_duration_ms,
+    status_2xx,
+    status_4xx,
+    status_5xx,
+    peak_connections,
+    active_users,
+    created_at
+  FROM
+    metrics_rollups
+  WHERE
+    bucket_start >= $1
+    AND bucket_start < $2
+  ORDER BY
+    bucket_start DESC
+  LIMIT
+    $3
+`,
         [since, until, limit],
       );
       return result.rows;

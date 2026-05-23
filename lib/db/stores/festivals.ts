@@ -121,33 +121,68 @@ async function replaceChildRows(client: any, festivalId: string, children: any) 
 
   // Preserve picks before deleting sets
   const existingPicks = await client.query(
-    `SELECT p.profile_id, p.set_id, p.priority
-     FROM festival_profile_picks p
-     JOIN festival_sets s ON s.id = p.set_id
-     WHERE s.festival_id = $1`,
+    `
+  SELECT
+    p.profile_id,
+    p.set_id,
+    p.priority
+  FROM
+    festival_profile_picks p
+    JOIN festival_sets s ON s.id = p.set_id
+  WHERE
+    s.festival_id = $1
+`,
     [festivalId],
   );
 
   // Preserve ratings before deleting sets
   const existingRatings = await client.query(
-    `SELECT r.user_id, r.rating, r.note, r.created_at, r.updated_at,
-            s.artist, s.start_time
-     FROM set_ratings r
-     JOIN festival_sets s ON s.id = r.set_id
-     WHERE s.festival_id = $1`,
+    `
+  SELECT
+    r.user_id,
+    r.rating,
+    r.note,
+    r.created_at,
+    r.updated_at,
+    s.artist,
+    s.start_time
+  FROM
+    set_ratings r
+    JOIN festival_sets s ON s.id = r.set_id
+  WHERE
+    s.festival_id = $1
+`,
     [festivalId],
   );
 
   await client.query(
-    `DELETE FROM set_ratings WHERE set_id IN (
-      SELECT id FROM festival_sets WHERE festival_id = $1
-    )`,
+    `
+  DELETE FROM set_ratings
+  WHERE
+    set_id IN (
+      SELECT
+        id
+      FROM
+        festival_sets
+      WHERE
+        festival_id = $1
+    )
+`,
     [festivalId],
   );
   await client.query(
-    `DELETE FROM festival_profile_picks WHERE set_id IN (
-      SELECT id FROM festival_sets WHERE festival_id = $1
-    )`,
+    `
+  DELETE FROM festival_profile_picks
+  WHERE
+    set_id IN (
+      SELECT
+        id
+      FROM
+        festival_sets
+      WHERE
+        festival_id = $1
+    )
+`,
     [festivalId],
   );
   await client.query('DELETE FROM festival_sets WHERE festival_id = $1', [festivalId]);
@@ -324,8 +359,17 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
         await insertSetsBatch(client, setRows);
 
         const result = await client.query(`
-          SELECT id, name, location, created_at AS "createdAt", updated_at AS "updatedAt"
-          FROM festivals WHERE id = $1 AND deleted_at IS NULL
+          SELECT
+            id,
+            name,
+            location,
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+          FROM
+            festivals
+          WHERE
+            id = $1
+            AND deleted_at IS NULL
         `, [festival.id]);
         return result.rows[0] || null;
       });
@@ -364,8 +408,17 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
         }
 
         const result = await client.query(`
-          SELECT id, name, location, created_at AS "createdAt", updated_at AS "updatedAt"
-          FROM festivals WHERE id = $1 AND deleted_at IS NULL
+          SELECT
+            id,
+            name,
+            location,
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+          FROM
+            festivals
+          WHERE
+            id = $1
+            AND deleted_at IS NULL
         `, [festivalId]);
         return result.rows[0] || null;
       });
