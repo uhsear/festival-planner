@@ -39,7 +39,7 @@ New migration file under `migrations/` (next number; check `ls migrations/ | tai
 ## Phase 3 -- Implement (parallel where independent)
 - Backend: route handler (.ts) + lib + store method. Parameterized queries only. `deleted_at IS NULL` on all festival_profiles queries.
 - Frontend: React component edits under `packages/web/src/` (routes, components, hooks). Keep each component under 300 lines. Shared state/logic at `packages/shared/src/` (Zustand stores, hooks, types).
-- Socket.IO events if real-time. Include per-event rate limits (lib/rate-limiting.js).
+- Socket.IO events if real-time. Include per-event rate limits (lib/rate-limiting.ts).
 - No console.log. Structured logger. Sanitize log meta.
 - Strict TypeScript — no `any`. Use `AppContext` type for deps. Infer request body types from Zod schemas.
 - Every async store-method call is awaited.
@@ -50,7 +50,7 @@ Dispatch Agent tool (run_in_background: true) for independent pieces (e.g., fron
 ## Phase 4 -- Test
 - Add tests to the appropriate file (unit / integration-<feature> / critical-paths / hardening).
 - Run `npm test` (test gate). 0 failing, 0 skipped required. Any NEW failure is a regression you caused.
-- P0 features: add to critical-paths.test.js.
+- P0 features: add to critical-paths.test.ts.
 - If touching prod code used by multiple suites: run `npm test` locally with `--test-concurrency=1` to detect cross-suite DB pollution.
 
 ## Phase 5 -- Review

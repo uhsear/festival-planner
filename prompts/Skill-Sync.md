@@ -15,7 +15,7 @@ SSH policy:
 - Never SSH from inside a subagent. Do SSH work in the main thread; dispatch pure read/analyze tasks to agents.
 
 GATHER from production (paramiko script from main thread):
-- Metadata: package.json version, Node version, Vite hashed assets in `packages/web/dist/`, ecosystem.config.js CLUSTER_SIZE, PM2 process name (must be "festie")
+- Metadata: package.json version, Node version, Vite hashed assets in `packages/web/dist/`, ecosystem.config.cjs CLUSTER_SIZE, PM2 process name (must be "festie")
 - Files: root, lib/, lib/helpers/, lib/db/stores/, lib/app-context/, lib/notifications/, routes/, packages/web/src/, packages/shared/src/ with line counts (wc -l)
 - Database: all tables + schemas + indexes + schema_migrations rows (use `PAGER=cat psql -d festival_planner -tA -c "SQL"`)
 - Dependencies: npm ls --depth=0, npm audit --json summary

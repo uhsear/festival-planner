@@ -174,6 +174,6 @@ GitHub Actions on push to `main`. Jobs: lint, quality (typecheck + semgrep), sec
 ## Deployment
 
 - **Dev/test**: Single process, in-memory rate limits, local file storage
-- **Production**: PM2 cluster mode (`ecosystem.config.js`), Redis-backed rate limits/sessions, Cloudflare Tunnel
+- **Production**: PM2 cluster mode (`ecosystem.config.cjs`), Redis-backed rate limits/sessions, Cloudflare Tunnel
 - **Docker**: Multi-stage build, Node 22 slim, non-root user, health check at `/api/health`
 - **Required env vars**: `PUBLIC_ORIGIN`, `DATABASE_URL`, `SESSION_SECRET`, `FIREBASE_CREDENTIALS_PATH`, `RESEND_API_KEY`; `REDIS_URL` for cluster mode

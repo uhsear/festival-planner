@@ -44,9 +44,9 @@ CI WATCH:
 COMMON REGRESSIONS (from 2026-04-14 sprints):
   - Permissions: check .claude/settings.json has appropriate tool allowlist configured.
   - CI lint rule `preserve-caught-error`: every re-thrown Error needs `{ cause: origErr }`.
-  - audit_log target_type NOT NULL: default to 'unknown' in lib/db/stores/audit.js.
+  - audit_log target_type NOT NULL: default to 'unknown' in lib/db/stores/audit.ts.
   - Retired migration 014: migration 023 must `ADD COLUMN IF NOT EXISTS` before `ALTER COLUMN` on fresh CI DBs.
-  - Migration runner (lib/planner-db-pg.js): skip when NODE_ENV=test or DB URL matches /_test(\?|$)/ to avoid re-applying into the test harness schema.
+  - Migration runner (lib/planner-db-pg.ts): skip when NODE_ENV=test or DB URL matches /_test(\?|$)/ to avoid re-applying into the test harness schema.
   - Test DB pollution: each integration suite must run `truncateAllTables()` + its own `ensureTestSchema()` so cross-suite state doesn't leak.
   - Zustand store not re-fetching after auth state changes: stores that cache user-scoped data must subscribe to auth state and invalidate on login/logout.
   - Tailwind preflight re-enabled: must stay disabled -- `globals.css` imports `theme.css`, `base.css`, `components.css`, `animations.css`, `pages.css`, `light-theme.css`. If preflight is on, component styles break.

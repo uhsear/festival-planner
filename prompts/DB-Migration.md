@@ -19,7 +19,7 @@ Run on prod (via paramiko):
   PAGER=cat psql -d festival_planner -tA -c "\d+ <table>"                  # columns, indexes, FKs
   PAGER=cat psql -d festival_planner -tA -c "SELECT MAX(version) FROM schema_migrations"
 
-Sanity-check: `ls migrations/*.sql | wc -l` should equal `SELECT count(*) FROM schema_migrations`. If not, schema_migrations is drifting -- see lib/planner-db-pg.js runner (ships one-time backfill).
+Sanity-check: `ls migrations/*.sql | wc -l` should equal `SELECT count(*) FROM schema_migrations`. If not, schema_migrations is drifting -- see lib/planner-db-pg.ts runner (ships one-time backfill).
 
 ## Phase 2 -- Plan
 - Next migration number: `MAX(version)+1`, zero-padded (e.g. 029).
@@ -51,8 +51,8 @@ If the migration changes API response shapes (column renames, new fields, remove
 - Register new store in `lib/db/index.ts` if adding a whole new store module.
 
 ## Phase 5 -- Test
-- Add integration test to the relevant `tests/integration-<feature>.test.js` that exercises the new column/table.
-- If change is cross-suite: also add skip-gated test in `tests/critical-paths.test.js`.
+- Add integration test to the relevant `tests/integration-<feature>.test.ts` that exercises the new column/table.
+- If change is cross-suite: also add skip-gated test in `tests/critical-paths.test.ts`.
 - Apply migration twice on a throwaway DB to prove idempotency: `psql -f migrations/NNN.sql && psql -f migrations/NNN.sql` -- second run must be a no-op.
 - Run `npm run typecheck` to verify store type safety.
 - Deploy via paramiko SFTP. Test gate must show `# fail 0`.
@@ -62,7 +62,7 @@ Deploy via paramiko:
   - SFTP migration file to `migrations/`.
   - SFTP store updates.
   - `npm test` on prod (halts on regression).
-  - Migration applies via `lib/planner-db-pg.js` runner at app boot (records in schema_migrations in-txn).
+  - Migration applies via `lib/planner-db-pg.ts` runner at app boot (records in schema_migrations in-txn).
   - `pg_dump festival_planner -t <affected_tables> > ~/backups/pre-<NNN>-<ts>.sql` BEFORE the apply if table is large or has data loss risk.
   - git commit/push; `pm2 restart festie`; health check.
   - Watch CI (test(20) + test(22) + lint must all succeed).

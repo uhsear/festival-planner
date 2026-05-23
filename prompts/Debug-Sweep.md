@@ -36,7 +36,7 @@ Audit: orphaned profiles/picks, duplicate active profiles, empty password_hash, 
 Check audit_log.target_type -- NOT NULL constraint; default 'unknown' where route unknown.
 
 ### Layer 3 -- Backend Code
-Missing awaits on store calls (lib/db/stores/*.js -- each method is async).
+Missing awaits on store calls (lib/db/stores/*.ts -- each method is async).
 Unhandled promise rejections, missing try/catch, CORS/CSRF/rate-limits/admin-auth enforced.
 No console.log in prod code. .env complete (RESEND_API_KEY, EMAIL_FROM, SPOTIFY_CLIENT_*, FIREBASE_CREDENTIALS_PATH if push enabled).
 `npm test` runs with 0 failing and 0 skipped.
@@ -61,7 +61,7 @@ Final checks each pass: `npm test` (0 fail), `pnpm --filter @festie/web typechec
 ## TRACKING (loop mode only)
 | ID | Pass | Layer | Severity | Issue | Fix (files) | Status |
 |----|------|-------|----------|-------|-------------|--------|
-| P1-01 | 1 | 3 | HIGH | description | lib/x.js, tests/y.test.js | FIXED |
+| P1-01 | 1 | 3 | HIGH | description | lib/x.ts, tests/y.test.ts | FIXED |
 
 ## WRAP UP
 single: "All clear -- 0 issues" OR "Fixed N issues: [symptom / cause / files per item]"
