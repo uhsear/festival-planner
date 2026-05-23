@@ -1,0 +1,110 @@
+import { useEffect, useState } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { Slot, useRouter, useSegments } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { configureStorage } from '@festie/shared/platform';
+import { configureApi, setAuthToken } from '@festie/shared/services';
+import { useAuthStore } from '@festie/shared/stores';
+
+// Configure platform adapters before any store hydrates.
+configureStorage(AsyncStorage);
+
+// Wire up 401 handling: attempt a token refresh, then logout on failure.
+configureApi({
+  baseUrl: 'https://festie.us/api/v1',
+  authMode: 'bearer',
+  onUnauthorized: async () => {
+    try {
+      await useAuthStore.getState().refreshToken();
+      return true;
+    } catch {
+      await useAuthStore.getState().logout();
+      return false;
+    }
+  },
+});
+
+function AuthGate() {
+  const user = useAuthStore((s) => s.user);
+  const sessionChecked = useAuthStore((s) => s.sessionChecked);
+  const checkSession = useAuthStore((s) => s.checkSession);
+  const segments = useSegments();
+  const router = useRouter();
+  const [hydrated, setHydrated] = useState(false);
+
+  // Wait for Zustand persist to rehydrate from AsyncStorage, then restore
+  // the bearer token into the API client's in-memory state so that
+  // checkSession (and all subsequent requests) include the Authorization
+  // header.
+  useEffect(() => {
+    const unsub = useAuthStore.persist.onFinishHydration(() => {
+      const token = useAuthStore.getState().userToken;
+      if (token) {
+        setAuthToken(token);
+      }
+      setHydrated(true);
+    });
+
+    // If hydration already completed synchronously (e.g. noop storage)
+    if (useAuthStore.persist.hasHydrated()) {
+      const token = useAuthStore.getState().userToken;
+      if (token) {
+        setAuthToken(token);
+      }
+      setHydrated(true);
+    }
+
+    return unsub;
+  }, []);
+
+  // Once hydrated, validate the session against the server.
+  useEffect(() => {
+    if (hydrated) {
+      checkSession();
+    }
+  }, [hydrated, checkSession]);
+
+  // Redirect based on auth state once the session has been checked.
+  useEffect(() => {
+    if (!sessionChecked) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!user && !inAuthGroup) {
+      router.replace('/(auth)/login');
+    } else if (user && inAuthGroup) {
+      router.replace('/(tabs)');
+    }
+  }, [user, sessionChecked, segments, router]);
+
+  // Show a splash loading indicator while hydration + session check run.
+  if (!hydrated || !sessionChecked) {
+    return (
+      <View style={styles.splash}>
+        <StatusBar style="light" />
+        <ActivityIndicator size="large" color="#FF6B6B" />
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <StatusBar style="light" />
+      <Slot />
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0A0E1A',
+  },
+});
+
+export default function RootLayout() {
+  return <AuthGate />;
+}

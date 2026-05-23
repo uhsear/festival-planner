@@ -16,6 +16,7 @@ coverage/
 output/
 lhci-reports/
 .turbo/
+dist/
 dist.disabled/
 packages/web/dist/
 
@@ -46,3 +47,6 @@ mobile-loop-capture.js
 # Session logs and loop captures
 docs/session-logs/
 mobile-loop-*/
+
+*storybook.log
+storybook-static
