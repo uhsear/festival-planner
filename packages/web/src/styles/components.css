@@ -219,14 +219,14 @@
   }
 
 /* (c) Password-visibility toggle inside <Input isPassword>. Was 20×24 (the
-   lucide Eye icon's intrinsic size), failing WCAG 2.5.8 minimum 24×24.
-   Force a 32×32 hit area so keyboard focus + touch both land reliably. */
+   lucide Eye icon's intrinsic size), failing WCAG 2.5.8 minimum 44×44.
+   Force a 44×44 hit area so keyboard focus + touch both land reliably. */
 .input-base + button[aria-label="Show password"],
 .input-base + button[aria-label="Hide password"],
 .relative > button[aria-label="Show password"],
 .relative > button[aria-label="Hide password"] {
-  min-width: 32px;
-  min-height: 32px;
+  min-width: 44px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -396,7 +396,7 @@
 }
 
 .logo {
-  font-family: var(--font-display);
+  font-family: var(--font-family-display);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 3px;
@@ -425,13 +425,15 @@
   font-weight: 600;
   letter-spacing: .5px;
   padding: 6px 10px;
-  min-height: 32px;
+  min-height: 44px;
+  min-width: 44px;
+  justify-content: center;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--overlay-2);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.25s var(--ease-standard);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -579,7 +581,7 @@
   font-size: 13px;
   font-weight: 600;
   border-right: 1px solid var(--border);
-  transition: var(--transition);
+  transition: all 0.25s var(--ease-standard);
 }
 
 .view-toggle button:last-child {
@@ -662,7 +664,7 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.25s var(--ease-standard);
   border: 2px solid transparent;
   color: var(--text-secondary);
   background: var(--overlay-2);
@@ -759,7 +761,7 @@
   justify-content: center;
   font-size: 16px;
   border: 1px solid transparent;
-  transition: var(--transition);
+  transition: all 0.25s var(--ease-standard);
 }
 
 .btn-delete:hover {
@@ -784,7 +786,7 @@
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
-  animation: fadeInRight .3s var(--ease-out-expo);
+  animation: fadeInRight .3s var(--ease-out);
   box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
   display: flex;
   align-items: center;
@@ -866,7 +868,7 @@
   font-size: 11px;
   font-weight: 600;
   border-radius: var(--radius-sm);
-  transition: var(--transition);
+  transition: all 0.25s var(--ease-standard);
   min-height: 44px;
   min-width: 0;
   flex: 1 1 0;
@@ -987,7 +989,7 @@
 }
 
 .auth-screen .logo-big {
-  font-family: var(--font-display);
+  font-family: var(--font-family-display);
   font-size: clamp(22px, 5vw, 36px);
   font-weight: 700;
   letter-spacing: 6px;
@@ -1053,7 +1055,7 @@
   background: var(--bg-card);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.25s var(--ease-standard);
   text-align: center;
   min-height: 44px;
 }
@@ -1091,12 +1093,15 @@
 .error-boundary-btn {
   margin-top: 1rem;
   padding: 8px 16px;
+  min-height: 44px;
   background: var(--accent-coral);
   color: var(--text-on-accent);
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
 }
 
 .error-boundary-btn:hover {
@@ -1107,6 +1112,8 @@
 .undo-btn {
   margin-left: 12px;
   padding: 4px 12px;
+  min-height: 44px;
+  min-width: 44px;
   border-radius: 6px;
   background: var(--accent-aqua);
   color: var(--bg-primary);
@@ -1114,6 +1121,9 @@
   font-size: 12px;
   cursor: pointer;
   border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ── Loading / Skeleton ── */
@@ -1629,7 +1639,7 @@
   color: var(--text-secondary);
   font-size: 18px;
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.25s var(--ease-standard);
 }
 
 .detail-panel .detail-close:hover {
@@ -1694,7 +1704,7 @@
   background: var(--bg-card);
   border: 2px solid var(--border);
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.25s var(--ease-standard);
   appearance: none;
   color: var(--text-primary);
   touch-action: manipulation;
@@ -1864,6 +1874,11 @@
   font-size: 18px;
   padding: 0 4px;
   line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ── Reminders ── */
@@ -1894,7 +1909,10 @@
   cursor: pointer;
   transition: all 0.15s ease;
   min-width: 44px;
-  min-height: 36px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .reminder-btn:hover {
@@ -1951,7 +1969,7 @@
 
 /* ── Enhanced Card Hover Effects ──────────────────────────────────── */
 .set-card {
-  transition: transform .3s var(--ease-out-expo), box-shadow .3s var(--ease-out-expo), background .25s ease, border-color .25s ease;
+  transition: transform .3s var(--ease-out), box-shadow .3s var(--ease-out), background .25s ease, border-color .25s ease;
   will-change: transform;
 }
 .set-card:hover {
@@ -1983,7 +2001,7 @@
 
 /* ── Button Press / Active States ─────────────────────────────────── */
 .btn {
-  transition: transform .15s var(--ease-out-expo), box-shadow .2s ease, filter .2s ease, background .2s ease, border-color .2s ease;
+  transition: transform .15s var(--ease-out), box-shadow .2s ease, filter .2s ease, background .2s ease, border-color .2s ease;
 }
 .btn:active:not(:disabled) {
   transform: scale(.965);
@@ -2000,10 +2018,10 @@
 }
 
 .card-priority-btn {
-  transition: transform .15s var(--ease-out-expo), box-shadow .2s ease, background .2s ease, border-color .2s ease, color .2s ease;
+  transition: transform .15s var(--ease-out), box-shadow .2s ease, background .2s ease, border-color .2s ease, color .2s ease;
 }
 .detail-priority-option {
-  transition: transform .15s var(--ease-out-expo), border-color .2s ease, background .2s ease, box-shadow .2s ease;
+  transition: transform .15s var(--ease-out), border-color .2s ease, background .2s ease, box-shadow .2s ease;
 }
 .detail-priority-option:active {
   transform: scale(.97);
@@ -2011,7 +2029,7 @@
 
 /* ── Smooth Navigation Transitions ────────────────────────────────── */
 .view-toggle button {
-  transition: background .25s var(--ease-out-expo), color .2s ease, box-shadow .2s ease, border-color .2s ease;
+  transition: background .25s var(--ease-out), color .2s ease, box-shadow .2s ease, border-color .2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -2019,7 +2037,7 @@
   box-shadow: inset 0 -2px 0 var(--accent-aqua), 0 0 12px var(--aqua-a1);
 }
 .day-tab {
-  transition: background .2s var(--ease-out-expo), color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .15s ease;
+  transition: background .2s var(--ease-out), color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .15s ease;
 }
 .day-tab:active {
   transform: scale(.96);
@@ -2029,7 +2047,7 @@
 }
 
 .admin-tab {
-  transition: background .2s var(--ease-out-expo), color .2s ease, border-color .2s ease, transform .15s ease;
+  transition: background .2s var(--ease-out), color .2s ease, border-color .2s ease, transform .15s ease;
 }
 .admin-tab:active {
   transform: scale(.97);
@@ -2039,7 +2057,7 @@
 }
 
 .crew-tab {
-  transition: background .2s var(--ease-out-expo), color .2s ease, transform .15s ease;
+  transition: background .2s var(--ease-out), color .2s ease, transform .15s ease;
 }
 .crew-tab:active {
   transform: scale(.96);
@@ -2071,7 +2089,7 @@
   animation: overlayFadeIn .2s ease-out;
 }
 .detail-panel.panel-entering {
-  animation: slideUpSmooth .35s var(--ease-out-expo);
+  animation: slideUpSmooth .35s var(--ease-out);
 }
 .detail-panel.panel-exiting {
   animation: slideDownSmooth .25s var(--ease-in-quart) forwards;
@@ -2084,7 +2102,7 @@
 .detail-panel.panel-entering .detail-priority-group,
 .detail-panel.panel-entering .detail-friends,
 .detail-panel.panel-entering .detail-notes {
-  animation: detailContentFade .3s var(--ease-out-expo) both;
+  animation: detailContentFade .3s var(--ease-out) both;
 }
 .detail-panel.panel-entering .detail-stage-badge { animation-delay: .05s; }
 .detail-panel.panel-entering .detail-artist { animation-delay: .08s; }
@@ -2123,7 +2141,7 @@
 input:focus, select:focus, textarea:focus {
   border-color: var(--accent-aqua);
   box-shadow: 0 0 0 3px var(--aqua-a12), 0 0 16px var(--aqua-a06);
-  transition: border-color .2s ease, box-shadow .25s var(--ease-out-expo);
+  transition: border-color .2s ease, box-shadow .25s var(--ease-out);
 }
 input:focus-visible, select:focus-visible, textarea:focus-visible {
   box-shadow: 0 0 0 3px var(--aqua-a15), 0 0 20px var(--aqua-a08);
@@ -2133,7 +2151,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 /* ── Toast Enhancements ───────────────────────────────────────────── */
 .toast {
-  animation: toastSlideIn .35s var(--ease-out-expo);
+  animation: toastSlideIn .35s var(--ease-out);
   border-radius: var(--radius);
   backdrop-filter: blur(16px) saturate(150%);
 }
@@ -2215,7 +2233,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 /* ── Profile Badge & Pill Hover Polish ────────────────────────────── */
 .profile-badge {
-  transition: border-color .2s ease, box-shadow .25s var(--ease-out-expo), background .2s ease;
+  transition: border-color .2s ease, box-shadow .25s var(--ease-out), background .2s ease;
 }
 .profile-badge:hover {
   border-color: rgba(0, 232, 208, .35);
@@ -2225,7 +2243,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 /* ── Pick Item Hover Enhancement ──────────────────────────────────── */
 .pick-item {
-  transition: background .2s ease, transform .2s var(--ease-out-expo), box-shadow .2s ease, border-color .2s ease;
+  transition: background .2s ease, transform .2s var(--ease-out), box-shadow .2s ease, border-color .2s ease;
 }
 .pick-item:hover {
   background: var(--bg-card-hover);
@@ -2251,18 +2269,18 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   text-shadow: 0 0 40px rgba(var(--accent-coral-rgb), .3);
 }
 .auth-form input {
-  transition: border-color .2s ease, box-shadow .25s var(--ease-out-expo), background .2s ease;
+  transition: border-color .2s ease, box-shadow .25s var(--ease-out), background .2s ease;
 }
 .auth-form input:focus {
   box-shadow: 0 0 0 4px var(--aqua-a1), 0 0 24px var(--aqua-a06);
 }
 .auth-tab {
-  transition: background .2s var(--ease-out-expo), color .15s ease;
+  transition: background .2s var(--ease-out), color .15s ease;
 }
 
 /* ── Conflict Card Interaction ────────────────────────────────────── */
 .conflict-set {
-  transition: background .15s ease, transform .2s var(--ease-out-expo), box-shadow .2s ease;
+  transition: background .15s ease, transform .2s var(--ease-out), box-shadow .2s ease;
 }
 .conflict-set:hover {
   transform: translateY(-2px);
@@ -2282,7 +2300,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 /* ── View Transition Enhancement ──────────────────────────────────── */
 .content-area.view-switching > * {
-  animation: viewFadeScale .25s var(--ease-out-expo);
+  animation: viewFadeScale .25s var(--ease-out);
 }
 
 /* ── Reduced Motion: disable all interaction animations ───────────── */
@@ -2326,8 +2344,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   outline: none;
-  transition: border-color .2s ease, box-shadow .25s var(--ease-out-expo), background .2s ease;
-  font-family: var(--font-main);
+  transition: border-color .2s ease, box-shadow .25s var(--ease-out), background .2s ease;
+  font-family: var(--font-family-body);
 }
 .input::placeholder {
   color: var(--text-muted);
@@ -2431,7 +2449,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 /* ── Home Base Card hover state ────────────────────────────────────── */
 .home-base-card {
-  transition: border-color .2s ease, box-shadow .25s var(--ease-out-expo), background .2s ease;
+  transition: border-color .2s ease, box-shadow .25s var(--ease-out), background .2s ease;
 }
 .home-base-card:hover {
   border-color: rgba(0, 232, 208, .25);

@@ -1,0 +1,188 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+import { easing, duration } from '@festie/shared/tokens';
+
+<Meta title="Tokens/Motion" />
+
+# Motion Tokens
+
+All motion tokens are defined in `packages/shared/src/tokens/motion.ts`. Easing curves include both CSS `cubic-bezier()` strings and React Native-compatible bezier tuples.
+
+---
+
+## Easing Curves
+
+export function EasingDemo({ name, curve }) {
+  const bezierStr = curve.bezier.join(', ');
+  return (
+    <div style={{
+      marginBottom: 24,
+      padding: 16,
+      backgroundColor: 'rgba(20, 20, 38, 0.65)',
+      border: '1px solid rgba(255,255,255,0.06)',
+      borderRadius: 12,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: 'monospace', fontSize: 14, color: '#eaeaf2', fontWeight: 600 }}>
+            easing.{name}
+          </div>
+          <div style={{ fontFamily: 'monospace', fontSize: 12, color: '#9999bb', marginTop: 4 }}>
+            {curve.css}
+          </div>
+          <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#8787a8', marginTop: 2 }}>
+            bezier: [{bezierStr}]
+          </div>
+        </div>
+      </div>
+      <div style={{
+        position: 'relative',
+        height: 48,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderRadius: 8,
+        overflow: 'hidden',
+      }}>
+        <div
+          className="motion-demo-ball"
+          style={{
+            position: 'absolute',
+            top: 10,
+            left: 8,
+            width: 28,
+            height: 28,
+            borderRadius: 14,
+            backgroundColor: '#00e8d0',
+            transition: `transform 0.6s ${curve.css}`,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateX(calc(100% + 200px))';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateX(0)';
+          }}
+        />
+        <div style={{
+          position: 'absolute',
+          bottom: 4,
+          right: 8,
+          fontFamily: 'monospace',
+          fontSize: 10,
+          color: '#8787a8',
+        }}>
+          hover to animate
+        </div>
+      </div>
+    </div>
+  );
+}
+
+<EasingDemo name="out" curve={easing.out} />
+<EasingDemo name="in" curve={easing.in} />
+<EasingDemo name="spring" curve={easing.spring} />
+<EasingDemo name="standard" curve={easing.standard} />
+<EasingDemo name="outExpo" curve={easing.outExpo} />
+<EasingDemo name="outQuart" curve={easing.outQuart} />
+<EasingDemo name="inQuart" curve={easing.inQuart} />
+
+---
+
+## Duration Values
+
+export function DurationDemo({ name, ms }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 16,
+      marginBottom: 16,
+      padding: 16,
+      backgroundColor: 'rgba(20, 20, 38, 0.65)',
+      border: '1px solid rgba(255,255,255,0.06)',
+      borderRadius: 12,
+    }}>
+      <div style={{ width: 140, flexShrink: 0 }}>
+        <div style={{ fontFamily: 'monospace', fontSize: 14, color: '#eaeaf2', fontWeight: 600 }}>
+          duration.{name}
+        </div>
+        <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#ffb020', marginTop: 4 }}>
+          {ms}ms
+        </div>
+      </div>
+      <div style={{
+        flex: 1,
+        height: 40,
+        position: 'relative',
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderRadius: 8,
+        overflow: 'hidden',
+      }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: 6,
+            left: 8,
+            width: 28,
+            height: 28,
+            borderRadius: 14,
+            backgroundColor: name === 'fast' ? '#39ff14' : name === 'med' ? '#ffb020' : '#ff3366',
+            transition: `transform ${ms}ms cubic-bezier(0.16, 1, 0.3, 1)`,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateX(calc(100% + 200px))';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateX(0)';
+          }}
+        />
+        <div style={{
+          position: 'absolute',
+          bottom: 4,
+          right: 8,
+          fontFamily: 'monospace',
+          fontSize: 10,
+          color: '#8787a8',
+        }}>
+          hover to animate
+        </div>
+      </div>
+    </div>
+  );
+}
+
+<DurationDemo name="fast" ms={duration.fast} />
+<DurationDemo name="med" ms={duration.med} />
+<DurationDemo name="slow" ms={duration.slow} />
+
+---
+
+## Usage Guidelines
+
+| Duration | Use Case |
+|----------|----------|
+| `fast` (120ms) | Micro-interactions: button presses, toggles, icon state changes |
+| `med` (200ms) | Standard transitions: hover effects, panel reveals, color changes |
+| `slow` (320ms) | Emphasis animations: page transitions, modal entry/exit, onboarding |
+
+| Easing | Use Case |
+|--------|----------|
+| `out` | Default for most enter/appear animations (ease-out expo) |
+| `in` | Exit/disappear animations |
+| `spring` | Playful interactions: bouncy buttons, drag-and-drop snaps |
+| `standard` | Subtle, neutral transitions (Material-style ease) |
+| `outQuart` | Smooth deceleration alternative to `out` |
+
+---
+
+## CSS Custom Properties
+
+```css
+/* Easing */
+--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+--ease-in: cubic-bezier(0.4, 0, 1, 1);
+--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+--ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+/* Duration */
+--duration-fast: 120ms;
+--duration-med: 200ms;
+--duration-slow: 320ms;
+```
