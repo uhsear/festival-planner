@@ -1,6 +1,7 @@
 import { create, StateCreator } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { api } from '../services/api';
+import { getStorage } from '../platform/storage';
 import { useAuthStore } from './authStore';
 
 // Offline helper -- when `window.__festieQueue` is present AND the browser
@@ -285,6 +286,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
 export const useFestivalDataStore = create<FestivalDataStore>()(
   persist(festivalDataStore, {
     name: 'festie-festival',
+    storage: createJSONStorage(() => getStorage()),
     partialize: (state) => ({
       currentFestivalId: state.currentFestivalId,
     }),

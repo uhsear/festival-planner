@@ -56,6 +56,8 @@ vi.mock('../components/layout/RefreshableView', () => ({
 
 vi.mock('lucide-react', () => ({
   Star: () => <span data-testid="star-icon" />,
+  CalendarX: () => <span data-testid="calendar-x-icon" />,
+  UserPlus: () => <span data-testid="user-plus-icon" />,
 }));
 
 import PicksView from './picks';
@@ -89,16 +91,16 @@ describe('PicksView', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('shows "Select a festival first" when no festival', () => {
+  it('shows "No festival selected" when no festival', () => {
     setStoreState({ currentFestival: null });
     render(<PicksView />);
-    expect(screen.getByText('Select a festival first.')).toBeInTheDocument();
+    expect(screen.getByText('No festival selected')).toBeInTheDocument();
   });
 
-  it('shows "Join this festival" when no profile', () => {
+  it('shows "Join this festival first" when no profile', () => {
     setStoreState({ currentProfile: null });
     render(<PicksView />);
-    expect(screen.getByText('Join this festival to start saving picks.')).toBeInTheDocument();
+    expect(screen.getByText('Join this festival first')).toBeInTheDocument();
   });
 
   it('shows empty state when user has zero picks for the day', () => {

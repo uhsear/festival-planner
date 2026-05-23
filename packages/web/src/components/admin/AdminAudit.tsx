@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@festie/shared/services/api';
 import { useToast } from '../../lib/toastContext';
+import EmptyState from '../ui/EmptyState';
+import { SearchX } from 'lucide-react';
 
 interface AuditEntry {
   id: string;
@@ -146,7 +148,11 @@ export default function AdminAudit() {
 
       {/* Entries */}
       {entries.length === 0 ? (
-        <p className="text-text-muted text-center py-8">No audit entries found</p>
+        <EmptyState
+          icon={<SearchX className="w-9 h-9" aria-hidden="true" />}
+          title="No audit entries found"
+          description="Try adjusting your filters or date range."
+        />
       ) : (
         <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-hidden">
           <div className="divide-y divide-glass-border">

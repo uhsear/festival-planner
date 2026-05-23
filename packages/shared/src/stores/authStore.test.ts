@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useAuthStore } from './authStore';
-import { api, setAuthToken, clearAuthToken } from '../services/api';
+import { api, setAuthToken, clearAuthToken, getAuthToken } from '../services/api';
 import type { User } from '../types/domain';
 
 vi.mock('../services/api', () => ({
@@ -124,6 +124,18 @@ describe('authStore', () => {
       ).rejects.toBe('string error');
       expect(useAuthStore.getState().error).toBe('Login failed');
     });
+
+    it('handles login response without token', async () => {
+      vi.mocked(api.post).mockResolvedValueOnce({
+        user: mockUser,
+        roles: [],
+      });
+      await useAuthStore.getState().login({ username: 'alice', password: 'pass' });
+      const state = useAuthStore.getState();
+      expect(state.user).toEqual({ ...mockUser, isAdmin: false });
+      expect(state.userToken).toBeNull();
+      expect(setAuthToken).not.toHaveBeenCalled();
+    });
   });
 
   describe('register', () => {
@@ -154,6 +166,35 @@ describe('authStore', () => {
         }),
       ).rejects.toThrow();
       expect(useAuthStore.getState().error).toBe('Username taken');
+    });
+
+    it('handles non-Error thrown values', async () => {
+      vi.mocked(api.post).mockRejectedValueOnce('string error');
+      await expect(
+        useAuthStore.getState().register({
+          username: 'alice',
+          password: 'p',
+          confirmPassword: 'p',
+          tosAccepted: true,
+        }),
+      ).rejects.toBe('string error');
+      expect(useAuthStore.getState().error).toBe('Registration failed');
+    });
+
+    it('handles register response without token', async () => {
+      vi.mocked(api.post).mockResolvedValueOnce({
+        user: mockUser,
+      });
+      await useAuthStore.getState().register({
+        username: 'alice',
+        password: 'pass',
+        confirmPassword: 'pass',
+        tosAccepted: true,
+      });
+      const state = useAuthStore.getState();
+      expect(state.user).toEqual(mockUser);
+      expect(state.userToken).toBeNull();
+      expect(setAuthToken).not.toHaveBeenCalled();
     });
   });
 
@@ -258,6 +299,14 @@ describe('authStore', () => {
       ).rejects.toThrow();
       expect(useAuthStore.getState().error).toBe('Not found');
     });
+
+    it('handles non-Error thrown values', async () => {
+      vi.mocked(api.post).mockRejectedValueOnce('string error');
+      await expect(
+        useAuthStore.getState().forgotPassword({ email: 'bad@test.com' }),
+      ).rejects.toBe('string error');
+      expect(useAuthStore.getState().error).toBe('Request failed');
+    });
   });
 
   describe('changePassword', () => {
@@ -280,6 +329,119 @@ describe('authStore', () => {
       ).rejects.toThrow();
       expect(useAuthStore.getState().error).toBe('Wrong password');
     });
+
+    it('handles non-Error thrown values', async () => {
+      vi.mocked(api.post).mockRejectedValueOnce('string error');
+      await expect(
+        useAuthStore.getState().changePassword({
+          currentPassword: 'old',
+          newPassword: 'new',
+        }),
+      ).rejects.toBe('string error');
+      expect(useAuthStore.getState().error).toBe('Change password failed');
+    });
+  });
+
+  describe('uploadAvatar', () => {
+    it('uploads avatar and updates user on success', async () => {
+      useAuthStore.setState({ user: mockUser });
+      const mockBlob = new Blob(['img'], { type: 'image/png' });
+      const mockResponse = {
+        ok: true,
+        json: async () => ({ url: 'https://cdn.test/avatar.png', updatedAt: '2026-01-02T00:00:00Z' }),
+      };
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse as unknown as Response);
+
+      const result = await useAuthStore.getState().uploadAvatar(mockBlob);
+      expect(result.url).toBe('https://cdn.test/avatar.png');
+      expect(useAuthStore.getState().user!.avatar).toBe('https://cdn.test/avatar.png');
+      expect(useAuthStore.getState().isLoading).toBe(false);
+
+      vi.mocked(globalThis.fetch).mockRestore();
+    });
+
+    it('rolls back avatar on upload failure', async () => {
+      useAuthStore.setState({ user: { ...mockUser, avatar: 'old-avatar.jpg' } });
+      const mockBlob = new Blob(['img'], { type: 'image/png' });
+      const mockResponse = {
+        ok: false,
+        json: async () => ({}),
+      };
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse as unknown as Response);
+
+      await expect(useAuthStore.getState().uploadAvatar(mockBlob)).rejects.toThrow('Upload failed');
+      expect(useAuthStore.getState().user!.avatar).toBe('old-avatar.jpg');
+      expect(useAuthStore.getState().error).toBe('Upload failed');
+      expect(useAuthStore.getState().isLoading).toBe(false);
+
+      vi.mocked(globalThis.fetch).mockRestore();
+    });
+
+    it('rolls back to undefined avatar when previous avatar was undefined', async () => {
+      useAuthStore.setState({ user: { ...mockUser, avatar: undefined } });
+      const mockBlob = new Blob(['img'], { type: 'image/png' });
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
+
+      await expect(useAuthStore.getState().uploadAvatar(mockBlob)).rejects.toThrow('Network error');
+      expect(useAuthStore.getState().user!.avatar).toBeUndefined();
+      expect(useAuthStore.getState().error).toBe('Network error');
+
+      vi.mocked(globalThis.fetch).mockRestore();
+    });
+
+    it('handles non-Error thrown values on failure', async () => {
+      useAuthStore.setState({ user: mockUser });
+      const mockBlob = new Blob(['img'], { type: 'image/png' });
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce('string error');
+
+      await expect(useAuthStore.getState().uploadAvatar(mockBlob)).rejects.toBe('string error');
+      expect(useAuthStore.getState().error).toBe('Avatar upload failed');
+
+      vi.mocked(globalThis.fetch).mockRestore();
+    });
+
+    it('includes Authorization header when bearer token exists', async () => {
+      useAuthStore.setState({ user: mockUser });
+      vi.mocked(getAuthToken).mockReturnValue('test-bearer-token');
+
+      const mockBlob = new Blob(['img'], { type: 'image/png' });
+      const mockResponse = {
+        ok: true,
+        json: async () => ({ url: 'https://cdn.test/avatar.png', updatedAt: '2026-01-02T00:00:00Z' }),
+      };
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse as unknown as Response);
+
+      await useAuthStore.getState().uploadAvatar(mockBlob);
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          credentials: 'omit',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-bearer-token',
+          }),
+        }),
+      );
+
+      fetchSpy.mockRestore();
+    });
+
+    it('handles upload when user is null', async () => {
+      useAuthStore.setState({ user: null });
+      const mockBlob = new Blob(['img'], { type: 'image/png' });
+      const mockResponse = {
+        ok: true,
+        json: async () => ({ url: 'https://cdn.test/avatar.png', updatedAt: '2026-01-02T00:00:00Z' }),
+      };
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(mockResponse as unknown as Response);
+
+      const result = await useAuthStore.getState().uploadAvatar(mockBlob);
+      expect(result.url).toBe('https://cdn.test/avatar.png');
+      // user stays null since there's no user to update
+      expect(useAuthStore.getState().user).toBeNull();
+
+      vi.mocked(globalThis.fetch).mockRestore();
+    });
   });
 
   describe('removeAvatar', () => {
@@ -295,6 +457,21 @@ describe('authStore', () => {
       vi.mocked(api.delete).mockRejectedValueOnce(new Error('Failed'));
       await expect(useAuthStore.getState().removeAvatar()).rejects.toThrow();
       expect(useAuthStore.getState().error).toBe('Failed');
+    });
+
+    it('handles non-Error thrown values', async () => {
+      useAuthStore.setState({ user: mockUser });
+      vi.mocked(api.delete).mockRejectedValueOnce('string error');
+      await expect(useAuthStore.getState().removeAvatar()).rejects.toBe('string error');
+      expect(useAuthStore.getState().error).toBe('Remove avatar failed');
+    });
+
+    it('handles remove when user is null', async () => {
+      useAuthStore.setState({ user: null });
+      vi.mocked(api.delete).mockResolvedValueOnce(undefined);
+      await useAuthStore.getState().removeAvatar();
+      expect(useAuthStore.getState().user).toBeNull();
+      expect(useAuthStore.getState().isLoading).toBe(false);
     });
   });
 

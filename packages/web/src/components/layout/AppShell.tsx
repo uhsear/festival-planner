@@ -12,6 +12,7 @@ import OfflineBanner from '../features/OfflineBanner';
 import UpdatePrompt from '../features/UpdatePrompt';
 import IOSInstallSheet from '../features/IOSInstallSheet';
 import FestivalDayBanner from '../features/FestivalDayBanner';
+import Onboarding from '../features/Onboarding';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useScrollReset } from '../../hooks/useScrollReset';
@@ -88,6 +89,7 @@ export default function AppShell() {
       <OfflineBanner />
       <UpdatePrompt />
       <IOSInstallSheet />
+      <Onboarding />
       <Header />
 
       {showDayBanner && <FestivalDayBanner />}

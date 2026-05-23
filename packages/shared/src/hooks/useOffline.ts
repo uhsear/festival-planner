@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useUIStore } from '../stores/uiStore';
+import { getStorage } from '../platform/storage';
 
 export interface OfflineSnapshot {
   timestamp: number;
@@ -25,6 +26,8 @@ export function useOffline(): UseOfflineReturn {
   });
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const handleOnline = () => {
       setIsOnline(true);
       setOfflineMode(false);
@@ -50,7 +53,7 @@ export function useOffline(): UseOfflineReturn {
         timestamp: Date.now(),
         data,
       };
-      localStorage.setItem('festie-offline-snapshot', JSON.stringify(snapshot));
+      getStorage().setItem('festie-offline-snapshot', JSON.stringify(snapshot));
     } catch (err) {
       console.error('Failed to save offline snapshot:', err);
     }
@@ -58,9 +61,14 @@ export function useOffline(): UseOfflineReturn {
 
   const restoreSnapshot = useCallback((): OfflineSnapshot | null => {
     try {
-      const item = localStorage.getItem('festie-offline-snapshot');
-      if (!item) return null;
-      return JSON.parse(item) as OfflineSnapshot;
+      const raw = getStorage().getItem('festie-offline-snapshot');
+      // Storage adapter may return a Promise (AsyncStorage) -- the sync
+      // signature is kept for backward-compat; async adapters will return
+      // null here. Callers needing async restore should use the storage
+      // adapter directly.
+      if (raw instanceof Promise) return null;
+      if (!raw) return null;
+      return JSON.parse(raw) as OfflineSnapshot;
     } catch (err) {
       console.error('Failed to restore offline snapshot:', err);
       return null;

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@festie/shared/services/api';
 import { useToast } from '../../lib/toastContext';
+import EmptyState from '../ui/EmptyState';
+import { SearchX } from 'lucide-react';
 
 interface Crew {
   id: string;
@@ -116,7 +118,11 @@ export default function AdminCrews() {
       />
 
       {filteredCrews.length === 0 ? (
-        <p className="text-text-muted text-center py-8">No crews found</p>
+        <EmptyState
+          icon={<SearchX className="w-9 h-9" aria-hidden="true" />}
+          title="No crews found"
+          description="Try adjusting your search query."
+        />
       ) : (
         <div className="space-y-3">
           {filteredCrews.map((crew) => {

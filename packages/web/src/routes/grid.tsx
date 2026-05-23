@@ -7,6 +7,8 @@ import { getPxPerMin, getGutterW, toMin, fmtHour } from '../components/grid/grid
 import { useGridExport } from '../components/grid/useGridExport';
 import GridStageHeader from '../components/grid/GridStageHeader';
 import GridStageColumn from '../components/grid/GridStageColumn';
+import EmptyState from '../components/ui/EmptyState';
+import { CalendarX, Clock } from 'lucide-react';
 
 export default function GridView() {
   return (
@@ -114,15 +116,19 @@ function GridViewInner() {
 
   if (!currentFestival)
     return (
-      <div className="no-festival" role="status">
-        <p>No festival selected.</p>
-      </div>
+      <EmptyState
+        icon={<CalendarX className="w-9 h-9" aria-hidden="true" />}
+        title="No festival selected"
+        description="Choose a festival from the top menu to view the schedule grid."
+      />
     );
   if (!timedSets.length || !bounds)
     return (
-      <div className="no-festival" role="status">
-        <p>No timed sets to display.</p>
-      </div>
+      <EmptyState
+        icon={<Clock className="w-9 h-9" aria-hidden="true" />}
+        title="No timed sets to display"
+        description="There are no sets with scheduled times for this day. Try switching days above."
+      />
     );
 
   const totalH = bounds.span * PX_PER_MIN;

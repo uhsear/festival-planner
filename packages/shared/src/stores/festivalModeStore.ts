@@ -1,5 +1,6 @@
 import { create, StateCreator } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { getStorage } from '../platform/storage';
 
 export interface FestivalModeState {
   isFestivalMode: boolean;
@@ -60,7 +61,7 @@ const festivalModeStore: StateCreator<FestivalModeStore> = (set) => ({
 export const useFestivalModeStore = create<FestivalModeStore>()(
   persist(festivalModeStore, {
     name: 'festie-festival-mode-v2',
-    storage: createJSONStorage(() => localStorage),
+    storage: createJSONStorage(() => getStorage()),
     partialize: (state) => ({
       isFestivalMode: state.isFestivalMode,
       manuallyDisabled: state.manuallyDisabled,

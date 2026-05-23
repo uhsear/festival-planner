@@ -1,6 +1,7 @@
 import { RootRoute, Route, Router, redirect } from '@tanstack/react-router';
 import { lazy, Suspense, type ComponentType, type ReactElement } from 'react';
 import AppShell from './components/layout/AppShell';
+import RouteErrorBoundary from './components/layout/RouteErrorBoundary';
 import { useAuthStore } from '@festie/shared';
 import CardsSkeleton from './components/ui/skeletons/CardsSkeleton';
 import TimelineSkeleton from './components/ui/skeletons/TimelineSkeleton';
@@ -243,16 +244,7 @@ export const router = new Router({
   // default only fires for beforeLoad redirects + route-level pending states.
   defaultPendingComponent: MinimalFallback,
   defaultPendingMs: 200,
-  defaultErrorComponent: ({ error: _error, reset }) => (
-    <div className="no-festival" role="alert">
-      <p className="text-[var(--accent-coral)] text-base mb-3">
-        Error loading page
-      </p>
-      <button onClick={() => reset()} className="btn btn-primary btn-sm">
-        Try Again
-      </button>
-    </div>
-  ),
+  defaultErrorComponent: RouteErrorBoundary,
 });
 
 // ── Route-change focus management (WCAG 2.4.3) ─────────────────────

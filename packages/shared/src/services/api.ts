@@ -178,6 +178,29 @@ export const api = {
   },
 };
 
+/**
+ * One-call configuration for mobile / non-browser environments.
+ *
+ * ```ts
+ * configureApi({ baseUrl: 'https://festie.us/api/v1', authMode: 'bearer' });
+ * ```
+ */
+export function configureApi(options: {
+  baseUrl?: string;
+  authMode?: AuthMode;
+  onUnauthorized?: () => Promise<boolean>;
+}): void {
+  if (options.baseUrl !== undefined) {
+    _apiBase = options.baseUrl;
+  }
+  if (options.authMode !== undefined) {
+    _authMode = options.authMode;
+  }
+  if (options.onUnauthorized !== undefined) {
+    _onUnauthorized = options.onUnauthorized;
+  }
+}
+
 export function createAdminApi(): typeof api {
   return api;
 }

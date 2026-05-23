@@ -12,7 +12,7 @@ import TimelineLegend from '../components/timeline/TimelineLegend';
 import { useTimelineFilters } from '../hooks/useTimelineFilters';
 import { useTimelineViewport } from '../hooks/useTimelineViewport';
 import { useNowIndicator } from '../hooks/useNowIndicator';
-import { CalendarX, Music } from 'lucide-react';
+import { CalendarX, Music, Filter } from 'lucide-react';
 
 export default function TimelineView() {
   return (
@@ -87,9 +87,11 @@ function TimelineViewInner() {
   if (!allDaySets.length || !timeBounds || timeBounds.totalSlots <= 0 || timeBounds.totalSlots > 200) {
     return (
       <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
-        <div className="no-festival">
-          <p>No sets scheduled for this day — try switching days above.</p>
-        </div>
+        <EmptyState
+          icon={<Music className="w-9 h-9" aria-hidden="true" />}
+          title="No sets scheduled for this day"
+          description="Try switching days above to find scheduled sets."
+        />
       </RefreshableView>
     );
   }
@@ -97,9 +99,11 @@ function TimelineViewInner() {
   if (!visibleStages.length) {
     return (
       <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
-        <div className="no-festival">
-          <p>All stages are filtered out — tap a stage above to show it.</p>
-        </div>
+        <EmptyState
+          icon={<Filter className="w-9 h-9" aria-hidden="true" />}
+          title="All stages are filtered out"
+          description="Tap a stage above to show it on the timeline."
+        />
       </RefreshableView>
     );
   }

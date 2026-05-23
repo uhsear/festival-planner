@@ -2,6 +2,7 @@ import { create, StateCreator } from 'zustand';
 import { persist, PersistStorage } from 'zustand/middleware';
 import { api, setAuthToken, clearAuthToken, getApiBase, getAuthToken } from '../services/api';
 import { TRUSTED_MUTATION_HEADER } from '../constants/config';
+import { getStorage } from '../platform/storage';
 import { resetAllStores } from './resetStores';
 import {
   User,
@@ -44,23 +45,30 @@ export type AuthStore = AuthState & AuthActions;
 
 const defaultStorage: PersistStorage<AuthState> = {
   getItem: (name) => {
-    const item = typeof window !== 'undefined' ? localStorage.getItem(name) : null;
-    if (!item) return null;
+    const raw = getStorage().getItem(name);
+    // Handle both sync (localStorage) and async (AsyncStorage) adapters
+    if (raw instanceof Promise) {
+      return raw.then((item) => {
+        if (!item) return null;
+        try {
+          return JSON.parse(item);
+        } catch {
+          return null;
+        }
+      });
+    }
+    if (!raw) return null;
     try {
-      return JSON.parse(item);
+      return JSON.parse(raw);
     } catch {
       return null;
     }
   },
   setItem: (name, value) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(name, JSON.stringify(value));
-    }
+    getStorage().setItem(name, JSON.stringify(value));
   },
   removeItem: (name) => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(name);
-    }
+    getStorage().removeItem(name);
   },
 };
 

@@ -8,7 +8,7 @@ import { formatTime, artistDisplayName } from '@festie/shared/utils';
 import StageBadge from '../components/ui/StageBadge';
 import EmptyState from '../components/ui/EmptyState';
 import RefreshableView from '../components/layout/RefreshableView';
-import { Star } from 'lucide-react';
+import { Star, CalendarX, UserPlus } from 'lucide-react';
 
 const PRIORITY_SECTIONS: Array<[Priority, string, string]> = [
   ['must', 'Must See', 'var(--priority-must)'],
@@ -126,9 +126,11 @@ function PicksViewInner() {
   if (!currentFestival) {
     return (
       <div className="picks-container" role="region" aria-label="My picks">
-        <div className="no-festival">
-          <p>Select a festival first.</p>
-        </div>
+        <EmptyState
+          icon={<CalendarX className="w-9 h-9" aria-hidden="true" />}
+          title="No festival selected"
+          description="Choose a festival from the top menu to start saving picks."
+        />
       </div>
     );
   }
@@ -136,12 +138,12 @@ function PicksViewInner() {
   if (!currentProfile) {
     return (
       <div className="picks-container" role="region" aria-label="My picks">
-        <div className="no-festival">
-          <p>Join this festival to start saving picks.</p>
-          <p className="mt-2 text-[13px] text-[var(--color-text-secondary)]">
-            Open the Schedule tab and tap <strong>Join festival</strong>.
-          </p>
-        </div>
+        <EmptyState
+          icon={<UserPlus className="w-9 h-9" aria-hidden="true" />}
+          title="Join this festival first"
+          description="Open the Schedule tab and tap Join festival to start saving picks."
+          cta={{ label: 'Browse Artists', onClick: () => navigate({ to: '/cards' }) }}
+        />
       </div>
     );
   }
@@ -213,18 +215,24 @@ function PicksViewInner() {
             })}
 
             {items.length === 0 && (
-              <div className="empty-state-guide">
-                <div className="empty-state-icon">
-                  {pri === 'must' ? '★' : pri === 'want-to-see' ? '◆' : '●'}
-                </div>
-                <div className="empty-state-text">
-                  {pri === 'must'
-                    ? 'Tap ★ on any set to mark it as must-see.'
+              <EmptyState
+                className="py-3"
+                icon={<Star className="w-6 h-6" aria-hidden="true" />}
+                title={
+                  pri === 'must'
+                    ? 'No must-see picks yet'
                     : pri === 'want-to-see'
-                      ? "Tap ◆ on sets you'd like to catch."
-                      : "Tap ● on sets you're considering."}
-                </div>
-              </div>
+                      ? 'No want-to-see picks yet'
+                      : 'No maybe picks yet'
+                }
+                description={
+                  pri === 'must'
+                    ? 'Tap the star on any set to mark it as must-see.'
+                    : pri === 'want-to-see'
+                      ? "Tap the diamond on sets you'd like to catch."
+                      : 'Tap the circle on sets you\'re considering.'
+                }
+              />
             )}
           </div>
         );

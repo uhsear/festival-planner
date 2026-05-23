@@ -4,6 +4,8 @@ import { useToast } from '../../lib/toastContext';
 import LineupImport from './LineupImport';
 import FestivalEditForm, { Festival as FormFestival } from './FestivalEditForm';
 import { cn } from '../../lib/utils';
+import EmptyState from '../ui/EmptyState';
+import { SearchX } from 'lucide-react';
 import type { SetRow } from './SetEditor';
 
 interface Festival {
@@ -184,7 +186,11 @@ export default function AdminFestivals() {
           </div>
 
           {filteredFestivals.length === 0 ? (
-            <p className="text-text-muted text-center py-8">No festivals found</p>
+            <EmptyState
+              icon={<SearchX className="w-9 h-9" aria-hidden="true" />}
+              title="No festivals found"
+              description="Try adjusting your search or create a new festival."
+            />
           ) : (
             <div className="space-y-3">
               {filteredFestivals.map((festival) => (

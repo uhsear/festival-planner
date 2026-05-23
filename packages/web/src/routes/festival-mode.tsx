@@ -7,7 +7,7 @@ import { artistDisplayName } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import EmptyState from '../components/ui/EmptyState';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
-import { CalendarX, SkipForward } from 'lucide-react';
+import { CalendarX, SkipForward, Music, Star } from 'lucide-react';
 
 // Countdown flips to coral + bolder when a set is ≤ this many minutes away,
 // so a user scanning the view in a crowd can grok "run, now" at a glance.
@@ -150,7 +150,12 @@ function FestivalModeViewInner() {
             );
           })
         ) : (
-          <div className="fm-empty">Nothing playing right now — enjoy the walk.</div>
+          <EmptyState
+            className="py-3"
+            icon={<Music className="w-7 h-7" aria-hidden="true" />}
+            title="Nothing playing right now"
+            description="Enjoy the walk — your next set will show up below."
+          />
         )}
       </section>
 
@@ -187,19 +192,20 @@ function FestivalModeViewInner() {
             );
           })
         ) : picks && Object.keys(picks).length === 0 ? (
-          <div className="fm-empty fm-empty--cta">
-            <span>No picks yet. </span>
-            <button
-              type="button"
-              className="fm-empty-link"
-              onClick={() => navigate({ to: '/cards' })}
-              data-testid="fm-empty-pick-cta"
-            >
-              Browse the lineup →
-            </button>
-          </div>
+          <EmptyState
+            className="py-3"
+            icon={<Star className="w-7 h-7" aria-hidden="true" />}
+            title="No picks yet"
+            description="Browse the lineup and pick your must-see sets."
+            cta={{ label: 'Browse the lineup', onClick: () => navigate({ to: '/cards' }) }}
+          />
         ) : (
-          <div className="fm-empty">No more picks today — rest those legs.</div>
+          <EmptyState
+            className="py-3"
+            icon={<SkipForward className="w-7 h-7" aria-hidden="true" />}
+            title="No more picks today"
+            description="Rest those legs — you've seen everything on your list."
+          />
         )}
       </section>
     </div>

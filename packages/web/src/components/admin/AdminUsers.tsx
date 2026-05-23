@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@festie/shared/services/api';
 import { useToast } from '../../lib/toastContext';
+import EmptyState from '../ui/EmptyState';
+import { SearchX } from 'lucide-react';
 
 interface User {
   id: string;
@@ -96,7 +98,11 @@ export default function AdminUsers() {
       />
 
       {filteredUsers.length === 0 ? (
-        <p className="text-text-muted text-center py-8">No users found</p>
+        <EmptyState
+          icon={<SearchX className="w-9 h-9" aria-hidden="true" />}
+          title="No users found"
+          description="Try adjusting your search query."
+        />
       ) : (
         <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
