@@ -110,7 +110,6 @@
 .card-grid .card-overlap { animation: card-crew-in 240ms var(--ease-out) both; }
 .card-grid .card-priority-btn { position: relative; }
 .card-grid .card-priority-btn::after { content: ''; position: absolute; inset: -4px; }
-.card-grid .card-preview-btn { position: relative; }
 .card-grid .card-preview-btn::after { content: ''; position: absolute; inset: -7px; }
 
 /* ── CSS containment ─────────────────────────────────────────────────── */
