@@ -149,7 +149,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
       handleOnly
     >
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-[999] bg-black/20" />
+        <Drawer.Overlay className="fixed inset-0 z-[999] bg-black/50" />
         <Drawer.Content
           aria-label="Set detail panel"
           className="fixed bottom-0 inset-x-0 z-[1000] max-h-[min(90dvh,calc(100dvh-32px))] flex flex-col
