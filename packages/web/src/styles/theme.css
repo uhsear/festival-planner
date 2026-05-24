@@ -216,7 +216,7 @@
   --accent-coral-rgb: 255, 51, 102;
   --spotify-brand-rgb: 29, 185, 84;
 
-  /* Legacy glow aliases referencing var() — migrate to shadow-glow-* Tailwind */
+  /* Legacy glow aliases — migrate to shadow-glow Tailwind utilities */
   --glow-coral: 0 0 24px rgba(var(--accent-coral-rgb), .35);
   --glow-aqua: 0 0 24px rgba(0, 232, 208, .3);
   --glow-amber: 0 0 20px rgba(255, 176, 32, .3);
@@ -233,7 +233,7 @@
   /* Legacy backdrop alias */
   --glass: saturate(180%) blur(16px);
 
-  /* Legacy overlay/shade aliases — use bg-overlay-*/bg-shade-* Tailwind */
+  /* Legacy overlay and shade aliases */
   --overlay-1: rgba(255, 255, 255, .03);
   --overlay-2: rgba(255, 255, 255, .04);
   --overlay-3: rgba(255, 255, 255, .06);
@@ -251,7 +251,7 @@
   --shade-9: rgba(0, 0, 0, .45);
   --shade-10: rgba(0, 0, 0, .75);
 
-  /* Legacy alpha scale aliases — use bg-aqua-a*/bg-amber-a* Tailwind */
+  /* Legacy alpha scale aliases */
   --aqua-a06: rgba(0, 232, 208, .06);
   --aqua-a08: rgba(0, 232, 208, .08);
   --aqua-a1: rgba(0, 232, 208, .1);
@@ -271,7 +271,7 @@
   --wrap-poster-bg-2: #1a0a2e;
   --wrap-poster-bg-3: #0a1a2e;
 
-  /* Legacy status/text aliases — use Tailwind text-status-*/text-text-danger */
+  /* Legacy status and text aliases */
   --bg-hover: rgba(32, 32, 58, .8);
   --bg-elevated: rgba(24, 24, 44, .9);
   --text-on-accent: #fff;

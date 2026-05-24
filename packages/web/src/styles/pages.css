@@ -88,7 +88,7 @@
 }
 .crew-activity-item:last-child::before { display: none; }
 
-/* ── /cards: container-scoped overrides ──────────────────────────────── */
+/* ── /cards: interaction overrides ───────────────────────────────────── */
 .card-grid .set-card:has(.set-card-click-target:active) {
   transform: scale(0.985); transition: transform 90ms var(--ease-standard);
 }
@@ -108,22 +108,10 @@
   from { opacity: 0; transform: translateX(4px); } to { opacity: 1; transform: translateX(0); }
 }
 .card-grid .card-overlap { animation: card-crew-in 240ms var(--ease-out) both; }
-.card-grid .set-card {
-  display: flex !important; flex-direction: column !important;
-  background: rgba(22, 22, 44, 0.85); border: 1px solid rgba(255, 255, 255, 0.13);
-  border-left: 1px solid rgba(255, 255, 255, 0.13); padding: 10px 14px !important; gap: 0;
-}
-.card-grid .set-card .card-stage { margin-bottom: 4px !important; padding: 2px 9px; font-size: 10px; letter-spacing: 0.9px; width: fit-content; }
-.card-grid .set-card .card-artist { margin-bottom: 2px !important; line-height: 1.2; }
-.card-grid .set-card .card-artist-sub { margin-bottom: 2px !important; font-size: 12px; opacity: 0.6; }
-.card-grid .set-card .card-time { margin-bottom: 4px !important; font-size: 12px; }
-.card-grid .set-card .card-footer { gap: 6px; }
-.card-grid .card-priority { gap: 6px; }
-.card-grid .card-priority-btn { width: 36px; height: 36px; min-width: 36px; min-height: 36px; font-size: 13px; position: relative; }
+.card-grid .card-priority-btn { position: relative; }
 .card-grid .card-priority-btn::after { content: ''; position: absolute; inset: -4px; }
-.card-grid .card-preview-btn { width: 30px; height: 30px; min-inline-size: 30px; min-block-size: 30px; font-size: 11px; top: 10px; right: 10px; position: relative; }
+.card-grid .card-preview-btn { position: relative; }
 .card-grid .card-preview-btn::after { content: ''; position: absolute; inset: -7px; }
-.card-grid .card-note-indicator { top: 10px; font-size: 12px; }
 
 /* ── CSS containment ─────────────────────────────────────────────────── */
 .fk-grid__body, .timeline-grid, .crew-page { contain: layout style; }
@@ -236,12 +224,6 @@
 @media (min-width: 1441px) { .card-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); } }
 
 /* ── Accessibility media queries ─────────────────────────────────────── */
-@media (forced-colors: active) {
-  .card-priority-btn { border: 2px solid ButtonText; }
-  .card-priority-btn[aria-pressed="true"] { border-color: Highlight; background: Highlight; color: HighlightText; }
-  .set-card { border: 1px solid ButtonText; }
-  .day-tab.active { border-bottom: 3px solid Highlight; }
-}
 @media (prefers-reduced-motion: reduce) {
   .day-tab::after { transition: none; }
   .crew-poll-bar { animation: none !important; }
@@ -250,5 +232,3 @@
   .card-grid .card-priority-btn:hover, .card-grid .card-priority-btn:active,
   .card-grid .set-card:has(.set-card-click-target:active) { transform: none; }
 }
-@media (hover: none) { .set-card:hover { border-color: var(--border-light); background: var(--bg-card); } }
-@media (pointer: coarse) { input, textarea, select { font-size: 16px; } }

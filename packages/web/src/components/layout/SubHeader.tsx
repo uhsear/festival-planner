@@ -204,7 +204,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           <div className="search-box ml-auto relative" role="search">
             <input
               type="text"
-              className="search-input pl-[34px] w-[180px] text-[13px]"
+              className="search-input pl-[34px] w-[clamp(100px,30vw,180px)] text-[13px]"
               placeholder="Search artist..."
               value={searchQuery}
               aria-label="Search festival artists"
