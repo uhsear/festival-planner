@@ -8,6 +8,7 @@ import type { FestivalSet, Priority } from '@festie/shared/types';
 import EmptyState from '../components/ui/EmptyState';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { CalendarX, SkipForward, Music, Star } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // Countdown flips to coral + bolder when a set is ≤ this many minutes away,
 // so a user scanning the view in a crowd can grok "run, now" at a glance.
@@ -110,7 +111,7 @@ function FestivalModeViewInner() {
 
   if (!currentFestival) {
     return (
-      <div className="festival-mode-view">
+      <div className="px-4 max-w-[500px] mx-auto pb-[calc(20px+env(safe-area-inset-bottom,0px))]">
         <EmptyState
           icon={<CalendarX className="w-12 h-12" aria-hidden="true" />}
           title="No festival loaded"
@@ -121,14 +122,14 @@ function FestivalModeViewInner() {
   }
 
   return (
-    <div className="festival-mode-view" data-testid="festival-mode-view">
-      <div className="fm-header">
-        <div className="fm-festival-name">{currentFestival.name}</div>
-        <div className="fm-time" aria-label="Current time">{fmtClock(now)}</div>
+    <div className="px-4 max-w-[500px] mx-auto pb-[calc(20px+env(safe-area-inset-bottom,0px))]" data-testid="festival-mode-view">
+      <div className="flex justify-between items-baseline mb-5">
+        <div className="text-2xl font-bold font-display tracking-[-0.01em] text-text-primary">{currentFestival.name}</div>
+        <div className="text-base text-text-secondary tabular-nums" aria-label="Current time">{fmtClock(now)}</div>
       </div>
 
-      <section className="fm-section" aria-labelledby="fm-now-title">
-        <h2 id="fm-now-title" className="fm-section-title">
+      <section className="mb-5" aria-labelledby="fm-now-title">
+        <h2 id="fm-now-title" className="text-xs font-bold uppercase tracking-[0.08em] text-text-secondary mb-2 leading-[1.15] font-display">
           <span className="fm-live-dot" aria-hidden="true" /> NOW
         </h2>
         {current.length > 0 ? (
@@ -138,14 +139,14 @@ function FestivalModeViewInner() {
               <button
                 key={s.id}
                 type="button"
-                className="fm-set-card fm-now"
+                className="fm-set-card block w-full text-left py-3.5 px-4 bg-glass rounded-xl border border-border transition-[border-color,transform] duration-[var(--duration-med)] ease-[var(--ease-standard)] hover:border-accent-aqua active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 mb-2 cursor-pointer border-l-3 border-l-accent-coral bg-[color-mix(in_srgb,var(--color-accent-coral)_10%,var(--color-glass))]"
                 data-testid="fm-now-card"
                 onClick={() => setDetailSet(s)}
                 aria-label={`${artistDisplayName(s, currentFestival.b2bSeparator)} playing now${stageName ? ' at ' + stageName : ''}, open details`}
               >
-                <div className="fm-set-name">{artistDisplayName(s, currentFestival.b2bSeparator)}</div>
-                {stageName && <div className="fm-set-stage">{stageName}</div>}
-                <div className="fm-set-time fm-now-until">until {fmtClock(new Date(end))}</div>
+                <div className="text-lg font-semibold text-text-primary">{artistDisplayName(s, currentFestival.b2bSeparator)}</div>
+                {stageName && <div className="text-sm text-text-secondary mt-0.5 leading-[1.3]">{stageName}</div>}
+                <div className="text-sm text-accent-aqua mt-1 tabular-nums leading-[1.3] font-semibold text-[15px]">until {fmtClock(new Date(end))}</div>
               </button>
             );
           })
@@ -159,8 +160,8 @@ function FestivalModeViewInner() {
         )}
       </section>
 
-      <section className="fm-section" aria-labelledby="fm-next-title">
-        <h2 id="fm-next-title" className="fm-section-title">
+      <section className="mb-5" aria-labelledby="fm-next-title">
+        <h2 id="fm-next-title" className="text-xs font-bold uppercase tracking-[0.08em] text-text-secondary mb-2 leading-[1.15] font-display">
           {/* Swapped unicode ⏭ for the lucide icon so both section titles
               (NOW dot + UP NEXT) share the same icon system used elsewhere
               in the app (Trophy, Clock, Sparkles on /wrap, etc). */}
@@ -175,16 +176,20 @@ function FestivalModeViewInner() {
               <button
                 key={s.id}
                 type="button"
-                className="fm-set-card"
+                className="fm-set-card block w-full text-left py-3.5 px-4 bg-glass rounded-xl border border-border transition-[border-color,transform] duration-[var(--duration-med)] ease-[var(--ease-standard)] hover:border-accent-aqua active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 mb-2 cursor-pointer"
                 data-testid="fm-next-card"
                 onClick={() => setDetailSet(s)}
                 aria-label={`${artistDisplayName(s, currentFestival.b2bSeparator)}${stageName ? ' at ' + stageName : ''} ${fmtCountdown(mins)}, open details`}
               >
-                <div className="fm-set-name">{artistDisplayName(s, currentFestival.b2bSeparator)}</div>
-                <div className="fm-set-info">
-                  {stageName && <span className="fm-set-stage">{stageName}</span>}
-                  <span className="fm-set-time">{fmtClock(new Date(start))}</span>
-                  <span className={'fm-countdown' + (imminent ? ' fm-countdown--imminent' : '')}>
+                <div className="text-lg font-semibold text-text-primary">{artistDisplayName(s, currentFestival.b2bSeparator)}</div>
+                <div className="flex justify-between items-baseline gap-2 mt-1 flex-wrap">
+                  {stageName && <span className="text-sm text-text-secondary leading-[1.3]">{stageName}</span>}
+                  <span className="text-sm text-accent-aqua tabular-nums leading-[1.3]">{fmtClock(new Date(start))}</span>
+                  <span className={cn(
+                    'text-xs text-accent-aqua font-semibold ml-1.5 tabular-nums leading-[1.15] tracking-[-0.01em]',
+                    'transition-colors duration-[var(--duration-med)] ease-[var(--ease-standard)]',
+                    imminent && 'text-accent-coral text-sm font-bold',
+                  )}>
                     {fmtCountdown(mins)}
                   </span>
                 </div>

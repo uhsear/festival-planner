@@ -8,6 +8,7 @@ import { router } from './router';
 import { initWebVitals } from './lib/web-vitals';
 import { ToastProvider } from './lib/toastContext';
 import Toast from './components/layout/Toast';
+import Button from './components/ui/Button';
 import './styles/globals.css';
 
 // ── Sentry initialization ───────────────────────────────────────────────
@@ -54,12 +55,13 @@ class GlobalErrorBoundary extends Component<
           <p className="text-[var(--color-text-secondary)] text-sm my-2 mb-4">
             {this.state.error?.message}
           </p>
-          <button
-            className="btn btn-primary btn-sm"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => window.location.reload()}
           >
             Reload
-          </button>
+          </Button>
         </div>
       );
     }

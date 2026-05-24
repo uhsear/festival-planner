@@ -30,7 +30,7 @@ describe('CardsSkeleton', () => {
 
   it('renders skeleton placeholders inside each card', () => {
     const { container } = render(<CardsSkeleton />);
-    const skeletons = container.querySelectorAll('.skeleton');
+    const skeletons = container.querySelectorAll('.skeleton-shimmer');
     // Each card has: stage pill + artist name + time + 3 priority buttons = 6
     expect(skeletons.length).toBe(8 * 6);
   });

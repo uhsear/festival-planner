@@ -10,7 +10,8 @@ describe('FestivalModeSkeleton', () => {
 
   it('renders a header section', () => {
     const { container } = render(<FestivalModeSkeleton />);
-    const header = container.querySelector('.fm-header');
+    // Header is the first flex row with justify-between + items-baseline
+    const header = container.querySelector('.flex.justify-between');
     expect(header).toBeInTheDocument();
   });
 
@@ -22,7 +23,7 @@ describe('FestivalModeSkeleton', () => {
 
   it('renders 1 card in NOW section and 2 cards in UP NEXT', () => {
     const { container } = render(<FestivalModeSkeleton />);
-    const sections = container.querySelectorAll('.fm-section');
+    const sections = container.querySelectorAll('section');
     expect(sections.length).toBe(2);
 
     const nowCards = sections[0]?.querySelectorAll('.fm-set-card');
@@ -39,7 +40,7 @@ describe('FestivalModeSkeleton', () => {
 
   it('uses skeleton class for placeholder blocks', () => {
     const { container } = render(<FestivalModeSkeleton />);
-    const skeletons = container.querySelectorAll('.skeleton');
+    const skeletons = container.querySelectorAll('.skeleton-shimmer');
     expect(skeletons.length).toBeGreaterThan(0);
   });
 });

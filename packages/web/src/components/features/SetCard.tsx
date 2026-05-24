@@ -7,6 +7,7 @@ import { api } from '@festie/shared/services/api';
 import { useSetStatus } from '@/hooks/useSetStatus';
 import { useToast } from '@/lib/toastContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { cn } from '@/lib/utils';
 import LiveBadge from './LiveBadge';
 import { ensureWhiteContrast } from '../ui/StageBadge';
 
@@ -88,8 +89,8 @@ function SetCard({
   const artistName = artistDisplayName(set, b2bSeparator);
   const subtitle = artistSubtitle(set, b2bSeparator);
 
-  const priClass = myPick ? ' priority-' + (PRI_MAP[myPick] || '') : '';
-  const conflictClass = conflicts.length > 0 ? ' has-conflict' : '';
+  const pri = myPick ? PRI_MAP[myPick] : null;
+  const hasConflict = conflicts.length > 0;
 
   const handlePriorityChange = async (priority: string, currentlyActive: boolean) => {
     // Haptic tick fires BEFORE the optimistic store update so the vibration
@@ -166,7 +167,45 @@ function SetCard({
 
   return (
     <div
-      className={'set-card' + priClass + conflictClass}
+      className={cn(
+        // Keep CSS class names for container query selectors (Phase 4 cleanup)
+        'set-card',
+        // Base styles
+        'relative bg-bg-card glass-xs border border-border-light rounded-DEFAULT',
+        'p-[18px] cursor-pointer overflow-hidden',
+        'border-l-4 border-l-transparent',
+        // Transition + will-change
+        'transition-[transform,box-shadow,background,border-color] duration-300 will-change-transform',
+        // Hover lift + shadow
+        'hover:bg-bg-card-hover hover:-translate-y-1.5 hover:scale-[1.008]',
+        'hover:shadow-[0_20px_40px_var(--color-shade-9),0_0_0_1px_var(--color-overlay-2)]',
+        // ::after gradient overlay (via before: — after: used for gradient)
+        'after:content-[""] after:absolute after:inset-[-1px] after:rounded-[inherit]',
+        'after:opacity-0 after:transition-opacity after:duration-300 after:pointer-events-none',
+        'after:bg-[linear-gradient(135deg,var(--color-aqua-a06)_0%,transparent_50%,rgba(255,51,102,0.04)_100%)]',
+        'hover:after:opacity-100',
+        // Priority variants
+        pri === 'must' && [
+          'priority-must',
+          'border-l-priority-must border-l-[5px] pl-4',
+          'shadow-[var(--shadow-glow-coral)]',
+          'hover:shadow-[0_20px_40px_var(--color-shade-9),var(--shadow-glow-coral)]',
+        ],
+        pri === 'want' && [
+          'priority-want',
+          'border-l-priority-want',
+          'shadow-[var(--shadow-glow-aqua)]',
+          'hover:shadow-[0_20px_40px_var(--color-shade-9),var(--shadow-glow-aqua)]',
+        ],
+        pri === 'maybe' && [
+          'priority-maybe',
+          'border-l-priority-maybe',
+          'shadow-[var(--shadow-glow-amber)]',
+          'hover:shadow-[0_20px_40px_var(--color-shade-9),var(--shadow-glow-amber)]',
+        ],
+        // Conflict marker class (for tests + potential styling)
+        hasConflict && 'has-conflict',
+      )}
       data-testid="set-card"
       data-artist={artistName}
     >
@@ -176,7 +215,11 @@ function SetCard({
           are positioned above via z-index. */}
       <button
         type="button"
-        className="set-card-click-target absolute inset-0 z-[1] cursor-pointer border-0 bg-transparent p-0 m-0"
+        className={cn(
+          'set-card-click-target',
+          'absolute inset-0 z-[1] cursor-pointer border-0 bg-transparent p-0 m-0',
+          'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-[-2px] focus-visible:rounded-[inherit]',
+        )}
         aria-label={`${artistName} — ${stageName} ${set.startTime ? formatTime(set.startTime) : 'TBA'}`}
         onClick={() => { tap(); onTap(); }}
       />
@@ -184,7 +227,15 @@ function SetCard({
       {/* Spotify preview button — top-right corner, above click target */}
       {set.artists?.some((a) => a.links?.spotify) && (
         <button
-          className="card-preview-btn absolute right-2 top-2 z-[2]"
+          className={cn(
+            'card-preview-btn',
+            'absolute top-2 right-2 z-[2]',
+            'bg-spotify/20 border border-spotify/40 text-spotify',
+            'rounded-full w-11 h-11 text-sm cursor-pointer',
+            'flex items-center justify-center',
+            'transition-[background,transform] duration-150',
+            'hover:bg-spotify/30 hover:scale-110',
+          )}
           type="button"
           aria-label={
             previewPlaying
@@ -200,24 +251,69 @@ function SetCard({
       )}
 
       {/* Note indicator */}
-      {myNote && <div className="card-note-indicator absolute z-[2]" aria-label="Has note">📝</div>}
+      {myNote && (
+        <div
+          className="card-note-indicator absolute top-[var(--space-7)] right-[var(--space-7)] z-[2] text-sm opacity-50"
+          aria-label="Has note"
+        >
+          📝
+        </div>
+      )}
 
       {/* Conflict badge */}
-      {conflicts.length > 0 && <div className="conflict-badge absolute z-[2]">⚠ Conflict</div>}
+      {hasConflict && (
+        <div className={cn(
+          'absolute top-[var(--space-7)] right-9 z-[2]',
+          'text-[11px] font-bold py-0.5 px-2 rounded-sm',
+          'bg-[rgba(255,51,102,0.15)] text-accent-coral',
+          'border border-[rgba(255,51,102,0.3)]',
+          'tracking-[0.5px] uppercase',
+        )}>
+          ⚠ Conflict
+        </div>
+      )}
 
       <span
-        className="card-stage relative z-[2] font-bold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]"
+        className={cn(
+          'card-stage',
+          'relative z-[2] inline-block px-2.5 py-[3px] rounded-md',
+          'text-[11px] font-bold uppercase tracking-[0.8px] mb-2.5',
+          'text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]',
+        )}
         style={{ background: ensureWhiteContrast(stageColor) }}
       >
         {stageName}
       </span>
 
       {/* Artist name */}
-      <div className="card-artist">{artistName}</div>
-      {subtitle && <div className="card-artist-sub">{subtitle}</div>}
+      <div className={cn(
+        'card-artist',
+        'relative z-[2] pointer-events-none',
+        'text-xl font-bold tracking-[-0.4px] leading-[1.15] mb-1',
+        'bg-gradient-to-br from-text-primary to-[rgba(234,234,242,0.85)]',
+        'bg-clip-text',
+      )}>
+        {artistName}
+      </div>
+      {subtitle && (
+        <div className={cn(
+          'card-artist-sub',
+          'relative z-[2] pointer-events-none',
+          'text-[11px] font-medium leading-[1.35] text-text-muted mt-0.5',
+          'overflow-hidden text-ellipsis',
+          '[-webkit-line-clamp:2] [-webkit-box-orient:vertical] [display:-webkit-box]',
+          'break-words max-h-[2.7em]',
+        )}>
+          {subtitle}
+        </div>
+      )}
 
       {/* Time */}
-      <span className="card-time">
+      <span className={cn(
+        'card-time',
+        'relative z-[2] pointer-events-none',
+        'text-[13px] text-text-secondary tabular-nums mb-3',
+      )}>
         {set.startTime && set.endTime
           ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}`
           : 'TBA'}
@@ -229,19 +325,49 @@ function SetCard({
       )}
 
       {/* Footer with priority buttons, crew overlap, and preview */}
-      <div className="card-footer">
+      <div className={cn(
+        'card-footer',
+        'relative z-[2]',
+        'flex items-center justify-between mt-3',
+      )}>
         {/* Priority buttons */}
         {showPicks && (
-          <div className="card-priority">
+          <div className="card-priority flex gap-3">
             {([['must', '★'], ['want-to-see', '◆'], ['maybe', '●']] as const).map(
               ([p, icon]) => {
                 const active = myPick === p;
-                const cls =
-                  'card-priority-btn' + (active ? ` active-${PRI_MAP[p]}` : '');
+                const priKey = PRI_MAP[p];
                 return (
                   <button
                     key={p}
-                    className={cls}
+                    className={cn(
+                      'card-priority-btn',
+                      'w-11 h-11 min-w-11 min-h-11 rounded-full',
+                      'flex items-center justify-center',
+                      'bg-bg-input border border-border-light',
+                      'text-sm text-text-muted cursor-pointer',
+                      'transition-[transform,box-shadow,background,border-color,color] duration-200',
+                      'hover:border-text-secondary hover:scale-110',
+                      'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-[-2px]',
+                      'active:scale-[0.92]',
+                      // Active priority states
+                      active && priKey === 'must' && [
+                        'active-must',
+                        'bg-priority-must text-text-on-accent border-priority-must',
+                        'shadow-[var(--shadow-glow-coral),0_0_0_1px_rgba(255,51,102,0.3)]',
+                        'animate-[pulseGlow_2s_ease-in-out_infinite]',
+                      ],
+                      active && priKey === 'want' && [
+                        'active-want',
+                        'bg-priority-want text-[var(--text-on-light-accent)] border-priority-want',
+                        'shadow-[var(--shadow-glow-aqua),0_0_0_1px_var(--color-aqua-a3)]',
+                      ],
+                      active && priKey === 'maybe' && [
+                        'active-maybe',
+                        'bg-priority-maybe text-[var(--text-on-light-accent)] border-priority-maybe',
+                        'shadow-[var(--shadow-glow-amber),0_0_0_1px_var(--color-amber-a3)]',
+                      ],
+                    )}
                     type="button"
                     aria-pressed={active ? 'true' : 'false'}
                     aria-label={
@@ -276,14 +402,24 @@ function SetCard({
         {/* Crew overlap / who's going */}
         {friendProfiles.length > 0 && (
           <button
-            className="card-overlap"
+            className={cn(
+              'card-overlap',
+              'flex gap-2 items-center cursor-pointer',
+              'bg-transparent border-0 p-0 text-inherit font-inherit appearance-none',
+              'min-h-11 inline-flex',
+              'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:rounded-sm',
+            )}
             type="button"
             aria-label={`${friendProfiles.length} crew members going to ${artistName}`}
             onClick={(e) => {
               e.stopPropagation();
             }}
           >
-            <span className="crew-count-badge">
+            <span className={cn(
+              'text-[11px] font-bold text-accent-aqua',
+              'bg-[rgba(0,232,208,0.15)] py-0.5 px-[7px] rounded-md',
+              'whitespace-nowrap mr-0.5',
+            )}>
               {friendProfiles.length === 1 ? '1 going' : `${friendProfiles.length} going`}
             </span>
           </button>

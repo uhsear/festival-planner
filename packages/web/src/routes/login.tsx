@@ -3,6 +3,8 @@ import { useNavigate, Link } from '@tanstack/react-router';
 import { useAuth } from '@festie/shared';
 import { useToast } from '../lib/toastContext';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
+import Button from '../components/ui/Button';
+import { cn } from '../lib/utils';
 
 export default function LoginPage() {
   return (
@@ -44,21 +46,66 @@ function LoginPageInner() {
   };
 
   return (
-    <main className="auth-screen" aria-label="Authentication">
-      <h1 className="logo-big">FESTIE</h1>
-      <p className="tagline">Plan your sets. Sync with your crew.</p>
+    <>
+      <h1
+        className={cn(
+          'font-display text-[clamp(22px,5vw,36px)] font-bold tracking-[6px] uppercase',
+          'text-accent-coral mb-3 relative z-[1]',
+          '[text-shadow:0_0_40px_rgba(var(--accent-coral-rgb),0.3)]',
+        )}
+      >
+        FESTIE
+      </h1>
+      <p className="text-text-secondary text-[15px] mb-11 tracking-[0.5px] relative z-[1]">
+        Plan your sets. Sync with your crew.
+      </p>
 
-      <div className="auth-tabs" role="tablist" aria-label="Authentication method">
-        <button className="auth-tab active" role="tab" aria-selected={true} tabIndex={0} type="button">Login</button>
-        <Link to="/register" className="auth-tab" role="tab" aria-selected={false} tabIndex={-1}>
+      <div
+        className={cn(
+          'flex mb-6 border border-border-light rounded-[var(--radius)] overflow-hidden',
+          'w-full max-w-[360px] relative z-[1]',
+        )}
+        role="tablist"
+        aria-label="Authentication method"
+      >
+        <button
+          className={cn(
+            'flex-1 py-[var(--space-6)] text-sm font-bold text-center min-h-11 cursor-pointer',
+            'bg-accent-aqua text-[var(--text-on-light-accent)]',
+            'transition-[background,color] duration-200 ease-[var(--ease-out)]',
+          )}
+          role="tab"
+          aria-selected={true}
+          tabIndex={0}
+          type="button"
+        >
+          Login
+        </button>
+        <Link
+          to="/register"
+          className={cn(
+            'flex-1 py-[var(--space-6)] text-sm font-semibold text-center min-h-11 cursor-pointer',
+            'bg-[var(--bg-card)] text-text-secondary',
+            'transition-[background,color] duration-200 ease-[var(--ease-out)]',
+            'inline-flex items-center justify-center',
+          )}
+          role="tab"
+          aria-selected={false}
+          tabIndex={-1}
+        >
           Create Account
         </Link>
       </div>
 
-      <form className="auth-form" onSubmit={handleSubmit} noValidate {...(isLoading ? { 'aria-busy': true } : {})}>
+      <form
+        className="w-full max-w-[360px] relative z-[1]"
+        onSubmit={handleSubmit}
+        noValidate
+        {...(isLoading ? { 'aria-busy': true } : {})}
+      >
         <div
           id="authFormError"
-          className="auth-error"
+          className="text-accent-coral text-[13px] mb-3 min-h-[18px] text-center"
           role="alert"
           aria-live="assertive"
         >
@@ -84,7 +131,12 @@ function LoginPageInner() {
           disabled={isLoading}
           aria-invalid={Boolean(formError && !username)}
           aria-describedby={formError ? 'authFormError' : undefined}
-          className="min-h-11"
+          className={cn(
+            'w-full py-3.5 px-[18px] text-base text-center mb-3 rounded-[var(--radius)]',
+            'bg-[var(--bg-card)] backdrop-blur-[12px] min-h-11',
+            'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
+            'focus:shadow-[0_0_0_4px_var(--aqua-a1),0_0_24px_var(--aqua-a06)]',
+          )}
         />
 
         <label htmlFor="authPassword" className="sr-only">
@@ -103,27 +155,33 @@ function LoginPageInner() {
           disabled={isLoading}
           aria-invalid={Boolean(formError && !password)}
           aria-describedby={formError ? 'authFormError' : undefined}
-          className="min-h-11"
+          className={cn(
+            'w-full py-3.5 px-[18px] text-base text-center mb-3 rounded-[var(--radius)]',
+            'bg-[var(--bg-card)] backdrop-blur-[12px] min-h-11',
+            'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
+            'focus:shadow-[0_0_0_4px_var(--aqua-a1),0_0_24px_var(--aqua-a06)]',
+          )}
         />
 
-        <button
-          className="btn btn-primary min-h-11"
+        <Button
+          variant="primary"
+          fullWidth
           type="submit"
           disabled={isLoading}
-          {...(isLoading ? { 'aria-busy': true } : {})}
+          isLoading={isLoading}
         >
           {isLoading ? 'Logging in...' : 'Login'}
-        </button>
+        </Button>
 
         <div className="mt-3 text-center">
           <Link
             to="/forgot-password"
-            className="text-[13px] text-[var(--accent)] no-underline"
+            className="text-[13px] text-[var(--accent)] no-underline inline-flex items-center min-h-11 px-0 py-2.5"
           >
             Forgot password?
           </Link>
         </div>
       </form>
-    </main>
+    </>
   );
 }

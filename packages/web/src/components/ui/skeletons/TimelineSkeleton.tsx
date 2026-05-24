@@ -1,5 +1,7 @@
+import { cn } from '../../../lib/utils';
+
 /**
- * Skeleton mirroring `.timeline-grid` — a 4-stage column layout with 5
+ * Skeleton mirroring the timeline grid — a 4-stage column layout with 5
  * staggered placeholder set blocks. Matches TimelineView's grid template so
  * the lazy-route swap in feels seamless on mobile.
  */
@@ -9,20 +11,50 @@ export default function TimelineSkeleton() {
 
   return (
     <div
-      className="timeline-container"
+      className="relative overflow-auto h-full [-webkit-overflow-scrolling:touch] overscroll-contain"
       aria-busy="true"
       aria-label="Loading timeline"
       role="region"
     >
       <div
-        className="timeline-grid relative grid-cols-[52px_repeat(4,minmax(0,1fr))] grid-rows-[auto_repeat(16,28px)]"
+        className={cn(
+          'timeline-grid',
+          'grid relative min-w-[800px] gap-0',
+          'grid-cols-[52px_repeat(4,minmax(0,1fr))]',
+          'grid-rows-[auto_repeat(16,28px)]',
+        )}
       >
         {/* corner */}
-        <div className="timeline-header-cell" />
+        <div
+          className={cn(
+            'timeline-header-cell',
+            'sticky top-0 z-10 text-center',
+            'bg-[rgba(10,10,20,0.95)] backdrop-blur-[8px]',
+            'border-b-2 border-b-[var(--border)]',
+            'font-bold uppercase tracking-[1.5px]',
+            // Mobile: smaller text, tight padding, allow wrapping
+            'text-[0.6rem] leading-[1.2] px-0.5 py-1 whitespace-normal break-words overflow-hidden',
+            // Desktop: restore full sizing
+            'md:text-[11px] md:leading-normal md:px-2 md:py-2.5',
+          )}
+        />
         {/* stage headers */}
         {Array.from({ length: stages }).map((_, i) => (
-          <div key={`h-${i}`} className="timeline-header-cell">
-            <div className="skeleton mx-auto h-3.5 w-[60%]" />
+          <div
+            key={`h-${i}`}
+            className={cn(
+              'timeline-header-cell',
+              'sticky top-0 z-10 text-center',
+              'bg-[rgba(10,10,20,0.95)] backdrop-blur-[8px]',
+              'border-b-2 border-b-[var(--border)]',
+              'font-bold uppercase tracking-[1.5px]',
+              // Mobile: smaller text, tight padding, allow wrapping
+              'text-[0.6rem] leading-[1.2] px-0.5 py-1 whitespace-normal break-words overflow-hidden',
+              // Desktop: restore full sizing
+              'md:text-[11px] md:leading-normal md:px-2 md:py-2.5',
+            )}
+          >
+            <div className="skeleton-shimmer mx-auto h-3.5 w-[60%]" />
           </div>
         ))}
 
@@ -30,11 +62,20 @@ export default function TimelineSkeleton() {
         {Array.from({ length: slots }).map((_, i) => (
           <div
             key={`t-${i}`}
-            className="timeline-time-cell"
+            className={cn(
+              'timeline-time-cell',
+              'sticky left-0 z-5',
+              'px-2.5 py-1',
+              'text-[11px] font-semibold text-[var(--text-muted)]',
+              'bg-[var(--bg-primary)]',
+              'border-r border-r-[var(--border)]',
+              'flex items-start justify-end whitespace-nowrap',
+              'tabular-nums',
+            )}
             style={{ gridRow: i + 2, gridColumn: 1 }}
           >
             {i % 2 === 0 ? (
-              <div className="skeleton h-2.5 w-8" />
+              <div className="skeleton-shimmer h-2.5 w-8" />
             ) : null}
           </div>
         ))}
@@ -49,7 +90,7 @@ export default function TimelineSkeleton() {
         ].map((b, i) => (
           <div
             key={`s-${i}`}
-            className="skeleton m-[1px_2px] rounded-md opacity-65"
+            className="skeleton-shimmer m-[1px_2px] rounded-md opacity-65"
             style={{
               gridRow: `${b.row + 1} / span ${b.span}`,
               gridColumn: b.col + 1,

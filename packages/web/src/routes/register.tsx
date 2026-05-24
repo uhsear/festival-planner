@@ -3,6 +3,8 @@ import { useNavigate, Link } from '@tanstack/react-router';
 import { useAuth } from '@festie/shared';
 import { useToast } from '../lib/toastContext';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
+import Button from '../components/ui/Button';
+import { cn } from '../lib/utils';
 
 export default function RegisterPage() {
   return (
@@ -11,6 +13,13 @@ export default function RegisterPage() {
     </RenderErrorBoundary>
   );
 }
+
+const authInputClasses = cn(
+  'w-full py-3.5 px-[18px] text-base text-center mb-3 rounded-[var(--radius)]',
+  'bg-[var(--bg-card)] backdrop-blur-[12px] min-h-11',
+  'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
+  'focus:shadow-[0_0_0_4px_var(--aqua-a1),0_0_24px_var(--aqua-a06)]',
+);
 
 function RegisterPageInner() {
   const navigate = useNavigate();
@@ -65,20 +74,70 @@ function RegisterPageInner() {
   };
 
   return (
-    <main className="auth-screen" aria-label="Authentication">
-      <h1 className="logo-big">FESTIE</h1>
-      <p className="tagline">Plan your sets. Sync with your crew.</p>
+    <>
+      <h1
+        className={cn(
+          'font-display text-[clamp(22px,5vw,36px)] font-bold tracking-[6px] uppercase',
+          'text-accent-coral mb-3 relative z-[1]',
+          '[text-shadow:0_0_40px_rgba(var(--accent-coral-rgb),0.3)]',
+        )}
+      >
+        FESTIE
+      </h1>
+      <p className="text-text-secondary text-[15px] mb-11 tracking-[0.5px] relative z-[1]">
+        Plan your sets. Sync with your crew.
+      </p>
 
-      <div className="auth-tabs" role="tablist" aria-label="Authentication method">
-        <Link to="/login" className="auth-tab" role="tab" aria-selected={false} tabIndex={-1}>
+      <div
+        className={cn(
+          'flex mb-6 border border-border-light rounded-[var(--radius)] overflow-hidden',
+          'w-full max-w-[360px] relative z-[1]',
+        )}
+        role="tablist"
+        aria-label="Authentication method"
+      >
+        <Link
+          to="/login"
+          className={cn(
+            'flex-1 py-[var(--space-6)] text-sm font-semibold text-center min-h-11 cursor-pointer',
+            'bg-[var(--bg-card)] text-text-secondary',
+            'transition-[background,color] duration-200 ease-[var(--ease-out)]',
+            'inline-flex items-center justify-center',
+          )}
+          role="tab"
+          aria-selected={false}
+          tabIndex={-1}
+        >
           Login
         </Link>
-        <button className="auth-tab active" role="tab" aria-selected={true} tabIndex={0} type="button">Create Account</button>
+        <button
+          className={cn(
+            'flex-1 py-[var(--space-6)] text-sm font-bold text-center min-h-11 cursor-pointer',
+            'bg-accent-aqua text-[var(--text-on-light-accent)]',
+            'transition-[background,color] duration-200 ease-[var(--ease-out)]',
+          )}
+          role="tab"
+          aria-selected={true}
+          tabIndex={0}
+          type="button"
+        >
+          Create Account
+        </button>
       </div>
 
-      <form className="auth-form" onSubmit={handleSubmit} noValidate {...(isLoading ? { 'aria-busy': true } : {})}>
-        <div id="authFormError" className="auth-error" role="alert" aria-live="assertive">
-          {formError || '\u00A0'}
+      <form
+        className="w-full max-w-[360px] relative z-[1]"
+        onSubmit={handleSubmit}
+        noValidate
+        {...(isLoading ? { 'aria-busy': true } : {})}
+      >
+        <div
+          id="authFormError"
+          className="text-accent-coral text-[13px] mb-3 min-h-[18px] text-center"
+          role="alert"
+          aria-live="assertive"
+        >
+          {formError || ' '}
         </div>
 
         <label htmlFor="authUsername" className="sr-only">
@@ -96,6 +155,7 @@ function RegisterPageInner() {
             if (e.key === 'Enter') document.getElementById('authPassword')?.focus();
           }}
           disabled={isLoading}
+          className={authInputClasses}
         />
 
         <label htmlFor="authPassword" className="sr-only">
@@ -112,6 +172,7 @@ function RegisterPageInner() {
             if (e.key === 'Enter') document.getElementById('authPassword2')?.focus();
           }}
           disabled={isLoading}
+          className={authInputClasses}
         />
 
         <label htmlFor="authPassword2" className="sr-only">
@@ -128,6 +189,7 @@ function RegisterPageInner() {
             if (e.key === 'Enter') document.getElementById('authEmail')?.focus();
           }}
           disabled={isLoading}
+          className={authInputClasses}
         />
 
         <label htmlFor="authEmail" className="sr-only">
@@ -136,7 +198,7 @@ function RegisterPageInner() {
         <input
           type="email"
           id="authEmail"
-          placeholder="Email — for password reset"
+          placeholder="Email &#x2014; for password reset"
           autoComplete="email"
           maxLength={254}
           value={email}
@@ -145,10 +207,11 @@ function RegisterPageInner() {
             if (e.key === 'Enter') handleSubmit(e);
           }}
           disabled={isLoading}
+          className={authInputClasses}
         />
 
-        {/* TOS checkbox — matches legacy styling */}
-        <label className="tos-checkbox my-2.5 flex min-h-11 cursor-pointer items-start gap-2 text-[13px] text-[var(--text-secondary)]">
+        {/* TOS checkbox */}
+        <label className="my-2.5 flex min-h-11 cursor-pointer items-start gap-2 text-[13px] text-[var(--text-secondary)]">
           <input
             type="checkbox"
             id="authTos"
@@ -168,10 +231,16 @@ function RegisterPageInner() {
           </span>
         </label>
 
-        <button className="btn btn-primary min-h-11" type="submit" disabled={isLoading} {...(isLoading ? { 'aria-busy': true } : {})}>
+        <Button
+          variant="primary"
+          fullWidth
+          type="submit"
+          disabled={isLoading}
+          isLoading={isLoading}
+        >
           {isLoading ? 'Creating account...' : 'Create Account'}
-        </button>
+        </Button>
       </form>
-    </main>
+    </>
   );
 }

@@ -32,14 +32,14 @@ const priColors: Record<string, string> = {
 
 export default function DetailCrewSection({ title, others, crewNotes }: Props) {
   return (
-    <div className="detail-friends">
-      <div className="detail-friends-title">{title}</div>
+    <div className="mb-6">
+      <div className="text-xs font-bold text-text-secondary mb-2.5 uppercase tracking-[1px]">{title}</div>
       <ul className="list-none m-0 p-0">
         {others.map((o) => {
           const avatarColor = getAvatarColor(o.name);
           const initials = getInitials(o.name);
           return (
-            <li key={o.profileId} className="detail-friend-item">
+            <li key={o.profileId} className="flex items-center gap-5 py-2 border-b border-border text-sm last:border-b-0">
               {o.avatar ? (
                 <img
                   src={o.avatar}
@@ -61,20 +61,20 @@ export default function DetailCrewSection({ title, others, crewNotes }: Props) {
                 </div>
               )}
               <span>{o.name}</span>
-              <span className="friend-priority" style={{ color: priColors[o.priority] }}>{priLabels[o.priority]}</span>
+              <span className="text-xs ml-auto font-semibold" style={{ color: priColors[o.priority] }}>{priLabels[o.priority]}</span>
             </li>
           );
         })}
       </ul>
 
       {crewNotes.length > 0 && (
-        <div className="border-t border-[var(--border)] py-2">
-          <div className="mb-1.5 text-xs font-semibold text-[var(--accent-aqua)]">
+        <div className="border-t border-border py-2">
+          <div className="mb-1.5 text-xs font-semibold text-accent-aqua">
             Crew Notes
           </div>
           {crewNotes.map((cn) => (
             <div key={cn.name} className="py-1 text-[13px]">
-              <strong className="text-[var(--text-secondary)]">{cn.name + ': '}</strong>
+              <strong className="text-text-secondary">{cn.name + ': '}</strong>
               {cn.note}
             </div>
           ))}

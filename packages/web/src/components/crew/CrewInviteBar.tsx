@@ -31,7 +31,7 @@ export default function CrewInviteBar({ inviteCode }: CrewInviteBarProps) {
       <Button
         variant={copiedCode ? 'primary' : 'outline'}
         onClick={handleCopy}
-        className={`!py-1 !px-2.5 text-xs ml-auto flex-shrink-0 ${copiedCode ? 'crew-copy-success' : ''}`}
+        className={`!py-1 !px-2.5 text-xs ml-auto flex-shrink-0 ${copiedCode ? 'animate-[crew-copy-pulse_260ms_var(--ease-out,ease-out)] motion-reduce:!animate-none' : ''}`}
       >
         {copiedCode ? '✓' : 'Copy'}
       </Button>

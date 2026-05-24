@@ -49,7 +49,7 @@ export default function MembersTab({
           {members.map((m) => (
             <div
               key={m.userId}
-              className="crew-list-enter py-2 px-2.5 rounded-md bg-bg-card border border-border flex items-center gap-2.5"
+              className="py-2 px-2.5 rounded-md bg-bg-card border border-border flex items-center gap-2.5 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none"
             >
               <Avatar name={m.name || m.username || 'User'} size="sm" />
               <div className="flex-1 min-w-0">

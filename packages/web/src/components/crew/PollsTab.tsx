@@ -10,6 +10,7 @@ import Skeleton from '../ui/Skeleton';
 import IconButton from '../ui/IconButton';
 import PollItem from './PollItem';
 import { BarChart3, Plus, X } from 'lucide-react';
+import { inputBase } from '../../lib/styles';
 
 interface RawVote { option: number; user_id: string | null }
 interface RawPoll {
@@ -122,7 +123,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
             <div className="space-y-2">
               {options.map((o, i) => (
                 <div key={`opt-${i}`} className="flex items-center gap-2">
-                  <input className="input-base flex-1 min-h-11" value={o}
+                  <input className={`${inputBase} flex-1 min-h-11`} value={o}
                     onChange={(e) => updateOpt(i, e.target.value)} placeholder={`Option ${i + 1}`}
                     aria-label={`Poll option ${i + 1}`} required />
                   {options.length > 2 && (

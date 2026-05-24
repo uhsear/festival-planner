@@ -17,30 +17,33 @@ describe('StageBadge', () => {
   it('applies default variant class', () => {
     render(<StageBadge stageName="Main" stageColor="#ff0000" />);
     const badge = screen.getByText('Main');
-    expect(badge.className).toContain('stage-badge');
+    expect(badge.className).toContain('rounded-full');
+    expect(badge.className).toContain('uppercase');
   });
 
   it('applies chip variant class', () => {
     render(<StageBadge stageName="Main" stageColor="#ff0000" variant="chip" />);
     const badge = screen.getByText('Main');
-    expect(badge.className).toContain('stage-chip');
+    expect(badge.className).toContain('rounded-full');
+    expect(badge.className).toContain('cursor-pointer');
   });
 
   it('applies pick variant class', () => {
     render(<StageBadge stageName="Main" stageColor="#ff0000" variant="pick" />);
     const badge = screen.getByText('Main');
-    expect(badge.className).toContain('pick-stage');
+    expect(badge.className).toContain('rounded-full');
+    expect(badge.className).toContain('font-bold');
   });
 
-  it('adds active suffix for active chip variant', () => {
+  it('adds active styling for active chip variant', () => {
     render(
       <StageBadge stageName="Main" stageColor="#ff0000" variant="chip" active />,
     );
     const badge = screen.getByText('Main');
-    expect(badge.className).toContain('active');
+    expect(badge.className).toContain('border-current');
   });
 
-  it('does not add active suffix for inactive chip', () => {
+  it('does not add active styling for inactive chip', () => {
     render(
       <StageBadge
         stageName="Main"
@@ -50,7 +53,7 @@ describe('StageBadge', () => {
       />,
     );
     const badge = screen.getByText('Main');
-    expect(badge.className).not.toContain(' active');
+    expect(badge.className).not.toContain('border-current');
   });
 
   it('applies custom className', () => {

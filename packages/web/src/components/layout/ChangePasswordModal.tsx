@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import UserMenuPanel from './UserMenuPanel';
+import { inputBase } from '../../lib/styles';
+import Button from '../ui/Button';
 
 interface ChangePasswordModalProps {
   onClose: () => void;
@@ -34,47 +36,47 @@ export default function ChangePasswordModal({ onClose, onSubmit }: ChangePasswor
 
   return (
     <UserMenuPanel ariaLabel="Change password" onClose={onClose}>
-      <section className="user-menu-section">
-        <div className="user-menu-section-title">Change Password</div>
+      <section className="pt-3 mt-3 border-t border-border first-of-type:pt-0 first-of-type:mt-0 first-of-type:border-t-0">
+        <div className="text-[11px] font-bold tracking-[1.2px] uppercase text-text-secondary mb-1.5">Change Password</div>
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="account-setting-row flex-col items-stretch gap-1.5">
-            <label className="account-setting-key" htmlFor="cp-current">
+          <div className="flex flex-col items-stretch gap-1.5 py-2.5">
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-[.8px]" htmlFor="cp-current">
               Current password
             </label>
             <input
               id="cp-current"
               type="password"
               autoComplete="current-password"
-              className="input-base"
+              className={inputBase}
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               required
             />
           </div>
-          <div className="account-setting-row flex-col items-stretch gap-1.5">
-            <label className="account-setting-key" htmlFor="cp-new">
+          <div className="flex flex-col items-stretch gap-1.5 py-2.5">
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-[.8px]" htmlFor="cp-new">
               New password
             </label>
             <input
               id="cp-new"
               type="password"
               autoComplete="new-password"
-              className="input-base"
+              className={inputBase}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               minLength={8}
               required
             />
           </div>
-          <div className="account-setting-row flex-col items-stretch gap-1.5">
-            <label className="account-setting-key" htmlFor="cp-confirm">
+          <div className="flex flex-col items-stretch gap-1.5 py-2.5">
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-[.8px]" htmlFor="cp-confirm">
               Confirm new password
             </label>
             <input
               id="cp-confirm"
               type="password"
               autoComplete="new-password"
-              className="input-base"
+              className={inputBase}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               minLength={8}
@@ -82,26 +84,28 @@ export default function ChangePasswordModal({ onClose, onSubmit }: ChangePasswor
             />
           </div>
           {error && (
-            <div role="alert" className="account-setting-value text-[var(--color-accent-coral)]">
+            <div role="alert" className="text-[13px] text-[var(--color-accent-coral)] overflow-hidden text-ellipsis whitespace-nowrap flex items-center gap-[var(--space-3)]">
               {error}
             </div>
           )}
-          <div className="user-menu-actions">
-            <button
+          <div className="flex flex-col gap-[var(--space-3)]">
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
-              className="btn btn-ghost btn-sm"
               onClick={onClose}
               disabled={busy}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
               type="submit"
-              className="btn btn-primary btn-sm"
               disabled={busy || !currentPassword || !newPassword || !confirmPassword}
             >
               {busy ? 'Saving...' : 'Update Password'}
-            </button>
+            </Button>
           </div>
         </form>
       </section>

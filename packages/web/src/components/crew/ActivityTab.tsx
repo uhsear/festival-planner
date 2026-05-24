@@ -78,7 +78,7 @@ export default function ActivityTab({ crewId }: Props) {
       {items.map((it, idx) => {
         const verb = TYPE_LABELS[it.type] || it.type.replace(/-/g, ' ');
         return (
-          <div key={it.id} className="crew-activity-item crew-list-enter stagger-item p-3 rounded-lg bg-bg-card border border-border flex items-start gap-3" style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}>
+          <div key={it.id} className="crew-activity-item stagger-item p-3 rounded-lg bg-bg-card border border-border flex items-start gap-3 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none" style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}>
             <Avatar name={it.username || 'User'} size="sm" />
             <div className="flex-1 min-w-0">
               <div className="text-sm text-text-primary">

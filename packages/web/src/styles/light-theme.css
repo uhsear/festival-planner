@@ -1,8 +1,6 @@
-/* ── Light theme (2026-05-02) ────────────────────────────────────────────
-   Overrides the dark-palette custom properties when the user toggles the
-   theme via the Header sun/moon button. Accent colors (coral, aqua, amber,
-   green, blue) and priority colors are designed to work on both light and
-   dark backgrounds, so they stay unchanged.
+/* ── Light theme ─────────────────────────────────────────────────────────
+   Overrides dark-palette custom properties when the user toggles theme.
+   Accent colors stay unchanged (designed for both backgrounds).
    ─────────────────────────────────────────────────────────────────────── */
 [data-theme="light"] {
   color-scheme: light;
@@ -21,14 +19,8 @@
   --color-glass-border: rgba(0, 0, 0, 0.08);
 }
 
-/* Glass utilities — light mode needs white-on-light-bg instead of
-   dark-on-dark-bg. The blur stays the same; only tints change. */
-[data-theme="light"] .glass-sm {
-  background-color: rgba(255, 255, 255, 0.8);
-}
-
-/* Skeleton shimmer — dark shimmer on light bg instead of white shimmer. */
-[data-theme="light"] .skeleton {
+/* Skeleton shimmer — dark shimmer on light bg. */
+[data-theme="light"] .skeleton-shimmer {
   background: linear-gradient(
     90deg,
     rgba(0, 0, 0, 0.04) 0%,
@@ -38,12 +30,12 @@
   background-size: 200% 100%;
 }
 
-/* Selection — darken the tint so it reads on light bg. */
+/* Selection */
 [data-theme="light"] ::selection {
   background-color: rgba(0, 232, 208, 0.2);
 }
 
-/* Glass hover — invert the blend direction for light bg. */
+/* Glass hover — invert blend for light bg. */
 @media (hover: hover) {
   [data-theme="light"] .glass:hover {
     background-color: color-mix(in oklch, var(--color-glass) 85%, black);
@@ -51,39 +43,24 @@
   }
 }
 
-/* Box shadows — dark-on-light instead of glow-on-dark. */
-[data-theme="light"] .timeline-set:hover {
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
-}
-[data-theme="light"] .timeline-tba-card:hover {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.10);
-}
-[data-theme="light"] .timeline-jump-now {
-  box-shadow:
-    0 6px 20px rgba(255, 51, 102, 0.2),
-    0 1px 3px rgba(0, 0, 0, 0.12);
-}
-[data-theme="light"] .timeline-jump-now:hover {
-  box-shadow:
-    0 8px 24px rgba(255, 51, 102, 0.28),
-    0 1px 4px rgba(0, 0, 0, 0.15);
-}
-
-/* Scrollbar — light track + darker thumb. */
+/* Scrollbar */
 [data-theme="light"] ::-webkit-scrollbar-track {
   background-color: var(--color-bg-secondary);
 }
-
-/* Festival mode cards — use light glass bg variable. */
-[data-theme="light"] .fm-set-card {
-  background: var(--color-bg-card);
-  border-color: var(--color-border-light);
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: var(--shade-5);
 }
-[data-theme="light"] .fm-set-card.fm-now {
-  background: color-mix(in srgb, var(--color-accent-coral) 8%, var(--color-bg-card));
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.22);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:active {
+  background: rgba(0, 180, 160, 0.35);
+}
+[data-theme="light"] * {
+  scrollbar-color: var(--shade-5) transparent;
 }
 
-/* Timeline legend + header — use theme variables. */
+/* Timeline legend */
 [data-theme="light"] .timeline-legend > summary {
   background: rgba(0, 0, 0, 0.04);
 }
@@ -95,24 +72,7 @@
   border-color: var(--color-border-light);
 }
 
-/* Legend dot border — match light bg. */
-[data-theme="light"] .legend-dot {
-  border-color: var(--color-bg-primary);
-}
-
-/* Timeline header backdrop — light bg with blur. */
-[data-theme="light"] .timeline-grid .timeline-header-cell {
-  background: var(--color-bg-primary);
-}
-
-/* Festival mode day banner — softer gradient on light bg. */
-[data-theme="light"] .festival-mode-day-banner {
-  background: linear-gradient(90deg, rgba(0, 212, 170, 0.12), rgba(155, 114, 255, 0.08));
-  border-color: rgba(0, 212, 170, 0.25);
-}
-
-/* Coral danger buttons — on light bg the default coral reads fine,
-   no need for the dark-mode pastel override. */
+/* Coral danger buttons — on light bg the default coral reads fine. */
 [data-theme="light"] .bg-accent-coral\/20.text-accent-coral {
   color: var(--color-accent-coral);
 }
@@ -121,46 +81,25 @@
   color: var(--color-accent-coral);
 }
 
-/* Crew activity rail — softer on light bg. */
+/* Crew activity rail */
 [data-theme="light"] .crew-activity-item::before {
   background: linear-gradient(to bottom,
     color-mix(in srgb, var(--color-accent-aqua) 20%, transparent),
     transparent);
 }
 
-/* Skip link — ensure it pops on light bg. */
+/* Skip link */
 [data-theme="light"] .skip-link {
   color: #fff;
 }
 
-/* Timeline set artist — color + text-shadow for light bg. */
-[data-theme="light"] .timeline-set .set-artist {
-  color: var(--text-primary);
-  text-shadow:
-    0 1px 2px rgba(255, 255, 255, 0.6),
-    0 0 1px rgba(255, 255, 255, 0.8);
-}
-
-/* Admin active tab — text color for active tab on light bg. */
+/* Admin active tab */
 [data-theme="light"] .admin-mobile-only button.bg-accent-aqua.text-bg-primary,
 [data-theme="light"] .admin-desktop-sidebar button.bg-accent-aqua.text-bg-primary {
   color: var(--color-bg-primary);
 }
 
-/* ── Legacy component overrides (migrated from legacy.css) ───────────────── */
-
-/* Cookie banner */
-[data-theme="light"] .cookie-banner {
-  background: rgba(255, 255, 255, 0.96);
-  border-top-color: rgba(var(--accent-coral-rgb), 0.3);
-  box-shadow: 0 -4px 24px var(--shade-3);
-}
-[data-theme="light"] .cookie-banner-text {
-  color: var(--cookie-banner-text-light);
-}
-
-/* Legacy variable overrides (--bg-*, --text-*, --glow-* tokens still used
-   by components that haven't migrated to the --color-* system yet). */
+/* Legacy variable overrides (short-form tokens still used by CSS rules). */
 [data-theme="light"] {
   --bg-primary: #f0f0f5;
   --bg-secondary: #e2e2ec;
@@ -195,13 +134,7 @@
   display: none;
 }
 
-/* Header + sub-header */
-[data-theme="light"] .header {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--shade-4);
-  box-shadow: 0 1px 0 var(--shade-2), 0 4px 12px var(--shade-1);
-}
+/* Sub-header */
 [data-theme="light"] .sub-header {
   background: rgba(240, 240, 245, 0.95);
   border-bottom: 1px solid var(--shade-2);
@@ -224,66 +157,22 @@
   box-shadow: 0 16px 32px var(--shade-4), 0 4px 8px var(--shade-2);
 }
 
-/* Detail panel + overlay */
-[data-theme="light"] .detail-panel {
-  background: rgba(255, 255, 255, 0.98);
-  border-color: var(--shade-4);
-  border-bottom-color: rgba(0, 0, 0, 0.1) !important;
-  box-shadow: 0 -8px 32px var(--shade-5), 0 -2px 8px var(--shade-2);
-}
-[data-theme="light"] .detail-overlay {
-  background: rgba(0, 0, 0, 0.35);
-}
-
 /* Bottom nav */
-[data-theme="light"] .bottom-nav {
+[data-theme="light"] [data-bottom-nav] {
   background: rgba(255, 255, 255, 0.95);
   border-top: 1px solid var(--shade-4);
   box-shadow: 0 -1px 0 var(--shade-2), 0 -4px 12px rgba(0, 0, 0, 0.03);
 }
 
-/* Toast */
-[data-theme="light"] .toast {
-  background: rgba(255, 255, 255, 0.98);
-  color: var(--text-primary);
-  border: 1px solid var(--shade-4);
-  box-shadow: 0 8px 24px var(--shade-3), 0 1px 4px var(--shade-1);
-}
-
-/* User menu */
-[data-theme="light"] .user-menu {
+/* User menu panel */
+[data-theme="light"] .user-menu-panel {
   box-shadow: 0 20px 48px var(--shade-5), 0 4px 12px var(--shade-2);
 }
 
-/* Guest + offline banners */
+/* Guest banner */
 [data-theme="light"] .guest-banner {
   background: rgba(var(--accent-coral-rgb), 0.06);
   border: 1px solid rgba(var(--accent-coral-rgb), 0.18);
-  color: var(--text-primary);
-}
-[data-theme="light"] .guest-banner .btn {
-  background: var(--accent-coral);
-  color: var(--text-on-accent);
-}
-[data-theme="light"] .offline-banner {
-  background: rgba(220, 80, 30, 0.08);
-  border: 1px solid rgba(220, 80, 30, 0.2);
-  color: var(--text-primary);
-}
-
-/* Logo */
-[data-theme="light"] .logo {
-  color: var(--text-primary);
-}
-
-/* Util buttons */
-[data-theme="light"] .util-btn {
-  background: var(--shade-1);
-  border-color: var(--shade-5);
-  color: var(--text-muted);
-}
-[data-theme="light"] .util-btn:hover {
-  background: var(--shade-3);
   color: var(--text-primary);
 }
 
@@ -304,55 +193,9 @@
   color: var(--text-secondary);
 }
 [data-theme="light"] .day-tab.active {
-  background: oklch(0.5 0.22 15) !important;
   background: #c01d3a !important;
-  border-color: oklch(0.5 0.22 15) !important;
   border-color: #c01d3a !important;
   color: #fff !important;
-}
-
-/* Festival card */
-[data-theme="light"] .festival-card {
-  border: 1px solid var(--shade-4);
-  box-shadow: 0 1px 4px var(--shade-2);
-}
-
-/* Timeline */
-[data-theme="light"] .timeline-cell {
-  border-color: var(--shade-3);
-}
-[data-theme="light"] .timeline-set {
-  color: var(--text-primary);
-  text-shadow: none;
-}
-[data-theme="light"] .timeline-set .set-time {
-  color: var(--text-secondary);
-  opacity: 0.8;
-}
-
-/* Ghost buttons */
-[data-theme="light"] .btn-ghost {
-  border-color: var(--shade-6);
-  color: var(--text-secondary);
-}
-[data-theme="light"] .btn-ghost:hover {
-  border-color: var(--text-primary);
-  color: var(--text-primary);
-}
-
-/* Stage header + time label */
-[data-theme="light"] .stage-header {
-  color: var(--text-primary);
-  border-bottom: 2px solid var(--shade-4);
-}
-[data-theme="light"] .time-label {
-  color: var(--text-secondary);
-}
-
-/* Countdown */
-[data-theme="light"] .countdown-strip {
-  background: rgba(0, 180, 160, 0.06);
-  border-color: rgba(0, 180, 160, 0.15);
 }
 
 /* Generic form inputs */
@@ -364,25 +207,7 @@
   border-color: var(--shade-5);
 }
 
-/* Nav buttons */
-[data-theme="light"] .nav-btn {
-  color: var(--text-muted);
-}
-[data-theme="light"] .nav-btn.active {
-  color: var(--accent-coral);
-}
-
-/* Crew card + picks */
-[data-theme="light"] .crew-card {
-  border: 1px solid var(--shade-4);
-  background: rgba(255, 255, 255, 0.95);
-}
-[data-theme="light"] .picks-summary {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--shade-4);
-}
-
-/* Priority button contrast */
+/* Priority buttons */
 [data-theme="light"] .card-priority-btn {
   background: rgba(220, 220, 232, 0.7);
   border: 1.5px solid var(--shade-7);
@@ -393,100 +218,10 @@
   background: rgba(210, 210, 225, 0.85);
 }
 
-/* Conflict cards */
-[data-theme="light"] .conflict-set {
-  background: rgba(0, 0, 0, 0.03);
-}
-[data-theme="light"] .conflict-set:hover {
-  background: var(--shade-2);
-}
-[data-theme="light"] .conflict-card {
-  border-color: var(--shade-5);
-  background: rgba(255, 255, 255, 0.95);
-}
-[data-theme="light"] .conflict-card:hover {
-  box-shadow: 0 4px 12px var(--shade-2);
-}
-
-/* Scrollbar (thumb) */
-[data-theme="light"] ::-webkit-scrollbar-thumb {
-  background: var(--shade-5);
-}
-[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.22);
-}
-[data-theme="light"] ::-webkit-scrollbar-thumb:active {
-  background: rgba(0, 180, 160, 0.35);
-}
-[data-theme="light"] * {
-  scrollbar-color: var(--shade-5) transparent;
-}
-
-/* .input class (crew/settings forms) */
-[data-theme="light"] .input {
-  background: var(--bg-primary);
-  border-color: var(--border);
-}
-[data-theme="light"] .input:hover {
-  border-color: var(--shade-7);
-}
-[data-theme="light"] .input:focus {
-  border-color: var(--accent-aqua);
-  box-shadow: 0 0 0 3px rgba(0, 180, 160, 0.12), 0 0 12px rgba(0, 180, 160, 0.06);
-}
-
-/* Crew management sections */
-[data-theme="light"] .crew-action-section {
-  background: rgba(0, 0, 0, 0.02);
-  border-color: var(--border);
-}
-[data-theme="light"] .crew-danger-zone {
-  background: rgba(var(--accent-coral-rgb), 0.03);
-  border-color: rgba(var(--accent-coral-rgb), 0.15);
-}
-[data-theme="light"] .crew-leave-section {
-  background: rgba(var(--accent-coral-rgb), 0.02);
-  border-color: rgba(var(--accent-coral-rgb), 0.1);
-}
-[data-theme="light"] .crew-member-row:hover {
-  background: rgba(0, 0, 0, 0.02);
-}
-[data-theme="light"] .crew-member-self {
-  background: rgba(0, 180, 160, 0.04);
-}
-[data-theme="light"] .crew-invite-row {
-  background: rgba(255, 176, 32, 0.04);
-  border-color: var(--amber-a2);
-}
-[data-theme="light"] .home-base-card:hover {
-  box-shadow: 0 4px 12px var(--shade-2);
-}
-[data-theme="light"] .home-base-ghost:hover {
-  background: rgba(0, 180, 160, 0.03);
-}
-
-/* Admin stat card */
-[data-theme="light"] .admin-stat-card:hover {
-  box-shadow: 0 12px 28px var(--shade-3);
-}
-
-/* Skeleton shimmer (legacy class) */
-[data-theme="light"] .skeleton-line {
-  background: linear-gradient(90deg, var(--shade-1) 25%, var(--shade-3) 50%, var(--shade-1) 75%);
-  background-size: 200% 100%;
-}
-
-/* ── A11y hardening overrides ────────────────────────────────────────────── */
-
-/* text-muted contrast */
+/* ── A11y hardening ─────────────────────────────────────────────────── */
 html[data-theme="light"],
 body[data-theme="light"] {
   --text-muted: #4a4a68 !important;
-}
-
-/* Disabled/placeholder tokens */
-html[data-theme="light"],
-body[data-theme="light"] {
   --text-disabled: #5a5a78;
   --text-placeholder: #4a4a68;
 }

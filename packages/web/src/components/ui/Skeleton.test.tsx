@@ -52,17 +52,17 @@ describe('Skeleton', () => {
     expect(el.tagName).toBe('DIV');
   });
 
-  it('includes skeleton base class for all variants', () => {
+  it('includes skeleton-shimmer base class for all variants', () => {
     const { rerender } = render(<Skeleton variant="text" />);
-    expect(screen.getByLabelText('Loading').className).toContain('skeleton');
+    expect(screen.getByLabelText('Loading').className).toContain('skeleton-shimmer');
 
     rerender(<Skeleton variant="circle" />);
-    expect(screen.getByLabelText('Loading').className).toContain('skeleton');
+    expect(screen.getByLabelText('Loading').className).toContain('skeleton-shimmer');
 
     rerender(<Skeleton variant="card" />);
-    expect(screen.getByLabelText('Loading').className).toContain('skeleton');
+    expect(screen.getByLabelText('Loading').className).toContain('skeleton-shimmer');
 
     rerender(<Skeleton variant="header" />);
-    expect(screen.getByLabelText('Loading').className).toContain('skeleton');
+    expect(screen.getByLabelText('Loading').className).toContain('skeleton-shimmer');
   });
 });

@@ -10,7 +10,7 @@ describe('AccountSkeleton', () => {
 
   it('renders an avatar placeholder circle', () => {
     const { container } = render(<AccountSkeleton />);
-    const avatarCircle = container.querySelector('.skeleton.h-16.w-16.rounded-full');
+    const avatarCircle = container.querySelector('.skeleton-shimmer.h-16.w-16.rounded-full');
     expect(avatarCircle).toBeInTheDocument();
   });
 
@@ -22,9 +22,9 @@ describe('AccountSkeleton', () => {
     expect(formCards.length).toBe(3);
   });
 
-  it('uses skeleton class for placeholder blocks', () => {
+  it('uses skeleton-shimmer class for placeholder blocks', () => {
     const { container } = render(<AccountSkeleton />);
-    const skeletons = container.querySelectorAll('.skeleton');
+    const skeletons = container.querySelectorAll('.skeleton-shimmer');
     expect(skeletons.length).toBeGreaterThan(0);
   });
 });

@@ -171,7 +171,7 @@ function WrapPageInner() {
       </header>
 
       {/* Stats grid */}
-      <div className="wrap-stats-grid grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5 max-[319px]:grid-cols-1">
         <Stat icon={<Trophy className="w-4 h-4" aria-hidden="true" />} label="Sets rated" value={String(stats.totalRated)} />
         <Stat icon={<MapIcon className="w-4 h-4" aria-hidden="true" />} label="Stages visited" value={String(stats.stagesVisited)} />
         <Stat icon={<CalendarDays className="w-4 h-4" aria-hidden="true" />} label="Days attended" value={String(stats.daysAttended)} />

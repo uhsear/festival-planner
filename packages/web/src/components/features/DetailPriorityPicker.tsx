@@ -1,4 +1,5 @@
 import { Priority } from '@festie/shared/types';
+import { cn } from '../../lib/utils';
 
 interface Props {
   myPick: Priority | null;
@@ -6,19 +7,29 @@ interface Props {
   onPriorityClick: (priority: Priority | null) => Promise<void>;
 }
 
-const priorityOptions: Array<[Priority | null, string, string, string]> = [
-  ['must', '★', 'Must See', 'active-must'],
-  ['want-to-see', '◆', 'Want to See', 'active-want'],
-  ['maybe', '●', 'Maybe', 'active-maybe'],
-  [null, '✕', 'Clear', 'active-none'],
+const priorityOptions: Array<[Priority | null, string, string]> = [
+  ['must', '★', 'Must See'],
+  ['want-to-see', '◆', 'Want to See'],
+  ['maybe', '●', 'Maybe'],
+  [null, '✕', 'Clear'],
 ];
+
+const activeStyles: Record<string, string> = {
+  must: 'border-priority-must bg-accent-coral/[0.08]',
+  'want-to-see': 'border-priority-want bg-[var(--aqua-a08)]',
+  maybe: 'border-priority-maybe bg-[var(--amber-a08)]',
+  clear: 'border-text-muted bg-[var(--overlay-1)]',
+};
+
+const baseButtonClass =
+  'flex-1 py-3 rounded-sm text-center bg-bg-card border-2 border-border cursor-pointer transition-all duration-250 ease-[var(--ease-standard)] text-text-primary touch-manipulation appearance-none hover:border-text-muted hover:scale-[1.03] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2';
 
 export default function DetailPriorityPicker({
   myPick, priorityBusy, onPriorityClick,
 }: Props) {
   return (
-    <div className="detail-priority-group">
-      {priorityOptions.map(([p, icon, label, cls]) => {
+    <div className="flex gap-4 mb-6">
+      {priorityOptions.map(([p, icon, label]) => {
         const active = myPick === p;
         const key: Priority | 'clear' = p ?? 'clear';
         const isThisBusy = priorityBusy === key;
@@ -26,9 +37,10 @@ export default function DetailPriorityPicker({
         return (
           <button
             key={label}
-            className={
-              'detail-priority-option' + (active ? ' ' + cls : '')
-            }
+            className={cn(
+              baseButtonClass,
+              active && activeStyles[key],
+            )}
             type="button"
             aria-pressed={active ? 'true' : 'false'}
             aria-label={label + (active ? ' (selected)' : '')}
@@ -42,7 +54,7 @@ export default function DetailPriorityPicker({
             }}
           >
             <div className="text-xl">{icon}</div>
-            <div className="priority-label">{label}</div>
+            <div className="text-[11px] font-bold mt-1 uppercase tracking-[0.5px]">{label}</div>
           </button>
         );
       })}

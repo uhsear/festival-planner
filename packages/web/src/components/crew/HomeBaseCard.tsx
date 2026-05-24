@@ -5,6 +5,7 @@ import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
 import { MapPin, X } from 'lucide-react';
 import IconButton from '../ui/IconButton';
+import { inputBase } from '../../lib/styles';
 
 interface Props {
   crewId: string;
@@ -61,9 +62,9 @@ export default function HomeBaseCard({ crewId, currentLocation, currentTime, isO
           </h3>
           <IconButton label="Cancel" icon={<X className="w-5 h-5" />} onClick={() => setEditing(false)} />
         </div>
-        <input className="input-base w-full min-h-11" placeholder="Where should the crew meet?"
+        <input className={`${inputBase} min-h-11`} placeholder="Where should the crew meet?"
           aria-label="Location" value={loc} onChange={(e) => setLoc(e.target.value)} maxLength={200} />
-        <input type="time" className="input-base w-full min-h-11" placeholder="Time (optional)"
+        <input type="time" className={`${inputBase} min-h-11`} placeholder="Time (optional)"
           aria-label="Meet at time" value={time} onChange={(e) => setTime(e.target.value)} />
         <Button variant="primary" isLoading={save.isPending} disabled={!loc.trim()}
           onClick={() => save.mutate({ location: loc.trim(), time: time || null })} className="w-full min-h-11">

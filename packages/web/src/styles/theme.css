@@ -10,6 +10,36 @@
   }
 }
 
+@utility glass {
+  backdrop-filter: saturate(180%) blur(16px);
+}
+
+@utility glass-sm {
+  backdrop-filter: saturate(180%) blur(12px);
+}
+
+@utility glass-xs {
+  backdrop-filter: blur(8px);
+}
+
+@utility press-scale {
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+@utility skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 0.5rem;
+}
+
 @theme {
   /* Breakpoints — required for md:/lg:/xl: responsive prefixes to be generated */
   --breakpoint-sm: 40rem;
@@ -102,40 +132,97 @@
   --space-12: 3rem;
 
   --measure-prose: 65ch;
+
+  /* ── Border radii ───────────────────────────────────────────────────────
+     Overrides Tailwind defaults so rounded-sm/md/lg match our design. */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-DEFAULT: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* ── Z-index ladder ─────────────────────────────────────────────────── */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-dropdown: 100;
+  --z-overlay: 1000;
+  --z-modal: 2000;
+  --z-toast: 3000;
+  --z-cookie: 4000;
+  --z-top: 9999;
+
+  /* ── Glow shadows ───────────────────────────────────────────────────── */
+  --shadow-glow-coral: 0 0 24px rgba(255, 51, 102, .35);
+  --shadow-glow-aqua: 0 0 24px rgba(0, 232, 208, .3);
+  --shadow-glow-amber: 0 0 20px rgba(255, 176, 32, .3);
+  --shadow-glow-green: 0 0 20px rgba(57, 255, 20, .3);
+
+  /* ── Additional colors ──────────────────────────────────────────────── */
+  --color-bg-hover: rgba(32, 32, 58, .8);
+  --color-bg-elevated: rgba(24, 24, 44, .9);
+  --color-text-danger: #f87171;
+  --color-text-disabled: #a8a8c0;
+  --color-text-placeholder: #a8a8c0;
+  --color-text-on-accent: #fff;
+  --color-text-on-dark: #000;
+  --color-status-verified: #22c55e;
+  --color-status-unverified: #fbbf24;
+  --color-status-verified-bg: rgba(34, 197, 94, .15);
+  --color-status-unverified-bg: rgba(251, 191, 36, .15);
+  --color-status-warning: #f0a030;
+  --color-status-error: #ff6b6b;
+  --color-spotify: #1DB954;
+
+  /* Overlay scale (white at increasing opacity) */
+  --color-overlay-1: rgba(255, 255, 255, .03);
+  --color-overlay-2: rgba(255, 255, 255, .04);
+  --color-overlay-3: rgba(255, 255, 255, .06);
+  --color-overlay-4: rgba(255, 255, 255, .08);
+  --color-overlay-5: rgba(255, 255, 255, .1);
+
+  /* Shade scale (black at increasing opacity) */
+  --color-shade-1: rgba(0, 0, 0, .04);
+  --color-shade-2: rgba(0, 0, 0, .06);
+  --color-shade-3: rgba(0, 0, 0, .08);
+  --color-shade-4: rgba(0, 0, 0, .1);
+  --color-shade-5: rgba(0, 0, 0, .12);
+  --color-shade-6: rgba(0, 0, 0, .15);
+  --color-shade-7: rgba(0, 0, 0, .2);
+  --color-shade-8: rgba(0, 0, 0, .4);
+  --color-shade-9: rgba(0, 0, 0, .45);
+  --color-shade-10: rgba(0, 0, 0, .75);
+
+  /* Aqua alpha scale */
+  --color-aqua-a06: rgba(0, 232, 208, .06);
+  --color-aqua-a08: rgba(0, 232, 208, .08);
+  --color-aqua-a1: rgba(0, 232, 208, .1);
+  --color-aqua-a12: rgba(0, 232, 208, .12);
+  --color-aqua-a15: rgba(0, 232, 208, .15);
+  --color-aqua-a2: rgba(0, 232, 208, .2);
+  --color-aqua-a3: rgba(0, 232, 208, .3);
+
+  /* Amber alpha scale */
+  --color-amber-a08: rgba(255, 176, 32, .08);
+  --color-amber-a12: rgba(255, 176, 32, .12);
+  --color-amber-a2: rgba(255, 176, 32, .2);
+  --color-amber-a3: rgba(255, 176, 32, .3);
 }
 
-/* Tokens that cannot live inside @theme (computed values, rgba channels,
-   composite shadows, etc.) — plain :root custom properties. */
+/* Values that cannot live in @theme: var() references, rgb channels,
+   composite values, and rarely-used one-offs. */
 :root {
-  /* Backgrounds & elevation */
-  --bg-hover: rgba(32, 32, 58, .8);
-  --bg-elevated: rgba(24, 24, 44, .9);
-
-  /* Coral RGB channel token (used in rgba() expressions) */
+  /* RGB channel tokens (used in inline rgba() expressions) */
   --accent-coral-rgb: 255, 51, 102;
+  --spotify-brand-rgb: 29, 185, 84;
 
-  /* Glow shadows */
+  /* Legacy glow aliases referencing var() — migrate to shadow-glow-* Tailwind */
   --glow-coral: 0 0 24px rgba(var(--accent-coral-rgb), .35);
   --glow-aqua: 0 0 24px rgba(0, 232, 208, .3);
   --glow-amber: 0 0 20px rgba(255, 176, 32, .3);
   --glow-green: 0 0 20px rgba(57, 255, 20, .3);
 
-  /* Text-on variants */
-  --text-on-accent: #fff;
-  --text-on-light-accent: #080810;
-  --text-on-dark: #000;
-  --text-on-poster: #fff;
-  --text-danger: #f87171;
-
-  /* Status colors */
-  --status-verified: #22c55e;
-  --status-unverified: #fbbf24;
-  --status-verified-bg: rgba(34, 197, 94, .15);
-  --status-unverified-bg: rgba(251, 191, 36, .15);
-  --status-warning: #f0a030;
-  --status-error: #ff6b6b;
-
-  /* Border radii */
+  /* Legacy radius aliases — use Tailwind rounded-sm/md/lg/pill instead */
   --radius: 12px;
   --radius-sm: 8px;
   --radius-lg: 20px;
@@ -143,10 +230,10 @@
   --radius-md: 10px;
   --radius-pill: 999px;
 
-  /* Backdrop */
+  /* Legacy backdrop alias */
   --glass: saturate(180%) blur(16px);
 
-  /* Overlay & shade scales */
+  /* Legacy overlay/shade aliases — use bg-overlay-*/bg-shade-* Tailwind */
   --overlay-1: rgba(255, 255, 255, .03);
   --overlay-2: rgba(255, 255, 255, .04);
   --overlay-3: rgba(255, 255, 255, .06);
@@ -164,7 +251,7 @@
   --shade-9: rgba(0, 0, 0, .45);
   --shade-10: rgba(0, 0, 0, .75);
 
-  /* Aqua alpha scale */
+  /* Legacy alpha scale aliases — use bg-aqua-a*/bg-amber-a* Tailwind */
   --aqua-a06: rgba(0, 232, 208, .06);
   --aqua-a08: rgba(0, 232, 208, .08);
   --aqua-a1: rgba(0, 232, 208, .1);
@@ -172,36 +259,31 @@
   --aqua-a15: rgba(0, 232, 208, .15);
   --aqua-a2: rgba(0, 232, 208, .2);
   --aqua-a3: rgba(0, 232, 208, .3);
-
-  /* Amber alpha scale */
   --amber-a08: rgba(255, 176, 32, .08);
   --amber-a12: rgba(255, 176, 32, .12);
   --amber-a2: rgba(255, 176, 32, .2);
   --amber-a3: rgba(255, 176, 32, .3);
 
-  /* Spotify */
-  --spotify-brand: #1DB954;
-  --spotify-brand-rgb: 29, 185, 84;
-
-  /* Cookie banner */
-  --cookie-banner-text-light: #1f2937;
-
-  /* Wrap poster backgrounds */
+  /* One-offs (low usage, keep as custom properties) */
+  --text-on-light-accent: #080810;
+  --text-on-poster: #fff;
   --wrap-poster-bg-1: #0a0a1a;
   --wrap-poster-bg-2: #1a0a2e;
   --wrap-poster-bg-3: #0a1a2e;
 
-  /* Accessibility: disabled + placeholder contrast (WCAG AA) */
+  /* Legacy status/text aliases — use Tailwind text-status-*/text-text-danger */
+  --bg-hover: rgba(32, 32, 58, .8);
+  --bg-elevated: rgba(24, 24, 44, .9);
+  --text-on-accent: #fff;
+  --text-on-dark: #000;
+  --text-danger: #f87171;
   --text-disabled: #a8a8c0;
   --text-placeholder: #a8a8c0;
-
-  /* Z-index token ladder */
-  --z-base: 0;
-  --z-sticky: 10;
-  --z-dropdown: 100;
-  --z-overlay: 1000;
-  --z-modal: 2000;
-  --z-toast: 3000;
-  --z-cookie: 4000;
-  --z-top: 9999;
+  --status-verified: #22c55e;
+  --status-unverified: #fbbf24;
+  --status-verified-bg: rgba(34, 197, 94, .15);
+  --status-unverified-bg: rgba(251, 191, 36, .15);
+  --status-warning: #f0a030;
+  --status-error: #ff6b6b;
+  --spotify-brand: #1DB954;
 }

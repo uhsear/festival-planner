@@ -40,13 +40,17 @@ export default function FestivalDayBanner() {
   };
 
   return (
-    <div className="festival-mode-day-banner" role="status" data-testid="festival-day-banner">
-      <span className="festival-mode-day-banner__text">
+    <div
+      className="flex items-center justify-between gap-2.5 bg-[linear-gradient(90deg,rgba(0,212,170,0.18),rgba(155,114,255,0.12))] border border-[rgba(0,212,170,0.3)] rounded-xl py-2.5 px-4 mx-3 my-2 text-sm text-text-primary animate-[fm-day-banner-slide_0.3s_ease-out] dark:bg-[linear-gradient(90deg,rgba(0,212,170,0.18),rgba(155,114,255,0.12))] [data-theme=light]:bg-[linear-gradient(90deg,rgba(0,212,170,0.12),rgba(155,114,255,0.08))] [data-theme=light]:border-[rgba(0,212,170,0.25)]"
+      role="status"
+      data-testid="festival-day-banner"
+    >
+      <span className="flex-1">
         <span aria-hidden="true">🎪 </span>It&apos;s festival day!
       </span>
       <button
         type="button"
-        className="festival-mode-day-banner__enter"
+        className="shrink-0 bg-accent-coral text-bg-primary border-none rounded-lg py-2 px-3.5 text-[13px] font-semibold cursor-pointer min-h-11 hover:brightness-110 active:scale-[0.97] transition-[transform,background-color,border-color,color,opacity] duration-[var(--duration-fast)] ease-[var(--ease-out)]"
         onClick={enter}
         data-testid="festival-day-banner-enter"
       >
@@ -54,7 +58,7 @@ export default function FestivalDayBanner() {
       </button>
       <button
         type="button"
-        className="festival-mode-day-banner__close"
+        className="shrink-0 bg-transparent border-none text-text-secondary cursor-pointer text-xl p-0 px-1 leading-none min-h-11 min-w-11 hover:text-text-primary active:scale-[0.97] transition-[transform,background-color,border-color,color,opacity] duration-[var(--duration-fast)] ease-[var(--ease-out)]"
         onClick={dismiss}
         aria-label="Dismiss festival day reminder"
         data-testid="festival-day-banner-close"

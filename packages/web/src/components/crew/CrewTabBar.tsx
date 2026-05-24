@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Users, MapPin, BarChart3, DollarSign, Activity,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export type TabKey = 'members' | 'meeting' | 'polls' | 'expenses' | 'activity';
 
@@ -33,11 +34,13 @@ export default function CrewTabBar({ activeTab, onTabChange }: CrewTabBarProps) 
           id={`crew-tab-${t.key}`}
           aria-controls="crew-tab-panel"
           onClick={() => onTabChange(t.key)}
-          className={`flex-shrink-0 px-2.5 py-1.5 min-h-11 rounded-md flex items-center gap-1 text-xs font-medium whitespace-nowrap transition-colors ${
+          className={cn(
+            'flex-shrink-0 px-2.5 py-1.5 min-h-11 rounded-md flex items-center gap-1 text-xs font-medium whitespace-nowrap',
+            'transition-[transform,background-color,border-color,color] duration-150 ease-out active:scale-[0.97] motion-reduce:active:!transform-none',
             activeTab === t.key
               ? 'bg-accent-aqua/15 text-accent-aqua border border-accent-aqua/30'
-              : 'bg-bg-card text-text-secondary border border-border hover:border-border-light'
-          }`}
+              : 'bg-bg-card text-text-secondary border border-border hover:border-border-light',
+          )}
         >
           {t.icon}
           {t.label}

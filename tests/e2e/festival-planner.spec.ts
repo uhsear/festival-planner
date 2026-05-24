@@ -163,7 +163,7 @@ test.describe('festival planner browser regression', () => {
     await page.locator('.detail-close').click();
 
     await openPrimaryView(page, 'Timeline');
-    await expect(page.locator('.timeline-set').filter({ hasText: 'Alpha' })).toBeVisible();
+    await expect(page.locator('[data-set-id]').filter({ hasText: 'Alpha' })).toBeVisible();
 
     await openPrimaryView(page, 'My Picks');
     await expect(page.locator('.pick-item .pick-artist').filter({ hasText: 'Alpha' }).first()).toBeVisible();

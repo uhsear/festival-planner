@@ -37,13 +37,13 @@ export default function DetailArtistHeader({
       {/* Artist photo */}
       {primaryArtist && primaryArtist.photo && (
         <div
-          className="detail-artist-photo-wrap aspect-square"
+          className="text-center my-3 mb-1.5"
           style={{ background: stageColor + '18' }}
         >
           <img
             src={primaryArtist.photo}
             alt={primaryArtist.name || setArtist || ''}
-            className="detail-artist-photo h-full w-full object-cover"
+            className="w-24 h-24 rounded-full object-cover border-2 border-white/15 inline-block"
             width={300}
             height={300}
             loading="lazy"
@@ -57,18 +57,28 @@ export default function DetailArtistHeader({
       )}
 
       {/* Artist name */}
-      <div className="detail-artist" id="detail-panel-title">
+      <div
+        className="text-[26px] font-bold mb-1 tracking-[-0.5px] leading-[1.1] bg-gradient-to-br from-text-primary to-[rgba(234,234,242,0.9)] bg-clip-text"
+        id="detail-panel-title"
+      >
         {artistName}
       </div>
 
       {/* Subtitle (B2B) */}
-      {subtitle && <div className="detail-artist-sub">{subtitle}</div>}
+      {subtitle && (
+        <div className="text-[13px] font-medium leading-[1.35] text-text-muted mt-1 overflow-hidden text-ellipsis [-webkit-line-clamp:4] [-webkit-box-orient:vertical] [display:-webkit-box] break-words">
+          {subtitle}
+        </div>
+      )}
 
       {/* Genre chips */}
       {genres.length > 0 && (
-        <div className="detail-genre-chips">
+        <div className="flex flex-wrap gap-1.5 my-1.5 mb-2.5">
           {genres.map((g) => (
-            <span key={g} className="detail-genre-chip">
+            <span
+              key={g}
+              className="px-2.5 py-0.5 rounded-DEFAULT bg-[rgba(155,114,255,0.18)] border border-[rgba(155,114,255,0.35)] text-[rgba(155,114,255,0.9)] text-[11px] font-semibold capitalize tracking-[0.02em]"
+            >
               {g}
             </span>
           ))}
@@ -77,22 +87,22 @@ export default function DetailArtistHeader({
 
       {/* Artist links */}
       {artistLinks.length > 0 && (
-        <div className="detail-links">
+        <div>
           {artistLinks.map((a, i) => (
             <React.Fragment key={a.name + i}>
               {isB2B && (
-                <div className="mt-1.5 text-xs font-semibold text-[var(--text-secondary)]">
+                <div className="mt-1.5 text-xs font-semibold text-text-secondary">
                   {a.name}
                 </div>
               )}
-              <div className="detail-link flex flex-wrap gap-2.5">
+              <div className="py-1 pb-2 text-[13px] flex flex-wrap gap-2.5">
                 {Object.entries(a.links || {}).map(([platform, url]) => (
                   <a
                     key={platform}
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[13px] text-[var(--accent-aqua)] no-underline"
+                    className="text-[13px] text-accent-aqua no-underline hover:underline"
                   >
                     {(PLATFORM_LABELS[platform] || platform) + ' ↗'}
                   </a>

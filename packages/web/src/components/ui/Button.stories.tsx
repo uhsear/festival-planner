@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { RefreshCw, Trash2, Download, Heart } from 'lucide-react';
 import Button from './Button';
 
 const meta = {
@@ -8,7 +9,7 @@ const meta = {
   argTypes: {
     variant: {
       control: 'select',
-      options: ['primary', 'danger', 'ghost', 'secondary', 'outline'],
+      options: ['primary', 'danger', 'ghost', 'secondary', 'outline', 'util', 'delete'],
     },
     size: {
       control: 'select',
@@ -57,6 +58,22 @@ export const Outline: Story = {
   args: {
     children: 'Outline',
     variant: 'outline',
+  },
+};
+
+export const Util: Story = {
+  args: {
+    children: 'Install App',
+    variant: 'util',
+    icon: <Download className="w-3 h-3" />,
+  },
+};
+
+export const Delete: Story = {
+  args: {
+    variant: 'delete',
+    'aria-label': 'Delete item',
+    icon: <Trash2 className="w-4 h-4" />,
   },
 };
 
@@ -121,6 +138,25 @@ export const FullWidth: Story = {
   ],
 };
 
+// -- With Icon --
+
+export const WithIcon: Story = {
+  args: {
+    children: 'Retry',
+    variant: 'primary',
+    size: 'sm',
+    icon: <RefreshCw className="w-3.5 h-3.5" />,
+  },
+};
+
+export const GhostWithIcon: Story = {
+  args: {
+    children: 'Support Me',
+    variant: 'ghost',
+    icon: <Heart className="w-3.5 h-3.5" />,
+  },
+};
+
 // -- Combined --
 
 export const AllVariants: Story = {
@@ -131,6 +167,8 @@ export const AllVariants: Story = {
       <Button variant="ghost">Ghost</Button>
       <Button variant="secondary">Secondary</Button>
       <Button variant="outline">Outline</Button>
+      <Button variant="util" icon={<Download className="w-3 h-3" />}>Install</Button>
+      <Button variant="delete" aria-label="Delete" icon={<Trash2 className="w-4 h-4" />} />
     </div>
   ),
 };

@@ -3,6 +3,7 @@ import { artistDisplayName } from '@festie/shared/utils';
 import { PICK_COLOR, toMin, fmtShort } from './gridUtils';
 import type { GridBounds, HourMark } from './gridUtils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
+import { cn } from '../../lib/utils';
 
 interface GridStageColumnProps {
   stageId: string;
@@ -33,16 +34,25 @@ export default function GridStageColumn({
 }: GridStageColumnProps) {
   return (
     <div
-      className="fk-grid__col"
+      className="fk-grid__col relative flex-1 min-w-[110px] border-l border-border"
       role="row"
       aria-label={stageName}
       style={{ height: totalH, '--stage-c': stageColor } as React.CSSProperties}
+      data-grid-col
     >
       {hours.map(({ m, px }) => (
-        <div key={m} className="fk-grid__line--hour" style={{ top: px }} />
+        <div
+          key={m}
+          className="absolute left-0 right-0 h-px bg-border-light pointer-events-none"
+          style={{ top: px }}
+        />
       ))}
       {hours.slice(0, -1).map(({ m, px }) => (
-        <div key={`h-${m}`} className="fk-grid__line--half" style={{ top: px + 30 * pxPerMin }} />
+        <div
+          key={`h-${m}`}
+          className="absolute left-0 right-0 h-px bg-border pointer-events-none"
+          style={{ top: px + 30 * pxPerMin }}
+        />
       ))}
 
       {stageSets.map((set) => {
@@ -61,7 +71,15 @@ export default function GridStageColumn({
           <button
             key={set.id}
             role="gridcell"
-            className={`fk-grid__set${pick ? ' fk-grid__set--picked' : ''}`}
+            className={cn(
+              'fk-grid__set absolute left-1 right-1 rounded-md border-l-[3px] py-[5px] px-[7px] pb-1',
+              'cursor-pointer overflow-hidden flex flex-col gap-0.5 text-left',
+              'transition-[filter,transform] duration-[120ms] ease-[ease]',
+              'backdrop-blur-[2px]',
+              'hover:[@media(hover:hover)]:brightness-[1.3] hover:[@media(hover:hover)]:scale-x-[1.02] hover:[@media(hover:hover)]:z-[4]',
+              'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-1 focus-visible:z-5',
+              pick && 'shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--set-c)_40%,transparent)]',
+            )}
             style={
               {
                 top,
@@ -75,15 +93,22 @@ export default function GridStageColumn({
             }
             onClick={() => onSetClick(set)}
             aria-label={`${dn} at ${stageName || stageId}, ${fmtShort(set.startTime!)} to ${fmtShort(set.endTime!)}${pick ? ', ' + pick : ''}`}
+            data-grid-set
           >
             {pick && (
-              <span className="fk-grid__pick-heart" style={{ color: pc }} aria-hidden="true">
+              <span
+                className="absolute top-[3px] right-[5px] text-[0.7rem] leading-none pointer-events-none drop-shadow-[0_0_2px_rgba(0,0,0,0.45)]"
+                style={{ color: pc }}
+                aria-hidden="true"
+              >
                 &#9829;
               </span>
             )}
-            <span className="fk-grid__set-name">{dn}</span>
+            <span className="text-[0.7rem] font-semibold text-text-primary leading-[1.25] overflow-hidden [-webkit-line-clamp:2] [-webkit-box-orient:vertical] [display:-webkit-box]">
+              {dn}
+            </span>
             {height >= 48 && (
-              <span className="fk-grid__set-time">
+              <span className="text-[length:var(--font-size-10)] text-text-secondary whitespace-nowrap overflow-hidden text-ellipsis shrink-0 leading-[var(--line-height-tight)] tabular-nums">
                 {fmtShort(set.startTime!)}–{fmtShort(set.endTime!)}
               </span>
             )}

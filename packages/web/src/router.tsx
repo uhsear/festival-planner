@@ -55,8 +55,8 @@ const loadCompare       = () => import('./routes/compare');
 // a layout-matched skeleton isn't worth the bytes. Main-tab routes below get
 // dedicated skeletons keyed to their real layout.
 const MinimalFallback = () => (
-  <div className="loading-skeleton" aria-busy="true" aria-label="Loading">
-    <div className="skeleton h-[200px] m-6 rounded-xl" />
+  <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--space-8)] px-6 py-4" aria-busy="true" aria-label="Loading">
+    <div className="skeleton-shimmer h-[200px] m-6 rounded-xl" />
   </div>
 );
 

@@ -15,9 +15,9 @@ export default function Badge({
   style,
 }: BadgeProps) {
   const variantStyles = {
-    must: 'badge-must',
-    want: 'badge-want',
-    maybe: 'badge-maybe',
+    must: 'bg-accent-coral/20 text-accent-coral border border-accent-coral/30',
+    want: 'bg-accent-aqua/20 text-accent-aqua border border-accent-aqua/30',
+    maybe: 'bg-accent-amber/20 text-accent-amber border border-accent-amber/30',
     online: 'bg-accent-green/20 text-accent-green border border-accent-green/30',
     offline: 'bg-text-muted/20 text-text-muted border border-text-muted/30',
     count: 'bg-accent-coral/20 text-accent-coral border border-accent-coral/30',

@@ -22,19 +22,22 @@ describe('Badge', () => {
   it('applies must variant styling', () => {
     render(<Badge variant="must">Must</Badge>);
     const el = screen.getByText('Must');
-    expect(el.className).toContain('badge-must');
+    expect(el.className).toContain('bg-accent-coral/20');
+    expect(el.className).toContain('text-accent-coral');
   });
 
   it('applies want variant styling', () => {
     render(<Badge variant="want">Want</Badge>);
     const el = screen.getByText('Want');
-    expect(el.className).toContain('badge-want');
+    expect(el.className).toContain('bg-accent-aqua/20');
+    expect(el.className).toContain('text-accent-aqua');
   });
 
   it('applies maybe variant styling', () => {
     render(<Badge variant="maybe">Maybe</Badge>);
     const el = screen.getByText('Maybe');
-    expect(el.className).toContain('badge-maybe');
+    expect(el.className).toContain('bg-accent-amber/20');
+    expect(el.className).toContain('text-accent-amber');
   });
 
   it('applies online variant styling', () => {

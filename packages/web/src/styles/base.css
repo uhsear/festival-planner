@@ -67,42 +67,15 @@ html {
     text-decoration: none;
   }
 
-  /* Form element base styles */
+  /* Form element base styles — visual styling now lives in components
+     (lib/styles.ts `inputBase`) or component-specific CSS rules.
+     Only reset font inheritance and appearance here. */
   input,
   select,
   textarea {
-    font-family: var(--font-family-body);
-    background: var(--bg-input);
-    color: var(--text-primary);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-sm);
-    padding: 10px 14px;
-    outline: none;
-    transition: all 0.25s var(--ease-standard);
+    font: inherit;
     -webkit-appearance: none;
-    backdrop-filter: blur(8px);
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: var(--text-muted);
-    opacity: 1;
-  }
-
-  input:focus-visible,
-  select:focus-visible,
-  textarea:focus-visible {
-    border-color: var(--accent-aqua);
-    box-shadow: 0 0 0 3px var(--aqua-a12);
-    outline: 2px solid var(--accent-aqua);
-    outline-offset: 2px;
-  }
-
-  input:focus,
-  select:focus,
-  textarea:focus {
-    border-color: var(--accent-aqua);
-    box-shadow: 0 0 0 3px var(--aqua-a12);
+    appearance: none;
   }
 
   /* Custom select arrow */
@@ -145,8 +118,8 @@ html {
   }
 
   /* Digits in times/counters/prices shouldn't jitter when they tick. */
-  .tabular, time, .fm-time, .fm-countdown, .fm-set-time,
-  .fk-grid__hour-label, .fk-grid__set-time, .fk-grid__now-label {
+  .tabular, time,
+  .tabular-nums {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1, "lnum" 1;
   }

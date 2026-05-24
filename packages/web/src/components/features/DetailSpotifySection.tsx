@@ -1,3 +1,5 @@
+import Button from '../ui/Button';
+
 interface Props {
   preview: { embedUrl: string; label: string; embedType: string };
   visible: boolean;
@@ -6,17 +8,18 @@ interface Props {
 
 export default function DetailSpotifySection({ preview, visible, onToggle }: Props) {
   return (
-    <div className="detail-spotify-section my-2.5">
-      <button
-        className="btn btn-ghost btn-sm flex items-center gap-1.5"
+    <div className="my-2.5">
+      <Button
+        variant="ghost"
+        size="sm"
         type="button"
         onClick={onToggle}
         aria-expanded={visible}
       >
         {visible ? '\u25B2 Hide Player' : '\u25B6 Listen on Spotify'}
-      </button>
+      </Button>
       {visible && (
-        <div className="detail-spotify-embed mt-2 overflow-hidden rounded-xl">
+        <div className="my-2.5 rounded-xl overflow-hidden">
           <iframe
             src={preview.embedUrl}
             width="100%"
@@ -25,7 +28,7 @@ export default function DetailSpotifySection({ preview, visible, onToggle }: Pro
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             loading="lazy"
             title={'Spotify: ' + preview.label}
-            className="block rounded-xl"
+            className="block w-full rounded-xl"
           />
         </div>
       )}

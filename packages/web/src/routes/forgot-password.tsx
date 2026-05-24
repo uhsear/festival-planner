@@ -6,6 +6,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { CheckCircle } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 export default function ForgotPasswordPage() {
   return (
@@ -63,11 +64,17 @@ function ForgotPasswordPageInner() {
     <div className="min-h-dvh bg-bg-primary flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         {/* Logo — matches Header (FESTIE all-caps, Syncopate display font)
-           and /login + /register, both of which use the .logo-big class.
-           Title-case "Festie" drifted from the brand wordmark everywhere
-           else in the app. */}
+           and /login + /register Tailwind logo heading. */}
         <div className="text-center mb-8">
-          <h1 className="logo-big">FESTIE</h1>
+          <h1
+            className={cn(
+              'font-display text-[clamp(22px,5vw,36px)] font-bold tracking-[6px] uppercase',
+              'text-accent-coral mb-3 relative z-[1]',
+              '[text-shadow:0_0_40px_rgba(var(--accent-coral-rgb),0.3)]',
+            )}
+          >
+            FESTIE
+          </h1>
           <p className="text-text-muted">Reset your password</p>
         </div>
 

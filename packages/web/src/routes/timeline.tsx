@@ -13,6 +13,7 @@ import { useTimelineFilters } from '../hooks/useTimelineFilters';
 import { useTimelineViewport } from '../hooks/useTimelineViewport';
 import { useNowIndicator } from '../hooks/useNowIndicator';
 import { CalendarX, Music, Filter } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 export default function TimelineView() {
   return (
@@ -66,7 +67,12 @@ function TimelineViewInner() {
   if (timedSets.length === 0 && timelessSets.length > 0) {
     return (
       <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
-        <div className="timeline-container" role="region" aria-label="Timeline view" data-scroll-sentinel>
+        <div
+          className="relative overflow-auto h-full [-webkit-overflow-scrolling:touch] overscroll-contain"
+          role="region"
+          aria-label="Timeline view"
+          data-scroll-sentinel
+        >
           <TBASection
             sets={timelessSets}
             stages={stages}
@@ -110,7 +116,12 @@ function TimelineViewInner() {
 
   return (
     <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
-      <div className="timeline-container" role="region" aria-label="Timeline view" data-scroll-sentinel>
+      <div
+        className="relative overflow-auto h-full [-webkit-overflow-scrolling:touch] overscroll-contain"
+        role="region"
+        aria-label="Timeline view"
+        data-scroll-sentinel
+      >
         <TimelineLegend />
         <TimelineGrid
           visibleStages={visibleStages}
@@ -134,7 +145,20 @@ function TimelineViewInner() {
         {nowIndicator !== null && (
           <button
             type="button"
-            className="timeline-jump-now"
+            className={cn(
+              'fixed right-4 bottom-[calc(88px+env(safe-area-inset-bottom,0px))]',
+              'inline-flex items-center gap-1.5',
+              'px-3.5 py-2.5 rounded-full',
+              'bg-[var(--color-accent-coral,#ff6b6b)]',
+              'text-[var(--color-bg-primary,#0d0d1a)]',
+              'border-none text-[13px] font-bold tracking-[0.02em]',
+              'cursor-pointer z-30 min-h-11',
+              'shadow-[0_6px_20px_rgba(255,107,107,0.35),0_1px_3px_rgba(0,0,0,0.25)]',
+              'transition-[transform,box-shadow] duration-150',
+              'ease-[cubic-bezier(0.16,1,0.3,1)]',
+              'hover:shadow-[0_8px_24px_rgba(255,107,107,0.45),0_1px_4px_rgba(0,0,0,0.3)]',
+              'active:scale-[0.96]',
+            )}
             aria-label="Scroll to current time"
             onClick={scrollToNow}
           >

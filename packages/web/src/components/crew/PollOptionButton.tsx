@@ -41,7 +41,7 @@ export default function PollOptionButton({
       <div
         key={`${pollId}-${optionIndex}-${pct}`}
         className={cn(
-          'crew-poll-bar absolute inset-y-0 left-0 transition-all duration-300',
+          'crew-poll-bar absolute inset-y-0 left-0 transition-all duration-300 origin-left',
           isMine ? 'bg-accent-aqua/25' : isWinning ? 'bg-accent-aqua/10' : 'bg-text-muted/10',
         )}
         style={{ width: `${pct}%` }}

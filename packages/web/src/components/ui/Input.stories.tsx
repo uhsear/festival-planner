@@ -11,6 +11,10 @@ const meta = {
     helperText: { control: 'text' },
     placeholder: { control: 'text' },
     isPassword: { control: 'boolean' },
+    variant: {
+      control: 'select',
+      options: ['default', 'search'],
+    },
     disabled: { control: 'boolean' },
     type: {
       control: 'select',
@@ -118,6 +122,26 @@ export const NumberType: Story = {
   },
 };
 
+// -- Search Variant --
+
+export const Search: Story = {
+  args: {
+    variant: 'search',
+    placeholder: 'Search artists...',
+    'aria-label': 'Search artists',
+  },
+};
+
+// -- Search with Label --
+
+export const SearchWithLabel: Story = {
+  args: {
+    variant: 'search',
+    label: 'Find an artist',
+    placeholder: 'Type a name...',
+  },
+};
+
 // -- All States --
 
 export const AllStates: Story = {
@@ -129,6 +153,7 @@ export const AllStates: Story = {
       <Input label="Error" placeholder="Error state" error="Something went wrong" />
       <Input label="Disabled" placeholder="Disabled" disabled defaultValue="Cannot edit" />
       <Input label="Password" placeholder="Password" isPassword />
+      <Input variant="search" placeholder="Search..." aria-label="Search" />
     </div>
   ),
 };

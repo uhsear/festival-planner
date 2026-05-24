@@ -15,7 +15,8 @@ describe('PicksSkeleton', () => {
 
   it('renders three priority sections', () => {
     const { container } = render(<PicksSkeleton />);
-    const sections = container.querySelectorAll('.picks-section');
+    // Each section is a .mb-4 wrapper with the section title + pick items
+    const sections = container.querySelectorAll('.mb-4');
     expect(sections.length).toBe(3);
   });
 
@@ -34,7 +35,7 @@ describe('PicksSkeleton', () => {
 
   it('uses skeleton class for placeholder blocks', () => {
     const { container } = render(<PicksSkeleton />);
-    const skeletons = container.querySelectorAll('.skeleton');
+    const skeletons = container.querySelectorAll('.skeleton-shimmer');
     expect(skeletons.length).toBeGreaterThan(0);
   });
 });

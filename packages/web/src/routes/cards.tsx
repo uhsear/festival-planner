@@ -114,7 +114,7 @@ function CardsViewInner() {
             : 'Pick another day from the day selector to browse the schedule.'}
         />
       ) : (
-        <div className="card-grid" role="region" aria-label="Card view">
+        <div className="card-grid grid [grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),360px))] gap-[18px] justify-start max-w-[1120px] mx-auto pb-5 max-sm:gap-2.5 max-sm:max-w-none" role="region" aria-label="Card view">
           {filteredSets.map((set, idx) => {
             const sc = getStageColor(set.stageId);
             const sn = getStageName(set.stageId) || 'Unknown';

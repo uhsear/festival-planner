@@ -9,6 +9,7 @@ import GridStageHeader from '../components/grid/GridStageHeader';
 import GridStageColumn from '../components/grid/GridStageColumn';
 import EmptyState from '../components/ui/EmptyState';
 import { CalendarX, Clock } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 export default function GridView() {
   return (
@@ -107,7 +108,7 @@ function GridViewInner() {
   const didAutoScroll = useRef(false);
   useEffect(() => {
     if (didAutoScroll.current || nowPx == null || !gridRef.current) return;
-    const body = gridRef.current.querySelector<HTMLElement>('.fk-grid__body');
+    const body = gridRef.current.querySelector<HTMLElement>('[data-grid-body]');
     if (!body) return;
     const target = Math.max(0, nowPx - body.clientHeight / 2);
     body.scrollTo({ top: target, behavior: 'auto' });
@@ -134,7 +135,14 @@ function GridViewInner() {
   const totalH = bounds.span * PX_PER_MIN;
 
   return (
-    <div className="fk-grid" ref={gridRef} role="grid" aria-label="Festival schedule grid — stages as columns, time as rows">
+    <div
+      className={cn(
+        'fk-grid flex flex-col h-full min-h-0 overflow-hidden bg-bg-primary',
+      )}
+      ref={gridRef}
+      role="grid"
+      aria-label="Festival schedule grid — stages as columns, time as rows"
+    >
       <GridStageHeader
         visibleStages={visibleStages}
         gutterW={GUTTER_W}
@@ -146,22 +154,45 @@ function GridViewInner() {
       />
 
       {/* Scrollable body */}
-      <div className="fk-grid__body" role="rowgroup" data-scroll-sentinel>
+      <div
+        className="fk-grid__body flex flex-1 min-h-0 overflow-x-auto overflow-y-auto pt-2 overscroll-contain"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+        role="rowgroup"
+        data-scroll-sentinel
+        data-grid-body
+      >
         {/* Time gutter */}
-        <div className="fk-grid__gutter" role="presentation" style={{ height: totalH }}>
+        <div
+          className="relative shrink-0 w-[52px] border-r border-border-light bg-bg-primary sticky left-0 z-5"
+          role="presentation"
+          style={{ height: totalH }}
+          data-grid-gutter
+        >
           {hours.map(({ m, px }) => (
-            <span key={m} className="fk-grid__hour-label" style={{ top: px }}>
+            <span
+              key={m}
+              className="absolute right-2 -translate-y-1/2 text-[length:var(--font-size-10)] text-text-muted whitespace-nowrap leading-[var(--line-height-tight)] pointer-events-none tabular-nums"
+              style={{ top: px }}
+            >
               {fmtHour(m)}
             </span>
           ))}
         </div>
 
         {/* Columns wrapper */}
-        <div className="fk-grid__cols" role="presentation">
+        <div className="flex flex-1 min-w-0 relative" role="presentation" data-grid-cols>
           {nowPx != null && (
-            <div className="fk-grid__now-overlay" style={{ top: nowPx }}>
-              <span className="fk-grid__now-label" aria-hidden="true">&#9654; NOW</span>
-              <div className="fk-grid__now-line" />
+            <div
+              className="absolute left-0 right-0 flex items-center pointer-events-none z-[8] -translate-y-1/2"
+              style={{ top: nowPx }}
+            >
+              <span
+                className="text-[0.55rem] font-bold text-accent-coral tracking-[0.08em] px-1 whitespace-nowrap shrink-0 tabular-nums"
+                aria-hidden="true"
+              >
+                &#9654; NOW
+              </span>
+              <div className="flex-1 h-0.5 bg-accent-coral opacity-80 shadow-[0_0_6px_color-mix(in_srgb,var(--color-accent-coral)_70%,transparent)] animate-[fk-grid-now-pulse_2.4s_ease-in-out_infinite] motion-reduce:animate-none motion-reduce:opacity-85" />
             </div>
           )}
 

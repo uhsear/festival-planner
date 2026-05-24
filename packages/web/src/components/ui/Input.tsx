@@ -1,12 +1,14 @@
 import React, { useState, useId } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Search } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { inputBase } from '../../lib/styles';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   helperText?: string;
   isPassword?: boolean;
+  variant?: 'default' | 'search';
 }
 
 export default function Input({
@@ -14,6 +16,7 @@ export default function Input({
   error,
   helperText,
   isPassword = false,
+  variant = 'default',
   className,
   type,
   id,
@@ -30,6 +33,8 @@ export default function Input({
     .filter(Boolean)
     .join(' ') || undefined;
 
+  const isSearch = variant === 'search';
+
   return (
     <div className="w-full">
       {label && (
@@ -42,6 +47,13 @@ export default function Input({
       )}
 
       <div className="relative">
+        {isSearch && (
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
+            aria-hidden="true"
+          />
+        )}
+
         <input
           id={inputId}
           type={inputType}
@@ -49,8 +61,9 @@ export default function Input({
           aria-invalid={Boolean(error)}
           aria-describedby={describedBy}
           className={cn(
-            'input-base',
-            error && 'border-accent-coral focus-visible:border-accent-coral',
+            inputBase,
+            isSearch && 'pl-10',
+            error && 'border-accent-coral focus-visible:border-accent-coral focus-visible:ring-[rgba(255,51,102,0.15)]',
             className
           )}
           {...props}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '../../lib/utils';
 
 export type StageBadgeVariant = 'chip' | 'pick' | 'default';
 
@@ -13,9 +14,9 @@ interface StageBadgeProps {
 }
 
 const VARIANT_CLASS: Record<StageBadgeVariant, string> = {
-  chip: 'stage-chip',
-  pick: 'pick-stage',
-  default: 'stage-badge',
+  chip: 'inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold cursor-pointer border-2 border-transparent transition-all duration-250',
+  pick: 'inline-block rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider',
+  default: 'inline-block rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider',
 };
 
 // --- WCAG 2.2 contrast helpers (SC 1.4.3) ---
@@ -119,11 +120,13 @@ export default function StageBadge({
 }: StageBadgeProps) {
   const baseStyle = getStageBadgeStyle(stageColor, variant, active);
   const variantClass = VARIANT_CLASS[variant];
-  const activeSuffix = variant === 'chip' && active ? ' active' : '';
-  const composedClass = [variantClass + activeSuffix, className].filter(Boolean).join(' ');
+  const activeClass = variant === 'chip' && active ? 'border-current' : '';
 
   return (
-    <span className={composedClass} style={{ ...baseStyle, ...style }}>
+    <span
+      className={cn(variantClass, activeClass, className)}
+      style={{ ...baseStyle, ...style }}
+    >
       {stageName}
     </span>
   );

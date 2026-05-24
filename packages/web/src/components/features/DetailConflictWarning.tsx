@@ -1,5 +1,6 @@
 import { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName } from '@festie/shared/utils';
+import Button from '../ui/Button';
 
 interface Props {
   conflicts: FestivalSet[];
@@ -17,31 +18,32 @@ export default function DetailConflictWarning({
   if (conflicts.length === 0) return null;
 
   return (
-    <div className="detail-conflict-warning">
+    <div className="py-2.5 px-3.5 rounded-sm bg-accent-coral/[0.08] border border-accent-coral/25 mb-4 text-xs text-accent-coral font-semibold">
       <div>
         {'\u26A0 Time conflict with: ' +
           conflicts.map((c) => artistDisplayName(c, b2bSeparator)).join(', ')}
       </div>
-      <div className="detail-conflict-compare">
+      <div className="flex flex-col gap-4 mt-2.5">
         {conflicts.map((c) => {
           const cOthers = getOtherPicks(c.id);
           return (
-            <div key={c.id} className="conflict-compare-card">
-              <div className="conflict-compare-artist">
+            <div key={c.id} className="bg-bg-card border border-border rounded-sm p-4 flex flex-wrap items-center gap-4">
+              <div className="font-bold text-sm flex-1 min-w-[120px]">
                 {artistDisplayName(c, b2bSeparator)}
               </div>
-              <div className="conflict-compare-meta">
+              <div className="text-xs text-text-secondary w-full">
                 {formatTime(c.startTime) +
                   ' - ' +
                   formatTime(c.endTime) +
                   ' \u00B7 ' +
                   (getStageName(c.stageId) || 'Unknown')}
               </div>
-              <div className="conflict-compare-crew">
+              <div className="text-[11px] text-text-muted italic">
                 {cOthers.length ? cOthers.length + ' crew going' : 'No crew'}
               </div>
-              <button
-                className="btn btn-ghost btn-sm min-h-[44px]"
+              <Button
+                variant="ghost"
+                size="sm"
                 type="button"
                 aria-label={`Switch to ${artistDisplayName(c, b2bSeparator)}`}
                 onClick={(e) => {
@@ -50,7 +52,7 @@ export default function DetailConflictWarning({
                 }}
               >
                 Switch to this
-              </button>
+              </Button>
             </div>
           );
         })}

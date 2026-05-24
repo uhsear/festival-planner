@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared';
 import { useToast } from '../../lib/toastContext';
+import Button from '../ui/Button';
 
 interface UserMenuAccountSectionProps {
   user: {
@@ -42,16 +43,16 @@ export default function UserMenuAccountSection({
   };
 
   return (
-    <section className="user-menu-section" data-testid="account-section">
-      <div className="user-menu-section-title">Account</div>
+    <section className="pt-3 mt-3 border-t border-border first-of-type:pt-0 first-of-type:mt-0 first-of-type:border-t-0" data-testid="account-section">
+      <div className="text-[11px] font-bold tracking-[1.2px] uppercase text-text-secondary mb-1.5">Account</div>
 
       {/* Photo row */}
-      <div className="account-setting-row">
-        <div className="account-setting-label">
-          <span className="account-setting-key">Photo</span>
-          <span className="account-setting-value">JPG, PNG, GIF, or WebP up to 5MB</span>
+      <div className="flex items-center justify-between gap-[var(--space-5)] py-2.5 border-b border-[var(--overlay-3)]">
+        <div className="flex flex-col gap-[var(--space-1)] min-w-0 flex-1">
+          <span className="text-xs font-semibold text-text-secondary uppercase tracking-[.8px]">Photo</span>
+          <span className="text-[13px] text-text-primary overflow-hidden text-ellipsis whitespace-nowrap flex items-center gap-[var(--space-3)]">JPG, PNG, GIF, or WebP up to 5MB</span>
         </div>
-        <div className="account-setting-actions">
+        <div className="flex gap-[var(--space-3)] shrink-0">
           <input
             ref={fileInputRef}
             type="file"
@@ -60,8 +61,9 @@ export default function UserMenuAccountSection({
             data-testid="avatar-file-input"
             onChange={handleFileChange}
           />
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             disabled={isLoading}
             data-testid="avatar-upload-button"
@@ -70,41 +72,44 @@ export default function UserMenuAccountSection({
             }}
           >
             {isLoading ? 'Uploading...' : 'Upload'}
-          </button>
+          </Button>
           {user.avatarUrl && (
-            <button
-              className="btn btn-ghost btn-sm btn-muted"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="opacity-65 hover:opacity-100"
               type="button"
               disabled={isLoading}
               data-testid="avatar-remove-button"
               onClick={handleRemoveAvatar}
             >
               Remove
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {/* Email row */}
-      <div className="account-setting-row">
-        <div className="account-setting-label">
-          <span className="account-setting-key">Email</span>
+      <div className="flex items-center justify-between gap-[var(--space-5)] py-2.5 border-b border-[var(--overlay-3)]">
+        <div className="flex flex-col gap-[var(--space-1)] min-w-0 flex-1">
+          <span className="text-xs font-semibold text-text-secondary uppercase tracking-[.8px]">Email</span>
           {user.email ? (
-            <span className="account-setting-value">
+            <span className="text-[13px] text-text-primary overflow-hidden text-ellipsis whitespace-nowrap flex items-center gap-[var(--space-3)]">
               {user.email}
               {user.emailVerified ? (
-                <span className="account-verified-badge">Verified</span>
+                <span className="inline-flex items-center text-[11px] font-semibold px-[7px] py-0.5 rounded-[var(--radius-md)] tracking-[.3px] whitespace-nowrap bg-[var(--status-verified-bg)] text-[var(--status-verified)]">Verified</span>
               ) : (
-                <span className="account-unverified-badge">Unverified</span>
+                <span className="inline-flex items-center text-[11px] font-semibold px-[7px] py-0.5 rounded-[var(--radius-md)] tracking-[.3px] whitespace-nowrap bg-[var(--status-unverified-bg)] text-[var(--status-unverified)]">Unverified</span>
               )}
             </span>
           ) : (
-            <span className="account-setting-value account-setting-empty">Not set</span>
+            <span className="text-[13px] text-text-muted italic overflow-hidden text-ellipsis whitespace-nowrap flex items-center gap-[var(--space-3)]">Not set</span>
           )}
         </div>
-        <div className="account-setting-actions">
-          <button
-            className="btn btn-ghost btn-sm"
+        <div className="flex gap-[var(--space-3)] shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             onClick={() => {
               onClose();
@@ -112,19 +117,20 @@ export default function UserMenuAccountSection({
             }}
           >
             {user.email ? 'Change' : 'Add'}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Password row */}
-      <div className="account-setting-row">
-        <div className="account-setting-label">
-          <span className="account-setting-key">Password</span>
-          <span className="account-setting-value">{'••••••••'}</span>
+      <div className="flex items-center justify-between gap-[var(--space-5)] py-2.5">
+        <div className="flex flex-col gap-[var(--space-1)] min-w-0 flex-1">
+          <span className="text-xs font-semibold text-text-secondary uppercase tracking-[.8px]">Password</span>
+          <span className="text-[13px] text-text-primary overflow-hidden text-ellipsis whitespace-nowrap flex items-center gap-[var(--space-3)]">{'••••••••'}</span>
         </div>
-        <div className="account-setting-actions">
-          <button
-            className="btn btn-ghost btn-sm"
+        <div className="flex gap-[var(--space-3)] shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             onClick={() => {
               onClose();
@@ -132,15 +138,16 @@ export default function UserMenuAccountSection({
             }}
           >
             Change
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Bottom actions */}
-      <div className="user-menu-actions">
+      <div className="flex flex-col gap-[var(--space-3)]">
         {user.isAdmin && (
-          <button
-            className="btn btn-ghost btn-sm"
+          <Button
+            variant="ghost"
+            size="sm"
             type="button"
             onClick={() => {
               onClose();
@@ -148,15 +155,16 @@ export default function UserMenuAccountSection({
             }}
           >
             Admin Panel
-          </button>
+          </Button>
         )}
-        <button
-          className="btn btn-danger btn-sm"
+        <Button
+          variant="danger"
+          size="sm"
           type="button"
           onClick={onLogout}
         >
           Logout
-        </button>
+        </Button>
       </div>
     </section>
   );

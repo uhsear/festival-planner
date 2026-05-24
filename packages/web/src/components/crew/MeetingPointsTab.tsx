@@ -7,6 +7,7 @@ import EmptyState from '../ui/EmptyState';
 import Skeleton from '../ui/Skeleton';
 import { MapPin, Plus, Trash2, X } from 'lucide-react';
 import IconButton from '../ui/IconButton';
+import { inputBase } from '../../lib/styles';
 
 // Server enum (lib/constants.js MEETING_POINT_TYPES) + user-facing metadata.
 const TYPES = [
@@ -131,11 +132,11 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
             ))}
           </div>
 
-          <input className="input-base w-full min-h-11" placeholder="Label (e.g. 'Main entrance')"
+          <input className={`${inputBase} min-h-11`} placeholder="Label (e.g. 'Main entrance')"
             aria-label="Label" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={100} required />
-          <input className="input-base w-full min-h-11" placeholder="Location (e.g. 'Near the food court')"
+          <input className={`${inputBase} min-h-11`} placeholder="Location (e.g. 'Near the food court')"
             aria-label="Location" value={location} onChange={(e) => setLocation(e.target.value)} maxLength={200} required />
-          <input type="datetime-local" className="input-base w-full min-h-11" placeholder="Meet at (optional)"
+          <input type="datetime-local" className={`${inputBase} min-h-11`} placeholder="Meet at (optional)"
             aria-label="Meet at time" value={meetAt} onChange={(e) => setMeetAt(e.target.value)} />
 
           <Button type="submit" variant="primary" isLoading={createPoint.isPending}
@@ -156,7 +157,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
             const isEmergency = p.type === 'emergency';
             return (
               <div key={p.id}
-                className={`crew-list-enter p-3 rounded-lg bg-bg-card border ${isEmergency ? 'border-accent-coral border-l-4' : 'border-border'}`}>
+                className={`p-3 rounded-lg bg-bg-card border animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none ${isEmergency ? 'border-accent-coral border-l-4' : 'border-border'}`}>
                 <div className="flex items-start gap-3">
                   <span className="text-2xl leading-none" aria-hidden="true">{meta.emoji}</span>
                   <div className="flex-1 min-w-0">

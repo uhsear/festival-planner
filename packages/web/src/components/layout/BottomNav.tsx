@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared';
 import { useFestivalStore } from '@festie/shared/stores';
 import { isFestivalOver } from '../../utils/festivalTime';
+import { cn } from '../../lib/utils';
 
 interface NavTab {
   label: string;
@@ -130,8 +131,24 @@ export default function BottomNav() {
   };
 
   return (
-    <footer className="bottom-nav">
-      <div className="bottom-nav-inner" role="tablist" aria-label="Mobile navigation">
+    <footer
+      className={cn(
+        'hidden max-md:block flex-shrink-0',
+        'bg-[rgba(10,10,20,0.9)] backdrop-saturate-[180%] backdrop-blur-[20px]',
+        'border-t border-border',
+        '[padding:6px_0_max(8px,env(safe-area-inset-bottom))]',
+        '[padding-left:env(safe-area-inset-left)]',
+        '[padding-right:env(safe-area-inset-right)]',
+        'shadow-[0_-1px_0_var(--color-overlay-1),0_-4px_16px_var(--color-shade-6)]',
+        'print:hidden',
+      )}
+      data-bottom-nav
+    >
+      <div
+        className="flex justify-around w-full max-md:gap-0.5"
+        role="tablist"
+        aria-label="Mobile navigation"
+      >
         {tabs.map((tab) => {
           const active = isActive(tab.href);
           return (
@@ -142,13 +159,33 @@ export default function BottomNav() {
               aria-controls="main-content"
               tabIndex={active ? 0 : -1}
               aria-label={`View ${tab.label}`}
-              className={active ? 'active' : ''}
+              className={cn(
+                'flex flex-col items-center gap-[3px] px-3 py-2',
+                'bg-transparent text-text-muted text-[11px] font-semibold',
+                'rounded-sm min-h-11 min-w-0 flex-1 overflow-hidden',
+                'transition-[color,transform] duration-150 ease-[ease]',
+                'active:scale-90 motion-reduce:active:!transform-none',
+                '[&_svg]:w-[22px] [&_svg]:h-[22px]',
+                'max-[480px]:px-[2px] max-[480px]:py-1.5 max-[480px]:text-[10px] max-[480px]:gap-1',
+                'max-[480px]:[&_svg]:w-5 max-[480px]:[&_svg]:h-5',
+                'max-[375px]:min-h-11 max-[375px]:px-1 max-[375px]:py-[5px]',
+                'max-[359px]:justify-center max-[359px]:px-0 max-[359px]:py-1.5',
+                active && [
+                  'text-accent-aqua',
+                  '[&_svg]:drop-shadow-[0_0_6px_rgba(0,232,208,0.4)]',
+                ],
+              )}
               onPointerEnter={() => prefetchers[tab.href]?.().catch(() => {})}
               onPointerDown={() => prefetchers[tab.href]?.().catch(() => {})}
               onClick={() => navigate({ to: tab.href })}
             >
               {tab.icon}
-              <span>{tab.label}</span>
+              <span className={cn(
+                'max-w-full overflow-hidden text-ellipsis whitespace-nowrap',
+                'max-[359px]:hidden',
+              )}>
+                {tab.label}
+              </span>
             </button>
           );
         })}

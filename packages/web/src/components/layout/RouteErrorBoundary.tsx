@@ -1,6 +1,7 @@
 import { Component, useEffect, type ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { WifiOff, ServerCrash, FileQuestion, AlertTriangle, RefreshCw, ArrowLeft } from 'lucide-react';
+import Button from '../ui/Button';
 
 // ---------------------------------------------------------------------------
 // Error classification helpers
@@ -140,28 +141,30 @@ export default function RouteErrorBoundary({
       )}
       <div className="mt-4 flex justify-center gap-2">
         {kind !== 'not-found' && (
-          <button
+          <Button
+            variant="primary"
+            size="sm"
             type="button"
-            className="btn btn-primary btn-sm inline-flex items-center gap-1.5"
+            icon={<RefreshCw className="size-3.5" aria-hidden="true" />}
             onClick={() => reset()}
           >
-            <RefreshCw className="size-3.5" aria-hidden="true" />
             Retry
-          </button>
+          </Button>
         )}
         {showBack && (
-          <button
+          <Button
+            variant="primary"
+            size="sm"
             type="button"
-            className="btn btn-primary btn-sm inline-flex items-center gap-1.5"
+            icon={<ArrowLeft className="size-3.5" aria-hidden="true" />}
             onClick={() => navigate({ to: '/' })}
           >
-            <ArrowLeft className="size-3.5" aria-hidden="true" />
             Go home
-          </button>
+          </Button>
         )}
-        <button type="button" className="btn btn-sm" onClick={() => window.location.reload()}>
+        <Button variant="ghost" size="sm" type="button" onClick={() => window.location.reload()}>
           Reload page
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -218,20 +221,22 @@ export class RenderErrorBoundary extends Component<
             the page or switching festivals.
           </p>
           <div className="flex gap-2">
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               type="button"
-              className="btn btn-primary btn-sm"
               onClick={() => this.setState({ error: null })}
             >
               Try again
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               type="button"
-              className="btn btn-sm"
               onClick={() => window.location.reload()}
             >
               Reload page
-            </button>
+            </Button>
           </div>
         </div>
       );

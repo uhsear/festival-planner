@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import Button from './Button';
 import IconButton from './IconButton';
+import { inputBase } from '../../lib/styles';
 
 interface Props {
   open: boolean;
@@ -85,7 +86,7 @@ export default function PromptDialog({
               disabled={busy}
               aria-label={title}
               {...(error ? { 'aria-invalid': true, 'aria-describedby': errorId } : {})}
-              className="input-base w-full min-h-11"
+              className={`${inputBase} min-h-11`}
             />
             {error && (
               <p

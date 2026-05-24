@@ -16,9 +16,9 @@ export function useGridExport(
     setExporting(true);
     const dayName = selectedDay === 0 ? 'saturday' : 'sunday';
     const el = gridRef.current;
-    const body = el.querySelector<HTMLElement>('.fk-grid__body');
-    const cols = el.querySelector<HTMLElement>('.fk-grid__cols');
-    const head = el.querySelector<HTMLElement>('.fk-grid__head');
+    const body = el.querySelector<HTMLElement>('[data-grid-body]');
+    const cols = el.querySelector<HTMLElement>('[data-grid-cols]');
+    const head = el.querySelector<HTMLElement>('[data-grid-head]');
     if (!body || !cols || !head) return;
 
     const dpr = Math.min(Math.max(Math.ceil(window.devicePixelRatio || 1), 2), 3);
@@ -32,7 +32,7 @@ export function useGridExport(
       colsMinWidth: cols.style.minWidth,
     };
     try {
-      const gutterW = el.querySelector<HTMLElement>('.fk-grid__gutter')?.offsetWidth || 0;
+      const gutterW = el.querySelector<HTMLElement>('[data-grid-gutter]')?.offsetWidth || 0;
       const fullW = Math.max(cols.scrollWidth + gutterW, el.clientWidth);
       const fullH = Math.max(cols.scrollHeight + head.offsetHeight, el.clientHeight);
 

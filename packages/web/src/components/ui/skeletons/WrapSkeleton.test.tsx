@@ -10,7 +10,7 @@ describe('WrapSkeleton', () => {
 
   it('renders 4 stats tiles', () => {
     const { container } = render(<WrapSkeleton />);
-    const statsTiles = container.querySelectorAll('.grid-cols-2 > .skeleton');
+    const statsTiles = container.querySelectorAll('.grid-cols-2 > .skeleton-shimmer');
     expect(statsTiles.length).toBe(4);
   });
 
@@ -23,13 +23,13 @@ describe('WrapSkeleton', () => {
 
   it('renders hero header placeholder', () => {
     const { container } = render(<WrapSkeleton />);
-    const heroSkeletons = container.querySelectorAll('.flex.flex-col.items-center > .skeleton');
+    const heroSkeletons = container.querySelectorAll('.flex.flex-col.items-center > .skeleton-shimmer');
     expect(heroSkeletons.length).toBe(2);
   });
 
   it('uses skeleton class for placeholder blocks', () => {
     const { container } = render(<WrapSkeleton />);
-    const skeletons = container.querySelectorAll('.skeleton');
+    const skeletons = container.querySelectorAll('.skeleton-shimmer');
     expect(skeletons.length).toBeGreaterThan(0);
   });
 });

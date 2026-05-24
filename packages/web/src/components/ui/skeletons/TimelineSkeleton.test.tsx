@@ -28,7 +28,7 @@ describe('TimelineSkeleton', () => {
 
   it('renders 5 placeholder set blocks', () => {
     const { container } = render(<TimelineSkeleton />);
-    const skeletons = container.querySelectorAll('.skeleton');
+    const skeletons = container.querySelectorAll('.skeleton-shimmer');
     // 4 stage header skeletons + 8 time label skeletons + 5 set blocks = depends on even/odd
     // Set blocks have m-[1px_2px] class; let's count total skeletons > 0
     expect(skeletons.length).toBeGreaterThan(0);

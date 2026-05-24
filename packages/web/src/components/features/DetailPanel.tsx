@@ -14,6 +14,7 @@ import DetailNotesSection from './DetailNotesSection';
 import { useDetailPanelData } from './useDetailPanelData';
 import { hasSetStarted } from '../../utils/festivalTime';
 import { useHaptics } from '../../hooks/useHaptics';
+import Button from '../ui/Button';
 
 interface DetailPanelProps {
   set: FestivalSet;
@@ -163,13 +164,21 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
           <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0 lg:hidden" />
           <Drawer.Title className="sr-only">{artistDisplayName(set, b2bSeparator)}</Drawer.Title>
           <Drawer.Description className="sr-only">Set details, schedule, and crew info for {artistDisplayName(set, b2bSeparator)}</Drawer.Description>
-          <div className="detail-panel detail-panel--drawer min-h-0 overflow-y-auto" ref={panelRef}>
-            <button className="detail-close" type="button" aria-label="Close detail panel" onClick={handleClose} ref={closeBtnRef}>
+          <div className="min-h-0 overflow-y-auto overscroll-contain p-7 pb-[max(12px,env(safe-area-inset-bottom))] relative" ref={panelRef}>
+            <button
+              className="absolute top-4 right-4 w-11 h-11 min-w-11 min-h-11 rounded-full bg-bg-card border border-border-light flex items-center justify-center text-text-secondary text-lg cursor-pointer transition-all duration-250 ease-[var(--ease-standard)] hover:bg-accent-coral hover:text-text-on-accent hover:border-accent-coral focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua z-10"
+              type="button"
+              aria-label="Close detail panel"
+              onClick={handleClose}
+              ref={closeBtnRef}
+            >
               {'×'}
             </button>
 
-            <div className="detail-stage-badge" style={{ background: stageColor + '25', color: stageColor }}>
-
+            <div
+              className="inline-block px-3 py-1 rounded-DEFAULT text-[11px] font-bold uppercase tracking-[1px] mb-3"
+              style={{ background: stageColor + '25', color: stageColor }}
+            >
               {stageName}
             </div>
 
@@ -179,7 +188,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
               genres={allGenres} setArtist={set.artist}
             />
 
-            <div className="detail-time">
+            <div className="text-[15px] text-text-secondary mb-6 tabular-nums">
               {set.startTime && set.endTime ? formatTime(set.startTime) + ' - ' + formatTime(set.endTime) : 'TBA'}
             </div>
 
@@ -196,17 +205,17 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             {currentProfile ? (
               <DetailPriorityPicker myPick={myPick || null} priorityBusy={priorityBusy} onPriorityClick={handlePriorityClick} />
             ) : (
-              <div className="detail-join-cta">
-                <p>Join this festival to save picks, keep private notes, and compare crew overlap.</p>
-                <button className="btn btn-primary" type="button" disabled={joinBusy} aria-busy={joinBusy ? 'true' : 'false'} onClick={handleJoinFestival}>
+              <div className="p-3.5 px-4 rounded-sm bg-[var(--overlay-2)] border border-border mb-5">
+                <p className="text-[13px] text-text-secondary leading-normal mb-3">Join this festival to save picks, keep private notes, and compare crew overlap.</p>
+                <Button variant="primary" type="button" disabled={joinBusy} isLoading={joinBusy} onClick={handleJoinFestival}>
                   {joinBusy ? 'Joining...' : 'Join Festival'}
-                </button>
+                </Button>
               </div>
             )}
 
             {currentProfile && set && currentFestival && hasSetStarted(set, currentFestival, festivalDays) && (
-              <div className="detail-rating mx-0 mb-2.5 mt-3.5 text-center">
-                <div className="mb-2 text-[11px] uppercase tracking-wide text-[var(--color-text-muted)]">
+              <div className="mx-0 mb-2.5 mt-3.5 text-center">
+                <div className="mb-2 text-[11px] uppercase tracking-wide text-text-muted">
                   Rate this set
                 </div>
                 <RatingButtons setId={set.id} festivalId={currentFestival.id} />

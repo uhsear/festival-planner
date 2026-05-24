@@ -1,12 +1,7 @@
 import React from 'react';
 import { FestivalSet, Priority, Festival } from '@festie/shared/types';
 import { formatTime, artistDisplayName } from '@festie/shared/utils';
-
-const PRI_MAP: Record<string, string> = {
-  must: 'must',
-  'want-to-see': 'want',
-  maybe: 'maybe',
-};
+import { cn } from '../lib/utils';
 
 interface PickButtonDef {
   priority: 'must' | 'want-to-see' | 'maybe';
@@ -57,15 +52,38 @@ export default function TimelineGridCell({
   onSavePick,
 }: TimelineGridCellProps) {
   const dn = artistDisplayName(set, festival?.b2bSeparator);
-  const priClass = myPick ? ' priority-' + (PRI_MAP[myPick] || '') : '';
-  const conflictClass = myPick && hasConflict ? ' has-conflict' : '';
   const blockPx = Math.max(1, Math.ceil(spanSlots)) * rowHeight;
   const isShort = blockPx < 44;
+  const hasConflictActive = myPick && hasConflict;
 
   return (
     <div
       key={set.id}
-      className={'timeline-set relative top-px left-0.5 right-0.5 h-[calc(100%-2px)]' + priClass + conflictClass}
+      className={cn(
+        'relative top-px left-0.5 right-0.5 h-[calc(100%-2px)]',
+        // Set block base
+        'px-2 py-1 rounded-[var(--radius-sm)]',
+        'cursor-pointer overflow-hidden',
+        'flex flex-col justify-center',
+        'border-l-[3px] border-l-transparent',
+        'z-[2] opacity-[0.88]',
+        // Press & hover feedback
+        'transition-[transform,box-shadow] duration-150',
+        'ease-[cubic-bezier(0.16,1,0.3,1)]',
+        'active:scale-[0.97]',
+        'hover:opacity-100 hover:shadow-[0_2px_10px_rgba(0,0,0,0.28)]',
+        // Enter animation via data-day attribute on parent grid
+        'will-change-[opacity,transform]',
+        'animate-[timeline-set-enter_260ms_cubic-bezier(0.16,1,0.3,1)_both]',
+        '[animation-delay:var(--tl-stagger,0ms)]',
+        'motion-reduce:!animate-none motion-reduce:!transition-none',
+        // Priority variants
+        myPick === 'must' && 'border-l-[var(--priority-must)] shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
+        myPick === 'want-to-see' && 'border-l-[var(--priority-want)] shadow-[inset_0_0_24px_var(--aqua-a12)]',
+        myPick === 'maybe' && 'border-l-[var(--priority-maybe)] shadow-[inset_0_0_24px_var(--amber-a12)]',
+        // Conflict indicator
+        hasConflictActive && '!border-2 !border-[var(--accent-amber)] shadow-[0_0_8px_rgba(245,158,11,0.3)]',
+      )}
       style={{
         gridRow: `${Math.floor(topSlot) + 2} / span ${Math.max(1, Math.ceil(spanSlots))}`,
         gridColumn: columnIndex + 2,
@@ -85,30 +103,75 @@ export default function TimelineGridCell({
         }
       }}
     >
-      {conflictClass && (
+      {/* Conflict warning icon */}
+      {hasConflictActive && (
         <span
-          className="timeline-conflict-badge"
+          className={cn(
+            'absolute top-0.5 right-0.5',
+            'w-3.5 h-3.5 rounded-full',
+            'inline-flex items-center justify-center',
+            'text-[10px] leading-none',
+            'text-[var(--color-bg-primary,#0d0d1a)]',
+            'bg-[var(--color-accent-coral,#ff6b6b)]',
+            'shadow-[0_0_0_1.5px_var(--bg-primary,#0d0d1a)]',
+            'pointer-events-none z-[2]',
+          )}
           aria-hidden="true"
           title="Schedule conflict with another of your picks"
         >
           {'⚠'}
         </span>
       )}
-      <div className="set-artist" title={dn}>{dn}</div>
+
+      {/* Artist name */}
+      <div
+        className={cn(
+          'line-clamp-2 break-words [overflow-wrap:anywhere] [hyphens:auto] min-w-0',
+          'text-[12.5px] font-bold leading-[1.15] tracking-[0.1px]',
+          'text-[var(--text-primary,#fff)]',
+          '[text-shadow:0_1px_2px_rgba(0,0,0,0.55),0_0_1px_rgba(0,0,0,0.7)]',
+          'min-[380px]:text-[13px]',
+          // Short blocks: single line ellipsis
+          isShort && 'line-clamp-1 whitespace-nowrap text-ellipsis',
+        )}
+        title={dn}
+      >
+        {dn}
+      </div>
+
+      {/* Time label */}
       {!isShort && (
-        <div className="set-time">
+        <div className="text-[11px] opacity-65 mt-px tabular-nums">
           {formatTime(set.startTime!)} - {formatTime(set.endTime!)}
         </div>
       )}
 
+      {/* Priority pick buttons */}
       {hasProfile && !isShort && blockPx >= 60 && (
-        <div className="timeline-pick-group">
+        <div className="flex gap-[var(--space-1)] mt-0.5">
           {PICK_BUTTONS.map(({ priority: p, icon }) => {
             const active = myPick === p;
             return (
               <button
                 key={p}
-                className={'timeline-pick-btn' + (active ? ' active-' + PRI_MAP[p] : '')}
+                className={cn(
+                  'relative',
+                  'bg-[var(--overlay-2)] border border-[var(--border)]',
+                  'rounded-[var(--radius-xs)]',
+                  'text-[var(--text-secondary)] cursor-pointer',
+                  'text-[11px] px-1.5 py-[3px] leading-none',
+                  'transition-all duration-[250ms] ease-[var(--ease-standard)]',
+                  'hover:text-[var(--text-primary)] hover:border-[var(--accent-aqua)] hover:bg-[rgba(255,255,255,0.07)]',
+                  'focus-visible:outline-2 focus-visible:outline-[var(--accent-aqua)] focus-visible:outline-offset-1',
+                  // Hit-slop pseudo-element for 44x44 tap target
+                  'after:content-[""] after:absolute after:inset-[-4px]',
+                  'min-[380px]:min-w-10 min-[380px]:min-h-10',
+                  'min-[380px]:after:inset-[-2px]',
+                  // Active priority states
+                  active && p === 'must' && 'bg-[var(--priority-must)] text-[var(--text-on-accent)] border-[var(--priority-must)] opacity-100',
+                  active && p === 'want-to-see' && 'bg-[var(--priority-want)] text-[var(--text-on-dark)] border-[var(--priority-want)] opacity-100',
+                  active && p === 'maybe' && 'bg-[var(--priority-maybe)] text-[var(--text-on-dark)] border-[var(--priority-maybe)] opacity-100',
+                )}
                 type="button"
                 aria-pressed={active ? 'true' : 'false'}
                 aria-label={pickLabel(p) + (active ? ' (selected)' : '')}
@@ -126,12 +189,19 @@ export default function TimelineGridCell({
         </div>
       )}
 
+      {/* Crew overlap avatars */}
       {others.length > 0 && (
-        <div className="set-overlap">
+        <div className="absolute top-[3px] right-[3px] flex gap-px">
           {others.slice(0, 3).map((o) => (
             <div
               key={o.profileId}
-              className="mini-avatar h-4 w-4 text-[7px]"
+              className={cn(
+                'inline-flex items-center justify-center',
+                'rounded-full font-bold',
+                'text-[var(--text-on-accent)] shrink-0',
+                'w-4 h-4 text-[7px]',
+                'border-[1.5px] border-[var(--bg-primary)]',
+              )}
               title={`${o.name || 'Crew member'} (${o.priority})`}
             />
           ))}

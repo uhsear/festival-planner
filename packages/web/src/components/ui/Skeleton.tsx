@@ -19,7 +19,7 @@ export default function Skeleton({
   return (
     <div
       className={cn(
-        'skeleton',
+        'skeleton-shimmer',
         variantStyles[variant],
         className
       )}

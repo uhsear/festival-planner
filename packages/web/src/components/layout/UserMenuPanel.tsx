@@ -25,13 +25,13 @@ export default function UserMenuPanel({
 
   return (
     <div
-      className="user-menu-overlay"
+      className="fixed inset-0 z-150"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="user-menu"
+        className="user-menu-panel fixed top-[68px] right-[var(--space-9)] z-151 w-[min(360px,calc(100vw-20px))] max-h-[min(calc(100vh-92px),760px)] overflow-y-auto rounded-[var(--radius)] border border-border-light bg-[rgba(14,14,26,.96)] p-[var(--space-7)] shadow-[0_18px_48px_rgba(0,0,0,.55),inset_0_1px_0_var(--overlay-2)] backdrop-saturate-[180%] backdrop-blur-[24px] pb-[calc(88px+env(safe-area-inset-bottom,0px))] overscroll-contain"
         ref={panelRef}
         role="dialog"
         aria-modal="true"

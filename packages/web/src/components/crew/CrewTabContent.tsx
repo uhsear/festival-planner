@@ -36,7 +36,7 @@ export default function CrewTabContent({
 }: CrewTabContentProps) {
   return (
     <div
-      className="crew-tab-panel"
+      className="crew-tab-panel animate-[card-in_200ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none"
       key={tab}
       role="tabpanel"
       id="crew-tab-panel"
