@@ -139,7 +139,7 @@ function FestivalModeViewInner() {
               <button
                 key={s.id}
                 type="button"
-                className="fm-set-card block w-full text-left py-3.5 px-4 bg-glass rounded-xl border border-border transition-[border-color,transform] duration-[var(--duration-med)] ease-[var(--ease-standard)] hover:border-accent-aqua active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 mb-2 cursor-pointer border-l-3 border-l-accent-coral bg-[color-mix(in_srgb,var(--color-accent-coral)_10%,var(--color-glass))]"
+                className="fm-card-enter block w-full text-left py-3.5 px-4 bg-glass rounded-xl border border-border transition-[border-color,transform] duration-[var(--duration-med)] ease-[var(--ease-standard)] hover:border-accent-aqua active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 mb-2 cursor-pointer border-l-3 border-l-accent-coral bg-[color-mix(in_srgb,var(--color-accent-coral)_10%,var(--color-glass))]"
                 data-testid="fm-now-card"
                 onClick={() => setDetailSet(s)}
                 aria-label={`${artistDisplayName(s, currentFestival.b2bSeparator)} playing now${stageName ? ' at ' + stageName : ''}, open details`}
@@ -176,7 +176,7 @@ function FestivalModeViewInner() {
               <button
                 key={s.id}
                 type="button"
-                className="fm-set-card block w-full text-left py-3.5 px-4 bg-glass rounded-xl border border-border transition-[border-color,transform] duration-[var(--duration-med)] ease-[var(--ease-standard)] hover:border-accent-aqua active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 mb-2 cursor-pointer"
+                className="fm-card-enter block w-full text-left py-3.5 px-4 bg-glass rounded-xl border border-border transition-[border-color,transform] duration-[var(--duration-med)] ease-[var(--ease-standard)] hover:border-accent-aqua active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 mb-2 cursor-pointer"
                 data-testid="fm-next-card"
                 onClick={() => setDetailSet(s)}
                 aria-label={`${artistDisplayName(s, currentFestival.b2bSeparator)}${stageName ? ' at ' + stageName : ''} ${fmtCountdown(mins)}, open details`}

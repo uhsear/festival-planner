@@ -39,7 +39,7 @@ export function useNowIndicator(
   const scrollToNow = useCallback(() => {
     const el = gridRef.current;
     if (!el || nowIndicator === null) return;
-    const target = el.querySelector<HTMLElement>('.timeline-now-line');
+    const target = el.querySelector<HTMLElement>('.timeline-now-label');
     if (!target) return;
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [nowIndicator]);

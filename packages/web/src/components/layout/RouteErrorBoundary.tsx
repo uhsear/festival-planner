@@ -63,7 +63,7 @@ function getPresentation(kind: ErrorKind, error: Error): ErrorPresentation {
   switch (kind) {
     case 'network':
       return {
-        icon: <WifiOff className="size-8 text-[var(--accent-coral)]" aria-hidden="true" />,
+        icon: <WifiOff className="size-8 text-[var(--color-accent-coral)]" aria-hidden="true" />,
         heading: 'You appear to be offline',
         description:
           'Check your internet connection and try again. Your data is safe—we’ll sync when you’re back online.',
@@ -71,14 +71,14 @@ function getPresentation(kind: ErrorKind, error: Error): ErrorPresentation {
       };
     case 'not-found':
       return {
-        icon: <FileQuestion className="size-8 text-[var(--accent-coral)]" aria-hidden="true" />,
+        icon: <FileQuestion className="size-8 text-[var(--color-accent-coral)]" aria-hidden="true" />,
         heading: 'Page not found',
         description: 'The page you’re looking for doesn’t exist or may have been moved.',
         showBack: true,
       };
     case 'server':
       return {
-        icon: <ServerCrash className="size-8 text-[var(--accent-coral)]" aria-hidden="true" />,
+        icon: <ServerCrash className="size-8 text-[var(--color-accent-coral)]" aria-hidden="true" />,
         heading: 'Server error',
         description: errorId
           ? `Something went wrong on our end (ref: ${errorId}). Please try again in a moment.`
@@ -88,7 +88,7 @@ function getPresentation(kind: ErrorKind, error: Error): ErrorPresentation {
     case 'generic':
     default:
       return {
-        icon: <AlertTriangle className="size-8 text-[var(--accent-coral)]" aria-hidden="true" />,
+        icon: <AlertTriangle className="size-8 text-[var(--color-accent-coral)]" aria-hidden="true" />,
         heading: 'Something went wrong',
         description: 'An unexpected error occurred. Try reloading the page.',
         showBack: false,
@@ -128,14 +128,14 @@ export default function RouteErrorBoundary({
   }, [error]);
 
   return (
-    <div className="no-festival" role="alert">
+    <div className="flex flex-col items-center justify-center h-full text-center text-text-muted p-12" role="alert">
       <div className="mb-3 flex justify-center">{icon}</div>
       <h2 className="mt-0 text-lg">{heading}</h2>
-      <p className="my-2 text-sm text-[var(--color-text-secondary)]">
+      <p className="my-2 text-sm text-[var(--color-text-secondary)] max-w-[400px]">
         {description}
       </p>
       {contextMessage && (
-        <p className="my-1 mb-3 text-sm text-[var(--color-text-secondary)] italic">
+        <p className="my-1 mb-3 text-sm text-[var(--color-text-secondary)] italic max-w-[400px]">
           {contextMessage}
         </p>
       )}
@@ -214,9 +214,9 @@ export class RenderErrorBoundary extends Component<
   render() {
     if (this.state.error) {
       return (
-        <div className="no-festival" role="alert" aria-label={`${this.props.name} view error`}>
+        <div className="flex flex-col items-center justify-center h-full text-center text-text-muted p-12" role="alert" aria-label={`${this.props.name} view error`}>
           <h2 className="mt-0 text-lg">Something went wrong</h2>
-          <p className="my-2 mb-4 text-sm text-[var(--color-text-secondary)]">
+          <p className="my-2 mb-4 text-sm text-[var(--color-text-secondary)] max-w-[400px]">
             An unexpected error occurred while loading this view. Try reloading
             the page or switching festivals.
           </p>

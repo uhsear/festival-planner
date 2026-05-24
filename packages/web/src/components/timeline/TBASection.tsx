@@ -33,14 +33,14 @@ export default function TBASection({
     <div
       className={cn(
         'mt-5 p-[var(--space-8)]',
-        'bg-[var(--bg-card)] rounded-[var(--radius-sm)]',
-        'border border-[var(--border)]',
+        'bg-[var(--color-bg-card)] rounded-sm',
+        'border border-[var(--color-border)]',
         // fade-in animation kept via keyframe reference
         'animate-[timeline-legend-fade_220ms_ease-out_both]',
         'motion-reduce:!animate-none',
       )}
     >
-      <div className="text-[13px] font-bold text-[var(--text-muted)] uppercase tracking-[0.5px] mb-3">
+      <div className="text-[13px] font-bold text-[var(--color-text-muted)] uppercase tracking-[0.5px] mb-3">
         TBA — Times Not Yet Announced
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-[var(--space-4)]">
@@ -57,19 +57,19 @@ export default function TBASection({
               className={cn(
                 'relative stagger-item',
                 'px-3 py-2.5',
-                'bg-[var(--bg-secondary)] rounded-[var(--radius-sm)]',
-                'border border-[var(--border)]',
+                'bg-[var(--color-bg-secondary)] rounded-sm',
+                'border border-[var(--color-border)]',
                 'cursor-pointer',
                 'transition-[transform,box-shadow] duration-150',
                 'ease-[cubic-bezier(0.16,1,0.3,1)]',
                 'active:scale-[0.98]',
-                'hover:bg-[var(--bg-hover)] hover:outline-2 hover:outline-[var(--accent-aqua)]',
-                'focus-visible:bg-[var(--bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent-aqua)]',
+                'hover:bg-[var(--color-bg-hover)] hover:outline-2 hover:outline-[var(--color-accent-aqua)]',
+                'focus-visible:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent-aqua)]',
                 'motion-reduce:!transition-none',
                 // Priority border-left tint
-                myPick === 'must' && 'border-l-[3px] border-l-[var(--priority-must)] shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
-                myPick === 'want-to-see' && 'border-l-[3px] border-l-[var(--priority-want)] shadow-[inset_0_0_24px_var(--aqua-a12)]',
-                myPick === 'maybe' && 'border-l-[3px] border-l-[var(--priority-maybe)] shadow-[inset_0_0_24px_var(--amber-a12)]',
+                myPick === 'must' && 'border-l-[3px] border-l-[var(--color-priority-must)] shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
+                myPick === 'want-to-see' && 'border-l-[3px] border-l-[var(--color-priority-want)] shadow-[inset_0_0_24px_var(--color-aqua-a12)]',
+                myPick === 'maybe' && 'border-l-[3px] border-l-[var(--color-priority-maybe)] shadow-[inset_0_0_24px_var(--color-amber-a12)]',
               )}
               style={stageColor
                 ? { '--i': Math.min(idx, 20), borderLeft: `3px solid ${stageColor}` } as React.CSSProperties
@@ -104,21 +104,21 @@ export default function TBASection({
                           key={p}
                           className={cn(
                             'relative',
-                            'bg-[var(--overlay-2)] border border-[var(--border)]',
-                            'rounded-[var(--radius-xs)]',
-                            'text-[var(--text-secondary)] cursor-pointer',
+                            'bg-[var(--color-overlay-2)] border border-[var(--color-border)]',
+                            'rounded-xs',
+                            'text-[var(--color-text-secondary)] cursor-pointer',
                             'text-[11px] px-1.5 py-[3px] leading-none',
                             'transition-all duration-[250ms] ease-[var(--ease-standard)]',
-                            'hover:text-[var(--text-primary)] hover:border-[var(--accent-aqua)] hover:bg-[rgba(255,255,255,0.07)]',
-                            'focus-visible:outline-2 focus-visible:outline-[var(--accent-aqua)] focus-visible:outline-offset-1',
+                            'hover:text-[var(--color-text-primary)] hover:border-[var(--color-accent-aqua)] hover:bg-[rgba(255,255,255,0.07)]',
+                            'focus-visible:outline-2 focus-visible:outline-[var(--color-accent-aqua)] focus-visible:outline-offset-1',
                             // Hit-slop pseudo-element for 44x44 tap target
                             'after:content-[""] after:absolute after:inset-[-4px]',
                             'min-[380px]:min-w-10 min-[380px]:min-h-10',
                             'min-[380px]:after:inset-[-2px]',
                             // Active priority states
-                            active && p === 'must' && 'bg-[var(--priority-must)] text-[var(--text-on-accent)] border-[var(--priority-must)] opacity-100',
-                            active && p === 'want-to-see' && 'bg-[var(--priority-want)] text-[var(--text-on-dark)] border-[var(--priority-want)] opacity-100',
-                            active && p === 'maybe' && 'bg-[var(--priority-maybe)] text-[var(--text-on-dark)] border-[var(--priority-maybe)] opacity-100',
+                            active && p === 'must' && 'bg-[var(--color-priority-must)] text-[var(--color-text-on-accent)] border-[var(--color-priority-must)] opacity-100',
+                            active && p === 'want-to-see' && 'bg-[var(--color-priority-want)] text-[var(--color-text-on-dark)] border-[var(--color-priority-want)] opacity-100',
+                            active && p === 'maybe' && 'bg-[var(--color-priority-maybe)] text-[var(--color-text-on-dark)] border-[var(--color-priority-maybe)] opacity-100',
                           )}
                           type="button"
                           aria-pressed={active ? 'true' : 'false'}
@@ -152,7 +152,7 @@ export default function TBASection({
                       className={cn(
                         'inline-flex items-center justify-center',
                         'rounded-full font-bold',
-                        'text-[var(--text-on-accent)] shrink-0',
+                        'text-[var(--color-text-on-accent)] shrink-0',
                         'h-4 w-4 text-[7px]',
                       )}
                       title={`${o.name || 'Crew member'} (${o.priority})`}

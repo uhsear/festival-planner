@@ -74,7 +74,7 @@ export default function Header() {
         'flex items-center justify-between shrink-0',
         'bg-[rgba(10,10,20,0.82)] backdrop-saturate-[180%] backdrop-blur-[20px]',
         'border-b border-border',
-        'shadow-[0_1px_0_var(--overlay-1),0_4px_16px_var(--shade-7)]',
+        'shadow-[0_1px_0_var(--color-overlay-1),0_4px_16px_var(--color-shade-7)]',
         'z-dropdown',
         /* safe-area + responsive padding */
         '[padding:14px_24px]',
@@ -169,7 +169,7 @@ export default function Header() {
 
             {/* Support link */}
             <a
-              className="inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 bg-[var(--overlay-2)] text-text-secondary border border-color-border text-[11px] tracking-wide hover:border-accent-coral hover:text-accent-coral hover:bg-[var(--overlay-4)] focus-visible:outline-accent-aqua [&_svg]:w-[11px] [&_svg]:h-[11px] px-2.5 py-1.5 min-h-11 min-w-11 no-underline whitespace-nowrap"
+              className="inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 bg-[var(--color-overlay-2)] text-text-secondary border border-color-border text-[11px] tracking-wide hover:border-accent-coral hover:text-accent-coral hover:bg-[var(--color-overlay-4)] focus-visible:outline-accent-aqua [&_svg]:w-[11px] [&_svg]:h-[11px] px-2.5 py-1.5 min-h-11 min-w-11 no-underline whitespace-nowrap"
               href="https://paypal.me/uhsear"
               target="_blank"
               rel="noopener noreferrer"

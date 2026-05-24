@@ -26,8 +26,8 @@ describe('FestivalModeSkeleton', () => {
     const sections = container.querySelectorAll('section');
     expect(sections.length).toBe(2);
 
-    const nowCards = sections[0]?.querySelectorAll('.fm-set-card');
-    const upNextCards = sections[1]?.querySelectorAll('.fm-set-card');
+    const nowCards = sections[0]?.querySelectorAll('.fm-card-enter');
+    const upNextCards = sections[1]?.querySelectorAll('.fm-card-enter');
     expect(nowCards?.length).toBe(1);
     expect(upNextCards?.length).toBe(2);
   });

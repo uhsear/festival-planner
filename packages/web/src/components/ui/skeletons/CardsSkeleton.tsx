@@ -21,7 +21,7 @@ export default function CardsSkeleton() {
           className="card-enter"
           style={{ animationDelay: `${Math.min(i * 30, 240)}ms` }}
         >
-          <div className="flex h-[190px] flex-col gap-2.5 rounded-xl border border-[var(--border-light,rgba(255,255,255,0.1))] border-l-4 border-l-transparent bg-[var(--bg-card,rgba(20,20,38,0.65))] p-[18px] backdrop-blur-sm">
+          <div className="flex h-[190px] flex-col gap-2.5 rounded-xl border border-[var(--color-border-light,rgba(255,255,255,0.1))] border-l-4 border-l-transparent bg-[var(--color-bg-card,rgba(20,20,38,0.65))] p-[18px] backdrop-blur-sm">
             {/* Stage pill */}
             <div className="skeleton-shimmer h-[18px] w-[72px] rounded-md" />
             {/* Artist name */}

@@ -16,9 +16,9 @@ const priorityOptions: Array<[Priority | null, string, string]> = [
 
 const activeStyles: Record<string, string> = {
   must: 'border-priority-must bg-accent-coral/[0.08]',
-  'want-to-see': 'border-priority-want bg-[var(--aqua-a08)]',
-  maybe: 'border-priority-maybe bg-[var(--amber-a08)]',
-  clear: 'border-text-muted bg-[var(--overlay-1)]',
+  'want-to-see': 'border-priority-want bg-[var(--color-aqua-a08)]',
+  maybe: 'border-priority-maybe bg-[var(--color-amber-a08)]',
+  clear: 'border-text-muted bg-[var(--color-overlay-1)]',
 };
 
 const baseButtonClass =

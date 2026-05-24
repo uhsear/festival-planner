@@ -78,10 +78,10 @@ export default function TimelineGrid({
         className={cn(
           'sticky top-0 z-10 text-center',
           'bg-[rgba(10,10,20,0.95)]',
-          'border-b-2 border-b-[var(--border)]',
+          'border-b-2 border-b-[var(--color-border)]',
           'font-bold uppercase tracking-[1.5px]',
           '[backdrop-filter:saturate(140%)_blur(4px)]',
-          'bg-[var(--bg-primary)]',
+          'bg-[var(--color-bg-primary)]',
           // Mobile: smaller text, tight padding, allow wrapping
           'text-[0.6rem] leading-[1.2] px-0.5 py-1 whitespace-normal break-words overflow-hidden',
           // Desktop: restore full sizing
@@ -99,7 +99,7 @@ export default function TimelineGrid({
             className={cn(
               'sticky top-0 z-10 text-center',
               'bg-[rgba(10,10,20,0.95)]',
-              'border-b-2 border-b-[var(--border)]',
+              'border-b-2 border-b-[var(--color-border)]',
               'font-bold uppercase tracking-[1.5px]',
               '[backdrop-filter:saturate(140%)_blur(4px)]',
               // Mobile: smaller text, tight padding, allow wrapping
@@ -127,9 +127,9 @@ export default function TimelineGrid({
             className={cn(
               'sticky left-0 z-5',
               'px-2.5 py-1',
-              'text-[11px] font-semibold text-[var(--text-muted)]',
-              'bg-[var(--bg-primary)]',
-              'border-r border-r-[var(--border)]',
+              'text-[11px] font-semibold text-[var(--color-text-muted)]',
+              'bg-[var(--color-bg-primary)]',
+              'border-r border-r-[var(--color-border)]',
               'flex items-start justify-end whitespace-nowrap',
               'tabular-nums [font-feature-settings:"tnum"_1]',
               'tracking-[0.01em]',
@@ -139,8 +139,8 @@ export default function TimelineGrid({
               gridColumn: 1,
               borderBottom:
                 mm === 0
-                  ? '1px solid var(--border-light)'
-                  : '1px solid var(--border)',
+                  ? '1px solid var(--color-border-light)'
+                  : '1px solid var(--color-border)',
             }}
           >
             {show ? fmtHour(hh, mm) : ''}
@@ -156,14 +156,14 @@ export default function TimelineGrid({
           return (
             <div
               key={`cell-${st.id}-${i}`}
-              className="border-b border-b-[var(--border)] border-r border-r-[var(--border)] relative"
+              className="border-b border-b-[var(--color-border)] border-r border-r-[var(--color-border)] relative"
               style={{
                 gridRow: i + 2,
                 gridColumn: ci + 2,
                 borderBottom:
                   mm === 0
-                    ? '1px solid var(--border-light)'
-                    : '1px solid var(--border)',
+                    ? '1px solid var(--color-border-light)'
+                    : '1px solid var(--color-border)',
               }}
             />
           );
@@ -207,10 +207,10 @@ export default function TimelineGrid({
       {nowIndicator !== null && (
         <div
           className={cn(
-            'timeline-now-line',
+            'timeline-now-label',
             'absolute right-0 h-0.5',
             'left-[56px] sm:left-[70px] lg:left-[84px] min-[1440px]:left-[96px]',
-            'bg-[var(--accent-coral)]',
+            'bg-[var(--color-accent-coral)]',
             'z-[8] pointer-events-none',
             'shadow-[0_0_8px_rgba(var(--accent-coral-rgb),0.5)]',
             'transition-[top] duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
@@ -222,8 +222,8 @@ export default function TimelineGrid({
             className={cn(
               'absolute -left-1 -top-[3px]',
               'w-2 h-2 rounded-full',
-              'bg-[var(--accent-coral)]',
-              'shadow-[0_0_6px_var(--accent-coral)]',
+              'bg-[var(--color-accent-coral)]',
+              'shadow-[0_0_6px_var(--color-accent-coral)]',
               'animate-[timeline-now-pulse_1800ms_ease-out_infinite]',
               'motion-reduce:!animate-none',
             )}
