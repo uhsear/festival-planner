@@ -68,7 +68,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
   .set-card { border: 1px solid ButtonText; }
   .day-tab.active { border-bottom: 3px solid Highlight; }
 }
-@media (pointer: fine) and (hover: hover) { .day-tab { padding: 6px 12px; min-height: 32px; } .card-priority-btn { min-height: 32px; min-width: 32px; } .set-card { padding: var(--space-7); } }
+@media (pointer: fine) and (hover: hover) { .day-tab { padding: 6px 12px; min-height: 32px; } .set-card { padding: var(--space-7); } }
 @media (pointer: coarse) { .card-priority-btn { min-height: 48px; min-width: 48px; } .day-tab { min-height: 44px; } }
 @media (hover: none) { .set-card:hover { border-color: var(--border-light); background: var(--bg-card); } }
 

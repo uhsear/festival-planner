@@ -14,7 +14,7 @@
  */
 export default function CardsSkeleton() {
   return (
-    <div className="card-grid grid [grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),360px))] gap-[18px] justify-start max-w-[1120px] mx-auto pb-5 max-sm:gap-2.5 max-sm:max-w-none" aria-busy="true" aria-label="Loading sets" role="region">
+    <div className="card-grid grid [grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-4 mx-auto pb-5 px-3 sm:px-4 md:gap-5 max-w-[1440px]" aria-busy="true" aria-label="Loading sets" role="region">
       {Array.from({ length: 8 }).map((_, i) => (
         <div
           key={i}
