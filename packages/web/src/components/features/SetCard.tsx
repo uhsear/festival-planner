@@ -172,7 +172,7 @@ function SetCard({
         'set-card',
         // Base styles
         'relative bg-bg-card glass-xs border border-border-light rounded-DEFAULT',
-        'p-[18px] cursor-pointer overflow-hidden',
+        'p-5 cursor-pointer overflow-hidden',
         'border-l-4 border-l-transparent',
         // Transition + will-change
         'transition-[transform,box-shadow,background,border-color] duration-300 will-change-transform',
@@ -250,29 +250,6 @@ function SetCard({
         </button>
       )}
 
-      {/* Note indicator */}
-      {myNote && (
-        <div
-          className="card-note-indicator absolute top-[var(--space-7)] right-[var(--space-7)] z-[2] text-sm opacity-50"
-          aria-label="Has note"
-        >
-          📝
-        </div>
-      )}
-
-      {/* Conflict badge */}
-      {hasConflict && (
-        <div className={cn(
-          'absolute top-[var(--space-7)] right-9 z-[2]',
-          'text-[11px] font-bold py-0.5 px-2 rounded-sm',
-          'bg-[rgba(255,51,102,0.15)] text-accent-coral',
-          'border border-[rgba(255,51,102,0.3)]',
-          'tracking-[0.5px] uppercase',
-        )}>
-          ⚠ Conflict
-        </div>
-      )}
-
       <span
         className={cn(
           'card-stage',
@@ -308,16 +285,32 @@ function SetCard({
         </div>
       )}
 
-      {/* Time */}
-      <span className={cn(
+      {/* Time + indicators */}
+      <div className={cn(
         'card-time',
         'relative z-[2] pointer-events-none',
+        'flex items-center gap-2 flex-wrap',
         'text-[13px] text-text-secondary tabular-nums mb-3',
       )}>
-        {set.startTime && set.endTime
-          ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}`
-          : 'TBA'}
-      </span>
+        <span>
+          {set.startTime && set.endTime
+            ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}`
+            : 'TBA'}
+        </span>
+        {myNote && (
+          <span className="card-note-indicator text-xs opacity-50" aria-label="Has note">📝</span>
+        )}
+        {hasConflict && (
+          <span className={cn(
+            'text-[11px] font-bold py-0.5 px-1.5 rounded-sm leading-tight',
+            'bg-[rgba(255,51,102,0.15)] text-accent-coral',
+            'border border-[rgba(255,51,102,0.3)]',
+            'tracking-[0.5px] uppercase',
+          )}>
+            ⚠ Conflict
+          </span>
+        )}
+      </div>
 
       {/* Live badge */}
       {['live', 'soon', 'upcoming'].includes(setStatus.status) && (

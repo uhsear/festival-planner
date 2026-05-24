@@ -28,7 +28,6 @@
 @container (min-width: 320px) and (max-width: 419px) { .set-card .card-artist { font-size: 17px !important; } }
 @container (min-width: 420px) {
   .set-card .card-artist { font-size: 20px !important; letter-spacing: -0.4px; }
-  .set-card { padding: 20px !important; }
 }
 @media (max-width: 319px) {
   .crew-category-grid, .crew-type-grid { grid-template-columns: repeat(2, 1fr) !important; }
@@ -68,7 +67,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
   .set-card { border: 1px solid ButtonText; }
   .day-tab.active { border-bottom: 3px solid Highlight; }
 }
-@media (pointer: fine) and (hover: hover) { .day-tab { padding: 6px 12px; min-height: 32px; } .set-card { padding: var(--space-7); } }
+@media (pointer: fine) and (hover: hover) { .day-tab { padding: 6px 12px; min-height: 32px; } }
 @media (pointer: coarse) { .card-priority-btn { min-height: 48px; min-width: 48px; } .day-tab { min-height: 44px; } }
 @media (hover: none) { .set-card:hover { border-color: var(--border-light); background: var(--bg-card); } }
 
