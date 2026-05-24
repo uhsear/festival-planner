@@ -337,7 +337,7 @@ function SetCard({
                       'card-priority-btn',
                       'w-11 h-11 min-w-11 min-h-11 rounded-full',
                       'flex items-center justify-center',
-                      'bg-bg-input border border-border-light',
+                      'bg-white/[0.06] border border-border-light',
                       'text-sm text-text-muted cursor-pointer',
                       'transition-[transform,box-shadow,background,border-color,color] duration-200',
                       'hover:border-text-secondary hover:scale-110',
