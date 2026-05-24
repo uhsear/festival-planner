@@ -1,6 +1,6 @@
 # Full Codebase Review — 2026-05-02
 
-10-skill audit + implementation sprint. All 40 findings addressed across 10 parallel agents.
+Full audit + implementation sprint. All 40 findings addressed.
 
 ## Verification
 
@@ -62,7 +62,7 @@
 ### Documentation (Agent 7)
 - Rewrote `ARCHITECTURE.md` (299 lines, all SQLite/monolithic references removed)
 - Created `README.md` (135 lines — tech stack, setup, scripts, structure, env vars)
-- Updated `CLAUDE.md` with OpenAPI reference, removed stale caveat
+- Updated project docs with OpenAPI reference, removed stale caveat
 
 ### CI/CD (Agent 8)
 - Added `master` branch to CI triggers (push + PR)

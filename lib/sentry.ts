@@ -3,11 +3,6 @@
  *
  * If @sentry/node is not installed OR SENTRY_DSN is unset, this becomes a
  * no-op and the exported `sentry` object mirrors the public API with stubs.
- * This lets the rest of the codebase call `sentry.captureException(err)`
- * unconditionally.
- *
- * 2026-04-14: all SENTRY_*, APP_VERSION, NODE_ENV reads now flow through
- * lib/config.js (single source of truth per CLAUDE.md centralization rule).
  */
 
 import { createRequire } from 'module';
