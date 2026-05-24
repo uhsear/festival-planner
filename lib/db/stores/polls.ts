@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { Pool } from 'pg';
 
-// Safe JSON parse — returns fallback on any error (CLAUDE.md rule)
+// Safe JSON parse — returns fallback on any error
 function safeParseJson(value: any, fallback: any) {
   if (value == null) return fallback;
   if (typeof value !== 'string') return value;

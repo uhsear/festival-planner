@@ -1,19 +1,5 @@
 /**
  * Festie logger — Pino-backed structured logging with request IDs + PII redaction.
- *
- * Preserves the existing createLogger() API surface:
- *   createLogger(prefix?, bindings?)
- *   logger.{error,warn,info,debug}(message, meta?)
- *   logger.child(extraBindings)
- *
- * Changes in Phase 1.1:
- *   - Uses pino when available (structured JSON in prod, pino-pretty in dev).
- *   - Falls back to the old console-based logger if pino is not installed,
- *     so the app never fails to boot because of a missing optional dep.
- *   - Adds sanitizeLogMeta() which remains exported for callers that build
- *     meta objects manually.
- *   - 2026-04-14: LOG_LEVEL + NODE_ENV now sourced from lib/config.js DEFAULTS
- *     (single source of truth per CLAUDE.md centralization rule).
  */
 
 import { loadConfig } from './config.js';

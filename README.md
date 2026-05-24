@@ -116,13 +116,12 @@ Interactive API docs are available at `/api/docs` (Swagger UI) when the server i
 
 ## Contributing
 
-1. Read `CLAUDE.md` for detailed development guidance, conventions, and architecture notes.
-2. Read `CONTEXT.md` for the domain language glossary.
-3. Follow the code conventions: 2-space indent, single quotes, trailing commas, semicolons.
-4. All code is ESM TypeScript.
-5. All API inputs must have Zod schemas in `lib/schemas.ts`.
-6. All SQL must use parameterized queries (`$1, $2`).
-7. Run the verification workflow before submitting changes:
+1. Read `CONTEXT.md` for the domain language glossary.
+2. Follow the code conventions: 2-space indent, single quotes, trailing commas, semicolons.
+3. All code is ESM TypeScript.
+4. All API inputs must have Zod schemas in `lib/schemas.ts`.
+5. All SQL must use parameterized queries (`$1, $2`).
+6. Run the verification workflow before submitting changes:
    ```bash
    npm run typecheck && pnpm --filter @festie/web typecheck && npm run lint && pnpm --filter @festie/web lint && npm test
    ```
