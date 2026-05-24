@@ -94,6 +94,7 @@ html {
     height: 100dvh;
     position: relative;
     z-index: 1;
+    overflow-x: hidden;
   }
 
   /* Heading hierarchy — display font + tight leading + caps tracking.
