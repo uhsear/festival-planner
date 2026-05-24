@@ -27,7 +27,7 @@ export default function WrapSkeleton() {
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
-            className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3"
+            className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-card)] p-3"
           >
             <div className="skeleton-shimmer h-8 w-8 rounded-full" />
             <div className="flex flex-1 flex-col gap-1.5">

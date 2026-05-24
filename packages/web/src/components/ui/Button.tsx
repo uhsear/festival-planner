@@ -45,7 +45,7 @@ export default function Button({
     outline:
       'bg-transparent text-text-primary border border-border hover:border-border-light focus-visible:outline-accent-aqua',
     util:
-      'bg-[var(--overlay-2)] text-text-secondary border border-color-border text-[11px] font-semibold tracking-wide hover:border-accent-aqua hover:text-text-primary hover:bg-[var(--overlay-4)] focus-visible:outline-accent-aqua [&_svg]:w-[11px] [&_svg]:h-[11px]',
+      'bg-[var(--color-overlay-2)] text-text-secondary border border-color-border text-[11px] font-semibold tracking-wide hover:border-accent-aqua hover:text-text-primary hover:bg-[var(--color-overlay-4)] focus-visible:outline-accent-aqua [&_svg]:w-[11px] [&_svg]:h-[11px]',
     delete:
       'w-11 h-11 min-w-11 min-h-11 rounded-full bg-transparent text-accent-coral border border-transparent hover:bg-accent-coral/10 hover:border-accent-coral focus-visible:outline-accent-coral',
   };

@@ -12,9 +12,9 @@ import RefreshableView from '../components/layout/RefreshableView';
 import { Star, CalendarX, UserPlus } from 'lucide-react';
 
 const PRIORITY_SECTIONS: Array<[Priority, string, string]> = [
-  ['must', 'Must See', 'var(--priority-must)'],
-  ['want-to-see', 'Want to See', 'var(--priority-want)'],
-  ['maybe', 'Maybe', 'var(--priority-maybe)'],
+  ['must', 'Must See', 'var(--color-priority-must)'],
+  ['want-to-see', 'Want to See', 'var(--color-priority-want)'],
+  ['maybe', 'Maybe', 'var(--color-priority-maybe)'],
 ];
 
 /**
@@ -41,9 +41,9 @@ class PicksErrorBoundary extends Component<
     if (this.state.error) {
       return (
         <div className="pb-5" role="alert" aria-label="Picks view error">
-          <div className="no-festival p-6">
+          <div className="flex flex-col items-center justify-center h-full text-center text-text-muted p-6">
             <h2 className="mt-0">Something went wrong loading your picks.</h2>
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <p className="text-sm text-[var(--color-text-secondary)] max-w-[400px]">
               Try reloading the page. If this keeps happening, switch festivals
               and back, or sign out and back in.
             </p>
@@ -186,10 +186,10 @@ function PicksViewInner() {
         const items = picksGrouped[pri];
         return (
           <div key={pri} className="mb-4">
-            <div className="relative overflow-hidden col-span-full font-display text-[11px] font-bold uppercase tracking-[3px] mb-3.5 pb-2.5 border-b border-border-light flex items-center gap-[var(--space-5)] after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-[linear-gradient(90deg,var(--border-light),transparent_80%)]">
+            <div className="relative overflow-hidden col-span-full font-display text-[11px] font-bold uppercase tracking-[3px] mb-3.5 pb-2.5 border-b border-border-light flex items-center gap-[var(--space-5)] after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-[linear-gradient(90deg,var(--color-border-light),transparent_80%)]">
               <div className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
               <span>{label}</span>
-              <span className="ml-auto font-body text-xs font-semibold px-2.5 py-0.5 rounded-[var(--radius-md)] bg-bg-card text-text-secondary tracking-normal">{items.length}</span>
+              <span className="ml-auto font-body text-xs font-semibold px-2.5 py-0.5 rounded-md bg-bg-card text-text-secondary tracking-normal">{items.length}</span>
             </div>
 
             {items.map((set, idx) => {
@@ -201,7 +201,7 @@ function PicksViewInner() {
               return (
                 <button
                   key={set.id}
-                  className="stagger-item grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-3 gap-y-2 px-4 py-3 bg-bg-card backdrop-blur-[8px] border border-border rounded-[var(--radius-sm)] mb-1.5 cursor-pointer transition-[background,transform,box-shadow,border-color] duration-[250ms] ease-standard hover:bg-bg-card-hover hover:translate-x-1 hover:shadow-[0_4px_16px_var(--shade-7)] hover:border-[var(--overlay-4)] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:shadow-[0_0_0_4px_var(--aqua-a15)] w-full text-left"
+                  className="stagger-item grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-3 gap-y-2 px-4 py-3 bg-bg-card backdrop-blur-[8px] border border-border rounded-sm mb-1.5 cursor-pointer transition-[background,transform,box-shadow,border-color] duration-[250ms] ease-standard hover:bg-bg-card-hover hover:translate-x-1 hover:shadow-[0_4px_16px_var(--color-shade-7)] hover:border-[var(--color-overlay-4)] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:shadow-[0_0_0_4px_var(--color-aqua-a15)] w-full text-left"
                   style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}
                   type="button"
                   aria-label={`${dn} — ${dayLabel}${set.startTime ? ' ' + formatTime(set.startTime) : ' TBA'}`}

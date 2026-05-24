@@ -15,10 +15,10 @@ export default function RegisterPage() {
 }
 
 const authInputClasses = cn(
-  'w-full py-3.5 px-[18px] text-base text-center mb-3 rounded-[var(--radius)]',
-  'bg-[var(--bg-card)] backdrop-blur-[12px] min-h-11',
+  'w-full py-3.5 px-[18px] text-base text-center mb-3 rounded-DEFAULT',
+  'bg-[var(--color-bg-card)] backdrop-blur-[12px] min-h-11',
   'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
-  'focus:shadow-[0_0_0_4px_var(--aqua-a1),0_0_24px_var(--aqua-a06)]',
+  'focus:shadow-[0_0_0_4px_var(--color-aqua-a1),0_0_24px_var(--color-aqua-a06)]',
 );
 
 function RegisterPageInner() {
@@ -90,7 +90,7 @@ function RegisterPageInner() {
 
       <div
         className={cn(
-          'flex mb-6 border border-border-light rounded-[var(--radius)] overflow-hidden',
+          'flex mb-6 border border-border-light rounded-DEFAULT overflow-hidden',
           'w-full max-w-[360px] relative z-[1]',
         )}
         role="tablist"
@@ -100,7 +100,7 @@ function RegisterPageInner() {
           to="/login"
           className={cn(
             'flex-1 py-[var(--space-6)] text-sm font-semibold text-center min-h-11 cursor-pointer',
-            'bg-[var(--bg-card)] text-text-secondary',
+            'bg-[var(--color-bg-card)] text-text-secondary',
             'transition-[background,color] duration-200 ease-[var(--ease-out)]',
             'inline-flex items-center justify-center',
           )}
@@ -211,7 +211,7 @@ function RegisterPageInner() {
         />
 
         {/* TOS checkbox */}
-        <label className="my-2.5 flex min-h-11 cursor-pointer items-start gap-2 text-[13px] text-[var(--text-secondary)]">
+        <label className="my-2.5 flex min-h-11 cursor-pointer items-start gap-2 text-[13px] text-[var(--color-text-secondary)]">
           <input
             type="checkbox"
             id="authTos"

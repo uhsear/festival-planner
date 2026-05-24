@@ -103,10 +103,10 @@ describe('useNowIndicator', () => {
     const bounds = makeBounds(600, 960);
     const { result } = renderHook(() => useNowIndicator(bounds, 0));
 
-    // Set up a mock grid element with a .timeline-now-line child
+    // Set up a mock grid element with a .timeline-now-label child
     const mockGrid = document.createElement('div');
     const nowLine = document.createElement('div');
-    nowLine.className = 'timeline-now-line';
+    nowLine.className = 'timeline-now-label';
     nowLine.scrollIntoView = vi.fn();
     mockGrid.appendChild(nowLine);
 

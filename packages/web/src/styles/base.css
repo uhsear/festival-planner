@@ -63,7 +63,7 @@ html {
 
   /* Link reset */
   a {
-    color: var(--accent-aqua);
+    color: var(--color-accent-aqua);
     text-decoration: none;
   }
 

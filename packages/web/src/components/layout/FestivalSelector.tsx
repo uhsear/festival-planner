@@ -17,7 +17,7 @@ export default function FestivalSelector() {
     <>
       <label
         htmlFor="festival-select-input"
-        className="mr-1.5 inline-block text-xs font-semibold text-[var(--text-secondary)]"
+        className="mr-1.5 inline-block text-xs font-semibold text-[var(--color-text-secondary)]"
       >
         Festival:
       </label>

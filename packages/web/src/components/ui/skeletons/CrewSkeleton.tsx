@@ -16,7 +16,7 @@ export default function CrewSkeleton() {
         <div className="skeleton-shimmer h-24 w-full rounded-xl opacity-70" />
 
         {/* invite bar */}
-        <div className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3">
+        <div className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-card)] p-3">
           <div className="flex flex-1 flex-col gap-1.5">
             <div className="skeleton-shimmer h-2.5 w-20" />
             <div className="skeleton-shimmer h-3 w-[60%]" />
@@ -39,7 +39,7 @@ export default function CrewSkeleton() {
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3"
+              className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-card)] p-3"
             >
               <div className="skeleton-shimmer h-10 w-10 rounded-full" />
               <div className="flex flex-1 flex-col gap-1.5">

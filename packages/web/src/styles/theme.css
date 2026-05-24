@@ -22,9 +22,119 @@
   backdrop-filter: blur(8px);
 }
 
+@utility crew-poll-bar {
+  animation: crew-bar-fill 420ms var(--ease-out, ease-out) both;
+}
+
+@utility crew-activity-rail {
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    left: 24px;
+    top: 48px;
+    bottom: -8px;
+    width: 1px;
+    background: linear-gradient(to bottom,
+      color-mix(in srgb, var(--color-accent-aqua) 30%, transparent), transparent);
+    pointer-events: none;
+  }
+  &:last-child::before {
+    display: none;
+  }
+}
+
 @utility press-scale {
   &:active {
     transform: scale(0.97);
+  }
+}
+
+@utility fm-live-dot {
+  position: relative;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-accent-coral, #ff6b6b);
+  vertical-align: middle;
+  margin-right: 6px;
+  margin-bottom: 2px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--color-accent-coral, #ff6b6b);
+    will-change: transform, opacity;
+    animation: fm-live-pulse 2s ease-out infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes fm-live-pulse {
+  0%   { transform: scale(1);   opacity: 0.55; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+@utility fm-card-enter {
+  animation: fm-card-enter 180ms var(--ease-out, ease-out) both;
+}
+
+@keyframes fm-card-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fm-day-banner-slide {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@utility day-tab-underline {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 4px;
+    width: 0;
+    height: 2px;
+    background: var(--color-accent-aqua, #00d4aa);
+    border-radius: 2px;
+    transform: translateX(-50%);
+    transition: width var(--duration-med) var(--ease-out);
+    pointer-events: none;
+  }
+  &.active::after {
+    width: 40%;
+  }
+}
+
+@utility timeline-now-label {
+  &::before {
+    content: 'NOW';
+    position: absolute;
+    left: -52px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--color-accent-coral);
+    background: var(--color-bg-primary);
+    padding: 1px 4px;
+    border-radius: var(--radius-xs, 4px);
+  }
+  @media (max-width: 640px) {
+    &::before { left: -44px; }
+  }
+  @media (min-width: 1024px) {
+    &::before { left: -56px; }
+  }
+  @media (min-width: 1440px) {
+    &::before { left: -60px; }
   }
 }
 
@@ -210,80 +320,12 @@
 }
 
 /* Values that cannot live in @theme: var() references, rgb channels,
-   composite values, and rarely-used one-offs. */
+   and composite values. */
 :root {
   /* RGB channel tokens (used in inline rgba() expressions) */
   --accent-coral-rgb: 255, 51, 102;
   --spotify-brand-rgb: 29, 185, 84;
 
-  /* Legacy glow aliases — migrate to shadow-glow Tailwind utilities */
-  --glow-coral: 0 0 24px rgba(var(--accent-coral-rgb), .35);
-  --glow-aqua: 0 0 24px rgba(0, 232, 208, .3);
-  --glow-amber: 0 0 20px rgba(255, 176, 32, .3);
-  --glow-green: 0 0 20px rgba(57, 255, 20, .3);
-
-  /* Legacy radius aliases — use Tailwind rounded-sm/md/lg/pill instead */
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 20px;
-  --radius-xs: 4px;
-  --radius-md: 10px;
-  --radius-pill: 999px;
-
-  /* Legacy backdrop alias */
-  --glass: saturate(180%) blur(16px);
-
-  /* Legacy overlay and shade aliases */
-  --overlay-1: rgba(255, 255, 255, .03);
-  --overlay-2: rgba(255, 255, 255, .04);
-  --overlay-3: rgba(255, 255, 255, .06);
-  --overlay-4: rgba(255, 255, 255, .08);
-  --overlay-5: rgba(255, 255, 255, .1);
-  --overlay-hi: rgba(255, 255, 255, .95);
-  --shade-1: rgba(0, 0, 0, .04);
-  --shade-2: rgba(0, 0, 0, .06);
-  --shade-3: rgba(0, 0, 0, .08);
-  --shade-4: rgba(0, 0, 0, .1);
-  --shade-5: rgba(0, 0, 0, .12);
-  --shade-6: rgba(0, 0, 0, .15);
-  --shade-7: rgba(0, 0, 0, .2);
-  --shade-8: rgba(0, 0, 0, .4);
-  --shade-9: rgba(0, 0, 0, .45);
-  --shade-10: rgba(0, 0, 0, .75);
-
-  /* Legacy alpha scale aliases */
-  --aqua-a06: rgba(0, 232, 208, .06);
-  --aqua-a08: rgba(0, 232, 208, .08);
-  --aqua-a1: rgba(0, 232, 208, .1);
-  --aqua-a12: rgba(0, 232, 208, .12);
-  --aqua-a15: rgba(0, 232, 208, .15);
-  --aqua-a2: rgba(0, 232, 208, .2);
-  --aqua-a3: rgba(0, 232, 208, .3);
-  --amber-a08: rgba(255, 176, 32, .08);
-  --amber-a12: rgba(255, 176, 32, .12);
-  --amber-a2: rgba(255, 176, 32, .2);
-  --amber-a3: rgba(255, 176, 32, .3);
-
-  /* One-offs (low usage, keep as custom properties) */
+  /* Non-theme one-offs */
   --text-on-light-accent: #080810;
-  --text-on-poster: #fff;
-  --wrap-poster-bg-1: #0a0a1a;
-  --wrap-poster-bg-2: #1a0a2e;
-  --wrap-poster-bg-3: #0a1a2e;
-
-  /* Legacy status and text aliases */
-  --bg-hover: rgba(32, 32, 58, .8);
-  --bg-elevated: rgba(24, 24, 44, .9);
-  --text-on-accent: #fff;
-  --text-on-dark: #000;
-  --text-danger: #f87171;
-  --text-disabled: #a8a8c0;
-  --text-placeholder: #a8a8c0;
-  --status-verified: #22c55e;
-  --status-unverified: #fbbf24;
-  --status-verified-bg: rgba(34, 197, 94, .15);
-  --status-unverified-bg: rgba(251, 191, 36, .15);
-  --status-warning: #f0a030;
-  --status-error: #ff6b6b;
-  --spotify-brand: #1DB954;
 }

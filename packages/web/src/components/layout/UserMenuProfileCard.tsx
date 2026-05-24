@@ -82,7 +82,7 @@ export default function UserMenuProfileCard({ user }: UserMenuProfileCardProps) 
           <div className="flex flex-wrap gap-[var(--space-3)] mb-2.5">
             {currentProfile ? (
               <>
-                <span className="inline-flex items-center gap-[var(--space-2)] px-2 py-[3px] rounded-full bg-[var(--aqua-a1)] border border-[rgba(0,232,208,.28)] text-[11px] font-bold tracking-[.4px] uppercase text-accent-aqua">Joined</span>
+                <span className="inline-flex items-center gap-[var(--space-2)] px-2 py-[3px] rounded-full bg-[var(--color-aqua-a1)] border border-[rgba(0,232,208,.28)] text-[11px] font-bold tracking-[.4px] uppercase text-accent-aqua">Joined</span>
                 <span className="inline-flex items-center gap-[var(--space-2)] px-2 py-[3px] rounded-full bg-white/5 border border-border-light text-[11px] font-bold tracking-[.4px] uppercase text-text-secondary">Notes stay private</span>
               </>
             ) : (
@@ -97,7 +97,7 @@ export default function UserMenuProfileCard({ user }: UserMenuProfileCardProps) 
                 [summary.want, 'Want to see'],
                 [summary.notes, 'Notes'],
               ] as const).map(([value, label]) => (
-                <div className="flex flex-col gap-[var(--space-1)] rounded-[var(--radius-sm)] bg-[var(--overlay-2)] border border-border px-3 py-2.5" key={label}>
+                <div className="flex flex-col gap-[var(--space-1)] rounded-sm bg-[var(--color-overlay-2)] border border-border px-3 py-2.5" key={label}>
                   <strong className="text-base font-bold">{value}</strong>
                   <span className="text-[11px] text-text-secondary">{label}</span>
                 </div>

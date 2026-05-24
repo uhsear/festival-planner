@@ -6,6 +6,7 @@ import { useSwipeDays } from '../../hooks/useSwipeDays';
 import { useHaptics } from '../../hooks/useHaptics';
 import { useScrollFade } from '../../hooks/useScrollFade';
 import { cn } from '../../lib/utils';
+import Input from '../ui/Input';
 
 interface SubHeaderProps {
   /** Show only day tabs (no stage chips or search). Used on /timeline, /grid, /picks. */
@@ -89,7 +90,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
         {/* Festival selector */}
         <label
           htmlFor="festival-select-input"
-          className="mr-1.5 inline-block text-xs font-semibold text-[var(--text-secondary)]"
+          className="mr-1.5 inline-block text-xs font-semibold text-[var(--color-text-secondary)]"
         >
           Festival:
         </label>
@@ -130,7 +131,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                 <button
                   key={day.id || i}
                   className={cn(
-                    'day-tab',
+                    'day-tab-underline',
                     'py-[7px] px-4 rounded-full text-[13px] font-semibold cursor-pointer',
                     'whitespace-nowrap snap-center min-h-[44px] inline-flex items-center',
                     'transition-[background,color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)]',
@@ -201,10 +202,10 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
 
         {/* Artist search */}
         {showSearch && (
-          <div className="search-box ml-auto relative" role="search">
-            <input
-              type="text"
-              className="search-input pl-[34px] w-[clamp(100px,30vw,180px)] text-[13px]"
+          <div className="search-box ml-auto" role="search">
+            <Input
+              variant="search"
+              className="w-[clamp(100px,30vw,180px)] text-[13px]"
               placeholder="Search artist..."
               value={searchQuery}
               aria-label="Search festival artists"

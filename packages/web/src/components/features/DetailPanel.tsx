@@ -205,7 +205,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             {currentProfile ? (
               <DetailPriorityPicker myPick={myPick || null} priorityBusy={priorityBusy} onPriorityClick={handlePriorityClick} />
             ) : (
-              <div className="p-3.5 px-4 rounded-sm bg-[var(--overlay-2)] border border-border mb-5">
+              <div className="p-3.5 px-4 rounded-sm bg-[var(--color-overlay-2)] border border-border mb-5">
                 <p className="text-[13px] text-text-secondary leading-normal mb-3">Join this festival to save picks, keep private notes, and compare crew overlap.</p>
                 <Button variant="primary" type="button" disabled={joinBusy} isLoading={joinBusy} onClick={handleJoinFestival}>
                   {joinBusy ? 'Joining...' : 'Join Festival'}

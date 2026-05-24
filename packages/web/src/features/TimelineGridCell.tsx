@@ -62,7 +62,7 @@ export default function TimelineGridCell({
       className={cn(
         'relative top-px left-0.5 right-0.5 h-[calc(100%-2px)]',
         // Set block base
-        'px-2 py-1 rounded-[var(--radius-sm)]',
+        'px-2 py-1 rounded-sm',
         'cursor-pointer overflow-hidden',
         'flex flex-col justify-center',
         'border-l-[3px] border-l-transparent',
@@ -78,11 +78,11 @@ export default function TimelineGridCell({
         '[animation-delay:var(--tl-stagger,0ms)]',
         'motion-reduce:!animate-none motion-reduce:!transition-none',
         // Priority variants
-        myPick === 'must' && 'border-l-[var(--priority-must)] shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
-        myPick === 'want-to-see' && 'border-l-[var(--priority-want)] shadow-[inset_0_0_24px_var(--aqua-a12)]',
-        myPick === 'maybe' && 'border-l-[var(--priority-maybe)] shadow-[inset_0_0_24px_var(--amber-a12)]',
+        myPick === 'must' && 'border-l-[var(--color-priority-must)] shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
+        myPick === 'want-to-see' && 'border-l-[var(--color-priority-want)] shadow-[inset_0_0_24px_var(--color-aqua-a12)]',
+        myPick === 'maybe' && 'border-l-[var(--color-priority-maybe)] shadow-[inset_0_0_24px_var(--color-amber-a12)]',
         // Conflict indicator
-        hasConflictActive && '!border-2 !border-[var(--accent-amber)] shadow-[0_0_8px_rgba(245,158,11,0.3)]',
+        hasConflictActive && '!border-2 !border-[var(--color-accent-amber)] shadow-[0_0_8px_rgba(245,158,11,0.3)]',
       )}
       style={{
         gridRow: `${Math.floor(topSlot) + 2} / span ${Math.max(1, Math.ceil(spanSlots))}`,
@@ -113,7 +113,7 @@ export default function TimelineGridCell({
             'text-[10px] leading-none',
             'text-[var(--color-bg-primary,#0d0d1a)]',
             'bg-[var(--color-accent-coral,#ff6b6b)]',
-            'shadow-[0_0_0_1.5px_var(--bg-primary,#0d0d1a)]',
+            'shadow-[0_0_0_1.5px_var(--color-bg-primary,#0d0d1a)]',
             'pointer-events-none z-[2]',
           )}
           aria-hidden="true"
@@ -128,7 +128,7 @@ export default function TimelineGridCell({
         className={cn(
           'line-clamp-2 break-words [overflow-wrap:anywhere] [hyphens:auto] min-w-0',
           'text-[12.5px] font-bold leading-[1.15] tracking-[0.1px]',
-          'text-[var(--text-primary,#fff)]',
+          'text-[var(--color-text-primary,#fff)]',
           '[text-shadow:0_1px_2px_rgba(0,0,0,0.55),0_0_1px_rgba(0,0,0,0.7)]',
           'min-[380px]:text-[13px]',
           // Short blocks: single line ellipsis
@@ -156,21 +156,21 @@ export default function TimelineGridCell({
                 key={p}
                 className={cn(
                   'relative',
-                  'bg-[var(--overlay-2)] border border-[var(--border)]',
-                  'rounded-[var(--radius-xs)]',
-                  'text-[var(--text-secondary)] cursor-pointer',
+                  'bg-[var(--color-overlay-2)] border border-[var(--color-border)]',
+                  'rounded-xs',
+                  'text-[var(--color-text-secondary)] cursor-pointer',
                   'text-[11px] px-1.5 py-[3px] leading-none',
                   'transition-all duration-[250ms] ease-[var(--ease-standard)]',
-                  'hover:text-[var(--text-primary)] hover:border-[var(--accent-aqua)] hover:bg-[rgba(255,255,255,0.07)]',
-                  'focus-visible:outline-2 focus-visible:outline-[var(--accent-aqua)] focus-visible:outline-offset-1',
+                  'hover:text-[var(--color-text-primary)] hover:border-[var(--color-accent-aqua)] hover:bg-[rgba(255,255,255,0.07)]',
+                  'focus-visible:outline-2 focus-visible:outline-[var(--color-accent-aqua)] focus-visible:outline-offset-1',
                   // Hit-slop pseudo-element for 44x44 tap target
                   'after:content-[""] after:absolute after:inset-[-4px]',
                   'min-[380px]:min-w-10 min-[380px]:min-h-10',
                   'min-[380px]:after:inset-[-2px]',
                   // Active priority states
-                  active && p === 'must' && 'bg-[var(--priority-must)] text-[var(--text-on-accent)] border-[var(--priority-must)] opacity-100',
-                  active && p === 'want-to-see' && 'bg-[var(--priority-want)] text-[var(--text-on-dark)] border-[var(--priority-want)] opacity-100',
-                  active && p === 'maybe' && 'bg-[var(--priority-maybe)] text-[var(--text-on-dark)] border-[var(--priority-maybe)] opacity-100',
+                  active && p === 'must' && 'bg-[var(--color-priority-must)] text-[var(--color-text-on-accent)] border-[var(--color-priority-must)] opacity-100',
+                  active && p === 'want-to-see' && 'bg-[var(--color-priority-want)] text-[var(--color-text-on-dark)] border-[var(--color-priority-want)] opacity-100',
+                  active && p === 'maybe' && 'bg-[var(--color-priority-maybe)] text-[var(--color-text-on-dark)] border-[var(--color-priority-maybe)] opacity-100',
                 )}
                 type="button"
                 aria-pressed={active ? 'true' : 'false'}
@@ -198,9 +198,9 @@ export default function TimelineGridCell({
               className={cn(
                 'inline-flex items-center justify-center',
                 'rounded-full font-bold',
-                'text-[var(--text-on-accent)] shrink-0',
+                'text-[var(--color-text-on-accent)] shrink-0',
                 'w-4 h-4 text-[7px]',
-                'border-[1.5px] border-[var(--bg-primary)]',
+                'border-[1.5px] border-[var(--color-bg-primary)]',
               )}
               title={`${o.name || 'Crew member'} (${o.priority})`}
             />

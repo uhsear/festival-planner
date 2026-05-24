@@ -30,7 +30,7 @@ export default function TimelineSkeleton() {
             'timeline-header-cell',
             'sticky top-0 z-10 text-center',
             'bg-[rgba(10,10,20,0.95)] backdrop-blur-[8px]',
-            'border-b-2 border-b-[var(--border)]',
+            'border-b-2 border-b-[var(--color-border)]',
             'font-bold uppercase tracking-[1.5px]',
             // Mobile: smaller text, tight padding, allow wrapping
             'text-[0.6rem] leading-[1.2] px-0.5 py-1 whitespace-normal break-words overflow-hidden',
@@ -46,7 +46,7 @@ export default function TimelineSkeleton() {
               'timeline-header-cell',
               'sticky top-0 z-10 text-center',
               'bg-[rgba(10,10,20,0.95)] backdrop-blur-[8px]',
-              'border-b-2 border-b-[var(--border)]',
+              'border-b-2 border-b-[var(--color-border)]',
               'font-bold uppercase tracking-[1.5px]',
               // Mobile: smaller text, tight padding, allow wrapping
               'text-[0.6rem] leading-[1.2] px-0.5 py-1 whitespace-normal break-words overflow-hidden',
@@ -66,9 +66,9 @@ export default function TimelineSkeleton() {
               'timeline-time-cell',
               'sticky left-0 z-5',
               'px-2.5 py-1',
-              'text-[11px] font-semibold text-[var(--text-muted)]',
-              'bg-[var(--bg-primary)]',
-              'border-r border-r-[var(--border)]',
+              'text-[11px] font-semibold text-[var(--color-text-muted)]',
+              'bg-[var(--color-bg-primary)]',
+              'border-r border-r-[var(--color-border)]',
               'flex items-start justify-end whitespace-nowrap',
               'tabular-nums',
             )}

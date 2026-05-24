@@ -25,9 +25,9 @@ const priLabels: Record<string, string> = {
 };
 
 const priColors: Record<string, string> = {
-  must: 'var(--priority-must)',
-  'want-to-see': 'var(--priority-want)',
-  maybe: 'var(--priority-maybe)',
+  must: 'var(--color-priority-must)',
+  'want-to-see': 'var(--color-priority-want)',
+  maybe: 'var(--color-priority-maybe)',
 };
 
 export default function DetailCrewSection({ title, others, crewNotes }: Props) {

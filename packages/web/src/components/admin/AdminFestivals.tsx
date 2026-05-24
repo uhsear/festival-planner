@@ -248,7 +248,7 @@ export default function AdminFestivals() {
         />
       )}
       {tab === 'import' && !editingId && (
-        <p className="text-center text-[var(--text-muted)] py-8">
+        <p className="text-center text-[var(--color-text-muted)] py-8">
           Select a festival to import a lineup.
         </p>
       )}

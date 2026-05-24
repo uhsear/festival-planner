@@ -150,7 +150,7 @@ export default function AppShell() {
           className={cn(
             'guest-banner',
             'flex items-center justify-between gap-[var(--space-6)]',
-            'py-3 px-4 bg-[var(--aqua-a08)] border border-[rgba(0,232,208,0.25)]',
+            'py-3 px-4 bg-[var(--color-aqua-a08)] border border-[rgba(0,232,208,0.25)]',
             'text-text-primary rounded-sm mb-2 font-semibold text-sm',
           )}
           aria-label="Guest notice"
