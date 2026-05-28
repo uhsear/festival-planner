@@ -40,7 +40,26 @@ export const letterSpacing = {
   body: -0.01,
 } as const;
 
+/**
+ * Named type roles (Stagelight). Bundle family/size/line-height/tracking/weight
+ * so a "title" is the same on web and React Native. Sizes are the existing
+ * ramp (no new pixel values). 11px/13px are intentionally absent — round to
+ * 12 or 14. `transform: 'uppercase'` applies to the micro role only.
+ */
+export const typeRoles = {
+  'display-xl': { family: fontFamily.display, size: fontSize[48], lineHeight: lineHeight.tight, letterSpacing: letterSpacing.display, weight: 700 },
+  'display-lg': { family: fontFamily.display, size: fontSize[32], lineHeight: lineHeight.tight, letterSpacing: letterSpacing.display, weight: 700 },
+  heading: { family: fontFamily.display, size: fontSize[24], lineHeight: lineHeight.tight, letterSpacing: letterSpacing.display, weight: 700 },
+  title: { family: fontFamily.body, size: fontSize[20], lineHeight: lineHeight.snug, letterSpacing: letterSpacing.body, weight: 600 },
+  body: { family: fontFamily.body, size: fontSize[16], lineHeight: lineHeight.normal, letterSpacing: letterSpacing.body, weight: 400 },
+  label: { family: fontFamily.body, size: fontSize[14], lineHeight: lineHeight.normal, letterSpacing: letterSpacing.body, weight: 500 },
+  caption: { family: fontFamily.body, size: fontSize[12], lineHeight: lineHeight.snug, letterSpacing: 0, weight: 400 },
+  micro: { family: fontFamily.body, size: fontSize[10], lineHeight: lineHeight.snug, letterSpacing: letterSpacing.caps, weight: 600, transform: 'uppercase' as const },
+} as const;
+
 export type FontFamily = typeof fontFamily;
 export type FontSize = typeof fontSize;
 export type LineHeight = typeof lineHeight;
 export type LetterSpacing = typeof letterSpacing;
+export type TypeRoles = typeof typeRoles;
+export type TypeRoleName = keyof typeof typeRoles;

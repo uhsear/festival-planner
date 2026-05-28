@@ -115,15 +115,19 @@ describe('Header', () => {
   describe('theme toggle', () => {
     it('renders theme toggle button', () => {
       render(<Header />);
-      expect(screen.getByLabelText('Toggle light/dark theme')).toBeInTheDocument();
+      expect(screen.getByLabelText('Toggle theme (dark, light, daylight)')).toBeInTheDocument();
     });
 
-    it('toggles theme from dark to light on click', async () => {
+    it('cycles theme dark -> light -> daylight -> dark on click', async () => {
       const user = userEvent.setup();
       render(<Header />);
-      const toggle = screen.getByLabelText('Toggle light/dark theme');
+      const toggle = screen.getByLabelText('Toggle theme (dark, light, daylight)');
       await user.click(toggle);
       expect(localStorage.getItem('fp-theme')).toBe('light');
+      await user.click(toggle);
+      expect(localStorage.getItem('fp-theme')).toBe('daylight');
+      await user.click(toggle);
+      expect(localStorage.getItem('fp-theme')).toBe('dark');
     });
   });
 

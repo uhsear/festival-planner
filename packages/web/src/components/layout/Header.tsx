@@ -44,13 +44,19 @@ export default function Header() {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('fp-theme', theme);
     // Sync the PWA / mobile browser chrome color with the active theme
+    const chrome = theme === 'dark' ? '#080810' : theme === 'daylight' ? '#ffffff' : '#f5f5f7';
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'dark' ? '#080810' : '#f5f5f7');
+      ?.setAttribute('content', chrome);
   }, [theme]);
 
+  // Cycle dark -> light -> daylight (high-contrast for bright sun) -> dark.
+  const THEME_CYCLE = ['dark', 'light', 'daylight'] as const;
   const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'));
+    setThemeState((prev) => {
+      const i = THEME_CYCLE.indexOf(prev as (typeof THEME_CYCLE)[number]);
+      return THEME_CYCLE[(i + 1) % THEME_CYCLE.length]!;
+    });
   };
 
   // Connection status — simplified for React rewrite
@@ -242,10 +248,16 @@ export default function Header() {
           )}
           type="button"
           onClick={toggleTheme}
-          aria-label="Toggle light/dark theme"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label="Toggle theme (dark, light, daylight)"
+          title={
+            theme === 'dark'
+              ? 'Switch to light mode'
+              : theme === 'light'
+                ? 'Switch to daylight (high-contrast) mode'
+                : 'Switch to dark mode'
+          }
         >
-          <span aria-hidden="true">{theme === 'dark' ? '☀' : '🌙'}</span>
+          <span aria-hidden="true">{theme === 'dark' ? '☀' : theme === 'light' ? '🔆' : '🌙'}</span>
         </Button>
 
         {/* User menu / profile badge */}
