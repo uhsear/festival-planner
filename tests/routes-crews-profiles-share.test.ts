@@ -72,6 +72,7 @@ function makeCrewDeps(overrides: any = {}) {
         listByUserAndFestival: mock.fn(async () => []),
         listByUser: mock.fn(async () => []),
         getMembers: mock.fn(async () => []),
+        getMembersForCrews: mock.fn(async () => new Map()),
         getMember: mock.fn(async () => null),
         getMemberCount: mock.fn(async () => 0),
         addMember: mock.fn(async () => {}),

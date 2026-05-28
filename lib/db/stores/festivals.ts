@@ -322,9 +322,6 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
         await client.query('DELETE FROM crew_expenses WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [festivalId]);
         await client.query('DELETE FROM crew_activity WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [festivalId]);
         await client.query('DELETE FROM crew_members WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [festivalId]);
-        // Festival messages reference both festivals and crews — delete before crews
-        await client.query('DELETE FROM festival_messages WHERE festival_id = $1', [festivalId]);
-        await client.query('DELETE FROM message_sequences WHERE festival_id = $1', [festivalId]);
         // Crews (FK RESTRICT from festivals)
         await client.query('DELETE FROM crews WHERE festival_id = $1', [festivalId]);
         // Child rows of festival_sets (FK RESTRICT — must delete before sets)
