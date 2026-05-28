@@ -65,17 +65,14 @@ export const useFestivalStore: UseFestivalStore = (<T,>(
   // Fast path: no selector -- return the full merged state (rare in practice,
   // kept for API compatibility). This will re-render on any change.
   if (!selector) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     return useSyncExternalStore(subscribeToBothStores, getMergedState, getMergedState);
   }
 
   // With a selector: only re-render when the selected slice changes.
   // We cache the last snapshot so useSyncExternalStore sees a stable
   // reference when the selected value hasn't changed.
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const cachedRef = useRef<{ value: T; merged: FestivalStore } | null>(null);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const getSnapshot = useCallback((): T => {
     const merged = getMergedState();
     const next = selector(merged);
@@ -90,7 +87,6 @@ export const useFestivalStore: UseFestivalStore = (<T,>(
     return next;
   }, [selector]);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   return useSyncExternalStore(subscribeToBothStores, getSnapshot, getSnapshot);
 }) as UseFestivalStore;
 

@@ -79,15 +79,15 @@ describe('DetailPriorityPicker', () => {
     expect(screen.getByLabelText('Clear (selected)')).toHaveTextContent('✕');
   });
 
-  it('adds active class when priority is selected', () => {
+  it('adds active styling when priority is selected', () => {
     render(<DetailPriorityPicker {...defaultProps} myPick="want-to-see" />);
     const btn = screen.getByLabelText('Want to See (selected)');
-    expect(btn.className).toContain('active-want');
+    expect(btn.className).toContain('border-priority-want');
   });
 
-  it('does not add active class when priority is not selected', () => {
+  it('does not add active styling when priority is not selected', () => {
     render(<DetailPriorityPicker {...defaultProps} myPick="must" />);
     const btn = screen.getByLabelText('Maybe');
-    expect(btn.className).not.toContain('active-maybe');
+    expect(btn.className).not.toContain('border-priority-maybe');
   });
 });

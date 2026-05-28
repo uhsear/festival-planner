@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { Socket } from 'socket.io-client';
 
 // ── Mock socket.io-client ─────────────────────────────────────────────────
 // We capture every `io()` call and its options so tests can inspect them.

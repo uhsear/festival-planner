@@ -335,7 +335,7 @@ export default function createAuthRoutes(deps: any): Router {
       setNoStore(res);
       const { token } = resolveRequestToken(req, 'x-user-token', config.USER_SESSION_COOKIE);
        
-      const { stores, hashSessionToken } = deps;
+      const { hashSessionToken } = deps;
       if (token) {
         await stores.sessions.deleteUserSession(hashSessionToken(token));
         const disconnectSessionTokens = deps.disconnectSessionTokens;
@@ -427,7 +427,7 @@ export default function createAuthRoutes(deps: any): Router {
     try {
       setNoStore(res);
        
-      const { stores, hashSessionToken: hashToken } = deps;
+      const { hashSessionToken: hashToken } = deps;
       const sessions = await stores.sessions.listUserSessions(req.user.userId);
       const currentTokenHash = req.userToken ? hashToken(req.userToken) : null;
       const items = sessions.map((s: any) => ({
@@ -448,7 +448,7 @@ export default function createAuthRoutes(deps: any): Router {
     try {
       setNoStore(res);
        
-      const { stores, hashSessionToken: hashToken } = deps;
+      const { hashSessionToken: hashToken } = deps;
       const sessionId = req.params.id as string;
       if (!sessionId || sessionId.length !== 16 || !/^[a-f0-9]+$/i.test(sessionId)) {
         return sendError(res, 400, 'Invalid session ID', ErrorCodes.INVALID_INPUT);

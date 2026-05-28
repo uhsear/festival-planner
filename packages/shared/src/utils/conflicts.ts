@@ -22,11 +22,11 @@ export function detectConflicts(
       const a = picked[i]!;
       const b = picked[j]!;
 
-      let aS = timeToMinutes(a.startTime);
+      const aS = timeToMinutes(a.startTime);
       let aE = timeToMinutes(a.endTime);
       if (aE <= aS) aE += 1440;
 
-      let bS = timeToMinutes(b.startTime);
+      const bS = timeToMinutes(b.startTime);
       let bE = timeToMinutes(b.endTime);
       if (bE <= bS) bE += 1440;
 
@@ -68,7 +68,7 @@ export function findAlternatives(
   const targetSet = allSets.find((s) => s.id === conflictingSetId);
   if (!targetSet || !targetSet.startTime || !targetSet.endTime) return [];
 
-  let tS = timeToMinutes(targetSet.startTime);
+  const tS = timeToMinutes(targetSet.startTime);
   let tE = timeToMinutes(targetSet.endTime);
   if (tE <= tS) tE += 1440;
 
@@ -83,14 +83,14 @@ export function findAlternatives(
       if (!s.startTime || !s.endTime) return false;
       if (s.stageId === targetSet.stageId) return false;
 
-      let sS = timeToMinutes(s.startTime);
+      const sS = timeToMinutes(s.startTime);
       let sE = timeToMinutes(s.endTime);
       if (sE <= sS) sE += 1440;
 
       if (!(sS < tE && tS < sE)) return false;
 
       for (const op of otherPicked) {
-        let opS = timeToMinutes(op.startTime);
+        const opS = timeToMinutes(op.startTime);
         let opE = timeToMinutes(op.endTime);
         if (opE <= opS) opE += 1440;
         if (sS < opE && opS < sE) return false;

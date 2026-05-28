@@ -148,11 +148,11 @@ export default function createAdminStatusRoutes(deps: any): { router: Router } {
     try {
       setNoStore(res);
        
-      const pool = deps.pool || stores?.pool;
-      if (!pool) return res.json({ data: null, error: { message: 'Database not available' } });
+      const analyticsPool = deps.pool || stores?.pool;
+      if (!analyticsPool) return res.json({ data: null, error: { message: 'Database not available' } });
 
       const [topSetsResult, activeUsersResult, crewsResult, festivalStatsResult] = await Promise.all([
-        pool.query(`
+        analyticsPool.query(`
           SELECT
             fs.artist,
             fs.stage_id AS "stageId",
@@ -191,7 +191,7 @@ export default function createAdminStatusRoutes(deps: any): { router: Router } {
           LIMIT
             20
         `),
-        pool.query(`
+        analyticsPool.query(`
           SELECT
             u.id,
             u.username,
@@ -215,7 +215,7 @@ export default function createAdminStatusRoutes(deps: any): { router: Router } {
           LIMIT
             50
         `),
-        pool.query(`
+        analyticsPool.query(`
           SELECT
             c.id,
             c.name,
@@ -235,7 +235,7 @@ export default function createAdminStatusRoutes(deps: any): { router: Router } {
           LIMIT
             20
         `),
-        pool.query(`
+        analyticsPool.query(`
           SELECT
             f.id,
             f.name,

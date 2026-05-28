@@ -25,7 +25,6 @@ import crypto from 'crypto';
 import type { Router } from 'express';
 import { createPasswordResetRateLimit } from '../lib/rate-limiting';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../lib/email';
-import { renderResetFormPage, renderResetErrorPage } from '../lib/reset-pages';
 import { escapeHtml } from '../lib/helpers/sanitize';
 
 export default function createEmailAuthRoutes(deps: any): Router {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useCrewStore } from '../stores/crewStore';
 import { useFestivalStore } from '../stores/festivalStore';
 import { Profile, Priority } from '../types';

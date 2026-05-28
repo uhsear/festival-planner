@@ -3,7 +3,7 @@ import { useFestivalDataStore } from './festivalDataStore';
 import { useFestivalUIStore } from './festivalUIStore';
 import { useAuthStore } from './authStore';
 import { api } from '../services/api';
-import type { Festival, Profile, FestivalSet, Stage, FestivalDay } from '../types/domain';
+import type { Festival, Profile } from '../types/domain';
 
 vi.mock('../services/api', () => ({
   api: {

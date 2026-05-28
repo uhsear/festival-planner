@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
 import request from 'supertest';
-import { io as createSocketClient } from 'socket.io-client';
+import { io as createSocketClient, type Socket } from 'socket.io-client';
 import { Pool } from 'pg';
 
 import { createFestivalPlanner } from '../server';
@@ -252,7 +252,7 @@ function waitForEvent(emitter: any, event: string, predicate: (payload: any) => 
   });
 }
 
-function connectSocket(baseUrl: string, options: Record<string, any> = {}) {
+function connectSocket(baseUrl: string, options: Record<string, any> = {}): Socket {
   return createSocketClient(baseUrl, {
     transports: ['websocket'],
     forceNew: true,

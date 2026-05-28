@@ -15,8 +15,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import * as sanitize from './helpers/sanitize.js';
-import * as validation from './helpers/validation.js';
 import * as exportUtils from './helpers/export-utils.js';
 
 const { buildAvatarUrl } = exportUtils;
