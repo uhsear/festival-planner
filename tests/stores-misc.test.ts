@@ -55,6 +55,10 @@ function mapProfileRow(row: any) {
 
 const mockUtils = { mapProfileRow };
 
+// Normalize whitespace so SQL substring assertions are insensitive to
+// multi-line formatting in the store modules.
+const normSql = (s: any) => String(s).replace(/\s+/g, ' ').trim();
+
 // ===========================================================================
 // 1. Activity Store
 // ===========================================================================
@@ -68,7 +72,7 @@ describe('ActivityStore', () => {
       await store.log({ crewId: 'c1', userId: 'u1', type: 'join', detail: 'joined crew' });
 
       assert.equal(pool.queries.length, 1);
-      assert.ok(pool.queries[0].sql.includes('INSERT INTO crew_activity'));
+      assert.ok(normSql(pool.queries[0].sql).includes('INSERT INTO crew_activity'));
       assert.equal(pool.queries[0].params[1], 'c1');
       assert.equal(pool.queries[0].params[2], 'u1');
       assert.equal(pool.queries[0].params[3], 'join');
@@ -161,7 +165,7 @@ describe('AuditStore', () => {
 
       assert.ok(id);
       assert.equal(pool.queries.length, 1);
-      assert.ok(pool.queries[0].sql.includes('INSERT INTO audit_log'));
+      assert.ok(normSql(pool.queries[0].sql).includes('INSERT INTO audit_log'));
       assert.equal(pool.queries[0].params[1], 'user');
       assert.equal(pool.queries[0].params[2], 'u1');
       assert.equal(pool.queries[0].params[3], 'login');

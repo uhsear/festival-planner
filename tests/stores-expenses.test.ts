@@ -22,6 +22,10 @@ function makeErrorPool(error: any) {
   };
 }
 
+// Normalize SQL whitespace so substring assertions are robust to the
+// multi-line formatting of the store queries.
+const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+
 // ---------------------------------------------------------------------------
 // 1. create()
 // ---------------------------------------------------------------------------
@@ -169,7 +173,7 @@ describe('expenses store — getByCrew()', () => {
     assert.deepStrictEqual(result[0].split_with, ['user-1', 'user-2']);
     assert.deepStrictEqual(result[1].split_with, ['user-1', 'user-2', 'user-3']);
 
-    const sql = (pool.query.mock.calls[0]!.arguments as any[])[0];
+    const sql = norm((pool.query.mock.calls[0]!.arguments as any[])[0]);
     assert.ok(sql.includes('ORDER BY e.created_at DESC'));
     assert.ok(sql.includes('JOIN users u'));
     assert.deepStrictEqual((pool.query.mock.calls[0]!.arguments as any[])[1], ['crew-1']);
@@ -716,10 +720,10 @@ describe('expenses store — getBalances()', () => {
 
     assert.strictEqual(pool.query.mock.calls.length, 2);
     const [expSql, expParams] = pool.query.mock.calls[0]!.arguments as any[];
-    assert.ok(expSql.includes('FROM crew_expenses'));
+    assert.ok(norm(expSql).includes('FROM crew_expenses'));
     assert.deepStrictEqual(expParams, ['crew-1']);
     const [memSql, memParams] = pool.query.mock.calls[1]!.arguments as any[];
-    assert.ok(memSql.includes('FROM crew_members'));
+    assert.ok(norm(memSql).includes('FROM crew_members'));
     assert.deepStrictEqual(memParams, ['crew-1']);
   });
 

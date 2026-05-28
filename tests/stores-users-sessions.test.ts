@@ -34,6 +34,10 @@ const mockUtils: any = {
   toISOString: (val: any) => (val ? new Date(val).toISOString() : null),
 };
 
+// Collapse multi-line/whitespace-formatted SQL into a single normalized line
+// so substring assertions are not brittle to SQL formatting.
+const norm = (s: any) => String(s).replace(/\s+/g, ' ').trim();
+
 function fakeUserRow(overrides: any = {}) {
   return {
     id: 'u1',
@@ -782,7 +786,7 @@ describe('createSessionsStore', () => {
       const pool = mockPool([{ rows: [], rowCount: 0 }]);
       const sessions = createSessionsStore(pool, mockUtils);
       await sessions.listUserSessions('u1');
-      assert.ok(pool.calls[0].sql.includes('ORDER BY last_access ASC'));
+      assert.ok(norm(pool.calls[0].sql).includes('ORDER BY last_access ASC'));
     });
   });
 
@@ -1254,7 +1258,7 @@ describe('createSessionsStore', () => {
           activeUsers: 50,
         };
         await sessions.metricsRollups.insert(rollup);
-        assert.ok(pool.calls[0].sql.includes('INSERT INTO metrics_rollups'));
+        assert.ok(norm(pool.calls[0].sql).includes('INSERT INTO metrics_rollups'));
         assert.equal(pool.calls[0].params.length, 10);
         assert.equal(pool.calls[0].params[0], rollup.bucketStart);
         assert.equal(pool.calls[0].params[2], 1000);

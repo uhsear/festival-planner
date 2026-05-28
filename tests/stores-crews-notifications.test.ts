@@ -37,6 +37,10 @@ function mockPool(queryResults: any[] = []): any {
 
 const mockUtils: any = {};
 
+// Collapse all runs of whitespace to a single space so that SQL substring
+// assertions are insensitive to the multi-line formatting of the store queries.
+const norm = (s: any) => String(s).replace(/\s+/g, ' ').trim();
+
 function mockPoolThatThrows(error: any): any {
   return {
     queries: [],
@@ -179,7 +183,7 @@ describe('createCrewsStore — crews', () => {
 
     assert.deepStrictEqual(result, { id: 'c1' });
     assert.strictEqual(pool.queries.length, 2);
-    assert.ok(pool.queries[0].sql.includes('INSERT INTO crews'));
+    assert.ok(norm(pool.queries[0].sql).includes('INSERT INTO crews'));
     assert.deepStrictEqual(pool.queries[0].params, ['c1', 'f1', 'The Crew', 'u1', 'abc123', null, 10]);
   });
 
@@ -332,7 +336,7 @@ describe('createCrewsStore — crews', () => {
 
     await crews.addMember({ crewId: 'c1', userId: 'u1', role: 'member' });
 
-    assert.ok(pool.queries[0].sql.includes('INSERT INTO crew_members'));
+    assert.ok(norm(pool.queries[0].sql).includes('INSERT INTO crew_members'));
     assert.deepStrictEqual(pool.queries[0].params, ['c1', 'u1', 'member']);
   });
 
@@ -459,7 +463,7 @@ describe('createCrewsStore — meetingPoints', () => {
     const result = await meetingPoints.create(mp);
 
     assert.deepStrictEqual(result, { id: 'mp1', label: 'Gate A' });
-    assert.ok(pool.queries[0].sql.includes('INSERT INTO crew_meeting_points'));
+    assert.ok(norm(pool.queries[0].sql).includes('INSERT INTO crew_meeting_points'));
     assert.deepStrictEqual(pool.queries[0].params, [
       'mp1', 'c1', 'u1', 'Gate A', 'North', 'pre-show', '18:00', 'Main', '2026-12-31',
     ]);
@@ -853,7 +857,7 @@ describe('createNotificationsStore — notificationLog', () => {
       errorMessage: null,
     });
 
-    assert.ok(pool.queries[0].sql.includes('INSERT INTO notification_log'));
+    assert.ok(norm(pool.queries[0].sql).includes('INSERT INTO notification_log'));
     const p = pool.queries[0].params;
     assert.strictEqual(p[0], 'n1');
     assert.strictEqual(p[1], 'u1');
