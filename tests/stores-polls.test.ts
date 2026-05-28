@@ -475,8 +475,10 @@ describe('lib/db/stores/polls.js', () => {
 
       assert.strictEqual(result, '3');
       const call = pool.query.mock.calls[0]!;
-      assert.ok((call.arguments as any[])[0].includes('SELECT COUNT(*)'));
-      assert.ok((call.arguments as any[])[0].includes('closed = FALSE'));
+      const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+      const sql = norm((call.arguments as any[])[0]);
+      assert.ok(sql.includes('SELECT COUNT(*)'));
+      assert.ok(sql.includes('closed = FALSE'));
       assert.deepStrictEqual((call.arguments as any[])[1], ['crew-1']);
     });
 
