@@ -21,6 +21,13 @@
   --color-stage-fallback: #656585;
   --color-bg-sticky: #ffffff;
   --shadow-sticky: 0 1px 3px rgba(0, 0, 0, 0.10);
+  /* Stagelight P1 (item 12): status colours retuned for AA on the #f5f5f7
+     canvas — the dark-theme greens/ambers fail contrast on a light bg. */
+  --color-status-verified: #15803d;
+  --color-status-unverified: #b45309;
+  --color-status-warning: #b45309;
+  --color-status-error: #b91c1c;
+  --color-text-danger: #b91c1c;
 }
 
 /* ── Daylight / Boost theme (Stagelight P1, decision 2026-05-28) ──────────
@@ -54,6 +61,12 @@
   --shadow-sticky: 0 1px 4px rgba(0, 0, 0, 0.22);
   --color-coral-ring: rgba(192, 29, 58, 0.25);
   --color-aqua-ring: rgba(0, 102, 90, 0.25);
+  /* Max-contrast status colours for glare legibility. */
+  --color-status-verified: #11652f;
+  --color-status-unverified: #8a4b00;
+  --color-status-warning: #8a4b00;
+  --color-status-error: #a30f1f;
+  --color-text-danger: #a30f1f;
 }
 
 /* Daylight skeleton + selection mirror the light-theme treatment. */

@@ -105,10 +105,11 @@ export default function AdminUsers() {
         />
       ) : (
         <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-hidden">
+          {/* Table on lg+, stacked label/value cards below 1024px (§6 admin). */}
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm block lg:table">
               <caption className="sr-only">User management</caption>
-              <thead>
+              <thead className="hidden lg:table-header-group">
                 <tr className="border-b border-glass-border bg-bg-primary/20">
                   <th className="px-4 py-3 text-left text-text-muted font-medium">Username</th>
                   <th className="px-4 py-3 text-left text-text-muted font-medium">Email</th>
@@ -118,37 +119,42 @@ export default function AdminUsers() {
                   <th className="px-4 py-3 text-right text-text-muted font-medium">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-glass-border">
+              <tbody className="block lg:table-row-group lg:divide-y lg:divide-glass-border">
                 {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-bg-primary/20 transition-colors">
-                    <td className="px-4 py-3 text-text-primary font-medium">{user.username}</td>
-                    <td className="px-4 py-3 text-text-secondary text-xs">{user.email}</td>
-                    <td className="px-4 py-3 text-center">
+                  <tr
+                    key={user.id}
+                    className="block lg:table-row mb-3 rounded-lg border border-glass-border bg-bg-card/40 p-2 last:mb-0 transition-colors hover:bg-bg-primary/20 lg:mb-0 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0"
+                  >
+                    <td data-label="Username" className="flex items-center justify-between gap-3 px-2 py-1.5 font-medium text-text-primary before:font-medium before:text-text-muted before:content-[attr(data-label)] lg:table-cell lg:px-4 lg:py-3 lg:before:content-none">{user.username}</td>
+                    <td data-label="Email" className="flex items-center justify-between gap-3 px-2 py-1.5 text-xs text-text-secondary before:text-sm before:font-medium before:text-text-muted before:content-[attr(data-label)] lg:table-cell lg:px-4 lg:py-3 lg:text-xs lg:before:content-none">{user.email}</td>
+                    <td data-label="Verified" className="flex items-center justify-between gap-3 px-2 py-1.5 before:text-sm before:font-medium before:text-text-muted before:content-[attr(data-label)] lg:table-cell lg:px-4 lg:py-3 lg:text-center lg:before:content-none">
                       {user.isVerified ? (
                         <span className="inline-block w-2 h-2 rounded-full bg-accent-green" title="Verified" />
                       ) : (
                         <span className="inline-block w-2 h-2 rounded-full bg-text-muted" title="Not verified" />
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      {user.roles.includes('admin') && <span className="text-xs font-bold text-accent-coral">ADMIN</span>}
+                    <td data-label="Admin" className="flex items-center justify-between gap-3 px-2 py-1.5 before:text-sm before:font-medium before:text-text-muted before:content-[attr(data-label)] lg:table-cell lg:px-4 lg:py-3 lg:text-center lg:before:content-none">
+                      {user.roles.includes('admin') ? <span className="text-xs font-bold text-accent-coral">ADMIN</span> : <span className="text-xs text-text-muted lg:hidden">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-text-muted text-xs">
+                    <td data-label="Joined" className="flex items-center justify-between gap-3 px-2 py-1.5 text-xs text-text-muted before:text-sm before:font-medium before:text-text-muted before:content-[attr(data-label)] lg:table-cell lg:px-4 lg:py-3 lg:before:content-none">
                       {new Date(user.createdAt).toISOString().slice(0, 10)}
                     </td>
-                    <td className="px-4 py-3 text-right space-x-2">
-                      <button
-                        onClick={() => handleToggleAdmin(user.id, user.roles.includes('admin'))}
-                        className="text-xs px-2 py-1 rounded-md bg-accent-aqua/20 text-accent-aqua hover:bg-accent-aqua/30 transition-colors"
-                      >
-                        {user.roles.includes('admin') ? 'Revoke' : 'Grant'} Admin
-                      </button>
-                      <button
-                        onClick={() => handleDelete(user.id)}
-                        className="text-xs px-2 py-1 rounded-md bg-accent-coral/20 text-accent-coral hover:bg-accent-coral/30 transition-colors"
-                      >
-                        Delete
-                      </button>
+                    <td data-label="Actions" className="flex items-center justify-between gap-2 px-2 py-1.5 before:text-sm before:font-medium before:text-text-muted before:content-[attr(data-label)] lg:table-cell lg:px-4 lg:py-3 lg:text-right lg:before:content-none">
+                      <span className="flex gap-2 lg:space-x-2">
+                        <button
+                          onClick={() => handleToggleAdmin(user.id, user.roles.includes('admin'))}
+                          className="text-xs px-2 py-1 rounded-md bg-accent-aqua/20 text-accent-aqua hover:bg-accent-aqua/30 transition-colors"
+                        >
+                          {user.roles.includes('admin') ? 'Revoke' : 'Grant'} Admin
+                        </button>
+                        <button
+                          onClick={() => handleDelete(user.id)}
+                          className="text-xs px-2 py-1 rounded-md bg-accent-coral/20 text-accent-coral hover:bg-accent-coral/30 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 ))}
