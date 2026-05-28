@@ -14,7 +14,7 @@ interface StageBadgeProps {
 }
 
 const VARIANT_CLASS: Record<StageBadgeVariant, string> = {
-  chip: 'inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold cursor-pointer border-2 border-transparent transition-all duration-250',
+  chip: 'inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold cursor-pointer border-2 border-transparent transition-all duration-200',
   pick: 'inline-block rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider',
   default: 'inline-block rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider',
 };
@@ -78,7 +78,7 @@ function ensureDarkBgContrast(hex: string): string {
   if (ratio >= 4.5) return hex;
   // Target luminance for 4.5:1 against DARK_BG_LUMINANCE
   const targetLum = 4.5 * (DARK_BG_LUMINANCE + 0.05) - 0.05;
-  if (lum === 0) return '#b3b3b3'; // fallback for pure black
+  if (lum === 0) return 'var(--color-stage-fallback)'; // fallback for pure black
   const k = targetLum / lum;
   return toHex(
     linearToSrgb(Math.min(1, srgbToLinear(r) * k)),

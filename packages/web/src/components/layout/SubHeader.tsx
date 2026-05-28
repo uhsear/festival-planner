@@ -140,7 +140,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                     isActive
                       ? [
                           'active',
-                          'bg-[#c01d3a] text-white border-[#c01d3a] font-bold',
+                          'bg-day-tab-active text-white border-day-tab-active font-bold',
                           'shadow-[0_0_0_1px_rgba(255,80,110,0.45),var(--shadow-glow-coral),0_4px_12px_rgba(0,0,0,0.25)]',
                           '[text-shadow:0_1px_2px_rgba(0,0,0,0.35)]',
                         ]
@@ -183,7 +183,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                     key={stage.id}
                     className={cn(
                       'inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold',
-                      'cursor-pointer border-2 border-transparent transition-all duration-250',
+                      'cursor-pointer border-2 border-transparent transition-all duration-200',
                       isActive && 'border-current',
                     )}
                     style={style}
