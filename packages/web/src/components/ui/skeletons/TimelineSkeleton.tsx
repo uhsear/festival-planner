@@ -29,7 +29,7 @@ export default function TimelineSkeleton() {
           className={cn(
             'timeline-header-cell',
             'sticky top-0 z-10 text-center',
-            'bg-[rgba(10,10,20,0.95)] backdrop-blur-[8px]',
+            'bg-bg-sticky backdrop-blur-[8px]',
             'border-b-2 border-b-[var(--color-border)]',
             'font-bold uppercase tracking-[1.5px]',
             // Mobile: smaller text, tight padding, allow wrapping
@@ -45,7 +45,7 @@ export default function TimelineSkeleton() {
             className={cn(
               'timeline-header-cell',
               'sticky top-0 z-10 text-center',
-              'bg-[rgba(10,10,20,0.95)] backdrop-blur-[8px]',
+              'bg-bg-sticky backdrop-blur-[8px]',
               'border-b-2 border-b-[var(--color-border)]',
               'font-bold uppercase tracking-[1.5px]',
               // Mobile: smaller text, tight padding, allow wrapping

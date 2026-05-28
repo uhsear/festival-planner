@@ -63,7 +63,7 @@ export default function Input({
           className={cn(
             inputBase,
             isSearch && 'pl-10',
-            error && 'border-accent-coral focus-visible:border-accent-coral focus-visible:ring-[rgba(255,51,102,0.15)]',
+            error && 'border-accent-coral focus-visible:border-accent-coral focus-visible:ring-coral-ring',
             className
           )}
           {...props}

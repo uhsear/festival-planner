@@ -17,6 +17,10 @@
   --color-border-light: rgba(0, 0, 0, 0.12);
   --color-glass: rgba(255, 255, 255, 0.75);
   --color-glass-border: rgba(0, 0, 0, 0.08);
+  /* Stagelight P0: light-theme values for promoted tokens. */
+  --color-stage-fallback: #656585;
+  --color-bg-sticky: #ffffff;
+  --shadow-sticky: 0 1px 3px rgba(0, 0, 0, 0.10);
 }
 
 /* Skeleton shimmer — dark shimmer on light bg. */
@@ -183,8 +187,8 @@
   color: var(--color-text-secondary);
 }
 [data-theme="light"] .day-tab-underline.active {
-  background: #c01d3a !important;
-  border-color: #c01d3a !important;
+  background: var(--color-day-tab-active) !important;
+  border-color: var(--color-day-tab-active) !important;
   color: #fff !important;
 }
 

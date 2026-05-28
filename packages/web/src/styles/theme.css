@@ -317,6 +317,25 @@
   --color-amber-a12: rgba(255, 176, 32, .12);
   --color-amber-a2: rgba(255, 176, 32, .2);
   --color-amber-a3: rgba(255, 176, 32, .3);
+
+  /* ── Stagelight P0 promoted tokens (2026-05-28) ─────────────────────────
+     Values previously hardcoded in component source; promoted here so they
+     are themable and cannot silently drift. See docs/design/overhaul-2026-05-28.md.
+     ─────────────────────────────────────────────────────────────────────── */
+  /* Focus rings — NEVER the sole focus affordance; always paired with a
+     border/outline change (a .15 alpha ring alone fails the 3:1 floor). */
+  --color-coral-ring: rgba(255, 51, 102, .15);
+  --color-aqua-ring: rgba(0, 232, 208, .15);
+  /* StageBadge fallback for pure-black stage colors (= text-muted, AA ~5.6:1). */
+  --color-stage-fallback: #8787a8;
+  /* Elevated sticky band (lighter than the canvas + --shadow-sticky). */
+  --color-bg-sticky: #14142a;
+  /* Active day-tab pill: a deliberately darkened coral — white text on it
+     measures ~4.9:1 (AA), whereas white on brand coral #ff3366 is ~2.6:1. */
+  --color-day-tab-active: #c01d3a;
+
+  /* Elevation for the raised sticky band. */
+  --shadow-sticky: 0 1px 0 rgba(255, 255, 255, .04), 0 4px 12px rgba(0, 0, 0, .35);
 }
 
 /* Values that cannot live in @theme: var() references, rgb channels,

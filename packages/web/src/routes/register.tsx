@@ -15,7 +15,7 @@ export default function RegisterPage() {
 }
 
 const authInputClasses = cn(
-  'w-full py-3.5 px-[18px] text-base text-center mb-3 rounded-DEFAULT',
+  'w-full py-3.5 px-[18px] text-base text-left mb-3 rounded-DEFAULT',
   'bg-[var(--color-bg-card)] backdrop-blur-[12px] min-h-11',
   'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
   'focus:shadow-[0_0_0_4px_var(--color-aqua-a1),0_0_24px_var(--color-aqua-a06)]',

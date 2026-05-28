@@ -12,6 +12,7 @@ export const colors = {
     input: 'rgba(16, 16, 34, 0.8)',
     hover: 'rgba(32, 32, 58, 0.8)',
     elevated: 'rgba(24, 24, 44, 0.9)',
+    sticky: '#14142a',
   },
   text: {
     primary: '#eaeaf2',
@@ -47,6 +48,15 @@ export const colors = {
   },
   stage: {
     purpleAccessible: '#9c4dcb',
+    fallback: '#8787a8',
+  },
+  /** Focus rings — always paired with a border/outline change, never sole. */
+  ring: {
+    coral: 'rgba(255, 51, 102, 0.15)',
+    aqua: 'rgba(0, 232, 208, 0.15)',
+  },
+  dayTab: {
+    active: '#c01d3a',
   },
   status: {
     verified: '#22c55e',
