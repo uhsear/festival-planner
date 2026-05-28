@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { configureStorage } from '@festie/shared/platform';
 import { configureApi, setAuthToken } from '@festie/shared/services';
 import { useAuthStore } from '@festie/shared/stores';
+import { UIProvider } from '../contexts/UIContext';
 
 // Configure platform adapters before any store hydrates.
 configureStorage(AsyncStorage);
@@ -106,5 +107,9 @@ const styles = StyleSheet.create({
 });
 
 export default function RootLayout() {
-  return <AuthGate />;
+  return (
+    <UIProvider>
+      <AuthGate />
+    </UIProvider>
+  );
 }

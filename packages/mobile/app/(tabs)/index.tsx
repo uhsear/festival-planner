@@ -1,11 +1,22 @@
 import { useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
 import { useFestivalDataStore } from '@festie/shared/stores';
+import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
+import { useUI, type ViewMode } from '../../contexts/UIContext';
+import SegmentedControl from '../../components/SegmentedControl';
 import FestivalList from '../../components/FestivalList';
 
+const VIEW_OPTIONS: ReadonlyArray<{ value: ViewMode; label: string }> = [
+  { value: 'timeline', label: 'Timeline' },
+  { value: 'grid', label: 'Grid' },
+  { value: 'cards', label: 'Cards' },
+];
+
 export default function TimelineScreen() {
+  const t = useTokens();
+  const styles = useStyles();
+  const { viewMode, setViewMode } = useUI();
   const festivals = useFestivalDataStore((s) => s.festivals);
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
   const loadFestivals = useFestivalDataStore((s) => s.loadFestivals);
@@ -32,11 +43,7 @@ export default function TimelineScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Ionicons
-            name="musical-notes"
-            size={24}
-            color={colors.accent.aqua}
-          />
+          <Ionicons name="musical-notes" size={24} color={t.colors.accent.aqua} />
           <Text style={styles.headerTitle}>Select a Festival</Text>
         </View>
         <FestivalList />
@@ -44,79 +51,88 @@ export default function TimelineScreen() {
     );
   }
 
-  // Festival selected -- show timeline placeholder
+  const activeLabel =
+    VIEW_OPTIONS.find((o) => o.value === viewMode)?.label ?? 'Timeline';
+
+  // Festival selected -- view switcher + placeholder for the chosen mode
   return (
-    <View style={styles.placeholderContainer}>
-      <Ionicons name="calendar" size={48} color={colors.accent.aqua} />
-      <Text style={styles.festivalName}>{currentFestival.name}</Text>
-      <Text style={styles.subtitle}>Coming soon – Timeline</Text>
-      <TouchableOpacity
-        style={styles.switchButton}
-        onPress={clearSelection}
-        activeOpacity={0.7}
-      >
-        <Ionicons
-          name="swap-horizontal"
-          size={16}
-          color={colors.accent.aqua}
+    <View style={styles.container}>
+      <View style={styles.viewSwitcher}>
+        <SegmentedControl
+          options={VIEW_OPTIONS}
+          value={viewMode}
+          onChange={setViewMode}
+          accessibilityLabel="Schedule view"
         />
-        <Text style={styles.switchText}>Switch festival</Text>
-      </TouchableOpacity>
+      </View>
+      <View style={styles.placeholderContainer}>
+        <Ionicons name="calendar" size={48} color={t.colors.accent.aqua} />
+        <Text style={styles.festivalName}>{currentFestival.name}</Text>
+        <Text style={styles.subtitle}>Coming soon – {activeLabel}</Text>
+        <TouchableOpacity
+          style={styles.switchButton}
+          onPress={clearSelection}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="swap-horizontal" size={16} color={t.colors.accent.aqua} />
+          <Text style={styles.switchText}>Switch festival</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
+    backgroundColor: t.colors.bg.primary,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[3],
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[4],
+    gap: t.spacing[3],
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[4],
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
+    borderBottomColor: t.colors.border.default,
   },
   headerTitle: {
-    fontSize: fontSize[20],
-    fontWeight: '700',
-    color: colors.text.primary,
+    ...typeStyle('title'),
+    color: t.colors.text.primary,
+  },
+  viewSwitcher: {
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
   },
   placeholderContainer: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[3],
-    paddingHorizontal: spacing[6],
+    gap: t.spacing[3],
+    paddingHorizontal: t.spacing[6],
   },
   festivalName: {
-    fontSize: fontSize[24],
-    fontWeight: '700',
-    color: colors.text.primary,
+    ...typeStyle('heading'),
+    color: t.colors.text.primary,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: fontSize[16],
-    color: colors.text.secondary,
+    ...typeStyle('body'),
+    color: t.colors.text.secondary,
   },
   switchButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
+    gap: t.spacing[2],
     borderWidth: 1,
-    borderColor: colors.accent.aqua,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[2],
-    borderRadius: radii.default,
-    marginTop: spacing[4],
+    borderColor: t.colors.accent.aqua,
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.default,
+    marginTop: t.spacing[4],
   },
   switchText: {
-    fontSize: fontSize[14],
-    fontWeight: '600',
-    color: colors.accent.aqua,
+    ...typeStyle('label'),
+    color: t.colors.accent.aqua,
   },
-});
+}));
