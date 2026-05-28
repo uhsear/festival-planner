@@ -22,8 +22,8 @@ export type { Colors } from './colors.js';
 export { spacing, spacingNamed, measureProse } from './spacing.js';
 export type { Spacing, SpacingNamed } from './spacing.js';
 
-export { fontFamily, fontSize, lineHeight, letterSpacing } from './typography.js';
-export type { FontFamily, FontSize, LineHeight, LetterSpacing } from './typography.js';
+export { fontFamily, fontSize, lineHeight, letterSpacing, typeRoles } from './typography.js';
+export type { FontFamily, FontSize, LineHeight, LetterSpacing, TypeRoles, TypeRoleName } from './typography.js';
 
 export { easing, duration } from './motion.js';
 export type { Easing, Duration } from './motion.js';
