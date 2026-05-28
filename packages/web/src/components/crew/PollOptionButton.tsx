@@ -30,19 +30,19 @@ export default function PollOptionButton({
       aria-pressed={isMine ? 'true' : 'false'}
       aria-busy={isPending ? 'true' : 'false'}
       className={cn(
-        'w-full min-h-11 relative rounded-lg border transition-colors text-left overflow-hidden',
+        'w-full min-h-11 relative rounded-lg transition-colors text-left overflow-hidden',
         isMine
-          ? 'border-accent-aqua'
+          ? 'border-2 border-accent-aqua'
           : isWinning
-            ? 'border-accent-aqua/40'
-            : 'border-border hover:border-border-light',
+            ? 'border-2 border-dashed border-accent-aqua/60'
+            : 'border border-border hover:border-border-light',
       )}
     >
       <div
         key={`${pollId}-${optionIndex}-${pct}`}
         className={cn(
           'crew-poll-bar absolute inset-y-0 left-0 transition-all duration-300 origin-left',
-          isMine ? 'bg-accent-aqua/25' : isWinning ? 'bg-accent-aqua/10' : 'bg-text-muted/10',
+          isMine ? 'bg-accent-aqua/30' : isWinning ? 'bg-accent-aqua/15' : 'bg-text-muted/10',
         )}
         style={{ width: `${pct}%` }}
       />

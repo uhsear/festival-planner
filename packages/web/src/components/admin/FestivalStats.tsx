@@ -17,7 +17,7 @@ export default function FestivalStats({ stats }: FestivalStatsProps) {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-text-primary mb-4">Festival Stats</h2>
+      <h2 className="type-heading text-text-primary mb-4">Festival Stats</h2>
       <div
         role="region"
         tabIndex={0}

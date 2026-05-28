@@ -157,39 +157,40 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
                      shadow-lg outline-none
                      lg:bottom-auto lg:inset-x-auto lg:top-1/2 lg:left-1/2
                      lg:-translate-x-1/2 lg:-translate-y-1/2
-                     lg:w-[min(540px,calc(100vw-2rem))] lg:max-h-[85dvh]
+                     lg:w-[clamp(420px,40vw,540px)] lg:max-w-[calc(100vw-2rem)] lg:max-h-[85dvh]
                      lg:rounded-2xl"
           onOpenAutoFocus={(e: Event) => { e.preventDefault(); closeBtnRef.current?.focus(); }}
         >
           <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0 lg:hidden" />
           <Drawer.Title className="sr-only">{artistDisplayName(set, b2bSeparator)}</Drawer.Title>
           <Drawer.Description className="sr-only">Set details, schedule, and crew info for {artistDisplayName(set, b2bSeparator)}</Drawer.Description>
-          <div className="min-h-0 overflow-y-auto overscroll-contain p-7 pb-[max(12px,env(safe-area-inset-bottom))] relative" ref={panelRef}>
-            <button
-              className="absolute top-4 right-4 w-11 h-11 min-w-11 min-h-11 rounded-full bg-bg-card border border-border-light flex items-center justify-center text-text-secondary text-lg cursor-pointer transition-all duration-200 ease-[var(--ease-standard)] hover:bg-accent-coral hover:text-text-on-accent hover:border-accent-coral focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua z-10"
-              type="button"
-              aria-label="Close detail panel"
-              onClick={handleClose}
-              ref={closeBtnRef}
-            >
-              {'×'}
-            </button>
+          <button
+            className="absolute top-4 right-4 w-11 h-11 min-w-11 min-h-11 rounded-full bg-bg-card border border-border-light flex items-center justify-center text-text-secondary text-lg cursor-pointer transition-all duration-200 ease-[var(--ease-standard)] hover:bg-accent-coral hover:text-text-on-accent hover:border-accent-coral focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua z-10"
+            type="button"
+            aria-label="Close detail panel"
+            onClick={handleClose}
+            ref={closeBtnRef}
+          >
+            {'×'}
+          </button>
+          <div className="min-h-0 flex flex-col gap-[var(--space-4)] overflow-y-auto overscroll-contain p-7 pb-[max(12px,env(safe-area-inset-bottom))]" ref={panelRef}>
+            <div>
+              <div
+                className="inline-block px-3 py-1 rounded-DEFAULT text-[11px] font-bold uppercase tracking-[1px] mb-3"
+                style={{ background: stageColor + '25', color: stageColor }}
+              >
+                {stageName}
+              </div>
 
-            <div
-              className="inline-block px-3 py-1 rounded-DEFAULT text-[11px] font-bold uppercase tracking-[1px] mb-3"
-              style={{ background: stageColor + '25', color: stageColor }}
-            >
-              {stageName}
-            </div>
+              <DetailArtistHeader
+                artistName={artistName} subtitle={sub} primaryArtist={primaryArtist}
+                stageColor={stageColor} artistLinks={artistLinks} isB2B={isB2B}
+                genres={allGenres} setArtist={set.artist}
+              />
 
-            <DetailArtistHeader
-              artistName={artistName} subtitle={sub} primaryArtist={primaryArtist}
-              stageColor={stageColor} artistLinks={artistLinks} isB2B={isB2B}
-              genres={allGenres} setArtist={set.artist}
-            />
-
-            <div className="text-[15px] text-text-secondary mb-6 tabular-nums">
-              {set.startTime && set.endTime ? formatTime(set.startTime) + ' - ' + formatTime(set.endTime) : 'TBA'}
+              <div className="text-[15px] text-text-secondary tabular-nums">
+                {set.startTime && set.endTime ? formatTime(set.startTime) + ' - ' + formatTime(set.endTime) : 'TBA'}
+              </div>
             </div>
 
             {spotifyPreview && (
@@ -205,7 +206,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             {currentProfile ? (
               <DetailPriorityPicker myPick={myPick || null} priorityBusy={priorityBusy} onPriorityClick={handlePriorityClick} />
             ) : (
-              <div className="p-3.5 px-4 rounded-sm bg-[var(--color-overlay-2)] border border-border mb-5">
+              <div className="p-3.5 px-4 rounded-sm bg-[var(--color-overlay-2)] border border-border">
                 <p className="text-[13px] text-text-secondary leading-normal mb-3">Join this festival to save picks, keep private notes, and compare crew overlap.</p>
                 <Button variant="primary" type="button" disabled={joinBusy} isLoading={joinBusy} onClick={handleJoinFestival}>
                   {joinBusy ? 'Joining...' : 'Join Festival'}
@@ -214,7 +215,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             )}
 
             {currentProfile && set && currentFestival && hasSetStarted(set, currentFestival, festivalDays) && (
-              <div className="mx-0 mb-2.5 mt-3.5 text-center">
+              <div className="mx-0 text-center">
                 <div className="mb-2 text-[11px] uppercase tracking-wide text-text-muted">
                   Rate this set
                 </div>

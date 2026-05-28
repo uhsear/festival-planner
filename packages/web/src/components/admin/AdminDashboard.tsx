@@ -99,8 +99,8 @@ export default function AdminDashboard() {
     <div className="space-y-8">
       {/* Stats Grid */}
       <div>
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Statistics</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <h2 className="type-heading text-text-primary mb-4">Statistics</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Users', value: stats.users, icon: '👥', color: 'text-accent-aqua' },
             { label: 'Festivals', value: stats.festivals, icon: '🎪', color: 'text-accent-coral' },
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
 
       {/* System Health */}
       <div>
-        <h2 className="text-lg font-semibold text-text-primary mb-4">System Health</h2>
+        <h2 className="type-heading text-text-primary mb-4">System Health</h2>
         <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -167,7 +167,7 @@ export default function AdminDashboard() {
 
       {/* Recent Activity */}
       <div>
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Recent Activity</h2>
+        <h2 className="type-heading text-text-primary mb-4">Recent Activity</h2>
         {recentActivity.length === 0 ? (
           <p className="text-text-muted text-sm">No recent activity</p>
         ) : (

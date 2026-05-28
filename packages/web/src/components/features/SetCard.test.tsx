@@ -186,7 +186,7 @@ describe('SetCard', () => {
   });
 
   describe('crew overlap', () => {
-    it('shows crew count when friendProfiles are provided', () => {
+    it('renders crew avatars with an accessible count label when crew data is present', () => {
       render(
         <SetCard
           {...defaultProps}
@@ -196,17 +196,57 @@ describe('SetCard', () => {
           ]}
         />,
       );
-      expect(screen.getByText('2 going')).toBeInTheDocument();
+      // Avatars replace the bare count; the accessible label still conveys the count.
+      expect(
+        screen.getByLabelText(/2 crew members going to Daft Punk/),
+      ).toBeInTheDocument();
+      // Initials avatars render for each crew member (no avatar image provided).
+      expect(screen.getByText('A')).toBeInTheDocument();
+      expect(screen.getByText('B')).toBeInTheDocument();
     });
 
-    it('shows singular "1 going" for a single friend', () => {
+    it('uses singular phrasing in the accessible label for a single friend', () => {
       render(
         <SetCard
           {...defaultProps}
           friendProfiles={[{ profileId: 'p1', name: 'Alice', priority: 'must' }]}
         />,
       );
-      expect(screen.getByText('1 going')).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(/1 crew member going to Daft Punk/),
+      ).toBeInTheDocument();
+    });
+
+    it('shows a +N overflow chip when more than 3 crew members are going', () => {
+      render(
+        <SetCard
+          {...defaultProps}
+          friendProfiles={[
+            { profileId: 'p1', name: 'Alice', priority: 'must' },
+            { profileId: 'p2', name: 'Bob', priority: 'maybe' },
+            { profileId: 'p3', name: 'Carol', priority: 'want-to-see' },
+            { profileId: 'p4', name: 'Dave', priority: 'maybe' },
+            { profileId: 'p5', name: 'Eve', priority: 'maybe' },
+          ]}
+        />,
+      );
+      expect(screen.getByText('+2')).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(/5 crew members going to Daft Punk/),
+      ).toBeInTheDocument();
+    });
+
+    it('falls back to the count when crew profiles have no identity data', () => {
+      render(
+        <SetCard
+          {...defaultProps}
+          friendProfiles={[
+            { profileId: 'p1', priority: 'must' },
+            { profileId: 'p2', priority: 'maybe' },
+          ]}
+        />,
+      );
+      expect(screen.getByText('2 going')).toBeInTheDocument();
     });
 
     it('hides crew overlap when no friendProfiles', () => {

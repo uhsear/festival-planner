@@ -99,8 +99,8 @@ export default function AdminAudit() {
     <div className="space-y-6" aria-busy={loading}>
       {/* Filters */}
       <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4">
-        <h2 className="text-base font-semibold text-text-primary mb-3">Filters</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <h2 className="type-label text-text-primary mb-3">Filters</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <input
             type="text"
             placeholder="Action type..."

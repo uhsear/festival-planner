@@ -9,6 +9,7 @@ import { useToast } from '@/lib/toastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { cn } from '@/lib/utils';
 import LiveBadge from './LiveBadge';
+import Avatar from '../ui/Avatar';
 import { ensureWhiteContrast } from '../ui/StageBadge';
 
 interface SpotifyPreviewResponse {
@@ -254,7 +255,7 @@ function SetCard({
         className={cn(
           'card-stage',
           'relative z-[2] inline-block px-2.5 py-[3px] rounded-md',
-          'text-[11px] font-bold uppercase tracking-[0.8px] mb-2.5',
+          'type-micro font-bold uppercase tracking-[0.8px] mb-2.5',
           'text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]',
         )}
         style={{ background: ensureWhiteContrast(stageColor) }}
@@ -266,7 +267,7 @@ function SetCard({
       <div className={cn(
         'card-artist',
         'relative z-[2] pointer-events-none',
-        'text-xl font-bold tracking-[-0.4px] leading-[1.15] mb-1',
+        'type-title font-bold leading-[1.15] mb-1',
         'bg-gradient-to-br from-text-primary to-[rgba(234,234,242,0.85)]',
         'bg-clip-text',
       )}>
@@ -290,7 +291,7 @@ function SetCard({
         'card-time',
         'relative z-[2] pointer-events-none',
         'flex items-center gap-2 flex-wrap',
-        'text-[13px] text-text-secondary tabular-nums mb-3',
+        'type-caption text-text-secondary tabular-nums mb-3',
       )}>
         <span>
           {set.startTime && set.endTime
@@ -393,30 +394,69 @@ function SetCard({
         )}
 
         {/* Crew overlap / who's going */}
-        {friendProfiles.length > 0 && (
-          <button
-            className={cn(
-              'card-overlap',
-              'flex gap-2 items-center cursor-pointer',
-              'bg-transparent border-0 p-0 text-inherit font-inherit appearance-none',
-              'min-h-11 inline-flex',
-              'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:rounded-sm',
-            )}
-            type="button"
-            aria-label={`${friendProfiles.length} crew members going to ${artistName}`}
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-          >
-            <span className={cn(
-              'text-[11px] font-bold text-accent-aqua',
-              'bg-[rgba(0,232,208,0.15)] py-0.5 px-[7px] rounded-md',
-              'whitespace-nowrap mr-0.5',
-            )}>
-              {friendProfiles.length === 1 ? '1 going' : `${friendProfiles.length} going`}
-            </span>
-          </button>
-        )}
+        {friendProfiles.length > 0 && (() => {
+          // Render compact avatars when crew identity data (name/initials/avatar)
+          // is present; otherwise fall back to the bare "N going" count.
+          const hasAvatarData = friendProfiles.some(
+            (f) => f.name || f.initials || f.avatarUrl,
+          );
+          const count = friendProfiles.length;
+          const countLabel = count === 1 ? '1 going' : `${count} going`;
+          const ariaLabel = `${count} crew ${count === 1 ? 'member' : 'members'} going to ${artistName}`;
+          const visible = friendProfiles.slice(0, 3);
+          const overflow = count - visible.length;
+
+          return (
+            <button
+              className={cn(
+                'card-overlap',
+                'flex gap-2 items-center cursor-pointer',
+                'bg-transparent border-0 p-0 text-inherit font-inherit appearance-none',
+                'min-h-11 inline-flex',
+                'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:rounded-sm',
+              )}
+              type="button"
+              aria-label={ariaLabel}
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              {hasAvatarData ? (
+                <span className="flex items-center" aria-hidden="true">
+                  {visible.map((f, i) => (
+                    <Avatar
+                      key={f.profileId ?? `${f.name ?? 'crew'}-${i}`}
+                      name={f.name || f.initials || 'Crew'}
+                      image={f.avatarUrl ?? undefined}
+                      size="xs"
+                      className={cn(
+                        'ring-2 ring-bg-card rounded-full',
+                        i > 0 && '-ml-2',
+                      )}
+                    />
+                  ))}
+                  {overflow > 0 && (
+                    <span className={cn(
+                      'flex-center -ml-2 w-6 h-6 rounded-full ring-2 ring-bg-card',
+                      'type-micro font-bold text-accent-aqua',
+                      'bg-[rgba(0,232,208,0.15)]',
+                    )}>
+                      +{overflow}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <span className={cn(
+                  'type-micro font-bold text-accent-aqua',
+                  'bg-[rgba(0,232,208,0.15)] py-0.5 px-[7px] rounded-md',
+                  'whitespace-nowrap mr-0.5',
+                )}>
+                  {countLabel}
+                </span>
+              )}
+            </button>
+          );
+        })()}
 
       </div>
     </div>

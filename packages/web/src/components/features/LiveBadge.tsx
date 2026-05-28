@@ -11,21 +11,29 @@ interface LiveBadgeProps {
 export default function LiveBadge({ status, label, className }: LiveBadgeProps) {
   const prefersReducedMotion = useReducedMotion();
 
-  // Live: Pulsing coral dot + "LIVE" text
+  // Live: Pulsing coral dot + "LIVE" text. Highest-contrast badge in the set
+  // (solid coral fill, white label) so the NOW moment reads at a glance.
   if (status === 'live') {
     return (
-      <div className={cn('inline-flex items-center gap-2 px-3 py-1 rounded-full', 'bg-accent-coral/20', className)} aria-label="Live">
+      <div
+        className={cn(
+          'inline-flex items-center gap-1.5 px-3 py-1 rounded-full',
+          'bg-accent-coral ring-1 ring-accent-coral/60 shadow-[0_0_10px_rgba(var(--accent-coral-rgb),0.45)]',
+          className,
+        )}
+        aria-label="Live"
+      >
         {prefersReducedMotion ? (
-          <div className="w-2 h-2 rounded-full bg-accent-coral" aria-hidden="true" />
+          <div className="w-2 h-2 rounded-full bg-white" aria-hidden="true" />
         ) : (
           <m.div
-            className="w-2 h-2 rounded-full bg-accent-coral"
+            className="w-2 h-2 rounded-full bg-white"
             aria-hidden="true"
             animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           />
         )}
-        <span className="text-xs font-bold text-accent-coral">{label}</span>
+        <span className="text-xs font-extrabold uppercase tracking-[0.06em] text-white">{label}</span>
       </div>
     );
   }
