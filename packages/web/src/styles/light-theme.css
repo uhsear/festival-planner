@@ -23,6 +23,58 @@
   --shadow-sticky: 0 1px 3px rgba(0, 0, 0, 0.10);
 }
 
+/* ── Daylight / Boost theme (Stagelight P1, decision 2026-05-28) ──────────
+   Maximum-contrast mode for using the app outdoors in bright sun. Pure-white
+   canvas, near-black text, opaque surfaces, and darker accents so coloured
+   text/icons clear WCAG AA on white. One-tap toggle from the header. Builds
+   on the light theme but pushes every contrast to the limit.
+   ─────────────────────────────────────────────────────────────────────── */
+[data-theme="daylight"] {
+  color-scheme: light;
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f1f1f4;
+  --color-bg-card: #ffffff;
+  --color-bg-card-hover: #f1f1f4;
+  --color-bg-input: #ffffff;
+  --color-text-primary: #000000;
+  --color-text-secondary: #1a1a2e;
+  --color-text-muted: #3a3a52;
+  /* Darker accents so coloured text/icons stay AA on a white canvas. */
+  --color-accent-aqua: #00665a;
+  --color-accent-coral: #c01d3a;
+  --color-accent-amber: #8a5a00;
+  --color-priority-want: #00665a;
+  /* Stronger separators for glare legibility. */
+  --color-border: rgba(0, 0, 0, 0.28);
+  --color-border-light: rgba(0, 0, 0, 0.34);
+  --color-glass: #ffffff;
+  --color-glass-border: rgba(0, 0, 0, 0.28);
+  --color-stage-fallback: #3a3a52;
+  --color-bg-sticky: #ffffff;
+  --shadow-sticky: 0 1px 4px rgba(0, 0, 0, 0.22);
+  --color-coral-ring: rgba(192, 29, 58, 0.25);
+  --color-aqua-ring: rgba(0, 102, 90, 0.25);
+}
+
+/* Daylight skeleton + selection mirror the light-theme treatment. */
+[data-theme="daylight"] .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(0, 0, 0, 0.12) 50%,
+    rgba(0, 0, 0, 0.06) 100%
+  );
+  background-size: 200% 100%;
+}
+[data-theme="daylight"] ::selection {
+  background-color: rgba(0, 102, 90, 0.28);
+}
+[data-theme="daylight"] .day-tab-underline.active {
+  background: var(--color-day-tab-active) !important;
+  border-color: var(--color-day-tab-active) !important;
+  color: #fff !important;
+}
+
 /* Skeleton shimmer — dark shimmer on light bg. */
 [data-theme="light"] .skeleton-shimmer {
   background: linear-gradient(
