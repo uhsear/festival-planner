@@ -81,7 +81,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           // Density: compact (tighter) on <640px, comfortable on desktop.
           'flex items-center px-[var(--space-3)] py-2 gap-[var(--space-3)]',
           'sm:px-6 sm:py-3 sm:gap-[var(--space-6)]',
-          'bg-[rgba(10,10,20,0.6)] backdrop-saturate-150 backdrop-blur-sm',
+          'bg-[var(--color-bg-chrome)] backdrop-saturate-150 backdrop-blur-sm',
           'border-b border-border flex-wrap shrink-0',
           'sm:[column-gap:var(--space-9)]',
           '[backdrop-filter:saturate(150%)_blur(12px)]',

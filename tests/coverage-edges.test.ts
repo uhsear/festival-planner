@@ -251,15 +251,22 @@ describe('withRetry helper', () => {
 describe('migration idempotency', () => {
   test('running each migration file twice produces no errors (runtime)', async () => {
     const pool = new Pool({ connectionString: TEST_DATABASE_URL });
+    // Migration comments contain UTF-8 glyphs (e.g. box-drawing ─). The runtime
+    // migration harness strips non-ASCII before applying (scripts/local-pg-test.mjs),
+    // so the SQL actually executed in prod/CI never contains them. Mirror that
+    // sanitization here so the idempotency check runs the same DDL — otherwise a
+    // WIN1252-default client connection (Windows) rejects the multi-byte bytes
+    // with a false "not idempotent" failure unrelated to the migration's logic.
+    const sanitize = (sql: string) => sql.replace(/[^\x00-\x7F]/g, '');
     try {
       const { rows } = await pool.query(
         "SELECT 1 FROM information_schema.tables WHERE table_name = 'users' LIMIT 1"
       );
       if (rows.length === 0) {
         await pool.query('CREATE EXTENSION IF NOT EXISTS citext');
-        const schema = fs.readFileSync(
+        const schema = sanitize(fs.readFileSync(
           path.join(__dirname, '..', 'migrations', '004_postgresql_baseline.sql'), 'utf8'
-        );
+        ));
         await pool.query(schema);
       }
 
@@ -267,14 +274,15 @@ describe('migration idempotency', () => {
       const files = fs.readdirSync(migrationsDir).filter((f: string) => f.endsWith('.sql')).sort();
 
       for (const file of files) {
-        const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-        // CONCURRENTLY operations cannot run inside a transaction block;
-        // pool.query() implicitly wraps in one. These migrations use
-        // IF EXISTS guards so they are logically idempotent — just skip
-        // the runtime double-apply test for them.
-        const hasConcurrently = /CONCURRENTLY/i.test(sql);
+        // CONCURRENTLY operations cannot run inside the implicit transaction
+        // block pool.query() wraps each statement in. The migration harness
+        // strips the CONCURRENTLY keyword before applying (scripts/local-pg-test.mjs),
+        // so mirror that here — the resulting DROP/CREATE INDEX IF [NOT] EXISTS
+        // statements remain idempotent and run cleanly without aborting the
+        // connection's transaction (which otherwise corrupts the pooled client).
+        const sql = sanitize(fs.readFileSync(path.join(migrationsDir, file), 'utf8'))
+          .replace(/\bCONCURRENTLY\b/gi, '');
         await pool.query(sql).catch(() => {});
-        if (hasConcurrently) continue;
         // Second run — THIS is the idempotency check
         try {
           await pool.query(sql);
@@ -604,7 +612,7 @@ describe('expenses store — getByCrew', () => {
   test('parses string split_with JSON and returns rows', async () => {
     const pool = makeFakePool([
       {
-        match: /FROM crew_expenses e/,
+        match: /FROM\s+crew_expenses e/,
         rows: [
           { id: 'e1', crew_id: 'c', paid_by: 'u1', amount: 10, split_with: '["u1","u2"]', paid_by_name: 'alice' },
           { id: 'e2', crew_id: 'c', paid_by: 'u2', amount: 20, split_with: ['u1','u2'], paid_by_name: 'bob' },
@@ -621,7 +629,7 @@ describe('expenses store — getByCrew', () => {
   });
 
   test('returns empty array when crew has no expenses', async () => {
-    const pool = makeFakePool([{ match: /FROM crew_expenses e/, rows: [] }]);
+    const pool = makeFakePool([{ match: /FROM\s+crew_expenses e/, rows: [] }]);
     const store = createExpensesStore(pool);
     assert.deepEqual(await store.getByCrew('c'), []);
   });
@@ -630,7 +638,7 @@ describe('expenses store — getByCrew', () => {
 describe('expenses store — getById / delete', () => {
   test('getById returns single row', async () => {
     const pool = makeFakePool([
-      { match: /FROM crew_expenses WHERE id/, rows: [{ id: 'e1', amount: 10 }] },
+      { match: /FROM\s+crew_expenses\s+WHERE\s+id/, rows: [{ id: 'e1', amount: 10 }] },
     ]);
     const store = createExpensesStore(pool);
     const row = await store.getById('e1');
@@ -638,7 +646,7 @@ describe('expenses store — getById / delete', () => {
   });
 
   test('getById returns null when no row', async () => {
-    const pool = makeFakePool([{ match: /FROM crew_expenses WHERE id/, rows: [] }]);
+    const pool = makeFakePool([{ match: /FROM\s+crew_expenses\s+WHERE\s+id/, rows: [] }]);
     const store = createExpensesStore(pool);
     assert.equal(await store.getById('nope'), null);
   });
@@ -656,8 +664,8 @@ describe('expenses store — getById / delete', () => {
 // getBalances — P0 money logic
 function balancesPool(expenses: any[], members: any[]) {
   return makeFakePool([
-    { match: /FROM crew_expenses WHERE crew_id/, rows: expenses },
-    { match: /FROM crew_members cm/, rows: members },
+    { match: /FROM\s+crew_expenses\s+WHERE\s+crew_id/, rows: expenses },
+    { match: /FROM\s+crew_members cm/, rows: members },
   ]);
 }
 
@@ -750,7 +758,7 @@ describe('activity store', () => {
   test('log inserts with generated uuid and null detail when omitted', async () => {
     let captured: any;
     const pool = makeFakePool([
-      { match: /INSERT INTO crew_activity/, rows: (_s: any, p: any) => { captured = p; return []; } },
+      { match: /INSERT INTO\s+crew_activity/, rows: (_s: any, p: any) => { captured = p; return []; } },
     ]);
     const store = createActivityStore(pool);
     await store.log({ crewId: 'c', userId: 'u', type: 'joined' });
@@ -764,7 +772,7 @@ describe('activity store', () => {
   test('log passes through detail when provided', async () => {
     let captured: any;
     const pool = makeFakePool([
-      { match: /INSERT INTO crew_activity/, rows: (_s: any, p: any) => { captured = p; return []; } },
+      { match: /INSERT INTO\s+crew_activity/, rows: (_s: any, p: any) => { captured = p; return []; } },
     ]);
     const store = createActivityStore(pool);
     await store.log({ crewId: 'c', userId: 'u', type: 'renamed', detail: 'Old → New' });
@@ -835,7 +843,7 @@ describe('calendar-tokens store', () => {
 
   test('getByToken returns row when found', async () => {
     const pool = makeFakePool([
-      { match: /FROM calendar_tokens WHERE id/, rows: [{ id: 't1', user_id: 'u' }] },
+      { match: /FROM\s+calendar_tokens\s+WHERE\s+id/, rows: [{ id: 't1', user_id: 'u' }] },
     ]);
     const store = createCalendarTokensStore(pool);
     const row = await store.getByToken('t1');
@@ -843,7 +851,7 @@ describe('calendar-tokens store', () => {
   });
 
   test('getByToken returns null when not found', async () => {
-    const pool = makeFakePool([{ match: /FROM calendar_tokens WHERE id/, rows: [] }]);
+    const pool = makeFakePool([{ match: /FROM\s+calendar_tokens\s+WHERE\s+id/, rows: [] }]);
     const store = createCalendarTokensStore(pool);
     assert.equal(await store.getByToken('nope'), null);
   });

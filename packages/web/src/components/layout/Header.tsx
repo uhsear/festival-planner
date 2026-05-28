@@ -78,7 +78,7 @@ export default function Header() {
     <header
       className={cn(
         'flex items-center justify-between shrink-0',
-        'bg-[rgba(10,10,20,0.82)] backdrop-saturate-[180%] backdrop-blur-[20px]',
+        'bg-[var(--color-bg-chrome)] backdrop-saturate-[180%] backdrop-blur-[20px]',
         'border-b border-border',
         'shadow-[0_1px_0_var(--color-overlay-1),0_4px_16px_var(--color-shade-7)]',
         'z-dropdown',

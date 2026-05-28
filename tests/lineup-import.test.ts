@@ -96,7 +96,7 @@ async function startServer() {
   if (!createFestivalPlanner) return;
   const pool = new Pool({ connectionString: TEST_DATABASE_URL });
   try { await seedFestival(pool); } finally { await pool.end(); }
-  const planner = (createFestivalPlanner as any)({
+  const planner = await (createFestivalPlanner as any)({
     DATABASE_URL: TEST_DATABASE_URL,
     PUBLIC_DIR: fs.existsSync(PUBLIC_DIR) ? PUBLIC_DIR : path.join(__dirname, '..'),
     NODE_ENV: 'test',

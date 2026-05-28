@@ -77,11 +77,10 @@ export default function TimelineGrid({
       <div
         className={cn(
           'sticky top-0 z-10 text-center',
-          'bg-[rgba(10,10,20,0.95)]',
+          'bg-bg-sticky',
           'border-b-2 border-b-[var(--color-border)]',
           'font-bold uppercase tracking-[1.5px]',
           '[backdrop-filter:saturate(140%)_blur(4px)]',
-          'bg-[var(--color-bg-primary)]',
           // Mobile: smaller text, tight padding, allow wrapping
           'text-[0.6rem] leading-[1.2] px-0.5 py-1 whitespace-normal break-words overflow-hidden',
           // Desktop: restore full sizing
@@ -98,7 +97,7 @@ export default function TimelineGrid({
             key={st.id}
             className={cn(
               'sticky top-0 z-10 text-center',
-              'bg-[rgba(10,10,20,0.95)]',
+              'bg-bg-sticky',
               'border-b-2 border-b-[var(--color-border)]',
               'font-bold uppercase tracking-[1.5px]',
               '[backdrop-filter:saturate(140%)_blur(4px)]',

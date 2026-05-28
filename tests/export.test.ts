@@ -112,7 +112,7 @@ async function startServer() {
   } finally {
     await pool.end();
   }
-  const planner = (createFestivalPlanner as any)({
+  const planner = await (createFestivalPlanner as any)({
     DATABASE_URL: TEST_DATABASE_URL,
     PUBLIC_DIR: fs.existsSync(PUBLIC_DIR) ? PUBLIC_DIR : path.join(__dirname, '..'),
     NODE_ENV: 'test',
@@ -323,7 +323,7 @@ describe('export routes', { skip, concurrency: 1 }, () => {
     // Use a long cooldown so the second call is definitively rate-limited.
     const pool = new Pool({ connectionString: TEST_DATABASE_URL });
     try { await seedFestival(pool); } finally { await pool.end(); }
-    const planner = (createFestivalPlanner as any)({
+    const planner = await (createFestivalPlanner as any)({
       DATABASE_URL: TEST_DATABASE_URL,
       PUBLIC_DIR: fs.existsSync(PUBLIC_DIR) ? PUBLIC_DIR : path.join(__dirname, '..'),
       NODE_ENV: 'test',

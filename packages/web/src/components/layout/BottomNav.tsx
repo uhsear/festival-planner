@@ -134,7 +134,7 @@ export default function BottomNav() {
     <footer
       className={cn(
         'hidden max-md:block flex-shrink-0',
-        'bg-[rgba(10,10,20,0.9)] backdrop-saturate-[180%] backdrop-blur-[20px]',
+        'bg-[var(--color-bg-chrome)] backdrop-saturate-[180%] backdrop-blur-[20px]',
         'border-t border-border',
         '[padding:6px_0_max(8px,env(safe-area-inset-bottom))]',
         '[padding-left:env(safe-area-inset-left)]',
