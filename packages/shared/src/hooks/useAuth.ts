@@ -1,6 +1,4 @@
-import { useCallback } from 'react';
 import { useAuthStore } from '../stores/authStore';
-import { api } from '../services/api';
 import {
   LoginRequest,
   RegisterRequest,

@@ -10,7 +10,6 @@ import {
   RegisterRequest,
   ChangePasswordRequest,
   ForgotPasswordRequest,
-  UploadAvatarRequest,
   AvatarResponse,
 } from '../types';
 

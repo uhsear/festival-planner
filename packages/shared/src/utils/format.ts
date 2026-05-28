@@ -1,4 +1,4 @@
-import { FestivalSet, Artist } from '../types/domain';
+import { FestivalSet } from '../types/domain';
 
 export function formatTime(t: string | undefined): string {
   if (!t) return '';

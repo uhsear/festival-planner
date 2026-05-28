@@ -16,7 +16,6 @@ export interface UseOfflineReturn {
 
 export function useOffline(): UseOfflineReturn {
   const setOfflineMode = useUIStore((state) => state.setOfflineMode);
-  const offlineMode = useUIStore((state) => state.offlineMode);
   const pendingSync = useUIStore((state) => state.pendingSync);
   const [isOnline, setIsOnline] = useState(() => {
     if (typeof navigator !== 'undefined') {

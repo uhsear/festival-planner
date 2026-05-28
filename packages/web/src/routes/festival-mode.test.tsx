@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 // Mock dependencies
@@ -26,10 +26,27 @@ vi.mock('@festie/shared/utils', () => ({
 }));
 
 vi.mock('../components/ui/EmptyState', () => ({
-  default: ({ title, description }: { title: string; description?: string }) => (
+  default: ({
+    title,
+    description,
+    cta,
+  }: {
+    title: string;
+    description?: string;
+    cta?: { label: string; onClick: () => void };
+  }) => (
     <div data-testid="empty-state">
       <h3>{title}</h3>
       {description && <p>{description}</p>}
+      {cta && (
+        <button
+          type="button"
+          data-testid="fm-empty-pick-cta"
+          onClick={cta.onClick}
+        >
+          {cta.label}
+        </button>
+      )}
     </div>
   ),
 }));
@@ -41,6 +58,8 @@ vi.mock('../components/layout/RouteErrorBoundary', () => ({
 vi.mock('lucide-react', () => ({
   CalendarX: () => <span data-testid="calendar-x-icon" />,
   SkipForward: () => <span data-testid="skip-forward-icon" />,
+  Music: () => <span data-testid="music-icon" />,
+  Star: () => <span data-testid="star-icon" />,
 }));
 
 import FestivalModeView from './festival-mode';
@@ -83,7 +102,18 @@ function mockStores(overrides: {
 describe('FestivalModeView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Pin the wall clock so Now/Up Next computation is deterministic and not
+    // dependent on the real time the suite happens to run. Fixed-time/empty
+    // picks => no current and no upcoming sets, so the empty-pick CTA branch
+    // renders reliably.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-12T17:00:00'));
     mockStores();
+  });
+
+  afterEach(() => {
+    // Restore real timers so we don't leak fake timers into other test files.
+    vi.useRealTimers();
   });
 
   it('renders empty state when no festival loaded', () => {
@@ -130,8 +160,11 @@ describe('FestivalModeView', () => {
       sets: [],
     });
     render(<FestivalModeView />);
-    expect(screen.getByTestId('fm-empty-pick-cta')).toBeInTheDocument();
-    expect(screen.getByText(/Browse the lineup/)).toBeInTheDocument();
+    const cta = screen.getByTestId('fm-empty-pick-cta');
+    expect(cta).toBeInTheDocument();
+    // The CTA label is exactly "Browse the lineup" (the description also
+    // contains the phrase, so scope the assertion to the button itself).
+    expect(cta).toHaveTextContent('Browse the lineup');
   });
 
   it('renders the festival-mode-view container', () => {

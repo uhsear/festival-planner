@@ -42,6 +42,7 @@ vi.mock('./LiveBadge', () => ({
 import SetCard from './SetCard';
 import { useSetStatus } from '@/hooks/useSetStatus';
 import { usePicks } from '@festie/shared/hooks';
+import { ensureWhiteContrast } from '../ui/StageBadge';
 
 function makeSet(overrides: Partial<FestivalSet> = {}): FestivalSet {
   return {
@@ -265,8 +266,22 @@ describe('SetCard', () => {
   });
 
   it('applies stage color as background on the stage label', () => {
+    // StageBadge darkens bright colors so white text meets WCAG AA contrast,
+    // so the rendered background is the contrast-adjusted color, not the raw input.
     render(<SetCard {...defaultProps} stageColor="#00ff00" />);
     const stageEl = screen.getByText('Main Stage');
-    expect(stageEl.style.background).toBe('rgb(0, 255, 0)');
+
+    // Compute the expected value via the same helper the component uses, so this
+    // assertion stays valid if the contrast math is later tuned.
+    const adjusted = ensureWhiteContrast('#00ff00');
+    const r = parseInt(adjusted.slice(1, 3), 16);
+    const g = parseInt(adjusted.slice(3, 5), 16);
+    const b = parseInt(adjusted.slice(5, 7), 16);
+
+    expect(stageEl.style.background).toBe(`rgb(${r}, ${g}, ${b})`);
+    // Sanity: bright green is darkened (not the raw #00ff00 input).
+    expect(stageEl.style.background).not.toBe('rgb(0, 255, 0)');
+    expect(g).toBeGreaterThan(0);
+    expect(g).toBeLessThan(255);
   });
 });
