@@ -17,7 +17,7 @@ export default function TopSets({ sets, maxPicks }: TopSetsProps) {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-text-primary mb-4">Top Picked Sets</h2>
+      <h2 className="type-heading text-text-primary mb-4">Top Picked Sets</h2>
       <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4 space-y-3">
         {sets.slice(0, 15).map((s, i) => (
           <div key={`${s.artist}-${i}`} className="flex items-center gap-3">

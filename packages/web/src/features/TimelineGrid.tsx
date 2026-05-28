@@ -203,16 +203,17 @@ export default function TimelineGrid({
           });
       })}
 
-      {/* Now-indicator line */}
+      {/* Now-indicator line — thicker, brighter, and ringed so the NOW moment
+          stands out clearly against the dense grid. */}
       {nowIndicator !== null && (
         <div
           className={cn(
             'timeline-now-label',
-            'absolute right-0 h-0.5',
+            'absolute right-0 h-[3px]',
             'left-[56px] sm:left-[70px] lg:left-[84px] min-[1440px]:left-[96px]',
             'bg-[var(--color-accent-coral)]',
             'z-[8] pointer-events-none',
-            'shadow-[0_0_8px_rgba(var(--accent-coral-rgb),0.5)]',
+            'shadow-[0_0_12px_rgba(var(--accent-coral-rgb),0.75)]',
             'transition-[top] duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
             'motion-reduce:!transition-none',
           )}
@@ -220,10 +221,11 @@ export default function TimelineGrid({
         >
           <div
             className={cn(
-              'absolute -left-1 -top-[3px]',
-              'w-2 h-2 rounded-full',
+              'absolute -left-[5px] -top-[3.5px]',
+              'w-2.5 h-2.5 rounded-full',
               'bg-[var(--color-accent-coral)]',
-              'shadow-[0_0_6px_var(--color-accent-coral)]',
+              'ring-2 ring-[var(--color-bg-primary)]',
+              'shadow-[0_0_10px_var(--color-accent-coral)]',
               'animate-[timeline-now-pulse_1800ms_ease-out_infinite]',
               'motion-reduce:!animate-none',
             )}

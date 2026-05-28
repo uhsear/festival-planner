@@ -7,7 +7,7 @@ describe('LiveBadge', () => {
     render(<LiveBadge status="live" label="LIVE" />);
     expect(screen.getByText('LIVE')).toBeInTheDocument();
     const wrapper = screen.getByLabelText('Live');
-    expect(wrapper.className).toContain('bg-accent-coral/20');
+    expect(wrapper.className).toContain('bg-accent-coral');
   });
 
   it('renders soon status with amber styling', () => {
@@ -47,7 +47,9 @@ describe('LiveBadge', () => {
     const { container } = render(<LiveBadge status="live" label="LIVE" />);
     const dot = container.querySelector('[aria-hidden="true"]');
     expect(dot).toBeInTheDocument();
-    expect(dot!.className).toContain('bg-accent-coral');
+    // Live badge now uses a solid coral fill, so the pulsing dot is white for
+    // contrast against that fill.
+    expect(dot!.className).toContain('bg-white');
   });
 
   it('has a dot for soon status', () => {

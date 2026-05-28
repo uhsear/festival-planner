@@ -34,7 +34,7 @@ export default function GridStageColumn({
 }: GridStageColumnProps) {
   return (
     <div
-      className="fk-grid__col relative flex-1 min-w-[110px] border-l border-border"
+      className="fk-grid__col relative flex-1 min-w-[110px] max-w-[160px] border-l border-border"
       role="row"
       aria-label={stageName}
       style={{ height: totalH, '--stage-c': stageColor } as React.CSSProperties}

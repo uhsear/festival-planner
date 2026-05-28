@@ -155,7 +155,7 @@ export default function LineupImport({ festivalId, onSuccess }: LineupImportProp
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-text-primary mb-3">Import Lineup from CSV/TSV</h2>
+        <h2 className="type-heading text-text-primary mb-3">Import Lineup from CSV/TSV</h2>
 
         <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4 mb-4">
           <p className="text-sm text-text-muted mb-3">

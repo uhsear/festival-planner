@@ -81,7 +81,7 @@ export default function AdminAnalytics() {
       {/* Active Users */}
       {data.activeUsers.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Most Active Users</h2>
+          <h2 className="type-heading text-text-primary mb-4">Most Active Users</h2>
           <div role="region" tabIndex={0} aria-label="Most active users table" className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua">
             <table className="w-full text-sm">
               <caption className="sr-only">Most active users</caption>
@@ -111,7 +111,7 @@ export default function AdminAnalytics() {
       {/* Crews */}
       {data.crews.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-text-primary mb-4">Crews</h2>
+          <h2 className="type-heading text-text-primary mb-4">Crews</h2>
           <div role="region" tabIndex={0} aria-label="Crews table" className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua">
             <table className="w-full text-sm">
               <caption className="sr-only">Crews overview</caption>

@@ -223,7 +223,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
           </div>
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">Split between</label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
               {members.map((m) => {
                 const active = splitWith.includes(m.userId);
                 return (

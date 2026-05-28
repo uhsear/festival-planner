@@ -26,7 +26,7 @@ export default function GridStageHeader({
       className="fk-grid__head grid shrink-0 bg-bg-primary border-b border-border-light sticky top-0 z-10"
       role="row"
       style={{
-        gridTemplateColumns: `${gutterW}px repeat(${visibleStages.length}, minmax(${minColWidth}, 1fr))`,
+        gridTemplateColumns: `${gutterW}px repeat(${visibleStages.length}, minmax(${minColWidth}, 160px))`,
       }}
       data-grid-head
     >

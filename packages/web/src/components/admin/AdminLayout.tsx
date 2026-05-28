@@ -38,7 +38,7 @@ export default function AdminLayout({
               ←
             </button>
             <div>
-              <h1 className="text-xl font-bold text-text-primary">{title}</h1>
+              <h1 className="type-heading text-text-primary">{title}</h1>
               {description && <p className="text-xs text-text-muted mt-0.5">{description}</p>}
             </div>
           </div>

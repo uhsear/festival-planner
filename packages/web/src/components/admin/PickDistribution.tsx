@@ -14,9 +14,9 @@ export default function PickDistribution({ must, want, maybe }: PickDistribution
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-text-primary mb-4">Pick Distribution</h2>
+      <h2 className="type-heading text-text-primary mb-4">Pick Distribution</h2>
       <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
           <div>
             <div className="text-sm text-text-muted mb-2">Must See</div>
             <div className="text-3xl font-bold text-accent-coral">{must}</div>

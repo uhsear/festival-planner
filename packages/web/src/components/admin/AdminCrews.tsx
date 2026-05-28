@@ -106,7 +106,7 @@ export default function AdminCrews() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-text-primary">Crews ({filteredCrews.length})</h2>
+        <h2 className="type-heading text-text-primary">Crews ({filteredCrews.length})</h2>
       </div>
 
       <input

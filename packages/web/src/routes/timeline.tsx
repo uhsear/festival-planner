@@ -122,7 +122,9 @@ function TimelineViewInner() {
         aria-label="Timeline view"
         data-scroll-sentinel
       >
-        <TimelineLegend />
+        <div className="sticky top-0 z-20 bg-bg-sticky shadow-sticky [backdrop-filter:saturate(140%)_blur(8px)]">
+          <TimelineLegend />
+        </div>
         <TimelineGrid
           visibleStages={visibleStages}
           timedSets={timedSets}

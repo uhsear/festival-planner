@@ -13,8 +13,8 @@ export default function EngagementMetrics({
 }: EngagementMetricsProps) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-text-primary mb-4">Engagement Metrics</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <h2 className="type-heading text-text-primary mb-4">Engagement Metrics</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4">
           <div className="text-sm text-text-muted mb-1">Avg Picks per User</div>
           <div className="text-2xl font-bold text-text-primary">{avgPicksPerUser.toFixed(1)}</div>

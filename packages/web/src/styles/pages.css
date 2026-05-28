@@ -133,7 +133,8 @@
   display: flex !important; flex-wrap: nowrap !important;
   overflow-x: auto !important; overflow-y: hidden !important;
   width: 100% !important; max-width: 100%; min-width: 0;
-  gap: var(--space-4); padding: 4px 8px 6px;
+  /* Compact horizontal rhythm on small widths; comfortable on desktop. */
+  gap: var(--space-3); padding: 4px var(--space-3) 6px;
   -webkit-overflow-scrolling: touch; touch-action: pan-x;
   overscroll-behavior-x: contain; scrollbar-width: none; scroll-behavior: smooth;
   -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
@@ -141,6 +142,10 @@
 }
 .filter-stage::-webkit-scrollbar { display: none; }
 .filter-stage > * { flex: 0 0 auto !important; }
+/* Density: roomier stage-chip rhythm + padding once past the mobile breakpoint. */
+@media (min-width: 640px) {
+  .sub-header .filter-stage, .filter-stage { gap: var(--space-4); padding: 4px var(--space-4) 6px; }
+}
 .sub-header { flex-wrap: nowrap !important; min-width: 0; overflow: visible; }
 .content-area p.text-text-muted { color: var(--color-text-secondary) !important; }
 

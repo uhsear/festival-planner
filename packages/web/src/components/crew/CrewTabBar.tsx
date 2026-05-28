@@ -22,7 +22,7 @@ interface CrewTabBarProps {
 export default function CrewTabBar({ activeTab, onTabChange }: CrewTabBarProps) {
   return (
     <div
-      className="flex gap-1 overflow-x-auto -mx-1 px-1 pr-4 scrollbar-hide min-w-0 max-w-full"
+      className="flex gap-1 overflow-x-auto px-3 scrollbar-hide min-w-0 max-w-full snap-x snap-mandatory [scroll-padding-inline:0.75rem] [mask-image:linear-gradient(to_right,transparent,black_0.75rem,black_calc(100%-0.75rem),transparent)]"
       role="tablist"
       aria-label="Crew tabs"
     >
@@ -35,7 +35,7 @@ export default function CrewTabBar({ activeTab, onTabChange }: CrewTabBarProps) 
           aria-controls="crew-tab-panel"
           onClick={() => onTabChange(t.key)}
           className={cn(
-            'flex-shrink-0 px-2.5 py-1.5 min-h-11 rounded-md flex items-center gap-1 text-xs font-medium whitespace-nowrap',
+            'flex-shrink-0 snap-start px-2.5 py-1.5 min-h-11 rounded-md flex items-center gap-1 text-xs font-medium whitespace-nowrap',
             'transition-[transform,background-color,border-color,color] duration-150 ease-out active:scale-[0.97] motion-reduce:active:!transform-none',
             activeTab === t.key
               ? 'bg-accent-aqua/15 text-accent-aqua border border-accent-aqua/30'
