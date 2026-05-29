@@ -84,7 +84,7 @@ export default function TimelineScreen() {
   const activeStages = useFestivalStore((s) => s.activeStages);
 
   const { getDays, getFilteredSets, getStageColor, getStageName } = useFestival();
-  const { getMyPick, getOtherPicks, savePick } = usePicks();
+  const { getMyPick, getOtherPicks, getMyNote, savePick } = usePicks();
 
   const [search, setSearch] = useState(searchQuery);
 
@@ -231,6 +231,7 @@ export default function TimelineScreen() {
           myPick={getMyPick(set.id)}
           friendProfiles={getOtherPicks(set.id)}
           hasConflict={conflictIds.has(set.id)}
+          hasNote={!!getMyNote(set.id)}
           onPickChange={(priority) => handlePickChange(set.id, priority)}
           onPress={() => router.push(`/set/${set.id}`)}
         />
@@ -242,6 +243,7 @@ export default function TimelineScreen() {
       getStageColor,
       getMyPick,
       getOtherPicks,
+      getMyNote,
       conflictIds,
       handlePickChange,
       router,
@@ -461,6 +463,7 @@ export default function TimelineScreen() {
           nowIndicator={nowIndicator}
           conflictIds={conflictIds}
           getMyPick={getMyPick}
+          getMyNote={getMyNote}
           getStageColor={resolveStageColor}
           getStageName={getStageName}
           onPickChange={handlePickChange}
