@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { View, Text, FlatList } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import type { FestivalSet, Priority } from '@festie/shared/types';
@@ -44,6 +45,7 @@ type Row =
 export default function PicksScreen() {
   const t = useTokens();
   const styles = useStyles();
+  const router = useRouter();
 
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
   const currentProfile = useFestivalDataStore((s) => s.currentProfile);
@@ -162,7 +164,7 @@ export default function PicksScreen() {
           stageColor={getStageColor(item.set.stageId)}
           myPick={getMyPick(item.set.id)}
           onPickChange={(priority) => handlePickChange(item.set, priority)}
-          onPress={() => {}}
+          onPress={() => router.push(`/set/${item.set.id}`)}
           hasConflict={conflictIds.has(item.set.id)}
         />
       );
@@ -174,6 +176,7 @@ export default function PicksScreen() {
       getMyPick,
       handlePickChange,
       conflictIds,
+      router,
     ],
   );
 

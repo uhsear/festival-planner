@@ -9,6 +9,7 @@ import {
   type ListRenderItem,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useFestivalDataStore, useFestivalStore } from '@festie/shared/stores';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import {
@@ -58,6 +59,7 @@ type ListRow =
 export default function TimelineScreen() {
   const t = useTokens();
   const styles = useStyles();
+  const router = useRouter();
   const { viewMode, setViewMode } = useUI();
 
   const festivals = useFestivalDataStore((s) => s.festivals);
@@ -203,10 +205,7 @@ export default function TimelineScreen() {
           myPick={getMyPick(set.id)}
           hasConflict={conflictIds.has(set.id)}
           onPickChange={(priority) => handlePickChange(set.id, priority)}
-          onPress={() => {
-            // No detail screen exists on mobile yet — open-detail is a no-op.
-            // GAP: wire to a set-detail route/drawer when one is added.
-          }}
+          onPress={() => router.push(`/set/${set.id}`)}
         />
       );
     },
@@ -217,6 +216,7 @@ export default function TimelineScreen() {
       getMyPick,
       conflictIds,
       handlePickChange,
+      router,
       t.colors.text.muted,
     ],
   );
