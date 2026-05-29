@@ -180,10 +180,10 @@ function createCacheInvalidationBus(redis: Redis | null, { log, onInvalidateUser
 
   return {
     publishUserInvalidation() {
-      redis.publish(CHANNEL_USERS, String(Date.now())).catch(() => {});
+      redis.publish(CHANNEL_USERS, String(Date.now())).catch((err) => log.warn('redis cleanup failed', { error: err.message }));
     },
     publishFestivalInvalidation() {
-      redis.publish(CHANNEL_FESTIVALS, String(Date.now())).catch(() => {});
+      redis.publish(CHANNEL_FESTIVALS, String(Date.now())).catch((err) => log.warn('redis cleanup failed', { error: err.message }));
     },
     async close() {
       try { await sub.unsubscribe(); } catch { /* ignore */ }
