@@ -189,6 +189,56 @@ export interface UpdateCrewMeetingPointRequest {
   stageReference?: string | null;
 }
 
+/**
+ * Crew expense as serialized by the backend (routes/crew-expenses.ts).
+ * snake_case from Postgres. `amount` arrives as a numeric string from pg, so
+ * consumers must Number() it. Distinct from the legacy `Expense` type below.
+ */
+export interface CrewExpense {
+  id: string;
+  crew_id: string;
+  paid_by: string;
+  paid_by_name: string;
+  description: string;
+  amount: string | number;
+  split_with: string[];
+  category: string;
+  created_at: string;
+}
+
+export interface CrewExpenseBalance {
+  userId: string;
+  username: string;
+  balance: number;
+}
+
+export interface CreateCrewExpenseRequest {
+  description: string;
+  amount: number;
+  splitWith: string[];
+  category: string;
+}
+
+export interface SettleCrewExpenseRequest {
+  toUserId: string;
+  amount: number;
+}
+
+/**
+ * Crew activity-log entry (routes/crew-activity.ts). snake_case from Postgres.
+ * `type` is a free-form event string ('member-joined', 'expense-added', …).
+ * Distinct from the legacy festival-scoped `ActivityItem` type below.
+ */
+export interface CrewActivityEntry {
+  id: string;
+  crew_id: string;
+  user_id: string;
+  username: string;
+  type: string;
+  detail: string | null;
+  created_at: string;
+}
+
 export interface Poll {
   id: string;
   festivalId: string;

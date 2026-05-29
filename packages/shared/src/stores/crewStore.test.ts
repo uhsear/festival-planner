@@ -33,6 +33,11 @@ function resetStore() {
     activeCrew: null,
     crewMembers: [],
     crewOverlap: {},
+    polls: [],
+    meetingPoints: [],
+    expenses: [],
+    expenseBalances: [],
+    activity: [],
     crewLoading: false,
     error: null,
   });
@@ -402,6 +407,97 @@ describe('crewStore', () => {
       useCrewStore.getState().setError('err');
       useCrewStore.getState().setError(null);
       expect(useCrewStore.getState().error).toBeNull();
+    });
+  });
+
+  describe('loadExpenses', () => {
+    it('loads expenses and balances together', async () => {
+      const expenses = [
+        { id: 'e1', crew_id: 'crew-1', paid_by: 'user-1', paid_by_name: 'Alice', description: 'Dinner', amount: '40.00', split_with: ['user-1', 'user-2'], category: 'food', created_at: '2026-01-01T00:00:00Z' },
+      ];
+      const balances = [{ userId: 'user-1', username: 'Alice', balance: 20 }];
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(expenses)
+        .mockResolvedValueOnce(balances);
+      await useCrewStore.getState().loadExpenses('crew-1');
+      expect(useCrewStore.getState().expenses).toEqual(expenses);
+      expect(useCrewStore.getState().expenseBalances).toEqual(balances);
+      expect(api.get).toHaveBeenCalledWith('/crews/crew-1/expenses');
+      expect(api.get).toHaveBeenCalledWith('/crews/crew-1/expenses/balances');
+    });
+
+    it('unwraps a { balances } envelope', async () => {
+      vi.mocked(api.get)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce({ balances: [{ userId: 'u', username: 'U', balance: 5 }] });
+      await useCrewStore.getState().loadExpenses('crew-1');
+      expect(useCrewStore.getState().expenseBalances).toHaveLength(1);
+    });
+
+    it('sets error and throws on failure', async () => {
+      vi.mocked(api.get).mockRejectedValueOnce(new Error('boom'));
+      await expect(useCrewStore.getState().loadExpenses('crew-1')).rejects.toThrow('boom');
+      expect(useCrewStore.getState().error).toBe('boom');
+    });
+  });
+
+  describe('addExpense', () => {
+    it('posts then refetches expenses + balances', async () => {
+      vi.mocked(api.post).mockResolvedValueOnce({});
+      vi.mocked(api.get)
+        .mockResolvedValueOnce([{ id: 'e1' }])
+        .mockResolvedValueOnce([]);
+      await useCrewStore.getState().addExpense('crew-1', {
+        description: 'Beer', amount: 12, splitWith: ['user-1'], category: 'drinks',
+      });
+      expect(api.post).toHaveBeenCalledWith('/crews/crew-1/expenses', {
+        description: 'Beer', amount: 12, splitWith: ['user-1'], category: 'drinks',
+      });
+      expect(useCrewStore.getState().expenses).toEqual([{ id: 'e1' }]);
+    });
+  });
+
+  describe('removeExpense', () => {
+    it('deletes then refetches', async () => {
+      vi.mocked(api.delete).mockResolvedValueOnce({});
+      vi.mocked(api.get).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      await useCrewStore.getState().removeExpense('crew-1', 'e1');
+      expect(api.delete).toHaveBeenCalledWith('/crews/crew-1/expenses/e1');
+    });
+  });
+
+  describe('settleExpense', () => {
+    it('posts settle then refetches', async () => {
+      vi.mocked(api.post).mockResolvedValueOnce({});
+      vi.mocked(api.get).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      await useCrewStore.getState().settleExpense('crew-1', { toUserId: 'user-2', amount: 10 });
+      expect(api.post).toHaveBeenCalledWith('/crews/crew-1/expenses/settle', {
+        toUserId: 'user-2', amount: 10,
+      });
+    });
+  });
+
+  describe('loadActivity', () => {
+    it('reads the { items } pagination envelope', async () => {
+      const items = [
+        { id: 'a1', crew_id: 'crew-1', user_id: 'user-1', username: 'Alice', type: 'expense-added', detail: 'Dinner $40', created_at: '2026-01-01T00:00:00Z' },
+      ];
+      vi.mocked(api.get).mockResolvedValueOnce({ items, nextCursor: null });
+      await useCrewStore.getState().loadActivity('crew-1');
+      expect(useCrewStore.getState().activity).toEqual(items);
+      expect(api.get).toHaveBeenCalledWith('/crews/crew-1/activity');
+    });
+
+    it('accepts a bare array too', async () => {
+      vi.mocked(api.get).mockResolvedValueOnce([{ id: 'a1' }]);
+      await useCrewStore.getState().loadActivity('crew-1');
+      expect(useCrewStore.getState().activity).toEqual([{ id: 'a1' }]);
+    });
+
+    it('sets error and throws on failure', async () => {
+      vi.mocked(api.get).mockRejectedValueOnce(new Error('nope'));
+      await expect(useCrewStore.getState().loadActivity('crew-1')).rejects.toThrow('nope');
+      expect(useCrewStore.getState().error).toBe('nope');
     });
   });
 });

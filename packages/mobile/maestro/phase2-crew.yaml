@@ -1,0 +1,38 @@
+appId: host.exp.exponent
+env:
+  PROJECT_URL: exp://e0rp0ks-uhsear-8081.exp.direct
+  FESTIVAL: "Forbidden Kingdom 2026"
+---
+# Phase 2 (Crew) verification: Expenses, Activity, meeting-point edit.
+- launchApp
+- openLink: ${PROJECT_URL}
+- extendedWaitUntil:
+    visible: "Festie"
+    timeout: 120000
+- runFlow: login.yaml
+- runFlow:
+    when:
+      visible: "${FESTIVAL}"
+    commands:
+      - tapOn: "${FESTIVAL}"
+- tapOn: "Crew"
+- takeScreenshot: p2-crew-top
+# Scroll the crew screen to reveal the new sections (they live in the footer).
+- scrollUntilVisible:
+    element:
+      text: "Meeting points"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: p2-meeting-points
+- scrollUntilVisible:
+    element:
+      text: "Add expense"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: p2-expenses
+- scrollUntilVisible:
+    element:
+      text: "Activity"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: p2-activity

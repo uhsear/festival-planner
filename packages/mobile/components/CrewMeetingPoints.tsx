@@ -40,9 +40,11 @@ export default function CrewMeetingPoints({
 
   const meetingPoints = useCrewStore((s) => s.meetingPoints);
   const createMeetingPoint = useCrewStore((s) => s.createMeetingPoint);
+  const updateMeetingPoint = useCrewStore((s) => s.updateMeetingPoint);
   const deleteMeetingPoint = useCrewStore((s) => s.deleteMeetingPoint);
 
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [location, setLocation] = useState('');
   const [type, setType] = useState<string>('during');
@@ -53,6 +55,15 @@ export default function CrewMeetingPoints({
     setLocation('');
     setType('during');
     setShowForm(false);
+    setEditingId(null);
+  };
+
+  const startEdit = (point: CrewMeetingPoint) => {
+    setEditingId(point.id);
+    setLabel(point.label);
+    setLocation(point.location);
+    setType(point.type);
+    setShowForm(true);
   };
 
   const handleCreate = async () => {
@@ -61,7 +72,15 @@ export default function CrewMeetingPoints({
     if (!l || !loc || createBusy) return;
     setCreateBusy(true);
     try {
-      await createMeetingPoint(crewId, { label: l, location: loc, type });
+      if (editingId) {
+        await updateMeetingPoint(crewId, editingId, {
+          label: l,
+          location: loc,
+          type,
+        });
+      } else {
+        await createMeetingPoint(crewId, { label: l, location: loc, type });
+      }
       reset();
     } catch {
       // Error surfaced via the crew store.
@@ -90,7 +109,9 @@ export default function CrewMeetingPoints({
       {showForm ? (
         <View style={styles.formBox}>
           <View style={styles.formHeader}>
-            <Text style={styles.formTitle}>New meeting point</Text>
+            <Text style={styles.formTitle}>
+              {editingId ? 'Edit meeting point' : 'New meeting point'}
+            </Text>
             <TouchableOpacity
               onPress={reset}
               style={styles.iconButton}
@@ -126,6 +147,7 @@ export default function CrewMeetingPoints({
             })}
           </View>
           <TextInput
+            testID="mp-label-input"
             style={styles.input}
             placeholder="Label (e.g. Main entrance)"
             placeholderTextColor={t.colors.text.placeholder}
@@ -135,6 +157,7 @@ export default function CrewMeetingPoints({
             accessibilityLabel="Meeting point label"
           />
           <TextInput
+            testID="mp-location-input"
             style={styles.input}
             placeholder="Location (e.g. Near the food court)"
             placeholderTextColor={t.colors.text.placeholder}
@@ -157,7 +180,13 @@ export default function CrewMeetingPoints({
             accessibilityLabel="Add meeting point"
           >
             <Text style={styles.primaryButtonText}>
-              {createBusy ? 'Adding…' : 'Add'}
+              {createBusy
+                ? editingId
+                  ? 'Saving…'
+                  : 'Adding…'
+                : editingId
+                  ? 'Save'
+                  : 'Add'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -200,19 +229,34 @@ export default function CrewMeetingPoints({
                 </Text>
               </View>
               {canRemove ? (
-                <TouchableOpacity
-                  onPress={() => handleRemove(point)}
-                  style={styles.iconButton}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove meeting point ${point.label}`}
-                >
-                  <Ionicons
-                    name="trash-outline"
-                    size={18}
-                    color={t.colors.text.danger}
-                  />
-                </TouchableOpacity>
+                <View style={styles.rowActions}>
+                  <TouchableOpacity
+                    onPress={() => startEdit(point)}
+                    style={styles.iconButton}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit meeting point ${point.label}`}
+                  >
+                    <Ionicons
+                      name="create-outline"
+                      size={18}
+                      color={t.colors.accent.aqua}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleRemove(point)}
+                    style={styles.iconButton}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove meeting point ${point.label}`}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={t.colors.text.danger}
+                    />
+                  </TouchableOpacity>
+                </View>
               ) : null}
             </View>
           );
@@ -308,6 +352,11 @@ const useStyles = makeStyles((t) => ({
   },
   iconButton: {
     padding: t.spacing[1],
+  },
+  rowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
   },
   empty: {
     ...typeStyle('caption'),
