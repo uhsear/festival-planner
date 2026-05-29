@@ -1,0 +1,788 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  Linking,
+  ActivityIndicator,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFestivalDataStore } from '@festie/shared/stores';
+import { usePicks, useFestival, useCrew } from '@festie/shared/hooks';
+import { api } from '@festie/shared/services';
+import {
+  formatTime,
+  artistDisplayName,
+  artistSubtitle,
+  getSetLinks,
+  detectConflicts,
+} from '@festie/shared/utils';
+import type { FestivalSet, Priority } from '@festie/shared/types';
+import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
+import EmptyState from '../../components/EmptyState';
+
+/** Spotify preview payload returned by GET /spotify/preview/:setId. */
+interface SpotifyPreview {
+  embedUrl: string;
+  label: string;
+  embedType: string;
+}
+
+/** Priority button definitions, mirroring SetCardMobile. */
+const PRIORITIES: ReadonlyArray<{
+  value: Priority;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+}> = [
+  { value: 'must', icon: 'star', label: 'Must See' },
+  { value: 'want-to-see', icon: 'heart', label: 'Want to See' },
+  { value: 'maybe', icon: 'ellipse', label: 'Maybe' },
+];
+
+/**
+ * Stage colors come from the API but the web fallback is a CSS custom property
+ * (`var(--text-muted)`) React Native can't parse. Mirror index.tsx's guard.
+ */
+function safeStageColor(color: string | undefined, fallback: string): string {
+  if (!color || color.startsWith('var(')) return fallback;
+  return color;
+}
+
+/** Maps a priority to its accent token (matches SetCardMobile). */
+function priorityColor(t: ReturnType<typeof useTokens>, p: Priority): string {
+  if (p === 'must') return t.colors.priority.must;
+  if (p === 'want-to-see') return t.colors.priority.want;
+  return t.colors.priority.maybe;
+}
+
+/**
+ * The mobile set-detail screen — an expo-router modal mirroring the web
+ * DetailPanel. Looks the set up by id from the shared data store so it is
+ * reload-safe (only the setId travels in the URL). Recomputes everything the
+ * panel needs (pick, conflicts, crew, notes) from shared hooks/stores.
+ */
+export default function SetDetailScreen() {
+  const t = useTokens();
+  const styles = useStyles();
+  const router = useRouter();
+  const { setId } = useLocalSearchParams<{ setId: string }>();
+
+  const sets = useFestivalDataStore((s) => s.sets);
+  const currentFestival = useFestivalDataStore((s) => s.currentFestival);
+  const currentProfile = useFestivalDataStore((s) => s.currentProfile);
+  const allProfiles = useFestivalDataStore((s) => s.allProfiles);
+  const loadProfiles = useFestivalDataStore((s) => s.loadProfiles);
+
+  const { getMyPick, savePick, saveNote, getOtherPicks } = usePicks();
+  const { getStageColor, getStageName } = useFestival();
+  const { getCrewScopedOtherPicks } = useCrew();
+
+  const set = useMemo(
+    () => sets.find((x) => x.id === setId),
+    [sets, setId],
+  );
+
+  const b2bSeparator = currentFestival?.b2bSeparator;
+
+  // ---- Derived display data (only computed when the set exists). ----------
+  const artistName = set ? artistDisplayName(set, b2bSeparator) : '';
+  const subtitle = set ? artistSubtitle(set, b2bSeparator) : '';
+  const stageName = set ? getStageName(set.stageId) || 'Unknown' : 'Unknown';
+  const stageColor = safeStageColor(
+    set ? getStageColor(set.stageId) : undefined,
+    t.colors.text.muted,
+  );
+  const timeLabel =
+    set && set.startTime && set.endTime
+      ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}`
+      : 'TBA';
+  const myPick = set ? getMyPick(set.id) : undefined;
+
+  const allGenres = useMemo(
+    () =>
+      [...new Set((set?.artists || []).flatMap((a) => a.genres || []))].slice(
+        0,
+        6,
+      ),
+    [set],
+  );
+
+  const artistLinks = useMemo(() => (set ? getSetLinks(set) : []), [set]);
+
+  // Conflicts: other picked sets whose times overlap this one (web parity).
+  const conflicts = useMemo(() => {
+    if (!set || !currentProfile) return [];
+    const detected = detectConflicts(sets, (id: string) => {
+      const val = currentProfile.picks?.[id];
+      return (val as Priority) || null;
+    });
+    return detected
+      .filter((c) => c.setA.id === set.id || c.setB.id === set.id)
+      .map((c) => (c.setA.id === set.id ? c.setB : c.setA));
+  }, [sets, currentProfile, set]);
+
+  // Crew / who's going.
+  const others = useMemo(() => {
+    if (!set || !currentProfile) return [];
+    const raw = getCrewScopedOtherPicks(set.id);
+    const scoped = raw.length > 0 ? raw : getOtherPicks(set.id);
+    return scoped.map((o) => {
+      const profile = allProfiles.find((p) => p.id === o.profileId);
+      return {
+        profileId: o.profileId,
+        priority: o.priority,
+        name: profile?.name || 'Unknown',
+      };
+    });
+  }, [set, currentProfile, getCrewScopedOtherPicks, getOtherPicks, allProfiles]);
+
+  const whoTitle =
+    others.length > 0 ? `Who's Going (${others.length})` : 'Nobody else going yet';
+
+  const crewNotes = useMemo(() => {
+    if (!set) return [];
+    return allProfiles
+      .filter((p) => p.id !== currentProfile?.id && p.notes?.['crew:' + set.id])
+      .map((p) => ({
+        name: p.name || 'Unknown',
+        note: p.notes['crew:' + set.id]!,
+      }));
+  }, [allProfiles, currentProfile?.id, set]);
+
+  // ---- Notes (debounced save, mirroring the web 500ms debounce). ----------
+  const [personalNote, setPersonalNote] = useState('');
+  const [crewNote, setCrewNote] = useState('');
+  const personalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const crewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!set) return;
+    setPersonalNote(currentProfile?.notes?.[set.id] || '');
+    setCrewNote(currentProfile?.notes?.['crew:' + set.id] || '');
+  }, [set, currentProfile]);
+
+  const handlePersonalNoteChange = useCallback(
+    (value: string) => {
+      setPersonalNote(value);
+      if (!set || !currentFestival) return;
+      if (personalTimer.current) clearTimeout(personalTimer.current);
+      personalTimer.current = setTimeout(() => {
+        saveNote(currentFestival.id, set.id, value).catch(() => {});
+      }, 500);
+    },
+    [set, currentFestival, saveNote],
+  );
+
+  const handleCrewNoteChange = useCallback(
+    (value: string) => {
+      setCrewNote(value);
+      if (!set || !currentFestival) return;
+      if (crewTimer.current) clearTimeout(crewTimer.current);
+      crewTimer.current = setTimeout(() => {
+        saveNote(currentFestival.id, 'crew:' + set.id, value).catch(() => {});
+      }, 500);
+    },
+    [set, currentFestival, saveNote],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (personalTimer.current) clearTimeout(personalTimer.current);
+      if (crewTimer.current) clearTimeout(crewTimer.current);
+    };
+  }, []);
+
+  // ---- Spotify preview (fetched on mount, opened externally via Linking). --
+  const [spotify, setSpotify] = useState<SpotifyPreview | null>(null);
+
+  useEffect(() => {
+    if (!set) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const preview = await api.get<SpotifyPreview>(
+          `/spotify/preview/${set.id}`,
+        );
+        if (!cancelled && preview?.embedType) setSpotify(preview);
+      } catch {
+        /* No Spotify preview available */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [set]);
+
+  // ---- Actions. ------------------------------------------------------------
+  const handlePriority = useCallback(
+    (priority: Priority | null) => {
+      if (!set || !currentFestival) return;
+      savePick(currentFestival.id, set.id, priority).catch(() => {});
+    },
+    [set, currentFestival, savePick],
+  );
+
+  const handleConflictSwitch = useCallback(
+    (conflictSetId: string) => {
+      if (!set || !currentFestival) return;
+      const priority = (getMyPick(set.id) as Priority | null) || 'must';
+      savePick(currentFestival.id, set.id, null).catch(() => {});
+      savePick(currentFestival.id, conflictSetId, priority).catch(() => {});
+    },
+    [set, currentFestival, savePick, getMyPick],
+  );
+
+  const [joinBusy, setJoinBusy] = useState(false);
+  const handleJoin = useCallback(async () => {
+    if (!currentFestival) return;
+    setJoinBusy(true);
+    try {
+      await api.post('/profiles', { festivalId: currentFestival.id });
+      await loadProfiles(currentFestival.id);
+    } catch {
+      /* Join failed — store surfaces error */
+    } finally {
+      setJoinBusy(false);
+    }
+  }, [currentFestival, loadProfiles]);
+
+  const openLink = useCallback((url: string) => {
+    Linking.openURL(url).catch(() => {});
+  }, []);
+
+  // ---- Reload-safe guard: the set isn't in the store (cold open / refresh).
+  if (!set) {
+    return (
+      <View style={styles.container}>
+        <CloseButton onPress={() => router.back()} />
+        <EmptyState
+          icon="alert-circle-outline"
+          title="Set not found"
+          message="This set isn't loaded. Go back to the schedule and open it again."
+          action={{ label: 'Back to schedule', onPress: () => router.back() }}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.handle} />
+      <CloseButton onPress={() => router.back()} />
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Stage pill */}
+        <View
+          style={[styles.stagePill, { backgroundColor: stageColor + '25' }]}
+        >
+          <Text style={[styles.stageText, { color: stageColor }]} numberOfLines={1}>
+            {stageName}
+          </Text>
+        </View>
+
+        {/* Artist header */}
+        <Text style={styles.artist} accessibilityRole="header">
+          {artistName}
+        </Text>
+        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <Text style={styles.time}>{timeLabel}</Text>
+
+        {/* Genres */}
+        {allGenres.length > 0 ? (
+          <View style={styles.chipRow}>
+            {allGenres.map((g) => (
+              <View key={g} style={styles.chip}>
+                <Text style={styles.chipText}>{g}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {/* Artist links */}
+        {artistLinks.length > 0 ? (
+          <View style={styles.linkRow}>
+            {artistLinks.flatMap((entry) =>
+              Object.entries(entry.links).map(([key, url]) => (
+                <TouchableOpacity
+                  key={`${entry.name}-${key}`}
+                  style={styles.linkButton}
+                  onPress={() => openLink(url)}
+                  activeOpacity={0.7}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open ${entry.name} on ${key}`}
+                >
+                  <Ionicons
+                    name="open-outline"
+                    size={14}
+                    color={t.colors.accent.aqua}
+                  />
+                  <Text style={styles.linkText}>{key}</Text>
+                </TouchableOpacity>
+              )),
+            )}
+          </View>
+        ) : null}
+
+        {/* Spotify preview (opened externally — react-native-webview is not
+            installed, so the embed is launched in the system browser/app). */}
+        {spotify ? (
+          <TouchableOpacity
+            style={styles.spotifyButton}
+            onPress={() => openLink(spotify.embedUrl)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Play preview: ${spotify.label}`}
+          >
+            <Ionicons
+              name="musical-note"
+              size={16}
+              color={t.colors.spotify.brand}
+            />
+            <Text style={styles.spotifyText} numberOfLines={1}>
+              {spotify.label || 'Play on Spotify'}
+            </Text>
+            <Ionicons
+              name="open-outline"
+              size={14}
+              color={t.colors.text.secondary}
+            />
+          </TouchableOpacity>
+        ) : null}
+
+        {/* Conflict warning */}
+        {currentProfile && conflicts.length > 0 ? (
+          <View style={styles.conflictBox}>
+            <View style={styles.conflictHeader}>
+              <Ionicons
+                name="warning"
+                size={16}
+                color={t.colors.accent.coral}
+              />
+              <Text style={styles.conflictTitle}>
+                {conflicts.length === 1
+                  ? '1 scheduling conflict'
+                  : `${conflicts.length} scheduling conflicts`}
+              </Text>
+            </View>
+            {conflicts.map((c) => (
+              <View key={c.id} style={styles.conflictItem}>
+                <View style={styles.conflictInfo}>
+                  <Text style={styles.conflictArtist} numberOfLines={1}>
+                    {artistDisplayName(c, b2bSeparator)}
+                  </Text>
+                  <Text style={styles.conflictMeta} numberOfLines={1}>
+                    {getStageName(c.stageId) || 'Unknown'}
+                    {c.startTime ? ` · ${formatTime(c.startTime)}` : ''}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.switchButton}
+                  onPress={() => handleConflictSwitch(c.id)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Switch pick to ${artistDisplayName(c, b2bSeparator)}`}
+                >
+                  <Text style={styles.switchText}>Switch</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {/* Priority picker / Join CTA */}
+        {currentProfile ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Your pick</Text>
+            <View style={styles.priorityRow}>
+              {PRIORITIES.map((option) => {
+                const active = myPick === option.value;
+                const accent = priorityColor(t, option.value);
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.priorityButton,
+                      active && { backgroundColor: accent, borderColor: accent },
+                    ]}
+                    onPress={() => handlePriority(active ? null : option.value)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={
+                      active ? `${option.label} (selected)` : option.label
+                    }
+                  >
+                    <Ionicons
+                      name={option.icon}
+                      size={16}
+                      color={
+                        active
+                          ? t.colors.text.onLightAccent
+                          : t.colors.text.muted
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.priorityText,
+                        active && { color: t.colors.text.onLightAccent },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        ) : (
+          <View style={styles.joinBox}>
+            <Text style={styles.joinCopy}>
+              Join this festival to save picks, keep private notes, and compare
+              crew overlap.
+            </Text>
+            <TouchableOpacity
+              style={[styles.joinButton, joinBusy && styles.joinButtonBusy]}
+              onPress={handleJoin}
+              disabled={joinBusy}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Join festival"
+            >
+              {joinBusy ? (
+                <ActivityIndicator
+                  size="small"
+                  color={t.colors.text.onLightAccent}
+                />
+              ) : (
+                <Text style={styles.joinButtonText}>Join Festival</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Who's going */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>{whoTitle}</Text>
+          {others.map((o) => (
+            <View key={o.profileId} style={styles.crewRow}>
+              <View
+                style={[
+                  styles.crewDot,
+                  { backgroundColor: priorityColor(t, o.priority) },
+                ]}
+              />
+              <Text style={styles.crewName} numberOfLines={1}>
+                {o.name}
+              </Text>
+            </View>
+          ))}
+          {crewNotes.map((n, i) => (
+            <View key={`note-${i}`} style={styles.crewNoteRow}>
+              <Text style={styles.crewNoteName}>{n.name}</Text>
+              <Text style={styles.crewNoteText}>{n.note}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Notes */}
+        {currentProfile ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Your note</Text>
+            <TextInput
+              style={styles.noteInput}
+              value={personalNote}
+              onChangeText={handlePersonalNoteChange}
+              placeholder="Private note for yourself"
+              placeholderTextColor={t.colors.text.placeholder}
+              multiline
+              accessibilityLabel="Personal note"
+            />
+            <Text style={styles.sectionLabel}>Crew note</Text>
+            <TextInput
+              style={styles.noteInput}
+              value={crewNote}
+              onChangeText={handleCrewNoteChange}
+              placeholder="Shared note for your crew"
+              placeholderTextColor={t.colors.text.placeholder}
+              multiline
+              accessibilityLabel="Crew note"
+            />
+          </View>
+        ) : null}
+      </ScrollView>
+    </View>
+  );
+}
+
+/** Close affordance for the modal header. */
+function CloseButton({ onPress }: { onPress: () => void }) {
+  const t = useTokens();
+  const styles = useStyles();
+  return (
+    <TouchableOpacity
+      style={styles.closeButton}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel="Close detail"
+      hitSlop={8}
+    >
+      <Ionicons name="close" size={22} color={t.colors.text.secondary} />
+    </TouchableOpacity>
+  );
+}
+
+const useStyles = makeStyles((t) => ({
+  container: {
+    flex: 1,
+    backgroundColor: t.colors.bg.primary,
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 48,
+    height: 5,
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.border.light,
+    marginTop: t.spacing[2],
+    marginBottom: t.spacing[1],
+  },
+  closeButton: {
+    position: 'absolute',
+    top: t.spacing[3],
+    right: t.spacing[4],
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: t.radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.colors.bg.card,
+    borderWidth: 1,
+    borderColor: t.colors.border.light,
+  },
+  content: {
+    padding: t.spacing[5],
+    paddingTop: t.spacing[5],
+    paddingBottom: t.spacing[6],
+    gap: t.spacing[3],
+  },
+  stagePill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[1],
+    borderRadius: t.radii.default,
+  },
+  stageText: {
+    ...typeStyle('micro'),
+  },
+  artist: {
+    ...typeStyle('display-lg'),
+    color: t.colors.text.primary,
+  },
+  subtitle: {
+    ...typeStyle('body'),
+    color: t.colors.text.muted,
+  },
+  time: {
+    ...typeStyle('body'),
+    color: t.colors.text.secondary,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+  },
+  chip: {
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[1],
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  chipText: {
+    ...typeStyle('micro'),
+    color: t.colors.text.secondary,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+  },
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.accent.aqua,
+  },
+  linkText: {
+    ...typeStyle('label'),
+    color: t.colors.accent.aqua,
+    textTransform: 'capitalize',
+  },
+  spotifyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.light,
+    backgroundColor: t.colors.bg.card,
+  },
+  spotifyText: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+    flex: 1,
+  },
+  conflictBox: {
+    gap: t.spacing[2],
+    padding: t.spacing[4],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.accent.coral,
+    backgroundColor: t.colors.ring.coral,
+  },
+  conflictHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+  },
+  conflictTitle: {
+    ...typeStyle('label'),
+    color: t.colors.accent.coral,
+  },
+  conflictItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[3],
+  },
+  conflictInfo: {
+    flex: 1,
+  },
+  conflictArtist: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+  },
+  conflictMeta: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  switchButton: {
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[1],
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+    borderColor: t.colors.accent.aqua,
+  },
+  switchText: {
+    ...typeStyle('label'),
+    color: t.colors.accent.aqua,
+  },
+  section: {
+    gap: t.spacing[2],
+    marginTop: t.spacing[1],
+  },
+  sectionLabel: {
+    ...typeStyle('label'),
+    color: t.colors.text.secondary,
+  },
+  priorityRow: {
+    flexDirection: 'row',
+    gap: t.spacing[2],
+  },
+  priorityButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: t.spacing[1],
+    paddingVertical: t.spacing[3],
+    borderRadius: t.radii.default,
+    backgroundColor: t.colors.overlay[3],
+    borderWidth: 1,
+    borderColor: t.colors.border.light,
+  },
+  priorityText: {
+    ...typeStyle('micro'),
+    color: t.colors.text.muted,
+  },
+  joinBox: {
+    gap: t.spacing[3],
+    padding: t.spacing[4],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.overlay[2],
+  },
+  joinCopy: {
+    ...typeStyle('body'),
+    color: t.colors.text.secondary,
+  },
+  joinButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: t.spacing[3],
+    borderRadius: t.radii.default,
+    backgroundColor: t.colors.accent.aqua,
+  },
+  joinButtonBusy: {
+    opacity: 0.7,
+  },
+  joinButtonText: {
+    ...typeStyle('label'),
+    color: t.colors.text.onLightAccent,
+  },
+  crewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+  },
+  crewDot: {
+    width: 8,
+    height: 8,
+    borderRadius: t.radii.pill,
+  },
+  crewName: {
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+    flex: 1,
+  },
+  crewNoteRow: {
+    gap: t.spacing[1],
+    paddingVertical: t.spacing[2],
+    borderTopWidth: 1,
+    borderTopColor: t.colors.border.default,
+  },
+  crewNoteName: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  crewNoteText: {
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+  },
+  noteInput: {
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+    minHeight: 64,
+    padding: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.input,
+    textAlignVertical: 'top',
+  },
+}));

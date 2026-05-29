@@ -105,42 +105,50 @@ export default function SetCardMobile({
     [onPickChange],
   );
 
+  // The tappable card body and the priority footer are SIBLINGS inside a plain
+  // <View> card — never parent/child touchables. On react-native-web a nested
+  // TouchableOpacity renders button-in-button (invalid DOM) and the parent
+  // onPress also fires when a priority button is tapped. Keeping them siblings
+  // means: (a) valid DOM on web, (b) the body opens detail, (c) the priority
+  // buttons stay independently tappable and don't bubble to onPress.
   return (
-    <TouchableOpacity
-      style={[styles.card, { borderLeftColor: stageColor }]}
-      onPress={onPress}
-      activeOpacity={0.8}
-      accessibilityRole="button"
-      accessibilityLabel={`${artistName}, ${stageName}, ${timeLabel}`}
-    >
-      <View style={[styles.stagePill, { backgroundColor: stageColor }]}>
-        <Text style={styles.stageText} numberOfLines={1}>
-          {stageName}
-        </Text>
-      </View>
+    <View style={[styles.card, { borderLeftColor: stageColor }]}>
+      <TouchableOpacity
+        style={styles.body}
+        onPress={onPress}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={`${artistName}, ${stageName}, ${timeLabel}`}
+      >
+        <View style={[styles.stagePill, { backgroundColor: stageColor }]}>
+          <Text style={styles.stageText} numberOfLines={1}>
+            {stageName}
+          </Text>
+        </View>
 
-      <Text style={styles.artist} numberOfLines={2}>
-        {artistName}
-      </Text>
-      {subtitle ? (
-        <Text style={styles.subtitle} numberOfLines={2}>
-          {subtitle}
+        <Text style={styles.artist} numberOfLines={2}>
+          {artistName}
         </Text>
-      ) : null}
-
-      <View style={styles.metaRow}>
-        <Text style={styles.time}>{timeLabel}</Text>
-        {hasConflict ? (
-          <View style={styles.conflictBadge}>
-            <Ionicons
-              name="warning"
-              size={12}
-              color={t.colors.accent.coral}
-            />
-            <Text style={styles.conflictText}>Conflict</Text>
-          </View>
+        {subtitle ? (
+          <Text style={styles.subtitle} numberOfLines={2}>
+            {subtitle}
+          </Text>
         ) : null}
-      </View>
+
+        <View style={styles.metaRow}>
+          <Text style={styles.time}>{timeLabel}</Text>
+          {hasConflict ? (
+            <View style={styles.conflictBadge}>
+              <Ionicons
+                name="warning"
+                size={12}
+                color={t.colors.accent.coral}
+              />
+              <Text style={styles.conflictText}>Conflict</Text>
+            </View>
+          ) : null}
+        </View>
+      </TouchableOpacity>
 
       <View style={styles.footer}>
         {PRIORITIES.map((option) => (
@@ -152,7 +160,7 @@ export default function SetCardMobile({
           />
         ))}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -164,6 +172,9 @@ const useStyles = makeStyles((t) => ({
     borderColor: t.colors.border.default,
     borderLeftWidth: 4,
     padding: t.spacing[4],
+    gap: t.spacing[1],
+  },
+  body: {
     gap: t.spacing[1],
   },
   stagePill: {
