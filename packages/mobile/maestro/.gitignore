@@ -1,0 +1,5 @@
+# Screenshots captured by takeScreenshot
+*.png
+# Local credentials for runs (never commit)
+.env
+*.local.yaml
