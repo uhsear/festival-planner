@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared';
 import { useFestivalStore } from '@festie/shared/stores';
-import { isFestivalOver } from '../../utils/festivalTime';
+import { isFestivalOver } from '@festie/shared/utils';
 import { cn } from '../../lib/utils';
 
 interface NavTab {
