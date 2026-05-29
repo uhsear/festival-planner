@@ -13,9 +13,15 @@ import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import type { Festival } from '@festie/shared/types';
 
-function formatDateRange(startDate: string, endDate: string): string {
+// The festivals LIST endpoint omits startDate/endDate (only the detail payload
+// has them), so these can be undefined at runtime despite the Festival type.
+// Return null on missing/unparseable dates so the row is hidden rather than
+// rendering "Invalid Date" (Hermes is also stricter than V8 at parsing dates).
+function formatDateRange(startDate?: string, endDate?: string): string | null {
+  if (!startDate || !endDate) return null;
   const start = new Date(startDate);
   const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
   const startStr = start.toLocaleDateString('en-US', opts);
   const endStr = end.toLocaleDateString('en-US', { ...opts, year: 'numeric' });
@@ -40,16 +46,18 @@ function FestivalCard({ festival, onPress, isSelecting }: FestivalCardProps) {
         <Text style={styles.festivalName} numberOfLines={1}>
           {festival.name}
         </Text>
-        <View style={styles.metaRow}>
-          <Ionicons
-            name="calendar-outline"
-            size={14}
-            color={colors.text.secondary}
-          />
-          <Text style={styles.metaText}>
-            {formatDateRange(festival.startDate, festival.endDate)}
-          </Text>
-        </View>
+        {formatDateRange(festival.startDate, festival.endDate) ? (
+          <View style={styles.metaRow}>
+            <Ionicons
+              name="calendar-outline"
+              size={14}
+              color={colors.text.secondary}
+            />
+            <Text style={styles.metaText}>
+              {formatDateRange(festival.startDate, festival.endDate)}
+            </Text>
+          </View>
+        ) : null}
         {festival.location ? (
           <View style={styles.metaRow}>
             <Ionicons
