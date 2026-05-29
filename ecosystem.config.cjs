@@ -16,8 +16,13 @@ module.exports = {
     // Run TypeScript via Node + tsx loader. interpreter must be set explicitly:
     // PM2 v6 auto-selects `bun` for .ts scripts, which isn't installed.
     interpreter: 'node',
-    exec_mode: 'cluster',
-    instances: 4,
+    // Fork mode (not cluster): PM2 cluster mode imports the script through its
+    // ProcessContainer without the tsx ESM loader applied, so it can't load the
+    // .ts entrypoint. Fork mode spawns `node --import tsx/esm server.ts` directly
+    // (identical to `npm start`), which works. Multi-worker scaling would require
+    // compiling the backend to JS first.
+    exec_mode: 'fork',
+    instances: 1,
     autorestart: true,
     watch: false,
 
