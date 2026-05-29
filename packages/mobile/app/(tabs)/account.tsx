@@ -169,6 +169,37 @@ export default function AccountScreen() {
           </View>
         </View>
 
+        {/* Festival */}
+        <Text style={styles.sectionLabel}>Festival</Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => router.push('/wrap')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Open your festival wrap"
+          >
+            <View style={styles.rowIcon}>
+              <Ionicons
+                name="sparkles-outline"
+                size={20}
+                color={t.colors.text.secondary}
+              />
+            </View>
+            <View style={styles.rowBody}>
+              <Text style={styles.rowTitle}>Festival Wrap</Text>
+              <Text style={styles.rowHint} numberOfLines={1}>
+                Your stats & top sets after the festival
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={t.colors.text.placeholder}
+            />
+          </TouchableOpacity>
+        </View>
+
         {/* Data */}
         <Text style={styles.sectionLabel}>Data</Text>
         <AccountDataSection />

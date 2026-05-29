@@ -330,6 +330,16 @@ export default function TimelineScreen() {
             />
             <Text style={styles.switchText}>Switch</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.switchButton}
+            onPress={() => router.push('/festival-mode')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Open festival mode"
+          >
+            <Ionicons name="flash" size={14} color={t.colors.accent.aqua} />
+            <Text style={styles.switchText}>Live</Text>
+          </TouchableOpacity>
         </View>
         <SegmentedControl
           options={VIEW_OPTIONS}

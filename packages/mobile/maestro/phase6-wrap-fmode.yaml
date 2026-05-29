@@ -1,0 +1,49 @@
+appId: host.exp.exponent
+env:
+  PROJECT_URL: exp://e0rp0ks-uhsear-8081.exp.direct
+  FESTIVAL: "Forbidden Kingdom 2026"
+---
+# Phase 6 — Festival Mode (live now/next) + Festival Wrap entry.
+- pressKey: Back
+- launchApp
+- openLink: ${PROJECT_URL}
+# Wait for the actual login screen, not the Expo splash (which also shows
+# "Festie"). The dev bundle downloads over the tunnel and can take a while.
+- extendedWaitUntil:
+    visible: "Sign in to your account"
+    timeout: 180000
+- runFlow: login.yaml
+- runFlow:
+    when:
+      visible: "${FESTIVAL}"
+    commands:
+      - tapOn: "${FESTIVAL}"
+- extendedWaitUntil:
+    visible: "Timeline"
+    timeout: 30000
+
+# Festival Mode (live now/next).
+- tapOn: "Live"
+- extendedWaitUntil:
+    visible: "UP NEXT"
+    timeout: 30000
+- takeScreenshot: p6-festival-mode
+- pressKey: Back
+
+# Festival Wrap (reached from Account).
+- extendedWaitUntil:
+    visible: "Account"
+    timeout: 30000
+- tapOn: "Account"
+- scrollUntilVisible:
+    element:
+      text: "Festival Wrap"
+    direction: DOWN
+    timeout: 20000
+# Forbidden Kingdom 2026 is in the past relative to "today", so the wrap shows
+# real data (stats + top picks) rather than the pre-festival "coming soon" state.
+- tapOn: "Festival Wrap"
+- extendedWaitUntil:
+    visible: "Your top picks"
+    timeout: 30000
+- takeScreenshot: p6-wrap
