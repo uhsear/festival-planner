@@ -8,9 +8,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "us.festie.app"
     },
     "android": {
+      "package": "us.festie.app",
       "adaptiveIcon": {
         "backgroundColor": "#080810",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -25,6 +27,13 @@
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ed47ea14-6364-4646-871d-99edbf17613b"
+      }
+    },
+    "owner": "uhsear"
   }
 }
