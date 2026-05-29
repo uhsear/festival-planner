@@ -4,6 +4,17 @@ import { Ionicons } from '@expo/vector-icons';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName, artistSubtitle } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import Avatar from './Avatar';
+
+/** A single crew member's pick, used to render the "who's going" avatars. */
+export interface FriendProfile {
+  profileId?: string;
+  name?: string;
+  avatarUrl?: string | null;
+  priority: Priority;
+  color?: string;
+  initials?: string;
+}
 
 interface SetCardMobileProps {
   /** The set to render. */
@@ -24,6 +35,12 @@ interface SetCardMobileProps {
   onPress: () => void;
   /** When true, shows the conflict warning indicator. */
   hasConflict?: boolean;
+  /**
+   * Crew members (other than the current user) who have this set picked.
+   * Renders an overlapping avatar cluster + "+N" overflow in the footer,
+   * mirroring the web SetCard. Optional — omit to hide the cluster entirely.
+   */
+  friendProfiles?: FriendProfile[];
 }
 
 /** Priority button definitions: value, icon, and human label. */
@@ -89,6 +106,7 @@ export default function SetCardMobile({
   onPickChange,
   onPress,
   hasConflict = false,
+  friendProfiles,
 }: SetCardMobileProps) {
   const t = useTokens();
   const styles = useStyles();
@@ -151,15 +169,84 @@ export default function SetCardMobile({
       </TouchableOpacity>
 
       <View style={styles.footer}>
-        {PRIORITIES.map((option) => (
-          <PriorityButton
-            key={option.value}
-            option={option}
-            active={myPick === option.value}
-            onPress={handlePick}
-          />
-        ))}
+        <View style={styles.priorityGroup}>
+          {PRIORITIES.map((option) => (
+            <PriorityButton
+              key={option.value}
+              option={option}
+              active={myPick === option.value}
+              onPress={handlePick}
+            />
+          ))}
+        </View>
+
+        {friendProfiles && friendProfiles.length > 0 ? (
+          <CrewCluster friendProfiles={friendProfiles} />
+        ) : null}
       </View>
+    </View>
+  );
+}
+
+interface CrewClusterProps {
+  friendProfiles: FriendProfile[];
+}
+
+/**
+ * Overlapping avatar cluster for the crew who picked this set, mirroring the
+ * web SetCard footer: up to 3 ringed avatars stacked with negative margin,
+ * then a "+N" overflow badge. When no crew identity data is available, falls
+ * back to a bare "N going" count pill.
+ */
+function CrewCluster({ friendProfiles }: CrewClusterProps) {
+  const t = useTokens();
+  const styles = useStyles();
+
+  const visible = friendProfiles.slice(0, 3);
+  const overflow = friendProfiles.length - visible.length;
+  const hasAvatarData = friendProfiles.some(
+    (f) => f.name || f.initials || f.avatarUrl,
+  );
+  const count = friendProfiles.length;
+  const countLabel = count === 1 ? '1 going' : `${count} going`;
+  const a11yLabel = `${count} crew ${count === 1 ? 'member' : 'members'} going`;
+
+  if (!hasAvatarData) {
+    return (
+      <View
+        style={styles.crewCluster}
+        accessibilityRole="text"
+        accessibilityLabel={a11yLabel}
+      >
+        <Text style={styles.countPill}>{countLabel}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={styles.crewCluster}
+      accessibilityRole="image"
+      accessibilityLabel={a11yLabel}
+    >
+      {visible.map((f, i) => (
+        <View
+          key={f.profileId ?? `${f.name ?? 'crew'}-${i}`}
+          style={i > 0 ? styles.avatarOverlap : undefined}
+        >
+          <Avatar
+            name={f.name || f.initials || 'Crew'}
+            image={f.avatarUrl}
+            size="xs"
+            borderColor={t.colors.bg.card}
+          />
+        </View>
+      ))}
+      {overflow > 0 ? (
+        <View style={[styles.overflowBadge, styles.avatarOverlap]}>
+          <Text style={styles.overflowText}>+{overflow}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -226,8 +313,46 @@ const useStyles = makeStyles((t) => ({
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: t.spacing[3],
     marginTop: t.spacing[1],
+  },
+  priorityGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[3],
+  },
+  crewCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarOverlap: {
+    marginLeft: -8,
+  },
+  overflowBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: t.colors.bg.card,
+    backgroundColor: t.colors.ring.aqua,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overflowText: {
+    ...typeStyle('micro'),
+    fontWeight: '700',
+    color: t.colors.accent.aqua,
+  },
+  countPill: {
+    ...typeStyle('micro'),
+    fontWeight: '700',
+    color: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
+    paddingHorizontal: t.spacing[2],
+    paddingVertical: t.spacing[1],
+    borderRadius: t.radii.default,
+    overflow: 'hidden',
   },
   priorityButton: {
     width: 40,

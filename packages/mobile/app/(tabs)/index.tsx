@@ -18,13 +18,22 @@ import {
   getConflictingSetIds,
 } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
+import {
+  timeToMinutes,
+} from '@festie/shared/utils';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { useUI, type ViewMode } from '../../contexts/UIContext';
+import { useNowIndicator, type TimeBounds } from '../../hooks/useNowIndicator';
 import SegmentedControl from '../../components/SegmentedControl';
 import LiveDot from '../../components/LiveDot';
 import FestivalList from '../../components/FestivalList';
 import SetCardMobile from '../../components/SetCardMobile';
 import EmptyState from '../../components/EmptyState';
+import TimelineView from '../../components/TimelineView';
+import GridView from '../../components/GridView';
+import TBASection from '../../components/TBASection';
+
+const SLOT_MINUTES = 15;
 
 const VIEW_OPTIONS: ReadonlyArray<{ value: ViewMode; label: string }> = [
   { value: 'timeline', label: 'Timeline' },
@@ -64,6 +73,7 @@ export default function TimelineScreen() {
 
   const festivals = useFestivalDataStore((s) => s.festivals);
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
+  const currentProfile = useFestivalDataStore((s) => s.currentProfile);
   const loadFestivals = useFestivalDataStore((s) => s.loadFestivals);
   const stages = useFestivalDataStore((s) => s.stages);
 
@@ -71,9 +81,10 @@ export default function TimelineScreen() {
   const setSelectedDay = useFestivalStore((s) => s.setSelectedDay);
   const searchQuery = useFestivalStore((s) => s.searchQuery);
   const setSearchQuery = useFestivalStore((s) => s.setSearchQuery);
+  const activeStages = useFestivalStore((s) => s.activeStages);
 
   const { getDays, getFilteredSets, getStageColor, getStageName } = useFestival();
-  const { getMyPick, savePick } = usePicks();
+  const { getMyPick, getOtherPicks, savePick } = usePicks();
 
   const [search, setSearch] = useState(searchQuery);
 
@@ -134,45 +145,60 @@ export default function TimelineScreen() {
     [filteredSets, getMyPick],
   );
 
-  // Timeline/Grid (v1): a clean stage-grouped, time-ordered list. Cards: a flat
-  // hotness-sorted list. Both share data + conflict info.
-  const rows = useMemo<ListRow[]>(() => {
-    if (viewMode === 'cards') {
-      return filteredSets.map((set) => ({ kind: 'set', key: set.id, set }));
-    }
+  // Cards view: a flat hotness-sorted list of set rows.
+  const rows = useMemo<ListRow[]>(
+    () => filteredSets.map((set) => ({ kind: 'set', key: set.id, set })),
+    [filteredSets],
+  );
 
-    // Group by stage (stage order follows the festival's stage list), each
-    // group time-ordered. This mirrors the *information* of the web timeline/
-    // grid (stages × time) in a single-column mobile layout.
-    const byStage = new Map<string, FestivalSet[]>();
-    for (const set of filteredSets) {
-      const arr = byStage.get(set.stageId) || [];
-      arr.push(set);
-      byStage.set(set.stageId, arr);
-    }
+  // Timeline/Grid views consume the same day-filtered set list (filteredSets
+  // already applies day + active-stage + search), split into timed vs. TBA and
+  // bounded by the day's earliest start / latest end — mirroring the web
+  // useTimelineFilters logic, adapted to mobile's stores.
+  const timedSets = useMemo(
+    () => filteredSets.filter((s) => s.startTime && s.endTime),
+    [filteredSets],
+  );
 
-    const orderedStageIds = [
-      ...stages.map((s) => s.id).filter((id) => byStage.has(id)),
-      // Any stage present in sets but missing from the stage list (defensive).
-      ...[...byStage.keys()].filter((id) => !stages.some((s) => s.id === id)),
-    ];
+  const timelessSets = useMemo(
+    () =>
+      filteredSets
+        .filter((s) => !s.startTime || !s.endTime)
+        .sort((a, b) =>
+          artistDisplayName(a, currentFestival?.b2bSeparator).localeCompare(
+            artistDisplayName(b, currentFestival?.b2bSeparator),
+            undefined,
+            { sensitivity: 'base' },
+          ),
+        ),
+    [filteredSets, currentFestival?.b2bSeparator],
+  );
 
-    const out: ListRow[] = [];
-    for (const stageId of orderedStageIds) {
-      const stageSets = (byStage.get(stageId) || []).sort(byStartTime);
-      if (stageSets.length === 0) continue;
-      out.push({
-        kind: 'stageHeader',
-        key: `stage-${stageId}`,
-        stageName: getStageName(stageId) || 'Unknown stage',
-        stageColor: safeStageColor(getStageColor(stageId), t.colors.text.muted),
-      });
-      for (const set of stageSets) {
-        out.push({ kind: 'set', key: set.id, set });
-      }
+  const timeBounds = useMemo<TimeBounds | null>(() => {
+    if (timedSets.length === 0) return null;
+    let minMin = 24 * 60;
+    let maxMin = 0;
+    for (const s of timedSets) {
+      const start = timeToMinutes(s.startTime);
+      let end = timeToMinutes(s.endTime);
+      if (end <= start) end += 24 * 60;
+      if (start < minMin) minMin = start;
+      if (end > maxMin) maxMin = end;
     }
-    return out;
-  }, [viewMode, filteredSets, stages, getStageName, getStageColor, t.colors.text.muted]);
+    minMin = Math.floor(minMin / SLOT_MINUTES) * SLOT_MINUTES;
+    maxMin = Math.ceil(maxMin / SLOT_MINUTES) * SLOT_MINUTES;
+    return { minMin, maxMin, totalSlots: (maxMin - minMin) / SLOT_MINUTES };
+  }, [timedSets]);
+
+  // Active stages (all when none/empty), preserving the festival's stage order.
+  const visibleStages = useMemo(() => {
+    if (!activeStages || activeStages.length === 0) return stages;
+    return stages.filter((st) => activeStages.includes(st.id));
+  }, [stages, activeStages]);
+
+  // ROW_HEIGHT here matches TimelineView's slot height so scroll-to-now lands
+  // on the right offset.
+  const { nowIndicator } = useNowIndicator(timeBounds, selectedDay, 22);
 
   const handlePickChange = useCallback(
     (setId: string, priority: Priority | null) => {
@@ -203,6 +229,7 @@ export default function TimelineScreen() {
           stageName={getStageName(set.stageId) || 'Unknown'}
           stageColor={safeStageColor(getStageColor(set.stageId), t.colors.text.muted)}
           myPick={getMyPick(set.id)}
+          friendProfiles={getOtherPicks(set.id)}
           hasConflict={conflictIds.has(set.id)}
           onPickChange={(priority) => handlePickChange(set.id, priority)}
           onPress={() => router.push(`/set/${set.id}`)}
@@ -214,6 +241,7 @@ export default function TimelineScreen() {
       getStageName,
       getStageColor,
       getMyPick,
+      getOtherPicks,
       conflictIds,
       handlePickChange,
       router,
@@ -222,6 +250,51 @@ export default function TimelineScreen() {
   );
 
   const keyExtractor = useCallback((item: ListRow) => item.key, []);
+
+  // Stage color resolver that substitutes a real token for web's `var(...)`
+  // fallback so the timeline/grid views never receive an unparseable color.
+  const resolveStageColor = useCallback(
+    (stageId: string) =>
+      safeStageColor(getStageColor(stageId), t.colors.text.muted),
+    [getStageColor, t.colors.text.muted],
+  );
+
+  const handleSetPress = useCallback(
+    (set: FestivalSet) => router.push(`/set/${set.id}`),
+    [router],
+  );
+
+  // Shared TBA section, reused as a footer across all three views.
+  const tbaSection =
+    timelessSets.length > 0 ? (
+      <TBASection
+        sets={timelessSets}
+        stages={stages}
+        currentProfile={currentProfile}
+        currentFestival={currentFestival}
+        getMyPick={getMyPick}
+        getOtherPicks={getOtherPicks}
+        getStageColor={resolveStageColor}
+        onSavePick={handlePickChange}
+        onOpenDetail={handleSetPress}
+      />
+    ) : null;
+
+  const emptyScheduleState = (
+    <EmptyState
+      icon={search.length > 0 ? 'search' : 'musical-notes'}
+      title={
+        search.length > 0
+          ? 'No artists match your search'
+          : 'No sets for this day'
+      }
+      message={
+        search.length > 0
+          ? 'Try a different spelling or clear the search to see the full lineup.'
+          : 'Pick another day from the day selector to browse the schedule.'
+      }
+    />
+  );
 
   // No festival selected — show the festival selector.
   if (!currentFestival) {
@@ -332,30 +405,74 @@ export default function TimelineScreen() {
         </View>
       ) : null}
 
-      {/* Schedule list */}
-      <FlatList
-        data={rows}
-        renderItem={renderRow}
-        keyExtractor={keyExtractor}
-        contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListEmptyComponent={
-          <EmptyState
-            icon={search.length > 0 ? 'search' : 'musical-notes'}
-            title={
-              search.length > 0
-                ? 'No artists match your search'
-                : 'No sets for this day'
-            }
-            message={
-              search.length > 0
-                ? 'Try a different spelling or clear the search to see the full lineup.'
-                : 'Pick another day from the day selector to browse the schedule.'
-            }
-          />
-        }
-        keyboardShouldPersistTaps="handled"
-      />
+      {/* Schedule body — view-mode specific. */}
+      {viewMode === 'cards' ? (
+        <FlatList
+          data={rows}
+          renderItem={renderRow}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListFooterComponent={tbaSection}
+          ListEmptyComponent={
+            <EmptyState
+              icon={search.length > 0 ? 'search' : 'musical-notes'}
+              title={
+                search.length > 0
+                  ? 'No artists match your search'
+                  : 'No sets for this day'
+              }
+              message={
+                search.length > 0
+                  ? 'Try a different spelling or clear the search to see the full lineup.'
+                  : 'Pick another day from the day selector to browse the schedule.'
+              }
+            />
+          }
+          keyboardShouldPersistTaps="handled"
+        />
+      ) : viewMode === 'timeline' ? (
+        timeBounds && visibleStages.length > 0 ? (
+          <View style={styles.viewBody}>
+            <TimelineView
+              visibleStages={visibleStages}
+              timedSets={timedSets}
+              timeBounds={timeBounds}
+              selectedDay={selectedDay}
+              conflictIds={conflictIds}
+              b2bSeparator={currentFestival.b2bSeparator}
+              getMyPick={getMyPick}
+              getStageColor={resolveStageColor}
+              onPickChange={handlePickChange}
+              onSetPress={handleSetPress}
+            />
+            {tbaSection}
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={styles.fallbackScroll}>
+            {emptyScheduleState}
+            {tbaSection}
+          </ScrollView>
+        )
+      ) : timedSets.length > 0 ? (
+        <GridView
+          visibleStages={visibleStages}
+          timedSets={timedSets}
+          nowIndicator={nowIndicator}
+          conflictIds={conflictIds}
+          getMyPick={getMyPick}
+          getStageColor={resolveStageColor}
+          getStageName={getStageName}
+          onPickChange={handlePickChange}
+          onSetPress={handleSetPress}
+          ListFooterComponent={tbaSection}
+        />
+      ) : (
+        <ScrollView contentContainerStyle={styles.fallbackScroll}>
+          {emptyScheduleState}
+          {tbaSection}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -472,5 +589,12 @@ const useStyles = makeStyles((t) => ({
   },
   separator: {
     height: t.spacing[3],
+  },
+  viewBody: {
+    flex: 1,
+  },
+  fallbackScroll: {
+    flexGrow: 1,
+    paddingBottom: t.spacing[4],
   },
 }));
