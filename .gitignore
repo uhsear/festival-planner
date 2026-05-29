@@ -43,6 +43,8 @@ mobile-loop-capture.js
 # Playwright MCP and test artifacts
 .playwright-mcp/
 *.png
+# but DO track the mobile app icons/splash (required by EAS prebuild)
+!packages/mobile/assets/*.png
 
 # Session logs and loop captures
 docs/session-logs/
