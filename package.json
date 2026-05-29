@@ -55,7 +55,7 @@
     "resend": "^6.10.0",
     "sharp": "^0.34.5",
     "socket.io": "~4.8.3",
-    "swagger-ui-express": "^5.0.1",
+    "swagger-ui-dist": "^5.32.5",
     "tsx": "^4.19.0",
     "zod": "^4.4.3"
   },
