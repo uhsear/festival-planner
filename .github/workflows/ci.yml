@@ -131,7 +131,10 @@ jobs:
           run_install: false
       - name: Get pnpm store directory
         shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: |
+          STORE_PATH="$(pnpm store path --silent)"
+          if [ -z "$STORE_PATH" ]; then STORE_PATH="$HOME/.local/share/pnpm/store"; fi
+          echo "STORE_PATH=$STORE_PATH" >> $GITHUB_ENV
       - uses: actions/cache@v4
         with:
           path: ${{ env.STORE_PATH }}
