@@ -1,68 +1,299 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@festie/shared/hooks';
 import { useAuthStore } from '@festie/shared/stores';
-import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
+import ScreenHeader from '../../components/ScreenHeader';
+import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 
+/**
+ * Account screen — mirrors packages/web/src/routes/account.tsx.
+ *
+ * Shows the signed-in identity (avatar / username / email), a read-only view of
+ * the device preferences that map to shared state today, and a Logout action
+ * wired to useAuth().logout.
+ *
+ * Web settings intentionally NOT mapped here (no shared store backs them, so
+ * mapping them would mean reinventing logic forbidden by the task):
+ *   - Username change   → web hits POST /account/username directly; no shared hook.
+ *   - Avatar upload/remove lives in authStore but is a web File/Blob flow; left out.
+ *   - Password change   → useAuth().changePassword exists but is a multi-field form,
+ *                          out of scope for this identity/preferences screen.
+ *   - Push notifications → web-only PWA hook (usePushNotifications); no RN equivalent.
+ *   - Delete account / Danger Zone → no shared store action.
+ */
 export default function AccountScreen() {
+  const t = useTokens();
+  const styles = useStyles();
+  const router = useRouter();
+
+  // Identity comes straight off the auth store (single source of truth).
   const user = useAuthStore((s) => s.user);
-  const logout = useAuthStore((s) => s.logout);
+  // Logout is exposed via the shared useAuth hook per the contract.
+  const { logout } = useAuth();
+
+  // Reduce-motion reflects the OS accessibility setting; read-only on device.
+  const reduceMotion = useReduceMotion();
+
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const avatarUrl = user?.avatar ?? user?.avatarUrl;
+  const displayName = user?.name ?? user?.username ?? 'Account';
+
+  const confirmLogout = () => {
+    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: () => void handleLogout(),
+      },
+    ]);
+  };
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      router.replace('/(auth)/login');
+    } catch {
+      // logout clears local state even if the network call fails; still route out.
+      router.replace('/(auth)/login');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <Ionicons name="person-circle" size={64} color={colors.accent.aqua} />
-      <Text style={styles.username}>{user?.username ?? 'Account'}</Text>
-      <Text style={styles.email}>{user?.email ?? ''}</Text>
-      <Text style={styles.subtitle}>Coming soon</Text>
+      <ScreenHeader title="Account" subtitle="Settings & preferences" icon="person-circle-outline" />
 
-      <TouchableOpacity
-        style={styles.logoutButton}
-        onPress={logout}
-        activeOpacity={0.8}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
       >
-        <Ionicons name="log-out-outline" size={20} color={colors.text.danger} />
-        <Text style={styles.logoutText}>Sign Out</Text>
-      </TouchableOpacity>
+        {/* Identity */}
+        <View style={styles.identity}>
+          {avatarUrl ? (
+            <Image
+              source={{ uri: avatarUrl }}
+              style={styles.avatar}
+              accessibilityIgnoresInvertColors
+              accessibilityLabel={`${displayName} avatar`}
+            />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Ionicons
+                name="person"
+                size={36}
+                color={t.colors.accent.aqua}
+              />
+            </View>
+          )}
+          <View style={styles.identityText}>
+            <Text style={styles.name} numberOfLines={1}>
+              {displayName}
+            </Text>
+            {user?.username ? (
+              <Text style={styles.handle} numberOfLines={1}>
+                @{user.username}
+              </Text>
+            ) : null}
+            {user?.email ? (
+              <Text style={styles.email} numberOfLines={1}>
+                {user.email}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Preferences */}
+        <Text style={styles.sectionLabel}>Preferences</Text>
+        <View style={styles.card}>
+          <View
+            style={styles.row}
+            accessibilityRole="text"
+            accessibilityLabel={`Reduce motion is ${reduceMotion ? 'on' : 'off'} (controlled in system settings)`}
+          >
+            <View style={styles.rowIcon}>
+              <Ionicons
+                name="accessibility-outline"
+                size={20}
+                color={t.colors.text.secondary}
+              />
+            </View>
+            <View style={styles.rowBody}>
+              <Text style={styles.rowTitle}>Reduce Motion</Text>
+              <Text style={styles.rowHint}>Follows your system accessibility setting</Text>
+            </View>
+            <View
+              style={[styles.statusPill, reduceMotion && styles.statusPillOn]}
+            >
+              <Text
+                style={[styles.statusText, reduceMotion && styles.statusTextOn]}
+              >
+                {reduceMotion ? 'On' : 'Off'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Account actions */}
+        <Text style={styles.sectionLabel}>Account</Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={confirmLogout}
+            disabled={loggingOut}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out of your account"
+            accessibilityState={{ disabled: loggingOut }}
+          >
+            <View style={styles.rowIcon}>
+              <Ionicons
+                name="log-out-outline"
+                size={20}
+                color={t.colors.text.danger}
+              />
+            </View>
+            <View style={styles.rowBody}>
+              <Text style={[styles.rowTitle, styles.dangerText]}>Sign Out</Text>
+            </View>
+            {loggingOut ? (
+              <ActivityIndicator size="small" color={t.colors.text.danger} />
+            ) : (
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={t.colors.text.placeholder}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   container: {
     flex: 1,
-    backgroundColor: colors.bg.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
+    backgroundColor: t.colors.bg.primary,
   },
-  username: {
-    fontSize: fontSize[24],
-    fontWeight: '700',
-    color: colors.text.primary,
-    marginTop: spacing[2],
+  scroll: {
+    paddingHorizontal: t.spacing[4],
+    paddingBottom: t.spacing[6],
+    gap: t.spacing[4],
   },
-  email: {
-    fontSize: fontSize[14],
-    color: colors.text.secondary,
-  },
-  subtitle: {
-    fontSize: fontSize[16],
-    color: colors.text.muted,
-    marginTop: spacing[2],
-  },
-  logoutButton: {
+  identity: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
-    marginTop: spacing[8],
-    paddingHorizontal: spacing[6],
-    paddingVertical: spacing[3],
-    borderRadius: radii.default,
+    gap: t.spacing[4],
+    backgroundColor: t.colors.bg.secondary,
+    borderRadius: t.radii.default,
     borderWidth: 1,
-    borderColor: colors.border.light,
+    borderColor: t.colors.border.default,
+    padding: t.spacing[4],
   },
-  logoutText: {
-    fontSize: fontSize[16],
-    fontWeight: '600',
-    color: colors.text.danger,
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: t.colors.bg.primary,
   },
-});
+  avatarFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.colors.bg.primary,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+  },
+  identityText: {
+    flex: 1,
+    gap: t.spacing[1],
+  },
+  name: {
+    ...typeStyle('title'),
+    color: t.colors.text.primary,
+  },
+  handle: {
+    ...typeStyle('body'),
+    color: t.colors.accent.aqua,
+  },
+  email: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  sectionLabel: {
+    ...typeStyle('label'),
+    color: t.colors.text.secondary,
+    paddingHorizontal: t.spacing[1],
+  },
+  card: {
+    backgroundColor: t.colors.bg.secondary,
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[3],
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    minHeight: 56,
+  },
+  rowIcon: {
+    width: 24,
+    alignItems: 'center',
+  },
+  rowBody: {
+    flex: 1,
+    gap: t.spacing[1],
+  },
+  rowTitle: {
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+  },
+  rowHint: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  dangerText: {
+    color: t.colors.text.danger,
+  },
+  statusPill: {
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[1],
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.bg.primary,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+  },
+  statusPillOn: {
+    backgroundColor: t.colors.accent.aqua,
+    borderColor: t.colors.accent.aqua,
+  },
+  statusText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  statusTextOn: {
+    color: t.colors.text.onLightAccent,
+  },
+}));
