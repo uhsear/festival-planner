@@ -28,9 +28,9 @@ RUN groupadd -r app && useradd -r -g app -m app
 # Copy node_modules from build stage
 COPY --from=build /app/node_modules ./node_modules
 
-# Copy app source
-COPY package.json ./
-COPY server.js ./
+# Copy app source (TypeScript, run via tsx — see CMD below)
+COPY package.json tsconfig.json ./
+COPY server.ts ./
 COPY lib/ ./lib/
 COPY routes/ ./routes/
 COPY migrations/ ./migrations/
@@ -52,4 +52,4 @@ EXPOSE 4000
 ENV NODE_ENV=production
 ENV BIND_ADDRESS=0.0.0.0
 
-CMD ["node", "server.js"]
+CMD ["node", "--import", "tsx/esm", "server.ts"]
