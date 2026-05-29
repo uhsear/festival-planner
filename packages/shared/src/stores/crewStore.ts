@@ -1,12 +1,27 @@
 import { create, StateCreator } from 'zustand';
 import { api } from '../services/api';
-import { Crew, CrewMember, CrewOverlap, CreateCrewRequest, JoinCrewRequest } from '../types';
+import {
+  Crew,
+  CrewMember,
+  CrewOverlap,
+  CreateCrewRequest,
+  JoinCrewRequest,
+  CrewPoll,
+  CreateCrewPollRequest,
+  CrewMeetingPoint,
+  CreateCrewMeetingPointRequest,
+  UpdateCrewMeetingPointRequest,
+} from '../types';
 
 export interface CrewState {
   crews: Crew[];
   activeCrew: Crew | null;
   crewMembers: CrewMember[];
   crewOverlap: Record<string, CrewOverlap>;
+  // Crew sub-feature data, keyed implicitly by the active crew (the screen
+  // reloads these on crew switch). Additive — existing consumers ignore them.
+  polls: CrewPoll[];
+  meetingPoints: CrewMeetingPoint[];
   crewLoading: boolean;
   error: string | null;
 }
@@ -23,6 +38,28 @@ export interface CrewActions {
   deleteCrew: (crewId: string) => Promise<void>;
   loadOverlap: (crewId: string, festivalId: string) => Promise<void>;
   forceAddMember: (crewId: string, userId: string) => Promise<void>;
+  // Polls (routes/crew-polls.ts).
+  loadPolls: (crewId: string) => Promise<void>;
+  createPoll: (crewId: string, request: CreateCrewPollRequest) => Promise<CrewPoll>;
+  votePoll: (crewId: string, pollId: string, optionIndex: number) => Promise<void>;
+  closePoll: (crewId: string, pollId: string) => Promise<void>;
+  // Meeting points (routes/crew-meeting-points.ts).
+  loadMeetingPoints: (crewId: string) => Promise<void>;
+  createMeetingPoint: (
+    crewId: string,
+    request: CreateCrewMeetingPointRequest,
+  ) => Promise<CrewMeetingPoint>;
+  updateMeetingPoint: (
+    crewId: string,
+    mpId: string,
+    request: UpdateCrewMeetingPointRequest,
+  ) => Promise<CrewMeetingPoint>;
+  deleteMeetingPoint: (crewId: string, mpId: string) => Promise<void>;
+  // Home base (owner-only PUT /crews/:id/home-base).
+  updateHomeBase: (
+    crewId: string,
+    payload: { location: string | null; time: string | null },
+  ) => Promise<void>;
   setError: (error: string | null) => void;
 }
 
@@ -33,6 +70,8 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   activeCrew: null,
   crewMembers: [],
   crewOverlap: {},
+  polls: [],
+  meetingPoints: [],
   crewLoading: false,
   error: null,
 
@@ -213,6 +252,186 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       }));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to add member';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // ── Polls ──────────────────────────────────────────────────────
+  // GET /crews/:crewId/polls -> { polls } (api unwraps the data envelope).
+  // Normalize votes the way the web PollsTab does so counts stay consistent.
+  loadPolls: async (crewId: string) => {
+    set({ error: null });
+    try {
+      const res = await api.get<{ polls: CrewPoll[] } | CrewPoll[]>(
+        `/crews/${crewId}/polls`,
+      );
+      const list = Array.isArray(res) ? res : (res?.polls ?? []);
+      const polls = list.map((p) => ({
+        ...p,
+        votes: (p.votes || []).filter(
+          (v) => v && v.user_id && typeof v.option === 'number',
+        ),
+      }));
+      set({ polls });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load polls';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // POST /crews/:crewId/polls -> { poll }.
+  createPoll: async (crewId: string, request: CreateCrewPollRequest) => {
+    set({ error: null });
+    try {
+      const { poll } = await api.post<{ poll: CrewPoll }>(
+        `/crews/${crewId}/polls`,
+        request,
+      );
+      const normalized: CrewPoll = { ...poll, votes: poll.votes ?? [] };
+      set((state) => ({ polls: [normalized, ...state.polls] }));
+      return normalized;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create poll';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // POST /crews/:crewId/polls/:pollId/vote -> { voted: true }. Refetch so the
+  // server-resolved vote counts (one-vote-per-user semantics) are authoritative.
+  votePoll: async (crewId: string, pollId: string, optionIndex: number) => {
+    set({ error: null });
+    try {
+      await api.post(`/crews/${crewId}/polls/${pollId}/vote`, { optionIndex });
+      await useCrewStore.getState().loadPolls(crewId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to vote';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // DELETE /crews/:crewId/polls/:pollId (close). Drop it from local state.
+  closePoll: async (crewId: string, pollId: string) => {
+    set({ error: null });
+    try {
+      await api.delete(`/crews/${crewId}/polls/${pollId}`);
+      set((state) => ({ polls: state.polls.filter((p) => p.id !== pollId) }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to close poll';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // ── Meeting points ─────────────────────────────────────────────
+  // GET /crews/:crewId/meeting-points -> { meetingPoints }.
+  loadMeetingPoints: async (crewId: string) => {
+    set({ error: null });
+    try {
+      const res = await api.get<
+        { meetingPoints: CrewMeetingPoint[] } | CrewMeetingPoint[]
+      >(`/crews/${crewId}/meeting-points`);
+      const meetingPoints = Array.isArray(res) ? res : (res?.meetingPoints ?? []);
+      set({ meetingPoints });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to load meeting points';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // POST /crews/:crewId/meeting-points -> { meetingPoint } (201).
+  createMeetingPoint: async (
+    crewId: string,
+    request: CreateCrewMeetingPointRequest,
+  ) => {
+    set({ error: null });
+    try {
+      const { meetingPoint } = await api.post<{ meetingPoint: CrewMeetingPoint }>(
+        `/crews/${crewId}/meeting-points`,
+        request,
+      );
+      set((state) => ({ meetingPoints: [meetingPoint, ...state.meetingPoints] }));
+      return meetingPoint;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to add meeting point';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // PUT /crews/:crewId/meeting-points/:mpId -> { meetingPoint }.
+  updateMeetingPoint: async (
+    crewId: string,
+    mpId: string,
+    request: UpdateCrewMeetingPointRequest,
+  ) => {
+    set({ error: null });
+    try {
+      const { meetingPoint } = await api.put<{ meetingPoint: CrewMeetingPoint }>(
+        `/crews/${crewId}/meeting-points/${mpId}`,
+        request,
+      );
+      set((state) => ({
+        meetingPoints: state.meetingPoints.map((m) =>
+          m.id === mpId ? meetingPoint : m,
+        ),
+      }));
+      return meetingPoint;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to update meeting point';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // DELETE /crews/:crewId/meeting-points/:mpId.
+  deleteMeetingPoint: async (crewId: string, mpId: string) => {
+    set({ error: null });
+    try {
+      await api.delete(`/crews/${crewId}/meeting-points/${mpId}`);
+      set((state) => ({
+        meetingPoints: state.meetingPoints.filter((m) => m.id !== mpId),
+      }));
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to remove meeting point';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // ── Home base ──────────────────────────────────────────────────
+  // PUT /crews/:crewId/home-base -> { crew }. Owner-only server-side. Merge the
+  // returned crew so activeCrew/crews reflect the new home base immediately.
+  updateHomeBase: async (
+    crewId: string,
+    payload: { location: string | null; time: string | null },
+  ) => {
+    set({ error: null });
+    try {
+      const { crew } = await api.put<{ crew: Crew }>(
+        `/crews/${crewId}/home-base`,
+        payload,
+      );
+      set((state) => ({
+        activeCrew:
+          state.activeCrew?.id === crewId
+            ? { ...state.activeCrew, ...crew }
+            : state.activeCrew,
+        crews: state.crews.map((c) =>
+          c.id === crewId ? { ...c, ...crew } : c,
+        ),
+      }));
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to update home base';
       set({ error: message });
       throw err;
     }

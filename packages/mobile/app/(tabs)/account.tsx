@@ -14,7 +14,9 @@ import { useAuth } from '@festie/shared/hooks';
 import { useAuthStore } from '@festie/shared/stores';
 import ScreenHeader from '../../components/ScreenHeader';
 import AccountAvatarSection from '../../components/AccountAvatarSection';
+import AccountUsernameSection from '../../components/AccountUsernameSection';
 import AccountPasswordSection from '../../components/AccountPasswordSection';
+import AccountDangerSection from '../../components/AccountDangerSection';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 
@@ -25,15 +27,13 @@ import { useReduceMotion } from '../../hooks/useReduceMotion';
  * change form, the read-only device preferences that map to shared state today,
  * and a Logout action — all wired to platform-neutral shared store methods.
  *
- * Web settings intentionally NOT mapped here. These have NO shared store/hook
- * backing today, so wiring them would mean reinventing backend calls (forbidden
- * by the task). Each is deferred until a shared action is added:
- *   - Username change    → web hits PUT /account/username directly; needs a shared
- *                           authStore.updateUsername action before mobile can reuse.
+ * Username change and account deletion are now wired to additive shared actions
+ * (authStore.updateUsername / authStore.deleteAccount) via dedicated sections.
+ *
+ * Still deferred — no shared backing today, so wiring would mean reinventing
+ * backend calls (forbidden by the task):
  *   - Push notifications → web-only PWA hook (usePushNotifications); mobile needs a
  *                           separate expo-notifications + token-register flow.
- *   - Delete account     → web calls api.delete('/account/') directly; needs a shared
- *                           authStore.deleteAccount(password) wrapper.
  *   - Data export (GDPR) → web Blob download is web-only; mobile needs expo-file-system
  *                           + expo-sharing once a shared method exists.
  *   - Theme / display    → no shared user-preference store exists; nothing to port.
@@ -127,6 +127,10 @@ export default function AccountScreen() {
         <Text style={styles.sectionLabel}>Profile Photo</Text>
         <AccountAvatarSection />
 
+        {/* Profile */}
+        <Text style={styles.sectionLabel}>Profile</Text>
+        <AccountUsernameSection />
+
         {/* Security */}
         <Text style={styles.sectionLabel}>Security</Text>
         <AccountPasswordSection />
@@ -195,6 +199,12 @@ export default function AccountScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Danger zone */}
+        <Text style={styles.sectionLabel}>Danger Zone</Text>
+        <AccountDangerSection
+          onDeleted={() => router.replace('/(auth)/login')}
+        />
       </ScrollView>
     </View>
   );

@@ -110,6 +110,12 @@ export interface Crew {
   owner: string;
   festivalId?: string;
   members: CrewMember[];
+  // Home base is surfaced on the serialized crew (routes/crews.ts:48-50);
+  // owner-only PUT /crews/:id/home-base updates it. Optional/nullable so the
+  // additions don't break existing crew consumers.
+  homeBaseLocation?: string | null;
+  homeBaseTime?: string | null;
+  homeBaseUpdatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -118,6 +124,69 @@ export interface CrewOverlap {
   setId: string;
   memberCount: number;
   members: CrewMember[];
+}
+
+/**
+ * Crew poll as serialized by the backend (routes/crew-polls.ts). Fields are
+ * snake_case because they come straight from Postgres. `votes` is the raw vote
+ * list — count per option is derived client-side. Distinct from the legacy
+ * festival-scoped `Poll` type below, which is unrelated to crew polls.
+ */
+export interface CrewPollVote {
+  option: number;
+  user_id: string | null;
+}
+
+export interface CrewPoll {
+  id: string;
+  crew_id: string;
+  created_by: string;
+  question: string;
+  options: string[];
+  votes: CrewPollVote[];
+  closes_at: string | null;
+  closed: boolean;
+  created_at: string;
+}
+
+export interface CreateCrewPollRequest {
+  question: string;
+  options: string[];
+  closesAt?: string;
+}
+
+/**
+ * Crew meeting point as serialized by the backend
+ * (routes/crew-meeting-points.ts). snake_case from Postgres. Distinct from the
+ * legacy festival-scoped `MeetingPoint` type below.
+ */
+export interface CrewMeetingPoint {
+  id: string;
+  crew_id: string;
+  created_by: string;
+  label: string;
+  location: string;
+  type: string;
+  meet_at: string | null;
+  stage_reference: string | null;
+  active: boolean;
+  created_at: string;
+}
+
+export interface CreateCrewMeetingPointRequest {
+  label: string;
+  location: string;
+  type?: string;
+  meetAt?: string | null;
+  stageReference?: string | null;
+}
+
+export interface UpdateCrewMeetingPointRequest {
+  label?: string;
+  location?: string;
+  type?: string;
+  meetAt?: string | null;
+  stageReference?: string | null;
 }
 
 export interface Poll {

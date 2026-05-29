@@ -35,6 +35,8 @@ export interface AuthActions {
   checkSession: () => Promise<boolean>;
   forgotPassword: (request: ForgotPasswordRequest) => Promise<void>;
   changePassword: (request: ChangePasswordRequest) => Promise<void>;
+  updateUsername: (username: string) => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
   uploadAvatar: (file: File | Blob) => Promise<AvatarResponse>;
   removeAvatar: () => Promise<void>;
   setError: (error: string | null) => void;
@@ -194,6 +196,36 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
       set({ isLoading: false });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Change password failed';
+      set({ error: message, isLoading: false });
+      throw err;
+    }
+  },
+
+  updateUsername: async (username: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await api.put<{ user: User }>('/account/username', { username });
+      set((s) => ({
+        user: s.user
+          ? { ...s.user, username: res.user.username, name: res.user.username }
+          : null,
+        isLoading: false,
+      }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Username update failed';
+      set({ error: message, isLoading: false });
+      throw err;
+    }
+  },
+
+  deleteAccount: async (password: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.delete('/account/', { body: { password } });
+      // logout() clears the token and resets all stores, matching web's flow.
+      await get().logout();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Account deletion failed';
       set({ error: message, isLoading: false });
       throw err;
     }

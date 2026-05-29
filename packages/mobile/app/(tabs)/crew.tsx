@@ -28,6 +28,9 @@ import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import ScreenHeader from '../../components/ScreenHeader';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
+import CrewHomeBase from '../../components/CrewHomeBase';
+import CrewPolls from '../../components/CrewPolls';
+import CrewMeetingPoints from '../../components/CrewMeetingPoints';
 
 /** Two-letter initials derived from a member's display name (fallback "?"). */
 function initialsFor(name: string | undefined): string {
@@ -69,6 +72,8 @@ export default function CrewScreen() {
   const forceAddMember = useCrewStore((s) => s.forceAddMember);
   const regenerateInvite = useCrewStore((s) => s.regenerateInvite);
   const loadOverlap = useCrewStore((s) => s.loadOverlap);
+  const loadPolls = useCrewStore((s) => s.loadPolls);
+  const loadMeetingPoints = useCrewStore((s) => s.loadMeetingPoints);
   const setError = useCrewStore((s) => s.setError);
 
   const currentFestival = useFestivalStore((s) => s.currentFestival);
@@ -109,6 +114,15 @@ export default function CrewScreen() {
     setForceAddOpen(false);
     setForceAddId('');
   }, [activeCrew?.id]);
+
+  // Load polls + meeting points for the active crew (best-effort; errors land
+  // in the shared store and surface in the header error line).
+  useEffect(() => {
+    const id = activeCrew?.id;
+    if (!id) return;
+    loadPolls(id).catch(() => {});
+    loadMeetingPoints(id).catch(() => {});
+  }, [activeCrew?.id, loadPolls, loadMeetingPoints]);
 
   // Fast set lookup by id for overlap labels.
   const setsById = useMemo(() => {
@@ -700,8 +714,30 @@ export default function CrewScreen() {
           />
         }
         ListFooterComponent={
-          <View style={styles.footerActions}>
-            {isOwner ? (
+          <View>
+            <CrewHomeBase
+              crewId={crew.id}
+              location={crew.homeBaseLocation}
+              time={crew.homeBaseTime}
+              isOwner={isOwner}
+            />
+
+            <Text style={styles.sectionLabel}>Meeting points</Text>
+            <CrewMeetingPoints
+              crewId={crew.id}
+              currentUserId={user.id}
+              isOwner={isOwner}
+            />
+
+            <Text style={styles.sectionLabel}>Polls</Text>
+            <CrewPolls
+              crewId={crew.id}
+              currentUserId={user.id}
+              isOwner={isOwner}
+            />
+
+            <View style={styles.footerActions}>
+              {isOwner ? (
               <TouchableOpacity
                 style={styles.dangerButton}
                 onPress={() => handleDelete(crew.id)}
@@ -731,16 +767,19 @@ export default function CrewScreen() {
                 />
                 <Text style={styles.dangerButtonText}>Leave crew</Text>
               </TouchableOpacity>
-            )}
+              )}
+            </View>
           </View>
         }
       />
 
-      {/* Deferred (no shared support): polls (PollsTab hits the API directly via
-          react-query — no crewStore action), meeting points (MeetingPointsTab,
-          same situation), and home base location/time (fields not on the shared
-          Crew type, no crewStore update action). Each needs a shared hook/store
-          action before it can be reused on mobile. */}
+      {/* Built: polls (CrewPolls), meeting points (CrewMeetingPoints), and home
+          base (CrewHomeBase) — all backed by confirmed crew endpoints via new
+          crewStore actions. Deferred crew sub-features (web-only, no endpoint
+          confirmed for mobile in this track): expenses (ExpensesTab) and the
+          activity feed (ActivityTab). Meeting-point editing (PUT) is wired in
+          the store (updateMeetingPoint) but not yet surfaced in the UI — only
+          add + remove are exposed here, matching the web MeetingPointsTab. */}
     </KeyboardAvoidingView>
   );
 }
