@@ -26,8 +26,10 @@ module.exports = {
     autorestart: true,
     watch: false,
 
-    // Graceful restart: wait for process.send('ready') before killing old process
-    wait_ready: true,
+    // Fork mode doesn't guarantee an IPC channel, and the server only emits
+    // process.send('ready') under cluster (isCluster) — so wait_ready would make
+    // PM2 kill the healthy process at listen_timeout. Disable it for fork mode.
+    wait_ready: false,
     listen_timeout: 15000,
 
     // Give the shutdown handler time to close server + IO + DB (must exceed SHUTDOWN_TIMEOUT_MS: 30s)
