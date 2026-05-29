@@ -1,9 +1,9 @@
-export interface PosterSet {
+interface PosterSet {
   rating: number;
   artist: string;
   stageName?: string | null;
 }
-export interface PosterStats {
+interface PosterStats {
   totalRated: number;
   stagesVisited: number;
   daysAttended: number;

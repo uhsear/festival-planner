@@ -8,7 +8,7 @@ const MAX_RETRIES = 5;
 const RETRY_BACKOFF_BASE = 1000;
 const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-export interface QueuedMutation {
+interface QueuedMutation {
   id?: number;
   clientId: string;
   type: 'api' | 'socket';
