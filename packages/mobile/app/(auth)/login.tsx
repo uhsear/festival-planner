@@ -85,6 +85,12 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
+        <Link href="/(auth)/forgot-password" asChild>
+          <TouchableOpacity style={styles.forgotButton}>
+            <Text style={styles.linkTextAccent}>Forgot password?</Text>
+          </TouchableOpacity>
+        </Link>
+
         <Link href="/(auth)/register" asChild>
           <TouchableOpacity style={styles.linkButton}>
             <Text style={styles.linkText}>
@@ -152,6 +158,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize[16],
     fontWeight: '600',
     color: colors.text.onAccent,
+  },
+  forgotButton: {
+    marginTop: spacing[4],
+    alignItems: 'center',
   },
   linkButton: {
     marginTop: spacing[5],
