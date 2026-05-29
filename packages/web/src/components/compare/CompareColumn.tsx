@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import Avatar from '../ui/Avatar';
 
-export interface CompareColumnProps {
+interface CompareColumnProps {
   id: string;
   name: string | undefined;
   isMe: boolean;

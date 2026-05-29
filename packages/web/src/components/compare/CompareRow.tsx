@@ -8,7 +8,7 @@ interface ColumnProfile {
   isMe: boolean;
 }
 
-export interface CompareRowProps {
+interface CompareRowProps {
   set: FestivalSet;
   mine: Priority | undefined;
   others: Array<{ profileId: string; priority: Priority }>;

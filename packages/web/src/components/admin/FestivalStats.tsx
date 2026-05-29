@@ -1,6 +1,6 @@
 import React from 'react';
 
-export interface FestivalStat {
+interface FestivalStat {
   id: string;
   name: string;
   profileCount: number;

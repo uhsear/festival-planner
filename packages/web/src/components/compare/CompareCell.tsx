@@ -7,7 +7,7 @@ const PRIORITY_STYLE: Record<Priority, { label: string; bg: string; fg: string }
   'maybe':        { label: 'Maybe', bg: 'var(--color-priority-maybe)', fg: 'var(--color-bg-primary)' },
 };
 
-export interface CompareCellProps {
+interface CompareCellProps {
   priority: Priority | undefined;
 }
 

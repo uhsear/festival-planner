@@ -6,8 +6,8 @@ const VAPID_PUBLIC_KEY =
   import.meta.env.VITE_VAPID_PUBLIC_KEY ||
   'BALNPV05RWu4564kGyCoIkL238AgM4u6_zMOJ7m7EwPHFcBp4HeXSVZ-iH-EgF4bqMpc1QPWGONavgw2xAXhKvs';
 
-export type PushPermissionState = 'granted' | 'denied' | 'default' | 'unsupported';
-export type UnsupportedReason = 'browser' | 'ios-needs-install' | null;
+type PushPermissionState = 'granted' | 'denied' | 'default' | 'unsupported';
+type UnsupportedReason = 'browser' | 'ios-needs-install' | null;
 
 export interface UsePushNotificationsReturn {
   isSupported: boolean;

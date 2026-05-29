@@ -1,6 +1,6 @@
 import React from 'react';
 
-export interface TopSet {
+interface TopSet {
   artist: string;
   pickCount: number;
 }
