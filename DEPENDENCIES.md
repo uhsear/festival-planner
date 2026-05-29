@@ -24,8 +24,8 @@
 | **socket.io** | ^4.7.4 → 4.8.3 | core | Active | Low | WebSocket + fallback. Peer dependency: engine.io-parser. Well-maintained. |
 | **pg** | ~8.20.0 → 8.20.0 | database | Active | Low | PostgreSQL client. Pure JS (no native compilation). Critical for app. Connection pooling built-in. |
 | **resend** | ^4.8.0 → 4.8.0 | email | Active | Low | Transactional email API (password reset, verification). Gracefully degrades if RESEND_API_KEY not set. |
-| **swagger-ui-express** | ^5.0.1 → 5.0.1 | docs | Active | Low | API documentation UI. Serves Swagger/OpenAPI spec at /api-docs. Dev-facing only. |
 | **sharp** | ^0.34.5 → 0.34.5 | image | Active | Medium | Image processing (avatar thumbnails). Native libvips bindings. Large binary (~30MB extracted). Only processes validated user uploads. |
+| **swagger-ui-dist** | ^5.32.5 → 5.32.5 | docs | Active | Low | Static Swagger UI assets served at /api/docs (resolved via `require.resolve` in lib/swagger-ui-setup.ts). Dev-facing only. |
 | **zod** | ^4.3.6 → 4.3.6 | validation | Active | Low | Schema validation (runtime type-check). Pure JS, no native bindings. Standard interface (can swap Joi/Yup with schema rewrites). |
 | **multer** | ^2.1.1 → 2.1.1 | upload | Active | Low | File upload parsing. Memory storage only (no disk writes). Safe. |
 | **compression** | ^1.8.1 → 1.8.1 | middleware | Active | Low | gzip middleware. Stable, minimal code. |
@@ -96,8 +96,8 @@ firebase-admin@13.7.0
 
 | License | Packages |
 |---------|----------|
-| MIT | express, helmet, socket.io, multer, compression, dotenv, zod, pg, sharp, resend, swagger-ui-express, supertest |
-| Apache-2.0 | firebase-admin, @google-cloud/*, google-gax, @playwright/test, ioredis |
+| MIT | express, helmet, socket.io, multer, compression, dotenv, zod, pg, sharp, resend, supertest |
+| Apache-2.0 | firebase-admin, @google-cloud/*, google-gax, @playwright/test, ioredis, swagger-ui-dist |
 | BSD-3-Clause | N/A (none) |
 
 **Project Stance:** Source-available (not GPL). MIT/Apache2.0 compatible.

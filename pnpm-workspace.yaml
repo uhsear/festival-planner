@@ -1,3 +1,5 @@
+packages:
+  - 'packages/*'
 allowBuilds:
   '@firebase/util': set this to true or false
   '@scarf/scarf': set this to true or false
