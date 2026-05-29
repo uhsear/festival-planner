@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { WebView } from 'react-native-webview';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { usePicks, useFestival, useCrew } from '@festie/shared/hooks';
@@ -19,16 +20,23 @@ import {
   artistSubtitle,
   getSetLinks,
   detectConflicts,
+  hasSetStarted,
 } from '@festie/shared/utils';
-import type { FestivalSet, Priority } from '@festie/shared/types';
+import type { Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import EmptyState from '../../components/EmptyState';
+import RatingButtons from '../../components/RatingButtons';
 
-/** Spotify preview payload returned by GET /spotify/preview/:setId. */
+/**
+ * Spotify preview payload returned by GET /spotify/preview/:setId. The server
+ * returns artistName/trackName (NOT a `label` field) — we derive the display
+ * label from trackName||artistName.
+ */
 interface SpotifyPreview {
   embedUrl: string;
-  label: string;
-  embedType: string;
+  embedType: 'artist' | 'track' | null;
+  artistName?: string;
+  trackName?: string;
 }
 
 /** Priority button definitions, mirroring SetCardMobile. */
@@ -75,6 +83,7 @@ export default function SetDetailScreen() {
   const currentProfile = useFestivalDataStore((s) => s.currentProfile);
   const allProfiles = useFestivalDataStore((s) => s.allProfiles);
   const loadProfiles = useFestivalDataStore((s) => s.loadProfiles);
+  const days = useFestivalDataStore((s) => s.days);
 
   const { getMyPick, savePick, saveNote, getOtherPicks } = usePicks();
   const { getStageColor, getStageName } = useFestival();
@@ -195,8 +204,13 @@ export default function SetDetailScreen() {
     };
   }, []);
 
-  // ---- Spotify preview (fetched on mount, opened externally via Linking). --
+  // ---- Spotify preview (fetched on mount, rendered inline via WebView). ----
   const [spotify, setSpotify] = useState<SpotifyPreview | null>(null);
+  const [spotifyOpen, setSpotifyOpen] = useState(false);
+
+  // Server returns artistName/trackName (no `label`); derive a display label.
+  const spotifyLabel =
+    spotify?.trackName || spotify?.artistName || 'Play on Spotify';
 
   useEffect(() => {
     if (!set) return;
@@ -330,30 +344,70 @@ export default function SetDetailScreen() {
           </View>
         ) : null}
 
-        {/* Spotify preview (opened externally — react-native-webview is not
-            installed, so the embed is launched in the system browser/app). */}
-        {spotify ? (
-          <TouchableOpacity
-            style={styles.spotifyButton}
-            onPress={() => openLink(spotify.embedUrl)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={`Play preview: ${spotify.label}`}
-          >
-            <Ionicons
-              name="musical-note"
-              size={16}
-              color={t.colors.spotify.brand}
-            />
-            <Text style={styles.spotifyText} numberOfLines={1}>
-              {spotify.label || 'Play on Spotify'}
-            </Text>
-            <Ionicons
-              name="open-outline"
-              size={14}
-              color={t.colors.text.secondary}
-            />
-          </TouchableOpacity>
+        {/* Spotify preview — inline WebView embed behind a show/hide toggle.
+            The embedUrl already carries theme=0 (dark). The section renders
+            nothing when no preview is available (guarded on embedType). */}
+        {spotify && spotify.embedUrl ? (
+          <View style={styles.spotifySection}>
+            <TouchableOpacity
+              style={styles.spotifyButton}
+              onPress={() => setSpotifyOpen((v) => !v)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: spotifyOpen }}
+              accessibilityLabel={
+                spotifyOpen
+                  ? `Hide preview: ${spotifyLabel}`
+                  : `Play preview: ${spotifyLabel}`
+              }
+            >
+              <Ionicons
+                name="musical-note"
+                size={16}
+                color={t.colors.spotify.brand}
+              />
+              <Text style={styles.spotifyText} numberOfLines={1}>
+                {spotifyLabel}
+              </Text>
+              <Ionicons
+                name={spotifyOpen ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={t.colors.text.secondary}
+              />
+            </TouchableOpacity>
+            {spotifyOpen ? (
+              <View
+                style={[
+                  styles.spotifyEmbed,
+                  { height: spotify.embedType === 'track' ? 152 : 352 },
+                ]}
+              >
+                <WebView
+                  source={{ uri: spotify.embedUrl }}
+                  style={styles.spotifyWebView}
+                  allowsInlineMediaPlayback
+                  mediaPlaybackRequiresUserAction={false}
+                  originWhitelist={[
+                    'https://open.spotify.com',
+                    'https://*.spotify.com',
+                  ]}
+                  onShouldStartLoadWithRequest={(req) => {
+                    // Keep iframe navigation inside the WebView; open any
+                    // top-level spotify.com navigation in the system app.
+                    if (req.url === spotify.embedUrl) return true;
+                    if (
+                      req.navigationType === 'click' &&
+                      req.url.startsWith('https://open.spotify.com')
+                    ) {
+                      openLink(req.url);
+                      return false;
+                    }
+                    return true;
+                  }}
+                />
+              </View>
+            ) : null}
+          </View>
         ) : null}
 
         {/* Conflict warning */}
@@ -466,6 +520,16 @@ export default function SetDetailScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Ratings — only once the set has started (web parity). */}
+        {currentProfile &&
+        currentFestival &&
+        hasSetStarted(set, currentFestival, days) ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Rate this set</Text>
+            <RatingButtons setId={set.id} festivalId={currentFestival.id} />
+          </View>
+        ) : null}
 
         {/* Who's going */}
         <View style={styles.section}>
@@ -631,6 +695,9 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.accent.aqua,
     textTransform: 'capitalize',
   },
+  spotifySection: {
+    gap: t.spacing[2],
+  },
   spotifyButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -646,6 +713,14 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('label'),
     color: t.colors.text.primary,
     flex: 1,
+  },
+  spotifyEmbed: {
+    borderRadius: t.radii.default,
+    overflow: 'hidden',
+  },
+  spotifyWebView: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
   conflictBox: {
     gap: t.spacing[2],
