@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { configureStorage } from '@festie/shared/platform';
 import { configureApi, setAuthToken } from '@festie/shared/services';
 import { useAuthStore } from '@festie/shared/stores';
 import { UIProvider } from '../contexts/UIContext';
+import OfflineBanner from '../components/OfflineBanner';
 
 // Configure platform adapters before any store hydrates.
 configureStorage(AsyncStorage);
@@ -90,14 +92,17 @@ function AuthGate() {
   }
 
   return (
-    <>
+    <View style={styles.appShell}>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="set/[setId]" options={{ presentation: 'modal' }} />
-      </Stack>
-    </>
+      <OfflineBanner />
+      <View style={styles.appShell}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="set/[setId]" options={{ presentation: 'modal' }} />
+        </Stack>
+      </View>
+    </View>
   );
 }
 
@@ -108,12 +113,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#0A0E1A',
   },
+  appShell: {
+    flex: 1,
+  },
 });
 
 export default function RootLayout() {
   return (
-    <UIProvider>
-      <AuthGate />
-    </UIProvider>
+    <SafeAreaProvider>
+      <UIProvider>
+        <AuthGate />
+      </UIProvider>
+    </SafeAreaProvider>
   );
 }
