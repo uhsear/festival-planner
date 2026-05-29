@@ -5,6 +5,7 @@ import { useFestivalDataStore } from '@festie/shared/stores';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { useUI, type ViewMode } from '../../contexts/UIContext';
 import SegmentedControl from '../../components/SegmentedControl';
+import LiveDot from '../../components/LiveDot';
 import FestivalList from '../../components/FestivalList';
 
 const VIEW_OPTIONS: ReadonlyArray<{ value: ViewMode; label: string }> = [
@@ -58,6 +59,9 @@ export default function TimelineScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.viewSwitcher}>
+        <View style={styles.liveRow}>
+          <LiveDot />
+        </View>
         <SegmentedControl
           options={VIEW_OPTIONS}
           value={viewMode}
@@ -103,6 +107,11 @@ const useStyles = makeStyles((t) => ({
   viewSwitcher: {
     paddingHorizontal: t.spacing[4],
     paddingVertical: t.spacing[3],
+    gap: t.spacing[3],
+  },
+  liveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   placeholderContainer: {
     flex: 1,
