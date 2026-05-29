@@ -52,7 +52,7 @@ export default function PicksScreen() {
   const sets = useFestivalDataStore((s) => s.sets);
   const isLoading = useFestivalDataStore((s) => s.isLoading);
 
-  const { getMyPick, savePick, removePick } = usePicks();
+  const { getMyPick, savePick, removePick, getMyNote } = usePicks();
   const { getDays, getStageColor, getStageName } = useFestival();
 
   const days = useMemo(() => getDays(), [getDays]);
@@ -166,6 +166,7 @@ export default function PicksScreen() {
           onPickChange={(priority) => handlePickChange(item.set, priority)}
           onPress={() => router.push(`/set/${item.set.id}`)}
           hasConflict={conflictIds.has(item.set.id)}
+          hasNote={!!getMyNote(item.set.id)}
         />
       );
     },
@@ -174,6 +175,7 @@ export default function PicksScreen() {
       getStageName,
       getStageColor,
       getMyPick,
+      getMyNote,
       handlePickChange,
       conflictIds,
       router,

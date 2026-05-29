@@ -4,7 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName, artistSubtitle } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useSetStatus } from '../hooks/useSetStatus';
 import Avatar from './Avatar';
+import LiveBadge from './LiveBadge';
 
 /** A single crew member's pick, used to render the "who's going" avatars. */
 export interface FriendProfile {
@@ -35,6 +37,8 @@ interface SetCardMobileProps {
   onPress: () => void;
   /** When true, shows the conflict warning indicator. */
   hasConflict?: boolean;
+  /** When true, shows a small "has note" indicator next to the time. */
+  hasNote?: boolean;
   /**
    * Crew members (other than the current user) who have this set picked.
    * Renders an overlapping avatar cluster + "+N" overflow in the footer,
@@ -106,10 +110,12 @@ export default function SetCardMobile({
   onPickChange,
   onPress,
   hasConflict = false,
+  hasNote = false,
   friendProfiles,
 }: SetCardMobileProps) {
   const t = useTokens();
   const styles = useStyles();
+  const setStatus = useSetStatus(set);
 
   const artistName = artistDisplayName(set);
   const subtitle = artistSubtitle(set);
@@ -155,6 +161,15 @@ export default function SetCardMobile({
 
         <View style={styles.metaRow}>
           <Text style={styles.time}>{timeLabel}</Text>
+          <LiveBadge status={setStatus.status} label={setStatus.label} />
+          {hasNote ? (
+            <Ionicons
+              name="document-text-outline"
+              size={13}
+              color={t.colors.text.muted}
+              accessibilityLabel="Has note"
+            />
+          ) : null}
           {hasConflict ? (
             <View style={styles.conflictBadge}>
               <Ionicons

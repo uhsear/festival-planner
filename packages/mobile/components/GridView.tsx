@@ -34,6 +34,8 @@ export interface GridViewProps {
   nowIndicator: number | null;
   conflictIds: Set<string>;
   getMyPick: (setId: string) => Priority | null | undefined;
+  /** Optional: returns the user's personal note for a set, for the note indicator. */
+  getMyNote?: (setId: string) => string | undefined;
   getStageColor: (stageId: string) => string;
   getStageName: (stageId: string) => string | undefined;
   onPickChange: (setId: string, priority: Priority | null) => void;
@@ -55,6 +57,7 @@ export default function GridView({
   nowIndicator,
   conflictIds,
   getMyPick,
+  getMyNote,
   getStageColor,
   getStageName,
   onPickChange,
@@ -179,6 +182,7 @@ export default function GridView({
           stageColor={getStageColor(set.stageId)}
           myPick={getMyPick(set.id)}
           hasConflict={conflictIds.has(set.id)}
+          hasNote={!!getMyNote?.(set.id)}
           onPickChange={(p) => onPickChange(set.id, p)}
           onPress={() => onSetPress(set)}
         />
@@ -190,6 +194,7 @@ export default function GridView({
       getStageName,
       getStageColor,
       getMyPick,
+      getMyNote,
       conflictIds,
       onPickChange,
       onSetPress,
