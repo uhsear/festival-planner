@@ -1,0 +1,545 @@
+import { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useCrewStore } from '@festie/shared/stores';
+import type { CrewExpense, CrewMember } from '@festie/shared/types';
+import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+
+interface CrewExpensesProps {
+  crewId: string;
+  members: CrewMember[];
+  currentUserId: string;
+}
+
+// Mirrors the web ExpensesTab categories (lib server enum + emoji labels).
+const CATEGORIES = [
+  { key: 'food', emoji: '🍔', label: 'Food' },
+  { key: 'drinks', emoji: '🍺', label: 'Drinks' },
+  { key: 'transport', emoji: '🚗', label: 'Ride' },
+  { key: 'hotel', emoji: '🏨', label: 'Hotel' },
+  { key: 'tickets', emoji: '🎫', label: 'Tickets' },
+  { key: 'other', emoji: '💸', label: 'Other' },
+] as const;
+
+function formatBalance(value: number): string {
+  if (value > 0.01) return `+$${value.toFixed(2)}`;
+  if (value < -0.01) return `-$${Math.abs(value).toFixed(2)}`;
+  return '$0.00';
+}
+
+function categoryFor(key: string): (typeof CATEGORIES)[number] {
+  return CATEGORIES.find((c) => c.key === key) ?? CATEGORIES[CATEGORIES.length - 1]!;
+}
+
+/**
+ * Crew expenses — track shared costs, view per-person balances, settle debts.
+ * Mirrors the web ExpensesTab against the same endpoints, via the shared
+ * crewStore actions (addExpense / removeExpense / settleExpense). The screen
+ * owns the initial load.
+ */
+export default function CrewExpenses({
+  crewId,
+  members,
+  currentUserId,
+}: CrewExpensesProps) {
+  const t = useTokens();
+  const styles = useStyles();
+
+  const expenses = useCrewStore((s) => s.expenses);
+  const balances = useCrewStore((s) => s.expenseBalances);
+  const addExpense = useCrewStore((s) => s.addExpense);
+  const removeExpense = useCrewStore((s) => s.removeExpense);
+  const settleExpense = useCrewStore((s) => s.settleExpense);
+
+  const [showForm, setShowForm] = useState(false);
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState<string>('other');
+  const [splitWith, setSplitWith] = useState<string[]>(() =>
+    members.map((m) => m.userId),
+  );
+  const [busy, setBusy] = useState(false);
+
+  const reset = () => {
+    setDescription('');
+    setAmount('');
+    setCategory('other');
+    setSplitWith(members.map((m) => m.userId));
+    setShowForm(false);
+  };
+
+  const toggleMember = (uid: string) => {
+    setSplitWith((prev) =>
+      prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid],
+    );
+  };
+
+  const myBalance =
+    balances.find((b) => b.userId === currentUserId)?.balance ?? 0;
+  const totalSpent = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const nonZeroBalances = balances.filter((b) => Math.abs(b.balance) > 0.01);
+
+  const amt = Number(amount);
+  const canAdd =
+    !!description.trim() && Number.isFinite(amt) && amt > 0 && splitWith.length > 0;
+
+  const handleAdd = async () => {
+    if (!canAdd || busy) return;
+    setBusy(true);
+    try {
+      await addExpense(crewId, {
+        description: description.trim(),
+        amount: amt,
+        splitWith,
+        category,
+      });
+      reset();
+    } catch {
+      // Error surfaced via the crew store.
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = (expense: CrewExpense) => {
+    Alert.alert('Remove expense', `Remove "${expense.description}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          removeExpense(crewId, expense.id).catch(() => {});
+        },
+      },
+    ]);
+  };
+
+  const handleSettle = (toUserId: string, theirBalance: number) => {
+    const payAmount = Math.min(Math.abs(myBalance), theirBalance);
+    if (payAmount <= 0) return;
+    Alert.alert(
+      'Settle up',
+      `Pay $${payAmount.toFixed(2)} to settle your balance?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Settle',
+          onPress: () => {
+            settleExpense(crewId, { toUserId, amount: payAmount }).catch(() => {});
+          },
+        },
+      ],
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {expenses.length > 0 ? (
+        <View style={styles.statsGrid}>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Total spent</Text>
+            <Text style={styles.statValue}>${totalSpent.toFixed(2)}</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Your balance</Text>
+            <Text
+              style={[
+                styles.statValue,
+                myBalance > 0.01 && styles.balancePositive,
+                myBalance < -0.01 && styles.balanceNegative,
+              ]}
+            >
+              {formatBalance(myBalance)}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      {nonZeroBalances.length > 0 ? (
+        <View style={styles.ledger}>
+          <Text style={styles.ledgerLabel}>Who owes what</Text>
+          {nonZeroBalances.map((b) => {
+            const iOwe =
+              b.userId !== currentUserId &&
+              b.balance > 0.01 &&
+              myBalance < -0.01;
+            return (
+              <View key={b.userId} style={styles.ledgerRow}>
+                <Text style={styles.ledgerName}>
+                  {b.userId === currentUserId ? 'You' : b.username}{' '}
+                  <Text
+                    style={
+                      b.balance > 0
+                        ? styles.balancePositive
+                        : styles.balanceNegative
+                    }
+                  >
+                    {formatBalance(b.balance)}
+                  </Text>
+                </Text>
+                {iOwe ? (
+                  <TouchableOpacity
+                    style={styles.settleButton}
+                    onPress={() => handleSettle(b.userId, b.balance)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Settle up with ${b.username}`}
+                  >
+                    <Ionicons
+                      name="cash-outline"
+                      size={14}
+                      color={t.colors.accent.aqua}
+                    />
+                    <Text style={styles.settleButtonText}>Settle up</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {showForm ? (
+        <View style={styles.formBox}>
+          <View style={styles.formHeader}>
+            <Text style={styles.formTitle}>New expense</Text>
+            <TouchableOpacity
+              onPress={reset}
+              style={styles.iconButton}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel new expense"
+            >
+              <Ionicons name="close" size={18} color={t.colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Dinner at the food truck"
+            placeholderTextColor={t.colors.text.placeholder}
+            value={description}
+            onChangeText={setDescription}
+            maxLength={200}
+            accessibilityLabel="Expense description"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Amount (0.00)"
+            placeholderTextColor={t.colors.text.placeholder}
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="decimal-pad"
+            accessibilityLabel="Expense amount"
+          />
+          <View style={styles.chipGrid}>
+            {CATEGORIES.map((c) => {
+              const active = category === c.key;
+              return (
+                <TouchableOpacity
+                  key={c.key}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => setCategory(c.key)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Category ${c.label}`}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {c.emoji} {c.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.splitLabel}>Split between</Text>
+          <View style={styles.chipGrid}>
+            {members.map((m) => {
+              const active = splitWith.includes(m.userId);
+              return (
+                <TouchableOpacity
+                  key={m.userId}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => toggleMember(m.userId)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Split with ${m.name || 'member'}`}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {m.name || 'Member'}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {splitWith.length > 0 && amt > 0 ? (
+            <Text style={styles.splitHint}>
+              ${(amt / splitWith.length).toFixed(2)}/person × {splitWith.length}
+            </Text>
+          ) : null}
+          <TouchableOpacity
+            style={[styles.primaryButton, (busy || !canAdd) && styles.buttonDisabled]}
+            onPress={handleAdd}
+            disabled={busy || !canAdd}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Add expense"
+          >
+            <Text style={styles.primaryButtonText}>{busy ? 'Adding…' : 'Add'}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.toggle}
+          onPress={() => setShowForm(true)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Add an expense"
+        >
+          <Ionicons name="cash-outline" size={16} color={t.colors.accent.aqua} />
+          <Text style={styles.toggleText}>Add expense</Text>
+          <Ionicons name="add" size={16} color={t.colors.accent.aqua} />
+        </TouchableOpacity>
+      )}
+
+      {expenses.length === 0 ? (
+        <Text style={styles.empty}>
+          No expenses yet — track shared costs so everyone knows where they stand.
+        </Text>
+      ) : (
+        expenses.map((e) => {
+          const cat = categoryFor(e.category);
+          const canRemove = e.paid_by === currentUserId;
+          return (
+            <View key={e.id} style={styles.expenseRow}>
+              <Text style={styles.expenseEmoji}>{cat.emoji}</Text>
+              <View style={styles.expenseInfo}>
+                <Text style={styles.expenseDesc} numberOfLines={1}>
+                  {e.description}
+                </Text>
+                <Text style={styles.expenseMeta} numberOfLines={1}>
+                  {e.paid_by === currentUserId ? 'You' : e.paid_by_name} paid · split{' '}
+                  {e.split_with.length}
+                </Text>
+              </View>
+              <Text style={styles.expenseAmount}>
+                ${Number(e.amount).toFixed(2)}
+              </Text>
+              {canRemove ? (
+                <TouchableOpacity
+                  onPress={() => handleRemove(e)}
+                  style={styles.iconButton}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove expense ${e.description}`}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={18}
+                    color={t.colors.text.danger}
+                  />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          );
+        })
+      )}
+    </View>
+  );
+}
+
+const useStyles = makeStyles((t) => ({
+  container: {
+    gap: t.spacing[3],
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: t.spacing[2],
+  },
+  statBox: {
+    flex: 1,
+    padding: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+    gap: t.spacing[1],
+  },
+  statLabel: {
+    ...typeStyle('micro'),
+    color: t.colors.text.muted,
+    textTransform: 'uppercase',
+  },
+  statValue: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+  },
+  balancePositive: {
+    color: t.colors.accent.aqua,
+  },
+  balanceNegative: {
+    color: t.colors.accent.coral,
+  },
+  ledger: {
+    gap: t.spacing[2],
+    padding: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  ledgerLabel: {
+    ...typeStyle('micro'),
+    color: t.colors.text.muted,
+    textTransform: 'uppercase',
+  },
+  ledgerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: t.spacing[2],
+  },
+  ledgerName: {
+    ...typeStyle('caption'),
+    color: t.colors.text.primary,
+    flexShrink: 1,
+  },
+  settleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+    borderColor: t.colors.accent.aqua,
+  },
+  settleButtonText: {
+    ...typeStyle('caption'),
+    color: t.colors.accent.aqua,
+  },
+  toggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  toggleText: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+    flex: 1,
+  },
+  formBox: {
+    gap: t.spacing[2],
+    padding: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  formHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  formTitle: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+    flex: 1,
+  },
+  input: {
+    backgroundColor: t.colors.bg.input,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    borderRadius: t.radii.default,
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+  },
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+  },
+  chip: {
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.input,
+  },
+  chipActive: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
+  },
+  chipText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  chipTextActive: {
+    color: t.colors.accent.aqua,
+  },
+  splitLabel: {
+    ...typeStyle('caption'),
+    color: t.colors.text.primary,
+  },
+  splitHint: {
+    ...typeStyle('micro'),
+    color: t.colors.text.muted,
+  },
+  primaryButton: {
+    backgroundColor: t.colors.accent.coral,
+    borderRadius: t.radii.default,
+    paddingVertical: t.spacing[3],
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    ...typeStyle('label'),
+    color: t.colors.text.onAccent,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  iconButton: {
+    padding: t.spacing[1],
+  },
+  empty: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+    paddingHorizontal: t.spacing[2],
+  },
+  expenseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[3],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.light,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  expenseEmoji: {
+    ...typeStyle('body'),
+  },
+  expenseInfo: {
+    flex: 1,
+    gap: t.spacing[1],
+  },
+  expenseDesc: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+  },
+  expenseMeta: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  expenseAmount: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+  },
+}));

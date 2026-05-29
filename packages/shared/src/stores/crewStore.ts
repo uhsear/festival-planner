@@ -11,6 +11,11 @@ import {
   CrewMeetingPoint,
   CreateCrewMeetingPointRequest,
   UpdateCrewMeetingPointRequest,
+  CrewExpense,
+  CrewExpenseBalance,
+  CreateCrewExpenseRequest,
+  SettleCrewExpenseRequest,
+  CrewActivityEntry,
 } from '../types';
 
 export interface CrewState {
@@ -22,6 +27,9 @@ export interface CrewState {
   // reloads these on crew switch). Additive — existing consumers ignore them.
   polls: CrewPoll[];
   meetingPoints: CrewMeetingPoint[];
+  expenses: CrewExpense[];
+  expenseBalances: CrewExpenseBalance[];
+  activity: CrewActivityEntry[];
   crewLoading: boolean;
   error: string | null;
 }
@@ -55,6 +63,19 @@ export interface CrewActions {
     request: UpdateCrewMeetingPointRequest,
   ) => Promise<CrewMeetingPoint>;
   deleteMeetingPoint: (crewId: string, mpId: string) => Promise<void>;
+  // Expenses (routes/crew-expenses.ts).
+  loadExpenses: (crewId: string) => Promise<void>;
+  addExpense: (
+    crewId: string,
+    request: CreateCrewExpenseRequest,
+  ) => Promise<void>;
+  removeExpense: (crewId: string, expenseId: string) => Promise<void>;
+  settleExpense: (
+    crewId: string,
+    request: SettleCrewExpenseRequest,
+  ) => Promise<void>;
+  // Activity feed (routes/crew-activity.ts).
+  loadActivity: (crewId: string) => Promise<void>;
   // Home base (owner-only PUT /crews/:id/home-base).
   updateHomeBase: (
     crewId: string,
@@ -79,6 +100,18 @@ export interface CrewActions {
 
 export type CrewStore = CrewState & CrewActions;
 
+type CrewSet = Parameters<StateCreator<CrewStore>>[0];
+
+// GET /crews/:crewId/expenses/balances -> array or { balances }. Shared by the
+// expense mutations so each refetches authoritative balances after writing.
+async function loadBalances(set: CrewSet, crewId: string): Promise<void> {
+  const res = await api.get<
+    CrewExpenseBalance[] | { balances: CrewExpenseBalance[] }
+  >(`/crews/${crewId}/expenses/balances`);
+  const expenseBalances = Array.isArray(res) ? res : (res?.balances ?? []);
+  set({ expenseBalances });
+}
+
 const crewStore: StateCreator<CrewStore> = (set) => ({
   crews: [],
   activeCrew: null,
@@ -86,6 +119,9 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   crewOverlap: {},
   polls: [],
   meetingPoints: [],
+  expenses: [],
+  expenseBalances: [],
+  activity: [],
   crewLoading: false,
   error: null,
 
@@ -416,6 +452,89 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to remove meeting point';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // ── Expenses ───────────────────────────────────────────────────
+  // GET /crews/:crewId/expenses -> array (api unwraps the data envelope).
+  // Fetches the expense list AND the balance ledger together so one call
+  // populates the whole tab; the mutations below re-call this to refresh.
+  loadExpenses: async (crewId: string) => {
+    set({ error: null });
+    try {
+      const res = await api.get<CrewExpense[] | { expenses: CrewExpense[] }>(
+        `/crews/${crewId}/expenses`,
+      );
+      const expenses = Array.isArray(res) ? res : (res?.expenses ?? []);
+      set({ expenses });
+      await loadBalances(set, crewId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load expenses';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // POST /crews/:crewId/expenses, then refetch so the server-resolved split +
+  // balances stay authoritative (mirrors the web ExpensesTab invalidation).
+  addExpense: async (crewId: string, request: CreateCrewExpenseRequest) => {
+    set({ error: null });
+    try {
+      await api.post(`/crews/${crewId}/expenses`, request);
+      await useCrewStore.getState().loadExpenses(crewId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to add expense';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // DELETE /crews/:crewId/expenses/:id, then refetch.
+  removeExpense: async (crewId: string, expenseId: string) => {
+    set({ error: null });
+    try {
+      await api.delete(`/crews/${crewId}/expenses/${expenseId}`);
+      await useCrewStore.getState().loadExpenses(crewId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to remove expense';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // POST /crews/:crewId/expenses/settle -> reduce a debt, then refetch.
+  settleExpense: async (crewId: string, request: SettleCrewExpenseRequest) => {
+    set({ error: null });
+    try {
+      await api.post(`/crews/${crewId}/expenses/settle`, request);
+      await useCrewStore.getState().loadExpenses(crewId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to settle up';
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // ── Activity feed ──────────────────────────────────────────────
+  // GET /crews/:crewId/activity -> array of crew events.
+  loadActivity: async (crewId: string) => {
+    set({ error: null });
+    try {
+      // Server returns { items, nextCursor } (paginated). Accept a bare array
+      // or { activity } too, in case the shape changes.
+      const res = await api.get<
+        | CrewActivityEntry[]
+        | { items: CrewActivityEntry[]; nextCursor?: string | null }
+        | { activity: CrewActivityEntry[] }
+      >(`/crews/${crewId}/activity`);
+      const activity = Array.isArray(res)
+        ? res
+        : ('items' in res ? res.items : res.activity) ?? [];
+      set({ activity });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load activity';
       set({ error: message });
       throw err;
     }

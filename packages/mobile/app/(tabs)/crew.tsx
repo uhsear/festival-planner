@@ -31,6 +31,8 @@ import LoadingState from '../../components/LoadingState';
 import CrewHomeBase from '../../components/CrewHomeBase';
 import CrewPolls from '../../components/CrewPolls';
 import CrewMeetingPoints from '../../components/CrewMeetingPoints';
+import CrewExpenses from '../../components/CrewExpenses';
+import CrewActivity from '../../components/CrewActivity';
 
 /** Two-letter initials derived from a member's display name (fallback "?"). */
 function initialsFor(name: string | undefined): string {
@@ -74,6 +76,7 @@ export default function CrewScreen() {
   const loadOverlap = useCrewStore((s) => s.loadOverlap);
   const loadPolls = useCrewStore((s) => s.loadPolls);
   const loadMeetingPoints = useCrewStore((s) => s.loadMeetingPoints);
+  const loadExpenses = useCrewStore((s) => s.loadExpenses);
   const setError = useCrewStore((s) => s.setError);
 
   const currentFestival = useFestivalStore((s) => s.currentFestival);
@@ -122,7 +125,8 @@ export default function CrewScreen() {
     if (!id) return;
     loadPolls(id).catch(() => {});
     loadMeetingPoints(id).catch(() => {});
-  }, [activeCrew?.id, loadPolls, loadMeetingPoints]);
+    loadExpenses(id).catch(() => {});
+  }, [activeCrew?.id, loadPolls, loadMeetingPoints, loadExpenses]);
 
   // Fast set lookup by id for overlap labels.
   const setsById = useMemo(() => {
@@ -736,6 +740,16 @@ export default function CrewScreen() {
               isOwner={isOwner}
             />
 
+            <Text style={styles.sectionLabel}>Expenses</Text>
+            <CrewExpenses
+              crewId={crew.id}
+              members={members}
+              currentUserId={user.id}
+            />
+
+            <Text style={styles.sectionLabel}>Activity</Text>
+            <CrewActivity crewId={crew.id} />
+
             <View style={styles.footerActions}>
               {isOwner ? (
               <TouchableOpacity
@@ -773,13 +787,6 @@ export default function CrewScreen() {
         }
       />
 
-      {/* Built: polls (CrewPolls), meeting points (CrewMeetingPoints), and home
-          base (CrewHomeBase) — all backed by confirmed crew endpoints via new
-          crewStore actions. Deferred crew sub-features (web-only, no endpoint
-          confirmed for mobile in this track): expenses (ExpensesTab) and the
-          activity feed (ActivityTab). Meeting-point editing (PUT) is wired in
-          the store (updateMeetingPoint) but not yet surfaced in the UI — only
-          add + remove are exposed here, matching the web MeetingPointsTab. */}
     </KeyboardAvoidingView>
   );
 }
