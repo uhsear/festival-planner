@@ -13,14 +13,12 @@ module.exports = {
   apps: [{
     name: 'festie',
     script: 'server.ts',
-    // Run TypeScript via Node + tsx loader. interpreter must be set explicitly:
-    // PM2 v6 auto-selects `bun` for .ts scripts, which isn't installed.
-    interpreter: 'node',
-    // Fork mode (not cluster): PM2 cluster mode imports the script through its
-    // ProcessContainer without the tsx ESM loader applied, so it can't load the
-    // .ts entrypoint. Fork mode spawns `node --import tsx/esm server.ts` directly
-    // (identical to `npm start`), which works. Multi-worker scaling would require
-    // compiling the backend to JS first.
+    // Use tsx AS the interpreter. `node --import tsx/esm` under PM2 gets the
+    // process SIGINT-killed ~3s after start (tsx loader vs PM2 supervision), and
+    // PM2 cluster mode can't load .ts at all. Running tsx directly as the
+    // interpreter in fork mode is stable. Multi-worker scaling would require
+    // compiling the backend to JS.
+    interpreter: 'node_modules/.bin/tsx',
     exec_mode: 'fork',
     instances: 1,
     autorestart: true,
@@ -40,11 +38,9 @@ module.exports = {
     max_restarts: 10,
     min_uptime: 5000,
 
-    max_memory_restart: '384M',
-
-    // Match Node's old-space ceiling to PM2's max_memory_restart so V8 GCs
-    // aggressively before PM2 SIGKILLs the worker. Prevents mid-request kills.
-    node_args: '--import tsx/esm --max-old-space-size=384',
+    // tsx (esbuild) keeps the transpiled backend in memory, so RSS runs higher
+    // than the old plain-JS server — give it headroom (single fork worker now).
+    max_memory_restart: '768M',
 
     // All secrets and credentials loaded from .env via dotenv.
     // FIREBASE_CREDENTIALS_PATH, DATABASE_URL, SESSION_SECRET, WEBHOOK_TOKEN_HMAC_KEY
