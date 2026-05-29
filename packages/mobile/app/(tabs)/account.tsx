@@ -16,6 +16,7 @@ import ScreenHeader from '../../components/ScreenHeader';
 import AccountAvatarSection from '../../components/AccountAvatarSection';
 import AccountUsernameSection from '../../components/AccountUsernameSection';
 import AccountPasswordSection from '../../components/AccountPasswordSection';
+import AccountDataSection from '../../components/AccountDataSection';
 import AccountDangerSection from '../../components/AccountDangerSection';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
@@ -30,13 +31,15 @@ import { useReduceMotion } from '../../hooks/useReduceMotion';
  * Username change and account deletion are now wired to additive shared actions
  * (authStore.updateUsername / authStore.deleteAccount) via dedicated sections.
  *
- * Still deferred — no shared backing today, so wiring would mean reinventing
- * backend calls (forbidden by the task):
- *   - Push notifications → web-only PWA hook (usePushNotifications); mobile needs a
- *                           separate expo-notifications + token-register flow.
- *   - Data export (GDPR) → web Blob download is web-only; mobile needs expo-file-system
- *                           + expo-sharing once a shared method exists.
- *   - Theme / display    → no shared user-preference store exists; nothing to port.
+ * Data export (GDPR) is wired via AccountDataSection (GET /account/export →
+ * expo-file-system + expo-sharing).
+ *
+ * Still deferred:
+ *   - Push notifications → the backend sends via FCM (firebase-admin), so mobile
+ *                           must register an FCM device token, which needs a
+ *                           Firebase google-services.json + a dev/prod build
+ *                           (Expo Go can't obtain FCM tokens). Blocked on infra.
+ *   - Theme / display    → not a web feature either; nothing to port.
  */
 export default function AccountScreen() {
   const t = useTokens();
@@ -165,6 +168,10 @@ export default function AccountScreen() {
             </View>
           </View>
         </View>
+
+        {/* Data */}
+        <Text style={styles.sectionLabel}>Data</Text>
+        <AccountDataSection />
 
         {/* Account actions */}
         <Text style={styles.sectionLabel}>Account</Text>

@@ -1,0 +1,33 @@
+appId: host.exp.exponent
+env:
+  PROJECT_URL: exp://e0rp0ks-uhsear-8081.exp.direct
+  FESTIVAL: "Forbidden Kingdom 2026"
+---
+# Phase 4 (Account) — data export render + invoke check.
+- launchApp
+- openLink: ${PROJECT_URL}
+- extendedWaitUntil:
+    visible: "Festie"
+    timeout: 120000
+- runFlow: login.yaml
+- runFlow:
+    when:
+      visible: "${FESTIVAL}"
+    commands:
+      - tapOn: "${FESTIVAL}"
+- extendedWaitUntil:
+    visible: "Account"
+    timeout: 30000
+- tapOn: "Account"
+- scrollUntilVisible:
+    element:
+      text: "Export my data"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: p4-account
+- tapOn: "Export my data"
+# Give the fetch + file write + share-sheet invocation time to surface.
+- extendedWaitUntil:
+    notVisible: "Export my data"
+    timeout: 20000
+- takeScreenshot: p4-export
