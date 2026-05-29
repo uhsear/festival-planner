@@ -71,7 +71,8 @@ vi.mock('../../hooks/useHaptics', () => ({
   })),
 }));
 
-vi.mock('../../utils/festivalTime', () => ({
+vi.mock('@festie/shared/utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@festie/shared/utils')>()),
   hasSetStarted: vi.fn(() => false),
 }));
 

@@ -22,7 +22,8 @@ vi.mock('@festie/shared/stores', () => ({
     selector({ currentFestival: null, days: [] }),
 }));
 
-vi.mock('../../utils/festivalTime', () => ({
+vi.mock('@festie/shared/utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@festie/shared/utils')>()),
   isFestivalOver: () => false,
 }));
 

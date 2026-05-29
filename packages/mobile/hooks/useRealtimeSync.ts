@@ -15,7 +15,14 @@ import type {
   PresenceUser,
   CrewUpdatedPayload,
   CrewMemberEventPayload,
+  CrewHomeBaseUpdatedPayload,
+  CrewMeetingPointPayload,
+  CrewMeetingPointRemovedPayload,
+  CrewPollCreatedPayload,
+  CrewPollVotedPayload,
+  CrewPollClosedPayload,
 } from '@festie/shared/types/socket-events';
+import type { CrewMeetingPoint } from '@festie/shared/types';
 
 export interface UseRealtimeSyncReturn {
   connected: boolean;
@@ -39,6 +46,10 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
 
   const userToken = useAuthStore((s) => s.userToken);
   const currentFestivalId = useFestivalDataStore((s) => s.currentFestivalId);
+  // Active crew drives which crew:* room we join; re-run the effect on change
+  // so we leave the old room and join the new one (crew sub-feature events are
+  // scoped to the `crew:${crewId}` room server-side).
+  const activeCrewId = useCrewStore((s) => s.activeCrew?.id ?? null);
   const connected = useUIStore((s) => s.connected);
   const setConnected = useUIStore((s) => s.setConnected);
   const onlineUsers = useUIStore((s) => s.onlineUsers);
@@ -102,6 +113,12 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       });
     };
 
+    // Resolve the crewId a crew sub-feature event applies to. Poll events do
+    // not carry crewId in the payload; since join:crew scopes us to a single
+    // crew room, the active crew is the authoritative resolution. Returns null
+    // when there is no active crew (nothing to update).
+    const getActiveCrewId = () => useCrewStore.getState().activeCrew?.id ?? null;
+
     // ── Event handlers ─────────────────────────────────────────────────
     // Picks / notes -> festivalDataStore
     const handlePickUpdated = (_data: ProfileUpdatedPayload) => reloadProfiles();
@@ -121,6 +138,63 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       reloadCrews(data?.crewId);
     const handleCrewMemberRemoved = (data: CrewMemberEventPayload) =>
       reloadCrews(data?.crewId);
+
+    // Crew sub-features (home base / meeting points / polls). These mutate the
+    // crewStore in place via additive socket-driven setters so the open crew
+    // screen reflects remote changes live. Every handler guards on the active
+    // crew: the screen only ever shows the active crew's sub-data.
+    const handleCrewHomeBaseUpdated = (data: CrewHomeBaseUpdatedPayload) => {
+      const activeId = getActiveCrewId();
+      if (!activeId || data?.crewId !== activeId) return;
+      useCrewStore
+        .getState()
+        .applyHomeBaseUpdate(data.crewId, {
+          location: data.location,
+          time: data.time,
+        });
+    };
+
+    const handleMeetingPointUpserted = (data: CrewMeetingPointPayload) => {
+      const activeId = getActiveCrewId();
+      if (!activeId || data?.crewId !== activeId) return;
+      // Payload is the serialized meeting point row (id, crewId, label, ...).
+      useCrewStore
+        .getState()
+        .applyMeetingPointUpsert(data as unknown as CrewMeetingPoint);
+    };
+
+    const handleMeetingPointRemoved = (data: CrewMeetingPointRemovedPayload) => {
+      const activeId = getActiveCrewId();
+      if (!activeId || data?.crewId !== activeId) return;
+      useCrewStore.getState().applyMeetingPointRemoval(data.id);
+    };
+
+    const handlePollCreated = (_data: CrewPollCreatedPayload) => {
+      const activeId = getActiveCrewId();
+      if (!activeId) return;
+      // Poll-created payload lacks crewId; the active crew room scopes it. The
+      // payload also lacks the full poll shape, so reload the authoritative
+      // list (debounced) to pick up created_at / closed / votes consistently.
+      schedule(`crew-polls:${activeId}`, () => {
+        const id = useCrewStore.getState().activeCrew?.id;
+        if (!id) return;
+        useCrewStore.getState().loadPolls(id).catch(() => {});
+      });
+    };
+
+    const handlePollVoted = (data: CrewPollVotedPayload) => {
+      const activeId = getActiveCrewId();
+      if (!activeId) return;
+      useCrewStore
+        .getState()
+        .applyPollVote(data.pollId, data.userId, data.optionIndex);
+    };
+
+    const handlePollClosed = (data: CrewPollClosedPayload) => {
+      const activeId = getActiveCrewId();
+      if (!activeId) return;
+      useCrewStore.getState().applyPollClosed(data.pollId);
+    };
 
     // Festival / sets -> festivalDataStore full reload
     const handleFestivalUpdated = (_data: FestivalIdPayload) => reloadFestival();
@@ -147,6 +221,12 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       if (festivalId) {
         socket.emit('join:festival', festivalId, { _v: 1 }, () => {});
       }
+      // Join the active crew room so crew sub-feature events (home base /
+      // meeting points / polls) — all emitted to `crew:${crewId}` — reach us.
+      const crewId = useCrewStore.getState().activeCrew?.id;
+      if (crewId) {
+        socket.emit('join:crew', { _v: 1, crewId }, () => {});
+      }
     };
 
     const handleDisconnect = () => {
@@ -166,6 +246,14 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     socket.on('crew:updated', handleCrewUpdated);
     socket.on('crew:member-joined', handleCrewMemberAdded);
     socket.on('crew:member-left', handleCrewMemberRemoved);
+
+    socket.on('crew:home-base-updated', handleCrewHomeBaseUpdated);
+    socket.on('crew:meeting-point-created', handleMeetingPointUpserted);
+    socket.on('crew:meeting-point-updated', handleMeetingPointUpserted);
+    socket.on('crew:meeting-point-removed', handleMeetingPointRemoved);
+    socket.on('crew:poll-created', handlePollCreated);
+    socket.on('crew:poll-voted', handlePollVoted);
+    socket.on('crew:poll-closed', handlePollClosed);
 
     socket.on('festival:updated', handleFestivalUpdated);
     socket.on('festival:set-added', handleSetAdded);
@@ -192,6 +280,10 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
           if (festivalId) {
             socket.emit('leave:festival');
           }
+          const crewId = useCrewStore.getState().activeCrew?.id;
+          if (crewId) {
+            socket.emit('leave:crew', { _v: 1, crewId });
+          }
           socket.disconnect();
         }
       }
@@ -216,6 +308,14 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       socket.off('crew:member-joined', handleCrewMemberAdded);
       socket.off('crew:member-left', handleCrewMemberRemoved);
 
+      socket.off('crew:home-base-updated', handleCrewHomeBaseUpdated);
+      socket.off('crew:meeting-point-created', handleMeetingPointUpserted);
+      socket.off('crew:meeting-point-updated', handleMeetingPointUpserted);
+      socket.off('crew:meeting-point-removed', handleMeetingPointRemoved);
+      socket.off('crew:poll-created', handlePollCreated);
+      socket.off('crew:poll-voted', handlePollVoted);
+      socket.off('crew:poll-closed', handlePollClosed);
+
       socket.off('festival:updated', handleFestivalUpdated);
       socket.off('festival:set-added', handleSetAdded);
       socket.off('festival:set-updated', handleSetUpdated);
@@ -230,10 +330,16 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
         delete timersSnapshot[k];
       }
 
+      // Leave the crew room before tearing down (no-op if not joined).
+      const leftCrewId = useCrewStore.getState().activeCrew?.id;
+      if (socket.connected && leftCrewId) {
+        socket.emit('leave:crew', { _v: 1, crewId: leftCrewId });
+      }
+
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [userToken, currentFestivalId, setConnected, setOnlineUsers]);
+  }, [userToken, currentFestivalId, activeCrewId, setConnected, setOnlineUsers]);
 
   return { connected, onlineUsers };
 }

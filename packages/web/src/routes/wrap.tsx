@@ -11,7 +11,7 @@ import Skeleton from '../components/ui/Skeleton';
 import Button from '../components/ui/Button';
 import WrapPoster from '../components/features/WrapPoster';
 import { useToast } from '../lib/toastContext';
-import { isFestivalOver } from '../utils/festivalTime';
+import { isFestivalOver } from '@festie/shared/utils';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { Sparkles, Trophy, Map as MapIcon, Clock, CalendarDays, Share2 } from 'lucide-react';
 

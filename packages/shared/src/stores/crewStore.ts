@@ -60,6 +60,20 @@ export interface CrewActions {
     crewId: string,
     payload: { location: string | null; time: string | null },
   ) => Promise<void>;
+  // ── Socket-driven setters (additive) ────────────────────────────
+  // Applied by the realtime sync hook when crew:* events arrive for the
+  // active crew. They mutate the in-memory polls / meetingPoints / activeCrew
+  // home base so the open crew screen reflects remote changes live, without an
+  // API round-trip. All are guarded by the caller against crew mismatch.
+  applyHomeBaseUpdate: (
+    crewId: string,
+    payload: { location: string | null; time: string | null },
+  ) => void;
+  applyMeetingPointUpsert: (meetingPoint: CrewMeetingPoint) => void;
+  applyMeetingPointRemoval: (mpId: string) => void;
+  applyPollCreated: (poll: CrewPoll) => void;
+  applyPollVote: (pollId: string, userId: string, optionIndex: number) => void;
+  applyPollClosed: (pollId: string) => void;
   setError: (error: string | null) => void;
 }
 
@@ -435,6 +449,81 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       set({ error: message });
       throw err;
     }
+  },
+
+  // ── Socket-driven setters (additive) ──────────────────────────
+  // Merge a remote home-base change onto the active crew + crews list. The
+  // socket payload carries `location` / `time`; map them onto the serialized
+  // crew's homeBaseLocation / homeBaseTime fields.
+  applyHomeBaseUpdate: (
+    crewId: string,
+    payload: { location: string | null; time: string | null },
+  ) => {
+    set((state) => ({
+      activeCrew:
+        state.activeCrew?.id === crewId
+          ? {
+              ...state.activeCrew,
+              homeBaseLocation: payload.location,
+              homeBaseTime: payload.time,
+            }
+          : state.activeCrew,
+      crews: state.crews.map((c) =>
+        c.id === crewId
+          ? { ...c, homeBaseLocation: payload.location, homeBaseTime: payload.time }
+          : c,
+      ),
+    }));
+  },
+
+  // Insert or replace a meeting point from a remote create/update event.
+  applyMeetingPointUpsert: (meetingPoint: CrewMeetingPoint) => {
+    set((state) => {
+      const exists = state.meetingPoints.some((m) => m.id === meetingPoint.id);
+      return {
+        meetingPoints: exists
+          ? state.meetingPoints.map((m) =>
+              m.id === meetingPoint.id ? meetingPoint : m,
+            )
+          : [meetingPoint, ...state.meetingPoints],
+      };
+    });
+  },
+
+  applyMeetingPointRemoval: (mpId: string) => {
+    set((state) => ({
+      meetingPoints: state.meetingPoints.filter((m) => m.id !== mpId),
+    }));
+  },
+
+  // Prepend a poll created remotely (skip if already present from our own
+  // optimistic create). Normalize votes like loadPolls / createPoll.
+  applyPollCreated: (poll: CrewPoll) => {
+    set((state) => {
+      if (state.polls.some((p) => p.id === poll.id)) return {};
+      const normalized: CrewPoll = { ...poll, votes: poll.votes ?? [] };
+      return { polls: [normalized, ...state.polls] };
+    });
+  },
+
+  // Apply a single remote vote: one-vote-per-user, so replace any prior vote
+  // by this user on this poll, then add the new one.
+  applyPollVote: (pollId: string, userId: string, optionIndex: number) => {
+    set((state) => ({
+      polls: state.polls.map((p) => {
+        if (p.id !== pollId) return p;
+        const others = (p.votes || []).filter((v) => v.user_id !== userId);
+        return {
+          ...p,
+          votes: [...others, { option: optionIndex, user_id: userId }],
+        };
+      }),
+    }));
+  },
+
+  // Drop a closed poll from local state (mirrors closePoll's local effect).
+  applyPollClosed: (pollId: string) => {
+    set((state) => ({ polls: state.polls.filter((p) => p.id !== pollId) }));
   },
 
   setError: (error: string | null) => {

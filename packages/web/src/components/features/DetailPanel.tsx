@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FestivalSet, Priority } from '@festie/shared/types';
-import { formatTime, artistDisplayName } from '@festie/shared/utils';
+import { formatTime, artistDisplayName, hasSetStarted } from '@festie/shared/utils';
 import { api } from '@festie/shared/services/api';
 import { useFestivalStore } from '@festie/shared/stores/festivalStore';
 import { Drawer } from 'vaul';
@@ -12,7 +12,6 @@ import DetailPriorityPicker from './DetailPriorityPicker';
 import DetailCrewSection from './DetailCrewSection';
 import DetailNotesSection from './DetailNotesSection';
 import { useDetailPanelData } from './useDetailPanelData';
-import { hasSetStarted } from '../../utils/festivalTime';
 import { useHaptics } from '../../hooks/useHaptics';
 import Button from '../ui/Button';
 
