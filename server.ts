@@ -212,8 +212,8 @@ async function createFestieApp(overrides: any = {}) {
 
   // 6. Error handler with deduplication
   const _errorFingerprints = new Map<string, any>();
-  const ERROR_DEDUP_WINDOW = 60_000;
-  const ERROR_DEDUP_MAX = 500;
+  const ERROR_DEDUP_WINDOW = config.ERROR_DEDUP_WINDOW;
+  const ERROR_DEDUP_MAX = config.ERROR_DEDUP_MAX;
   const _errorDedupCleanup = setInterval(() => {
     const now = Date.now();
     for (const [fp, entry] of _errorFingerprints) {
@@ -226,7 +226,7 @@ async function createFestieApp(overrides: any = {}) {
         _errorFingerprints.delete(fp);
       }
     }
-  }, 30_000);
+  }, config.ERROR_DEDUP_CLEANUP_INTERVAL_MS);
   _errorDedupCleanup.unref();
   state.timers.push(_errorDedupCleanup);
 
