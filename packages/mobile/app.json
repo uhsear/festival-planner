@@ -32,7 +32,8 @@
         {
           "photosPermission": "Allow Festie to access your photos to set your avatar."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "router": {},
