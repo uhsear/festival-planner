@@ -13,7 +13,9 @@ module.exports = {
   apps: [{
     name: 'festie',
     script: 'server.ts',
-    interpreter_args: '--import tsx/esm',
+    // Run TypeScript via Node + tsx loader. interpreter must be set explicitly:
+    // PM2 v6 auto-selects `bun` for .ts scripts, which isn't installed.
+    interpreter: 'node',
     exec_mode: 'cluster',
     instances: 4,
     autorestart: true,
@@ -35,7 +37,7 @@ module.exports = {
 
     // Match Node's old-space ceiling to PM2's max_memory_restart so V8 GCs
     // aggressively before PM2 SIGKILLs the worker. Prevents mid-request kills.
-    node_args: '--max-old-space-size=384',
+    node_args: '--import tsx/esm --max-old-space-size=384',
 
     // All secrets and credentials loaded from .env via dotenv.
     // FIREBASE_CREDENTIALS_PATH, DATABASE_URL, SESSION_SECRET, WEBHOOK_TOKEN_HMAC_KEY
