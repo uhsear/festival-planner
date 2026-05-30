@@ -2,6 +2,7 @@ import { create, StateCreator } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { api } from '../services/api';
 import { mapErrorToUserMessage } from '../services/errors';
+import { isOffline, enqueueMutation } from '../services/offlineQueue';
 import { getStorage } from '../platform/storage';
 import { useAuthStore } from './authStore';
 
@@ -12,12 +13,20 @@ import { useAuthStore } from './authStore';
 // by clientId). Falls back to direct API call if the bridge is missing or
 // we're online.
 async function offlinePut(url: string, body: unknown, clientId: string): Promise<void> {
+  // Web PWA: IndexedDB-backed bridge.
   if (typeof window !== 'undefined' && !navigator.onLine) {
     const bridge = window.__festieQueue;
     if (bridge?.queueMutation) {
       await bridge.queueMutation({ type: 'api', clientId, url, method: 'PUT', body });
       return;
     }
+  }
+  // Native: NetInfo-driven offline queue (replayed on reconnect). Lets the
+  // optimistic pick/note survive instead of failing — the OfflineBanner's
+  // "syncs when you reconnect" promise now holds on mobile.
+  if (isOffline()) {
+    await enqueueMutation({ clientId, url, method: 'PUT', body });
+    return;
   }
   await api.put(url, body);
 }

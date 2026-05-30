@@ -53,3 +53,20 @@ export function configureStorage(adapter: StorageAdapter): void {
 export function getStorage(): StorageAdapter {
   return _storage;
 }
+
+// ── Secure storage (credentials only) ──────────────────────────────────────
+// Defaults to the regular storage adapter so the web (localStorage — no OS
+// keychain) and any unconfigured environment keep current behavior. React
+// Native injects an expo-secure-store-backed adapter so the session token lands
+// in the Keychain/Keystore instead of plaintext AsyncStorage. Reads may be
+// async (SecureStore.getItemAsync).
+let _secureStorage: StorageAdapter | null = null;
+
+export function configureSecureStorage(adapter: StorageAdapter): void {
+  _secureStorage = adapter;
+}
+
+/** Secure adapter if configured, else the regular storage adapter. */
+export function getSecureStorage(): StorageAdapter {
+  return _secureStorage ?? _storage;
+}

@@ -1,8 +1,8 @@
 import { create, StateCreator } from 'zustand';
-import { persist, PersistStorage } from 'zustand/middleware';
+import { persist, PersistStorage, StorageValue } from 'zustand/middleware';
 import { api, setAuthToken, clearAuthToken, getApiBase, getAuthToken } from '../services/api';
 import { TRUSTED_MUTATION_HEADER } from '../constants/config';
-import { getStorage } from '../platform/storage';
+import { getStorage, getSecureStorage } from '../platform/storage';
 import { resetAllStores } from './resetStores';
 import {
   User,
@@ -44,32 +44,65 @@ export interface AuthActions {
 
 export type AuthStore = AuthState & AuthActions;
 
+// Credential fields kept OUT of the regular (AsyncStorage / localStorage) blob
+// and stored via the secure adapter (Keychain/Keystore on native) instead.
+const SECURE_FIELDS = ['userToken', 'adminToken'] as const;
+const SECURE_PREFIX = 'festie-secure-';
+
+/**
+ * Split PersistStorage: the non-credential state persists to the regular
+ * adapter, while userToken/adminToken persist to the secure adapter
+ * (getSecureStorage). getItem transparently merges the secure tokens back into
+ * the returned state, so the AuthGate's onFinishHydration sees `userToken`
+ * unchanged — no change to the (fragile) cold-start hydration path. Migration
+ * is automatic: an old blob that still carries a token is read normally, and
+ * the next setItem moves it to secure storage + strips it from the blob.
+ * On the web (no OS keychain) getSecureStorage falls back to the regular
+ * adapter, so the only change there is the storage key.
+ */
 const defaultStorage: PersistStorage<AuthState> = {
-  getItem: (name) => {
-    const raw = getStorage().getItem(name);
-    // Handle both sync (localStorage) and async (AsyncStorage) adapters
-    if (raw instanceof Promise) {
-      return raw.then((item) => {
-        if (!item) return null;
-        try {
-          return JSON.parse(item);
-        } catch {
-          return null;
-        }
-      });
+  getItem: async (name) => {
+    const raw = await Promise.resolve(getStorage().getItem(name));
+    let parsed: { state?: Record<string, unknown> } | null = null;
+    if (raw) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = null;
+      }
     }
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return null;
+    if (parsed && parsed.state) {
+      for (const field of SECURE_FIELDS) {
+        const secureVal = await Promise.resolve(getSecureStorage().getItem(SECURE_PREFIX + field));
+        // Prefer the secure value; otherwise keep whatever the (old) blob had
+        // so a pre-migration install stays logged in until the next write.
+        if (secureVal != null) parsed.state[field] = secureVal;
+      }
+    }
+    return (parsed as unknown) as StorageValue<AuthState> | null;
+  },
+  setItem: async (name, value) => {
+    const state = { ...(value.state as unknown as Record<string, unknown>) };
+    const tokens: Record<string, unknown> = {};
+    for (const field of SECURE_FIELDS) {
+      tokens[field] = state[field];
+      delete state[field]; // never write credentials to the regular blob
+    }
+    await Promise.resolve(getStorage().setItem(name, JSON.stringify({ ...value, state })));
+    for (const field of SECURE_FIELDS) {
+      const v = tokens[field];
+      if (typeof v === 'string' && v) {
+        await Promise.resolve(getSecureStorage().setItem(SECURE_PREFIX + field, v));
+      } else {
+        await Promise.resolve(getSecureStorage().removeItem(SECURE_PREFIX + field));
+      }
     }
   },
-  setItem: (name, value) => {
-    getStorage().setItem(name, JSON.stringify(value));
-  },
-  removeItem: (name) => {
-    getStorage().removeItem(name);
+  removeItem: async (name) => {
+    await Promise.resolve(getStorage().removeItem(name));
+    for (const field of SECURE_FIELDS) {
+      await Promise.resolve(getSecureStorage().removeItem(SECURE_PREFIX + field));
+    }
   },
 };
 
