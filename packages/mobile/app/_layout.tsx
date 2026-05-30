@@ -13,7 +13,11 @@ import OfflineBanner from '../components/OfflineBanner';
 
 // Crash/error monitoring — mirrors the web's env-gated Sentry init. No-op
 // until EXPO_PUBLIC_SENTRY_DSN is set (so it ships inert and activates once a
-// mobile Sentry project DSN is provided at build time).
+// mobile Sentry project DSN is provided at build time). The native module
+// still autolinks; the @sentry/react-native Expo *plugin* is intentionally NOT
+// in app.json yet — it adds a release source-map upload that requires Sentry
+// org/project/auth (and a pnpm-approved @sentry/cli binary) and otherwise fails
+// the Android build. Re-add the plugin with that config when wiring a real DSN.
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 if (SENTRY_DSN) {
   Sentry.init({
