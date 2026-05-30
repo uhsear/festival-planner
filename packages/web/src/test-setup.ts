@@ -44,3 +44,11 @@ Object.defineProperty(navigator, 'vibrate', {
   writable: true,
   value: vi.fn(() => true),
 });
+
+// Stub Element.scrollTo — jsdom doesn't implement it. GridView/TimelineView
+// auto-scroll to "now" on mount, which only fires when the wall clock falls
+// within the mock festival's hours, so without this the grid test fails
+// non-deterministically depending on the time of day it runs.
+if (!Element.prototype.scrollTo) {
+  Element.prototype.scrollTo = vi.fn();
+}
