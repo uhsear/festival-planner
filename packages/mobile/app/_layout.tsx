@@ -1,10 +1,11 @@
+// MUST be first: configures AsyncStorage before any store module is imported
+// (and thus before zustand-persist hydrates). See bootstrap.ts.
+import '../bootstrap';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { configureStorage } from '@festie/shared/platform';
 import { configureApi, setAuthToken } from '@festie/shared/services';
 import { useAuthStore } from '@festie/shared/stores';
 import * as Sentry from '@sentry/react-native';
@@ -25,9 +26,6 @@ if (SENTRY_DSN) {
     tracesSampleRate: Number(process.env.EXPO_PUBLIC_SENTRY_TRACES_RATE ?? 0.05),
   });
 }
-
-// Configure platform adapters before any store hydrates.
-configureStorage(AsyncStorage);
 
 // Wire up 401 handling: attempt a token refresh, then logout on failure.
 configureApi({
