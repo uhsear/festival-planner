@@ -2,3 +2,10 @@ packages:
   - "shared"
   - "web"
   - "mobile"
+
+# pnpm v10 blocks dependency build scripts by default. Allow @sentry/cli to run
+# its postinstall, which downloads the sentry-cli binary that the
+# @sentry/react-native Gradle integration shells out to for release source-map
+# upload. Minimal allowlist — everything else stays blocked.
+onlyBuiltDependencies:
+  - "@sentry/cli"
