@@ -429,17 +429,25 @@ export default function SetDetailScreen() {
                     'https://*.spotify.com',
                   ]}
                   onShouldStartLoadWithRequest={(req) => {
-                    // Keep iframe navigation inside the WebView; open any
-                    // top-level spotify.com navigation in the system app.
+                    // Default-DENY: only the embed itself + in-frame Spotify
+                    // resource loads stay in the WebView. User clicks (Spotify
+                    // or not) open externally; any other origin is blocked so a
+                    // hijacked iframe can't navigate the WebView off-Spotify.
                     if (req.url === spotify.embedUrl) return true;
-                    if (
-                      req.navigationType === 'click' &&
-                      req.url.startsWith('https://open.spotify.com')
-                    ) {
+                    let host = '';
+                    try {
+                      host = new URL(req.url).hostname;
+                    } catch {
+                      return false;
+                    }
+                    const isSpotify = /(^|\.)(spotify\.com|scdn\.co|spotifycdn\.com)$/.test(host);
+                    if (req.navigationType === 'click') {
+                      // Top-level user navigation → hand off to the OS.
                       openLink(req.url);
                       return false;
                     }
-                    return true;
+                    // Non-click (iframe/resource): allow only Spotify hosts.
+                    return isSpotify;
                   }}
                 />
               </View>

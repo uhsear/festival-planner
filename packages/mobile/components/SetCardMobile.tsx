@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { FestivalSet, Priority } from '@festie/shared/types';
@@ -102,7 +102,7 @@ function PriorityButton({ option, active, onPress }: PriorityButtonProps) {
  * time, a conflict indicator, and a 3-level priority picker. All data and
  * callbacks come from the parent; this component holds no state.
  */
-export default function SetCardMobile({
+function SetCardMobileImpl({
   set,
   stageName,
   stageColor,
@@ -202,6 +202,37 @@ export default function SetCardMobile({
     </View>
   );
 }
+
+/**
+ * Re-render only when the displayed data changes. onPickChange/onPress identity
+ * is intentionally ignored: they're inline closures in the list renderer, but
+ * their behavior is stable (the row's set.id + the parent's useCallback'd
+ * handler), so churn in their identity carries no new information. This keeps a
+ * single pick/keystroke from re-rendering every visible card.
+ */
+function areEqual(prev: SetCardMobileProps, next: SetCardMobileProps): boolean {
+  if (
+    prev.set !== next.set ||
+    prev.stageName !== next.stageName ||
+    prev.stageColor !== next.stageColor ||
+    prev.myPick !== next.myPick ||
+    prev.hasConflict !== next.hasConflict ||
+    prev.hasNote !== next.hasNote
+  ) {
+    return false;
+  }
+  const a = prev.friendProfiles ?? [];
+  const b = next.friendProfiles ?? [];
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i]!.profileId !== b[i]!.profileId || a[i]!.priority !== b[i]!.priority) return false;
+  }
+  return true;
+}
+
+const SetCardMobile = memo(SetCardMobileImpl, areEqual);
+SetCardMobile.displayName = 'SetCardMobile';
+export default SetCardMobile;
 
 interface CrewClusterProps {
   friendProfiles: FriendProfile[];
