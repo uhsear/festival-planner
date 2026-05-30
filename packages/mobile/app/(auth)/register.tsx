@@ -58,12 +58,21 @@ export default function RegisterScreen() {
         <Text style={styles.title}>Festie</Text>
         <Text style={styles.subtitle}>Create your account</Text>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <Text
+            style={styles.error}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="assertive"
+          >
+            {error}
+          </Text>
+        ) : null}
 
         <TextInput
           style={styles.input}
           placeholder="Username"
           placeholderTextColor={colors.text.placeholder}
+          accessibilityLabel="Username"
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
@@ -78,6 +87,7 @@ export default function RegisterScreen() {
           style={styles.input}
           placeholder="Email"
           placeholderTextColor={colors.text.placeholder}
+          accessibilityLabel="Email"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -93,6 +103,7 @@ export default function RegisterScreen() {
           style={styles.input}
           placeholder="Password"
           placeholderTextColor={colors.text.placeholder}
+          accessibilityLabel="Password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -107,6 +118,7 @@ export default function RegisterScreen() {
           style={styles.input}
           placeholder="Confirm Password"
           placeholderTextColor={colors.text.placeholder}
+          accessibilityLabel="Confirm password"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
@@ -120,6 +132,9 @@ export default function RegisterScreen() {
           onPress={handleRegister}
           disabled={isLoading}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Create account"
+          accessibilityState={{ disabled: isLoading, busy: isLoading }}
         >
           {isLoading ? (
             <ActivityIndicator color={colors.text.onAccent} />
@@ -129,7 +144,11 @@ export default function RegisterScreen() {
         </TouchableOpacity>
 
         <Link href="/(auth)/login" asChild>
-          <TouchableOpacity style={styles.linkButton}>
+          <TouchableOpacity
+            style={styles.linkButton}
+            accessibilityRole="link"
+            accessibilityLabel="Sign in to an existing account"
+          >
             <Text style={styles.linkText}>
               Already have an account?{' '}
               <Text style={styles.linkTextAccent}>Sign in</Text>

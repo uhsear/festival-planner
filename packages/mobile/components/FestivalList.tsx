@@ -35,27 +35,36 @@ interface FestivalCardProps {
 }
 
 function FestivalCard({ festival, onPress, isSelecting }: FestivalCardProps) {
+  const dateRange = formatDateRange(festival.startDate, festival.endDate);
+  // Compose the card's pieces into one accessible name so a screen reader reads
+  // "<name>, <dates>, <location>" as a single button instead of 3 fragments.
+  const a11yLabel = [festival.name, dateRange, festival.location]
+    .filter(Boolean)
+    .join(', ');
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={() => onPress(festival.id)}
       activeOpacity={0.7}
       disabled={isSelecting}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      accessibilityState={{ disabled: isSelecting }}
     >
       <View style={styles.cardContent}>
         <Text style={styles.festivalName} numberOfLines={1}>
           {festival.name}
         </Text>
-        {formatDateRange(festival.startDate, festival.endDate) ? (
+        {dateRange ? (
           <View style={styles.metaRow}>
             <Ionicons
               name="calendar-outline"
               size={14}
               color={colors.text.secondary}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
             />
-            <Text style={styles.metaText}>
-              {formatDateRange(festival.startDate, festival.endDate)}
-            </Text>
+            <Text style={styles.metaText}>{dateRange}</Text>
           </View>
         ) : null}
         {festival.location ? (
@@ -64,6 +73,8 @@ function FestivalCard({ festival, onPress, isSelecting }: FestivalCardProps) {
               name="location-outline"
               size={14}
               color={colors.text.secondary}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
             />
             <Text style={styles.metaText} numberOfLines={1}>
               {festival.location}
@@ -75,6 +86,8 @@ function FestivalCard({ festival, onPress, isSelecting }: FestivalCardProps) {
         name="chevron-forward"
         size={20}
         color={colors.text.muted}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
       />
     </TouchableOpacity>
   );

@@ -65,12 +65,21 @@ export default function ForgotPasswordScreen() {
 
         {!submitted ? (
           <>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? (
+              <Text
+                style={styles.error}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+              >
+                {error}
+              </Text>
+            ) : null}
 
             <TextInput
               style={styles.input}
               placeholder="you@example.com"
               placeholderTextColor={colors.text.placeholder}
+              accessibilityLabel="Email address"
               value={email}
               onChangeText={(v) => {
                 setEmail(v);
@@ -83,7 +92,15 @@ export default function ForgotPasswordScreen() {
               returnKeyType="go"
               onSubmitEditing={handleSubmit}
             />
-            {emailError ? <Text style={styles.error}>{emailError}</Text> : null}
+            {emailError ? (
+              <Text
+                style={styles.error}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+              >
+                {emailError}
+              </Text>
+            ) : null}
             <Text style={styles.helper}>
               We'll send you a link to reset your password.
             </Text>
@@ -95,6 +112,7 @@ export default function ForgotPasswordScreen() {
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel="Send reset link"
+              accessibilityState={{ disabled: isLoading, busy: isLoading }}
             >
               {isLoading ? (
                 <ActivityIndicator color={colors.text.onAccent} />
