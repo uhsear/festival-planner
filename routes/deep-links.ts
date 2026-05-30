@@ -34,38 +34,41 @@ export default function createDeepLinkRoutes(deps: any) {
         apps: [],
         details: [{
           appIDs: [
-            `${config.APPLE_TEAM_ID}.com.asirkhan.rave`,
+            `${config.APPLE_TEAM_ID}.us.festie.app`,
           ],
-          paths: ['/festival/*', '/profile/*', '/invite/*', '/join/*'],
+          paths: ['/set/*'],
           components: [
-            { '/': '/festival/*' },
-            { '/': '/profile/*' },
-            { '/': '/join/*' },
+            { '/': '/set/*' },
           ],
         }],
       },
       webcredentials: {
-        apps: [`${config.APPLE_TEAM_ID}.com.asirkhan.rave`],
+        apps: [`${config.APPLE_TEAM_ID}.us.festie.app`],
       },
     });
   });
 
-  // Android asset links for App Links (Android deep linking)
+  // Android App Links for the Festie app (us.festie.app). Fingerprints come
+  // from ANDROID_CERT_FINGERPRINTS (comma-separated SHA-256 in colon-hex) when
+  // set, otherwise fall back to the known EAS signing-cert fingerprint so links
+  // verify out of the box. The fingerprint is public (it's in every signed APK),
+  // not a secret. Add the Play App Signing fingerprint here once on the Play Store.
   router.get('/assetlinks.json', (req: any, res: any) => {
-    // SECURITY: Validate that ANDROID_CERT_FINGERPRINTS is configured (not empty/placeholder)
-    if (!config.ANDROID_CERT_FINGERPRINTS || config.ANDROID_CERT_FINGERPRINTS.trim() === '') {
-      res.status(503);
-      return res.json({ error: 'Android certificate fingerprints not configured' });
-    }
+    const FALLBACK_SHA256 =
+      '0C:49:FB:87:94:C5:D4:39:F8:BE:BD:D1:D3:78:B9:CD:B8:40:7E:4E:4C:A3:73:96:73:57:13:79:B8:92:6D:01';
+    const raw =
+      config.ANDROID_CERT_FINGERPRINTS && config.ANDROID_CERT_FINGERPRINTS.trim() !== ''
+        ? config.ANDROID_CERT_FINGERPRINTS
+        : FALLBACK_SHA256;
+    const fingerprints = raw.split(',').map((s: string) => s.trim()).filter(Boolean);
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'public, max-age=86400');
     return res.json([{
       relation: ['delegate_permission/common.handle_all_urls'],
       target: {
         namespace: 'android_app',
-        package_name: 'com.asirkhan.rave.twa',
-        sha256_cert_fingerprints: config.ANDROID_CERT_FINGERPRINTS
-          .split(',').map((s: string) => s.trim()),
+        package_name: 'us.festie.app',
+        sha256_cert_fingerprints: fingerprints,
       },
     }]);
   });

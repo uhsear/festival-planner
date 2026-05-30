@@ -78,6 +78,27 @@ export default function createFestivalsRoutes(deps: any) {
     }
   });
 
+  // Resolve which festival a set belongs to — powers https deep links
+  // (festie.us/set/:id): web + mobile look up the festival, load it, then open
+  // the set. Public, no user data; just the festivalId. Declared before `/:id`
+  // for clarity (the two-segment path can't collide with the one-segment one).
+  router.get('/locate-set/:setId', rateLimit(120, 'festival-locate-set'), async (req: any, res: any) => {
+    try {
+      const setId = String(req.params.setId || '');
+      if (!setId) return sendError(res, 400, 'Set ID required', ErrorCodes.INVALID_INPUT);
+      const result = await stores.pool.query(
+        'SELECT festival_id FROM festival_sets WHERE id = $1 LIMIT 1',
+        [setId],
+      );
+      if (!result.rows.length) return sendError(res, 404, 'Set not found', ErrorCodes.NOT_FOUND);
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return sendSuccess(res, { festivalId: result.rows[0].festival_id });
+    } catch (error: any) {
+      log.error('locate-set failed', { error: error.message });
+      return sendError(res, 500, 'Failed to locate set', ErrorCodes.INTERNAL_ERROR);
+    }
+  });
+
   // Tiered data loading (OpenViking L0/L1/L2 pattern):
   //   ?depth=0 → name, id, location only (already served by GET /)
   //   ?depth=1 → stages + days with set names (no profiles/messages) — default for mobile initial load

@@ -50,6 +50,7 @@ const loadRegister      = () => import('./routes/register');
 const loadForgot        = () => import('./routes/forgot-password');
 const loadAccount       = () => import('./routes/account');
 const loadCompare       = () => import('./routes/compare');
+const loadSet           = () => import('./routes/set');
 
 // Generic minimal fallback for auth/admin routes — these chunks are tiny and
 // a layout-matched skeleton isn't worth the bytes. Main-tab routes below get
@@ -69,6 +70,7 @@ const FestivalModeView = withSkeleton(lazy(loadFestivalMode),  FestivalModeSkele
 const WrapView         = withSkeleton(lazy(loadWrap),          WrapSkeleton);
 const AccountPage      = withSkeleton(lazy(loadAccount),       AccountSkeleton);
 const CompareView      = withSkeleton(lazy(loadCompare),       MinimalFallback);
+const SetDeepLinkView  = withSkeleton(lazy(loadSet),           CardsSkeleton);
 const AdminPanel       = withSkeleton(lazy(loadAdmin),         MinimalFallback);
 const LoginPage        = withSkeleton(lazy(loadLogin),         MinimalFallback);
 const RegisterPage     = withSkeleton(lazy(loadRegister),      MinimalFallback);
@@ -207,6 +209,14 @@ const meRoute = new Route({
   },
 });
 
+// /set/:setId — shareable artist deep link. Resolves the set's festival, opens
+// its detail panel, then drops the user on the schedule (see routes/set.tsx).
+const setRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: '/set/$setId',
+  component: SetDeepLinkView,
+});
+
 const adminRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/admin',
@@ -233,6 +243,7 @@ const routeTree = rootRoute.addChildren([
   accountRoute,
   meRoute,
   compareRoute,
+  setRoute,
   adminRoute,
 ]);
 
