@@ -52,3 +52,6 @@ mobile-loop-*/
 
 *storybook.log
 storybook-static
+
+# Orphaned root pnpm lock — the real workspace is packages/ (uses packages/pnpm-lock.yaml). Root installs via npm.
+/pnpm-lock.yaml

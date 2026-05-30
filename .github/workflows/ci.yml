@@ -38,6 +38,9 @@ jobs:
       - name: Lint frontend (packages/web)
         working-directory: packages
         run: pnpm --filter @festie/web lint
+      - name: Lint shared (packages/shared)
+        working-directory: packages
+        run: pnpm --filter @festie/shared lint
 
   test:
     runs-on: ubuntu-latest
@@ -107,6 +110,45 @@ jobs:
           name: coverage-report
           path: coverage/
 
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - name: Install web workspace deps
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
+      - name: Test shared (vitest)
+        working-directory: packages
+        run: pnpm --filter @festie/shared test
+      - name: Test web (vitest)
+        working-directory: packages
+        run: pnpm --filter @festie/web test
+
+  mobile-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - name: Install web workspace deps
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck (packages/mobile)
+        working-directory: packages
+        run: pnpm --filter @festie/mobile typecheck
+
   security:
     runs-on: ubuntu-latest
     steps:
@@ -115,8 +157,20 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
       - run: npm ci
       - run: npm audit --audit-level=high
+      - name: Install web workspace deps
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
+      - name: Audit frontend (pnpm, prod deps)
+        working-directory: packages
+        # Advisory for now (won't block) — surfaces the React/Expo/RN graph that
+        # `npm audit` (backend-only) never reached. --prod skips dev-only deprecations.
+        run: pnpm audit --prod --audit-level=high || true
 
   quality:
     runs-on: ubuntu-latest
@@ -153,6 +207,9 @@ jobs:
       - name: Typecheck (packages/web)
         working-directory: packages
         run: pnpm --filter @festie/web typecheck
+      - name: Typecheck (packages/shared)
+        working-directory: packages
+        run: pnpm --filter @festie/shared typecheck
       - name: Install pipx
         run: |
           python3 -m pip install --user pipx
@@ -206,7 +263,7 @@ jobs:
         run: pnpm exec bundlemon
 
   docker:
-    needs: test
+    needs: [test, frontend-tests, mobile-typecheck]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
