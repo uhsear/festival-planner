@@ -334,6 +334,10 @@ export default function createAccountRoutes(deps: any) {
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `festie-data-${timestamp}.json`;
+      // The body is the user's full PII dump — never cache it (browser disk
+      // cache / shared machine / intermediary proxy).
+      setNoStore(res);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
 

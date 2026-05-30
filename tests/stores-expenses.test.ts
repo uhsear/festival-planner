@@ -351,7 +351,7 @@ describe('expenses store — getBalances()', () => {
       crew_id: 'crew-1',
       paid_by: 'user-1',
       description: 'Dinner',
-      amount: 100,
+      amount: '100.00', // pg returns NUMERIC as a string — must not string-concat
       split_with: '["user-1","user-2"]',
       category: 'food',
       created_at: '2026-05-01T00:00:00Z',
@@ -386,7 +386,7 @@ describe('expenses store — getBalances()', () => {
       crew_id: 'crew-1',
       paid_by: 'user-1',
       description: 'Parking',
-      amount: 90,
+      amount: '90.00',
       split_with: '[]',
       category: 'transport',
       created_at: '2026-05-01T00:00:00Z',
@@ -422,7 +422,7 @@ describe('expenses store — getBalances()', () => {
         crew_id: 'crew-1',
         paid_by: 'user-1',
         description: 'Uber',
-        amount: 40,
+        amount: '40.00',
         split_with: '["user-1","user-2"]',
         category: 'transport',
         created_at: '2026-05-01T00:00:00Z',
@@ -432,7 +432,7 @@ describe('expenses store — getBalances()', () => {
         crew_id: 'crew-1',
         paid_by: 'user-2',
         description: 'Food',
-        amount: 60,
+        amount: '60.00',
         split_with: '["user-1","user-2"]',
         category: 'food',
         created_at: '2026-05-02T00:00:00Z',
@@ -456,6 +456,34 @@ describe('expenses store — getBalances()', () => {
     // user-2: paid 60, share (20 + 30) = 50 => balance = 60 - 50 = +10
     const bob = result.find((r: any) => r.userId === 'user-2');
     assert.strictEqual(bob!.balance, 10);
+  });
+
+  it('distributes remainder pennies so an uneven split is exactly zero-sum ($10/3)', async () => {
+    const expenses = [{
+      id: 'exp-1',
+      crew_id: 'crew-1',
+      paid_by: 'user-1',
+      description: 'Snacks',
+      amount: '10.00',
+      split_with: '["user-1","user-2","user-3"]',
+      category: 'food',
+      created_at: '2026-05-01T00:00:00Z',
+    }];
+    const members = [
+      { user_id: 'user-1', username: 'alice' },
+      { user_id: 'user-2', username: 'bob' },
+      { user_id: 'user-3', username: 'charlie' },
+    ];
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
+    const store = createExpensesStore(pool as any);
+
+    const result = await store.getBalances('crew-1');
+    // 1000c / 3 = 334 + 333 + 333. Payer: +1000 - 334 = +6.66; others -3.33.
+    const total = result.reduce((s: number, r: any) => s + r.balance, 0);
+    assert.ok(Math.abs(total) < 1e-9, `balances must be zero-sum, got ${total}`);
+    assert.strictEqual(result.find((r: any) => r.userId === 'user-1')!.balance, 6.66);
+    assert.strictEqual(result.find((r: any) => r.userId === 'user-2')!.balance, -3.33);
+    assert.strictEqual(result.find((r: any) => r.userId === 'user-3')!.balance, -3.33);
   });
 
   it('returns all zero balances when no expenses exist', async () => {
@@ -543,14 +571,15 @@ describe('expenses store — getBalances()', () => {
     assert.strictEqual(result[0]!.username, 'alice');
   });
 
-  it('rounds balances to 2 decimal places', async () => {
-    // $100 split 3 ways = $33.333... each
+  it('rounds balances to 2 decimal places and stays zero-sum on an odd split', async () => {
+    // $100 split 3 ways: cent-accurate distribution keeps the ledger zero-sum
+    // (the old float math left a stray penny: 66.67 - 33.33 - 33.33 = 0.01).
     const expenses = [{
       id: 'exp-round',
       crew_id: 'crew-1',
       paid_by: 'user-1',
       description: 'Odd split',
-      amount: 100,
+      amount: '100.00',
       split_with: '["user-1","user-2","user-3"]',
       category: 'other',
       created_at: '2026-05-01T00:00:00Z',
@@ -568,15 +597,15 @@ describe('expenses store — getBalances()', () => {
 
     const result = await store.getBalances('crew-1');
 
-    // user-1: 100 - 33.33 = 66.67
+    // 10000c/3 = 3334 + 3333 + 3333. user-1: +10000 - 3334 = +66.66; others -33.33.
     const alice = result.find((r: any) => r.userId === 'user-1');
-    assert.strictEqual(alice!.balance, 66.67);
-    // user-2: 0 - 33.33 = -33.33
+    assert.strictEqual(alice!.balance, 66.66);
     const bob = result.find((r: any) => r.userId === 'user-2');
     assert.strictEqual(bob!.balance, -33.33);
-    // user-3: 0 - 33.33 = -33.33
     const charlie = result.find((r: any) => r.userId === 'user-3');
     assert.strictEqual(charlie!.balance, -33.33);
+    const total = result.reduce((s: number, r: any) => s + r.balance, 0);
+    assert.ok(Math.abs(total) < 1e-9, `balances must be zero-sum, got ${total}`);
   });
 
   it('parses split_with from JSON string in expenses', async () => {
@@ -676,14 +705,16 @@ describe('expenses store — getBalances()', () => {
     assert.strictEqual(bob!.balance, -50);
   });
 
-  it('skips share deduction for split members not in the crew', async () => {
-    // split_with includes user-99 who is not a crew member
+  it('redistributes shares for split members not in the crew (zero-sum)', async () => {
+    // split_with includes user-99 who is not a crew member; their share must
+    // not silently vanish (old behavior left the ledger +$30 non-zero-sum) —
+    // it redistributes across the current members.
     const expenses = [{
       id: 'exp-ghost',
       crew_id: 'crew-1',
       paid_by: 'user-1',
       description: 'Ghost split',
-      amount: 90,
+      amount: '90.00',
       split_with: '["user-1","user-2","user-99"]',
       category: 'other',
       created_at: '2026-05-01T00:00:00Z',
@@ -700,13 +731,13 @@ describe('expenses store — getBalances()', () => {
 
     const result = await store.getBalances('crew-1');
 
-    // Share is 90/3 = 30 per person, but user-99's deduction is skipped
-    // user-1: 90 - 30 = 60
+    // user-99 dropped; 9000c/2 = 4500 each. user-1: +9000 - 4500 = +45; user-2: -45.
     const alice = result.find((r: any) => r.userId === 'user-1');
-    assert.strictEqual(alice!.balance, 60);
-    // user-2: 0 - 30 = -30
+    assert.strictEqual(alice!.balance, 45);
     const bob = result.find((r: any) => r.userId === 'user-2');
-    assert.strictEqual(bob!.balance, -30);
+    assert.strictEqual(bob!.balance, -45);
+    const total = result.reduce((s: number, r: any) => s + r.balance, 0);
+    assert.ok(Math.abs(total) < 1e-9, `balances must be zero-sum, got ${total}`);
   });
 
   it('makes two SQL queries: expenses then members', async () => {

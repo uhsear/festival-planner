@@ -110,32 +110,49 @@ export function createExpensesStore(pool: Pool) {
 
       const memberIds = members.map((m: any) => m.user_id);
       const nameMap: Record<string, string> = Object.fromEntries(members.map((m: any) => [m.user_id, m.username]));
-      const balances: Record<string, number> = {};
-      memberIds.forEach((id: string) => { balances[id] = 0; });
+      // Work in integer cents to avoid float drift and guarantee a zero-sum
+      // ledger. node-postgres returns NUMERIC as a JS string, so amounts must be
+      // coerced with Number() — `+=` on the raw value would string-concatenate.
+      const cents: Record<string, number> = {};
+      memberIds.forEach((id: string) => { cents[id] = 0; });
 
       for (const exp of expenses) {
         let splitWith = exp.split_with || [];
         if (typeof exp.split_with === 'string') {
           try { splitWith = JSON.parse(exp.split_with); } catch { splitWith = []; }
         }
-        // If splitWith is empty, split among all members
-        const splitMembers = splitWith.length > 0 ? splitWith : memberIds;
+        // Split among the named members (empty = whole crew); drop any id that
+        // is no longer a current member so removed members can't leave the
+        // ledger non-zero-sum — their share redistributes across the rest.
+        const splitMembers = (splitWith.length > 0 ? splitWith : memberIds)
+          .filter((uid: string) => cents[uid] !== undefined);
         const shareCount = splitMembers.length;
         if (shareCount === 0) continue;
-        const share = exp.amount / shareCount;
 
-        // Payer gets credit
-        if (balances[exp.paid_by] !== undefined) balances[exp.paid_by] += exp.amount;
-        // Everyone in split owes their share
+        const amountCents = Math.round(Number(exp.amount) * 100);
+        if (!Number.isFinite(amountCents)) continue;
+
+        // Payer fronted the whole amount.
+        const payerBal = cents[exp.paid_by];
+        if (payerBal !== undefined) cents[exp.paid_by] = payerBal + amountCents;
+
+        // Each member owes an equal share; spread the leftover pennies one each
+        // across the first `remainder` members so the shares sum to the total.
+        const baseShare = Math.floor(amountCents / shareCount);
+        let remainder = amountCents - baseShare * shareCount;
         splitMembers.forEach((uid: string) => {
-          if (balances[uid] !== undefined) balances[uid] -= share;
+          const cur = cents[uid];
+          if (cur === undefined) return;
+          const owed = baseShare + (remainder > 0 ? 1 : 0);
+          if (remainder > 0) remainder -= 1;
+          cents[uid] = cur - owed;
         });
       }
 
       return memberIds.map((id: string) => ({
         userId: id,
         username: nameMap[id],
-        balance: Math.round((balances[id] ?? 0) * 100) / 100,
+        balance: (cents[id] ?? 0) / 100,
       }));
     },
   };
