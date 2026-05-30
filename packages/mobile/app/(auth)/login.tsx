@@ -44,12 +44,21 @@ export default function LoginScreen() {
         <Text style={styles.title}>Festie</Text>
         <Text style={styles.subtitle}>Sign in to your account</Text>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <Text
+            style={styles.error}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="assertive"
+          >
+            {error}
+          </Text>
+        ) : null}
 
         <TextInput
           style={styles.input}
           placeholder="Username"
           placeholderTextColor={colors.text.placeholder}
+          accessibilityLabel="Username"
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
@@ -64,6 +73,7 @@ export default function LoginScreen() {
           style={styles.input}
           placeholder="Password"
           placeholderTextColor={colors.text.placeholder}
+          accessibilityLabel="Password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -77,6 +87,9 @@ export default function LoginScreen() {
           onPress={handleLogin}
           disabled={isLoading}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Sign in"
+          accessibilityState={{ disabled: isLoading, busy: isLoading }}
         >
           {isLoading ? (
             <ActivityIndicator color={colors.text.onAccent} />
@@ -86,13 +99,21 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <Link href="/(auth)/forgot-password" asChild>
-          <TouchableOpacity style={styles.forgotButton}>
+          <TouchableOpacity
+            style={styles.forgotButton}
+            accessibilityRole="link"
+            accessibilityLabel="Forgot password?"
+          >
             <Text style={styles.linkTextAccent}>Forgot password?</Text>
           </TouchableOpacity>
         </Link>
 
         <Link href="/(auth)/register" asChild>
-          <TouchableOpacity style={styles.linkButton}>
+          <TouchableOpacity
+            style={styles.linkButton}
+            accessibilityRole="link"
+            accessibilityLabel="Sign up for an account"
+          >
             <Text style={styles.linkText}>
               Don't have an account?{' '}
               <Text style={styles.linkTextAccent}>Sign up</Text>
