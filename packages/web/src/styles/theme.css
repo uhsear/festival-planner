@@ -388,10 +388,8 @@
   --color-stage-fallback: #8787a8;
   /* Elevated sticky band (lighter than the canvas + --shadow-sticky). */
   --color-bg-sticky: #14142a;
-  /* Theme-aware chrome surface (header / sub-header / bottom nav). Paired
-     with backdrop-blur/saturate so the chrome reads as frosted glass. Dark
-     theme keeps the original near-black glass; light/daylight override to a
-     frosted-white so the chrome stays legible in sunlight. */
+  /* Chrome surface (header / sub-header / bottom nav). Paired with
+     backdrop-blur/saturate so the chrome reads as frosted near-black glass. */
   --color-bg-chrome: rgba(10, 10, 20, 0.82);
   /* Active day-tab pill: a deliberately darkened coral — white text on it
      measures ~4.9:1 (AA), whereas white on brand coral #ff3366 is ~2.6:1. */

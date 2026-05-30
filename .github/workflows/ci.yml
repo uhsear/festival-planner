@@ -183,27 +183,6 @@ jobs:
         working-directory: packages/web
         run: pnpm exec lhci autorun --config=.lighthouserc.cjs
 
-  a11y:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
-      - name: Install web workspace deps
-        working-directory: packages
-        run: pnpm install --frozen-lockfile
-      - name: Install Playwright Chromium
-        working-directory: packages/web
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Run accessibility gate (axe on light + daylight themes)
-        working-directory: packages/web
-        run: pnpm run test:a11y
-
   bundle-size:
     runs-on: ubuntu-latest
     steps:

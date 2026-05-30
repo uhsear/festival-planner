@@ -34,7 +34,7 @@ describe('Header', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAuthStore.mockReturnValue(null);
-    localStorage.setItem('fp-theme', 'dark');
+    document.documentElement.removeAttribute('data-theme');
   });
 
   it('renders the FESTIE logo', () => {
@@ -112,22 +112,18 @@ describe('Header', () => {
     });
   });
 
-  describe('theme toggle', () => {
-    it('renders theme toggle button', () => {
+  describe('dark-theme-only', () => {
+    it('does not render a theme toggle control', () => {
       render(<Header />);
-      expect(screen.getByLabelText('Toggle theme (dark, light, daylight)')).toBeInTheDocument();
+      expect(screen.queryByLabelText(/toggle theme/i)).not.toBeInTheDocument();
     });
 
-    it('cycles theme dark -> light -> daylight -> dark on click', async () => {
-      const user = userEvent.setup();
+    it('clears any stale persisted theme preference and data-theme attribute', () => {
+      localStorage.setItem('fp-theme', 'daylight');
+      document.documentElement.setAttribute('data-theme', 'daylight');
       render(<Header />);
-      const toggle = screen.getByLabelText('Toggle theme (dark, light, daylight)');
-      await user.click(toggle);
-      expect(localStorage.getItem('fp-theme')).toBe('light');
-      await user.click(toggle);
-      expect(localStorage.getItem('fp-theme')).toBe('daylight');
-      await user.click(toggle);
-      expect(localStorage.getItem('fp-theme')).toBe('dark');
+      expect(localStorage.getItem('fp-theme')).toBeNull();
+      expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
     });
   });
 
