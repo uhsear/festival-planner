@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BottomNav from './BottomNav';
 
@@ -56,23 +56,23 @@ describe('BottomNav', () => {
     expect(screen.getByLabelText('View Me')).toBeInTheDocument();
   });
 
-  it('marks the active tab with aria-selected=true', () => {
+  it('marks the active item with aria-current=page', () => {
     render(<BottomNav />);
     const scheduleTab = screen.getByLabelText('View Schedule');
-    expect(scheduleTab).toHaveAttribute('aria-selected', 'true');
+    expect(scheduleTab).toHaveAttribute('aria-current', 'page');
   });
 
-  it('marks inactive tabs with aria-selected=false', () => {
+  it('does not mark inactive items as current', () => {
     render(<BottomNav />);
     const timelineTab = screen.getByLabelText('View Timeline');
-    expect(timelineTab).toHaveAttribute('aria-selected', 'false');
+    expect(timelineTab).not.toHaveAttribute('aria-current');
   });
 
   it('treats "/" as equivalent to "/cards" for active state', () => {
     mockLocation.pathname = '/';
     render(<BottomNav />);
     const scheduleTab = screen.getByLabelText('View Schedule');
-    expect(scheduleTab).toHaveAttribute('aria-selected', 'true');
+    expect(scheduleTab).toHaveAttribute('aria-current', 'page');
   });
 
   it('navigates when a tab is clicked', async () => {
@@ -82,30 +82,30 @@ describe('BottomNav', () => {
     expect(mockNavigate).toHaveBeenCalledWith({ to: '/timeline' });
   });
 
-  it('renders a tablist role', () => {
+  it('renders a navigation landmark', () => {
     render(<BottomNav />);
-    expect(screen.getByRole('tablist')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
   });
 
-  it('renders tab roles for each nav item', () => {
+  it('renders a button for each nav item (3 for guests)', () => {
     render(<BottomNav />);
-    const tabs = screen.getAllByRole('tab');
-    expect(tabs.length).toBe(3); // Guest: Schedule, Timeline, Grid
+    const nav = screen.getByRole('navigation', { name: 'Primary' });
+    expect(within(nav).getAllByRole('button').length).toBe(3); // Guest: Schedule, Timeline, Grid
   });
 
-  it('renders 6 tabs for logged-in user', () => {
+  it('renders 6 nav buttons for logged-in user', () => {
     mockUser = { id: 'u1', username: 'alice' };
     render(<BottomNav />);
-    const tabs = screen.getAllByRole('tab');
-    expect(tabs.length).toBe(6);
+    const nav = screen.getByRole('navigation', { name: 'Primary' });
+    expect(within(nav).getAllByRole('button').length).toBe(6);
   });
 
-  it('sets tabIndex=0 for active tab and -1 for others', () => {
+  it('keeps every nav item keyboard-reachable (no roving tabindex)', () => {
     render(<BottomNav />);
-    const activeTab = screen.getByLabelText('View Schedule');
-    const inactiveTab = screen.getByLabelText('View Timeline');
-    expect(activeTab).toHaveAttribute('tabindex', '0');
-    expect(inactiveTab).toHaveAttribute('tabindex', '-1');
+    // Regression guard for the old keyboard trap: inactive items must not be
+    // removed from the tab order via tabIndex=-1.
+    expect(screen.getByLabelText('View Schedule')).not.toHaveAttribute('tabindex', '-1');
+    expect(screen.getByLabelText('View Timeline')).not.toHaveAttribute('tabindex', '-1');
   });
 
   it('renders label text for each tab', () => {

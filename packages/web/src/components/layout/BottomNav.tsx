@@ -144,20 +144,17 @@ export default function BottomNav() {
       )}
       data-bottom-nav
     >
-      <div
+      <nav
         className="flex justify-around w-full max-md:gap-0.5"
-        role="tablist"
-        aria-label="Mobile navigation"
+        aria-label="Primary"
       >
         {tabs.map((tab) => {
           const active = isActive(tab.href);
           return (
             <button
               key={tab.href}
-              role="tab"
-              aria-selected={active}
-              aria-controls="main-content"
-              tabIndex={active ? 0 : -1}
+              type="button"
+              aria-current={active ? 'page' : undefined}
               aria-label={`View ${tab.label}`}
               className={cn(
                 'flex flex-col items-center gap-1 px-3 py-2',
@@ -189,7 +186,7 @@ export default function BottomNav() {
             </button>
           );
         })}
-      </div>
+      </nav>
     </footer>
   );
 }

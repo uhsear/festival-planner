@@ -57,16 +57,16 @@ describe('Header', () => {
     it('shows Schedule, Timeline, Grid tabs when not logged in', () => {
       mockAuthStore.mockReturnValue(null);
       render(<Header />);
-      expect(screen.getByRole('tab', { name: 'Schedule' })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: 'Timeline' })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: 'Grid' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Schedule' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Timeline' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Grid' })).toBeInTheDocument();
     });
 
     it('does not show My Picks or Crew tabs when not logged in', () => {
       mockAuthStore.mockReturnValue(null);
       render(<Header />);
-      expect(screen.queryByRole('tab', { name: 'My Picks' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('tab', { name: 'Crew' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'My Picks' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Crew' })).not.toBeInTheDocument();
     });
   });
 
@@ -74,11 +74,11 @@ describe('Header', () => {
     it('shows all 5 tabs when logged in', () => {
       mockAuthStore.mockReturnValue({ id: '1', username: 'test' });
       render(<Header />);
-      expect(screen.getByRole('tab', { name: 'Schedule' })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: 'Timeline' })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: 'Grid' })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: 'My Picks' })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: 'Crew' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Schedule' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Timeline' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Grid' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'My Picks' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Crew' })).toBeInTheDocument();
     });
   });
 
@@ -86,20 +86,20 @@ describe('Header', () => {
     it('marks Schedule as active on /cards', () => {
       vi.mocked(useLocation).mockReturnValue({ pathname: '/cards' } as ReturnType<typeof useLocation>);
       render(<Header />);
-      expect(screen.getByRole('tab', { name: 'Schedule' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('button', { name: 'Schedule' })).toHaveAttribute('aria-current', 'page');
     });
 
     it('marks Schedule as active on /', () => {
       vi.mocked(useLocation).mockReturnValue({ pathname: '/' } as ReturnType<typeof useLocation>);
       render(<Header />);
-      expect(screen.getByRole('tab', { name: 'Schedule' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('button', { name: 'Schedule' })).toHaveAttribute('aria-current', 'page');
     });
 
     it('marks Timeline as active on /timeline', () => {
       vi.mocked(useLocation).mockReturnValue({ pathname: '/timeline' } as ReturnType<typeof useLocation>);
       render(<Header />);
-      expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
-      expect(screen.getByRole('tab', { name: 'Schedule' })).toHaveAttribute('aria-selected', 'false');
+      expect(screen.getByRole('button', { name: 'Timeline' })).toHaveAttribute('aria-current', 'page');
+      expect(screen.getByRole('button', { name: 'Schedule' })).not.toHaveAttribute('aria-current');
     });
   });
 
@@ -107,7 +107,7 @@ describe('Header', () => {
     it('navigates when a tab is clicked', async () => {
       const user = userEvent.setup();
       render(<Header />);
-      await user.click(screen.getByRole('tab', { name: 'Timeline' }));
+      await user.click(screen.getByRole('button', { name: 'Timeline' }));
       expect(mockNavigate).toHaveBeenCalledWith({ to: '/timeline' });
     });
   });
