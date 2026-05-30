@@ -27,6 +27,17 @@ export default function createExpenseRoutes(deps: any) {
 
       const { description, amount, splitWith, category } = req.validatedBody;
 
+      // Every split target must be a current crew member, with no duplicates —
+      // otherwise a non-member's share is counted but never owed, leaving the
+      // ledger non-zero-sum.
+      const memberIds = new Set((await stores.crews.getMembers(crewId)).map((m: any) => m.userId));
+      if (new Set(splitWith).size !== splitWith.length) {
+        return sendError(res, 400, 'splitWith contains duplicate users', ErrorCodes.INVALID_INPUT);
+      }
+      if (splitWith.some((id: string) => !memberIds.has(id))) {
+        return sendError(res, 400, 'splitWith includes users who are not crew members', ErrorCodes.INVALID_INPUT);
+      }
+
       const expense = await stores.expenses.create({
         crewId,
         paidBy: req.user.userId,
@@ -88,6 +99,14 @@ export default function createExpenseRoutes(deps: any) {
       const member = await stores.crews.getMember(crewId, req.user.userId);
       if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
       const { toUserId, amount } = req.validatedBody;
+      // The settlement target must be a different current crew member.
+      if (toUserId === req.user.userId) {
+        return sendError(res, 400, 'Cannot settle with yourself', ErrorCodes.INVALID_INPUT);
+      }
+      const settleMemberIds = new Set((await stores.crews.getMembers(crewId)).map((m: any) => m.userId));
+      if (!settleMemberIds.has(toUserId)) {
+        return sendError(res, 400, 'Settlement target is not a crew member', ErrorCodes.INVALID_INPUT);
+      }
       const settlement = await stores.expenses.create({
         crewId,
         paidBy: req.user.userId,

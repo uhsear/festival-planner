@@ -548,7 +548,9 @@ export type RatingCreateInput = z.infer<typeof ratingCreateSchema>;
 export const expenseCreateSchema = z.object({
   description: z.string().min(1).max(200),
   amount: z.number().positive(),
-  splitWith: z.array(z.number().int()).min(1),
+  // User IDs are TEXT (e.g. "user-<uuid>"), not integers — clients send strings.
+  // Typing these as numbers 400'd every real expense create/settle.
+  splitWith: z.array(z.string().min(1)).min(1),
   category: z.string().max(50).optional(),
 });
 export type ExpenseCreateInput = z.infer<typeof expenseCreateSchema>;
@@ -625,7 +627,7 @@ export type CrewListQueryInput = z.infer<typeof crewListQuery>;
 
 // ── Expense settle schema (extended with amount) ──────────────
 export const expenseSettleFullSchema = z.object({
-  toUserId: z.number().int(),
+  toUserId: z.string().min(1),
   amount: z.number().positive(),
 });
 export type ExpenseSettleFullInput = z.infer<typeof expenseSettleFullSchema>;
