@@ -68,14 +68,14 @@ describe('SubHeader layout density', () => {
 
   it('keeps day tabs visible with consistent space-3 gap', () => {
     render(<SubHeader dayOnly={false} festivalOnly={false} />);
-    const tabs = screen.getByRole('tablist', { name: 'Festival days' });
+    const tabs = screen.getByRole('group', { name: 'Festival days' });
     expect(tabs.className).toContain('gap-[var(--space-3)]');
-    expect(screen.getByRole('tab', { name: 'Fri' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Day: Fri' })).toBeInTheDocument();
   });
 
   it('hides day tabs and search when festivalOnly is set (behavior preserved)', () => {
     render(<SubHeader dayOnly={true} festivalOnly={true} />);
-    expect(screen.queryByRole('tablist', { name: 'Festival days' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Festival days' })).not.toBeInTheDocument();
     expect(screen.queryByRole('search')).not.toBeInTheDocument();
   });
 

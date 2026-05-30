@@ -123,7 +123,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
               'day-tabs',
               'flex gap-[var(--space-3)] snap-x snap-mandatory scroll-smooth touch-pan-y',
             )}
-            role="tablist"
+            role="group"
             aria-label="Festival days"
             {...swipeDaysBind()}
           >
@@ -148,10 +148,9 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                         ]
                       : 'bg-bg-card border border-border-light text-text-secondary',
                   )}
-                  role="tab"
-                  aria-selected={isActive}
-                  aria-controls="main-content"
-                  tabIndex={isActive ? 0 : -1}
+                  type="button"
+                  aria-pressed={isActive}
+                  aria-label={`Day: ${day.label || day.date}`}
                   onClick={() => handleDaySelect(i)}
                 >
                   {day.label || day.date}
@@ -173,7 +172,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
             <div
               ref={stageScrollRef}
               className={cn('filter-stage', 'flex gap-[var(--space-3)] flex-wrap')}
-              role="tablist"
+              role="group"
               aria-label="Filter by stage"
             >
               {stages.map((stage) => {
@@ -189,9 +188,9 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                       isActive && 'border-current',
                     )}
                     style={style}
-                    role="tab"
-                    aria-selected={isActive}
-                    aria-label={stage.name + (isActive ? ' (selected)' : '')}
+                    type="button"
+                    aria-pressed={isActive}
+                    aria-label={stage.name}
                     onClick={() => handleStageToggle(stage.id)}
                   >
                     {stage.name}

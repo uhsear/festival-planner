@@ -183,20 +183,14 @@ export default function Header() {
 
         {/* Desktop navigation tabs — hidden on mobile, flex on desktop */}
         <nav aria-label="Main navigation">
-          <div
-            className="hidden md:flex gap-1 ml-6"
-            role="tablist"
-            aria-label="View navigation"
-          >
+          <div className="hidden md:flex gap-1 ml-6">
             {desktopTabs.map((tab) => {
               const active = isTabActive(tab.href);
               return (
                 <button
                   key={tab.href}
-                  role="tab"
-                  aria-selected={active}
-                  aria-controls="main-content"
-                  tabIndex={active ? 0 : -1}
+                  type="button"
+                  aria-current={active ? 'page' : undefined}
                   className={cn(
                     'px-4 py-2 bg-transparent text-text-secondary text-[13px] font-semibold rounded-sm',
                     'transition-all duration-[250ms] ease-standard tracking-[0.3px]',
