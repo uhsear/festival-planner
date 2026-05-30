@@ -74,7 +74,21 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       return;
     }
 
-    const socket = createSocket(userToken, 'https://festie.us');
+    const socket = createSocket(userToken, 'https://festie.us', () => {
+      // Socket auth failed — attempt a single refresh, then reconnect with the
+      // new token. On failure stay disconnected (HTTP/foreground path recovers).
+      useAuthStore
+        .getState()
+        .refreshToken()
+        .then(() => {
+          const t = useAuthStore.getState().userToken;
+          if (t && socketRef.current) {
+            socketRef.current.auth = { token: t };
+            socketRef.current.connect();
+          }
+        })
+        .catch(() => {});
+    });
     socketRef.current = socket;
 
     const timersSnapshot = debouncersRef.current;

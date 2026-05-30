@@ -32,7 +32,22 @@ export function useSocket(festivalId?: string): UseSocketReturn {
   const currentFestivalId = useFestivalStore((state) => state.currentFestivalId);
 
   useEffect(() => {
-    const socket = createSocket(userToken || undefined);
+    const socket = createSocket(userToken || undefined, undefined, () => {
+      // Socket auth failed — attempt a single token refresh, then reconnect
+      // with the new token. On failure stay disconnected (an HTTP request will
+      // drive the refresh/logout path).
+      useAuthStore
+        .getState()
+        .refreshToken()
+        .then(() => {
+          const t = useAuthStore.getState().userToken;
+          if (t && socketRef.current) {
+            socketRef.current.auth = { token: t };
+            socketRef.current.connect();
+          }
+        })
+        .catch(() => {});
+    });
     const joinedFestivalId = festivalId || currentFestivalId;
     // Sync the ref BEFORE wiring handlers so handleConnect reads the
     // right id and cleanup can leave the right room.
