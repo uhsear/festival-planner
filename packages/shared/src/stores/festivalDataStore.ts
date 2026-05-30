@@ -1,6 +1,7 @@
 import { create, StateCreator } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { api } from '../services/api';
+import { mapErrorToUserMessage } from '../services/errors';
 import { getStorage } from '../platform/storage';
 import { useAuthStore } from './authStore';
 
@@ -90,7 +91,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       const festivals = await api.get<Festival[]>('/festivals');
       set({ festivals, isLoading: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load festivals';
+      const message = mapErrorToUserMessage(err, 'Failed to load festivals');
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -149,7 +150,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         selectedDay: 0,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load festival';
+      const message = mapErrorToUserMessage(err, 'Failed to load festival');
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -166,7 +167,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         : null;
       set({ allProfiles: profiles, currentProfile, isLoading: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load profiles';
+      const message = mapErrorToUserMessage(err, 'Failed to load profiles');
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -227,7 +228,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         `pick-${currentProfile.id}-${request.setId}`,
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save pick';
+      const message = mapErrorToUserMessage(err, 'Failed to save pick');
       // Roll back the optimistic update so the UI never shows a pick as saved
       // when the write actually failed (e.g. offline with no queue on mobile).
       set({ currentProfile: prev, error: message });
@@ -265,7 +266,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         `pick-${currentProfile.id}-${setId}`,
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to remove pick';
+      const message = mapErrorToUserMessage(err, 'Failed to remove pick');
       set({ currentProfile: prev, error: message });
       throw err;
     }
@@ -300,7 +301,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         `note-${currentProfile.id}-${request.setId}`,
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save note';
+      const message = mapErrorToUserMessage(err, 'Failed to save note');
       set({ currentProfile: prev, error: message });
       throw err;
     }

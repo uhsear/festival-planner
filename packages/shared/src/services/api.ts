@@ -81,6 +81,10 @@ export class ApiClientError extends Error implements ApiError {
   }
 }
 
+// Error-classification helpers live in ./errors (type-only dependency on this
+// module) so store tests that mock '../services/api' don't clobber them.
+export { isApiClientError, parseRetryAfterMs, mapErrorToUserMessage } from './errors';
+
 async function apiRequest<T>(
   path: string,
   options: ApiOptions = {},
