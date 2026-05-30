@@ -1,0 +1,39 @@
+appId: us.festie.app
+env:
+  FESTIVAL: "Forbidden Kingdom 2026"
+---
+# Re-verify the mobile Privacy Policy screen. The standalone app shows login on
+# a fresh launch (session not restored), so log in first.
+- launchApp
+- extendedWaitUntil:
+    visible: "Sign in to your account"
+    timeout: 90000
+- tapOn: "Username"
+- inputText: "asir"
+- tapOn: "Password"
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    notVisible: "Sign in to your account"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "${FESTIVAL}"
+    commands:
+      - tapOn: "${FESTIVAL}"
+- extendedWaitUntil:
+    visible: "Account"
+    timeout: 30000
+- tapOn: "Account"
+- scrollUntilVisible:
+    element:
+      text: "Privacy Policy"
+    direction: DOWN
+    visibilityPercentage: 20
+    timeout: 25000
+- tapOn: "Privacy Policy"
+- extendedWaitUntil:
+    visible: "Data Controller"
+    timeout: 20000
+- takeScreenshot: c12-privacy

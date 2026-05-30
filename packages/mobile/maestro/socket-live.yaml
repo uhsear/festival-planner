@@ -1,0 +1,28 @@
+appId: us.festie.app
+---
+# Live crew-socket verification. The app opens the crew (joins the crew:<id>
+# socket room) and scrolls to the Polls section; an external API call then
+# creates a poll, which must appear live (crew:poll-created -> loadPolls)
+# without any manual refresh.
+- pressKey: Back
+- launchApp
+- extendedWaitUntil:
+    visible: "Switch"
+    timeout: 90000
+- tapOn: "Crew"
+- extendedWaitUntil:
+    visible: "FK 2K26"
+    timeout: 30000
+# Polls live below the member list — scroll down to it.
+- scrollUntilVisible:
+    element:
+      text: "Create poll"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 50
+- takeScreenshot: sock1-before-poll
+# External: `festie_socket_poll.py create` creates "Live socket check?" now.
+- extendedWaitUntil:
+    visible: "Live socket check?"
+    timeout: 60000
+- takeScreenshot: sock2-poll-live

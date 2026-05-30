@@ -1,0 +1,104 @@
+appId: us.festie.app
+env:
+  FESTIVAL: "Forbidden Kingdom 2026"
+---
+# Comprehensive end-to-end pass over the standalone build (points at prod):
+# auth -> schedule (timeline/grid/cards) -> festival mode -> picks -> set detail
+# -> crew (incl. expenses/activity) -> account (prefs/data/legal) -> privacy.
+- pressKey: Back
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Sign in to your account"
+    timeout: 90000
+- takeScreenshot: c01-login
+- tapOn: "Username"
+- inputText: "asir"
+- tapOn: "Password"
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    notVisible: "Sign in to your account"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "${FESTIVAL}"
+    commands:
+      - tapOn: "${FESTIVAL}"
+- extendedWaitUntil:
+    visible: "Timeline"
+    timeout: 30000
+
+# --- Schedule: Timeline / Grid / Cards ---
+- tapOn: "Timeline"
+- takeScreenshot: c02-timeline
+- tapOn: "Grid"
+- takeScreenshot: c03-grid
+- tapOn: "Cards"
+- takeScreenshot: c04-cards
+
+# --- Festival mode (live now/next) ---
+- tapOn: "Live"
+- extendedWaitUntil:
+    visible: "UP NEXT"
+    timeout: 30000
+- takeScreenshot: c05-festival-mode
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "Timeline"
+    timeout: 20000
+
+# --- Picks ---
+- tapOn: "Picks"
+- extendedWaitUntil:
+    visible: "My Picks"
+    timeout: 20000
+- takeScreenshot: c06-picks
+
+# --- Set detail (open a known pick) ---
+- tapOn: "Mary Droppinz"
+- extendedWaitUntil:
+    notVisible: "My Picks"
+    timeout: 20000
+- takeScreenshot: c07-set-detail
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "My Picks"
+    timeout: 20000
+
+# --- Crew (incl. expenses/activity) ---
+- tapOn: "Crew"
+- extendedWaitUntil:
+    visible: "FK 2K26"
+    timeout: 30000
+- takeScreenshot: c08-crew-top
+- scrollUntilVisible:
+    element:
+      text: "Add expense"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: c09-crew-expenses-activity
+
+# --- Account (prefs / data / legal) ---
+- tapOn: "Account"
+- extendedWaitUntil:
+    visible: "Settings & preferences"
+    timeout: 20000
+- takeScreenshot: c10-account
+- scrollUntilVisible:
+    element:
+      text: "Push Notifications"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: c11-account-prefs
+- scrollUntilVisible:
+    element:
+      text: "Privacy"
+    direction: DOWN
+    timeout: 20000
+- tapOn: "Privacy"
+- extendedWaitUntil:
+    visible: "Privacy"
+    timeout: 20000
+- takeScreenshot: c12-privacy

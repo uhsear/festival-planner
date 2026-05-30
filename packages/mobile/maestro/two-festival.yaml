@@ -1,0 +1,42 @@
+appId: us.festie.app
+---
+# Two-festival UX: both festivals appear in the picker; selecting each loads its
+# own data; switching cleanly swaps. (Current build — no auto-restore yet.)
+- pressKey: Back
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Sign in to your account"
+    timeout: 90000
+- tapOn: "Username"
+- inputText: "asir"
+- tapOn: "Password"
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    visible: "Select a Festival"
+    timeout: 30000
+- assertVisible: "North Coast Festival 2026"
+- assertVisible: "Forbidden Kingdom 2026"
+- takeScreenshot: tf1-picker
+
+# Select North Coast → its schedule
+- tapOn: "North Coast Festival 2026"
+- extendedWaitUntil:
+    visible: "Switch"
+    timeout: 30000
+- takeScreenshot: tf2-nc-timeline
+- tapOn: "Cards"
+- takeScreenshot: tf3-nc-cards
+
+# Switch back to Forbidden Kingdom
+- tapOn: "Switch"
+- extendedWaitUntil:
+    visible: "Forbidden Kingdom 2026"
+    timeout: 20000
+- tapOn: "Forbidden Kingdom 2026"
+- extendedWaitUntil:
+    visible: "Switch"
+    timeout: 30000
+- takeScreenshot: tf4-fk-back

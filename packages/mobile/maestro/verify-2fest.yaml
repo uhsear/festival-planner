@@ -1,0 +1,52 @@
+appId: us.festie.app
+---
+# Comprehensive two-festival verification (new build):
+#  - all-TBA festival defaults to Cards (not an empty Timeline)
+#  - last festival auto-restores across an app restart
+#  - switching back to a timed festival works
+- pressKey: Back
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Sign in to your account"
+    timeout: 90000
+- tapOn: "Username"
+- inputText: "asir"
+- tapOn: "Password"
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    visible: "Select a Festival"
+    timeout: 30000
+
+# Select North Coast (all-TBA). It should open straight into a populated view,
+# NOT the misleading empty "No sets for this day" Timeline.
+- tapOn: "North Coast Festival 2026"
+- extendedWaitUntil:
+    visible: "Switch"
+    timeout: 30000
+- assertNotVisible: "No sets for this day"
+- takeScreenshot: v1-nc-default-view
+
+# Restart the app — the last festival should auto-restore (land on NC schedule,
+# not the picker).
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "Switch"
+    timeout: 90000
+- assertNotVisible: "Select a Festival"
+- takeScreenshot: v2-nc-restored
+
+# Switch to Forbidden Kingdom (timed) — should default back to a real Timeline.
+- tapOn: "Switch"
+- extendedWaitUntil:
+    visible: "Forbidden Kingdom 2026"
+    timeout: 20000
+- tapOn: "Forbidden Kingdom 2026"
+- extendedWaitUntil:
+    visible: "Switch"
+    timeout: 30000
+- assertNotVisible: "No sets for this day"
+- takeScreenshot: v3-fk-timeline
