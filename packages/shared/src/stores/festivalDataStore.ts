@@ -172,6 +172,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   // FIX: PUT /profiles/:profileId with full picks map.
   //      Was incorrectly hitting PUT /profiles/:festivalId/picks.
   savePick: async (request: SavePickRequest) => {
+    const prev = get().currentProfile;
     set({ error: null });
     try {
       const { currentProfile } = get();
@@ -204,7 +205,9 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save pick';
-      set({ error: message });
+      // Roll back the optimistic update so the UI never shows a pick as saved
+      // when the write actually failed (e.g. offline with no queue on mobile).
+      set({ currentProfile: prev, error: message });
       throw err;
     }
   },
@@ -212,6 +215,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   // FIX: PUT /profiles/:profileId with full picks map (key removed).
   //      Was incorrectly hitting DELETE /profiles/:festivalId/picks/:setId.
   removePick: async (_festivalId: string, setId: string) => {
+    const prev = get().currentProfile;
     set({ error: null });
     try {
       const { currentProfile } = get();
@@ -239,7 +243,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to remove pick';
-      set({ error: message });
+      set({ currentProfile: prev, error: message });
       throw err;
     }
   },
@@ -247,6 +251,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   // FIX: PUT /profiles/:profileId with full notes map.
   //      Was incorrectly hitting PUT /profiles/:festivalId/notes.
   saveNote: async (request: SaveNoteRequest) => {
+    const prev = get().currentProfile;
     set({ error: null });
     try {
       const { currentProfile } = get();
@@ -273,7 +278,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save note';
-      set({ error: message });
+      set({ currentProfile: prev, error: message });
       throw err;
     }
   },

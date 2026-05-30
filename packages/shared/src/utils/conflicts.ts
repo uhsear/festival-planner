@@ -22,6 +22,11 @@ export function detectConflicts(
       const a = picked[i]!;
       const b = picked[j]!;
 
+      // Same clock time on different festival days is NOT a conflict. Guard on
+      // dayIndex when both are known; treat null as unknown (time-only fallback)
+      // so single-day festivals and callers that don't stamp dayIndex still work.
+      if (a.dayIndex != null && b.dayIndex != null && a.dayIndex !== b.dayIndex) continue;
+
       const aS = timeToMinutes(a.startTime);
       let aE = timeToMinutes(a.endTime);
       if (aE <= aS) aE += 1440;
@@ -82,6 +87,8 @@ export function findAlternatives(
       if (getMyPick(s.id)) return false;
       if (!s.startTime || !s.endTime) return false;
       if (s.stageId === targetSet.stageId) return false;
+      // Only suggest alternatives on the same day as the conflicting set.
+      if (s.dayIndex != null && targetSet.dayIndex != null && s.dayIndex !== targetSet.dayIndex) return false;
 
       const sS = timeToMinutes(s.startTime);
       let sE = timeToMinutes(s.endTime);
