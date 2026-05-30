@@ -53,7 +53,7 @@ interface ImagePickerModule {
 
 function loadImagePicker(): ImagePickerModule | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+     
     return require('expo-image-picker') as ImagePickerModule;
   } catch {
     return null;

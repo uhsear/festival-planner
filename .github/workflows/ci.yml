@@ -148,6 +148,9 @@ jobs:
       - name: Typecheck (packages/mobile)
         working-directory: packages
         run: pnpm --filter @festie/mobile typecheck
+      - name: Lint (packages/mobile)
+        working-directory: packages
+        run: pnpm --filter @festie/mobile lint
 
   security:
     runs-on: ubuntu-latest
