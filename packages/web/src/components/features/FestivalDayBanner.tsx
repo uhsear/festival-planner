@@ -41,7 +41,7 @@ export default function FestivalDayBanner() {
 
   return (
     <div
-      className="flex items-center justify-between gap-2.5 bg-[linear-gradient(90deg,rgba(0,212,170,0.18),rgba(155,114,255,0.12))] border border-[rgba(0,212,170,0.3)] rounded-xl py-2.5 px-4 mx-3 my-2 text-sm text-text-primary animate-[fm-day-banner-slide_0.3s_ease-out] dark:bg-[linear-gradient(90deg,rgba(0,212,170,0.18),rgba(155,114,255,0.12))] [data-theme=light]:bg-[linear-gradient(90deg,rgba(0,212,170,0.12),rgba(155,114,255,0.08))] [data-theme=light]:border-[rgba(0,212,170,0.25)]"
+      className="flex items-center justify-between gap-2.5 bg-[linear-gradient(90deg,rgba(0,212,170,0.18),rgba(155,114,255,0.12))] border border-[rgba(0,212,170,0.3)] rounded-xl py-2.5 px-4 mx-3 my-2 text-sm text-text-primary animate-[fm-day-banner-slide_0.3s_ease-out]"
       role="status"
       data-testid="festival-day-banner"
     >

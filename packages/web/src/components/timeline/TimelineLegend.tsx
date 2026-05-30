@@ -9,7 +9,6 @@ export default function TimelineLegend() {
       className={cn(
         'text-xs text-[var(--color-text-secondary,#94a3b8)]',
         'mx-3 my-[2px_12px_4px] mt-0.5 mb-1',
-        // Class retained for light-theme.css overrides
         'timeline-legend',
       )}
       aria-label="Timeline legend"

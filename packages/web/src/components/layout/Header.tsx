@@ -35,29 +35,21 @@ export default function Header() {
     return location.pathname === href;
   };
 
-  // Theme toggle — reads/writes localStorage like legacy app
-  const [theme, setThemeState] = useState<string>(() =>
-    localStorage.getItem('fp-theme') || 'dark'
-  );
-
+  // Dark-theme-only: the app always renders in the default dark palette. Strip
+  // any stale `data-theme` left on the root by a previous (now-removed) light/
+  // daylight preference, clear the persisted key, and pin the PWA chrome color
+  // to the dark canvas so a saved preference can never produce a light render.
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('fp-theme', theme);
-    // Sync the PWA / mobile browser chrome color with the active theme
-    const chrome = theme === 'dark' ? '#080810' : theme === 'daylight' ? '#ffffff' : '#f5f5f7';
+    document.documentElement.removeAttribute('data-theme');
+    try {
+      localStorage.removeItem('fp-theme');
+    } catch {
+      /* storage may be unavailable in some sandboxes */
+    }
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', chrome);
-  }, [theme]);
-
-  // Cycle dark -> light -> daylight (high-contrast for bright sun) -> dark.
-  const THEME_CYCLE = ['dark', 'light', 'daylight'] as const;
-  const toggleTheme = () => {
-    setThemeState((prev) => {
-      const i = THEME_CYCLE.indexOf(prev as (typeof THEME_CYCLE)[number]);
-      return THEME_CYCLE[(i + 1) % THEME_CYCLE.length]!;
-    });
-  };
+      ?.setAttribute('content', '#080810');
+  }, []);
 
   // Connection status — simplified for React rewrite
   const [connected] = useState(true);
@@ -222,7 +214,7 @@ export default function Header() {
         </nav>
       </div>
 
-      {/* Right section: festival mode + theme toggle + admin badge + profile badge */}
+      {/* Right section: festival mode + admin badge + profile badge */}
       <div
         className={cn(
           'flex items-center gap-5',
@@ -234,31 +226,6 @@ export default function Header() {
       >
         {/* Festival Mode toggle — flips store flag + navigates to /festival-mode */}
         <FestivalModeToggle />
-
-        {/* Theme toggle */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            '!text-base !min-w-11 !min-h-11 !p-1',
-            '!inline-flex items-center justify-center leading-none',
-            '[&>span]:inline-block [&>span]:transition-[transform,opacity] [&>span]:duration-200 [&>span]:ease-out',
-            'hover:[&>span]:rotate-[-8deg]',
-            'active:[&>span]:rotate-[30deg] active:[&>span]:scale-[0.92]',
-          )}
-          type="button"
-          onClick={toggleTheme}
-          aria-label="Toggle theme (dark, light, daylight)"
-          title={
-            theme === 'dark'
-              ? 'Switch to light mode'
-              : theme === 'light'
-                ? 'Switch to daylight (high-contrast) mode'
-                : 'Switch to dark mode'
-          }
-        >
-          <span aria-hidden="true">{theme === 'dark' ? '☀' : theme === 'light' ? '🔆' : '🌙'}</span>
-        </Button>
 
         {/* User menu / profile badge */}
         {user && <UserMenu user={user} />}
