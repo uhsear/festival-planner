@@ -126,7 +126,7 @@ const useStyles = makeStyles((t) => ({
     paddingVertical: t.spacing[2],
     paddingHorizontal: t.spacing[3],
     borderRadius: t.radii.pill,
-    minHeight: 36,
+    minHeight: 44, // WCAG 2.5.5 / Apple HIG minimum touch target
   },
   segmentActive: {
     backgroundColor: t.colors.accent.aqua,
