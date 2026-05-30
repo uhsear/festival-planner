@@ -16,6 +16,7 @@ import ScreenHeader from '../../components/ScreenHeader';
 import AccountAvatarSection from '../../components/AccountAvatarSection';
 import AccountUsernameSection from '../../components/AccountUsernameSection';
 import AccountPasswordSection from '../../components/AccountPasswordSection';
+import AccountNotificationsSection from '../../components/AccountNotificationsSection';
 import AccountDataSection from '../../components/AccountDataSection';
 import AccountDangerSection from '../../components/AccountDangerSection';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
@@ -34,12 +35,11 @@ import { useReduceMotion } from '../../hooks/useReduceMotion';
  * Data export (GDPR) is wired via AccountDataSection (GET /account/export →
  * expo-file-system + expo-sharing).
  *
- * Still deferred:
- *   - Push notifications → the backend sends via FCM (firebase-admin), so mobile
- *                           must register an FCM device token, which needs a
- *                           Firebase google-services.json + a dev/prod build
- *                           (Expo Go can't obtain FCM tokens). Blocked on infra.
- *   - Theme / display    → not a web feature either; nothing to port.
+ * Push notifications are wired via AccountNotificationsSection (FCM token →
+ * POST /notifications/token). Requires a real build — Expo Go can't obtain an
+ * FCM device token.
+ *
+ * Theme / display is intentionally not built — it's not a web feature either.
  */
 export default function AccountScreen() {
   const t = useTokens();
@@ -140,6 +140,7 @@ export default function AccountScreen() {
 
         {/* Preferences */}
         <Text style={styles.sectionLabel}>Preferences</Text>
+        <AccountNotificationsSection />
         <View style={styles.card}>
           <View
             style={styles.row}
