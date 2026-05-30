@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "742304531990",
+    "project_id": "festival-planner-a191b",
+    "storage_bucket": "festival-planner-a191b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:742304531990:android:3e4dbcbc2855eaf94f1737",
+        "android_client_info": {
+          "package_name": "us.festie.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBf2Z1o_W5a3qKUkCZr9K3QH4j3WsIOLQk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

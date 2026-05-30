@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "us.festie.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#080810",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -33,7 +34,13 @@
           "photosPermission": "Allow Festie to access your photos to set your avatar."
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "color": "#ff3366"
+        }
+      ]
     ],
     "extra": {
       "router": {},
