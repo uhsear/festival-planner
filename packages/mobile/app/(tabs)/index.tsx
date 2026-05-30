@@ -73,8 +73,11 @@ export default function TimelineScreen() {
 
   const festivals = useFestivalDataStore((s) => s.festivals);
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
+  const currentFestivalId = useFestivalDataStore((s) => s.currentFestivalId);
   const currentProfile = useFestivalDataStore((s) => s.currentProfile);
   const loadFestivals = useFestivalDataStore((s) => s.loadFestivals);
+  const selectFestival = useFestivalDataStore((s) => s.selectFestival);
+  const isLoading = useFestivalDataStore((s) => s.isLoading);
   const stages = useFestivalDataStore((s) => s.stages);
 
   const selectedDay = useFestivalStore((s) => s.selectedDay);
@@ -104,6 +107,17 @@ export default function TimelineScreen() {
       loadFestivals().catch(() => {});
     }
   }, [festivals.length, loadFestivals]);
+
+  // Auto-restore the persisted festival on launch. festivalDataStore persists
+  // only currentFestivalId (not the festival data), so after a cold start the
+  // id is set but currentFestival is null — reload it so the app reopens to the
+  // festival the user was on instead of dropping them on the picker. Guarded on
+  // !isLoading so we don't re-enter while a selection is already in flight.
+  useEffect(() => {
+    if (currentFestivalId && !currentFestival && !isLoading) {
+      selectFestival(currentFestivalId).catch(() => {});
+    }
+  }, [currentFestivalId, currentFestival, isLoading, selectFestival]);
 
   // Keep the local search box in sync with the shared store (debounce-free; the
   // store filter recomputes filteredSets on every keystroke, matching web).
