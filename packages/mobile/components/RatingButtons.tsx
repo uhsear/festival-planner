@@ -7,7 +7,7 @@ import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
  * Emoji scale mirrors the web RatingButtons + legacy ratings.js:
  *   5 🔥 Fire · 4 😊 Good · 3 👍 Okay · 2 🤔 Meh · 1 👎 Skip
  */
-const RATINGS: ReadonlyArray<{ n: number; emoji: string; label: string }> = [
+const RATINGS: readonly { n: number; emoji: string; label: string }[] = [
   { n: 5, emoji: '🔥', label: 'Fire' },
   { n: 4, emoji: '😊', label: 'Good' },
   { n: 3, emoji: '👍', label: 'Okay' },

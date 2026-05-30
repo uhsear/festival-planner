@@ -18,11 +18,11 @@ import { artistDisplayName } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import Avatar from './Avatar';
 
-const PRIORITIES: ReadonlyArray<{
+const PRIORITIES: readonly {
   value: Priority;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-}> = [
+}[] = [
   { value: 'must', icon: 'star', label: 'Must See' },
   { value: 'want-to-see', icon: 'heart', label: 'Want to See' },
   { value: 'maybe', icon: 'ellipse', label: 'Maybe' },

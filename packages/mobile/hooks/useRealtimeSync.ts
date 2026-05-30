@@ -2,11 +2,11 @@ import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { Socket } from 'socket.io-client';
 import { createSocket } from '@festie/shared/services';
-import { useAuthStore } from '@festie/shared/stores';
-import { useUIStore } from '@festie/shared/stores';
-import { useFestivalDataStore } from '@festie/shared/stores';
-import { useCrewStore } from '@festie/shared/stores';
-import type { OnlineUser } from '@festie/shared/types';
+import { useAuthStore , useUIStore , useFestivalDataStore , useCrewStore } from '@festie/shared/stores';
+
+
+
+import type { OnlineUser , CrewMeetingPoint } from '@festie/shared/types';
 import type {
   ProfileUpdatedPayload,
   ProfileDeletedPayload,
@@ -25,7 +25,7 @@ import type {
   CrewExpenseDeletedPayload,
   CrewActivityPayload,
 } from '@festie/shared/types/socket-events';
-import type { CrewMeetingPoint } from '@festie/shared/types';
+
 
 export interface UseRealtimeSyncReturn {
   connected: boolean;

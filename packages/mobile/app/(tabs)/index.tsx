@@ -16,11 +16,9 @@ import {
   artistDisplayName,
   getSetHotness,
   getConflictingSetIds,
-} from '@festie/shared/utils';
+
+  timeToMinutes} from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
-import {
-  timeToMinutes,
-} from '@festie/shared/utils';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { useUI, type ViewMode } from '../../contexts/UIContext';
 import { useNowIndicator, type TimeBounds } from '../../hooks/useNowIndicator';
@@ -35,7 +33,7 @@ import TBASection from '../../components/TBASection';
 
 const SLOT_MINUTES = 15;
 
-const VIEW_OPTIONS: ReadonlyArray<{ value: ViewMode; label: string }> = [
+const VIEW_OPTIONS: readonly { value: ViewMode; label: string }[] = [
   { value: 'timeline', label: 'Timeline' },
   { value: 'grid', label: 'Grid' },
   { value: 'cards', label: 'Cards' },

@@ -16,7 +16,7 @@ export interface SegmentOption<T extends string> {
 }
 
 interface SegmentedControlProps<T extends string> {
-  options: ReadonlyArray<SegmentOption<T>>;
+  options: readonly SegmentOption<T>[];
   value: T;
   onChange: (value: T) => void;
   accessibilityLabel?: string;

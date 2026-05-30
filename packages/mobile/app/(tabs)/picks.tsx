@@ -16,7 +16,7 @@ import SetCardMobile from '../../components/SetCardMobile';
  * are grouped by day, then split into these three priority buckets in this
  * order, and finally sorted by start time (then artist name) within a bucket.
  */
-const PRIORITY_SECTIONS: ReadonlyArray<{ value: Priority; label: string }> = [
+const PRIORITY_SECTIONS: readonly { value: Priority; label: string }[] = [
   { value: 'must', label: 'Must See' },
   { value: 'want-to-see', label: 'Want to See' },
   { value: 'maybe', label: 'Maybe' },
