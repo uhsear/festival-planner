@@ -13,10 +13,12 @@ interface StageBadgeProps {
   style?: React.CSSProperties;
 }
 
+// `default`/`pick` tighten to the mobile stage-pill density: the `micro` type
+// role (10px / 600 / 0.08em caps) at spacing[2]/spacing[1] padding.
 const VARIANT_CLASS: Record<StageBadgeVariant, string> = {
   chip: 'inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold cursor-pointer border-2 border-transparent transition-all duration-200',
-  pick: 'inline-block rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider',
-  default: 'inline-block rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider',
+  pick: 'inline-block rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em]',
+  default: 'inline-block rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em]',
 };
 
 // --- WCAG 2.2 contrast helpers (SC 1.4.3) ---

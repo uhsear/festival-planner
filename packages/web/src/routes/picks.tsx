@@ -7,14 +7,24 @@ import { Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName } from '@festie/shared/utils';
 import StageBadge from '../components/ui/StageBadge';
 import EmptyState from '../components/ui/EmptyState';
+import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import RefreshableView from '../components/layout/RefreshableView';
 import { Star, CalendarX, UserPlus } from 'lucide-react';
 
-const PRIORITY_SECTIONS: Array<[Priority, string, string]> = [
-  ['must', 'Must See', 'var(--color-priority-must)'],
-  ['want-to-see', 'Want to See', 'var(--color-priority-want)'],
-  ['maybe', 'Maybe', 'var(--color-priority-maybe)'],
+// Each section carries its priority value, label, the dot accent token, and the
+// matching tint-ring Badge variant — mirroring the mobile Picks tab where every
+// bucket (Must/Want/Maybe) shares one accent across its dot, count pill, and the
+// set card's left border.
+const PRIORITY_SECTIONS: Array<{
+  value: Priority;
+  label: string;
+  accent: string;
+  badge: 'must' | 'want' | 'maybe';
+}> = [
+  { value: 'must', label: 'Must See', accent: 'var(--color-priority-must)', badge: 'must' },
+  { value: 'want-to-see', label: 'Want to See', accent: 'var(--color-priority-want)', badge: 'want' },
+  { value: 'maybe', label: 'Maybe', accent: 'var(--color-priority-maybe)', badge: 'maybe' },
 ];
 
 /**
@@ -182,17 +192,19 @@ function PicksViewInner() {
     <RefreshableView queryKeys={[['picks'], ['profiles']]} className="pb-5 h-full">
       <div role="region" aria-label="My picks">
       {/* Priority sections */}
-      {PRIORITY_SECTIONS.map(([pri, label, color]) => {
+      {PRIORITY_SECTIONS.map(({ value: pri, label, accent, badge }) => {
         const items = picksGrouped[pri];
         return (
           <div key={pri} className="mb-4">
-            <div className="relative overflow-hidden col-span-full font-display text-[11px] font-bold uppercase tracking-[3px] mb-3.5 pb-2.5 border-b border-border-light flex items-center gap-[var(--space-5)] after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-[linear-gradient(90deg,var(--color-border-light),transparent_80%)]">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-              <span>{label}</span>
-              <span className="ml-auto font-body text-xs font-semibold px-2.5 py-0.5 rounded-md bg-bg-card text-text-secondary tracking-normal">{items.length}</span>
+            {/* Mobile section-header pattern: round accent dot + label role text +
+                tint-ring count pill, separated from the rows by a hairline divider. */}
+            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: accent }} />
+              <span className="text-sm font-medium text-text-secondary">{label}</span>
+              <Badge variant={badge} className="ml-auto">{items.length}</Badge>
             </div>
 
-            {items.map((set, idx) => {
+            {items.map((set) => {
               const sc = getStageColor(set.stageId);
               const sn = getStageName(set.stageId) || '';
               const dn = artistDisplayName(set, currentFestival?.b2bSeparator);
@@ -201,8 +213,8 @@ function PicksViewInner() {
               return (
                 <button
                   key={set.id}
-                  className="stagger-item grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-3 gap-y-2 px-4 py-3 bg-bg-card backdrop-blur-[8px] border border-border rounded-sm mb-1.5 cursor-pointer transition-[background,transform,box-shadow,border-color] duration-[250ms] ease-standard hover:bg-bg-card-hover hover:translate-x-1 hover:shadow-[0_4px_16px_var(--color-shade-7)] hover:border-[var(--color-overlay-4)] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:shadow-[0_0_0_4px_var(--color-aqua-a15)] w-full text-left"
-                  style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}
+                  className="flex items-center gap-x-3 px-4 py-3 w-full text-left bg-bg-card border border-border border-l-4 rounded-xl mb-2 cursor-pointer transition-[background,transform] duration-200 ease-standard hover:bg-bg-card-hover active:scale-[0.97] motion-reduce:transition-none motion-reduce:transform-none focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2"
+                  style={{ borderLeftColor: accent }}
                   type="button"
                   aria-label={`${dn} — ${dayLabel}${set.startTime ? ' ' + formatTime(set.startTime) : ' TBA'}`}
                   onClick={() => setDetailSet(set)}
@@ -211,7 +223,7 @@ function PicksViewInner() {
                     {dayLabel}
                     {set.startTime ? ' ' + formatTime(set.startTime) : ' TBA'}
                   </div>
-                  <div className="text-sm font-bold min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{dn}</div>
+                  <div className="flex-1 text-sm font-bold min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{dn}</div>
                   <StageBadge variant="pick" stageName={sn} stageColor={sc} />
                 </button>
               );

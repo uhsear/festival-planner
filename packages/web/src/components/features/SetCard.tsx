@@ -171,42 +171,39 @@ function SetCard({
       className={cn(
         // Keep CSS class names for container query selectors (Phase 4 cleanup)
         'set-card',
-        // Base styles
-        'relative bg-bg-card glass-xs border border-border-light rounded-DEFAULT',
-        'p-5 cursor-pointer overflow-hidden',
-        'border-l-4 border-l-transparent',
-        // Transition + will-change
-        'transition-[transform,box-shadow,background,border-color] duration-300 will-change-transform',
-        // Hover lift + shadow
-        'hover:bg-bg-card-hover hover:-translate-y-1.5 hover:scale-[1.008]',
-        'hover:shadow-[0_20px_40px_var(--color-shade-9),0_0_0_1px_var(--color-overlay-2)]',
-        // ::after gradient overlay (via before: — after: used for gradient)
+        // Base styles — mobile glass card with an unconditional stage-colored
+        // left border (color set inline below). Softer radius + density.
+        'relative bg-bg-card glass-xs border border-border rounded-xl',
+        'p-4 cursor-pointer overflow-hidden',
+        'border-l-4',
+        // Transition + will-change — token-eased, reduce-motion safe.
+        'transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform',
+        'motion-reduce:transition-none motion-reduce:transform-none',
+        // Hover — gentle lift + surface shift + light glow (no heavy drop shadow).
+        'hover:bg-bg-card-hover hover:-translate-y-0.5',
+        'hover:shadow-[0_0_0_1px_var(--color-overlay-2)]',
+        // ::after subtle aqua sheen on hover only (much lighter than before).
         'after:content-[""] after:absolute after:inset-[-1px] after:rounded-[inherit]',
-        'after:opacity-0 after:transition-opacity after:duration-300 after:pointer-events-none',
-        'after:bg-[linear-gradient(135deg,var(--color-aqua-a06)_0%,transparent_50%,rgba(255,51,102,0.04)_100%)]',
+        'after:opacity-0 after:transition-opacity after:duration-200 after:pointer-events-none',
+        'after:bg-[linear-gradient(135deg,var(--color-aqua-a06)_0%,transparent_60%)]',
         'hover:after:opacity-100',
-        // Priority variants
+        // Priority variants — lighter, static glow (no infinite pulse for list perf).
         pri === 'must' && [
           'priority-must',
-          'border-l-priority-must border-l-[5px] pl-4',
           'shadow-[var(--shadow-glow-coral)]',
-          'hover:shadow-[0_20px_40px_var(--color-shade-9),var(--shadow-glow-coral)]',
         ],
         pri === 'want' && [
           'priority-want',
-          'border-l-priority-want',
           'shadow-[var(--shadow-glow-aqua)]',
-          'hover:shadow-[0_20px_40px_var(--color-shade-9),var(--shadow-glow-aqua)]',
         ],
         pri === 'maybe' && [
           'priority-maybe',
-          'border-l-priority-maybe',
           'shadow-[var(--shadow-glow-amber)]',
-          'hover:shadow-[0_20px_40px_var(--color-shade-9),var(--shadow-glow-amber)]',
         ],
         // Conflict marker class (for tests + potential styling)
         hasConflict && 'has-conflict',
       )}
+      style={{ borderLeftColor: ensureWhiteContrast(stageColor) }}
       data-testid="set-card"
       data-artist={artistName}
     >
@@ -235,7 +232,7 @@ function SetCard({
             'rounded-full w-11 h-11 text-sm cursor-pointer',
             'flex items-center justify-center',
             'transition-[background,transform] duration-150',
-            'hover:bg-spotify/30 hover:scale-110',
+            'hover:bg-spotify/30 hover:scale-105',
           )}
           type="button"
           aria-label={
@@ -254,8 +251,8 @@ function SetCard({
       <span
         className={cn(
           'card-stage',
-          'relative z-[2] inline-block px-2.5 py-[3px] rounded-md',
-          'type-micro font-bold uppercase tracking-[0.8px] mb-2.5',
+          'relative z-[2] inline-block px-2 py-1 rounded-xl',
+          'type-micro font-bold uppercase tracking-[0.08em] mb-2.5',
           'text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]',
         )}
         style={{ background: ensureWhiteContrast(stageColor) }}
@@ -340,16 +337,16 @@ function SetCard({
                       'flex items-center justify-center',
                       'bg-white/[0.06] border border-border-light',
                       'text-sm text-text-muted cursor-pointer',
-                      'transition-[transform,box-shadow,background,border-color,color] duration-200',
-                      'hover:border-text-secondary hover:scale-110',
+                      'transition-[transform,box-shadow,background,border-color,color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                      'hover:border-text-secondary hover:scale-105',
                       'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-[-2px]',
-                      'active:scale-[0.92]',
-                      // Active priority states
+                      'active:scale-[0.92] motion-reduce:transform-none',
+                      // Active priority states — static glow (mobile keeps these
+                      // static for list-scroll perf; no infinite pulse animation).
                       active && priKey === 'must' && [
                         'active-must',
                         'bg-priority-must text-text-on-accent border-priority-must',
                         'shadow-[var(--shadow-glow-coral),0_0_0_1px_rgba(255,51,102,0.3)]',
-                        'animate-[pulseGlow_2s_ease-in-out_infinite]',
                       ],
                       active && priKey === 'want' && [
                         'active-want',

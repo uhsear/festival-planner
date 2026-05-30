@@ -31,13 +31,13 @@ export default function Button({
   ...props
 }: ButtonProps) {
   const baseStyles =
-    'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2';
+    'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer active:scale-[0.97] motion-reduce:transform-none disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2';
 
   const variantStyles: Record<ButtonVariant, string> = {
     primary:
-      'bg-accent-aqua text-bg-primary hover:opacity-80 focus-visible:outline-accent-aqua',
+      'bg-accent-aqua text-bg-primary hover:brightness-110 focus-visible:outline-accent-aqua',
     danger:
-      'bg-accent-coral text-bg-primary hover:opacity-80 focus-visible:outline-accent-coral',
+      'bg-accent-coral text-bg-primary hover:brightness-110 focus-visible:outline-accent-coral',
     ghost:
       'bg-transparent text-text-primary border border-color-border hover:bg-bg-card focus-visible:outline-text-primary',
     secondary:

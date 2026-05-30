@@ -155,6 +155,8 @@ function RegisterPageInner() {
             if (e.key === 'Enter') document.getElementById('authPassword')?.focus();
           }}
           disabled={isLoading}
+          aria-invalid={Boolean(formError && !username)}
+          aria-describedby={formError ? 'authFormError' : undefined}
           className={authInputClasses}
         />
 
@@ -172,6 +174,8 @@ function RegisterPageInner() {
             if (e.key === 'Enter') document.getElementById('authPassword2')?.focus();
           }}
           disabled={isLoading}
+          aria-invalid={Boolean(formError && !password)}
+          aria-describedby={formError ? 'authFormError' : undefined}
           className={authInputClasses}
         />
 

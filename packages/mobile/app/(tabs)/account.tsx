@@ -205,6 +205,37 @@ export default function AccountScreen() {
         <Text style={styles.sectionLabel}>Data</Text>
         <AccountDataSection />
 
+        {/* Legal */}
+        <Text style={styles.sectionLabel}>Legal</Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => router.push('/privacy')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Open the privacy policy"
+          >
+            <View style={styles.rowIcon}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={20}
+                color={t.colors.text.secondary}
+              />
+            </View>
+            <View style={styles.rowBody}>
+              <Text style={styles.rowTitle}>Privacy Policy</Text>
+              <Text style={styles.rowHint} numberOfLines={1}>
+                How we handle your data
+              </Text>
+            </View>
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={t.colors.text.placeholder}
+            />
+          </TouchableOpacity>
+        </View>
+
         {/* Account actions */}
         <Text style={styles.sectionLabel}>Account</Text>
         <View style={styles.card}>

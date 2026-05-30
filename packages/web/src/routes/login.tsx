@@ -62,7 +62,7 @@ function LoginPageInner() {
 
       <div
         className={cn(
-          'flex mb-6 border border-border-light rounded-DEFAULT overflow-hidden',
+          'flex gap-1 p-1 mb-6 bg-bg-secondary rounded-full',
           'w-full max-w-[360px] relative z-[1]',
         )}
         role="tablist"
@@ -70,9 +70,11 @@ function LoginPageInner() {
       >
         <button
           className={cn(
-            'flex-1 py-[var(--space-6)] text-sm font-bold text-center min-h-11 cursor-pointer',
+            'flex-1 py-2 px-3 min-h-9 rounded-full cursor-pointer',
+            'text-sm font-semibold text-center',
             'bg-accent-aqua text-[var(--text-on-light-accent)]',
-            'transition-[background,color] duration-200 ease-[var(--ease-out)]',
+            'transition-[background,color,transform] duration-200 ease-[var(--ease-out)]',
+            'active:scale-[0.97] motion-reduce:transform-none',
           )}
           role="tab"
           aria-selected={true}
@@ -84,9 +86,11 @@ function LoginPageInner() {
         <Link
           to="/register"
           className={cn(
-            'flex-1 py-[var(--space-6)] text-sm font-semibold text-center min-h-11 cursor-pointer',
-            'bg-[var(--color-bg-card)] text-text-secondary',
-            'transition-[background,color] duration-200 ease-[var(--ease-out)]',
+            'flex-1 py-2 px-3 min-h-9 rounded-full cursor-pointer',
+            'text-sm font-semibold text-center',
+            'bg-transparent text-text-secondary hover:text-text-primary',
+            'transition-[background,color,transform] duration-200 ease-[var(--ease-out)]',
+            'active:scale-[0.97] motion-reduce:transform-none',
             'inline-flex items-center justify-center',
           )}
           role="tab"
@@ -132,9 +136,11 @@ function LoginPageInner() {
           aria-invalid={Boolean(formError && !username)}
           aria-describedby={formError ? 'authFormError' : undefined}
           className={cn(
-            'w-full py-3.5 px-[18px] text-base text-left mb-3 rounded-DEFAULT',
-            'bg-[var(--color-bg-card)] backdrop-blur-[12px] min-h-11',
+            'w-full py-3.5 px-[18px] text-[16px] text-left mb-3 min-h-11',
+            'rounded-xl bg-bg-card border border-border text-text-primary',
+            'placeholder:text-text-placeholder',
             'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
+            'focus:outline-none focus:border-accent-aqua',
             'focus:shadow-[0_0_0_4px_var(--color-aqua-a1),0_0_24px_var(--color-aqua-a06)]',
           )}
         />
@@ -156,9 +162,11 @@ function LoginPageInner() {
           aria-invalid={Boolean(formError && !password)}
           aria-describedby={formError ? 'authFormError' : undefined}
           className={cn(
-            'w-full py-3.5 px-[18px] text-base text-left mb-3 rounded-DEFAULT',
-            'bg-[var(--color-bg-card)] backdrop-blur-[12px] min-h-11',
+            'w-full py-3.5 px-[18px] text-[16px] text-left mb-3 min-h-11',
+            'rounded-xl bg-bg-card border border-border text-text-primary',
+            'placeholder:text-text-placeholder',
             'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
+            'focus:outline-none focus:border-accent-aqua',
             'focus:shadow-[0_0_0_4px_var(--color-aqua-a1),0_0_24px_var(--color-aqua-a06)]',
           )}
         />
