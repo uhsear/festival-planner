@@ -59,11 +59,20 @@ export default defineConfig({
         skipWaiting: true,
         runtimeCaching: [
           {
-            urlPattern: /\/api\/v1\//,
+            // Cache ONLY the public festival catalog (GET /festivals,
+            // /festivals/:id) for offline schedule viewing. Per-user endpoints
+            // (/auth, /profiles, /crews, /account) must never be cached —
+            // StaleWhileRevalidate keys by URL only (ignores the session
+            // cookie), so on a shared device an account switch would otherwise
+            // repaint the previous user's data until the revalidate lands.
+            urlPattern: ({ url, request }: { url: URL; request: Request }) =>
+              request.method === 'GET' &&
+              /^\/api\/v1\/festivals(\/[^/]+)?$/.test(url.pathname),
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'api-cache',
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 },
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
             },
           },
           {
