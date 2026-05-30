@@ -1,0 +1,42 @@
+appId: us.festie.app
+env:
+  FESTIVAL: "Forbidden Kingdom 2026"
+---
+# Push registration test against the STANDALONE preview APK (points at prod).
+# Logs in, opens Account, flips the Push Notifications toggle → registers the
+# device's FCM token with the backend (POST /notifications/token).
+- launchApp
+- extendedWaitUntil:
+    visible: "Sign in to your account"
+    timeout: 60000
+- tapOn: "Username"
+- inputText: "asir"
+- tapOn: "Password"
+- inputText: ${TEST_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    notVisible: "Sign in to your account"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "${FESTIVAL}"
+    commands:
+      - tapOn: "${FESTIVAL}"
+- extendedWaitUntil:
+    visible: "Account"
+    timeout: 30000
+- tapOn: "Account"
+- scrollUntilVisible:
+    element:
+      text: "Push Notifications"
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: push-before
+- tapOn:
+    rightOf:
+      text: "Push Notifications"
+- extendedWaitUntil:
+    visible: "Push Notifications"
+    timeout: 15000
+- takeScreenshot: push-after

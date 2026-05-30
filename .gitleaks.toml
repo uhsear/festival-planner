@@ -1,0 +1,11 @@
+title = "Festie gitleaks config"
+
+# Extend the built-in gitleaks ruleset; only add a narrow allowlist below.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Android google-services.json is the public Firebase client config — it ships inside every APK and contains no real secret (the API key is restricted by app package/SHA)."
+paths = [
+  '''packages/mobile/google-services\.json''',
+]
