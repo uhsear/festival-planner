@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 const ADMIN_USER = 'admin';
 const ADMIN_PASSWORD = 'test-admin-password';
-const DEFAULT_PASSWORD = 'password123';
+const DEFAULT_PASSWORD = 'Str0ngTest!Pw';
 
 function createFestivalFixture() {
   return [

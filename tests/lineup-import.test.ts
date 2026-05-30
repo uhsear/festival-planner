@@ -30,7 +30,7 @@ const skip = !TEST_DATABASE_URL || !TEST_DATABASE_URL.includes('_test');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const TRUSTED_MUTATION_HEADER = 'x-festie-request';
-const DEFAULT_PASSWORD = 'password123';
+const DEFAULT_PASSWORD = 'Str0ngTest!Pw';
 const ADMIN_PASSWORD = 'test-admin-password-pass';
 
 const RUN_ID = `li${Date.now().toString(36)}`;

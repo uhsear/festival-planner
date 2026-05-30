@@ -474,7 +474,7 @@ describe('routes/email-auth', () => {
       .send({ token: 'abc', newPassword: 'short', confirmPassword: 'short' })
       .expect(400);
 
-    assert.match(res.body.error.message, /8-100 characters/i);
+    assert.match(res.body.error.message, /at least 8 characters/i);
   });
 
   test('POST /reset-password — rejects invalid/expired token', async () => {

@@ -319,7 +319,7 @@ describe('Password Boundary Validation', { concurrency: 1 }, () => {
     server = await startServer();
     const res = await server.request
       .post('/api/v1/auth/register')
-      .send({ username: 'minpw', password: 'abcd1234', confirmPassword: 'abcd1234', tosAccepted: true });
+      .send({ username: 'minpw', password: 'Zx9qmp4w', confirmPassword: 'Zx9qmp4w', tosAccepted: true });
     assert.equal(res.status, 201);
     assert.ok(res.body.data);
   });

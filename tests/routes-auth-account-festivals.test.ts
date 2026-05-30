@@ -240,7 +240,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       const res = await request(app)
         .post('/register')
-        .send({ username: 'newuser', password: 'password123', confirmPassword: 'password123' });
+        .send({ username: 'newuser', password: 'Str0ngTest!Pw', confirmPassword: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 201);
       assert.equal(res.body.error, null);
@@ -255,7 +255,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       const res = await request(app)
         .post('/register')
-        .send({ username: '!', password: 'password123', confirmPassword: 'password123' });
+        .send({ username: '!', password: 'Str0ngTest!Pw', confirmPassword: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'INVALID_INPUT');
@@ -281,7 +281,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       const res = await request(app)
         .post('/register')
-        .send({ username: 'newuser', password: 'password123', confirmPassword: 'different456' });
+        .send({ username: 'newuser', password: 'Str0ngTest!Pw', confirmPassword: 'different456' });
 
       assert.equal(res.status, 400);
       assert.match(res.body.error.message, /do not match/);
@@ -295,7 +295,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       const res = await request(app)
         .post('/register')
-        .send({ username: 'newuser', password: 'password123', confirmPassword: 'password123' });
+        .send({ username: 'newuser', password: 'Str0ngTest!Pw', confirmPassword: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'ALREADY_EXISTS');
@@ -312,7 +312,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       const res = await request(app)
         .post('/register')
-        .send({ username: 'brand_new', password: 'password123', confirmPassword: 'password123' });
+        .send({ username: 'brand_new', password: 'Str0ngTest!Pw', confirmPassword: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'MAX_LIMIT_REACHED');
@@ -343,7 +343,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       const res = await request(app)
         .post('/register')
-        .send({ username: 'newuser', password: 'password123', confirmPassword: 'password123', email: 'taken@example.com' });
+        .send({ username: 'newuser', password: 'Str0ngTest!Pw', confirmPassword: 'Str0ngTest!Pw', email: 'taken@example.com' });
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'ALREADY_EXISTS');
@@ -357,7 +357,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       const res = await request(app)
         .post('/register')
-        .send({ username: 'newuser', password: 'password123', confirmPassword: 'password123' });
+        .send({ username: 'newuser', password: 'Str0ngTest!Pw', confirmPassword: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 500);
       assert.equal(res.body.error.code, 'INTERNAL_ERROR');
@@ -376,7 +376,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       const res = await request(app)
         .post('/login')
-        .send({ username: 'testuser', password: 'password123' });
+        .send({ username: 'testuser', password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 200);
       assert.equal(res.body.error, null);
@@ -407,7 +407,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       const res = await request(app)
         .post('/login')
-        .send({ username: 'nobody', password: 'password123' });
+        .send({ username: 'nobody', password: 'Str0ngTest!Pw' });
 
       // Login failures use setTimeout for jitter -- status is 401
       assert.equal(res.status, 401);
@@ -447,7 +447,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       const res = await request(app)
         .post('/login')
-        .send({ username: 'testuser', password: 'password123' });
+        .send({ username: 'testuser', password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 200);
       assert.equal(updateFn.mock.calls.length, 1);
@@ -462,7 +462,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
       const res = await request(app)
         .post('/login')
-        .send({ username: 'testuser', password: 'password123' });
+        .send({ username: 'testuser', password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 500);
       assert.equal(res.body.error.code, 'INTERNAL_ERROR');
@@ -1089,7 +1089,7 @@ describe('routes/account.js — createAccountRoutes', () => {
 
       const res = await request(app)
         .delete('/')
-        .send({ password: 'password123' });
+        .send({ password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 200);
       assert.equal(res.body.error, null);
@@ -1110,7 +1110,7 @@ describe('routes/account.js — createAccountRoutes', () => {
 
       const res = await request(app)
         .delete('/')
-        .send({ password: 'password123' });
+        .send({ password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 404);
       assert.equal(res.body.error.code, 'NOT_FOUND');
@@ -1132,7 +1132,7 @@ describe('routes/account.js — createAccountRoutes', () => {
 
       const res = await request(app)
         .delete('/')
-        .send({ password: 'password123' });
+        .send({ password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'INVALID_INPUT');

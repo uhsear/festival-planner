@@ -57,6 +57,13 @@ export interface FestivalDataActions {
   selectFestival: (festivalId: string) => Promise<void>;
   loadProfiles: (festivalId: string) => Promise<void>;
   setCurrentProfile: (profile: Profile) => void;
+  /**
+   * Patch a single profile's picks in place from a realtime socket payload,
+   * avoiding a full /profiles refetch on every pick event. Returns false if the
+   * profile isn't loaded yet or no picks were provided — the caller should then
+   * fall back to a full reload (e.g. a brand-new joiner).
+   */
+  applyProfilePatch: (patch: { profileId: string; picks?: Record<string, Priority> }) => boolean;
   savePick: (request: SavePickRequest) => Promise<void>;
   removePick: (festivalId: string, setId: string) => Promise<void>;
   saveNote: (request: SaveNoteRequest) => Promise<void>;
@@ -167,6 +174,22 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
 
   setCurrentProfile: (profile: Profile) => {
     set({ currentProfile: profile });
+  },
+
+  applyProfilePatch: ({ profileId, picks }) => {
+    if (!picks) return false;
+    const { allProfiles, currentProfile } = get();
+    const idx = allProfiles.findIndex((p) => p.id === profileId);
+    if (idx === -1) return false; // not loaded — caller falls back to full reload
+    const updated = { ...allProfiles[idx]!, picks };
+    const next = allProfiles.slice();
+    next[idx] = updated;
+    set({
+      allProfiles: next,
+      currentProfile:
+        currentProfile && currentProfile.id === profileId ? updated : currentProfile,
+    });
+    return true;
   },
 
   // FIX: PUT /profiles/:profileId with full picks map.

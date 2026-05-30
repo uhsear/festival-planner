@@ -17,8 +17,8 @@ describe('schemas: register', () => {
   it('accepts valid registration', () => {
     const result = schemas.register.safeParse({
       username: 'testuser',
-      password: 'password123',
-      confirmPassword: 'password123',
+      password: 'Str0ngTest!Pw',
+      confirmPassword: 'Str0ngTest!Pw',
       tosAccepted: true,
     });
     assert.ok(result.success);
@@ -27,8 +27,8 @@ describe('schemas: register', () => {
   it('rejects empty username', () => {
     const result = schemas.register.safeParse({
       username: '',
-      password: 'password123',
-      confirmPassword: 'password123',
+      password: 'Str0ngTest!Pw',
+      confirmPassword: 'Str0ngTest!Pw',
       tosAccepted: true,
     });
     assert.ok(!result.success);
@@ -47,7 +47,7 @@ describe('schemas: register', () => {
   it('rejects mismatched passwords', () => {
     const result = schemas.register.safeParse({
       username: 'user',
-      password: 'password123',
+      password: 'Str0ngTest!Pw',
       confirmPassword: 'different123',
       tosAccepted: true,
     });
@@ -57,8 +57,8 @@ describe('schemas: register', () => {
   it('rejects tosAccepted=false', () => {
     const result = schemas.register.safeParse({
       username: 'user',
-      password: 'password123',
-      confirmPassword: 'password123',
+      password: 'Str0ngTest!Pw',
+      confirmPassword: 'Str0ngTest!Pw',
       tosAccepted: false,
     });
     assert.ok(!result.success);
@@ -67,8 +67,8 @@ describe('schemas: register', () => {
   it('allows optional email', () => {
     const result = schemas.register.safeParse({
       username: 'user',
-      password: 'password123',
-      confirmPassword: 'password123',
+      password: 'Str0ngTest!Pw',
+      confirmPassword: 'Str0ngTest!Pw',
       tosAccepted: true,
       email: 'test@example.com',
     });
@@ -78,8 +78,8 @@ describe('schemas: register', () => {
   it('allows empty email string', () => {
     const result = schemas.register.safeParse({
       username: 'user',
-      password: 'password123',
-      confirmPassword: 'password123',
+      password: 'Str0ngTest!Pw',
+      confirmPassword: 'Str0ngTest!Pw',
       tosAccepted: true,
       email: '',
     });
@@ -91,7 +91,7 @@ describe('schemas: login', () => {
   it('accepts valid login', () => {
     const result = schemas.login.safeParse({
       username: 'testuser',
-      password: 'password123',
+      password: 'Str0ngTest!Pw',
     });
     assert.ok(result.success);
   });
