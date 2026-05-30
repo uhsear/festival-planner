@@ -60,6 +60,14 @@
         {
           "color": "#ff3366"
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "festi-jn",
+          "project": "festie",
+          "url": "https://sentry.io/"
+        }
       ]
     ],
     "extra": {

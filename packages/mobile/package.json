@@ -9,7 +9,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'no lint configured yet'"
+    "lint": "echo 'no lint configured yet'",
+    "eas-build-post-install": "npm_config_ignore_scripts=false pnpm rebuild @sentry/cli"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
