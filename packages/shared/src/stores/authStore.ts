@@ -140,6 +140,12 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
       isLoading: false,
     });
     resetAllStores();
+    // Web only: purge the service-worker API cache so a shared-device account
+    // switch can't repaint the previous user's cached responses. No-op on RN /
+    // Node where the CacheStorage global is absent.
+    if (typeof caches !== 'undefined') {
+      caches.delete('api-cache').catch(() => {});
+    }
   },
 
   refreshToken: async () => {
