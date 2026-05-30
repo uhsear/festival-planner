@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useMemo, useState } from 'react';
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -79,6 +79,7 @@ export default function TimelineScreen() {
   const selectFestival = useFestivalDataStore((s) => s.selectFestival);
   const isLoading = useFestivalDataStore((s) => s.isLoading);
   const stages = useFestivalDataStore((s) => s.stages);
+  const allSets = useFestivalDataStore((s) => s.sets);
 
   const selectedDay = useFestivalStore((s) => s.selectedDay);
   const setSelectedDay = useFestivalStore((s) => s.setSelectedDay);
@@ -118,6 +119,27 @@ export default function TimelineScreen() {
       selectFestival(currentFestivalId).catch(() => {});
     }
   }, [currentFestivalId, currentFestival, isLoading, selectFestival]);
+
+  // Does this festival have any timed sets at all? A festival whose lineup is
+  // published without set times (everything TBA) renders nothing in the
+  // Timeline/Grid views — Cards is the only useful view for it.
+  const festivalHasTimedSets = useMemo(
+    () => allSets.some((s) => s.startTime && s.endTime),
+    [allSets],
+  );
+
+  // Pick a sensible default view per festival: Timeline for festivals with a
+  // timed schedule, Cards for all-TBA festivals (otherwise they'd open on an
+  // empty Timeline). Runs once per festival load — after that the user's manual
+  // view choice stands until they switch festivals.
+  const defaultedFestivalRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = currentFestival?.id;
+    if (!id || allSets.length === 0) return;
+    if (defaultedFestivalRef.current === id) return;
+    defaultedFestivalRef.current = id;
+    setViewMode(festivalHasTimedSets ? 'timeline' : 'cards');
+  }, [currentFestival?.id, allSets.length, festivalHasTimedSets, setViewMode]);
 
   // Keep the local search box in sync with the shared store (debounce-free; the
   // store filter recomputes filteredSets on every keystroke, matching web).
@@ -293,6 +315,7 @@ export default function TimelineScreen() {
         getStageColor={resolveStageColor}
         onSavePick={handlePickChange}
         onOpenDetail={handleSetPress}
+        defaultExpanded={timedSets.length === 0}
       />
     ) : null;
 
@@ -302,12 +325,16 @@ export default function TimelineScreen() {
       title={
         search.length > 0
           ? 'No artists match your search'
-          : 'No sets for this day'
+          : timelessSets.length > 0
+            ? 'Set times not announced yet'
+            : 'No sets for this day'
       }
       message={
         search.length > 0
           ? 'Try a different spelling or clear the search to see the full lineup.'
-          : 'Pick another day from the day selector to browse the schedule.'
+          : timelessSets.length > 0
+            ? 'This day’s set times haven’t been posted. Browse the full lineup in the TBA list below, or switch to Cards.'
+            : 'Pick another day from the day selector to browse the schedule.'
       }
     />
   );
@@ -439,7 +466,6 @@ export default function TimelineScreen() {
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListFooterComponent={tbaSection}
           ListEmptyComponent={
             <EmptyState
               icon={search.length > 0 ? 'search' : 'musical-notes'}

@@ -40,6 +40,8 @@ export interface TBASectionProps {
   getStageColor: (stageId: string) => string;
   onSavePick: (setId: string, priority: Priority | null) => void;
   onOpenDetail: (set: FestivalSet) => void;
+  /** Start expanded (e.g. when the day has no timed sets, so TBA is all there is). */
+  defaultExpanded?: boolean;
 }
 
 function priorityColor(
@@ -181,11 +183,12 @@ export default function TBASection({
   getStageColor,
   onSavePick,
   onOpenDetail,
+  defaultExpanded = false,
 }: TBASectionProps) {
   const t = useTokens();
   const styles = useStyles();
   const { width } = useWindowDimensions();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   const stageById = useMemo(() => {
     const m = new Map<string, Stage>();
