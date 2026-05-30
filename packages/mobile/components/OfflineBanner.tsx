@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import { useUIStore } from '@festie/shared/stores';
+import { drainQueue } from '@festie/shared/services';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 /**
@@ -27,6 +28,8 @@ export default function OfflineBanner() {
       const online =
         state.isConnected === true && state.isInternetReachable !== false;
       setOfflineMode(!online);
+      // Back online: replay any pick/note mutations queued while offline.
+      if (online) drainQueue().catch(() => {});
     });
     return () => unsubscribe();
   }, [setOfflineMode]);
