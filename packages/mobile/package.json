@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'no lint configured yet'",
-    "eas-build-post-install": "npm_config_ignore_scripts=false pnpm rebuild @sentry/cli"
+    "eas-build-post-install": "node scripts/install-sentry-cli.cjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
