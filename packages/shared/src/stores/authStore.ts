@@ -169,9 +169,22 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
         set({ user: { ...response.user, isAdmin }, isAdmin, sessionChecked: true });
         return true;
       }
+      // Authenticated probe succeeded but returned no user — genuinely logged out.
+      clearAuthToken();
       set({ user: null, isAdmin: false, userToken: null, sessionChecked: true });
       return false;
-    } catch {
+    } catch (err) {
+      // A transient network failure (e.g. offline cold start) must NOT log the
+      // user out — preserve the persisted session and let a later reconnect /
+      // foreground re-verify. Only a genuine auth failure (non-network, e.g.
+      // 401) clears the session + the in-memory bearer token. Duck-typed on the
+      // ApiClientError shape so it survives module mocks / realm boundaries.
+      const e = err as { isNetworkError?: boolean; status?: number } | null;
+      if (e && (e.isNetworkError === true || e.status === 0)) {
+        set({ sessionChecked: true });
+        return false;
+      }
+      clearAuthToken();
       set({ user: null, isAdmin: false, userToken: null, sessionChecked: true });
       return false;
     }

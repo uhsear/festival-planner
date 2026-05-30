@@ -198,3 +198,68 @@ describe('findAlternatives', () => {
     expect(result).toHaveLength(2);
   });
 });
+
+describe('multi-day conflict handling (S-3)', () => {
+  const picks: Record<string, Priority> = { s1: 'must', s2: 'must' };
+  const getMyPick = (id: string) => picks[id];
+
+  it('does NOT flag the same clock time on different festival days', () => {
+    const sets = [
+      makeSet({ id: 's1', startTime: '14:00', endTime: '15:00', dayIndex: 0 }),
+      makeSet({ id: 's2', startTime: '14:00', endTime: '15:00', dayIndex: 1 }),
+    ];
+    expect(detectConflicts(sets, getMyPick)).toEqual([]);
+    expect(getConflictingSetIds(sets, getMyPick).size).toBe(0);
+  });
+
+  it('still flags overlapping sets on the SAME day', () => {
+    const sets = [
+      makeSet({ id: 's1', startTime: '14:00', endTime: '15:00', dayIndex: 0 }),
+      makeSet({ id: 's2', startTime: '14:30', endTime: '15:30', dayIndex: 0 }),
+    ];
+    expect(detectConflicts(sets, getMyPick)).toHaveLength(1);
+  });
+
+  it('falls back to time-only when dayIndex is absent (single-day festivals)', () => {
+    const sets = [
+      makeSet({ id: 's1', startTime: '14:00', endTime: '15:00' }),
+      makeSet({ id: 's2', startTime: '14:30', endTime: '15:30' }),
+    ];
+    expect(detectConflicts(sets, getMyPick)).toHaveLength(1);
+  });
+
+  it('findAlternatives excludes sets on a different day', () => {
+    const target = makeSet({ id: 's1', stageId: 'stage-a', startTime: '14:00', endTime: '16:00', dayIndex: 0 });
+    const sameDay = makeSet({ id: 'alt-same', stageId: 'stage-b', startTime: '14:00', endTime: '15:00', dayIndex: 0 });
+    const otherDay = makeSet({ id: 'alt-other', stageId: 'stage-c', startTime: '14:00', endTime: '15:00', dayIndex: 1 });
+    const getMyPickLocal = (id: string) => (id === 's1' ? 'must' as Priority : undefined);
+    const result = findAlternatives('s1', [target, sameDay, otherDay], getMyPickLocal);
+    expect(result.map((s) => s.id)).toEqual(['alt-same']);
+  });
+});
+
+describe('all-TBA festival (S-8) — no set has start/end times', () => {
+  it('reports zero conflicts when every picked set is TBA', () => {
+    const sets = [
+      makeSet({ id: 's1', startTime: undefined, endTime: undefined }),
+      makeSet({ id: 's2', startTime: undefined, endTime: undefined }),
+      makeSet({ id: 's3', startTime: undefined, endTime: undefined }),
+    ];
+    const getMyPick = () => 'must' as Priority;
+    expect(detectConflicts(sets, getMyPick)).toEqual([]);
+    expect(getConflictingSetIds(sets, getMyPick).size).toBe(0);
+  });
+
+  it('reports only the timed overlaps in a mixed timed + TBA lineup', () => {
+    const sets = [
+      makeSet({ id: 'timed-a', startTime: '14:00', endTime: '15:00', dayIndex: 0 }),
+      makeSet({ id: 'timed-b', startTime: '14:30', endTime: '15:30', dayIndex: 0 }),
+      makeSet({ id: 'tba', startTime: undefined, endTime: undefined }),
+    ];
+    const getMyPick = () => 'must' as Priority;
+    const conflicts = detectConflicts(sets, getMyPick);
+    expect(conflicts).toHaveLength(1);
+    const ids = [conflicts[0]!.setA.id, conflicts[0]!.setB.id].sort();
+    expect(ids).toEqual(['timed-a', 'timed-b']);
+  });
+});
