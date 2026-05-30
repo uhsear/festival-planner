@@ -1,9 +1,2 @@
 packages:
   - 'packages/*'
-allowBuilds:
-  '@firebase/util': set this to true or false
-  '@scarf/scarf': set this to true or false
-  multiline-ts: set this to true or false
-  protobufjs: set this to true or false
-  sharp: set this to true or false
-  simple-git-hooks: set this to true or false
