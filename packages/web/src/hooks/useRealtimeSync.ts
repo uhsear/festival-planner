@@ -96,15 +96,28 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       });
     };
 
+    // Patch a single profile's picks in place from the socket payload (which
+    // carries the full picks map); only fall back to a full /profiles refetch
+    // when the profile isn't loaded yet (a brand-new joiner). Avoids re-fetching
+    // and re-serializing every profile on each remote pick. (B-6)
+    const patchOrReload = (data: ProfileUpdatedPayload) => {
+      const patched = useFestivalStore.getState().applyProfilePatch({
+        profileId: data?.profileId,
+        picks: data?.picks,
+      });
+      if (!patched) reloadProfiles();
+    };
+
     // --- Picks / notes (festivalStore is authoritative) ---
-    const handlePickUpdated = (_data: ProfileUpdatedPayload) => reloadProfiles();
+    const handlePickUpdated = (data: ProfileUpdatedPayload) => patchOrReload(data);
     const handlePickRemoved = (_data: ProfileDeletedPayload) => reloadProfiles();
+    // note:saved payload carries no notes (notes are per-viewer) — full reload.
     const handleNoteSaved = (_data: ProfileUpdatedPayload) => reloadProfiles();
     // Legacy event name kept during transition (server still emits picks:updated).
-    const handlePicksUpdated = (_data: ProfileUpdatedPayload) => reloadProfiles();
+    const handlePicksUpdated = (data: ProfileUpdatedPayload) => patchOrReload(data);
 
     // --- Profiles (festivalStore is authoritative) ---
-    const handleProfileUpdated = (_data: ProfileUpdatedPayload) => reloadProfiles();
+    const handleProfileUpdated = (data: ProfileUpdatedPayload) => patchOrReload(data);
     const handleProfileJoined = (_data: ProfileUpdatedPayload) => reloadProfiles();
     const handleProfileLeft = (_data: ProfileDeletedPayload) => reloadProfiles();
 

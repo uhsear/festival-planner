@@ -137,7 +137,7 @@ function disconnectSessionSockets(userId: string, targetTokenHash: string, reaso
 export default function createAuthRoutes(deps: any): Router {
   const {
     express, config, log,
-    sanitizeString, validateUsername, validatePasswordStrength,
+    sanitizeString, validateUsername, validatePasswordStrength, checkPasswordPolicy,
     hashPassword, verifyPassword,
     createUserSession, validateUserSession,
     invalidateUserSessions, resolveRequestToken,
@@ -162,8 +162,9 @@ export default function createAuthRoutes(deps: any): Router {
     if (!validateUsername(cleanUsername)) {
       return { error: 'Username must be 2-30 characters (letters, numbers, spaces, hyphens, underscores)' };
     }
-    if (!validatePasswordStrength(password)) {
-      return { error: 'Password must be 8-100 characters' };
+    const pwError = checkPasswordPolicy(password, { username: cleanUsername, email: rawEmail });
+    if (pwError) {
+      return { error: pwError };
     }
     if (password !== confirmPassword) {
       return { error: 'Passwords do not match' };
@@ -507,8 +508,9 @@ export default function createAuthRoutes(deps: any): Router {
       if (!currentPassword || !newPassword || !confirmPassword) {
         return sendError(res, 400, 'Current and new password required', ErrorCodes.MISSING_FIELD);
       }
-      if (!validatePasswordStrength(newPassword)) {
-        return sendError(res, 400, 'New password must be 8-100 characters', ErrorCodes.INVALID_INPUT);
+      const pwError = checkPasswordPolicy(newPassword, { username: req.user?.username });
+      if (pwError) {
+        return sendError(res, 400, pwError, ErrorCodes.INVALID_INPUT);
       }
       if (newPassword !== confirmPassword) {
         return sendError(res, 400, 'New passwords do not match', ErrorCodes.INVALID_INPUT);

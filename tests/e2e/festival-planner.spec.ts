@@ -433,8 +433,8 @@ test.describe('festival planner browser regression', () => {
     await page.getByRole('button', { name: 'Create Account' }).first().click();
     await expect(page.locator('#authPassword2')).toBeVisible();
     await page.locator('#authUsername').fill('resetuser');
-    await page.locator('#authPassword').fill('password123');
-    await page.locator('#authPassword2').fill('password123');
+    await page.locator('#authPassword').fill('Str0ngTest!Pw');
+    await page.locator('#authPassword2').fill('Str0ngTest!Pw');
     await page.locator('#authEmail').fill('resetuser@test.com');
     await page.locator('#authTos').check();
     await page.locator('#authBtn').click();

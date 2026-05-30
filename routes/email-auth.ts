@@ -30,7 +30,7 @@ import { escapeHtml } from '../lib/helpers/sanitize';
 export default function createEmailAuthRoutes(deps: any): Router {
   const {
     express, config, log,
-    hashPassword, verifyPassword, validatePasswordStrength,
+    hashPassword, verifyPassword, validatePasswordStrength, checkPasswordPolicy,
     invalidateUserSessions, disconnectUserSockets,
     userAuth, getUserById,
     sendSuccess, sendError, ErrorCodes, rateLimit,
@@ -273,8 +273,9 @@ export default function createEmailAuthRoutes(deps: any): Router {
       if (newPassword !== confirmPassword) {
         return sendError(res, 400, 'Passwords do not match', ErrorCodes.INVALID_INPUT);
       }
-      if (!validatePasswordStrength(newPassword)) {
-        return sendError(res, 400, 'Password must be 8-100 characters', ErrorCodes.INVALID_INPUT);
+      const pwError = checkPasswordPolicy(newPassword);
+      if (pwError) {
+        return sendError(res, 400, pwError, ErrorCodes.INVALID_INPUT);
       }
 
       const resolved = await resolveResetToken(token);

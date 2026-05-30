@@ -11,7 +11,7 @@
 export default function mountAdminUserRoutes({ router, deps, ctx }: any): void {
   const {
     config, log,
-    validatePasswordStrength, hashPassword,
+    validatePasswordStrength, checkPasswordPolicy, hashPassword,
     getUsers, getProfiles, getUserById,
     invalidateUserSessions, disconnectUserSockets,
     removeAvatarFile, removeProfileSockets,
@@ -211,8 +211,9 @@ export default function mountAdminUserRoutes({ router, deps, ctx }: any): void {
       const targetUserId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
       if (!targetUserId) return sendError(res, 400, 'Invalid user ID', ErrorCodes.INVALID_INPUT);
       const { newPassword } = req.validatedBody;
-      if (!validatePasswordStrength(newPassword)) {
-        return sendError(res, 400, 'Password must be 8-100 characters', ErrorCodes.INVALID_INPUT);
+      const pwError = checkPasswordPolicy(newPassword);
+      if (pwError) {
+        return sendError(res, 400, pwError, ErrorCodes.INVALID_INPUT);
       }
 
       // Get the user first

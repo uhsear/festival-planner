@@ -31,11 +31,71 @@ export function validateUsername(value: any) {
 }
 
 /**
- * Validate password strength: 8-100 chars
+ * Validate password strength: 8-100 chars (length-only; kept for callers that
+ * just need the boolean. New code should prefer checkPasswordPolicy, which also
+ * screens common/breached passwords and identity reuse).
  */
 export function validatePasswordStrength(value: any) {
   if (typeof value !== 'string') return false;
   return value.length >= 8 && value.length <= 100;
+}
+
+/**
+ * The most common / breached passwords (lowercased). NIST 800-63B recommends
+ * screening against a known-bad list instead of composition rules. This is a
+ * focused, bundled top-list (no network dependency); a HIBP k-anonymity check
+ * could be layered behind a flag later. Keep entries lowercase + trimmed.
+ */
+const COMMON_PASSWORDS = new Set([
+  'password', 'password1', 'password123', 'passw0rd', 'p@ssw0rd', 'p@ssword',
+  '12345678', '123456789', '1234567890', '123123123', '111111111', '000000000',
+  'qwerty123', 'qwertyuiop', 'qwerty12345', '1q2w3e4r', '1qaz2wsx', 'zaq12wsx',
+  'iloveyou', 'iloveyou1', 'admin123', 'administrator', 'welcome1', 'welcome123',
+  'letmein1', 'letmein123', 'abc12345', 'abcd1234', 'baseball', 'football',
+  'football1', 'sunshine', 'princess', 'princess1', 'dragon123', 'monkey123',
+  'master123', 'superman1', 'trustno1', 'whatever1', 'starwars1', 'computer1',
+  'michael1', 'jennifer', 'jordan23', 'hunter22', 'shadow123', 'ashley123',
+  'login123', 'changeme', 'changeme1', 'secret123', 'samsung123', 'google123',
+  'qazwsxedc', 'asdfghjkl', 'zxcvbnm1', 'q1w2e3r4', 'q1w2e3r4t5', 'passpass',
+  'test1234', 'test12345', 'temp1234', 'demo1234', 'guest123', 'user1234',
+  'festival', 'festival1', 'festie123', 'festival123',
+]);
+
+export interface PasswordPolicyContext {
+  username?: string | null;
+  email?: string | null;
+}
+
+/**
+ * Server-authoritative password policy. Returns an error message string, or
+ * null if the password is acceptable. Rejects: out-of-range length, common /
+ * breached passwords, and passwords that contain the username or email
+ * local-part (case-insensitive). No composition rules (per NIST 800-63B).
+ */
+export function checkPasswordPolicy(
+  value: any,
+  ctx: PasswordPolicyContext = {},
+): string | null {
+  if (typeof value !== 'string' || value.length === 0) return 'Password is required';
+  if (value.length < 8) return 'Password must be at least 8 characters';
+  if (value.length > 100) return 'Password must be at most 100 characters';
+
+  const lower = value.trim().toLowerCase();
+  if (COMMON_PASSWORDS.has(lower)) {
+    return 'That password is too common — please choose something harder to guess';
+  }
+
+  const username = ctx.username?.trim().toLowerCase();
+  if (username && username.length >= 3 && lower.includes(username)) {
+    return 'Password must not contain your username';
+  }
+
+  const emailLocal = ctx.email?.split('@')[0]?.trim().toLowerCase();
+  if (emailLocal && emailLocal.length >= 3 && lower.includes(emailLocal)) {
+    return 'Password must not contain your email address';
+  }
+
+  return null;
 }
 
 /**
