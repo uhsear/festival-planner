@@ -21,6 +21,9 @@ import type {
   CrewPollCreatedPayload,
   CrewPollVotedPayload,
   CrewPollClosedPayload,
+  CrewExpensePayload,
+  CrewExpenseDeletedPayload,
+  CrewActivityPayload,
 } from '@festie/shared/types/socket-events';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 
@@ -156,8 +159,12 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
 
     const handleMeetingPointUpserted = (data: CrewMeetingPointPayload) => {
       const activeId = getActiveCrewId();
-      if (!activeId || data?.crewId !== activeId) return;
-      // Payload is the serialized meeting point row (id, crewId, label, ...).
+      // The created/updated payload is the raw serialized row, whose crew id is
+      // snake_case (`crew_id`); only fall back to camelCase for safety.
+      const mpCrewId =
+        (data as { crew_id?: string; crewId?: string })?.crew_id ??
+        (data as { crewId?: string })?.crewId;
+      if (!activeId || mpCrewId !== activeId) return;
       useCrewStore
         .getState()
         .applyMeetingPointUpsert(data as unknown as CrewMeetingPoint);
@@ -194,6 +201,29 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       const activeId = getActiveCrewId();
       if (!activeId) return;
       useCrewStore.getState().applyPollClosed(data.pollId);
+    };
+
+    // Expenses + activity (added with the Phase 2 crew features). These carry an
+    // explicit camelCase crewId. Reload the authoritative lists (debounced) so
+    // balances/feed stay consistent without trusting partial payloads.
+    const handleExpenseChanged = (
+      data: CrewExpensePayload | CrewExpenseDeletedPayload,
+    ) => {
+      const activeId = getActiveCrewId();
+      if (!activeId || data?.crewId !== activeId) return;
+      schedule(`crew-expenses:${activeId}`, () => {
+        const id = useCrewStore.getState().activeCrew?.id;
+        if (id) useCrewStore.getState().loadExpenses(id).catch(() => {});
+      });
+    };
+
+    const handleActivityLogged = (data: CrewActivityPayload) => {
+      const activeId = getActiveCrewId();
+      if (!activeId || data?.crewId !== activeId) return;
+      schedule(`crew-activity:${activeId}`, () => {
+        const id = useCrewStore.getState().activeCrew?.id;
+        if (id) useCrewStore.getState().loadActivity(id).catch(() => {});
+      });
     };
 
     // Festival / sets -> festivalDataStore full reload
@@ -254,6 +284,9 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     socket.on('crew:poll-created', handlePollCreated);
     socket.on('crew:poll-voted', handlePollVoted);
     socket.on('crew:poll-closed', handlePollClosed);
+    socket.on('crew:expense-added', handleExpenseChanged);
+    socket.on('crew:expense-deleted', handleExpenseChanged);
+    socket.on('crew:activity', handleActivityLogged);
 
     socket.on('festival:updated', handleFestivalUpdated);
     socket.on('festival:set-added', handleSetAdded);
@@ -315,6 +348,9 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       socket.off('crew:poll-created', handlePollCreated);
       socket.off('crew:poll-voted', handlePollVoted);
       socket.off('crew:poll-closed', handlePollClosed);
+      socket.off('crew:expense-added', handleExpenseChanged);
+      socket.off('crew:expense-deleted', handleExpenseChanged);
+      socket.off('crew:activity', handleActivityLogged);
 
       socket.off('festival:updated', handleFestivalUpdated);
       socket.off('festival:set-added', handleSetAdded);

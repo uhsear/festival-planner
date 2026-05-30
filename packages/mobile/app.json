@@ -7,6 +7,12 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ed47ea14-6364-4646-871d-99edbf17613b"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "us.festie.app"
@@ -40,7 +46,8 @@
         {
           "color": "#ff3366"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "extra": {
       "router": {},

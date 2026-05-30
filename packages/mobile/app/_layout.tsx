@@ -7,8 +7,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { configureStorage } from '@festie/shared/platform';
 import { configureApi, setAuthToken } from '@festie/shared/services';
 import { useAuthStore } from '@festie/shared/stores';
+import * as Sentry from '@sentry/react-native';
 import { UIProvider } from '../contexts/UIContext';
 import OfflineBanner from '../components/OfflineBanner';
+
+// Crash/error monitoring — mirrors the web's env-gated Sentry init. No-op
+// until EXPO_PUBLIC_SENTRY_DSN is set (so it ships inert and activates once a
+// mobile Sentry project DSN is provided at build time).
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    tracesSampleRate: Number(process.env.EXPO_PUBLIC_SENTRY_TRACES_RATE ?? 0.05),
+  });
+}
 
 // Configure platform adapters before any store hydrates.
 configureStorage(AsyncStorage);
@@ -119,7 +131,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <SafeAreaProvider>
       <UIProvider>
@@ -128,3 +140,7 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+// Sentry.wrap adds the error boundary + perf instrumentation; it's a safe
+// pass-through when Sentry isn't initialized (no DSN configured).
+export default Sentry.wrap(RootLayout);
