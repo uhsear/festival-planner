@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
@@ -17,6 +17,27 @@ export default function CardsView() {
   );
 }
 
+/**
+ * Reduce-motion guard. Tracks `prefers-reduced-motion: reduce` so the card
+ * stagger entrance can be skipped entirely (matching the global a11y media
+ * query in animations.css) rather than just shortened.
+ */
+function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+      const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      mq.addEventListener('change', onChange);
+      return () => mq.removeEventListener('change', onChange);
+    },
+    () =>
+      typeof window !== 'undefined' && !!window.matchMedia
+        ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        : false,
+    () => false,
+  );
+}
+
 function CardsViewInner() {
   const currentProfile = useFestivalStore((state) => state.currentProfile);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
@@ -30,6 +51,7 @@ function CardsViewInner() {
   const setDetailAutoSpotify = useUIStore((state) => state.setDetailAutoSpotify);
   const { getMyPick, getOtherPicks } = usePicks();
   const { getStageColor, getStageName } = useFestival();
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const handlePreview = useCallback(
     (set: Parameters<typeof setDetailSet>[0]) => {
@@ -114,7 +136,26 @@ function CardsViewInner() {
             : 'Pick another day from the day selector to browse the schedule.'}
         />
       ) : (
-        <div className="card-grid grid w-full [grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-4 mx-auto pb-5 px-3 sm:px-4 md:gap-5 max-w-[1440px]" role="region" aria-label="Card view">
+        <div
+          // `card-grid` is kept for its behavioral hooks (scroll-container
+          // detection, focus-visible, priority-button styling) — layout below
+          // is driven by tokens to match the mobile FlatList rhythm.
+          className="card-grid grid w-full mx-auto max-w-[1440px] md:[--cards-gap:var(--space-4)]"
+          // Auto-fill grid + token gaps/padding set inline so the mobile
+          // single-column → calm multi-col rhythm wins over the legacy
+          // (unlayered) `.card-grid` desktop overrides in pages.css. Gap steps
+          // from spacing[3] (12px, tight mobile-list rhythm) to spacing[4]
+          // (16px) past the md breakpoint; padding mirrors the mobile FlatList
+          // contentContainer (padding spacing[4], paddingTop spacing[2]).
+          style={{
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
+            gap: 'var(--cards-gap, var(--space-3))',
+            padding: 'var(--space-4)',
+            paddingTop: 'var(--space-2)',
+          }}
+          role="region"
+          aria-label="Card view"
+        >
           {filteredSets.map((set, idx) => {
             const sc = getStageColor(set.stageId);
             const sn = getStageName(set.stageId) || 'Unknown';
@@ -124,8 +165,17 @@ function CardsViewInner() {
             return (
               <div
                 key={set.id}
-                className="card-enter stagger-item"
-                style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}
+                // Softened stagger entrance on the motion tokens
+                // (duration.med + easing.out). Skipped entirely when the user
+                // prefers reduced motion.
+                style={
+                  prefersReducedMotion
+                    ? undefined
+                    : ({
+                        animation: 'stagger-fade-in var(--duration-med) var(--ease-out) both',
+                        animationDelay: `calc(${Math.min(idx, 20)} * 24ms)`,
+                      } as React.CSSProperties)
+                }
               >
                 <SetCard
                   set={set}

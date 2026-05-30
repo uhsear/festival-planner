@@ -6,6 +6,7 @@ import { useFestivalStore } from '@festie/shared/stores';
 import CrewSelector from '../components/features/CrewSelector';
 import EmptyState from '../components/ui/EmptyState';
 import Button from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 import HomeBaseCard from '../components/crew/HomeBaseCard';
 import CrewInviteBar from '../components/crew/CrewInviteBar';
 import CrewTabBar from '../components/crew/CrewTabBar';
@@ -103,25 +104,25 @@ function CrewViewInner() {
   const isOwner = (meMember?.role === 'owner') || crew?.createdBy === user.id || crew?.owner === user.id;
 
   return (
-    <div className="crew-page space-y-2 pb-6 max-w-2xl mx-auto px-3 min-w-0 w-full">
+    <div className="crew-page space-y-4 pb-6 max-w-2xl mx-auto px-3 min-w-0 w-full">
       {crews.length > 0 && (
         <CrewSelector crews={crews} selectedCrewId={activeCrew?.id}
           onSelectCrew={handleSelectCrew} onCreateCrew={handleCreateCrew} onJoinCrew={handleJoinCrew} />
       )}
 
       {!activeCrew ? (
-        <div className="px-4">
+        <Card padding="lg" className="space-y-4">
           <EmptyState icon={<Users className="w-12 h-12" aria-hidden="true" />} title="No crew yet"
             description="Create a crew or join an existing one to coordinate with friends" />
           {crews.length === 0 && (
-            <div className="mt-6 flex gap-3">
+            <div className="flex gap-4">
               <Button variant="primary" onClick={handleCreateCrew} className="flex-1 min-h-11">Create Crew</Button>
               <Button variant="outline" onClick={handleJoinCrew} className="flex-1 min-h-11">Join by Code</Button>
             </div>
           )}
-        </div>
+        </Card>
       ) : (
-        <div className="crew-content space-y-2 min-w-0">
+        <div className="crew-content space-y-4 min-w-0">
           <HomeBaseCard
             crewId={activeCrew.id}
             currentLocation={crew?.homeBaseLocation ?? null}
@@ -135,11 +136,11 @@ function CrewViewInner() {
           <Link
             to="/compare"
             aria-label="Compare crew schedules"
-            className="flex items-center gap-2 py-1.5 px-2 min-h-11 rounded-lg bg-accent-aqua/10 border border-accent-aqua/30 hover:bg-accent-aqua/15 transition-colors"
+            className="flex items-center gap-2 py-2 px-4 min-h-11 rounded-full bg-accent-aqua text-[var(--text-on-light-accent)] hover:brightness-110 transition-all duration-200"
           >
-            <Columns3 className="w-4 h-4 text-accent-aqua flex-shrink-0" aria-hidden="true" />
-            <span className="text-xs font-semibold text-text-primary">Compare schedules</span>
-            <span className="text-accent-aqua text-xs ml-auto">{'→'}</span>
+            <Columns3 className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+            <span className="text-sm font-semibold">Compare schedules</span>
+            <span className="text-sm ml-auto">{'→'}</span>
           </Link>
 
           <CrewTabBar activeTab={tab} onTabChange={setTab} />

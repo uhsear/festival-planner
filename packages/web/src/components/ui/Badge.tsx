@@ -14,13 +14,17 @@ export default function Badge({
   className,
   style,
 }: BadgeProps) {
+  // Mobile tint-ring pills: borderless coral/aqua/amber tints. Status variants
+  // adopt the `micro` caps role; `count` stays slightly larger; `outline` keeps
+  // its hairline border for low-contrast contexts.
+  const statusType = 'uppercase tracking-[0.08em] font-semibold';
   const variantStyles = {
-    must: 'bg-accent-coral/20 text-accent-coral border border-accent-coral/30',
-    want: 'bg-accent-aqua/20 text-accent-aqua border border-accent-aqua/30',
-    maybe: 'bg-accent-amber/20 text-accent-amber border border-accent-amber/30',
-    online: 'bg-accent-green/20 text-accent-green border border-accent-green/30',
-    offline: 'bg-text-muted/20 text-text-muted border border-text-muted/30',
-    count: 'bg-accent-coral/20 text-accent-coral border border-accent-coral/30',
+    must: cn('bg-accent-coral/20 text-accent-coral', statusType),
+    want: cn('bg-accent-aqua/20 text-accent-aqua', statusType),
+    maybe: cn('bg-accent-amber/20 text-accent-amber', statusType),
+    online: cn('bg-accent-green/20 text-accent-green', statusType),
+    offline: cn('bg-text-muted/20 text-text-muted', statusType),
+    count: 'bg-accent-coral/20 text-accent-coral',
     outline: 'bg-transparent text-text-secondary border border-border',
   };
 
@@ -28,7 +32,7 @@ export default function Badge({
     <span
       style={style}
       className={cn(
-        'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border',
+        'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium',
         variantStyles[variant],
         className
       )}

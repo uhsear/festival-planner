@@ -152,15 +152,15 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
         <Drawer.Content
           aria-label="Set detail panel"
           className="fixed bottom-0 inset-x-0 z-[1000] max-h-[min(90dvh,calc(100dvh-32px))] flex flex-col
-                     rounded-t-2xl bg-bg-primary border border-border-light
+                     rounded-t-DEFAULT bg-bg-card glass border border-border
                      shadow-lg outline-none
                      lg:bottom-auto lg:inset-x-auto lg:top-1/2 lg:left-1/2
                      lg:-translate-x-1/2 lg:-translate-y-1/2
                      lg:w-[clamp(420px,40vw,540px)] lg:max-w-[calc(100vw-2rem)] lg:max-h-[85dvh]
-                     lg:rounded-2xl"
+                     lg:rounded-DEFAULT"
           onOpenAutoFocus={(e: Event) => { e.preventDefault(); closeBtnRef.current?.focus(); }}
         >
-          <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-text-muted/30 flex-shrink-0 lg:hidden" />
+          <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-border-light flex-shrink-0 lg:hidden" />
           <Drawer.Title className="sr-only">{artistDisplayName(set, b2bSeparator)}</Drawer.Title>
           <Drawer.Description className="sr-only">Set details, schedule, and crew info for {artistDisplayName(set, b2bSeparator)}</Drawer.Description>
           <button
@@ -175,7 +175,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
           <div className="min-h-0 flex flex-col gap-[var(--space-4)] overflow-y-auto overscroll-contain p-7 pb-[max(12px,env(safe-area-inset-bottom))]" ref={panelRef}>
             <div>
               <div
-                className="inline-block px-3 py-1 rounded-DEFAULT text-[11px] font-bold uppercase tracking-[1px] mb-3"
+                className="inline-block self-start px-3 py-1 rounded-DEFAULT type-micro mb-3"
                 style={{ background: stageColor + '25', color: stageColor }}
               >
                 {stageName}
@@ -205,7 +205,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             {currentProfile ? (
               <DetailPriorityPicker myPick={myPick || null} priorityBusy={priorityBusy} onPriorityClick={handlePriorityClick} />
             ) : (
-              <div className="p-3.5 px-4 rounded-sm bg-[var(--color-overlay-2)] border border-border">
+              <div className="p-4 rounded-DEFAULT bg-[var(--color-overlay-2)] border border-border">
                 <p className="text-[13px] text-text-secondary leading-normal mb-3">Join this festival to save picks, keep private notes, and compare crew overlap.</p>
                 <Button variant="primary" type="button" disabled={joinBusy} isLoading={joinBusy} onClick={handleJoinFestival}>
                   {joinBusy ? 'Joining...' : 'Join Festival'}

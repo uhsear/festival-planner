@@ -22,21 +22,21 @@ export default function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className={cn(
-      'flex flex-col items-center justify-start py-6 px-4 text-center',
+      'flex flex-col items-center justify-start gap-3 py-6 px-6 text-center',
       className
     )}>
       {icon && (
-        <div className="mb-2 text-text-muted opacity-50">
+        <div className="text-text-muted opacity-70 [&_svg]:w-12 [&_svg]:h-12">
           {icon}
         </div>
       )}
 
-      <h3 className="text-lg font-semibold text-text-primary mb-2">
+      <h3 className="type-title font-semibold text-text-primary">
         {title}
       </h3>
 
       {description && (
-        <p className="text-sm text-text-muted max-w-xs mb-4">
+        <p className="text-sm text-text-secondary max-w-xs">
           {description}
         </p>
       )}

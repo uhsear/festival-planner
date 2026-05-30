@@ -100,6 +100,7 @@ function AuthGate() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="set/[setId]" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="privacy" options={{ presentation: 'card', headerShown: false }} />
         </Stack>
       </View>
     </View>

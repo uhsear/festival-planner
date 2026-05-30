@@ -160,8 +160,8 @@ export default function BottomNav() {
               tabIndex={active ? 0 : -1}
               aria-label={`View ${tab.label}`}
               className={cn(
-                'flex flex-col items-center gap-[3px] px-3 py-2',
-                'bg-transparent text-text-muted text-[11px] font-semibold',
+                'flex flex-col items-center gap-1 px-3 py-2',
+                'bg-transparent text-text-muted text-[10px] font-semibold',
                 'rounded-sm min-h-11 min-w-0 flex-1 overflow-hidden',
                 'transition-[color,transform] duration-150 ease-[ease]',
                 'active:scale-90 motion-reduce:active:!transform-none',

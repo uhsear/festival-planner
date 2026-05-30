@@ -62,6 +62,11 @@ export default function Input({
           aria-describedby={describedBy}
           className={cn(
             inputBase,
+            // Mobile glass input: rounded-xl (radii.default), translucent glass
+            // surface, soft border, aqua focus ring, 16px body text (avoids the
+            // iOS focus-zoom). Override the shared inputBase defaults.
+            'rounded-xl bg-bg-card border-border text-base',
+            'focus-visible:ring-2 focus-visible:ring-accent-aqua',
             isSearch && 'pl-10',
             error && 'border-accent-coral focus-visible:border-accent-coral focus-visible:ring-coral-ring',
             className
