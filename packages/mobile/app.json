@@ -46,8 +46,7 @@
         {
           "color": "#ff3366"
         }
-      ],
-      "@sentry/react-native"
+      ]
     ],
     "extra": {
       "router": {},
