@@ -80,6 +80,8 @@ export default function SetDetailScreen() {
 
   const sets = useFestivalDataStore((s) => s.sets);
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
+  const currentFestivalId = useFestivalDataStore((s) => s.currentFestivalId);
+  const selectFestival = useFestivalDataStore((s) => s.selectFestival);
   const currentProfile = useFestivalDataStore((s) => s.currentProfile);
   const allProfiles = useFestivalDataStore((s) => s.allProfiles);
   const loadProfiles = useFestivalDataStore((s) => s.loadProfiles);
@@ -93,6 +95,32 @@ export default function SetDetailScreen() {
     () => sets.find((x) => x.id === setId),
     [sets, setId],
   );
+
+  // Cold deep-link (festie.us/set/<id> or festie://set/<id>): the set isn't in
+  // the store yet because its festival isn't loaded. Resolve which festival the
+  // set belongs to, load it, and the set then appears. Runs once; on failure we
+  // fall through to the "not found" state below.
+  const [resolveFailed, setResolveFailed] = useState(false);
+  const resolveTried = useRef(false);
+  useEffect(() => {
+    if (set || resolveTried.current || !setId) return;
+    resolveTried.current = true;
+    (async () => {
+      try {
+        const { festivalId } = await api.get<{ festivalId: string }>(
+          `/festivals/locate-set/${setId}`,
+        );
+        if (festivalId && festivalId !== currentFestivalId) {
+          await selectFestival(festivalId);
+        }
+        if (!useFestivalDataStore.getState().sets.some((x) => x.id === setId)) {
+          setResolveFailed(true);
+        }
+      } catch {
+        setResolveFailed(true);
+      }
+    })();
+  }, [set, setId, currentFestivalId, selectFestival]);
 
   const b2bSeparator = currentFestival?.b2bSeparator;
 
@@ -267,8 +295,17 @@ export default function SetDetailScreen() {
     Linking.openURL(url).catch(() => {});
   }, []);
 
-  // ---- Reload-safe guard: the set isn't in the store (cold open / refresh).
+  // ---- Reload-safe guard: the set isn't in the store (cold open / deep link).
   if (!set) {
+    // Still resolving the deep link's festival — show a spinner, not "not found".
+    if (!resolveFailed) {
+      return (
+        <View style={[styles.container, styles.loadingContainer]}>
+          <CloseButton onPress={() => router.back()} />
+          <ActivityIndicator size="large" color={t.colors.accent.aqua} />
+        </View>
+      );
+    }
     return (
       <View style={styles.container}>
         <CloseButton onPress={() => router.back()} />
@@ -607,6 +644,10 @@ const useStyles = makeStyles((t) => ({
   container: {
     flex: 1,
     backgroundColor: t.colors.bg.primary,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   handle: {
     alignSelf: 'center',
