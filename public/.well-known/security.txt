@@ -1,4 +1,4 @@
-Contact: mailto:uhsear@gmail.com
+Contact: mailto:security@festie.us
 Expires: 2027-03-20T23:59:59.000Z
 Preferred-Languages: en
 Canonical: https://festie.us/.well-known/security.txt

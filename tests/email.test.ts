@@ -283,7 +283,7 @@ describe('email: sendVerificationEmail', () => {
     });
 
     assert.ok(capturedArgs);
-    assert.equal(capturedArgs.from, 'Festie <uhsear@gmail.com>',
+    assert.equal(capturedArgs.from, 'Festie <no-reply@festie.us>',
       'Should use default from address');
   });
 });

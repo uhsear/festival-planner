@@ -151,29 +151,31 @@ describe('validateStartupConfig: SESSION_SECRET', () => {
 // 4. EMAIL_FROM must not be personal email in production
 // ===========================================================================
 describe('validateStartupConfig: EMAIL_FROM', () => {
-  it('throws in production when EMAIL_FROM contains uhsear@gmail.com', () => {
+  // example.com is the IANA-reserved documentation domain, used here only as the
+  // required non-festie.us counterexample for the negative cases.
+  it('throws in production when EMAIL_FROM is not a festie.us address', () => {
     assert.throws(
-      () => validateStartupConfig(prodConfig({ EMAIL_FROM: 'uhsear@gmail.com' })),
-      { message: /EMAIL_FROM must not use a personal email/ },
+      () => validateStartupConfig(prodConfig({ EMAIL_FROM: 'noreply@example.com' })),
+      { message: /EMAIL_FROM must use a festie\.us sender address/ },
     );
   });
 
-  it('throws in production when EMAIL_FROM has uhsear@gmail.com in display name format', () => {
+  it('throws in production when a non-festie.us address is in display name format', () => {
     assert.throws(
-      () => validateStartupConfig(prodConfig({ EMAIL_FROM: 'Festie <uhsear@gmail.com>' })),
-      { message: /EMAIL_FROM must not use a personal email/ },
+      () => validateStartupConfig(prodConfig({ EMAIL_FROM: 'Festie <noreply@example.com>' })),
+      { message: /EMAIL_FROM must use a festie\.us sender address/ },
     );
   });
 
-  it('passes in production with a proper sender email', () => {
+  it('passes in production with a proper festie.us sender email', () => {
     assert.doesNotThrow(
       () => validateStartupConfig(prodConfig({ EMAIL_FROM: 'Festie <no-reply@festie.us>' })),
     );
   });
 
-  it('passes in development even with personal email', () => {
+  it('passes in development even with a non-festie.us address', () => {
     assert.doesNotThrow(
-      () => validateStartupConfig(devConfig({ EMAIL_FROM: 'uhsear@gmail.com' })),
+      () => validateStartupConfig(devConfig({ EMAIL_FROM: 'noreply@example.com' })),
     );
   });
 

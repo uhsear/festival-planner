@@ -8,12 +8,12 @@ import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
  * static document served on web at /privacy.html.
  *
  * The web policy remains the single source of truth; this screen reproduces
- * its section content (effective March 20, 2026) as a typed data array so it
+ * its section content (effective May 31, 2026) as a typed data array so it
  * renders like the rest of the app and works offline. Emails open the mail
  * client and the Terms reference opens the web Terms of Service.
  */
 
-const CONTACT_EMAIL = 'uhsear@gmail.com';
+const CONTACT_EMAIL = 'privacy@festie.us';
 const SERVICE_URL = 'https://festie.us';
 const TERMS_URL = 'https://festie.us/terms.html';
 
@@ -154,7 +154,7 @@ const SECTIONS: PolicySection[] = [
       {
         heading: 'Right of Access',
         paragraphs: [
-          'You have the right to access all personal data we hold about you. You can export a complete copy of your data in JSON format via the API endpoint GET /api/v1/account/export within your account settings. This export includes all account information, festival picks, and notes.',
+          'You have the right to access all personal data we hold about you. You can export a complete copy of your data in JSON format via the API endpoint GET /api/v1/account/export within your account settings. This export includes your account profile (username, avatar, preferences), festival picks and notes, crew memberships, registered device tokens, active sessions, and notification and topic-subscription preferences.',
         ],
       },
       {
@@ -243,6 +243,14 @@ const SECTIONS: PolicySection[] = [
           'Privacy Policy: https://firebase.google.com/support/privacy',
         ],
       },
+      {
+        heading: 'Sentry (Functional Software, Inc.)',
+        bullets: [
+          'Purpose: Application error tracking and performance monitoring to diagnose crashes and reliability issues',
+          'Data Processed: Error and exception details, stack traces, and request metadata (sensitive headers such as cookies and authorization tokens are filtered out before transmission)',
+          'Privacy Policy: https://sentry.io/privacy/',
+        ],
+      },
     ],
   },
   {
@@ -256,6 +264,7 @@ const SECTIONS: PolicySection[] = [
         bullets: [
           'Cloudflare: May process data in the United States and other countries',
           'Firebase Cloud Messaging: Operated by Google, may process data in the United States and other locations',
+          'Sentry: Operated by Functional Software, Inc., may process error and performance data in the United States',
         ],
       },
       {
@@ -399,7 +408,7 @@ export default function PrivacyScreen() {
     <View style={styles.container}>
       <ScreenHeader
         title="Privacy Policy"
-        subtitle="Effective March 20, 2026"
+        subtitle="Effective May 31, 2026"
         icon="shield-checkmark-outline"
       />
 

@@ -56,7 +56,7 @@ export async function sendEmail({ to, subject, html, text, config, log, _client 
   if (_checkIdempotency(to, subject, log)) return true;
 
   const client = _client || getClient(apiKey);
-  const from = config.EMAIL_FROM || 'Festie <uhsear@gmail.com>';
+  const from = config.EMAIL_FROM || 'Festie <no-reply@festie.us>';
 
   try {
     const result = await client.emails.send({ from, to: [to], subject, html, text });

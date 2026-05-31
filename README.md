@@ -1,6 +1,6 @@
 # Festie
 
-Real-time festival crew coordination app. Create festivals, pick sets from the lineup, coordinate with your crew via live chat, and export personalized schedules. Offline-first with WebSocket-driven updates.
+Real-time festival crew coordination app. Create festivals, pick sets from the lineup, coordinate with your crew (shared picks, polls, expenses, and meeting points), and export personalized schedules. Offline-capable, with WebSocket-driven live updates.
 
 **Live at [festie.us](https://festie.us)**
 
@@ -53,7 +53,7 @@ The dev server starts the Express backend and proxies the Vite frontend. Open `h
 |---------|-------------|
 | `npm run dev` | Backend + Vite frontend (proxied) |
 | `npm start` | Backend only |
-| `npm test` | All backend tests (sequential, ~28 files) |
+| `npm test` | All backend tests (sequential, ~85 files) |
 | `npm run test:unit` | Unit tests only |
 | `npm run test:e2e` | Playwright E2E tests |
 | `npm run test:coverage` | c8 coverage (text + lcov + json-summary) |
@@ -74,10 +74,10 @@ The dev server starts the Express backend and proxies the Vite frontend. Open `h
 
 ```
 festie/
-  server.ts                 Express orchestrator (392 lines)
+  server.ts                 Express orchestrator (416 lines)
   lib/
     app-context/            DI composition root (config, DB, Redis, auth)
-    db/stores/              13 data access modules (PostgreSQL)
+    db/stores/              14 data access modules (PostgreSQL)
     notifications/          FCM push notifications (send, retry, DND)
     helpers/                Export utils, sanitize, validation
     config.ts               Centralized env var management
@@ -87,8 +87,8 @@ festie/
     socket-setup.ts         Socket.IO + Redis adapter
     shutdown.ts             Graceful shutdown + background tasks
     openapi.ts              OpenAPI spec generation
-  routes/                   29 route factory modules
-  migrations/               28 PostgreSQL migrations (004-032)
+  routes/                   34 route factory modules
+  migrations/               PostgreSQL migrations (004-040)
   tests/                    Unit, integration, hardening, E2E
   packages/
     web/src/                React 19 SPA (TanStack Router, Tailwind CSS 4)

@@ -1,5 +1,15 @@
 # Festie Hardening Audit — 2026-05-30
 
+> **STATUS: ARCHIVED — all findings remediated (2026-05-30/31).** This document is a
+> historical record of the audit process, not a list of open work. Every finding
+> below (B-1 … K-7) was fixed on or shortly after the audit date; see the git
+> history for the corresponding fix commits. The narrative is written in the
+> present tense as of the audit; read it as a description of the *pre-fix* state.
+>
+> **Line-number citations refer to the pre-remediation source** and have since
+> shifted as fixes landed — consult `git log`/`git blame` for current locations
+> rather than the line numbers cited here.
+
 Synthesis of adversarially-verified findings across backend, web, mobile, shared, and toolchain. Every finding below was confirmed real against the source. Severities reflect post-verification ratings (several were downgraded from the original triage after evidence review).
 
 ---
