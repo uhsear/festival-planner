@@ -4,7 +4,7 @@
   "description": "Interactive festival set schedule planner with group coordination",
   "type": "module",
   "main": "server.ts",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "UNLICENSED",
   "repository": {
     "type": "git",
     "url": "https://github.com/uhsear/festival-planner.git"

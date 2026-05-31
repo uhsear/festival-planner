@@ -1,8 +1,8 @@
 # CLAUDE.md
 
 Project conventions and orientation for Claude Code (and other agents) working in this repo.
-For deeper detail see [`README.md`](./README.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md),
-[`CONTRIBUTING.md`](./CONTRIBUTING.md), and [`docs/configuration.md`](./docs/configuration.md).
+For deeper detail see [`ARCHITECTURE.md`](./ARCHITECTURE.md). (Festie is proprietary; setup and
+deployment guides are intentionally not part of this repository — see [`LICENSE`](./LICENSE).)
 
 ## What this is
 
@@ -41,8 +41,7 @@ Festie — a real-time festival crew-coordination app. Live at [festie.us](https
 - Validate all API inputs with the Zod schemas in `lib/schemas.ts`.
 - CI must stay green: backend tests + web/shared vitest + mobile typecheck + lint + quality.
 
-## Deployment
+## Branches
 
-Production tracks the `main` branch; day-to-day work lands on `master`. The server runs the backend
-under PM2 (process name `festie`) on port 4000 behind a Cloudflare Tunnel. See `ARCHITECTURE.md` and
-`docs/configuration.md` for environment variables and operational detail.
+Production tracks the `main` branch; day-to-day work lands on `master`. Operational and deployment
+detail is kept private and is not documented in this repository.
