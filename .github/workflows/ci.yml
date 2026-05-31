@@ -89,15 +89,15 @@ jobs:
         run: pnpm --filter @festie/web build
       - name: Set up database
         env:
-          TEST_DATABASE_URL: postgres://test_user:test_password@localhost:5432/festival_planner_test
+          TEST_DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
         run: |
           for migration in migrations/*.sql; do
-            PGPASSWORD=test_password psql -h localhost -U test_user -d festival_planner_test -f "$migration"
+            PGPASSWORD=test_password psql -h localhost -U test_user -d festie_test -f "$migration"
           done
       - name: Run tests with coverage
         env:
-          DATABASE_URL: postgres://test_user:test_password@localhost:5432/festival_planner_test
-          TEST_DATABASE_URL: postgres://test_user:test_password@localhost:5432/festival_planner_test
+          DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
+          TEST_DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
           REDIS_URL: redis://localhost:6379
           NODE_ENV: test
           MAX_USERS: '10000'

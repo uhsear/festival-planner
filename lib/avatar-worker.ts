@@ -31,8 +31,11 @@ parentPort!.on('message', async (msg: any) => {
       .webp({ quality, effort: 4 })
       .toBuffer();
 
-    // Slice from Node's pool to get a standalone transferable ArrayBuffer
-    const ab = result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength);
+    // Slice from Node's pool to get a standalone transferable ArrayBuffer.
+    // Cast to ArrayBuffer: Node's Buffer.buffer is typed ArrayBufferLike
+    // (ArrayBuffer | SharedArrayBuffer) and SharedArrayBuffer is not
+    // Transferable, so the transfer-list arg needs the concrete type (TS 5.9).
+    const ab = result.buffer.slice(result.byteOffset, result.byteOffset + result.byteLength) as ArrayBuffer;
     parentPort!.postMessage({ result: ab }, [ab]);
   } catch (err: any) {
     parentPort!.postMessage({ error: err.message, statusCode: 400 });
