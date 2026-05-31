@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useFestivalDataStore, useFestivalStore } from '@festie/shared/stores';
+import { useFestivalDataStore, useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import {
   artistDisplayName,
@@ -77,6 +77,8 @@ export default function TimelineScreen() {
   const currentProfile = useFestivalDataStore((s) => s.currentProfile);
   const loadFestivals = useFestivalDataStore((s) => s.loadFestivals);
   const selectFestival = useFestivalDataStore((s) => s.selectFestival);
+  const loadProfiles = useFestivalDataStore((s) => s.loadProfiles);
+  const user = useAuthStore((s) => s.user);
   const isLoading = useFestivalDataStore((s) => s.isLoading);
   const error = useFestivalDataStore((s) => s.error);
   const stages = useFestivalDataStore((s) => s.stages);
@@ -120,6 +122,15 @@ export default function TimelineScreen() {
       selectFestival(currentFestivalId).catch(() => {});
     }
   }, [currentFestivalId, currentFestival, isLoading, selectFestival]);
+
+  // When a guest signs in while a festival is already selected, the profiles
+  // weren't fetched (selectFestival skips them for guests). Load them now so
+  // picks/notes light up without forcing a manual festival re-select.
+  useEffect(() => {
+    if (user && currentFestivalId && !currentProfile) {
+      loadProfiles(currentFestivalId).catch(() => {});
+    }
+  }, [user, currentFestivalId, currentProfile, loadProfiles]);
 
   // Pull-to-refresh: re-fetch the selected festival's sets/stages/profile, or
   // the festival list when sitting on the picker. Mirrors FestivalList.

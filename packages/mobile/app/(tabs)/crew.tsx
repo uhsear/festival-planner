@@ -318,6 +318,7 @@ export default function CrewScreen() {
           icon="lock-closed"
           title="Sign in required"
           message="Log in to coordinate with your crew."
+          action={{ label: 'Sign in', onPress: () => router.push('/(auth)/login') }}
         />
       </View>
     );
