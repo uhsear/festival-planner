@@ -6,6 +6,7 @@ import {
   FlatList,
   TextInput,
   ScrollView,
+  RefreshControl,
   type ListRenderItem,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +28,7 @@ import LiveDot from '../../components/LiveDot';
 import FestivalList from '../../components/FestivalList';
 import SetCardMobile from '../../components/SetCardMobile';
 import EmptyState from '../../components/EmptyState';
+import LoadingState from '../../components/LoadingState';
 import TimelineView from '../../components/TimelineView';
 import GridView from '../../components/GridView';
 import TBASection from '../../components/TBASection';
@@ -76,6 +78,7 @@ export default function TimelineScreen() {
   const loadFestivals = useFestivalDataStore((s) => s.loadFestivals);
   const selectFestival = useFestivalDataStore((s) => s.selectFestival);
   const isLoading = useFestivalDataStore((s) => s.isLoading);
+  const error = useFestivalDataStore((s) => s.error);
   const stages = useFestivalDataStore((s) => s.stages);
   const allSets = useFestivalDataStore((s) => s.sets);
 
@@ -117,6 +120,26 @@ export default function TimelineScreen() {
       selectFestival(currentFestivalId).catch(() => {});
     }
   }, [currentFestivalId, currentFestival, isLoading, selectFestival]);
+
+  // Pull-to-refresh: re-fetch the selected festival's sets/stages/profile, or
+  // the festival list when sitting on the picker. Mirrors FestivalList.
+  const handleRefresh = useCallback(() => {
+    if (currentFestival) {
+      selectFestival(currentFestival.id).catch(() => {});
+    } else {
+      loadFestivals().catch(() => {});
+    }
+  }, [currentFestival, selectFestival, loadFestivals]);
+
+  const refreshControl = (
+    <RefreshControl
+      refreshing={isLoading}
+      onRefresh={handleRefresh}
+      tintColor={t.colors.accent.aqua}
+      colors={[t.colors.accent.aqua]}
+      progressBackgroundColor={t.colors.bg.secondary}
+    />
+  );
 
   // Does this festival have any timed sets at all? A festival whose lineup is
   // published without set times (everything TBA) renders nothing in the
@@ -337,7 +360,8 @@ export default function TimelineScreen() {
     />
   );
 
-  // No festival selected — show the festival selector.
+  // No festival selected — show the festival selector, or a load/error state
+  // when the festival list itself couldn't be fetched.
   if (!currentFestival) {
     return (
       <View style={styles.container}>
@@ -345,7 +369,18 @@ export default function TimelineScreen() {
           <Ionicons name="musical-notes" size={24} color={t.colors.accent.aqua} />
           <Text style={styles.headerTitle}>Select a Festival</Text>
         </View>
-        <FestivalList />
+        {festivals.length === 0 && isLoading ? (
+          <LoadingState label="Loading festivals…" />
+        ) : festivals.length === 0 && error ? (
+          <EmptyState
+            icon="cloud-offline-outline"
+            title="Couldn’t load festivals"
+            message={error}
+            action={{ label: 'Try again', onPress: () => loadFestivals().catch(() => {}) }}
+          />
+        ) : (
+          <FestivalList />
+        )}
       </View>
     );
   }
@@ -463,6 +498,7 @@ export default function TimelineScreen() {
           renderItem={renderRow}
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
+          refreshControl={refreshControl}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
             <EmptyState

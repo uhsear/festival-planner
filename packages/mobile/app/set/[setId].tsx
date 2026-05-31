@@ -7,6 +7,7 @@ import {
   TextInput,
   Linking,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
@@ -126,6 +127,24 @@ export default function SetDetailScreen() {
 
   // ---- Derived display data (only computed when the set exists). ----------
   const artistName = set ? artistDisplayName(set, b2bSeparator) : '';
+
+  // Share the public universal link to this set (mirrors web's /set/$setId
+  // route). festie.us is the registered universal-link host (app.json) and the
+  // festie:// scheme also resolves set/<id>, so the link deep-links into the app
+  // when installed and falls back to the web page otherwise.
+  const shareUrl = useMemo(() => (set ? `https://festie.us/set/${set.id}` : ''), [set]);
+  const handleShare = useCallback(async () => {
+    if (!set) return;
+    try {
+      await Share.share({
+        message: `${artistName} at ${currentFestival?.name ?? 'the festival'} — ${shareUrl}`,
+        url: shareUrl,
+        title: artistName,
+      });
+    } catch {
+      // User dismissed the share sheet — not an error worth surfacing.
+    }
+  }, [set, artistName, currentFestival?.name, shareUrl]);
   const subtitle = set ? artistSubtitle(set, b2bSeparator) : '';
   const stageName = set ? getStageName(set.stageId) || 'Unknown' : 'Unknown';
   const stageColor = safeStageColor(
@@ -322,6 +341,16 @@ export default function SetDetailScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.handle} />
+      <TouchableOpacity
+        style={styles.shareButton}
+        onPress={handleShare}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Share set"
+        hitSlop={8}
+      >
+        <Ionicons name="share-outline" size={20} color={t.colors.text.secondary} />
+      </TouchableOpacity>
       <CloseButton onPress={() => router.back()} />
 
       <ScrollView
@@ -670,6 +699,20 @@ const useStyles = makeStyles((t) => ({
     position: 'absolute',
     top: t.spacing[3],
     right: t.spacing[4],
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: t.radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.colors.bg.card,
+    borderWidth: 1,
+    borderColor: t.colors.border.light,
+  },
+  shareButton: {
+    position: 'absolute',
+    top: t.spacing[3],
+    left: t.spacing[4],
     zIndex: 10,
     width: 40,
     height: 40,

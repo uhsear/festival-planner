@@ -1,5 +1,6 @@
 import { create, StateCreator } from 'zustand';
 import { api } from '../services/api';
+import { mapErrorToUserMessage } from '../services/errors';
 import {
   Crew,
   CrewMember,
@@ -131,7 +132,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       const crews = await api.get<Crew[]>('/crews');
       set({ crews, crewLoading: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load crews';
+      const message = mapErrorToUserMessage(err, 'Failed to load crews');
       set({ error: message, crewLoading: false });
       throw err;
     }
@@ -149,7 +150,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         crewLoading: false,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load crew';
+      const message = mapErrorToUserMessage(err, 'Failed to load crew');
       set({ error: message, crewLoading: false });
       throw err;
     }
@@ -174,7 +175,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       }));
       return crew;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create crew';
+      const message = mapErrorToUserMessage(err, 'Failed to create crew');
       set({ error: message, crewLoading: false });
       throw err;
     }
@@ -189,7 +190,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         crewLoading: false,
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to join crew';
+      const message = mapErrorToUserMessage(err, 'Failed to join crew');
       set({ error: message, crewLoading: false });
       throw err;
     }
@@ -205,7 +206,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         crewMembers: state.activeCrew?.id === crewId ? [] : state.crewMembers,
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to leave crew';
+      const message = mapErrorToUserMessage(err, 'Failed to leave crew');
       set({ error: message });
       throw err;
     }
@@ -219,7 +220,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         crewMembers: state.crewMembers.filter((m) => m.id !== memberId),
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to kick member';
+      const message = mapErrorToUserMessage(err, 'Failed to kick member');
       set({ error: message });
       throw err;
     }
@@ -235,7 +236,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         ),
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to transfer ownership';
+      const message = mapErrorToUserMessage(err, 'Failed to transfer ownership');
       set({ error: message });
       throw err;
     }
@@ -253,7 +254,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       }));
       return inviteCode;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to regenerate invite';
+      const message = mapErrorToUserMessage(err, 'Failed to regenerate invite');
       set({ error: message });
       throw err;
     }
@@ -268,7 +269,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         activeCrew: state.activeCrew?.id === crewId ? null : state.activeCrew,
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete crew';
+      const message = mapErrorToUserMessage(err, 'Failed to delete crew');
       set({ error: message });
       throw err;
     }
@@ -282,7 +283,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       );
       set({ crewOverlap: overlap });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load overlap';
+      const message = mapErrorToUserMessage(err, 'Failed to load overlap');
       set({ error: message });
       throw err;
     }
@@ -301,7 +302,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         crewMembers: updated.members || state.crewMembers,
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to add member';
+      const message = mapErrorToUserMessage(err, 'Failed to add member');
       set({ error: message });
       throw err;
     }
@@ -325,7 +326,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       }));
       set({ polls });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load polls';
+      const message = mapErrorToUserMessage(err, 'Failed to load polls');
       set({ error: message });
       throw err;
     }
@@ -343,7 +344,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       set((state) => ({ polls: [normalized, ...state.polls] }));
       return normalized;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create poll';
+      const message = mapErrorToUserMessage(err, 'Failed to create poll');
       set({ error: message });
       throw err;
     }
@@ -357,7 +358,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       await api.post(`/crews/${crewId}/polls/${pollId}/vote`, { optionIndex });
       await useCrewStore.getState().loadPolls(crewId);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to vote';
+      const message = mapErrorToUserMessage(err, 'Failed to vote');
       set({ error: message });
       throw err;
     }
@@ -370,7 +371,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       await api.delete(`/crews/${crewId}/polls/${pollId}`);
       set((state) => ({ polls: state.polls.filter((p) => p.id !== pollId) }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to close poll';
+      const message = mapErrorToUserMessage(err, 'Failed to close poll');
       set({ error: message });
       throw err;
     }
@@ -388,7 +389,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       set({ meetingPoints });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to load meeting points';
+        mapErrorToUserMessage(err, 'Failed to load meeting points');
       set({ error: message });
       throw err;
     }
@@ -409,7 +410,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       return meetingPoint;
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to add meeting point';
+        mapErrorToUserMessage(err, 'Failed to add meeting point');
       set({ error: message });
       throw err;
     }
@@ -435,7 +436,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       return meetingPoint;
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to update meeting point';
+        mapErrorToUserMessage(err, 'Failed to update meeting point');
       set({ error: message });
       throw err;
     }
@@ -451,7 +452,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       }));
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to remove meeting point';
+        mapErrorToUserMessage(err, 'Failed to remove meeting point');
       set({ error: message });
       throw err;
     }
@@ -471,7 +472,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       set({ expenses });
       await loadBalances(set, crewId);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load expenses';
+      const message = mapErrorToUserMessage(err, 'Failed to load expenses');
       set({ error: message });
       throw err;
     }
@@ -485,7 +486,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       await api.post(`/crews/${crewId}/expenses`, request);
       await useCrewStore.getState().loadExpenses(crewId);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to add expense';
+      const message = mapErrorToUserMessage(err, 'Failed to add expense');
       set({ error: message });
       throw err;
     }
@@ -498,7 +499,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       await api.delete(`/crews/${crewId}/expenses/${expenseId}`);
       await useCrewStore.getState().loadExpenses(crewId);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to remove expense';
+      const message = mapErrorToUserMessage(err, 'Failed to remove expense');
       set({ error: message });
       throw err;
     }
@@ -511,7 +512,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       await api.post(`/crews/${crewId}/expenses/settle`, request);
       await useCrewStore.getState().loadExpenses(crewId);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to settle up';
+      const message = mapErrorToUserMessage(err, 'Failed to settle up');
       set({ error: message });
       throw err;
     }
@@ -534,7 +535,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         : ('items' in res ? res.items : res.activity) ?? [];
       set({ activity });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load activity';
+      const message = mapErrorToUserMessage(err, 'Failed to load activity');
       set({ error: message });
       throw err;
     }
@@ -564,7 +565,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       }));
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to update home base';
+        mapErrorToUserMessage(err, 'Failed to update home base');
       set({ error: message });
       throw err;
     }

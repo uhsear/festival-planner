@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,17 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import {
   useAuthStore,
   useCrewStore,
   useFestivalStore,
 } from '@festie/shared/stores';
 import { useCrew } from '@festie/shared/hooks';
+import { mapErrorToUserMessage } from '@festie/shared/services';
 import type {
   Crew,
   CrewMember,
@@ -85,6 +88,7 @@ export default function CrewScreen() {
   // Per-set crew picks (shared hook) — used to enrich the overlap UI without
   // an extra endpoint round-trip.
   const { getCrewScopedOtherPicks } = useCrew();
+  const router = useRouter();
 
   const [name, setName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
@@ -92,6 +96,7 @@ export default function CrewScreen() {
   const [joinBusy, setJoinBusy] = useState(false);
   const [regenBusy, setRegenBusy] = useState(false);
   const [overlapBusy, setOverlapBusy] = useState(false);
+  const [overlapError, setOverlapError] = useState<string | null>(null);
   const [showOverlap, setShowOverlap] = useState(false);
   const [forceAddOpen, setForceAddOpen] = useState(false);
   const [forceAddId, setForceAddId] = useState('');
@@ -127,6 +132,18 @@ export default function CrewScreen() {
     loadMeetingPoints(id).catch(() => {});
     loadExpenses(id).catch(() => {});
   }, [activeCrew?.id, loadPolls, loadMeetingPoints, loadExpenses]);
+
+  // Pull-to-refresh: re-fetch the crew list and the active crew (members,
+  // polls, meeting points, expenses all reload off selectCrew + the effect).
+  const handleRefresh = useCallback(() => {
+    loadCrews().catch(() => {});
+    if (activeCrew) {
+      selectCrew(activeCrew.id).catch(() => {});
+      loadPolls(activeCrew.id).catch(() => {});
+      loadMeetingPoints(activeCrew.id).catch(() => {});
+      loadExpenses(activeCrew.id).catch(() => {});
+    }
+  }, [loadCrews, activeCrew, selectCrew, loadPolls, loadMeetingPoints, loadExpenses]);
 
   // Fast set lookup by id for overlap labels.
   const setsById = useMemo(() => {
@@ -203,11 +220,12 @@ export default function CrewScreen() {
       return;
     }
     setOverlapBusy(true);
+    setOverlapError(null);
     try {
       await loadOverlap(crewId, festivalId);
       setShowOverlap(true);
-    } catch {
-      // Error is set in the store.
+    } catch (e) {
+      setOverlapError(mapErrorToUserMessage(e, 'Couldn’t load schedule overlap'));
     } finally {
       setOverlapBusy(false);
     }
@@ -429,6 +447,15 @@ export default function CrewScreen() {
         data={members}
         keyExtractor={(m) => m.id || m.userId}
         contentContainerStyle={styles.memberList}
+        refreshControl={
+          <RefreshControl
+            refreshing={crewLoading}
+            onRefresh={handleRefresh}
+            tintColor={t.colors.accent.aqua}
+            colors={[t.colors.accent.aqua]}
+            progressBackgroundColor={t.colors.bg.secondary}
+          />
+        }
         ListHeaderComponent={
           <View style={styles.headerBlock}>
             {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -540,6 +567,37 @@ export default function CrewScreen() {
                 />
               )}
             </TouchableOpacity>
+
+            {/* Full side-by-side compare matrix (members × sets). */}
+            <TouchableOpacity
+              style={styles.overlapToggle}
+              onPress={() => router.push('/crew-compare')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Open full compare grid"
+            >
+              <Ionicons name="grid-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.overlapToggleText}>Full compare grid</Text>
+              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+            </TouchableOpacity>
+
+            {overlapError ? (
+              <TouchableOpacity
+                style={styles.overlapErrorRow}
+                onPress={() => handleToggleOverlap(crew.id)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading schedule overlap"
+              >
+                <Ionicons
+                  name="cloud-offline-outline"
+                  size={16}
+                  color={t.colors.text.danger}
+                />
+                <Text style={styles.overlapErrorText}>{overlapError}</Text>
+                <Text style={styles.overlapRetryText}>Retry</Text>
+              </TouchableOpacity>
+            ) : null}
 
             {showOverlap ? (
               overlapEntries.length === 0 ? (
@@ -921,6 +979,26 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('caption'),
     color: t.colors.text.muted,
     paddingHorizontal: t.spacing[2],
+  },
+  overlapErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.text.danger,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  overlapErrorText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.danger,
+    flex: 1,
+  },
+  overlapRetryText: {
+    ...typeStyle('label'),
+    color: t.colors.accent.aqua,
   },
   overlapList: {
     gap: t.spacing[2],
