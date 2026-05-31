@@ -19,7 +19,7 @@
     }
   },
   "devDependencies": {
-    "turbo": "^2.5.0",
+    "turbo": "^2.9.16",
     "typescript": "~5.8.0"
   }
 }
