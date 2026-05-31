@@ -1,10 +1,22 @@
-import { useCallback, useMemo } from 'react';
-import { View, Text, FlatList } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import type { FestivalSet, Priority } from '@festie/shared/types';
-import { artistDisplayName, getConflictingSetIds } from '@festie/shared/utils';
+import { artistDisplayName, getConflictingSetIds, buildPicksIcs } from '@festie/shared/utils';
+import { mapErrorToUserMessage } from '@festie/shared/services';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import ScreenHeader from '../../components/ScreenHeader';
 import EmptyState from '../../components/EmptyState';
@@ -50,7 +62,12 @@ export default function PicksScreen() {
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
   const currentProfile = useFestivalDataStore((s) => s.currentProfile);
   const sets = useFestivalDataStore((s) => s.sets);
+  const stages = useFestivalDataStore((s) => s.stages);
   const isLoading = useFestivalDataStore((s) => s.isLoading);
+  const error = useFestivalDataStore((s) => s.error);
+  const selectFestival = useFestivalDataStore((s) => s.selectFestival);
+
+  const [exportBusy, setExportBusy] = useState(false);
 
   const { getMyPick, savePick, removePick, getMyNote } = usePicks();
   const { getDays, getStageColor, getStageName } = useFestival();
@@ -184,6 +201,81 @@ export default function PicksScreen() {
 
   const keyExtractor = useCallback((item: Row) => item.key, []);
 
+  const handleRefresh = useCallback(() => {
+    if (currentFestival) selectFestival(currentFestival.id).catch(() => {});
+  }, [currentFestival, selectFestival]);
+
+  // Export the user's picks to a .ics the OS can import into any calendar app.
+  // Built fully client-side from the already-loaded store data (no server call,
+  // works offline) and shared via the OS sheet — same write/share flow as the
+  // account data export.
+  const handleExportCalendar = useCallback(async () => {
+    if (!currentFestival || !currentProfile || exportBusy) return;
+    setExportBusy(true);
+    try {
+      const ics = buildPicksIcs({
+        festival: {
+          id: currentFestival.id,
+          name: currentFestival.name,
+          location: currentFestival.location,
+        },
+        sets,
+        stages,
+        picks: currentProfile.picks,
+        notes: currentProfile.notes,
+      });
+      const safeName = (currentFestival.name || 'festival')
+        .replace(/[^a-z0-9_-]/gi, '_')
+        .slice(0, 60);
+      const file = new File(Paths.cache, `${safeName}_picks.ics`);
+      file.create({ overwrite: true });
+      file.write(ics);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: 'text/calendar',
+          UTI: 'com.apple.ical.ics',
+          dialogTitle: 'Add picks to calendar',
+        });
+      } else {
+        Alert.alert('Sharing unavailable', 'Calendar sharing is not available on this device.');
+      }
+    } catch (e) {
+      Alert.alert('Export failed', mapErrorToUserMessage(e, 'Could not export your picks.'));
+    } finally {
+      setExportBusy(false);
+    }
+  }, [currentFestival, currentProfile, sets, stages, exportBusy]);
+
+  const calendarButton = (
+    <TouchableOpacity
+      style={styles.calendarButton}
+      onPress={handleExportCalendar}
+      disabled={exportBusy}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel="Add picks to calendar"
+    >
+      {exportBusy ? (
+        <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+      ) : (
+        <Ionicons name="calendar-outline" size={16} color={t.colors.accent.aqua} />
+      )}
+      <Text style={styles.calendarButtonText}>
+        {exportBusy ? 'Exporting…' : 'Add to calendar'}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const refreshControl = (
+    <RefreshControl
+      refreshing={isLoading}
+      onRefresh={handleRefresh}
+      tintColor={t.colors.accent.aqua}
+      colors={[t.colors.accent.aqua]}
+      progressBackgroundColor={t.colors.bg.secondary}
+    />
+  );
+
   let body: React.ReactNode;
   if (!currentFestival) {
     body = (
@@ -203,6 +295,15 @@ export default function PicksScreen() {
     );
   } else if (isLoading && rows.length === 0) {
     body = <LoadingState label="Loading your picks" />;
+  } else if (error && rows.length === 0) {
+    body = (
+      <EmptyState
+        icon="cloud-offline-outline"
+        title="Couldn’t load your picks"
+        message={error}
+        action={{ label: 'Try again', onPress: handleRefresh }}
+      />
+    );
   } else if (rows.length === 0) {
     body = (
       <EmptyState
@@ -218,7 +319,9 @@ export default function PicksScreen() {
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         contentContainerStyle={styles.listContent}
+        ListHeaderComponent={calendarButton}
         ItemSeparatorComponent={Separator}
+        refreshControl={refreshControl}
       />
     );
   }
@@ -247,6 +350,22 @@ const useStyles = makeStyles((t) => ({
   listContent: {
     padding: t.spacing[4],
     paddingBottom: t.spacing[6],
+  },
+  calendarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: t.spacing[2],
+    paddingVertical: t.spacing[3],
+    marginBottom: t.spacing[2],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  calendarButtonText: {
+    ...typeStyle('label'),
+    color: t.colors.accent.aqua,
   },
   separator: {
     height: t.spacing[2],
