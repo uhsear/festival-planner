@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   Share,
 } from 'react-native';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '@festie/shared/services';
@@ -15,6 +17,7 @@ import { useFestival } from '@festie/shared/hooks';
 import { isFestivalOver } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import EmptyState from '../components/EmptyState';
+import WrapPoster from '../components/WrapPoster';
 
 interface WrapStats {
   totalRated: number;
@@ -57,6 +60,8 @@ export default function WrapScreen() {
   const [data, setData] = useState<WrapResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const posterRef = useRef<View>(null);
 
   useEffect(() => {
     if (!currentFestival?.id || !over) return;
@@ -92,7 +97,18 @@ export default function WrapScreen() {
   const stageLabel = (s: WrapSet): string =>
     s.stageName || (s.stageId ? getStageName(s.stageId) || 'Stage' : 'Stage');
 
-  const handleShare = async () => {
+  // Poster-shaped top sets (resolve stage names) — mirrors web's posterTopSets.
+  const posterTopSets = useMemo(
+    () =>
+      (data?.topSets || []).slice(0, 5).map((s) => ({
+        rating: s.rating,
+        artist: s.artist || s.setId,
+        stageName: s.stageName || (s.stageId ? getStageName(s.stageId) : null),
+      })),
+    [data?.topSets, getStageName],
+  );
+
+  const shareText = async () => {
     if (!data || !currentFestival) return;
     const { stats, topSets } = data;
     const lines = [
@@ -105,6 +121,36 @@ export default function WrapScreen() {
       await Share.share({ message: lines.join('\n') });
     } catch {
       // User dismissed the share sheet.
+    }
+  };
+
+  // Capture the off-screen 1080×1920 poster to a PNG and share it; fall back to
+  // the plain-text share if capture or the share sheet is unavailable.
+  const handleShare = async () => {
+    if (!data || !currentFestival || sharing) return;
+    setSharing(true);
+    try {
+      const uri = await captureRef(posterRef, {
+        format: 'png',
+        quality: 1,
+        width: 1080,
+        height: 1920,
+        result: 'tmpfile',
+      });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          UTI: 'public.png',
+          dialogTitle: 'Share your Festie wrap',
+        });
+      } else {
+        await shareText();
+      }
+    } catch {
+      // Capture failed (or sheet dismissed) — degrade to a text share.
+      await shareText();
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -219,18 +265,25 @@ export default function WrapScreen() {
 
         {stats.totalRated > 0 ? (
           <TouchableOpacity
-            style={styles.shareButton}
+            style={[styles.shareButton, sharing && styles.shareButtonBusy]}
             onPress={() => void handleShare()}
+            disabled={sharing}
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel="Share your wrap"
           >
-            <Ionicons
-              name="share-social-outline"
-              size={16}
-              color={t.colors.text.onAccent}
-            />
-            <Text style={styles.shareButtonText}>Share your wrap</Text>
+            {sharing ? (
+              <ActivityIndicator size="small" color={t.colors.text.onAccent} />
+            ) : (
+              <Ionicons
+                name="share-social-outline"
+                size={16}
+                color={t.colors.text.onAccent}
+              />
+            )}
+            <Text style={styles.shareButtonText}>
+              {sharing ? 'Preparing…' : 'Share your wrap'}
+            </Text>
           </TouchableOpacity>
         ) : null}
 
@@ -243,6 +296,28 @@ export default function WrapScreen() {
     <View style={styles.screen}>
       <Stack.Screen options={{ title: 'Festival Wrap', headerShown: true }} />
       {body()}
+      {/* Off-screen 1080×1920 poster, captured to PNG on share. collapsable=false
+          keeps the View in the native tree so react-native-view-shot can grab it
+          on Android. */}
+      {data && data.stats.totalRated > 0 ? (
+        <View
+          ref={posterRef}
+          collapsable={false}
+          style={{ position: 'absolute', left: -99999, top: 0, width: 1080, height: 1920 }}
+          pointerEvents="none"
+        >
+          <WrapPoster
+            festivalName={currentFestival?.name ?? 'Festival'}
+            topSets={posterTopSets}
+            stats={{
+              totalRated: data.stats.totalRated,
+              stagesVisited: data.stats.stagesVisited,
+              daysAttended: data.stats.daysAttended,
+              totalHours: data.stats.totalHours ?? 0,
+            }}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -379,6 +454,9 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.accent.coral,
     borderRadius: t.radii.default,
     paddingVertical: t.spacing[3],
+  },
+  shareButtonBusy: {
+    opacity: 0.7,
   },
   shareButtonText: {
     ...typeStyle('label'),
