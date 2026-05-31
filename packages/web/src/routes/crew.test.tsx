@@ -73,6 +73,10 @@ vi.mock('../components/ui/PromptDialog', () => ({
   default: () => null,
 }));
 
+vi.mock('../components/ui/ConfirmDialog', () => ({
+  default: () => null,
+}));
+
 vi.mock('../components/layout/RouteErrorBoundary', () => ({
   RenderErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
@@ -80,6 +84,8 @@ vi.mock('../components/layout/RouteErrorBoundary', () => ({
 vi.mock('lucide-react', () => ({
   Users: () => <span data-testid="users-icon" />,
   Columns3: () => <span data-testid="columns-icon" />,
+  Trash2: () => <span data-testid="trash-icon" />,
+  LogOut: () => <span data-testid="logout-icon" />,
 }));
 
 import CrewView from './crew';

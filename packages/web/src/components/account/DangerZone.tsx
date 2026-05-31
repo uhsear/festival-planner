@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared/stores/authStore';
-import { api, getApiBase } from '@festie/shared/services/api';
+import { api, mapErrorToUserMessage } from '@festie/shared/services/api';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -21,12 +21,10 @@ export default function DangerZone() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const response = await fetch(`${getApiBase()}/account/export`, {
-        method: 'GET',
-        credentials: 'same-origin',
+      const data = await api.get<Record<string, unknown>>('/account/export');
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: 'application/json',
       });
-      if (!response.ok) throw new Error('Export failed');
-      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -34,8 +32,8 @@ export default function DangerZone() {
       a.click();
       URL.revokeObjectURL(url);
       toast('Export downloaded', 'success');
-    } catch {
-      toast("Couldn't export data. Try again.", 'error');
+    } catch (err) {
+      toast(mapErrorToUserMessage(err, "Couldn't export data. Try again."), 'error');
     } finally {
       setExporting(false);
     }

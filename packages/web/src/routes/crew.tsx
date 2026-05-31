@@ -14,8 +14,9 @@ import CrewTabContent from '../components/crew/CrewTabContent';
 import { useCrewAdmin } from '../components/crew/useCrewAdmin';
 import { useToast } from '../lib/toastContext';
 import PromptDialog from '../components/ui/PromptDialog';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
-import { Users, Columns3 } from 'lucide-react';
+import { Users, Columns3, Trash2, LogOut } from 'lucide-react';
 import type { Crew, CrewMember } from '@festie/shared/types';
 import type { TabKey } from '../components/crew/CrewTabBar';
 
@@ -46,6 +47,9 @@ function CrewViewInner() {
   const selectCrew = useCrewStore((state) => state.selectCrew);
   const createCrew = useCrewStore((state) => state.createCrew);
   const joinByCode = useCrewStore((state) => state.joinByCode);
+  const leaveCrew = useCrewStore((state) => state.leaveCrew);
+  const deleteCrew = useCrewStore((state) => state.deleteCrew);
+  const transferOwnership = useCrewStore((state) => state.transferOwnership);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
   const [tab, setTab] = useState<TabKey>('members');
   const { toast } = useToast();
@@ -59,6 +63,8 @@ function CrewViewInner() {
   const [createBusy, setCreateBusy] = useState(false);
   const [joinOpen, setJoinOpen]     = useState(false);
   const [joinBusy, setJoinBusy]     = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
 
   useEffect(() => {
     if (user && crews.length > 0 && !activeCrew) {
@@ -98,6 +104,41 @@ function CrewViewInner() {
     } finally { setJoinBusy(false); }
   };
 
+  const submitDestroy = async () => {
+    if (!activeCrew) return;
+    setConfirmBusy(true);
+    try {
+      if (isOwner) {
+        await deleteCrew(activeCrew.id);
+        toast('Crew deleted', 'success');
+      } else {
+        await leaveCrew(activeCrew.id);
+        toast('Left crew', 'success');
+      }
+      setConfirmOpen(false);
+    } catch (e) {
+      toast(
+        e instanceof Error
+          ? e.message
+          : isOwner
+            ? 'Failed to delete crew'
+            : 'Failed to leave crew',
+        'error',
+      );
+    } finally { setConfirmBusy(false); }
+  };
+
+  const handleTransferOwnership = (member: CrewMemberWithUsername) => {
+    if (!activeCrew) return;
+    const name = member.name || member.username || 'this member';
+    if (!window.confirm(`Make ${name} the crew owner? You will become a regular member.`)) return;
+    transferOwnership(activeCrew.id, member.userId)
+      .then(() => selectCrew(activeCrew.id))
+      .catch((e: unknown) => {
+        toast(e instanceof Error ? e.message : 'Failed to transfer ownership', 'error');
+      });
+  };
+
   const crew = activeCrew as CrewWithHomeBase | null;
   const members = (crew?.members || []) as CrewMemberWithUsername[];
   const meMember = members.find((m) => m.userId === user.id);
@@ -131,7 +172,13 @@ function CrewViewInner() {
             onSaved={() => selectCrew(activeCrew.id)}
           />
 
-          {activeCrew.inviteCode && <CrewInviteBar inviteCode={activeCrew.inviteCode} />}
+          {activeCrew.inviteCode && (
+            <CrewInviteBar
+              inviteCode={activeCrew.inviteCode}
+              crewId={activeCrew.id}
+              isOwner={isOwner}
+            />
+          )}
 
           <Link
             to="/compare"
@@ -155,7 +202,23 @@ function CrewViewInner() {
             members={members}
             ownerId={activeCrew.owner}
             onForceAdd={handleForceAdd}
+            onTransferOwnership={handleTransferOwnership}
           />
+
+          <div className="pt-2">
+            <Button
+              variant="danger"
+              fullWidth
+              onClick={() => setConfirmOpen(true)}
+              className="min-h-11"
+            >
+              {isOwner ? (
+                <><Trash2 className="w-4 h-4" aria-hidden="true" /> Delete crew</>
+              ) : (
+                <><LogOut className="w-4 h-4" aria-hidden="true" /> Leave crew</>
+              )}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -190,6 +253,20 @@ function CrewViewInner() {
         confirmLabel="Add"
         busy={adminAddBusy}
         onConfirm={submitForceAdd}
+      />
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={isOwner ? 'Delete crew' : 'Leave crew'}
+        description={
+          isOwner
+            ? 'This permanently deletes the crew for everyone. Continue?'
+            : 'Are you sure you want to leave this crew?'
+        }
+        confirmLabel={isOwner ? 'Delete' : 'Leave'}
+        destructive
+        busy={confirmBusy}
+        onConfirm={submitDestroy}
       />
     </div>
   );

@@ -14,14 +14,17 @@ vi.mock('@festie/shared', () => ({
 function makeProps(overrides: Partial<MembersTabProps> = {}): MembersTabProps {
   return {
     members: [
-      { userId: 'u1', name: 'Alice', username: 'alice', role: 'owner' },
-      { userId: 'u2', name: 'Bob', username: 'bob', role: 'member' },
-      { userId: 'u3', name: 'Charlie', username: 'charlie' },
+      { id: 'm1', userId: 'u1', name: 'Alice', username: 'alice', role: 'owner' as const },
+      { id: 'm2', userId: 'u2', name: 'Bob', username: 'bob', role: 'member' as const },
+      { id: 'm3', userId: 'u3', name: 'Charlie', username: 'charlie' },
     ],
     ownerId: 'u1',
     isAdmin: false,
     adminAddBusy: false,
     onForceAdd: vi.fn(),
+    isOwner: false,
+    currentUserId: 'u2',
+    onTransferOwnership: vi.fn(),
     ...overrides,
   };
 }
@@ -42,7 +45,7 @@ describe('MembersTab', () => {
 
   it('shows owner badge for member matching ownerId even without role', () => {
     const members = [
-      { userId: 'u1', name: 'Alice', username: 'alice' }, // no role set
+      { id: 'm1', userId: 'u1', name: 'Alice', username: 'alice' }, // no role set
     ];
     render(<MembersTab {...makeProps({ members, ownerId: 'u1' })} />);
     expect(screen.getByText(/Owner/)).toBeInTheDocument();
@@ -50,7 +53,7 @@ describe('MembersTab', () => {
 
   it('does not show owner badge for regular members', () => {
     const members = [
-      { userId: 'u2', name: 'Bob', username: 'bob', role: 'member' },
+      { id: 'm2', userId: 'u2', name: 'Bob', username: 'bob', role: 'member' as const },
     ];
     render(<MembersTab {...makeProps({ members, ownerId: 'u1' })} />);
     expect(screen.queryByText(/Owner/)).not.toBeInTheDocument();
@@ -95,9 +98,46 @@ describe('MembersTab', () => {
 
   it('falls back to username when name is missing', () => {
     const members = [
-      { userId: 'u4', username: 'dave_99' },
+      { id: 'm4', userId: 'u4', username: 'dave_99' },
     ];
     render(<MembersTab {...makeProps({ members, ownerId: undefined })} />);
     expect(screen.getByText('dave_99')).toBeInTheDocument();
+  });
+
+  // --- Transfer ownership ---
+
+  it('shows "Make owner" only on non-owner non-self rows when isOwner is true', () => {
+    // current user is the owner u1; offered to transfer to u2 and u3 only
+    render(<MembersTab {...makeProps({ isOwner: true, currentUserId: 'u1' })} />);
+    const buttons = screen.getAllByRole('button', { name: /make .* the owner/i });
+    expect(buttons).toHaveLength(2);
+    expect(screen.getByRole('button', { name: /make Bob the owner/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /make Charlie the owner/i })).toBeInTheDocument();
+  });
+
+  it('does not render "Make owner" for the owner row', () => {
+    render(<MembersTab {...makeProps({ isOwner: true, currentUserId: 'u1' })} />);
+    expect(screen.queryByRole('button', { name: /make Alice the owner/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render "Make owner" for the current user row', () => {
+    // current user is u2 (Bob), who is also owner here so they can transfer to others
+    render(<MembersTab {...makeProps({ isOwner: true, currentUserId: 'u2' })} />);
+    expect(screen.queryByRole('button', { name: /make Bob the owner/i })).not.toBeInTheDocument();
+  });
+
+  it('hides all "Make owner" buttons when isOwner is false', () => {
+    render(<MembersTab {...makeProps({ isOwner: false, currentUserId: 'u2' })} />);
+    expect(screen.queryByRole('button', { name: /the owner/i })).not.toBeInTheDocument();
+  });
+
+  it('calls onTransferOwnership with the member when "Make owner" is clicked', async () => {
+    const user = userEvent.setup();
+    const onTransferOwnership = vi.fn();
+    render(<MembersTab {...makeProps({ isOwner: true, currentUserId: 'u1', onTransferOwnership })} />);
+    await user.click(screen.getByRole('button', { name: /make Bob the owner/i }));
+    expect(onTransferOwnership).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u2' }),
+    );
   });
 });

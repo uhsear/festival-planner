@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
+import { useCrewStore } from '@festie/shared/stores';
+import type { SettleCrewExpenseRequest } from '@festie/shared/types';
 import { useToast } from '../../lib/toastContext';
 import { cn } from '@/lib/utils';
 import Button from '../ui/Button';
@@ -56,6 +58,7 @@ function balanceColor(value: number): string {
 export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const settleExpense = useCrewStore((s) => s.settleExpense);
   const [showForm, setShowForm] = useState(false);
 
   const [description, setDescription] = useState('');
@@ -106,8 +109,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   });
 
   const settle = useMutation({
-    mutationFn: (payload: { toUserId: string; amount: number }) =>
-      api.post(`/crews/${crewId}/expenses/settle`, payload),
+    mutationFn: (payload: SettleCrewExpenseRequest) => settleExpense(crewId, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses', crewId] });
       qc.invalidateQueries({ queryKey: ['expense-balances', crewId] });
