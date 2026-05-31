@@ -1,7 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import { Socket } from 'socket.io-client';
 import { createSocket } from '@festie/shared/services';
+// Import the Socket type from the shared barrel (which re-exports it) rather
+// than from 'socket.io-client' directly: socket.io-client is a dependency of
+// @festie/shared, not of packages/mobile, so a direct import resolves locally
+// (hoisted) but fails the CI mobile typecheck (TS2307) where mobile deps aren't
+// installed.
+import type { Socket } from '@festie/shared/services';
 import { useAuthStore , useUIStore , useFestivalDataStore , useCrewStore } from '@festie/shared/stores';
 
 

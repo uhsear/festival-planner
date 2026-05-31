@@ -41,6 +41,10 @@ function makeMockDeps(overrides: any = {}) {
     sanitizeString: (s: any) => s?.trim() || '',
     validateUsername: () => true,
     validatePasswordStrength: () => true,
+    // The auth routes gate registration / password changes on checkPasswordPolicy
+    // (destructured from deps); default it to "always acceptable" here and let
+    // individual tests override it to exercise the rejection path.
+    checkPasswordPolicy: () => null,
     hashPassword: mock.fn(async () => 'hashed'),
     verifyPassword: mock.fn(async () => true),
     createUserSession: mock.fn(async () => 'tok-123'),
@@ -262,7 +266,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
     });
 
     test('returns 400 when password validation fails', async () => {
-      const deps = makeMockDeps({ validatePasswordStrength: () => false });
+      const deps = makeMockDeps({ checkPasswordPolicy: () => 'Password must be at least 8 characters' });
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
@@ -636,7 +640,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
     test('returns 400 when new password is weak', async () => {
       const deps = makeMockDeps({
-        validatePasswordStrength: (pw: any) => pw.length >= 8,
+        checkPasswordPolicy: (pw: any) => (pw.length >= 8 ? null : 'Password must be at least 8 characters'),
       });
       const router = createAuthRoutes(deps);
       const app = createApp(router);

@@ -158,6 +158,9 @@ describe('routes/email-auth', () => {
       hashPassword: mock.fn(async () => 'hashed-pw'),
       verifyPassword: mock.fn(async () => true),
       validatePasswordStrength: mock.fn(() => true),
+      // email-auth reset-password gates on checkPasswordPolicy (destructured from
+      // deps); default to "acceptable" and let the weak-password test override.
+      checkPasswordPolicy: mock.fn(() => null),
       invalidateUserSessions: mock.fn(noopAsync),
       disconnectUserSockets: mock.fn(noop),
       getUserById: mock.fn(async () => ({
@@ -464,7 +467,7 @@ describe('routes/email-auth', () => {
 
   test('POST /reset-password — rejects weak password', async () => {
     const deps = buildEmailAuthDeps();
-    deps.validatePasswordStrength = mock.fn(() => false);
+    deps.checkPasswordPolicy = mock.fn(() => 'Password must be at least 8 characters');
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -1196,6 +1199,10 @@ describe('routes/expenses', () => {
         pool: makePool(),
         crews: {
           getMember: mock.fn(async () => ({ role: 'member', userId: 'user-1' })),
+          // POST create / settle validate splitWith / toUserId against the full
+          // member list (added with the crew-expense hardening), so the mock must
+          // expose getMembers — user-1 (payer) + user-2 (the split/settle target).
+          getMembers: mock.fn(async () => [{ userId: 'user-1' }, { userId: 'user-2' }]),
         },
         expenses: {
           getByCrew: mock.fn(async () => [{ id: 'exp-1', amount: 25.50 }]),

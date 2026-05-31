@@ -109,6 +109,9 @@ function makeDeps(overrides: any = {}) {
     exportContentSecurityPolicy: "default-src 'self'",
     getPresenceList: mock.fn(async () => ['user-1']),
     validatePasswordStrength: (p: any) => p && p.length >= 8 && p.length <= 100,
+    // admin reset-password gates on checkPasswordPolicy (destructured from deps);
+    // default to "acceptable" and let the weak-password test override it.
+    checkPasswordPolicy: (p: any) => (p && p.length >= 8 && p.length <= 100 ? null : 'Password must be at least 8 characters'),
     hashPassword: mock.fn(async () => 'hashed-password'),
     invalidateUserSessions: mock.fn(async () => {}),
     disconnectUserSockets: mock.fn(),
