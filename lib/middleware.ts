@@ -193,10 +193,21 @@ function configureMiddleware(app: Application, ctx: any) {
     log.info('react frontend active', { reactDistDir });
   }
 
+  // ── /.well-known ───────────────────────────────────────────────────────
+  // Must be mounted explicitly and BEFORE the public/ static below: that
+  // handler uses `dotfiles: 'deny'`, which would otherwise 404 the entire
+  // `.well-known` dot-directory into the SPA catch-all — breaking both
+  // security.txt (RFC 9116) and assetlinks.json (Android App Links
+  // verification). Scoped to this dir only, so no other dotfiles are exposed.
+  app.use('/.well-known', express.static(path.join(config.PUBLIC_DIR, '.well-known'), {
+    maxAge: '1d',
+    dotfiles: 'allow',
+  }));
+
   // ── Static assets (public/) ────────────────────────────────────────────
   // Serves static assets that live outside the React build: icons,
   // screenshots, legal pages (privacy, terms, security-whitepaper),
-  // firebase-messaging-sw.js, .well-known, robots.txt, sitemap.xml, etc.
+  // firebase-messaging-sw.js, robots.txt, sitemap.xml, etc.
   app.use(express.static(config.PUBLIC_DIR, {
     maxAge: '7d',
     dotfiles: 'deny',
