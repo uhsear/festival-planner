@@ -1,16 +1,16 @@
-import React, { useMemo, useEffect, Component, ReactNode } from 'react';
+import React, { useMemo, useEffect, useCallback, Component, ReactNode } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import { Priority } from '@festie/shared/types';
-import { formatTime, artistDisplayName } from '@festie/shared/utils';
+import { formatTime, artistDisplayName, buildPicksIcs } from '@festie/shared/utils';
 import StageBadge from '../components/ui/StageBadge';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import RefreshableView from '../components/layout/RefreshableView';
-import { Star, CalendarX, UserPlus } from 'lucide-react';
+import { Star, CalendarX, UserPlus, CalendarPlus } from 'lucide-react';
 
 // Each section carries its priority value, label, the dot accent token, and the
 // matching tint-ring Badge variant — mirroring the mobile Picks tab where every
@@ -80,6 +80,7 @@ function PicksViewInner() {
   const currentProfile = useFestivalStore((state) => state.currentProfile);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
   const sets = useFestivalStore((state) => state.sets);
+  const stages = useFestivalStore((state) => state.stages);
   const days = useFestivalStore((state) => state.days);
   const selectedDay = useFestivalStore((state) => state.selectedDay);
 
@@ -125,6 +126,59 @@ function PicksViewInner() {
 
     return groups;
   }, [daySets, getMyPick, currentFestival?.b2bSeparator]);
+
+  // True when the profile has any pick at all (across every day), which gates
+  // the calendar export independently of the day filter — you can be on a day
+  // with no picks and still export the whole festival plan.
+  const hasAnyPicks = useMemo(
+    () => !!currentProfile && sets.some((s) => currentProfile.picks?.[s.id]),
+    [sets, currentProfile],
+  );
+
+  // Build the user's picks into an RFC-5545 .ics and trigger a browser
+  // download. Mirrors the mobile Picks export (same shared buildPicksIcs over
+  // the already-loaded store data — fully client-side, no server round-trip);
+  // mobile hands the file to the OS share sheet, the web equivalent is a Blob
+  // download. Exports ALL picks across days, not just the selected day.
+  const handleExportCalendar = useCallback(() => {
+    if (!currentFestival || !currentProfile) return;
+    const ics = buildPicksIcs({
+      festival: {
+        id: currentFestival.id,
+        name: currentFestival.name,
+        location: currentFestival.location,
+      },
+      sets,
+      stages,
+      picks: currentProfile.picks,
+      notes: currentProfile.notes,
+    });
+    const safeName = (currentFestival.name || 'festival')
+      .replace(/[^a-z0-9_-]/gi, '_')
+      .slice(0, 60);
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName}_picks.ics`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [currentFestival, currentProfile, sets, stages]);
+
+  const exportButton = hasAnyPicks ? (
+    <Button
+      variant="secondary"
+      size="sm"
+      type="button"
+      onClick={handleExportCalendar}
+      aria-label="Add picks to calendar"
+    >
+      <CalendarPlus className="w-4 h-4" aria-hidden="true" />
+      Add to calendar
+    </Button>
+  ) : null;
 
   // /picks is a logged-in-only surface. Router `beforeLoad` normally catches
   // this and redirects; this useEffect is a belt-and-suspenders fallback for
@@ -177,6 +231,9 @@ function PicksViewInner() {
     return (
       <RefreshableView queryKeys={[['picks'], ['profiles']]} className="pb-5 h-full">
         <div role="region" aria-label="My picks">
+          {exportButton && (
+            <div className="flex justify-end mb-3">{exportButton}</div>
+          )}
           <EmptyState
             icon={<Star className="w-9 h-9" aria-hidden="true" />}
             title={`No picks yet${days[selectedDay]?.label ? ` for ${days[selectedDay].label}` : ''}`}
@@ -191,6 +248,9 @@ function PicksViewInner() {
   return (
     <RefreshableView queryKeys={[['picks'], ['profiles']]} className="pb-5 h-full">
       <div role="region" aria-label="My picks">
+      {exportButton && (
+        <div className="flex justify-end mb-3">{exportButton}</div>
+      )}
       {/* Priority sections */}
       {PRIORITY_SECTIONS.map(({ value: pri, label, accent, badge }) => {
         const items = picksGrouped[pri];

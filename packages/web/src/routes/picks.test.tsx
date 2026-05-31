@@ -34,6 +34,7 @@ vi.mock('@festie/shared/hooks', () => ({
 vi.mock('@festie/shared/utils', () => ({
   formatTime: vi.fn((t: string) => t),
   artistDisplayName: vi.fn((set: { artist?: string }) => set.artist || 'Unknown'),
+  buildPicksIcs: vi.fn(() => 'BEGIN:VCALENDAR\r\nEND:VCALENDAR'),
 }));
 
 vi.mock('../components/ui/StageBadge', () => ({
@@ -58,10 +59,12 @@ vi.mock('lucide-react', () => ({
   Star: () => <span data-testid="star-icon" />,
   CalendarX: () => <span data-testid="calendar-x-icon" />,
   UserPlus: () => <span data-testid="user-plus-icon" />,
+  CalendarPlus: () => <span data-testid="calendar-plus-icon" />,
 }));
 
 import PicksView from './picks';
 import { usePicks } from '@festie/shared/hooks';
+import { buildPicksIcs } from '@festie/shared/utils';
 
 function setStoreState(overrides: Record<string, unknown> = {}) {
   // Clear and repopulate the shared state object
@@ -69,8 +72,9 @@ function setStoreState(overrides: Record<string, unknown> = {}) {
   Object.assign(storeState, {
     user: { id: 'u1', username: 'testuser' },
     currentFestival: { id: 'f1', name: 'Bonnaroo', b2bSeparator: undefined },
-    currentProfile: { picks: {} },
+    currentProfile: { picks: {}, notes: {} },
     sets: [],
+    stages: [],
     days: [{ date: '2026-06-10', label: 'Day 1' }],
     selectedDay: 0,
     setDetailSet: vi.fn(),
@@ -154,5 +158,45 @@ describe('PicksView', () => {
   it('renders the region with aria-label "My picks"', () => {
     render(<PicksView />);
     expect(screen.getByRole('region', { name: 'My picks' })).toBeInTheDocument();
+  });
+
+  it('hides the calendar export button when the profile has no picks', () => {
+    // hasAnyPicks reads currentProfile.picks directly — empty map → no button.
+    setStoreState();
+    render(<PicksView />);
+    expect(screen.queryByRole('button', { name: 'Add picks to calendar' })).toBeNull();
+  });
+
+  it('shows the calendar export button and downloads an .ics when clicked', () => {
+    const sets = [
+      { id: 's1', artist: 'Daft Punk', stageId: 'st1', startTime: '14:00', endTime: '15:00', date: '2026-06-10', dayIndex: 0 },
+    ];
+    setStoreState({ sets, currentProfile: { picks: { s1: 'must' }, notes: {} } });
+    vi.mocked(usePicks).mockReturnValue({
+      getMyPick: vi.fn(() => 'must'),
+      savePick: vi.fn(),
+      getMyNote: vi.fn(() => ''),
+    });
+
+    // jsdom lacks URL.createObjectURL/revokeObjectURL; stub them and the anchor
+    // click so the download path runs without a real navigation.
+    const createObjectURL = vi.fn(() => 'blob:mock');
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+
+    render(<PicksView />);
+    const btn = screen.getByRole('button', { name: 'Add picks to calendar' });
+    expect(btn).toBeInTheDocument();
+    btn.click();
+
+    expect(buildPicksIcs).toHaveBeenCalledTimes(1);
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+
+    clickSpy.mockRestore();
   });
 });
