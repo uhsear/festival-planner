@@ -9,6 +9,10 @@
 > **Line-number citations refer to the pre-remediation source** and have since
 > shifted as fixes landed — consult `git log`/`git blame` for current locations
 > rather than the line numbers cited here.
+>
+> **Commit SHAs cited below predate a 2026-05-31 history rewrite** (`git filter-repo`,
+> to scrub setup docs + an old server IP) and no longer resolve. The fixes remain in
+> the current history under new hashes; use `git log`/`git blame` to locate them.
 
 Synthesis of adversarially-verified findings across backend, web, mobile, shared, and toolchain. Every finding below was confirmed real against the source. Severities reflect post-verification ratings (several were downgraded from the original triage after evidence review).
 
