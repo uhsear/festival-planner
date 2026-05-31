@@ -8,6 +8,8 @@ interface ApiOptions {
   headers?: Record<string, string>;
   body?: unknown;
   credentials?: RequestCredentials;
+  /** Abort the request after this many ms (default 15000). */
+  timeoutMs?: number;
 }
 
 let _apiBase = API_BASE;
@@ -105,14 +107,23 @@ async function apiRequest<T>(
     headers['Content-Type'] = 'application/json';
   }
 
+  // Abort the request after a bounded time so a dead/hanging network can never
+  // leave a caller (e.g. checkSession gating the app splash) waiting forever —
+  // a stalled fetch becomes a network error the caller can handle.
+  const controller = new AbortController();
+  const timeoutMs = options.timeoutMs ?? 15000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch(`${_apiBase}${path}`, {
       credentials: _authMode === 'cookie' ? 'same-origin' : 'omit',
+      signal: controller.signal,
       ...options,
       method,
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       if (response.status === 401 && _onUnauthorized && !_isRetry && !path.includes('/auth/')) {
@@ -144,13 +155,14 @@ async function apiRequest<T>(
     }
     return body as T;
   } catch (error) {
+    clearTimeout(timeoutId);
     if (error instanceof ApiClientError) {
       throw error;
     }
 
-    const err = error instanceof Error ? error : new Error(String(error));
+    const isAbort = error instanceof Error && error.name === 'AbortError';
     const networkError = new ApiClientError(
-      err.message || 'Network request failed',
+      isAbort ? 'Request timed out' : (error instanceof Error ? error.message : 'Network request failed'),
       0,
       undefined,
       undefined,

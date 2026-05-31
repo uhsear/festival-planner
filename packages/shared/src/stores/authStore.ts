@@ -50,6 +50,25 @@ const SECURE_FIELDS = ['userToken', 'adminToken'] as const;
 const SECURE_PREFIX = 'festie-secure-';
 
 /**
+ * Run a secure-storage op but never let it hang or reject the persist
+ * lifecycle: a stuck/absent Keychain (e.g. in Expo Go, where the native module
+ * may not be present) would otherwise freeze cold-start hydration and leave the
+ * app on the splash forever. Race against a short timeout and swallow errors,
+ * returning `fallback` on any problem.
+ */
+function safeSecure<T>(op: () => Promise<T> | T, fallback: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const finish = (v: T) => { if (!settled) { settled = true; resolve(v); } };
+    const timer = setTimeout(() => finish(fallback), 1500);
+    Promise.resolve()
+      .then(op)
+      .then((v) => { clearTimeout(timer); finish(v); })
+      .catch(() => { clearTimeout(timer); finish(fallback); });
+  });
+}
+
+/**
  * Split PersistStorage: the non-credential state persists to the regular
  * adapter, while userToken/adminToken persist to the secure adapter
  * (getSecureStorage). getItem transparently merges the secure tokens back into
@@ -73,7 +92,7 @@ const defaultStorage: PersistStorage<AuthState> = {
     }
     if (parsed && parsed.state) {
       for (const field of SECURE_FIELDS) {
-        const secureVal = await Promise.resolve(getSecureStorage().getItem(SECURE_PREFIX + field));
+        const secureVal = await safeSecure(() => getSecureStorage().getItem(SECURE_PREFIX + field), null);
         // Prefer the secure value; otherwise keep whatever the (old) blob had
         // so a pre-migration install stays logged in until the next write.
         if (secureVal != null) parsed.state[field] = secureVal;
@@ -92,16 +111,16 @@ const defaultStorage: PersistStorage<AuthState> = {
     for (const field of SECURE_FIELDS) {
       const v = tokens[field];
       if (typeof v === 'string' && v) {
-        await Promise.resolve(getSecureStorage().setItem(SECURE_PREFIX + field, v));
+        await safeSecure(() => getSecureStorage().setItem(SECURE_PREFIX + field, v), undefined);
       } else {
-        await Promise.resolve(getSecureStorage().removeItem(SECURE_PREFIX + field));
+        await safeSecure(() => getSecureStorage().removeItem(SECURE_PREFIX + field), undefined);
       }
     }
   },
   removeItem: async (name) => {
     await Promise.resolve(getStorage().removeItem(name));
     for (const field of SECURE_FIELDS) {
-      await Promise.resolve(getSecureStorage().removeItem(SECURE_PREFIX + field));
+      await safeSecure(() => getSecureStorage().removeItem(SECURE_PREFIX + field), undefined);
     }
   },
 };
