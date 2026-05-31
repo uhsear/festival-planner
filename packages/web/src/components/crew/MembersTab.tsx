@@ -2,13 +2,11 @@ import React from 'react';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
-import { Users, UserPlus } from 'lucide-react';
+import { Users, UserPlus, Crown } from 'lucide-react';
+import type { CrewMember } from '@festie/shared/types';
 
-interface CrewMemberWithUsername {
-  userId: string;
-  name?: string;
+interface CrewMemberWithUsername extends CrewMember {
   username?: string;
-  role?: string;
 }
 
 export interface MembersTabProps {
@@ -17,6 +15,9 @@ export interface MembersTabProps {
   isAdmin: boolean;
   adminAddBusy: boolean;
   onForceAdd: () => void;
+  isOwner: boolean;
+  currentUserId: string;
+  onTransferOwnership: (member: CrewMemberWithUsername) => void;
 }
 
 export default function MembersTab({
@@ -25,6 +26,9 @@ export default function MembersTab({
   isAdmin,
   adminAddBusy,
   onForceAdd,
+  isOwner,
+  currentUserId,
+  onTransferOwnership,
 }: MembersTabProps) {
   return (
     <div className="space-y-1.5">
@@ -46,22 +50,38 @@ export default function MembersTab({
       )}
       {members.length > 0 ? (
         <div className="space-y-0.5">
-          {members.map((m) => (
-            <div
-              key={m.userId}
-              className="py-2 px-2.5 rounded-md bg-bg-card border border-border flex items-center gap-2.5 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none"
-            >
-              <Avatar name={m.name || m.username || 'User'} size="sm" />
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-text-primary truncate">
-                  {m.name || m.username}
+          {members.map((m) => {
+            const memberIsOwner = m.role === 'owner' || ownerId === m.userId;
+            const canTransfer =
+              isOwner && !memberIsOwner && m.userId !== currentUserId;
+            const displayName = m.name || m.username || 'User';
+            return (
+              <div
+                key={m.userId}
+                className="py-2 px-2.5 rounded-md bg-bg-card border border-border flex items-center gap-2.5 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none"
+              >
+                <Avatar name={displayName} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-text-primary truncate">
+                    {m.name || m.username}
+                  </div>
+                  {memberIsOwner && (
+                    <div className="text-xs text-accent-amber">{'👑'} Owner</div>
+                  )}
                 </div>
-                {(m.role === 'owner' || ownerId === m.userId) && (
-                  <div className="text-xs text-accent-amber">{'👑'} Owner</div>
+                {canTransfer && (
+                  <Button
+                    variant="outline"
+                    onClick={() => onTransferOwnership(m)}
+                    aria-label={`Make ${displayName} the owner`}
+                    className="!py-1 !px-2.5 text-xs"
+                  >
+                    <Crown className="w-3.5 h-3.5" aria-hidden="true" /> Make owner
+                  </Button>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <EmptyState

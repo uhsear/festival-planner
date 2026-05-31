@@ -21,6 +21,7 @@ interface CrewTabContentProps {
   members: CrewMemberWithUsername[];
   ownerId?: string;
   onForceAdd: () => void;
+  onTransferOwnership: (member: CrewMemberWithUsername) => void;
 }
 
 export default function CrewTabContent({
@@ -33,6 +34,7 @@ export default function CrewTabContent({
   members,
   ownerId,
   onForceAdd,
+  onTransferOwnership,
 }: CrewTabContentProps) {
   return (
     <div
@@ -49,6 +51,9 @@ export default function CrewTabContent({
           isAdmin={isAdmin}
           adminAddBusy={adminAddBusy}
           onForceAdd={onForceAdd}
+          isOwner={isOwner}
+          currentUserId={currentUserId}
+          onTransferOwnership={onTransferOwnership}
         />
       )}
       {tab === 'meeting' && (

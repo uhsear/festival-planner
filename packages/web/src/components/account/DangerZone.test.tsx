@@ -22,18 +22,19 @@ vi.mock('../../lib/toastContext', () => ({
 }));
 
 const mockApiDelete = vi.fn();
+const mockApiGet = vi.fn();
 vi.mock('@festie/shared/services/api', () => ({
-  api: { delete: (...args: unknown[]) => mockApiDelete(...args) },
-  getApiBase: () => 'http://localhost:3000/api',
+  api: {
+    delete: (...args: unknown[]) => mockApiDelete(...args),
+    get: (...args: unknown[]) => mockApiGet(...args),
+  },
+  mapErrorToUserMessage: (_err: unknown, fallback: string) => fallback,
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: export fetch succeeds
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-    ok: true,
-    blob: () => Promise.resolve(new Blob(['{}'])),
-  } as Response);
+  // Default: export succeeds with a clean GDPR object
+  mockApiGet.mockResolvedValue({ profile: {} });
 
   // Stub URL methods used by export
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
@@ -71,9 +72,7 @@ describe('DangerZone', () => {
 
   it('shows error toast when export fails', async () => {
     const user = userEvent.setup();
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: false,
-    } as Response);
+    mockApiGet.mockRejectedValue(new Error('boom'));
 
     render(<DangerZone />);
     await user.click(screen.getByText('Download My Data'));
