@@ -2,7 +2,7 @@
 
 ## Reporting
 
-Email uhsear@gmail.com with reproduction steps. We aim to acknowledge within 48 hours.
+Email security@festie.us with reproduction steps. We aim to acknowledge within 48 hours.
 
 ## Production Hardening Snapshot
 
@@ -34,5 +34,5 @@ Email uhsear@gmail.com with reproduction steps. We aim to acknowledge within 48 
 
 ## Reporting Channels
 
-- uhsear@gmail.com — primary
+- security@festie.us — primary
 - Open a private security advisory on GitHub if email is unavailable.

@@ -133,12 +133,13 @@ describe('validateStartupConfig: additional edge cases', () => {
     })));
   });
 
-  it('EMAIL_FROM with personal email substring in production throws', () => {
+  it('EMAIL_FROM without a festie.us address in production throws', () => {
     assert.throws(
       () => validateStartupConfig(prodConfig({
-        EMAIL_FROM: 'Support Team uhsear@gmail.com via Festie',
+        // example.com = reserved documentation domain (non-festie counterexample)
+        EMAIL_FROM: 'Support Team noreply@example.com via Festie',
       })),
-      { message: /EMAIL_FROM must not use a personal email/ },
+      { message: /EMAIL_FROM must use a festie\.us sender address/ },
     );
   });
 

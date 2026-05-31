@@ -51,9 +51,10 @@ function validateStartupConfig(config: any) {
     }
   }
 
-  // 4. Production must not ship a personal email as sender
-  if (isProd && typeof config.EMAIL_FROM === 'string' && config.EMAIL_FROM.includes('uhsear@gmail.com')) {
-    throw new Error('Startup validation failed: EMAIL_FROM must not use a personal email (uhsear@gmail.com) in production. Use Festie <no-reply@festie.us> or similar.');
+  // 4. Production sender must be an on-brand festie.us address (never a personal
+  //    or off-domain email).
+  if (isProd && typeof config.EMAIL_FROM === 'string' && config.EMAIL_FROM.trim() !== '' && !config.EMAIL_FROM.includes('@festie.us')) {
+    throw new Error('Startup validation failed: EMAIL_FROM must use a festie.us sender address in production (e.g. "Festie <no-reply@festie.us>").');
   }
 }
 
