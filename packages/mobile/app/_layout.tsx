@@ -103,7 +103,14 @@ function AuthGate() {
 
     const raf = requestAnimationFrame(() => {
       const inAuthGroup = segments[0] === '(auth)';
-      if (!user && !inAuthGroup) {
+      // Guests may browse the schedule, set detail, festival-mode, privacy, and
+      // the picks/crew tabs (which render their own sign-in CTA). Only the
+      // account tab and the full-screen wrap are gated — bounce a signed-out
+      // user to login there; everything else stays mounted so cold deep-links
+      // and casual browsing work without forcing an account first.
+      const seg = segments as string[];
+      const guestBlocked = seg[0] === 'wrap' || seg[1] === 'account';
+      if (!user && guestBlocked && !inAuthGroup) {
         router.replace('/(auth)/login');
       } else if (user && inAuthGroup) {
         router.replace('/(tabs)');

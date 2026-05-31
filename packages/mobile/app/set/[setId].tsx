@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useFestivalDataStore } from '@festie/shared/stores';
+import { useFestivalDataStore, useAuthStore } from '@festie/shared/stores';
 import { usePicks, useFestival, useCrew } from '@festie/shared/hooks';
 import { api } from '@festie/shared/services';
 import {
@@ -296,9 +296,16 @@ export default function SetDetailScreen() {
     [set, currentFestival, savePick, getMyPick],
   );
 
+  const user = useAuthStore((s) => s.user);
   const [joinBusy, setJoinBusy] = useState(false);
   const handleJoin = useCallback(async () => {
     if (!currentFestival) return;
+    // A guest has no account yet — send them to sign in first. After auth they
+    // land back on the tabs and can re-open the set to join.
+    if (!user) {
+      router.push('/(auth)/login');
+      return;
+    }
     setJoinBusy(true);
     try {
       await api.post('/profiles', { festivalId: currentFestival.id });
@@ -308,7 +315,7 @@ export default function SetDetailScreen() {
     } finally {
       setJoinBusy(false);
     }
-  }, [currentFestival, loadProfiles]);
+  }, [currentFestival, user, router, loadProfiles]);
 
   const openLink = useCallback((url: string) => {
     Linking.openURL(url).catch(() => {});
@@ -572,8 +579,9 @@ export default function SetDetailScreen() {
         ) : (
           <View style={styles.joinBox}>
             <Text style={styles.joinCopy}>
-              Join this festival to save picks, keep private notes, and compare
-              crew overlap.
+              {user
+                ? 'Join this festival to save picks, keep private notes, and compare crew overlap.'
+                : 'Sign in to save picks, keep private notes, and compare crew overlap.'}
             </Text>
             <TouchableOpacity
               style={[styles.joinButton, joinBusy && styles.joinButtonBusy]}
@@ -581,7 +589,7 @@ export default function SetDetailScreen() {
               disabled={joinBusy}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Join festival"
+              accessibilityLabel={user ? 'Join festival' : 'Sign in to join'}
             >
               {joinBusy ? (
                 <ActivityIndicator
@@ -589,7 +597,7 @@ export default function SetDetailScreen() {
                   color={t.colors.text.onLightAccent}
                 />
               ) : (
-                <Text style={styles.joinButtonText}>Join Festival</Text>
+                <Text style={styles.joinButtonText}>{user ? 'Join Festival' : 'Sign in to join'}</Text>
               )}
             </TouchableOpacity>
           </View>
