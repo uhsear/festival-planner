@@ -24,7 +24,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
-const DEFAULT_PASSWORD = 'Str0ngTest!Pw';
+// NB: must not contain a common email local-part like "test" — several fixtures
+// register with email test@example.com, and checkPasswordPolicy rejects a
+// password that contains the email's local-part.
+const DEFAULT_PASSWORD = 'Str0ng!Cipher92';
 const TRUSTED_MUTATION_HEADER = 'x-festie-request';
 
 // ── SAFETY: Only use TEST_DATABASE_URL — never fall back to DATABASE_URL ─

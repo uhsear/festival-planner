@@ -724,9 +724,14 @@ describe('expenses store — getBalances', () => {
     const store = createExpensesStore(balancesPool(expenses, [alice, bob, carol]));
     const bal = await store.getBalances('c');
     const map = Object.fromEntries(bal.map((b: any) => [b.userId, b.balance]));
-    assert.equal(map['u-a'], 6.67);
+    // Exact integer-cents split: 1000¢ / 3 = 333¢ base, 1¢ remainder to the
+    // first split member (the payer). Payer nets +666¢, others -333¢ each, and
+    // crucially the ledger sums to exactly zero (the old per-balance rounding
+    // returned 6.67 / -3.33 / -3.33, which summed to +0.01).
+    assert.equal(map['u-a'], 6.66);
     assert.equal(map['u-b'], -3.33);
     assert.equal(map['u-c'], -3.33);
+    assert.equal(bal.reduce((s: any, b: any) => s + b.balance, 0), 0);
   });
 
   test('ignores splits referencing non-members without throwing', async () => {
@@ -734,7 +739,11 @@ describe('expenses store — getBalances', () => {
     const store = createExpensesStore(balancesPool(expenses, [alice, bob]));
     const bal = await store.getBalances('c');
     const map = Object.fromEntries(bal.map((b: any) => [b.userId, b.balance]));
-    assert.equal(map['u-a'], 10);
+    // 'ghost' is not a current member, so it is dropped from the split and its
+    // share redistributes across the remaining split members. Only the payer
+    // (u-a) is left in the split, so u-a owes the whole amount it fronted → net
+    // 0; u-b was never in the split. Ledger stays zero-sum.
+    assert.equal(map['u-a'], 0);
     assert.equal(map['u-b'], 0);
   });
 
