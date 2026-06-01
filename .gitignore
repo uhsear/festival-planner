@@ -17,6 +17,10 @@ festie-*.json
 play-store-key*.json
 google-play*.json
 
+# Python tooling caches (packages/mobile/store/play)
+__pycache__/
+*.pyc
+
 # Build outputs
 coverage/
 output/
