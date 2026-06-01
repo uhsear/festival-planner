@@ -1,31 +1,24 @@
 import { useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import type { Festival } from '@festie/shared/types';
+import { formatFestivalDateRange, festivalStatus, type FestivalStatus } from '@festie/shared/utils';
 
-// The festivals LIST endpoint omits startDate/endDate (only the detail payload
-// has them), so these can be undefined at runtime despite the Festival type.
-// Return null on missing/unparseable dates so the row is hidden rather than
-// rendering "Invalid Date" (Hermes is also stricter than V8 at parsing dates).
-function formatDateRange(startDate?: string, endDate?: string): string | null {
-  if (!startDate || !endDate) return null;
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
-  const startStr = start.toLocaleDateString('en-US', opts);
-  const endStr = end.toLocaleDateString('en-US', { ...opts, year: 'numeric' });
-  return `${startStr} – ${endStr}`;
+// Status pill styling. The list endpoint now provides startDate/endDate, so a
+// festival classifies as upcoming/ongoing/past. Returns null when undetermined.
+function statusBadge(status: FestivalStatus | null): { label: string; bg: string; fg: string } | null {
+  switch (status) {
+    case 'ongoing':
+      return { label: 'Live', bg: colors.accent.aqua, fg: colors.text.onAccent };
+    case 'upcoming':
+      return { label: 'Upcoming', bg: colors.bg.secondary, fg: colors.accent.aqua };
+    case 'past':
+      return { label: 'Past', bg: colors.bg.secondary, fg: colors.text.muted };
+    default:
+      return null;
+  }
 }
 
 interface FestivalCardProps {
@@ -35,12 +28,11 @@ interface FestivalCardProps {
 }
 
 function FestivalCard({ festival, onPress, isSelecting }: FestivalCardProps) {
-  const dateRange = formatDateRange(festival.startDate, festival.endDate);
+  const dateRange = formatFestivalDateRange(festival.startDate, festival.endDate);
+  const badge = statusBadge(festivalStatus(festival));
   // Compose the card's pieces into one accessible name so a screen reader reads
-  // "<name>, <dates>, <location>" as a single button instead of 3 fragments.
-  const a11yLabel = [festival.name, dateRange, festival.location]
-    .filter(Boolean)
-    .join(', ');
+  // "<name>, <status>, <dates>, <location>" as a single button instead of fragments.
+  const a11yLabel = [festival.name, badge?.label, dateRange, festival.location].filter(Boolean).join(', ');
   return (
     <TouchableOpacity
       style={styles.card}
@@ -52,9 +44,16 @@ function FestivalCard({ festival, onPress, isSelecting }: FestivalCardProps) {
       accessibilityState={{ disabled: isSelecting }}
     >
       <View style={styles.cardContent}>
-        <Text style={styles.festivalName} numberOfLines={1}>
-          {festival.name}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.festivalName} numberOfLines={1}>
+            {festival.name}
+          </Text>
+          {badge ? (
+            <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.badgeText, { color: badge.fg }]}>{badge.label}</Text>
+            </View>
+          ) : null}
+        </View>
         {dateRange ? (
           <View style={styles.metaRow}>
             <Ionicons
@@ -112,13 +111,7 @@ export default function FestivalList() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: Festival }) => (
-      <FestivalCard
-        festival={item}
-        onPress={handleSelect}
-        isSelecting={isLoading}
-      />
-    ),
+    ({ item }: { item: Festival }) => <FestivalCard festival={item} onPress={handleSelect} isSelecting={isLoading} />,
     [handleSelect, isLoading],
   );
 
@@ -138,11 +131,7 @@ export default function FestivalList() {
   if (error && festivals.length === 0) {
     return (
       <View style={styles.centered}>
-        <Ionicons
-          name="alert-circle-outline"
-          size={48}
-          color={colors.status.error}
-        />
+        <Ionicons name="alert-circle-outline" size={48} color={colors.status.error} />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
           <Ionicons name="refresh" size={18} color={colors.text.onAccent} />
@@ -156,15 +145,9 @@ export default function FestivalList() {
   if (!isLoading && festivals.length === 0) {
     return (
       <View style={styles.centered}>
-        <Ionicons
-          name="musical-notes-outline"
-          size={48}
-          color={colors.text.muted}
-        />
+        <Ionicons name="musical-notes-outline" size={48} color={colors.text.muted} />
         <Text style={styles.emptyTitle}>No festivals available</Text>
-        <Text style={styles.emptySubtitle}>
-          Pull down to refresh
-        </Text>
+        <Text style={styles.emptySubtitle}>Pull down to refresh</Text>
       </View>
     );
   }
@@ -252,11 +235,25 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing[1],
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
   festivalName: {
+    flex: 1,
     fontSize: fontSize[18],
     fontWeight: '700',
     color: colors.text.primary,
-    marginBottom: spacing[1],
+  },
+  badge: {
+    paddingHorizontal: spacing[2],
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   metaRow: {
     flexDirection: 'row',

@@ -5,15 +5,28 @@ import crypto from 'crypto';
 
 export default function createFestivalsRoutes(deps: any) {
   const {
-    express, config, log,
+    express,
+    config,
+    log,
     adminAuth,
-    getFestivals, getFestivalById,
-    validateFestival, sanitizeFestivalPayload,
-    removeFestivalSockets, getRequestIp,
-    sendSuccess, sendError, ErrorCodes,
+    getFestivals,
+    getFestivalById,
+    validateFestival,
+    sanitizeFestivalPayload,
+    removeFestivalSockets,
+    getRequestIp,
+    sendSuccess,
+    sendError,
+    ErrorCodes,
     rateLimit,
-    io, stores, emitter,
-    schemas, validate, validateQuery, validateParams, invalidateFestivalCache,
+    io,
+    stores,
+    emitter,
+    schemas,
+    validate,
+    validateQuery,
+    validateParams,
+    invalidateFestivalCache,
   } = deps;
 
   const router = express.Router();
@@ -56,13 +69,24 @@ export default function createFestivalsRoutes(deps: any) {
       // Lightweight cache: recompute only when festival data changes
       const version = festivals.map((f: any) => f.updatedAt || f.createdAt || '').join(',');
       if (version !== _festivalListVersion) {
-        _festivalListCache = festivals.map((festival: any) => ({
-          id: festival.id,
-          name: festival.name,
-          location: festival.location,
-          stageCount: festival.stages?.length || 0,
-          dayCount: festival.days?.length || 0,
-        }));
+        _festivalListCache = festivals.map((festival: any) => {
+          // Derive the date range from the already-loaded day dates (the
+          // festivals table has no start/end columns). Lets the picker show the
+          // date + an upcoming/past status without a detail fetch.
+          const dates = (festival.days || [])
+            .map((d: any) => d.date)
+            .filter(Boolean)
+            .sort();
+          return {
+            id: festival.id,
+            name: festival.name,
+            location: festival.location,
+            stageCount: festival.stages?.length || 0,
+            dayCount: festival.days?.length || 0,
+            startDate: dates[0] || null,
+            endDate: dates[dates.length - 1] || null,
+          };
+        });
         _festivalListETag = `"${crypto.createHash('md5').update(JSON.stringify(_festivalListCache)).digest('hex').slice(0, 16)}"`;
         _festivalListVersion = version;
       }
@@ -86,10 +110,7 @@ export default function createFestivalsRoutes(deps: any) {
     try {
       const setId = String(req.params.setId || '');
       if (!setId) return sendError(res, 400, 'Set ID required', ErrorCodes.INVALID_INPUT);
-      const result = await stores.pool.query(
-        'SELECT festival_id FROM festival_sets WHERE id = $1 LIMIT 1',
-        [setId],
-      );
+      const result = await stores.pool.query('SELECT festival_id FROM festival_sets WHERE id = $1 LIMIT 1', [setId]);
       if (!result.rows.length) return sendError(res, 404, 'Set not found', ErrorCodes.NOT_FOUND);
       res.setHeader('Cache-Control', 'public, max-age=300');
       return sendSuccess(res, { festivalId: result.rows[0].festival_id });
@@ -103,173 +124,226 @@ export default function createFestivalsRoutes(deps: any) {
   //   ?depth=0 → name, id, location only (already served by GET /)
   //   ?depth=1 → stages + days with set names (no profiles/messages) — default for mobile initial load
   //   ?depth=2 (or omitted) → full festival data (backward compatible default)
-  router.get('/:id', rateLimit(120, 'festival-detail'), validateParams(schemas.genericIdParams), validateQuery(schemas.festivalDepthQuery), async (req: any, res: any) => {
-    try {
-      const festival = await getFestivalById(req.validatedParams.id);
-      if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
-      // Public festival structure (stages/days/sets) — no user data. Use
-      // `no-cache` (revalidate) rather than `no-store` (never cache) so the
-      // service worker can serve the last-known copy when offline while
-      // still fetching fresh data when the network is available.
-      res.setHeader('Cache-Control', 'no-cache');
+  router.get(
+    '/:id',
+    rateLimit(120, 'festival-detail'),
+    validateParams(schemas.genericIdParams),
+    validateQuery(schemas.festivalDepthQuery),
+    async (req: any, res: any) => {
+      try {
+        const festival = await getFestivalById(req.validatedParams.id);
+        if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
+        // Public festival structure (stages/days/sets) — no user data. Use
+        // `no-cache` (revalidate) rather than `no-store` (never cache) so the
+        // service worker can serve the last-known copy when offline while
+        // still fetching fresh data when the network is available.
+        res.setHeader('Cache-Control', 'no-cache');
 
-      const depth = req.validatedQuery.depth;
-      if (depth === 1) {
-        // L1: structural overview — stages, days with set names/times, no full profile data
-        return sendSuccess(res, {
-          id: festival.id,
-          name: festival.name,
-          location: festival.location,
-          stages: (festival.stages || []).map((s: any) => ({ id: s.id, name: s.name, color: s.color })),
-          days: (festival.days || []).map((d: any) => ({
-            label: d.label,
-            date: d.date,
-            sets: (d.sets || []).map((s: any) => ({
-              id: s.id,
-              artist: s.artist,
-              artists: s.artists || [],
-              stageId: s.stageId,
-              startTime: s.startTime,
-              endTime: s.endTime,
+        const depth = req.validatedQuery.depth;
+        if (depth === 1) {
+          // L1: structural overview — stages, days with set names/times, no full profile data
+          return sendSuccess(res, {
+            id: festival.id,
+            name: festival.name,
+            location: festival.location,
+            stages: (festival.stages || []).map((s: any) => ({ id: s.id, name: s.name, color: s.color })),
+            days: (festival.days || []).map((d: any) => ({
+              label: d.label,
+              date: d.date,
+              sets: (d.sets || []).map((s: any) => ({
+                id: s.id,
+                artist: s.artist,
+                artists: s.artists || [],
+                stageId: s.stageId,
+                startTime: s.startTime,
+                endTime: s.endTime,
+              })),
             })),
-          })),
-          createdAt: festival.createdAt,
-          updatedAt: festival.updatedAt,
+            createdAt: festival.createdAt,
+            updatedAt: festival.updatedAt,
+          });
+        }
+
+        // depth=2 or omitted: full festival (backward compatible)
+        return sendSuccess(res, festival);
+      } catch (error: any) {
+        log.error('festival load failed', { error: error.message, festivalId: req.validatedParams?.id });
+        return sendError(res, 500, 'Failed to load festival', ErrorCodes.INTERNAL_ERROR);
+      }
+    },
+  );
+
+  router.post(
+    '/',
+    adminAuth,
+    rateLimit(10, 'festival-create'),
+    validate(schemas.festivalCreate),
+    async (req: any, res: any) => {
+      try {
+        const validationErrors = validateFestival(config, req.validatedBody);
+        if (validationErrors.length > 0) {
+          return sendError(res, 400, validationErrors.join('; '), ErrorCodes.INVALID_INPUT);
+        }
+        const festival = sanitizeFestivalPayload(req.validatedBody);
+        await stores.festivals.create(festival);
+        invalidateFestivalCache();
+        invalidateFestivalListCache();
+        log.info('festival:created', { festivalId: festival.id, name: festival.name });
+        audit('festival:create', 'festival', festival.id, req, { name: festival.name });
+        emitter.festivalCreated({ id: festival.id, name: festival.name });
+        res.status(201);
+        return sendSuccess(res, festival);
+      } catch (error: any) {
+        log.error('festival create failed', { error: error.message });
+        return sendError(res, 500, 'Failed to create festival', ErrorCodes.INTERNAL_ERROR);
+      }
+    },
+  );
+
+  router.put(
+    '/:id',
+    adminAuth,
+    rateLimit(10, 'festival-update'),
+    validateParams(schemas.genericIdParams),
+    validate(schemas.festivalUpdate),
+    async (req: any, res: any) => {
+      try {
+        const validationErrors = validateFestival(config, req.validatedBody);
+        if (validationErrors.length > 0) {
+          return sendError(res, 400, validationErrors.join('; '), ErrorCodes.INVALID_INPUT);
+        }
+        const existingFestival = await getFestivalById(req.validatedParams.id);
+        if (!existingFestival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
+
+        const nextFestival = sanitizeFestivalPayload(req.validatedBody, existingFestival);
+        const festival = await stores.festivals.update(req.validatedParams.id, {
+          name: nextFestival.name,
+          location: nextFestival.location,
+          b2bSeparator: nextFestival.b2bSeparator,
+          stages: nextFestival.stages,
+          days: nextFestival.days,
         });
+        invalidateFestivalCache();
+
+        invalidateFestivalListCache();
+        log.info('festival:updated', { festivalId: festival.id, name: festival.name });
+        audit('festival:update', 'festival', festival.id, req, { name: festival.name });
+        emitter.festivalUpdated({ festival });
+        return sendSuccess(res, festival);
+      } catch (error: any) {
+        log.error('festival update failed', { error: error.message, festivalId: req.validatedParams?.id });
+        return sendError(res, 500, 'Failed to update festival', ErrorCodes.INTERNAL_ERROR);
       }
-
-      // depth=2 or omitted: full festival (backward compatible)
-      return sendSuccess(res, festival);
-    } catch (error: any) {
-      log.error('festival load failed', { error: error.message, festivalId: req.validatedParams?.id });
-      return sendError(res, 500, 'Failed to load festival', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
-
-  router.post('/', adminAuth, rateLimit(10, 'festival-create'), validate(schemas.festivalCreate), async (req: any, res: any) => {
-    try {
-      const validationErrors = validateFestival(config, req.validatedBody);
-      if (validationErrors.length > 0) {
-        return sendError(res, 400, validationErrors.join('; '), ErrorCodes.INVALID_INPUT);
-      }
-      const festival = sanitizeFestivalPayload(req.validatedBody);
-      await stores.festivals.create(festival);
-      invalidateFestivalCache();
-      invalidateFestivalListCache();
-      log.info('festival:created', { festivalId: festival.id, name: festival.name });
-      audit('festival:create', 'festival', festival.id, req, { name: festival.name });
-      emitter.festivalCreated({ id: festival.id, name: festival.name });
-      res.status(201);
-      return sendSuccess(res, festival);
-    } catch (error: any) {
-      log.error('festival create failed', { error: error.message });
-      return sendError(res, 500, 'Failed to create festival', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
-
-  router.put('/:id', adminAuth, rateLimit(10, 'festival-update'), validateParams(schemas.genericIdParams), validate(schemas.festivalUpdate), async (req: any, res: any) => {
-    try {
-      const validationErrors = validateFestival(config, req.validatedBody);
-      if (validationErrors.length > 0) {
-        return sendError(res, 400, validationErrors.join('; '), ErrorCodes.INVALID_INPUT);
-      }
-      const existingFestival = await getFestivalById(req.validatedParams.id);
-      if (!existingFestival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
-
-      const nextFestival = sanitizeFestivalPayload(req.validatedBody, existingFestival);
-      const festival = await stores.festivals.update(req.validatedParams.id, {
-        name: nextFestival.name,
-        location: nextFestival.location,
-        b2bSeparator: nextFestival.b2bSeparator,
-        stages: nextFestival.stages,
-        days: nextFestival.days,
-      });
-      invalidateFestivalCache();
-
-      invalidateFestivalListCache();
-      log.info('festival:updated', { festivalId: festival.id, name: festival.name });
-      audit('festival:update', 'festival', festival.id, req, { name: festival.name });
-      emitter.festivalUpdated({ festival });
-      return sendSuccess(res, festival);
-    } catch (error: any) {
-      log.error('festival update failed', { error: error.message, festivalId: req.validatedParams?.id });
-      return sendError(res, 500, 'Failed to update festival', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   // P3.18: Soft-delete (default). Pass ?hard=true for permanent removal.
-  router.delete('/:id', adminAuth, rateLimit(5, 'festival-delete'), validateParams(schemas.genericIdParams), validateQuery(schemas.festivalDeleteQuery), async (req: any, res: any) => {
-    try {
-      const festival = await getFestivalById(req.validatedParams.id);
-      if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
-      const festivalId = festival.id;
-      const hardDelete = req.validatedQuery.hard === 'true';
+  router.delete(
+    '/:id',
+    adminAuth,
+    rateLimit(5, 'festival-delete'),
+    validateParams(schemas.genericIdParams),
+    validateQuery(schemas.festivalDeleteQuery),
+    async (req: any, res: any) => {
+      try {
+        const festival = await getFestivalById(req.validatedParams.id);
+        if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
+        const festivalId = festival.id;
+        const hardDelete = req.validatedQuery.hard === 'true';
 
-      if (!hardDelete && stores.festivals?.softDelete) {
-        // Soft-delete: mark as deleted, preserve data for potential restore
-        await stores.festivals.softDelete(festivalId);
-      } else {
-        // Hard delete: permanently remove all data (including crew children)
-        // inside a single transaction. Migration 031 changed all festival FKs
-        // from CASCADE to RESTRICT, so hardDelete deletes child rows
-        // explicitly in dependency order.
-        await stores.festivals.hardDelete(festivalId);
+        if (!hardDelete && stores.festivals?.softDelete) {
+          // Soft-delete: mark as deleted, preserve data for potential restore
+          await stores.festivals.softDelete(festivalId);
+        } else {
+          // Hard delete: permanently remove all data (including crew children)
+          // inside a single transaction. Migration 031 changed all festival FKs
+          // from CASCADE to RESTRICT, so hardDelete deletes child rows
+          // explicitly in dependency order.
+          await stores.festivals.hardDelete(festivalId);
+        }
+        invalidateFestivalCache();
+
+        removeFestivalSockets(festivalId, io);
+        invalidateFestivalListCache();
+        audit(hardDelete ? 'festival:hard-delete' : 'festival:soft-delete', 'festival', festivalId, req, {
+          name: festival.name,
+        });
+        log.warn('admin:delete-festival', {
+          festivalId,
+          festivalName: festival.name,
+          hard: hardDelete,
+          ip: getRequestIp(req),
+        });
+        emitter.festivalDeleted({ id: festivalId });
+        return sendSuccess(res, { success: true, softDeleted: !hardDelete });
+      } catch (error: any) {
+        log.error('festival delete failed', { error: error.message, festivalId: req.validatedParams?.id });
+        return sendError(res, 500, 'Failed to delete festival', ErrorCodes.INTERNAL_ERROR);
       }
-      invalidateFestivalCache();
-
-      removeFestivalSockets(festivalId, io);
-      invalidateFestivalListCache();
-      audit(hardDelete ? 'festival:hard-delete' : 'festival:soft-delete', 'festival', festivalId, req, { name: festival.name });
-      log.warn('admin:delete-festival', { festivalId, festivalName: festival.name, hard: hardDelete, ip: getRequestIp(req) });
-      emitter.festivalDeleted({ id: festivalId });
-      return sendSuccess(res, { success: true, softDeleted: !hardDelete });
-    } catch (error: any) {
-      log.error('festival delete failed', { error: error.message, festivalId: req.validatedParams?.id });
-      return sendError(res, 500, 'Failed to delete festival', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   // PUT /:festivalId/sets/:setId/link — Admin: set a Spotify/SoundCloud link on a set
-  router.put('/:festivalId/sets/:setId/link', adminAuth, rateLimit(10, 'set-link'), validate(schemas.setLink), async (req: any, res: any) => {
-    try {
-      const festivalId = req.params.festivalId;
-      const setId = req.params.setId;
-      const { linkUrl } = req.validatedBody;
+  router.put(
+    '/:festivalId/sets/:setId/link',
+    adminAuth,
+    rateLimit(10, 'set-link'),
+    validate(schemas.setLink),
+    async (req: any, res: any) => {
+      try {
+        const festivalId = req.params.festivalId;
+        const setId = req.params.setId;
+        const { linkUrl } = req.validatedBody;
 
-      if (!festivalId || !setId) return sendError(res, 400, 'Festival and set IDs required', ErrorCodes.INVALID_INPUT);
+        if (!festivalId || !setId)
+          return sendError(res, 400, 'Festival and set IDs required', ErrorCodes.INVALID_INPUT);
 
-      const festival = await getFestivalById(festivalId);
-      if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
+        const festival = await getFestivalById(festivalId);
+        if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
 
-      // Validate the set exists in this festival
-      const allSets = (festival.days || []).flatMap((d: any) => d.sets || []);
-      const set = allSets.find((s: any) => s.id === setId);
-      if (!set) return sendError(res, 404, 'Set not found', ErrorCodes.NOT_FOUND);
+        // Validate the set exists in this festival
+        const allSets = (festival.days || []).flatMap((d: any) => d.sets || []);
+        const set = allSets.find((s: any) => s.id === setId);
+        if (!set) return sendError(res, 404, 'Set not found', ErrorCodes.NOT_FOUND);
 
-      // Validated by Zod schema — normalize to null if empty
-      const cleanUrl = (linkUrl && typeof linkUrl === 'string' && linkUrl.trim()) ? linkUrl.trim() : null;
+        // Validated by Zod schema — normalize to null if empty
+        const cleanUrl = linkUrl && typeof linkUrl === 'string' && linkUrl.trim() ? linkUrl.trim() : null;
 
-      // Update both link_url (backward compat) and artists JSONB
-      await stores.pool.query('UPDATE festival_sets SET link_url = $1 WHERE id = $2 AND festival_id = $3', [cleanUrl, setId, festivalId]);
-      // Update first artist's spotify link in artists JSONB
-      if (set.artists?.length > 0) {
-        const updatedArtists = [...set.artists];
-        if (!updatedArtists[0].links) updatedArtists[0].links = {};
-        if (cleanUrl) updatedArtists[0].links.spotify = cleanUrl;
-        else delete updatedArtists[0].links.spotify;
-        await stores.pool.query('UPDATE festival_sets SET artists = $1 WHERE id = $2 AND festival_id = $3', [JSON.stringify(updatedArtists), setId, festivalId]);
+        // Update both link_url (backward compat) and artists JSONB
+        await stores.pool.query('UPDATE festival_sets SET link_url = $1 WHERE id = $2 AND festival_id = $3', [
+          cleanUrl,
+          setId,
+          festivalId,
+        ]);
+        // Update first artist's spotify link in artists JSONB
+        if (set.artists?.length > 0) {
+          const updatedArtists = [...set.artists];
+          if (!updatedArtists[0].links) updatedArtists[0].links = {};
+          if (cleanUrl) updatedArtists[0].links.spotify = cleanUrl;
+          else delete updatedArtists[0].links.spotify;
+          await stores.pool.query('UPDATE festival_sets SET artists = $1 WHERE id = $2 AND festival_id = $3', [
+            JSON.stringify(updatedArtists),
+            setId,
+            festivalId,
+          ]);
+        }
+        await stores.pool.query('UPDATE festivals SET updated_at = NOW() WHERE id = $1', [festivalId]);
+        invalidateFestivalCache();
+
+        audit('set:link-update', 'set', setId, req, { festivalId, linkUrl: cleanUrl });
+        log.info('set link updated', {
+          festivalId,
+          setId,
+          linkUrl: cleanUrl ? 'set' : 'cleared',
+          ip: getRequestIp(req),
+        });
+        return sendSuccess(res, { setId, linkUrl: cleanUrl });
+      } catch (error: any) {
+        log.error('set link update failed', { error: error.message });
+        return sendError(res, 500, 'Failed to update set link', ErrorCodes.INTERNAL_ERROR);
       }
-      await stores.pool.query('UPDATE festivals SET updated_at = NOW() WHERE id = $1', [festivalId]);
-      invalidateFestivalCache();
-
-      audit('set:link-update', 'set', setId, req, { festivalId, linkUrl: cleanUrl });
-      log.info('set link updated', { festivalId, setId, linkUrl: cleanUrl ? 'set' : 'cleared', ip: getRequestIp(req) });
-      return sendSuccess(res, { setId, linkUrl: cleanUrl });
-    } catch (error: any) {
-      log.error('set link update failed', { error: error.message });
-      return sendError(res, 500, 'Failed to update set link', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   // GET /:festivalId/sets/links — Admin: list all set links for a festival
   router.get('/:festivalId/sets/links', adminAuth, async (req: any, res: any) => {
@@ -277,7 +351,7 @@ export default function createFestivalsRoutes(deps: any) {
       const festivalId = req.params.festivalId;
       const result = await stores.pool.query(
         'SELECT id, artist, link_url AS "linkUrl", artists FROM festival_sets WHERE festival_id = $1 AND (link_url IS NOT NULL OR artists != \'[]\'::jsonb) ORDER BY artist',
-        [festivalId]
+        [festivalId],
       );
       return sendSuccess(res, result.rows);
     } catch (error: any) {

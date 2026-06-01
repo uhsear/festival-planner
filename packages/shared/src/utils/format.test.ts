@@ -7,6 +7,7 @@ import {
   artistSubtitle,
   getSetLinks,
   getSetHotness,
+  formatFestivalDateRange,
 } from './format';
 import type { FestivalSet } from '../types/domain';
 
@@ -22,6 +23,25 @@ function makeSet(overrides: Partial<FestivalSet> = {}): FestivalSet {
     ...overrides,
   };
 }
+
+describe('formatFestivalDateRange', () => {
+  it('formats a multi-day range with a single trailing year', () => {
+    expect(formatFestivalDateRange('2026-09-04', '2026-09-06')).toBe('Sep 4 – Sep 6, 2026');
+  });
+
+  it('accepts ISO datetime strings (uses the date portion)', () => {
+    expect(formatFestivalDateRange('2026-09-04T12:00:00Z', '2026-09-06T00:00:00Z')).toBe('Sep 4 – Sep 6, 2026');
+  });
+
+  it('returns null when either date is missing', () => {
+    expect(formatFestivalDateRange(undefined, '2026-09-06')).toBeNull();
+    expect(formatFestivalDateRange('2026-09-04', null)).toBeNull();
+  });
+
+  it('returns null for unparseable input', () => {
+    expect(formatFestivalDateRange('not-a-date', 'also-bad')).toBeNull();
+  });
+});
 
 describe('formatTime', () => {
   it('returns empty string for undefined', () => {
@@ -179,9 +199,7 @@ describe('getSetLinks', () => {
       artist: 'Solo',
       linkUrl: 'https://spotify.com/track/123',
     });
-    expect(getSetLinks(set)).toEqual([
-      { name: 'Solo', links: { spotify: 'https://spotify.com/track/123' } },
-    ]);
+    expect(getSetLinks(set)).toEqual([{ name: 'Solo', links: { spotify: 'https://spotify.com/track/123' } }]);
   });
 
   it('returns artists with links, filtering out those without', () => {
