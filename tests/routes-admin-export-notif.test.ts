@@ -29,8 +29,13 @@ function makeDeps(overrides: any = {}) {
       EXPORT_COOLDOWN_MS: 0,
     },
     log: { info() {}, warn() {}, error() {}, debug() {} },
-    sendSuccess: (res: any, data: any, meta: any) => { const body: any = { data, error: null }; if (meta) body.meta = meta; return res.json(body); },
-    sendError: (res: any, status: any, msg: any, code: any) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
+    sendSuccess: (res: any, data: any, meta: any) => {
+      const body: any = { data, error: null };
+      if (meta) body.meta = meta;
+      return res.json(body);
+    },
+    sendError: (res: any, status: any, msg: any, code: any) =>
+      res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       NOT_FOUND: 'NOT_FOUND',
@@ -42,12 +47,29 @@ function makeDeps(overrides: any = {}) {
       MISSING_FIELD: 'MISSING_FIELD',
       SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
     },
-    userAuth: (req: any, res: any, next: any) => { req.userId = 'user-1'; req.user = { userId: 'user-1' }; next(); },
-    adminAuth: (req: any, res: any, next: any) => { req.userId = 'admin-1'; req.isAdmin = true; next(); },
+    userAuth: (req: any, res: any, next: any) => {
+      req.userId = 'user-1';
+      req.user = { userId: 'user-1' };
+      next();
+    },
+    adminAuth: (req: any, res: any, next: any) => {
+      req.userId = 'admin-1';
+      req.isAdmin = true;
+      next();
+    },
     rateLimit: () => (req: any, res: any, next: any) => next(),
-    validate: () => (req: any, res: any, next: any) => { req.validatedBody = req.body; next(); },
-    validateQuery: () => (req: any, res: any, next: any) => { req.validatedQuery = req.query; next(); },
-    validateParams: () => (req: any, res: any, next: any) => { req.validatedParams = req.params; next(); },
+    validate: () => (req: any, res: any, next: any) => {
+      req.validatedBody = req.body;
+      next();
+    },
+    validateQuery: () => (req: any, res: any, next: any) => {
+      req.validatedQuery = req.query;
+      next();
+    },
+    validateParams: () => (req: any, res: any, next: any) => {
+      req.validatedParams = req.params;
+      next();
+    },
     schemas: {
       adminUserSearchQuery: {},
       adminAddRole: {},
@@ -65,7 +87,7 @@ function makeDeps(overrides: any = {}) {
     },
     setNoStore: () => {},
     sanitizeString: (s: any, max: any) => (s || '').trim().slice(0, max || 100),
-    sanitizeIdentifier: (s: any) => s ? String(s).trim() : null,
+    sanitizeIdentifier: (s: any) => (s ? String(s).trim() : null),
     createOpaqueId: () => 'opaque-123',
     createAuditLog: (action: any, actorType: any, details: any) => ({ action, actorType, ...details }),
     invalidateUserCache: mock.fn(),
@@ -74,9 +96,7 @@ function makeDeps(overrides: any = {}) {
       { id: 'user-1', username: 'admin', email: 'admin@test.com', createdAt: '2026-01-01' },
       { id: 'user-2', username: 'bob', email: 'bob@test.com', createdAt: '2026-01-02' },
     ]),
-    getFestivals: mock.fn(async () => [
-      { id: 'f1', name: 'Bonnaroo', stages: [], days: [] },
-    ]),
+    getFestivals: mock.fn(async () => [{ id: 'f1', name: 'Bonnaroo', stages: [], days: [] }]),
     getProfiles: mock.fn(async () => [
       { id: 'p1', userId: 'user-1', festivalId: 'f1', picks: { s1: 'must' }, notes: {} },
     ]),
@@ -86,13 +106,20 @@ function makeDeps(overrides: any = {}) {
       return null;
     }),
     getFestivalById: mock.fn(async (id: any) => {
-      if (id === 'f1') return {
-        id: 'f1', name: 'Bonnaroo', location: 'TN',
-        stages: [{ id: 'st1', name: 'Main Stage' }],
-        days: [{ date: '2026-06-10', label: 'Day 1', sets: [
-          { id: 's1', artist: 'DJ Test', stageId: 'st1', startTime: '14:00', endTime: '15:00' },
-        ] }],
-      };
+      if (id === 'f1')
+        return {
+          id: 'f1',
+          name: 'Bonnaroo',
+          location: 'TN',
+          stages: [{ id: 'st1', name: 'Main Stage' }],
+          days: [
+            {
+              date: '2026-06-10',
+              label: 'Day 1',
+              sets: [{ id: 's1', artist: 'DJ Test', stageId: 'st1', startTime: '14:00', endTime: '15:00' }],
+            },
+          ],
+        };
       return null;
     }),
     getUserFestivalProfile: mock.fn(async (userId: any, festivalId: any) => {
@@ -111,7 +138,8 @@ function makeDeps(overrides: any = {}) {
     validatePasswordStrength: (p: any) => p && p.length >= 8 && p.length <= 100,
     // admin reset-password gates on checkPasswordPolicy (destructured from deps);
     // default to "acceptable" and let the weak-password test override it.
-    checkPasswordPolicy: (p: any) => (p && p.length >= 8 && p.length <= 100 ? null : 'Password must be at least 8 characters'),
+    checkPasswordPolicy: (p: any) =>
+      p && p.length >= 8 && p.length <= 100 ? null : 'Password must be at least 8 characters',
     hashPassword: mock.fn(async () => 'hashed-password'),
     invalidateUserSessions: mock.fn(async () => {}),
     disconnectUserSockets: mock.fn(),
@@ -182,7 +210,15 @@ function makeDeps(overrides: any = {}) {
       },
       profiles: {
         getById: mock.fn(async (id: any) => {
-          if (id === 'p1') return { id: 'p1', userId: 'user-1', festivalId: 'f1', name: 'MyProfile', picks: { s1: 'must' }, notes: {} };
+          if (id === 'p1')
+            return {
+              id: 'p1',
+              userId: 'user-1',
+              festivalId: 'f1',
+              name: 'MyProfile',
+              picks: { s1: 'must' },
+              notes: {},
+            };
           return null;
         }),
         getByFestivalId: mock.fn(async () => []),
@@ -209,7 +245,21 @@ function makeDeps(overrides: any = {}) {
         deleteUserSessions: mock.fn(async () => {}),
       },
       auditLog: {
-        query: mock.fn(async () => ({ rows: [{ id: 'a1', action: 'login', actorType: 'user', actorId: 'user-1', targetType: null, targetId: null, details: null, createdAt: '2026-01-01' }], nextCursor: null })),
+        query: mock.fn(async () => ({
+          rows: [
+            {
+              id: 'a1',
+              action: 'login',
+              actorType: 'user',
+              actorId: 'user-1',
+              targetType: null,
+              targetId: null,
+              details: null,
+              createdAt: '2026-01-01',
+            },
+          ],
+          nextCursor: null,
+        })),
         count: mock.fn(async () => 1),
         insert: mock.fn(async () => {}),
       },
@@ -224,7 +274,13 @@ function makeDeps(overrides: any = {}) {
         listByUser: mock.fn(async () => []),
       },
       notificationPrefs: {
-        get: mock.fn(async () => ({ crewUpdates: 1, setReminders: 1, scheduleChanges: 1, dndStart: null, dndEnd: null })),
+        get: mock.fn(async () => ({
+          crewUpdates: 1,
+          setReminders: 1,
+          scheduleChanges: 1,
+          dndStart: null,
+          dndEnd: null,
+        })),
         upsert: mock.fn(async () => {}),
       },
       notificationCounts: {
@@ -391,7 +447,9 @@ describe('routes/admin-status.js', () => {
   test('GET /admin/analytics returns 500 on query error', async () => {
     const { default: createAdminStatusRoutes } = await import('../routes/admin-status.js');
     const deps = makeDeps();
-    deps.pool.query = mock.fn(async () => { throw new Error('DB down'); });
+    deps.pool.query = mock.fn(async () => {
+      throw new Error('DB down');
+    });
     const { router } = createAdminStatusRoutes(deps);
     const app = buildApp(router);
 
@@ -527,7 +585,14 @@ describe('routes/admin-metrics.js', () => {
     const { default: createAdminMetricsRoutes } = await import('../routes/admin-metrics.js');
     const deps = makeDeps();
     deps.clientMetrics = { samples: 10, lcpSum: 20000, fidSum: 500, clsSum: 1.5, renderMsSum: 3000, renderCount: 10 };
-    deps.clientMetricsBuckets = { lcp_under_2500: 8, lcp_over_2500: 2, fid_under_100: 9, fid_over_100: 1, render_under_500: 7, render_over_500: 3 };
+    deps.clientMetricsBuckets = {
+      lcp_under_2500: 8,
+      lcp_over_2500: 2,
+      fid_under_100: 9,
+      fid_over_100: 1,
+      render_under_500: 7,
+      render_over_500: 3,
+    };
     const { router } = createAdminMetricsRoutes(deps);
     const app = buildApp(router);
 
@@ -575,9 +640,7 @@ describe('routes/admin-metrics.js', () => {
     });
     appWithIp.use(router);
 
-    const res = await request(appWithIp)
-      .get('/internal/metrics-json')
-      .expect(403);
+    const res = await request(appWithIp).get('/internal/metrics-json').expect(403);
     assert.equal(res.body.data, null);
   });
 
@@ -625,9 +688,7 @@ describe('routes/admin-audit.js', () => {
     mountAdminAuditRoutes({ router, deps });
     const app = buildApp(router);
 
-    await request(app)
-      .get('/audit?actor_id=user-1&action=login&limit=10')
-      .expect(200);
+    await request(app).get('/audit?actor_id=user-1&action=login&limit=10').expect(200);
 
     const callArgs = deps.stores.auditLog.query.mock.calls[0]!.arguments[0];
     assert.equal(callArgs.actorId, 'user-1');
@@ -637,7 +698,9 @@ describe('routes/admin-audit.js', () => {
   test('GET /audit returns 500 on store error', async () => {
     const { default: mountAdminAuditRoutes } = await import('../routes/admin-audit.js');
     const deps = makeDeps();
-    deps.stores.auditLog.query = mock.fn(async () => { throw new Error('DB down'); });
+    deps.stores.auditLog.query = mock.fn(async () => {
+      throw new Error('DB down');
+    });
     const router = express.Router();
     mountAdminAuditRoutes({ router, deps });
     const app = buildApp(router);
@@ -684,7 +747,9 @@ describe('routes/admin-users.js', () => {
 
   test('GET /users returns 500 on error', async () => {
     const { app } = await buildUserRouter({
-      getUsers: mock.fn(async () => { throw new Error('fail'); }),
+      getUsers: mock.fn(async () => {
+        throw new Error('fail');
+      }),
     });
     const res = await request(app).get('/users').expect(500);
     assert.equal(res.body.data, null);
@@ -692,10 +757,7 @@ describe('routes/admin-users.js', () => {
 
   test('POST /users/:id/roles grants a role', async () => {
     const { app, deps } = await buildUserRouter();
-    const res = await request(app)
-      .post('/users/user-2/roles')
-      .send({ role: 'admin' })
-      .expect(200);
+    const res = await request(app).post('/users/user-2/roles').send({ role: 'admin' }).expect(200);
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.userId, 'user-2');
     assert.ok(deps.stores.roles.grantRole.mock.calls.length > 0);
@@ -703,10 +765,7 @@ describe('routes/admin-users.js', () => {
 
   test('POST /users/:id/roles rejects invalid role', async () => {
     const { app } = await buildUserRouter();
-    const res = await request(app)
-      .post('/users/user-2/roles')
-      .send({ role: 'superadmin' })
-      .expect(400);
+    const res = await request(app).post('/users/user-2/roles').send({ role: 'superadmin' }).expect(400);
     assert.equal(res.body.data, null);
   });
 
@@ -714,10 +773,7 @@ describe('routes/admin-users.js', () => {
     const { app } = await buildUserRouter({
       getUserById: mock.fn(async () => null),
     });
-    const res = await request(app)
-      .post('/users/missing-user/roles')
-      .send({ role: 'admin' })
-      .expect(404);
+    const res = await request(app).post('/users/missing-user/roles').send({ role: 'admin' }).expect(404);
     assert.equal(res.body.data, null);
   });
 
@@ -725,18 +781,13 @@ describe('routes/admin-users.js', () => {
     const { app } = await buildUserRouter({
       sanitizeIdentifier: () => null,
     });
-    const res = await request(app)
-      .post('/users/%20/roles')
-      .send({ role: 'admin' })
-      .expect(400);
+    const res = await request(app).post('/users/%20/roles').send({ role: 'admin' }).expect(400);
     assert.equal(res.body.data, null);
   });
 
   test('DELETE /users/:id/roles/:role revokes a role', async () => {
     const { app, deps } = await buildUserRouter();
-    const res = await request(app)
-      .delete('/users/user-2/roles/admin')
-      .expect(200);
+    const res = await request(app).delete('/users/user-2/roles/admin').expect(200);
     assert.equal(res.body.error, null);
     assert.ok(deps.stores.roles.revokeRole.mock.calls.length > 0);
   });
@@ -750,18 +801,14 @@ describe('routes/admin-users.js', () => {
         return null;
       }),
     });
-    const res = await request(app)
-      .delete('/users/admin-1/roles/admin')
-      .expect(400);
+    const res = await request(app).delete('/users/admin-1/roles/admin').expect(400);
     assert.equal(res.body.data, null);
     assert.ok(res.body.error.message.includes('Cannot revoke your own'));
   });
 
   test('DELETE /users/:id/roles/:role rejects invalid role name', async () => {
     const { app } = await buildUserRouter();
-    const res = await request(app)
-      .delete('/users/user-2/roles/superuser')
-      .expect(400);
+    const res = await request(app).delete('/users/user-2/roles/superuser').expect(400);
     assert.equal(res.body.data, null);
   });
 
@@ -769,17 +816,13 @@ describe('routes/admin-users.js', () => {
     const { app } = await buildUserRouter({
       getUserById: mock.fn(async () => null),
     });
-    const res = await request(app)
-      .delete('/users/missing/roles/admin')
-      .expect(404);
+    const res = await request(app).delete('/users/missing/roles/admin').expect(404);
     assert.equal(res.body.data, null);
   });
 
   test('POST /users/:id/reset-link generates reset URL', async () => {
     const { app } = await buildUserRouter();
-    const res = await request(app)
-      .post('/users/user-2/reset-link')
-      .expect(200);
+    const res = await request(app).post('/users/user-2/reset-link').expect(200);
     assert.equal(res.body.error, null);
     assert.ok(res.body.data.resetUrl);
     assert.ok(res.body.data.resetUrl.includes('http://localhost:3000/reset/'));
@@ -796,9 +839,7 @@ describe('routes/admin-users.js', () => {
         RESET_TOKEN_TTL: 3600000,
       },
     });
-    const res = await request(app)
-      .post('/users/user-2/reset-link')
-      .expect(500);
+    const res = await request(app).post('/users/user-2/reset-link').expect(500);
     assert.equal(res.body.data, null);
   });
 
@@ -806,9 +847,7 @@ describe('routes/admin-users.js', () => {
     const { app } = await buildUserRouter({
       getUserById: mock.fn(async () => null),
     });
-    const res = await request(app)
-      .post('/users/missing/reset-link')
-      .expect(404);
+    const res = await request(app).post('/users/missing/reset-link').expect(404);
     assert.equal(res.body.data, null);
   });
 
@@ -826,10 +865,7 @@ describe('routes/admin-users.js', () => {
 
   test('PUT /users/:id/reset-password rejects weak password', async () => {
     const { app } = await buildUserRouter();
-    const res = await request(app)
-      .put('/users/user-2/reset-password')
-      .send({ newPassword: 'short' })
-      .expect(400);
+    const res = await request(app).put('/users/user-2/reset-password').send({ newPassword: 'short' }).expect(400);
     assert.equal(res.body.data, null);
   });
 
@@ -846,9 +882,7 @@ describe('routes/admin-users.js', () => {
 
   test('DELETE /users/:id deletes user and cleans up', async () => {
     const { app, deps } = await buildUserRouter();
-    const res = await request(app)
-      .delete('/users/user-2')
-      .expect(200);
+    const res = await request(app).delete('/users/user-2').expect(200);
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.success, true);
     assert.ok(deps.invalidateUserCache.mock.calls.length > 0);
@@ -859,9 +893,7 @@ describe('routes/admin-users.js', () => {
     const { app } = await buildUserRouter({
       getUserById: mock.fn(async () => null),
     });
-    const res = await request(app)
-      .delete('/users/missing')
-      .expect(404);
+    const res = await request(app).delete('/users/missing').expect(404);
     assert.equal(res.body.data, null);
   });
 
@@ -869,9 +901,7 @@ describe('routes/admin-users.js', () => {
     const { app } = await buildUserRouter({
       sanitizeIdentifier: () => null,
     });
-    const res = await request(app)
-      .delete('/users/%20')
-      .expect(400);
+    const res = await request(app).delete('/users/%20').expect(400);
     assert.equal(res.body.data, null);
   });
 });
@@ -906,10 +936,7 @@ describe('routes/admin-bulk.js', () => {
   test('POST /bulk/deactivate rejects >50 user IDs', async () => {
     const { app } = await buildBulkRouter();
     const userIds = Array.from({ length: 51 }, (_, i) => `user-${i}`);
-    const res = await request(app)
-      .post('/bulk/deactivate')
-      .send({ userIds })
-      .expect(400);
+    const res = await request(app).post('/bulk/deactivate').send({ userIds }).expect(400);
     assert.equal(res.body.data, null);
   });
 
@@ -948,10 +975,7 @@ describe('routes/admin-bulk.js', () => {
   test('POST /bulk/archive-festivals rejects >50 festival IDs', async () => {
     const { app } = await buildBulkRouter();
     const festivalIds = Array.from({ length: 51 }, (_, i) => `f-${i}`);
-    const res = await request(app)
-      .post('/bulk/archive-festivals')
-      .send({ festivalIds })
-      .expect(400);
+    const res = await request(app).post('/bulk/archive-festivals').send({ festivalIds }).expect(400);
     assert.equal(res.body.data, null);
   });
 
@@ -993,7 +1017,9 @@ describe('routes/admin-bulk.js', () => {
 
   test('GET /crews returns 500 on query error', async () => {
     const deps = makeDeps();
-    deps.stores.pool.query = mock.fn(async () => { throw new Error('fail'); });
+    deps.stores.pool.query = mock.fn(async () => {
+      throw new Error('fail');
+    });
     const { default: mountAdminBulkRoutes } = await import('../routes/admin-bulk.js');
     const router = express.Router();
     mountAdminBulkRoutes({ router, deps, ctx: { adminWriteLimit: (req: any, res: any, next: any) => next() } });
@@ -1020,18 +1046,14 @@ describe('routes/admin-bulk.js', () => {
 
   test('DELETE /crews/:id/members/:userId removes a member', async () => {
     const { app, deps } = await buildBulkRouter();
-    const res = await request(app)
-      .delete('/crews/crew-1/members/user-2')
-      .expect(200);
+    const res = await request(app).delete('/crews/crew-1/members/user-2').expect(200);
     assert.equal(res.body.error, null);
     assert.ok(deps.stores.crews.removeMember.mock.calls.length > 0);
   });
 
   test('DELETE /crews/:id/members/:userId returns 404 for missing member', async () => {
     const { app } = await buildBulkRouter();
-    const res = await request(app)
-      .delete('/crews/crew-1/members/user-999')
-      .expect(404);
+    const res = await request(app).delete('/crews/crew-1/members/user-999').expect(404);
     assert.equal(res.body.data, null);
   });
 
@@ -1039,17 +1061,13 @@ describe('routes/admin-bulk.js', () => {
     const { app } = await buildBulkRouter({
       sanitizeIdentifier: () => null,
     });
-    const res = await request(app)
-      .delete('/crews/%20/members/%20')
-      .expect(400);
+    const res = await request(app).delete('/crews/%20/members/%20').expect(400);
     assert.equal(res.body.data, null);
   });
 
   test('DELETE /crews/:id deletes a crew', async () => {
     const { app, deps } = await buildBulkRouter();
-    const res = await request(app)
-      .delete('/crews/crew-1')
-      .expect(200);
+    const res = await request(app).delete('/crews/crew-1').expect(200);
     assert.equal(res.body.error, null);
     assert.ok(deps.stores.crews.delete.mock.calls.length > 0);
     assert.ok(deps.stores.auditLog.insert.mock.calls.length > 0);
@@ -1057,9 +1075,7 @@ describe('routes/admin-bulk.js', () => {
 
   test('DELETE /crews/:id returns 404 for missing crew', async () => {
     const { app } = await buildBulkRouter();
-    const res = await request(app)
-      .delete('/crews/missing-crew')
-      .expect(404);
+    const res = await request(app).delete('/crews/missing-crew').expect(404);
     assert.equal(res.body.data, null);
   });
 
@@ -1067,9 +1083,7 @@ describe('routes/admin-bulk.js', () => {
     const { app } = await buildBulkRouter({
       sanitizeIdentifier: () => null,
     });
-    const res = await request(app)
-      .delete('/crews/%20')
-      .expect(400);
+    const res = await request(app).delete('/crews/%20').expect(400);
     assert.equal(res.body.data, null);
   });
 });
@@ -1133,7 +1147,9 @@ describe('routes/admin.js', () => {
 
   test('GET /dashboard returns 500 on error', async () => {
     const { app } = await buildAdminApp({
-      getUsers: mock.fn(async () => { throw new Error('fail'); }),
+      getUsers: mock.fn(async () => {
+        throw new Error('fail');
+      }),
     });
     const res = await request(app).get('/dashboard').expect(500);
     assert.equal(res.body.data, null);
@@ -1141,9 +1157,7 @@ describe('routes/admin.js', () => {
 
   test('POST /festivals/:id/backfill-spotify returns 400 when credentials missing', async () => {
     const { app } = await buildAdminApp();
-    const res = await request(app)
-      .post('/festivals/f1/backfill-spotify')
-      .expect(400);
+    const res = await request(app).post('/festivals/f1/backfill-spotify').expect(400);
     assert.equal(res.body.data, null);
     assert.ok(res.body.error.message.includes('Spotify'));
   });
@@ -1157,9 +1171,7 @@ describe('routes/admin.js', () => {
     const router = createAdminRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .post('/festivals/missing/backfill-spotify')
-      .expect(404);
+    const res = await request(app).post('/festivals/missing/backfill-spotify').expect(404);
     assert.equal(res.body.data, null);
   });
 
@@ -1178,12 +1190,10 @@ describe('routes/admin.js', () => {
     const router = createAdminRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .post('/festivals/f1/backfill-spotify')
-      .expect(200);
+    const res = await request(app).post('/festivals/f1/backfill-spotify').expect(200);
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.updated, 0);
-    assert.ok(res.body.data.message.includes('already'));
+    assert.ok(res.body.data.message.includes('No sets to backfill'));
   });
 });
 
@@ -1211,9 +1221,7 @@ describe('routes/export.js', () => {
 
   test('GET /export/:festivalId/:profileId/calendar returns ICS content', async () => {
     const { app } = await buildExportApp();
-    const res = await request(app)
-      .get('/export/f1/p1/calendar')
-      .expect(200);
+    const res = await request(app).get('/export/f1/p1/calendar').expect(200);
     assert.ok(res.headers['content-type']!.includes('text/calendar'));
     assert.ok(res.text.includes('BEGIN:VCALENDAR'));
     assert.ok(res.text.includes('END:VCALENDAR'));
@@ -1222,9 +1230,7 @@ describe('routes/export.js', () => {
 
   test('GET /export/:festivalId/:profileId/calendar returns 404 for missing festival', async () => {
     const { app } = await buildExportApp();
-    const res = await request(app)
-      .get('/export/missing/p1/calendar')
-      .expect(404);
+    const res = await request(app).get('/export/missing/p1/calendar').expect(404);
     assert.equal(res.body.data, null);
   });
 
@@ -1235,24 +1241,24 @@ describe('routes/export.js', () => {
     const router = createExportRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/export/f1/missing/calendar')
-      .expect(404);
+    const res = await request(app).get('/export/f1/missing/calendar').expect(404);
     assert.equal(res.body.data, null);
   });
 
   test('GET /export/:festivalId/:profileId/calendar returns 403 for wrong user', async () => {
     const deps = makeDeps();
     deps.stores.profiles.getById = mock.fn(async () => ({
-      id: 'p2', userId: 'user-999', festivalId: 'f1', picks: {}, notes: {},
+      id: 'p2',
+      userId: 'user-999',
+      festivalId: 'f1',
+      picks: {},
+      notes: {},
     }));
     const { default: createExportRoutes } = await import('../routes/export.js');
     const router = createExportRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/export/f1/p2/calendar')
-      .expect(403);
+    const res = await request(app).get('/export/f1/p2/calendar').expect(403);
     assert.equal(res.body.data, null);
   });
 
@@ -1263,9 +1269,7 @@ describe('routes/export.js', () => {
     const router = createExportRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/export/%20/%20/calendar')
-      .expect(400);
+    const res = await request(app).get('/export/%20/%20/calendar').expect(400);
     assert.equal(res.body.data, null);
   });
 
@@ -1276,34 +1280,26 @@ describe('routes/export.js', () => {
     const router = createExportRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/export/%20/%20')
-      .expect(400);
+    const res = await request(app).get('/export/%20/%20').expect(400);
     assert.equal(res.body.data, null);
   });
 
   test('GET /export/:festivalId/:profileId returns 404 for missing festival', async () => {
     const { app } = await buildExportApp();
-    const res = await request(app)
-      .get('/export/missing/p1')
-      .expect(404);
+    const res = await request(app).get('/export/missing/p1').expect(404);
     assert.equal(res.body.data, null);
   });
 
   test('GET /presence/:festivalId returns online users', async () => {
     const { app } = await buildExportApp();
-    const res = await request(app)
-      .get('/presence/f1')
-      .expect(200);
+    const res = await request(app).get('/presence/f1').expect(200);
     assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data.online));
   });
 
   test('GET /presence/:festivalId returns 404 for missing festival', async () => {
     const { app } = await buildExportApp();
-    const res = await request(app)
-      .get('/presence/missing')
-      .expect(404);
+    const res = await request(app).get('/presence/missing').expect(404);
     assert.equal(res.body.data, null);
   });
 
@@ -1314,9 +1310,7 @@ describe('routes/export.js', () => {
     const router = createExportRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/presence/f1')
-      .expect(403);
+    const res = await request(app).get('/presence/f1').expect(403);
     assert.equal(res.body.data, null);
   });
 
@@ -1327,17 +1321,13 @@ describe('routes/export.js', () => {
     const router = createExportRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/presence/%20')
-      .expect(400);
+    const res = await request(app).get('/presence/%20').expect(400);
     assert.equal(res.body.data, null);
   });
 
   test('GET /festivals/:festivalId/calendar returns calendar events', async () => {
     const { app } = await buildExportApp();
-    const res = await request(app)
-      .get('/festivals/f1/calendar')
-      .expect(200);
+    const res = await request(app).get('/festivals/f1/calendar').expect(200);
     assert.equal(res.body.error, null);
     assert.ok(res.body.data.festival);
     assert.ok(Array.isArray(res.body.data.events));
@@ -1345,9 +1335,7 @@ describe('routes/export.js', () => {
 
   test('GET /festivals/:festivalId/calendar returns 404 for missing festival', async () => {
     const { app } = await buildExportApp();
-    const res = await request(app)
-      .get('/festivals/missing/calendar')
-      .expect(404);
+    const res = await request(app).get('/festivals/missing/calendar').expect(404);
     assert.equal(res.body.data, null);
   });
 
@@ -1358,17 +1346,13 @@ describe('routes/export.js', () => {
     const router = createExportRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/festivals/f1/calendar')
-      .expect(404);
+    const res = await request(app).get('/festivals/f1/calendar').expect(404);
     assert.equal(res.body.data, null);
   });
 
   test('GET /export-card/:festivalId returns 404 for missing festival', async () => {
     const { app } = await buildExportApp();
-    const res = await request(app)
-      .get('/export-card/missing')
-      .expect(404);
+    const res = await request(app).get('/export-card/missing').expect(404);
     assert.equal(res.body.data, null);
   });
 
@@ -1379,9 +1363,7 @@ describe('routes/export.js', () => {
     const router = createExportRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/export-card/f1')
-      .expect(404);
+    const res = await request(app).get('/export-card/f1').expect(404);
     assert.equal(res.body.data, null);
   });
 
@@ -1392,9 +1374,7 @@ describe('routes/export.js', () => {
     const router = createExportRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/export-card/%20')
-      .expect(400);
+    const res = await request(app).get('/export-card/%20').expect(400);
     assert.equal(res.body.data, null);
   });
 });
@@ -1432,10 +1412,7 @@ describe('routes/notifications.js', () => {
 
   test('POST /token rejects short token', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .post('/token')
-      .send({ token: 'short', platform: 'web' })
-      .expect(400);
+    const res = await request(app).post('/token').send({ token: 'short', platform: 'web' }).expect(400);
     assert.equal(res.body.data, null);
   });
 
@@ -1498,7 +1475,9 @@ describe('routes/notifications.js', () => {
 
   test('POST /token handles UNIQUE constraint gracefully', async () => {
     const deps = makeDeps();
-    deps.stores.deviceTokens.register = mock.fn(async () => { throw new Error('UNIQUE constraint failed'); });
+    deps.stores.deviceTokens.register = mock.fn(async () => {
+      throw new Error('UNIQUE constraint failed');
+    });
     const { default: createNotificationRoutes } = await import('../routes/notifications.js');
     const router = createNotificationRoutes(deps);
     const app = buildApp(router);
@@ -1512,38 +1491,27 @@ describe('routes/notifications.js', () => {
 
   test('DELETE /token unregisters a device token', async () => {
     const { app, deps } = await buildNotifApp();
-    const res = await request(app)
-      .delete('/token')
-      .send({ token: 'my-token-to-delete' })
-      .expect(200);
+    const res = await request(app).delete('/token').send({ token: 'my-token-to-delete' }).expect(200);
     assert.equal(res.body.error, null);
     assert.ok(deps.stores.deviceTokens.unregister.mock.calls.length > 0);
   });
 
   test('DELETE /token rejects missing token', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .delete('/token')
-      .send({})
-      .expect(400);
+    const res = await request(app).delete('/token').send({}).expect(400);
     assert.equal(res.body.data, null);
   });
 
   test('GET /prefs returns notification preferences', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .get('/prefs')
-      .expect(200);
+    const res = await request(app).get('/prefs').expect(200);
     assert.equal(res.body.error, null);
     assert.ok(typeof res.body.data.crewUpdates !== 'undefined');
   });
 
   test('POST /read marks notifications as read for a festival', async () => {
     const { app, deps } = await buildNotifApp();
-    const res = await request(app)
-      .post('/read')
-      .send({ festivalId: 'f1' })
-      .expect(200);
+    const res = await request(app).post('/read').send({ festivalId: 'f1' }).expect(200);
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.badgeCount, 0);
     assert.ok(deps.stores.notificationCounts.reset.mock.calls.length > 0);
@@ -1551,10 +1519,7 @@ describe('routes/notifications.js', () => {
 
   test('POST /read marks all notifications as read when no festivalId', async () => {
     const { app, deps } = await buildNotifApp();
-    const res = await request(app)
-      .post('/read')
-      .send({})
-      .expect(200);
+    const res = await request(app).post('/read').send({}).expect(200);
     assert.equal(res.body.error, null);
     assert.ok(deps.stores.notificationCounts.resetAll.mock.calls.length > 0);
   });
@@ -1566,18 +1531,13 @@ describe('routes/notifications.js', () => {
     const router = createNotificationRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .post('/read')
-      .send({ festivalId: '   ' })
-      .expect(400);
+    const res = await request(app).post('/read').send({ festivalId: '   ' }).expect(400);
     assert.equal(res.body.data, null);
   });
 
   test('GET /unread returns unread counts', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .get('/unread')
-      .expect(200);
+    const res = await request(app).get('/unread').expect(200);
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.total, 3);
     assert.ok(Array.isArray(res.body.data.byFestival));
@@ -1587,9 +1547,7 @@ describe('routes/notifications.js', () => {
 
   test('GET /history returns notification history', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .get('/history')
-      .expect(200);
+    const res = await request(app).get('/history').expect(200);
     assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data));
     assert.ok(res.body.meta);
@@ -1597,93 +1555,64 @@ describe('routes/notifications.js', () => {
 
   test('PUT /prefs updates notification preferences', async () => {
     const { app, deps } = await buildNotifApp();
-    const res = await request(app)
-      .put('/prefs')
-      .send({ crewUpdates: false })
-      .expect(200);
+    const res = await request(app).put('/prefs').send({ crewUpdates: false }).expect(200);
     assert.equal(res.body.error, null);
     assert.ok(deps.stores.notificationPrefs.upsert.mock.calls.length > 0);
   });
 
   test('PATCH /prefs updates notification preferences', async () => {
     const { app, deps } = await buildNotifApp();
-    const res = await request(app)
-      .patch('/prefs')
-      .send({ setReminders: true })
-      .expect(200);
+    const res = await request(app).patch('/prefs').send({ setReminders: true }).expect(200);
     assert.equal(res.body.error, null);
     assert.ok(deps.stores.notificationPrefs.upsert.mock.calls.length > 0);
   });
 
   test('PUT /prefs rejects unknown fields', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .put('/prefs')
-      .send({ unknownField: true })
-      .expect(400);
+    const res = await request(app).put('/prefs').send({ unknownField: true }).expect(400);
     assert.equal(res.body.data, null);
   });
 
   test('PUT /prefs rejects empty body', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .put('/prefs')
-      .send({})
-      .expect(400);
+    const res = await request(app).put('/prefs').send({}).expect(400);
     assert.equal(res.body.data, null);
   });
 
   test('PUT /prefs validates dndStart format', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .put('/prefs')
-      .send({ dndStart: 'invalid' })
-      .expect(400);
+    const res = await request(app).put('/prefs').send({ dndStart: 'invalid' }).expect(400);
     assert.equal(res.body.data, null);
     assert.ok(res.body.error.message.includes('HH:MM'));
   });
 
   test('PUT /prefs validates dndEnd format', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .put('/prefs')
-      .send({ dndEnd: '25:00' })
-      .expect(400);
+    const res = await request(app).put('/prefs').send({ dndEnd: '25:00' }).expect(400);
     assert.equal(res.body.data, null);
   });
 
   test('PUT /prefs allows null dndStart/dndEnd to clear', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .put('/prefs')
-      .send({ dndStart: null, dndEnd: null })
-      .expect(200);
+    const res = await request(app).put('/prefs').send({ dndStart: null, dndEnd: null }).expect(200);
     assert.equal(res.body.error, null);
   });
 
   test('PUT /prefs allows empty string dndStart/dndEnd to clear', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .put('/prefs')
-      .send({ dndStart: '', dndEnd: '' })
-      .expect(200);
+    const res = await request(app).put('/prefs').send({ dndStart: '', dndEnd: '' }).expect(200);
     assert.equal(res.body.error, null);
   });
 
   test('PUT /prefs accepts valid HH:MM dndStart', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .put('/prefs')
-      .send({ dndStart: '22:00' })
-      .expect(200);
+    const res = await request(app).put('/prefs').send({ dndStart: '22:00' }).expect(200);
     assert.equal(res.body.error, null);
   });
 
   test('GET /topics/:festivalId returns topic subscriptions', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .get('/topics/f1')
-      .expect(200);
+    const res = await request(app).get('/topics/f1').expect(200);
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.crew, true);
     assert.equal(res.body.data.schedule, false);
@@ -1696,9 +1625,7 @@ describe('routes/notifications.js', () => {
     const router = createNotificationRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/topics/f1')
-      .expect(200);
+    const res = await request(app).get('/topics/f1').expect(200);
     assert.equal(res.body.data.crew, true);
     assert.equal(res.body.data.schedule, true);
   });
@@ -1710,9 +1637,7 @@ describe('routes/notifications.js', () => {
     const router = createNotificationRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/topics/f1')
-      .expect(403);
+    const res = await request(app).get('/topics/f1').expect(403);
     assert.equal(res.body.data, null);
   });
 
@@ -1723,18 +1648,13 @@ describe('routes/notifications.js', () => {
     const router = createNotificationRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .get('/topics/%20')
-      .expect(400);
+    const res = await request(app).get('/topics/%20').expect(400);
     assert.equal(res.body.data, null);
   });
 
   test('PUT /topics/:festivalId updates topic subscriptions', async () => {
     const { app, deps } = await buildNotifApp();
-    const res = await request(app)
-      .put('/topics/f1')
-      .send({ crew: false, schedule: true })
-      .expect(200);
+    const res = await request(app).put('/topics/f1').send({ crew: false, schedule: true }).expect(200);
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.crew, false);
     assert.equal(res.body.data.schedule, true);
@@ -1743,10 +1663,7 @@ describe('routes/notifications.js', () => {
 
   test('PUT /topics/:festivalId returns 400 for no valid topics', async () => {
     const { app } = await buildNotifApp();
-    const res = await request(app)
-      .put('/topics/f1')
-      .send({ invalidTopic: true })
-      .expect(400);
+    const res = await request(app).put('/topics/f1').send({ invalidTopic: true }).expect(400);
     assert.equal(res.body.data, null);
   });
 
@@ -1757,10 +1674,7 @@ describe('routes/notifications.js', () => {
     const router = createNotificationRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .put('/topics/f1')
-      .send({ crew: false })
-      .expect(403);
+    const res = await request(app).put('/topics/f1').send({ crew: false }).expect(403);
     assert.equal(res.body.data, null);
   });
 
@@ -1771,10 +1685,7 @@ describe('routes/notifications.js', () => {
     const router = createNotificationRoutes(deps);
     const app = buildApp(router);
 
-    const res = await request(app)
-      .put('/topics/%20')
-      .send({ crew: true })
-      .expect(400);
+    const res = await request(app).put('/topics/%20').send({ crew: true }).expect(400);
     assert.equal(res.body.data, null);
   });
 });
