@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
@@ -30,11 +30,7 @@ function typeLabel(type: string): string {
  * (label + location + type, mirroring the server schema). Creators and owners
  * may remove a point. Uses the shared crewStore actions; the screen owns load.
  */
-export default function CrewMeetingPoints({
-  crewId,
-  currentUserId,
-  isOwner,
-}: CrewMeetingPointsProps) {
+export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: CrewMeetingPointsProps) {
   const t = useTokens();
   const styles = useStyles();
 
@@ -47,12 +43,14 @@ export default function CrewMeetingPoints({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [location, setLocation] = useState('');
+  const [stageRef, setStageRef] = useState('');
   const [type, setType] = useState<string>('during');
   const [createBusy, setCreateBusy] = useState(false);
 
   const reset = () => {
     setLabel('');
     setLocation('');
+    setStageRef('');
     setType('during');
     setShowForm(false);
     setEditingId(null);
@@ -62,8 +60,13 @@ export default function CrewMeetingPoints({
     setEditingId(point.id);
     setLabel(point.label);
     setLocation(point.location);
+    setStageRef(point.stage_reference ?? '');
     setType(point.type);
     setShowForm(true);
+  };
+
+  const openDirections = (loc: string) => {
+    Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(loc)}`).catch(() => {});
   };
 
   const handleCreate = async () => {
@@ -72,14 +75,16 @@ export default function CrewMeetingPoints({
     if (!l || !loc || createBusy) return;
     setCreateBusy(true);
     try {
+      const stageReference = stageRef.trim() || null;
       if (editingId) {
         await updateMeetingPoint(crewId, editingId, {
           label: l,
           location: loc,
           type,
+          stageReference,
         });
       } else {
-        await createMeetingPoint(crewId, { label: l, location: loc, type });
+        await createMeetingPoint(crewId, { label: l, location: loc, type, stageReference });
       }
       reset();
     } catch {
@@ -109,9 +114,7 @@ export default function CrewMeetingPoints({
       {showForm ? (
         <View style={styles.formBox}>
           <View style={styles.formHeader}>
-            <Text style={styles.formTitle}>
-              {editingId ? 'Edit meeting point' : 'New meeting point'}
-            </Text>
+            <Text style={styles.formTitle}>{editingId ? 'Edit meeting point' : 'New meeting point'}</Text>
             <TouchableOpacity
               onPress={reset}
               style={styles.iconButton}
@@ -134,14 +137,7 @@ export default function CrewMeetingPoints({
                   accessibilityRole="button"
                   accessibilityLabel={`Meeting point type ${entry.label}`}
                 >
-                  <Text
-                    style={[
-                      styles.typeChipText,
-                      active && styles.typeChipTextActive,
-                    ]}
-                  >
-                    {entry.label}
-                  </Text>
+                  <Text style={[styles.typeChipText, active && styles.typeChipTextActive]}>{entry.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -168,11 +164,18 @@ export default function CrewMeetingPoints({
             onSubmitEditing={handleCreate}
             accessibilityLabel="Meeting point location"
           />
+          <TextInput
+            testID="mp-stage-input"
+            style={styles.input}
+            placeholder="Near stage (optional, e.g. Main Stage)"
+            placeholderTextColor={t.colors.text.placeholder}
+            value={stageRef}
+            onChangeText={setStageRef}
+            maxLength={100}
+            accessibilityLabel="Meeting point stage reference"
+          />
           <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              (createBusy || !canCreate) && styles.buttonDisabled,
-            ]}
+            style={[styles.primaryButton, (createBusy || !canCreate) && styles.buttonDisabled]}
             onPress={handleCreate}
             disabled={createBusy || !canCreate}
             activeOpacity={0.8}
@@ -180,13 +183,7 @@ export default function CrewMeetingPoints({
             accessibilityLabel="Add meeting point"
           >
             <Text style={styles.primaryButtonText}>
-              {createBusy
-                ? editingId
-                  ? 'Saving…'
-                  : 'Adding…'
-                : editingId
-                  ? 'Save'
-                  : 'Add'}
+              {createBusy ? (editingId ? 'Saving…' : 'Adding…') : editingId ? 'Save' : 'Add'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -205,18 +202,13 @@ export default function CrewMeetingPoints({
       )}
 
       {meetingPoints.length === 0 ? (
-        <Text style={styles.empty}>
-          No meeting points yet — drop a pin so your crew knows where to meet.
-        </Text>
+        <Text style={styles.empty}>No meeting points yet — drop a pin so your crew knows where to meet.</Text>
       ) : (
         meetingPoints.map((point) => {
           const canRemove = point.created_by === currentUserId || isOwner;
           const isEmergency = point.type === 'emergency';
           return (
-            <View
-              key={point.id}
-              style={[styles.pointRow, isEmergency && styles.pointRowEmergency]}
-            >
+            <View key={point.id} style={[styles.pointRow, isEmergency && styles.pointRowEmergency]}>
               <View style={styles.pointInfo}>
                 <View style={styles.pointTitleRow}>
                   <Text style={styles.pointLabel} numberOfLines={1}>
@@ -227,37 +219,45 @@ export default function CrewMeetingPoints({
                 <Text style={styles.pointLocation} numberOfLines={1}>
                   {point.location}
                 </Text>
+                {point.stage_reference ? (
+                  <Text style={styles.pointStage} numberOfLines={1}>
+                    Near {point.stage_reference}
+                  </Text>
+                ) : null}
               </View>
-              {canRemove ? (
-                <View style={styles.rowActions}>
-                  <TouchableOpacity
-                    onPress={() => startEdit(point)}
-                    style={styles.iconButton}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Edit meeting point ${point.label}`}
-                  >
-                    <Ionicons
-                      name="create-outline"
-                      size={18}
-                      color={t.colors.accent.aqua}
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleRemove(point)}
-                    style={styles.iconButton}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove meeting point ${point.label}`}
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={18}
-                      color={t.colors.text.danger}
-                    />
-                  </TouchableOpacity>
-                </View>
-              ) : null}
+              <View style={styles.rowActions}>
+                <TouchableOpacity
+                  onPress={() => openDirections(point.location)}
+                  style={styles.iconButton}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Directions to ${point.label}`}
+                >
+                  <Ionicons name="navigate-outline" size={18} color={t.colors.accent.aqua} />
+                </TouchableOpacity>
+                {canRemove ? (
+                  <>
+                    <TouchableOpacity
+                      onPress={() => startEdit(point)}
+                      style={styles.iconButton}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Edit meeting point ${point.label}`}
+                    >
+                      <Ionicons name="create-outline" size={18} color={t.colors.accent.aqua} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleRemove(point)}
+                      style={styles.iconButton}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove meeting point ${point.label}`}
+                    >
+                      <Ionicons name="trash-outline" size={18} color={t.colors.text.danger} />
+                    </TouchableOpacity>
+                  </>
+                ) : null}
+              </View>
             </View>
           );
         })
@@ -399,5 +399,9 @@ const useStyles = makeStyles((t) => ({
   pointLocation: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
+  },
+  pointStage: {
+    ...typeStyle('micro'),
+    color: t.colors.accent.aqua,
   },
 }));
