@@ -42,7 +42,15 @@ vi.mock('../components/ui/StageBadge', () => ({
 }));
 
 vi.mock('../components/ui/EmptyState', () => ({
-  default: ({ title, description, cta }: { title: string; description?: string; cta?: { label: string; onClick: () => void } }) => (
+  default: ({
+    title,
+    description,
+    cta,
+  }: {
+    title: string;
+    description?: string;
+    cta?: { label: string; onClick: () => void };
+  }) => (
     <div data-testid="empty-state">
       <h3>{title}</h3>
       {description && <p>{description}</p>}
@@ -60,6 +68,11 @@ vi.mock('lucide-react', () => ({
   CalendarX: () => <span data-testid="calendar-x-icon" />,
   UserPlus: () => <span data-testid="user-plus-icon" />,
   CalendarPlus: () => <span data-testid="calendar-plus-icon" />,
+  Share2: () => <span data-testid="share-icon" />,
+}));
+
+vi.mock('../lib/toastContext', () => ({
+  useToast: () => ({ toast: vi.fn() }),
 }));
 
 import PicksView from './picks';
@@ -142,9 +155,7 @@ describe('PicksView', () => {
   });
 
   it('renders pick items with artist names', () => {
-    const sets = [
-      { id: 's1', artist: 'Daft Punk', stageId: 'st1', startTime: '14:00', dayIndex: 0 },
-    ];
+    const sets = [{ id: 's1', artist: 'Daft Punk', stageId: 'st1', startTime: '14:00', dayIndex: 0 }];
     setStoreState({ sets });
     vi.mocked(usePicks).mockReturnValue({
       getMyPick: vi.fn(() => 'must'),
@@ -169,7 +180,15 @@ describe('PicksView', () => {
 
   it('shows the calendar export button and downloads an .ics when clicked', () => {
     const sets = [
-      { id: 's1', artist: 'Daft Punk', stageId: 'st1', startTime: '14:00', endTime: '15:00', date: '2026-06-10', dayIndex: 0 },
+      {
+        id: 's1',
+        artist: 'Daft Punk',
+        stageId: 'st1',
+        startTime: '14:00',
+        endTime: '15:00',
+        date: '2026-06-10',
+        dayIndex: 0,
+      },
     ];
     setStoreState({ sets, currentProfile: { picks: { s1: 'must' }, notes: {} } });
     vi.mocked(usePicks).mockReturnValue({
@@ -183,9 +202,7 @@ describe('PicksView', () => {
     const createObjectURL = vi.fn(() => 'blob:mock');
     const revokeObjectURL = vi.fn();
     Object.assign(URL, { createObjectURL, revokeObjectURL });
-    const clickSpy = vi
-      .spyOn(HTMLAnchorElement.prototype, 'click')
-      .mockImplementation(() => {});
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     render(<PicksView />);
     const btn = screen.getByRole('button', { name: 'Add picks to calendar' });

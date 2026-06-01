@@ -59,9 +59,7 @@ function subscribeToBothStores(listener: () => void): () => void {
   };
 }
 
-export const useFestivalStore: UseFestivalStore = (<T,>(
-  selector?: (state: FestivalStore) => T,
-): T | FestivalStore => {
+export const useFestivalStore: UseFestivalStore = (<T>(selector?: (state: FestivalStore) => T): T | FestivalStore => {
   // Fast path: no selector -- return the full merged state (rare in practice,
   // kept for API compatibility). This will re-render on any change.
   if (!selector) {
@@ -96,14 +94,34 @@ useFestivalStore.getState = getMergedState;
 useFestivalStore.setState = (partial: Partial<FestivalStore>) => {
   // Route each field to its owning store
   const dataKeys = new Set<string>([
-    'festivals', 'currentFestivalId', 'currentFestival', 'currentProfile',
-    'allProfiles', 'sets', 'stages', 'days', 'isLoading', 'error',
-    'loadFestivals', 'selectFestival', 'loadProfiles', 'setCurrentProfile',
-    'savePick', 'removePick', 'saveNote', 'setError',
+    'festivals',
+    'currentFestivalId',
+    'currentFestival',
+    'currentProfile',
+    'allProfiles',
+    'sets',
+    'stages',
+    'days',
+    'isLoading',
+    'error',
+    'loadFestivals',
+    'selectFestival',
+    'loadProfiles',
+    'setCurrentProfile',
+    'savePick',
+    'removePick',
+    'saveNote',
+    'setError',
   ]);
   const uiKeys = new Set<string>([
-    'selectedDay', 'activeStages', 'searchQuery',
-    'setSelectedDay', 'setActiveStages', 'setSearchQuery',
+    'selectedDay',
+    'activeStages',
+    'searchQuery',
+    'onlyMine',
+    'setSelectedDay',
+    'setActiveStages',
+    'setSearchQuery',
+    'setOnlyMine',
   ]);
 
   const dataPart: Record<string, unknown> = {};

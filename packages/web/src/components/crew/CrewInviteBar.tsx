@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Copy, RefreshCw } from 'lucide-react';
+import { Copy, RefreshCw, Share2 } from 'lucide-react';
 import { useCrewStore } from '@festie/shared/stores';
 import Button from '../ui/Button';
 import { useToast } from '../../lib/toastContext';
@@ -18,7 +18,9 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
-    return () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current); };
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
   }, []);
 
   const handleCopy = useCallback(() => {
@@ -28,6 +30,22 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
     if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
     copyTimerRef.current = setTimeout(() => setCopiedCode(false), 2000);
   }, [inviteCode]);
+
+  const handleShare = useCallback(async () => {
+    const url = `${window.location.origin}/api/v1/crews/join/${inviteCode}`;
+    const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
+    if (typeof nav.share === 'function') {
+      try {
+        await nav.share({ title: 'Join my Festie crew', text: 'Join my crew on Festie', url });
+        return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+      }
+    }
+    handleCopy();
+  }, [inviteCode, handleCopy]);
+
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
   const handleRegenerate = useCallback(async () => {
     if (regenBusy) return;
@@ -59,6 +77,16 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
             className="!py-1 !px-2.5 text-xs"
           >
             <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {canNativeShare && (
+          <Button
+            variant="outline"
+            onClick={handleShare}
+            aria-label="Share invite link"
+            className="!py-1 !px-2.5 text-xs"
+          >
+            <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
           </Button>
         )}
         <Button

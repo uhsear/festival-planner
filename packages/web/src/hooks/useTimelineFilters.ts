@@ -2,11 +2,7 @@ import { useMemo } from 'react';
 import { useFestivalStore } from '@festie/shared/stores';
 import { usePicks } from '@festie/shared/hooks';
 import { FestivalSet, Stage } from '@festie/shared/types';
-import {
-  timeToMinutes,
-  artistDisplayName,
-  getConflictingSetIds,
-} from '@festie/shared/utils';
+import { timeToMinutes, artistDisplayName, getConflictingSetIds } from '@festie/shared/utils';
 
 const SLOT_MINUTES = 15;
 
@@ -22,6 +18,7 @@ export function useTimelineFilters() {
   const stages = useFestivalStore((state) => state.stages);
   const selectedDay = useFestivalStore((state) => state.selectedDay);
   const activeStages = useFestivalStore((state) => state.activeStages);
+  const onlyMine = useFestivalStore((state) => state.onlyMine);
   const { getMyPick } = usePicks();
 
   // Ensure all stages are active if none selected
@@ -43,13 +40,13 @@ export function useTimelineFilters() {
     if (effectiveActiveStages.length > 0 && effectiveActiveStages.length < stages.length) {
       filtered = filtered.filter((s: FestivalSet) => effectiveActiveStages.includes(s.stageId));
     }
+    if (onlyMine) {
+      filtered = filtered.filter((s: FestivalSet) => getMyPick(s.id));
+    }
     return filtered;
-  }, [sets, selectedDay, stages, effectiveActiveStages]);
+  }, [sets, selectedDay, stages, effectiveActiveStages, onlyMine, getMyPick]);
 
-  const timedSets = useMemo(
-    () => allDaySets.filter((s: FestivalSet) => s.startTime && s.endTime),
-    [allDaySets],
-  );
+  const timedSets = useMemo(() => allDaySets.filter((s: FestivalSet) => s.startTime && s.endTime), [allDaySets]);
 
   const timelessSets = useMemo(
     () =>
@@ -66,10 +63,7 @@ export function useTimelineFilters() {
   );
 
   // Conflict detection
-  const conflictIds = useMemo(
-    () => getConflictingSetIds(allDaySets, getMyPick),
-    [allDaySets, getMyPick],
-  );
+  const conflictIds = useMemo(() => getConflictingSetIds(allDaySets, getMyPick), [allDaySets, getMyPick]);
 
   // Calculate time bounds
   const timeBounds = useMemo((): TimeBounds | null => {
