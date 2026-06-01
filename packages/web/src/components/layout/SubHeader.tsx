@@ -6,6 +6,7 @@ import { getStageBadgeStyle } from '../ui/StageBadge';
 import { useSwipeDays } from '../../hooks/useSwipeDays';
 import { useHaptics } from '../../hooks/useHaptics';
 import { useScrollFade } from '../../hooks/useScrollFade';
+import { Star } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import Input from '../ui/Input';
 
@@ -34,6 +35,9 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
   const setSelectedDay = useFestivalStore((s) => s.setSelectedDay);
   const setActiveStages = useFestivalStore((s) => s.setActiveStages);
   const setSearchQuery = useFestivalStore((s) => s.setSearchQuery);
+  const currentProfile = useFestivalStore((s) => s.currentProfile);
+  const onlyMine = useFestivalStore((s) => s.onlyMine);
+  const setOnlyMine = useFestivalStore((s) => s.setOnlyMine);
   const { getStageColor } = useFestival();
   const { select: selectHaptic } = useHaptics();
   const { ref: stageScrollRef, canScrollLeft, canScrollRight } = useScrollFade<HTMLDivElement>();
@@ -76,9 +80,13 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
     [activeStages, setActiveStages, selectHaptic],
   );
 
+  // Matches the default-to-today logic in selectFestival (day.date is en-CA YYYY-MM-DD).
+  const todayStr = new Date().toLocaleDateString('en-CA');
+
   const showDayTabs = !festivalOnly && currentFestival && days.length > 0;
   const showStageFilter = !dayOnly && !festivalOnly && currentFestival && stages.length > 0;
   const showSearch = !dayOnly && !festivalOnly;
+  const showMyPicks = !festivalOnly && !!currentFestival && !!currentProfile;
 
   return (
     <div>
@@ -137,13 +145,14 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           >
             {days.map((day, i) => {
               const isActive = selectedDay === i;
+              const isToday = !!day.date && day.date === todayStr;
               return (
                 <button
                   key={day.id || i}
                   className={cn(
                     'day-tab-underline',
                     'py-[7px] px-4 rounded-full text-[13px] font-semibold cursor-pointer',
-                    'whitespace-nowrap snap-center min-h-[44px] inline-flex items-center',
+                    'whitespace-nowrap snap-center min-h-[44px] inline-flex items-center gap-1.5',
                     'transition-[background,color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)]',
                     'active:scale-[0.96]',
                     'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua',
@@ -158,14 +167,43 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                   )}
                   type="button"
                   aria-pressed={isActive}
-                  aria-label={`Day: ${day.label || day.date}`}
+                  aria-label={`Day: ${day.label || day.date}${isToday ? ' (today)' : ''}`}
                   onClick={() => handleDaySelect(i)}
                 >
+                  {isToday && (
+                    <span
+                      className={cn('inline-block w-1.5 h-1.5 rounded-full', isActive ? 'bg-white' : 'bg-accent-aqua')}
+                      aria-hidden="true"
+                    />
+                  )}
                   {day.label || day.date}
                 </button>
               );
             })}
           </div>
+        )}
+
+        {/* My picks filter */}
+        {showMyPicks && (
+          <button
+            type="button"
+            onClick={() => {
+              selectHaptic();
+              setOnlyMine(!onlyMine);
+            }}
+            aria-pressed={onlyMine}
+            aria-label="Show only my picks"
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold',
+              'cursor-pointer border-2 transition-all duration-200',
+              onlyMine
+                ? 'border-accent-aqua bg-[var(--color-aqua-a08)] text-accent-aqua'
+                : 'border-border text-text-secondary hover:text-text-primary',
+            )}
+          >
+            <Star className="w-3.5 h-3.5" fill={onlyMine ? 'currentColor' : 'none'} aria-hidden="true" />
+            My picks
+          </button>
         )}
 
         {/* Stage filter chips */}

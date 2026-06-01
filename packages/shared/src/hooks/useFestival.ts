@@ -17,6 +17,8 @@ export function useFestival(): UseFestivalReturn {
   const selectedDay = useFestivalStore((state) => state.selectedDay);
   const activeStages = useFestivalStore((state) => state.activeStages);
   const searchQuery = useFestivalStore((state) => state.searchQuery);
+  const onlyMine = useFestivalStore((state) => state.onlyMine);
+  const currentProfile = useFestivalStore((state) => state.currentProfile);
 
   const getDays = useCallback(() => {
     return days.map((day, index) => ({
@@ -41,11 +43,15 @@ export function useFestival(): UseFestivalReturn {
         return false;
       }
 
+      // "My picks only" — show just the sets the user has picked.
+      if (onlyMine && !currentProfile?.picks?.[set.id]) {
+        return false;
+      }
+
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchesArtist =
-          set.artist?.toLowerCase().includes(query) ||
-          set.artists?.some((a) => a.name.toLowerCase().includes(query));
+          set.artist?.toLowerCase().includes(query) || set.artists?.some((a) => a.name.toLowerCase().includes(query));
 
         const stageName = stages.find((s) => s.id === set.stageId)?.name.toLowerCase();
         const matchesStage = stageName?.includes(query);
@@ -55,7 +61,7 @@ export function useFestival(): UseFestivalReturn {
 
       return true;
     });
-  }, [getCurrentDaySets, activeStages, searchQuery, stages]);
+  }, [getCurrentDaySets, activeStages, searchQuery, stages, onlyMine, currentProfile]);
 
   // Use actual stage.color from API response (legacy behavior)
   const getStageColor = useCallback(

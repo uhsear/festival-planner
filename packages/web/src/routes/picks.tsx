@@ -10,7 +10,8 @@ import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import RefreshableView from '../components/layout/RefreshableView';
-import { Star, CalendarX, UserPlus, CalendarPlus } from 'lucide-react';
+import { useToast } from '../lib/toastContext';
+import { Star, CalendarX, UserPlus, CalendarPlus, Share2 } from 'lucide-react';
 
 // Each section carries its priority value, label, the dot accent token, and the
 // matching tint-ring Badge variant — mirroring the mobile Picks tab where every
@@ -36,10 +37,7 @@ const PRIORITY_SECTIONS: Array<{
  * handle the known null-picks case — this is belt + suspenders for
  * anything that slips through.
  */
-class PicksErrorBoundary extends Component<
-  { children: ReactNode },
-  { error: Error | null }
-> {
+class PicksErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
   static getDerivedStateFromError(error: Error) {
     return { error };
@@ -54,16 +52,9 @@ class PicksErrorBoundary extends Component<
           <div className="flex flex-col items-center justify-center h-full text-center text-text-muted p-6">
             <h2 className="mt-0">Something went wrong loading your picks.</h2>
             <p className="text-sm text-[var(--color-text-secondary)] max-w-[400px]">
-              Try reloading the page. If this keeps happening, switch festivals
-              and back, or sign out and back in.
+              Try reloading the page. If this keeps happening, switch festivals and back, or sign out and back in.
             </p>
-            <Button
-              variant="primary"
-              size="sm"
-              className="mt-3"
-              type="button"
-              onClick={() => window.location.reload()}
-            >
+            <Button variant="primary" size="sm" className="mt-3" type="button" onClick={() => window.location.reload()}>
               Reload
             </Button>
           </div>
@@ -87,6 +78,7 @@ function PicksViewInner() {
   const setDetailSet = useUIStore((state) => state.setDetailSet);
   const { getMyPick } = usePicks();
   const { getStageColor, getStageName } = useFestival();
+  const { toast } = useToast();
 
   // Filter sets by selected day using dayIndex
   const daySets = useMemo(() => {
@@ -153,9 +145,7 @@ function PicksViewInner() {
       picks: currentProfile.picks,
       notes: currentProfile.notes,
     });
-    const safeName = (currentFestival.name || 'festival')
-      .replace(/[^a-z0-9_-]/gi, '_')
-      .slice(0, 60);
+    const safeName = (currentFestival.name || 'festival').replace(/[^a-z0-9_-]/gi, '_').slice(0, 60);
     const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -167,17 +157,51 @@ function PicksViewInner() {
     URL.revokeObjectURL(url);
   }, [currentFestival, currentProfile, sets, stages]);
 
-  const exportButton = hasAnyPicks ? (
-    <Button
-      variant="secondary"
-      size="sm"
-      type="button"
-      onClick={handleExportCalendar}
-      aria-label="Add picks to calendar"
-    >
-      <CalendarPlus className="w-4 h-4" aria-hidden="true" />
-      Add to calendar
-    </Button>
+  // Share a public, read-only link to my picks (server route GET /s/:profileId).
+  // Mirrors the mobile Picks share: native share sheet where available,
+  // clipboard copy as the desktop fallback.
+  const handleSharePicks = useCallback(async () => {
+    if (!currentProfile || !currentFestival) return;
+    const url = `https://festie.us/s/${currentProfile.id}`;
+    const text = `My ${currentFestival.name} picks on Festie`;
+    const nav = navigator as Navigator & {
+      share?: (data: ShareData) => Promise<void>;
+      canShare?: (data: ShareData) => boolean;
+    };
+    if (typeof nav.share === 'function') {
+      try {
+        await nav.share({ title: text, text, url });
+        return;
+      } catch (err) {
+        // AbortError = user dismissed the sheet; don't fall through to clipboard.
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Share link copied to clipboard', 'success');
+    } catch {
+      toast('Could not share link', 'error');
+    }
+  }, [currentProfile, currentFestival, toast]);
+
+  const actionButtons = hasAnyPicks ? (
+    <>
+      <Button variant="secondary" size="sm" type="button" onClick={handleSharePicks} aria-label="Share my picks">
+        <Share2 className="w-4 h-4" aria-hidden="true" />
+        Share picks
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        type="button"
+        onClick={handleExportCalendar}
+        aria-label="Add picks to calendar"
+      >
+        <CalendarPlus className="w-4 h-4" aria-hidden="true" />
+        Add to calendar
+      </Button>
+    </>
   ) : null;
 
   // /picks is a logged-in-only surface. Router `beforeLoad` normally catches
@@ -215,10 +239,7 @@ function PicksViewInner() {
     );
   }
 
-  const totalPicksThisDay =
-    picksGrouped.must.length +
-    picksGrouped['want-to-see'].length +
-    picksGrouped.maybe.length;
+  const totalPicksThisDay = picksGrouped.must.length + picksGrouped['want-to-see'].length + picksGrouped.maybe.length;
 
   // Global empty state: zero picks on this day → single friendly CTA pointing
   // at /cards, rather than three stacked "Tap X on…" hint blocks which looked
@@ -231,9 +252,7 @@ function PicksViewInner() {
     return (
       <RefreshableView queryKeys={[['picks'], ['profiles']]} className="pb-5 h-full">
         <div role="region" aria-label="My picks">
-          {exportButton && (
-            <div className="flex justify-end mb-3">{exportButton}</div>
-          )}
+          {actionButtons && <div className="flex justify-end gap-2 mb-3">{actionButtons}</div>}
           <EmptyState
             icon={<Star className="w-9 h-9" aria-hidden="true" />}
             title={`No picks yet${days[selectedDay]?.label ? ` for ${days[selectedDay].label}` : ''}`}
@@ -248,70 +267,72 @@ function PicksViewInner() {
   return (
     <RefreshableView queryKeys={[['picks'], ['profiles']]} className="pb-5 h-full">
       <div role="region" aria-label="My picks">
-      {exportButton && (
-        <div className="flex justify-end mb-3">{exportButton}</div>
-      )}
-      {/* Priority sections */}
-      {PRIORITY_SECTIONS.map(({ value: pri, label, accent, badge }) => {
-        const items = picksGrouped[pri];
-        return (
-          <div key={pri} className="mb-4">
-            {/* Mobile section-header pattern: round accent dot + label role text +
+        {actionButtons && <div className="flex justify-end gap-2 mb-3">{actionButtons}</div>}
+        {/* Priority sections */}
+        {PRIORITY_SECTIONS.map(({ value: pri, label, accent, badge }) => {
+          const items = picksGrouped[pri];
+          return (
+            <div key={pri} className="mb-4">
+              {/* Mobile section-header pattern: round accent dot + label role text +
                 tint-ring count pill, separated from the rows by a hairline divider. */}
-            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: accent }} />
-              <span className="text-sm font-medium text-text-secondary">{label}</span>
-              <Badge variant={badge} className="ml-auto">{items.length}</Badge>
+              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: accent }} />
+                <span className="text-sm font-medium text-text-secondary">{label}</span>
+                <Badge variant={badge} className="ml-auto">
+                  {items.length}
+                </Badge>
+              </div>
+
+              {items.map((set) => {
+                const sc = getStageColor(set.stageId);
+                const sn = getStageName(set.stageId) || '';
+                const dn = artistDisplayName(set, currentFestival?.b2bSeparator);
+                const dayLabel = days[set.dayIndex ?? 0]?.label || '';
+
+                return (
+                  <button
+                    key={set.id}
+                    className="flex items-center gap-x-3 px-4 py-3 w-full text-left bg-bg-card border border-border border-l-4 rounded-xl mb-2 cursor-pointer transition-[background,transform] duration-200 ease-standard hover:bg-bg-card-hover active:scale-[0.97] motion-reduce:transition-none motion-reduce:transform-none focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2"
+                    style={{ borderLeftColor: accent }}
+                    type="button"
+                    aria-label={`${dn} — ${dayLabel}${set.startTime ? ' ' + formatTime(set.startTime) : ' TBA'}`}
+                    onClick={() => setDetailSet(set)}
+                  >
+                    <div className="text-xs text-text-muted min-w-[100px] font-semibold tabular-nums">
+                      {dayLabel}
+                      {set.startTime ? ' ' + formatTime(set.startTime) : ' TBA'}
+                    </div>
+                    <div className="flex-1 text-sm font-bold min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                      {dn}
+                    </div>
+                    <StageBadge variant="pick" stageName={sn} stageColor={sc} />
+                  </button>
+                );
+              })}
+
+              {items.length === 0 && (
+                <EmptyState
+                  className="py-3"
+                  icon={<Star className="w-6 h-6" aria-hidden="true" />}
+                  title={
+                    pri === 'must'
+                      ? 'No must-see picks yet'
+                      : pri === 'want-to-see'
+                        ? 'No want-to-see picks yet'
+                        : 'No maybe picks yet'
+                  }
+                  description={
+                    pri === 'must'
+                      ? 'Tap the star on any set to mark it as must-see.'
+                      : pri === 'want-to-see'
+                        ? "Tap the diamond on sets you'd like to catch."
+                        : "Tap the circle on sets you're considering."
+                  }
+                />
+              )}
             </div>
-
-            {items.map((set) => {
-              const sc = getStageColor(set.stageId);
-              const sn = getStageName(set.stageId) || '';
-              const dn = artistDisplayName(set, currentFestival?.b2bSeparator);
-              const dayLabel = days[set.dayIndex ?? 0]?.label || '';
-
-              return (
-                <button
-                  key={set.id}
-                  className="flex items-center gap-x-3 px-4 py-3 w-full text-left bg-bg-card border border-border border-l-4 rounded-xl mb-2 cursor-pointer transition-[background,transform] duration-200 ease-standard hover:bg-bg-card-hover active:scale-[0.97] motion-reduce:transition-none motion-reduce:transform-none focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2"
-                  style={{ borderLeftColor: accent }}
-                  type="button"
-                  aria-label={`${dn} — ${dayLabel}${set.startTime ? ' ' + formatTime(set.startTime) : ' TBA'}`}
-                  onClick={() => setDetailSet(set)}
-                >
-                  <div className="text-xs text-text-muted min-w-[100px] font-semibold tabular-nums">
-                    {dayLabel}
-                    {set.startTime ? ' ' + formatTime(set.startTime) : ' TBA'}
-                  </div>
-                  <div className="flex-1 text-sm font-bold min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{dn}</div>
-                  <StageBadge variant="pick" stageName={sn} stageColor={sc} />
-                </button>
-              );
-            })}
-
-            {items.length === 0 && (
-              <EmptyState
-                className="py-3"
-                icon={<Star className="w-6 h-6" aria-hidden="true" />}
-                title={
-                  pri === 'must'
-                    ? 'No must-see picks yet'
-                    : pri === 'want-to-see'
-                      ? 'No want-to-see picks yet'
-                      : 'No maybe picks yet'
-                }
-                description={
-                  pri === 'must'
-                    ? 'Tap the star on any set to mark it as must-see.'
-                    : pri === 'want-to-see'
-                      ? "Tap the diamond on sets you'd like to catch."
-                      : 'Tap the circle on sets you\'re considering.'
-                }
-              />
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
       </div>
     </RefreshableView>
   );

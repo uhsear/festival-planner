@@ -14,6 +14,7 @@ import DetailCrewSection from './DetailCrewSection';
 import DetailNotesSection from './DetailNotesSection';
 import { useDetailPanelData } from './useDetailPanelData';
 import { useHaptics } from '../../hooks/useHaptics';
+import { Share2 } from 'lucide-react';
 import Button from '../ui/Button';
 
 interface DetailPanelProps {
@@ -71,6 +72,23 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
+
+  // Share this set with friends via the native share sheet (mobile web).
+  // No per-set web route exists, so the link points at festie.us and the
+  // artist/time live in the share text. Gated on navigator.share so it only
+  // appears where the OS sheet is available.
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  const handleShare = useCallback(async () => {
+    const time = set.startTime ? ` at ${formatTime(set.startTime)}` : '';
+    const fest = currentFestival?.name ? ` — ${currentFestival.name}` : '';
+    const text = `Catch ${artistName}${fest}${time} 🎶`;
+    const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
+    try {
+      await nav.share?.({ title: artistName, text, url: 'https://festie.us' });
+    } catch {
+      /* user dismissed or share failed */
+    }
+  }, [set.startTime, currentFestival?.name, artistName]);
 
   // Fetch Spotify preview on mount
   useEffect(() => {
@@ -225,6 +243,16 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
           <Drawer.Description className="sr-only">
             Set details, schedule, and crew info for {artistDisplayName(set, b2bSeparator)}
           </Drawer.Description>
+          {canNativeShare && (
+            <button
+              className="absolute top-4 right-[68px] w-11 h-11 min-w-11 min-h-11 rounded-full bg-bg-card border border-border-light flex items-center justify-center text-text-secondary cursor-pointer transition-all duration-200 ease-[var(--ease-standard)] hover:bg-accent-aqua hover:text-text-on-accent hover:border-accent-aqua focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua z-10"
+              type="button"
+              aria-label="Share this set"
+              onClick={handleShare}
+            >
+              <Share2 className="w-5 h-5" aria-hidden="true" />
+            </button>
+          )}
           <button
             className="absolute top-4 right-4 w-11 h-11 min-w-11 min-h-11 rounded-full bg-bg-card border border-border-light flex items-center justify-center text-text-secondary text-lg cursor-pointer transition-all duration-200 ease-[var(--ease-standard)] hover:bg-accent-coral hover:text-text-on-accent hover:border-accent-coral focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua z-10"
             type="button"
