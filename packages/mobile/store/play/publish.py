@@ -37,15 +37,16 @@ SCOPES = ["https://www.googleapis.com/auth/androidpublisher"]
 BASE = f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{PKG}"
 UPLOAD = f"https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/{PKG}"
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_KEY = os.path.join(os.path.expanduser("~"), "Downloads", "festie-498100-f12b2708cdcd.json")
 
 LIMITS = {"title": 30, "shortDescription": 80, "fullDescription": 4000}
 
 
 def session():
-    key = os.environ.get("FESTIE_PLAY_SA_KEY", DEFAULT_KEY)
+    key = os.environ.get("FESTIE_PLAY_SA_KEY")
+    if not key:
+        sys.exit("Set FESTIE_PLAY_SA_KEY to the path of your Google Play service-account JSON key.")
     if not os.path.isfile(key):
-        sys.exit(f"Service-account key not found. Set FESTIE_PLAY_SA_KEY (looked at: {key})")
+        sys.exit(f"Service-account key not found at FESTIE_PLAY_SA_KEY={key}")
     creds = service_account.Credentials.from_service_account_file(key, scopes=SCOPES)
     return AuthorizedSession(creds)
 
@@ -94,9 +95,12 @@ def cmd_check(s, args):
 
 def cmd_push_listing(s, args):
     path = os.path.join(HERE, "listing.en-US.json")
-    data = json.load(open(path, encoding="utf-8"))
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
     for field, limit in LIMITS.items():
         val = data.get(field, "")
+        if not isinstance(val, str):
+            sys.exit(f"{field} must be a string in listing.en-US.json")
         if len(val) > limit:
             sys.exit(f"{field} is {len(val)} chars, exceeds Play limit of {limit}")
     lang = data["language"]
@@ -122,42 +126,51 @@ def cmd_push_images(s, args):
     if not os.path.isdir(img_root):
         sys.exit(f"no images dir at {img_root}")
     eid = new_edit(s)
-    for lang in sorted(os.listdir(img_root)):
-        lang_dir = os.path.join(img_root, lang)
-        if not os.path.isdir(lang_dir):
-            continue
-        for itype in sorted(os.listdir(lang_dir)):
-            tdir = os.path.join(lang_dir, itype)
-            if not os.path.isdir(tdir):
+    # Each imageType is delete-then-replace, so a mid-run failure must NOT commit
+    # (that would leave a type wiped). On any failure: discard the edit and exit.
+    try:
+        for lang in sorted(os.listdir(img_root)):
+            lang_dir = os.path.join(img_root, lang)
+            if not os.path.isdir(lang_dir):
                 continue
-            s.delete(f"{BASE}/edits/{eid}/listings/{lang}/{itype}")
-            for fn in sorted(os.listdir(tdir)):
-                if not fn.lower().endswith((".png", ".jpg", ".jpeg")):
+            for itype in sorted(os.listdir(lang_dir)):
+                tdir = os.path.join(lang_dir, itype)
+                if not os.path.isdir(tdir):
                     continue
-                fp = os.path.join(tdir, fn)
-                ctype = "image/png" if fn.lower().endswith(".png") else "image/jpeg"
-                with open(fp, "rb") as fh:
-                    r = s.post(
-                        f"{UPLOAD}/edits/{eid}/listings/{lang}/{itype}?uploadType=media",
-                        data=fh.read(),
-                        headers={"Content-Type": ctype},
-                    )
-                ok = "ok" if r.status_code == 200 else f"FAIL {r.status_code}: {_body(r)}"
-                print(f"  {lang}/{itype}/{fn} -> {ok}")
+                s.delete(f"{BASE}/edits/{eid}/listings/{lang}/{itype}")
+                for fn in sorted(os.listdir(tdir)):
+                    if not fn.lower().endswith((".png", ".jpg", ".jpeg")):
+                        continue
+                    fp = os.path.join(tdir, fn)
+                    ctype = "image/png" if fn.lower().endswith(".png") else "image/jpeg"
+                    with open(fp, "rb") as fh:
+                        r = s.post(
+                            f"{UPLOAD}/edits/{eid}/listings/{lang}/{itype}?uploadType=media",
+                            data=fh.read(),
+                            headers={"Content-Type": ctype},
+                        )
+                    if r.status_code != 200:
+                        raise RuntimeError(f"{lang}/{itype}/{fn} upload failed {r.status_code}: {_body(r)}")
+                    print(f"  {lang}/{itype}/{fn} -> ok")
+    except Exception as e:
+        s.delete(f"{BASE}/edits/{eid}")  # discard the uncommitted edit; live listing untouched
+        sys.exit(f"push-images aborted, edit discarded (no changes applied): {e}")
     commit(s, eid)
 
 
 def cmd_push_data_safety(s, args):
-    """EXPERIMENTAL: upload Data safety from a CSV exported from Play Console.
-    Verify the request shape against the current androidpublisher docs before relying on it."""
+    """EXPERIMENTAL: the androidpublisher request shape for Data safety is unconfirmed.
+    Prefer Play Console -> Data safety -> Import (CSV). Verify the endpoint/field against
+    the current API ref before relying on this path."""
     csv_path = args.csv
     if not os.path.isfile(csv_path):
         sys.exit(f"CSV not found: {csv_path}")
-    contents = open(csv_path, encoding="utf-8").read()
+    with open(csv_path, encoding="utf-8") as fh:
+        contents = fh.read()
     r = s.post(f"{BASE}/dataSafety", json={"safetyLabels": contents})
     print("dataSafety:", r.status_code, _body(r))
     if r.status_code != 200:
-        print("NOTE: if this 4xx'd, the field/shape may differ — confirm in the API ref.")
+        sys.exit("dataSafety failed (experimental). Use Play Console -> Data safety -> Import instead.")
 
 
 def cmd_submit(s, args):

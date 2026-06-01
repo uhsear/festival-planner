@@ -21,11 +21,11 @@ A **first-time** submission is partly manual by Google's design:
 
 ```bash
 pip install --user google-auth requests
-export FESTIE_PLAY_SA_KEY="C:/Users/lolzi/Downloads/festie-498100-f12b2708cdcd.json"   # never commit this key
+export FESTIE_PLAY_SA_KEY="/path/to/play-sa-key.json"   # never commit this key
 ```
 
-The service account (`festie@festie-498100.iam.gserviceaccount.com`) must be invited under
-**Play Console → Users & permissions** with release permissions (can take up to ~24h to propagate).
+The Google Play service account must be invited under **Play Console → Users & permissions**
+with release permissions (can take up to ~24h to propagate).
 
 ## Commands
 
