@@ -175,10 +175,15 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         isLoading: false,
       });
 
+      // Default the day selector to today when the festival is in progress
+      // (local date matches a day), otherwise day 0. en-CA gives YYYY-MM-DD.
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      const todayIdx = days.findIndex((d) => d.date === todayStr);
+
       // Reset UI state in the UI store when selecting a new festival
       useFestivalUIStore.setState({
         activeStages: allStageIds,
-        selectedDay: 0,
+        selectedDay: todayIdx >= 0 ? todayIdx : 0,
       });
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to load festival');

@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Linking, ActivityIndicator, Share } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  Linking,
+  ActivityIndicator,
+  Share,
+  Image,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -124,6 +134,7 @@ export default function SetDetailScreen() {
 
   // ---- Derived display data (only computed when the set exists). ----------
   const artistName = set ? artistDisplayName(set, b2bSeparator) : '';
+  const artistPhoto = set?.artists?.find((a) => a.photo)?.photo;
 
   // Share the public universal link to this set (mirrors web's /set/$setId
   // route). festie.us is the registered universal-link host (app.json) and the
@@ -356,6 +367,16 @@ export default function SetDetailScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Artist photo (from Spotify backfill) */}
+        {artistPhoto ? (
+          <Image
+            source={{ uri: artistPhoto }}
+            style={styles.artistPhoto}
+            resizeMode="cover"
+            accessibilityIgnoresInvertColors
+          />
+        ) : null}
+
         {/* Stage pill */}
         <View style={[styles.stagePill, { backgroundColor: stageColor + '25' }]}>
           <Text style={[styles.stageText, { color: stageColor }]} numberOfLines={1}>
@@ -704,6 +725,13 @@ const useStyles = makeStyles((t) => ({
     paddingTop: t.spacing[5],
     paddingBottom: t.spacing[6],
     gap: t.spacing[3],
+  },
+  artistPhoto: {
+    width: '100%',
+    height: 200,
+    borderRadius: t.radii.default,
+    marginBottom: t.spacing[3],
+    backgroundColor: t.colors.bg.secondary,
   },
   stagePill: {
     alignSelf: 'flex-start',
