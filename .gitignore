@@ -51,6 +51,8 @@ mobile-loop-capture.js
 *.png
 # but DO track the mobile app icons/splash (required by EAS prebuild)
 !packages/mobile/assets/*.png
+# and DO track the Play Store listing assets (icon, feature graphic, screenshots)
+!packages/mobile/store/play/images/**/*.png
 
 # Session logs and loop captures
 docs/session-logs/
