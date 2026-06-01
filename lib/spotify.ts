@@ -24,7 +24,7 @@ async function getToken(clientId: any, clientSecret: any) {
   const resp = await fetch(SPOTIFY_TOKEN_URL, {
     method: 'POST',
     headers: {
-      'Authorization': `Basic ${credentials}`,
+      Authorization: `Basic ${credentials}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: 'grant_type=client_credentials',
@@ -44,49 +44,70 @@ async function getToken(clientId: any, clientSecret: any) {
 }
 
 /**
- * Search Spotify for an artist by name.
- * Returns { spotifyUrl, spotifyId, imageUrl } or null if no match.
+ * Strip booking-noise from an artist name so it matches a Spotify profile:
+ * "(DJ Set)", "(Live)", "(VIP)", trailing "- Live"/"VIP" style suffixes.
+ * Exported so the lineup import / backfill normalize names consistently.
  */
-async function searchArtist(name: any, clientId: any, clientSecret: any) {
-  if (!name || !clientId || !clientSecret) return null;
-
-  const token = await getToken(clientId, clientSecret);
-  const query = encodeURIComponent(name.trim());
-  const resp = await fetch(`${SPOTIFY_API_BASE}/search?q=${query}&type=artist&limit=1`, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
-
-  if (resp.status === 401) {
-    cachedToken = null;
-    tokenExpiry = 0;
-    const freshToken = await getToken(clientId, clientSecret);
-    const retry = await fetch(`${SPOTIFY_API_BASE}/search?q=${query}&type=artist&limit=1`, {
-      headers: { 'Authorization': `Bearer ${freshToken}` },
-    });
-    if (!retry.ok) return null;
-    const retryData = await retry.json();
-    return extractArtist(retryData);
-  }
-
-  if (!resp.ok) return null;
-
-  const data = await resp.json();
-  return extractArtist(data);
+function cleanArtistName(name: any) {
+  if (!name) return '';
+  return String(name)
+    .replace(/\((?:dj\s*set|live|vip|acoustic|sunset set)\)/gi, '')
+    .replace(/\s*[-–]\s*(?:live|dj set|vip|acoustic)\b.*$/gi, '')
+    .replace(/\bVIP\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
- * Extract best artist result from Spotify search response
+ * Pick the best artist from a Spotify search response: prefer an exact
+ * (case-insensitive) name match, then the highest follower count. This avoids
+ * the classic "first result is a more-popular unrelated same-name act" bug.
  */
-function extractArtist(data: any) {
-  const artist = data?.artists?.items?.[0];
+function pickArtist(data: any, cleanedName: any) {
+  const items = data?.artists?.items || [];
+  if (!items.length) return null;
+  const target = String(cleanedName || '').toLowerCase();
+  const score = (a: any) => a?.followers?.total ?? a?.popularity ?? 0;
+  const exact = items.filter((a: any) => (a?.name || '').toLowerCase() === target);
+  const pool = exact.length ? exact : items;
+  const artist = [...pool].sort((a: any, b: any) => score(b) - score(a))[0];
   if (!artist) return null;
-
   return {
     spotifyUrl: artist.external_urls?.spotify || null,
     spotifyId: artist.id,
     imageUrl: artist.images?.[0]?.url || null,
     genres: (artist.genres || []).slice(0, 5), // top 5 genres
   };
+}
+
+/**
+ * Search Spotify for an artist by name. Cleans booking-noise from the name,
+ * fetches several candidates, and returns the best match (exact name + most
+ * followers) rather than blindly taking the first result.
+ * Returns { spotifyUrl, spotifyId, imageUrl, genres } or null if no match.
+ */
+async function searchArtist(name: any, clientId: any, clientSecret: any) {
+  if (!name || !clientId || !clientSecret) return null;
+
+  const cleaned = cleanArtistName(name) || String(name).trim();
+  if (!cleaned) return null;
+  const query = encodeURIComponent(cleaned);
+  const url = `${SPOTIFY_API_BASE}/search?q=${query}&type=artist&limit=8`;
+
+  const token = await getToken(clientId, clientSecret);
+  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+
+  if (resp.status === 401) {
+    cachedToken = null;
+    tokenExpiry = 0;
+    const freshToken = await getToken(clientId, clientSecret);
+    const retry = await fetch(url, { headers: { Authorization: `Bearer ${freshToken}` } });
+    if (!retry.ok) return null;
+    return pickArtist(await retry.json(), cleaned);
+  }
+
+  if (!resp.ok) return null;
+  return pickArtist(await resp.json(), cleaned);
 }
 
 /**
@@ -110,4 +131,4 @@ async function bulkSearchArtists(names: any, clientId: any, clientSecret: any, {
   return results;
 }
 
-export { searchArtist, bulkSearchArtists, getToken };
+export { searchArtist, bulkSearchArtists, getToken, cleanArtistName };

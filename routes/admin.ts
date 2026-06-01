@@ -34,12 +34,20 @@ import type { Router } from 'express';
 
 export default function createAdminRoutes(deps: any): Router {
   const {
-    express, config, log,
-    getUsers, getProfiles, getFestivals,
+    express,
+    config,
+    log,
+    getUsers,
+    getProfiles,
+    getFestivals,
     setNoStore,
-    sendSuccess, sendError, ErrorCodes,
-    adminAuth, getRequestIp,
-    io, stores,
+    sendSuccess,
+    sendError,
+    ErrorCodes,
+    adminAuth,
+    getRequestIp,
+    io,
+    stores,
     _invalidateFestivalCache,
     rateLimit,
   } = deps;
@@ -55,20 +63,20 @@ export default function createAdminRoutes(deps: any): Router {
 
   // Audit action name normalization map
   const ACTION_FRIENDLY_MAP: Record<string, string> = {
-    'admin_delete_user': 'Delete User',
-    'admin_reset_link': 'Reset Password Link',
-    'admin_reset_password': 'Reset Password',
-    'role_grant': 'Grant Role',
-    'role_revoke': 'Revoke Role',
-    'bulk_deactivate': 'Bulk Deactivate',
-    'bulk_archive': 'Bulk Archive Festivals',
+    admin_delete_user: 'Delete User',
+    admin_reset_link: 'Reset Password Link',
+    admin_reset_password: 'Reset Password',
+    role_grant: 'Grant Role',
+    role_revoke: 'Revoke Role',
+    bulk_deactivate: 'Bulk Deactivate',
+    bulk_archive: 'Bulk Archive Festivals',
     'create:token': 'Create Token',
     'create:verify': 'Verify Email',
-    'register': 'User Registered',
-    'login': 'User Logged In',
-    'festival_create': 'Festival Created',
-    'festival_update': 'Festival Updated',
-    'festival_delete': 'Festival Deleted',
+    register: 'User Registered',
+    login: 'User Logged In',
+    festival_create: 'Festival Created',
+    festival_update: 'Festival Updated',
+    festival_delete: 'Festival Deleted',
     'delete:users': 'Delete User',
   };
 
@@ -81,10 +89,12 @@ export default function createAdminRoutes(deps: any): Router {
     let current: any = null;
 
     for (const entry of entries) {
-      if (current &&
-          current.action === entry.action &&
-          current.actorId === entry.actorId &&
-          (new Date(entry.createdAt).getTime() - new Date(current.createdAt).getTime()) < 5 * 60 * 1000) {
+      if (
+        current &&
+        current.action === entry.action &&
+        current.actorId === entry.actorId &&
+        new Date(entry.createdAt).getTime() - new Date(current.createdAt).getTime() < 5 * 60 * 1000
+      ) {
         current.count = (current.count || 1) + 1;
         current.createdAt = entry.createdAt; // Update to most recent
       } else {
@@ -104,11 +114,13 @@ export default function createAdminRoutes(deps: any): Router {
       setNoStore(res);
       const mem = process.memoryUsage();
       const pgPool = stores.pool;
-      const poolStats = pgPool ? {
-        totalCount: pgPool.totalCount,
-        idleCount: pgPool.idleCount,
-        waitingCount: pgPool.waitingCount,
-      } : null;
+      const poolStats = pgPool
+        ? {
+            totalCount: pgPool.totalCount,
+            idleCount: pgPool.idleCount,
+            waitingCount: pgPool.waitingCount,
+          }
+        : null;
 
       const [users, festivals, profiles, recentActivity] = await Promise.all([
         getUsers(),
@@ -144,10 +156,12 @@ export default function createAdminRoutes(deps: any): Router {
       }));
 
       // Group activity for frontend aggregation support
-      const groupedActivity = groupAuditActivity(enrichedActivity.map((a: any) => ({
-        ...a,
-        count: 1,
-      })));
+      const groupedActivity = groupAuditActivity(
+        enrichedActivity.map((a: any) => ({
+          ...a,
+          count: 1,
+        })),
+      );
 
       return sendSuccess(res, {
         stats: {
@@ -182,9 +196,9 @@ export default function createAdminRoutes(deps: any): Router {
   // single router is safe, but we preserve the original order to make diffs
   // trivial to audit.
   const ctx = { adminWriteLimit, passwordResetRateLimit, crypto, parsePageParams, paginateArray };
-  mountAdminUserRoutes({ router, deps, ctx });  // /users, /users/:id/*
+  mountAdminUserRoutes({ router, deps, ctx }); // /users, /users/:id/*
   mountAdminAuditRoutes({ router, deps, ctx }); // /audit
-  mountAdminBulkRoutes({ router, deps, ctx });  // /bulk/*, /crews*
+  mountAdminBulkRoutes({ router, deps, ctx }); // /bulk/*, /crews*
 
   // ── POST /festivals/:id/backfill-spotify — auto-populate link_url via Spotify ──
   // Preserves Agent E's SPOTIFY_CLIENT_ID/SPOTIFY_CLIENT_SECRET config reads.
@@ -198,72 +212,119 @@ export default function createAdminRoutes(deps: any): Router {
       }
 
       const festivalId = req.params.id;
-      const festival = await stores.pool.query('SELECT id FROM festivals WHERE id = $1 AND deleted_at IS NULL', [festivalId]);
+      const festival = await stores.pool.query('SELECT id FROM festivals WHERE id = $1 AND deleted_at IS NULL', [
+        festivalId,
+      ]);
       if (festival.rows.length === 0) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
 
-      // Find sets without link_url
-      const { rows: sets } = await stores.pool.query(
-        'SELECT id, artist, artists FROM festival_sets WHERE festival_id = $1 AND (link_url IS NULL OR link_url = \'\')',
-        [festivalId]
-      );
-
-      if (sets.length === 0) return sendSuccess(res, { updated: 0, skipped: 0, message: 'All sets already have links' });
-
-      // Collect all unique artist names from the artists array for bulk lookup
-      const allArtistNames: string[] = [];
-      for (const set of sets) {
-        const artists = set.artists || [];
-        if (artists.length > 0) {
-          artists.forEach((a: any) => { if (a.name) allArtistNames.push(a.name); });
-        } else if (set.artist) {
-          allArtistNames.push(set.artist);
+      // Optional body: verified overrides (artistName -> spotifyUrl) take
+      // precedence over search; `force` re-links sets that already have a link.
+      const body = req.body || {};
+      const force = body.force === true;
+      const normName = (s: any) =>
+        spotify
+          .cleanArtistName(s)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '');
+      const overrideMap = new Map<string, string>();
+      if (body.overrides && typeof body.overrides === 'object') {
+        for (const [k, v] of Object.entries(body.overrides)) {
+          if (typeof v === 'string' && v) overrideMap.set(normName(k), v);
         }
       }
-      const uniqueNames = [...new Set(allArtistNames)];
-      const spotifyResults = await spotify.bulkSearchArtists(uniqueNames, spotifyClientId, spotifyClientSecret, { log });
+      // "Artist A B2B Artist B" sets carry one combined name; split so each
+      // sub-artist can be linked individually.
+      const splitB2B = (name: any) =>
+        String(name || '')
+          .split(/\s+b2b\s+/i)
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+      const { rows: sets } = await stores.pool.query(
+        force
+          ? 'SELECT id, artist, artists FROM festival_sets WHERE festival_id = $1'
+          : "SELECT id, artist, artists FROM festival_sets WHERE festival_id = $1 AND (link_url IS NULL OR link_url = '')",
+        [festivalId],
+      );
+      if (sets.length === 0) return sendSuccess(res, { updated: 0, skipped: 0, message: 'No sets to backfill' });
+
+      // Collect cleaned sub-artist names that need a search (skip overridden).
+      const searchNames = new Set<string>();
+      for (const set of sets) {
+        const arr = set.artists?.length ? set.artists : [{ name: set.artist }];
+        for (const a of arr) {
+          for (const part of splitB2B(a?.name)) {
+            if (overrideMap.has(normName(part))) continue;
+            const cleaned = spotify.cleanArtistName(part) || part;
+            if (cleaned) searchNames.add(cleaned);
+          }
+        }
+      }
+      const spotifyResults: Map<string, any> = searchNames.size
+        ? await spotify.bulkSearchArtists([...searchNames], spotifyClientId, spotifyClientSecret, { log })
+        : new Map();
+
+      const resolve = (rawName: any) => {
+        const ov = overrideMap.get(normName(rawName));
+        if (ov) return { spotifyUrl: ov };
+        return spotifyResults.get(spotify.cleanArtistName(rawName) || rawName) || null;
+      };
 
       let updated = 0;
       for (const set of sets) {
-        const artists = set.artists || [];
-        let setUpdated = false;
-        if (artists.length > 0) {
-          const updatedArtists = artists.map((a: any) => {
-            const match = spotifyResults.get(a.name);
-            if (match?.spotifyUrl && (!a.links || !a.links.spotify)) {
-              setUpdated = true;
-              const updatedArtist: any = { ...a, links: { ...a.links, spotify: match.spotifyUrl } };
-              if (match.imageUrl && !a.photo) updatedArtist.photo = match.imageUrl;
-              if (match.genres?.length && !a.genres?.length) updatedArtist.genres = match.genres;
-              return updatedArtist;
+        const arr = set.artists?.length ? set.artists : [{ name: set.artist }];
+        const newArtists: any[] = [];
+        let changed = false;
+        for (const a of arr) {
+          const parts = splitB2B(a?.name);
+          if (parts.length > 1) {
+            // B2B → one entry per sub-artist, each with its own link
+            for (const part of parts) {
+              const m = resolve(part);
+              const entry: any = { name: spotify.cleanArtistName(part) || part, links: {} };
+              if (m?.spotifyUrl) {
+                entry.links.spotify = m.spotifyUrl;
+                changed = true;
+              }
+              if (m?.imageUrl) entry.photo = m.imageUrl;
+              if (m?.genres?.length) entry.genres = m.genres;
+              newArtists.push(entry);
             }
-            return a;
-          });
-          if (setUpdated) {
-            const firstSpotify = updatedArtists[0]?.links?.spotify || null;
-            await stores.pool.query('UPDATE festival_sets SET artists = $1, link_url = COALESCE($2, link_url) WHERE id = $3', [JSON.stringify(updatedArtists), firstSpotify, set.id]);
-            updated++;
+          } else {
+            const m = resolve(a?.name);
+            const entry: any = { ...a, links: { ...(a?.links || {}) } };
+            if (m?.spotifyUrl && (force || !entry.links.spotify)) {
+              entry.links.spotify = m.spotifyUrl;
+              changed = true;
+            }
+            if (m?.imageUrl && !entry.photo) entry.photo = m.imageUrl;
+            if (m?.genres?.length && !entry.genres?.length) entry.genres = m.genres;
+            newArtists.push(entry);
           }
-        } else {
-          const match = spotifyResults.get(set.artist);
-          if (match?.spotifyUrl) {
-            const newArtist: any = { name: set.artist, links: { spotify: match.spotifyUrl } };
-            if (match.imageUrl) newArtist.photo = match.imageUrl;
-            if (match.genres?.length) newArtist.genres = match.genres;
-            await stores.pool.query('UPDATE festival_sets SET link_url = $1, artists = $2 WHERE id = $3', [match.spotifyUrl, JSON.stringify([newArtist]), set.id]);
-            updated++;
-          }
+        }
+        if (changed) {
+          const firstSpotify = newArtists.find((x) => x.links?.spotify)?.links.spotify || null;
+          await stores.pool.query(
+            'UPDATE festival_sets SET artists = $1, link_url = COALESCE($2, link_url) WHERE id = $3',
+            [JSON.stringify(newArtists), firstSpotify, set.id],
+          );
+          updated++;
         }
       }
 
       if (_invalidateFestivalCache) _invalidateFestivalCache();
-      log.info('spotify backfill complete', { festivalId, updated, skipped: sets.length - updated, ip: getRequestIp(req) });
+      log.info('spotify backfill complete', {
+        festivalId,
+        updated,
+        skipped: sets.length - updated,
+        ip: getRequestIp(req),
+      });
       return sendSuccess(res, { updated, skipped: sets.length - updated, total: sets.length });
     } catch (error: any) {
       log.error('spotify backfill failed', { error: error.message, festivalId: req.params.id });
       return sendError(res, 500, 'Spotify backfill failed', ErrorCodes.INTERNAL_ERROR);
     }
   });
-
 
   return router;
 }
