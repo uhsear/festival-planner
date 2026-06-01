@@ -10,6 +10,12 @@ node_modules
 *.pem
 *.key
 credentials*.json
+# Google Play / GCP service-account keys (never commit)
+*service-account*.json
+*-service-account.json
+festie-*.json
+play-store-key*.json
+google-play*.json
 
 # Build outputs
 coverage/
