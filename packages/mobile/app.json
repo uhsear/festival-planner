@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "us.festie.app"
+      "bundleIdentifier": "us.festie.app",
+      "associatedDomains": ["applinks:festie.us", "webcredentials:festie.us"]
     },
     "android": {
       "package": "us.festie.app",
@@ -36,12 +37,14 @@
               "scheme": "https",
               "host": "festie.us",
               "pathPrefix": "/set"
+            },
+            {
+              "scheme": "https",
+              "host": "festie.us",
+              "pathPrefix": "/reset-password"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
     },
