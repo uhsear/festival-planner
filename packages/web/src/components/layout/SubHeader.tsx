@@ -1,12 +1,19 @@
 import React, { useCallback } from 'react';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
+import { festivalStatus, type FestivalStatus } from '@festie/shared/utils';
 import { getStageBadgeStyle } from '../ui/StageBadge';
 import { useSwipeDays } from '../../hooks/useSwipeDays';
 import { useHaptics } from '../../hooks/useHaptics';
 import { useScrollFade } from '../../hooks/useScrollFade';
 import { cn } from '../../lib/utils';
 import Input from '../ui/Input';
+
+const STATUS_LABEL: Record<FestivalStatus, string> = {
+  upcoming: 'Upcoming',
+  ongoing: 'Live',
+  past: 'Past',
+};
 
 interface SubHeaderProps {
   /** Show only day tabs (no stage chips or search). Used on /timeline, /grid, /picks. */
@@ -109,20 +116,21 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           onChange={handleFestivalChange}
         >
           <option value="">Select Festival</option>
-          {festivals.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
+          {festivals.map((f) => {
+            const st = festivalStatus(f);
+            return (
+              <option key={f.id} value={f.id}>
+                {f.name}
+                {st ? ` · ${STATUS_LABEL[st]}` : ''}
+              </option>
+            );
+          })}
         </select>
 
         {/* Day tabs */}
         {showDayTabs && (
           <div
-            className={cn(
-              'day-tabs',
-              'flex gap-[var(--space-3)] snap-x snap-mandatory scroll-smooth touch-pan-y',
-            )}
+            className={cn('day-tabs', 'flex gap-[var(--space-3)] snap-x snap-mandatory scroll-smooth touch-pan-y')}
             role="group"
             aria-label="Festival days"
             {...swipeDaysBind()}
