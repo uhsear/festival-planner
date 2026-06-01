@@ -30,6 +30,26 @@ async function offlinePut(url: string, body: unknown, clientId: string): Promise
   }
   await api.put(url, body);
 }
+
+/**
+ * Retry a read on transient failures (network errors / 5xx) with exponential
+ * backoff. Skips retrying when we're known-offline so the UI falls back to the
+ * persisted (cached) schedule quickly instead of stalling.
+ */
+async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await fn();
+    } catch (err) {
+      const e = err as { isNetworkError?: boolean; status?: number };
+      const retryable = !isOffline() && (e.isNetworkError === true || (e.status ?? 0) >= 500);
+      if (!retryable || attempt >= retries) throw err;
+      await new Promise((r) => setTimeout(r, 600 * 2 ** attempt));
+      attempt++;
+    }
+  }
+}
 import {
   Festival,
   FestivalSet,
@@ -99,7 +119,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   loadFestivals: async () => {
     set({ isLoading: true, error: null });
     try {
-      const festivals = await api.get<Festival[]>('/festivals');
+      const festivals = await withRetry(() => api.get<Festival[]>('/festivals'));
       set({ festivals, isLoading: false });
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to load festivals');
@@ -115,7 +135,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
     set({ isLoading: true, error: null, currentFestivalId: festivalId });
     try {
       // Festival detail is public; profiles require auth (401 for guests).
-      const detail = await api.get<FestivalDetailResponse>(`/festivals/${festivalId}`);
+      const detail = await withRetry(() => api.get<FestivalDetailResponse>(`/festivals/${festivalId}`));
       let profiles: Profile[] = [];
       if (useAuthStore.getState().user) {
         try {

@@ -33,6 +33,21 @@ async function readQueue(): Promise<QueuedMutation[]> {
 
 async function writeQueue(queue: QueuedMutation[]): Promise<void> {
   await Promise.resolve(getStorage().setItem(QUEUE_KEY, JSON.stringify(queue)));
+  updatePendingCount(queue.length);
+}
+
+/** Mirror the queue depth into uiStore so the OfflineBanner can show a count. */
+function updatePendingCount(count: number): void {
+  try {
+    useUIStore.getState().setPendingSync(count);
+  } catch {
+    /* store not ready */
+  }
+}
+
+/** Read the persisted queue and publish its count (call on app start). */
+export async function refreshPendingCount(): Promise<void> {
+  updatePendingCount((await readQueue()).length);
 }
 
 /** NetInfo-driven (uiStore.offlineMode); false if the store isn't ready. */
