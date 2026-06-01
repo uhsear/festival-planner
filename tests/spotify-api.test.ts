@@ -26,7 +26,9 @@ describe('spotify: getToken', () => {
     originalFetch = globalThis.fetch;
     spotify = await freshModule();
   });
-  afterEach(() => { globalThis.fetch = originalFetch; });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
 
   it('fetches and caches a token', async () => {
     const calls = mockFetch([
@@ -49,9 +51,7 @@ describe('spotify: getToken', () => {
   });
 
   it('throws on non-ok response', async () => {
-    mockFetch([
-      { ok: false, status: 401, text: async () => 'Unauthorized' },
-    ]);
+    mockFetch([{ ok: false, status: 401, text: async () => 'Unauthorized' }]);
     await assert.rejects(() => spotify.getToken('cid', 'csecret'), /Spotify token request failed/);
   });
 });
@@ -61,20 +61,26 @@ describe('spotify: searchArtist', () => {
     originalFetch = globalThis.fetch;
     spotify = await freshModule();
   });
-  afterEach(() => { globalThis.fetch = originalFetch; });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
 
   it('searches and returns artist data', async () => {
     mockFetch([
       { ok: true, status: 200, json: async () => ({ access_token: 'tok', expires_in: 3600 }) },
       {
-        ok: true, status: 200, json: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
           artists: {
-            items: [{
-              id: 'sp-1',
-              external_urls: { spotify: 'https://open.spotify.com/artist/sp-1' },
-              images: [{ url: 'https://img.spotify.com/1.jpg' }],
-              genres: ['edm', 'house'],
-            }],
+            items: [
+              {
+                id: 'sp-1',
+                external_urls: { spotify: 'https://open.spotify.com/artist/sp-1' },
+                images: [{ url: 'https://img.spotify.com/1.jpg' }],
+                genres: ['edm', 'house'],
+              },
+            ],
           },
         }),
       },
@@ -92,7 +98,9 @@ describe('spotify: searchArtist', () => {
       { ok: false, status: 401, json: async () => ({}) },
       { ok: true, status: 200, json: async () => ({ access_token: 'new-tok', expires_in: 3600 }) },
       {
-        ok: true, status: 200, json: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
           artists: { items: [{ id: 'sp-2', external_urls: {}, images: [], genres: [] }] },
         }),
       },
@@ -129,6 +137,88 @@ describe('spotify: searchArtist', () => {
     const result = await spotify.searchArtist('NonexistentArtist12345', 'cid', 'csecret');
     assert.equal(result, null);
   });
+
+  it('prefers an exact name match over a more-followed non-match', async () => {
+    mockFetch([
+      { ok: true, status: 200, json: async () => ({ access_token: 'tok', expires_in: 3600 }) },
+      {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          artists: {
+            items: [
+              {
+                id: 'wrong',
+                name: 'Dramatic',
+                followers: { total: 9_999_999 },
+                external_urls: {},
+                images: [],
+                genres: [],
+              },
+              { id: 'right', name: 'Drama', followers: { total: 5 }, external_urls: {}, images: [], genres: [] },
+            ],
+          },
+        }),
+      },
+    ]);
+    const r = await spotify.searchArtist('Drama (DJ Set)', 'cid', 'csecret');
+    assert.equal(r.spotifyId, 'right');
+  });
+
+  it('breaks ties among exact matches by follower count', async () => {
+    mockFetch([
+      { ok: true, status: 200, json: async () => ({ access_token: 'tok', expires_in: 3600 }) },
+      {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          artists: {
+            items: [
+              { id: 'small', name: 'Fisher', followers: { total: 10 }, external_urls: {}, images: [], genres: [] },
+              { id: 'big', name: 'FISHER', followers: { total: 9_000_000 }, external_urls: {}, images: [], genres: [] },
+            ],
+          },
+        }),
+      },
+    ]);
+    const r = await spotify.searchArtist('Fisher', 'cid', 'csecret');
+    assert.equal(r.spotifyId, 'big');
+  });
+
+  it('strips booking noise like "(DJ Set)" from the query', async () => {
+    const calls = mockFetch([
+      { ok: true, status: 200, json: async () => ({ access_token: 'tok', expires_in: 3600 }) },
+      {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          artists: { items: [{ id: 'x', name: 'Porter Robinson', external_urls: {}, images: [], genres: [] }] },
+        }),
+      },
+    ]);
+    await spotify.searchArtist('Porter Robinson (DJ Set)', 'cid', 'csecret');
+    const searchUrl = decodeURIComponent(calls[1].url);
+    assert.ok(searchUrl.includes('Porter Robinson'));
+    assert.ok(!/dj set/i.test(searchUrl));
+  });
+});
+
+describe('spotify: cleanArtistName', () => {
+  beforeEach(async () => {
+    originalFetch = globalThis.fetch;
+    spotify = await freshModule();
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('strips parenthetical and trailing booking noise', () => {
+    assert.equal(spotify.cleanArtistName('Drama (DJ Set)'), 'Drama');
+    assert.equal(spotify.cleanArtistName('Gryffin - Live'), 'Gryffin');
+    assert.equal(spotify.cleanArtistName('  Wooli  '), 'Wooli');
+    assert.equal(spotify.cleanArtistName(''), '');
+    assert.equal(spotify.cleanArtistName(null), '');
+  });
 });
 
 describe('spotify: bulkSearchArtists', () => {
@@ -136,13 +226,23 @@ describe('spotify: bulkSearchArtists', () => {
     originalFetch = globalThis.fetch;
     spotify = await freshModule();
   });
-  afterEach(() => { globalThis.fetch = originalFetch; });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
 
   it('searches multiple artists and returns Map', async () => {
     mockFetch([
       { ok: true, status: 200, json: async () => ({ access_token: 'tok', expires_in: 3600 }) },
-      { ok: true, status: 200, json: async () => ({ artists: { items: [{ id: '1', external_urls: {}, images: [], genres: [] }] } }) },
-      { ok: true, status: 200, json: async () => ({ artists: { items: [{ id: '2', external_urls: {}, images: [], genres: [] }] } }) },
+      {
+        ok: true,
+        status: 200,
+        json: async () => ({ artists: { items: [{ id: '1', external_urls: {}, images: [], genres: [] }] } }),
+      },
+      {
+        ok: true,
+        status: 200,
+        json: async () => ({ artists: { items: [{ id: '2', external_urls: {}, images: [], genres: [] }] } }),
+      },
     ]);
     const results = await spotify.bulkSearchArtists(['A', 'B'], 'cid', 'csecret', { delayMs: 0 });
     assert.equal(results.size, 2);
@@ -150,10 +250,10 @@ describe('spotify: bulkSearchArtists', () => {
 
   it('logs warning on search failure', async () => {
     const warnings: any[] = [];
-    mockFetch([
-      { ok: true, status: 200, json: async () => ({ access_token: 'tok', expires_in: 3600 }) },
-    ]);
-    globalThis.fetch = async () => { throw new Error('Network error'); };
+    mockFetch([{ ok: true, status: 200, json: async () => ({ access_token: 'tok', expires_in: 3600 }) }]);
+    globalThis.fetch = async () => {
+      throw new Error('Network error');
+    };
     const results = await spotify.bulkSearchArtists(['A'], 'cid', 'csecret', {
       delayMs: 0,
       log: { warn: (msg: any, meta: any) => warnings.push({ msg, meta }) },
