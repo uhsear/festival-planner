@@ -3,12 +3,7 @@ import { FestivalSet, Priority } from '@festie/shared/types';
 import { usePicks, useFestival, useCrew } from '@festie/shared/hooks';
 import { useFestivalStore } from '@festie/shared/stores/festivalStore';
 import { useCrewStore } from '@festie/shared/stores/crewStore';
-import {
-  artistDisplayName,
-  artistSubtitle,
-  getSetLinks,
-  detectConflicts,
-} from '@festie/shared/utils';
+import { artistDisplayName, artistSubtitle, getSetLinks, detectConflicts } from '@festie/shared/utils';
 
 export interface CrewMemberPick {
   profileId: string;
@@ -30,7 +25,7 @@ export function useDetailPanelData(set: FestivalSet) {
   const sets = useFestivalStore((s) => s.sets);
   const activeCrew = useCrewStore((s) => s.activeCrew);
 
-  const { getMyPick, savePick, saveNote, getOtherPicks } = usePicks();
+  const { getMyPick, savePick, saveNote, getOtherPicks, saveReminder, getMyReminder } = usePicks();
   const { getStageColor, getStageName } = useFestival();
   const { getCrewScopedOtherPicks } = useCrew();
 
@@ -38,6 +33,7 @@ export function useDetailPanelData(set: FestivalSet) {
   const stageColor = getStageColor(set.stageId);
   const stageName = getStageName(set.stageId) || 'Unknown';
   const myPick = getMyPick(set.id);
+  const myReminder = getMyReminder(set.id);
   const artistName = artistDisplayName(set, b2bSeparator);
   const sub = artistSubtitle(set, b2bSeparator);
   const artistLinks = getSetLinks(set);
@@ -61,13 +57,10 @@ export function useDetailPanelData(set: FestivalSet) {
 
   const others: CrewMemberPick[] = useMemo(() => {
     if (!currentProfile) return [];
-    const raw = activeCrew
-      ? getCrewScopedOtherPicks(set.id)
-      : getOtherPicks(set.id);
+    const raw = activeCrew ? getCrewScopedOtherPicks(set.id) : getOtherPicks(set.id);
     return raw.map((o) => {
       const profile = allProfiles.find((p) => p.id === o.profileId);
-      const avatarUrl = (profile as { avatarUrl?: string | null } | undefined)
-        ?.avatarUrl;
+      const avatarUrl = (profile as { avatarUrl?: string | null } | undefined)?.avatarUrl;
       return {
         ...o,
         name: profile?.name || 'Unknown',
@@ -78,10 +71,7 @@ export function useDetailPanelData(set: FestivalSet) {
 
   const crewNotes: CrewNote[] = useMemo(() => {
     return allProfiles
-      .filter(
-        (p) =>
-          p.id !== currentProfile?.id && p.notes?.['crew:' + set.id],
-      )
+      .filter((p) => p.id !== currentProfile?.id && p.notes?.['crew:' + set.id])
       .map((p) => ({ name: p.name || 'Unknown', note: p.notes['crew:' + set.id]! }));
   }, [allProfiles, currentProfile?.id, set.id]);
 
@@ -91,9 +81,7 @@ export function useDetailPanelData(set: FestivalSet) {
         ? `${activeCrew.name} (${others.length} going)`
         : `No one in ${activeCrew.name} going yet`;
     }
-    return others.length > 0
-      ? `Who's Going (${others.length})`
-      : 'Nobody else going yet';
+    return others.length > 0 ? `Who's Going (${others.length})` : 'Nobody else going yet';
   }, [activeCrew, others.length]);
 
   return {
@@ -104,6 +92,8 @@ export function useDetailPanelData(set: FestivalSet) {
     stageColor,
     stageName,
     myPick,
+    myReminder,
+    saveReminder,
     artistName,
     sub,
     artistLinks,

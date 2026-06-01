@@ -9,6 +9,7 @@ import DetailArtistHeader from './DetailArtistHeader';
 import DetailSpotifySection from './DetailSpotifySection';
 import DetailConflictWarning from './DetailConflictWarning';
 import DetailPriorityPicker from './DetailPriorityPicker';
+import DetailReminderPicker from './DetailReminderPicker';
 import DetailCrewSection from './DetailCrewSection';
 import DetailNotesSection from './DetailNotesSection';
 import { useDetailPanelData } from './useDetailPanelData';
@@ -23,34 +24,53 @@ interface DetailPanelProps {
 
 export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: DetailPanelProps) {
   const {
-    currentFestival, festivalDays, currentProfile,
-    b2bSeparator, stageColor, stageName,
-    myPick, artistName, sub, artistLinks, isB2B, primaryArtist,
-    allGenres, conflicts, others, crewNotes, whoTitle,
-    savePick, saveNote, getOtherPicks, getStageName,
+    currentFestival,
+    festivalDays,
+    currentProfile,
+    b2bSeparator,
+    stageColor,
+    stageName,
+    myPick,
+    myReminder,
+    artistName,
+    sub,
+    artistLinks,
+    isB2B,
+    primaryArtist,
+    allGenres,
+    conflicts,
+    others,
+    crewNotes,
+    whoTitle,
+    savePick,
+    saveReminder,
+    saveNote,
+    getOtherPicks,
+    getStageName,
   } = useDetailPanelData(set);
 
   const { select: selectHaptic, success: successHaptic, warning: warningHaptic } = useHaptics();
 
-  const [personalNote, setPersonalNote] = useState(
-    currentProfile?.notes?.[set.id] || '',
-  );
-  const [crewNote, setCrewNote] = useState(
-    currentProfile?.notes?.['crew:' + set.id] || '',
-  );
+  const [personalNote, setPersonalNote] = useState(currentProfile?.notes?.[set.id] || '');
+  const [crewNote, setCrewNote] = useState(currentProfile?.notes?.['crew:' + set.id] || '');
   const [spotifyPreview, setSpotifyPreview] = useState<{
-    embedUrl: string; label: string; embedType: string;
+    embedUrl: string;
+    label: string;
+    embedType: string;
   } | null>(null);
   const [spotifyVisible, setSpotifyVisible] = useState(false);
   const [joinBusy, setJoinBusy] = useState(false);
   const [priorityBusy, setPriorityBusy] = useState<Priority | null | 'clear'>(null);
+  const [reminderBusy, setReminderBusy] = useState<number | null | 'clear'>(null);
 
   const personalNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const crewNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
 
-  const handleClose = useCallback(() => { onClose(); }, [onClose]);
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
 
   // Fetch Spotify preview on mount
   useEffect(() => {
@@ -64,9 +84,13 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
           setSpotifyPreview(preview);
           if (autoOpenSpotify) setSpotifyVisible(true);
         }
-      } catch { /* No Spotify preview available */ }
+      } catch {
+        /* No Spotify preview available */
+      }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [set.id, autoOpenSpotify]);
 
   // Debounced personal note save
@@ -76,8 +100,12 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
       if (personalNoteTimer.current) clearTimeout(personalNoteTimer.current);
       personalNoteTimer.current = setTimeout(async () => {
         if (!currentFestival) return;
-        try { await saveNote(currentFestival.id, set.id, value); successHaptic(); }
-        catch { warningHaptic(); }
+        try {
+          await saveNote(currentFestival.id, set.id, value);
+          successHaptic();
+        } catch {
+          warningHaptic();
+        }
       }, 500);
     },
     [currentFestival, set.id, saveNote, successHaptic, warningHaptic],
@@ -90,8 +118,12 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
       if (crewNoteTimer.current) clearTimeout(crewNoteTimer.current);
       crewNoteTimer.current = setTimeout(async () => {
         if (!currentFestival) return;
-        try { await saveNote(currentFestival.id, 'crew:' + set.id, value); successHaptic(); }
-        catch { warningHaptic(); }
+        try {
+          await saveNote(currentFestival.id, 'crew:' + set.id, value);
+          successHaptic();
+        } catch {
+          warningHaptic();
+        }
       }, 500);
     },
     [currentFestival, set.id, saveNote, successHaptic, warningHaptic],
@@ -111,11 +143,31 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
       if (!currentFestival) return;
       selectHaptic();
       setPriorityBusy(priority ?? 'clear');
-      try { await savePick(currentFestival.id, set.id, priority); }
-      catch { /* store surfaces error */ }
-      finally { setPriorityBusy(null); }
+      try {
+        await savePick(currentFestival.id, set.id, priority);
+      } catch {
+        /* store surfaces error */
+      } finally {
+        setPriorityBusy(null);
+      }
     },
     [currentFestival, set.id, savePick, selectHaptic],
+  );
+
+  const handleReminderClick = useCallback(
+    async (minutes: number | null) => {
+      if (!currentFestival) return;
+      selectHaptic();
+      setReminderBusy(minutes ?? 'clear');
+      try {
+        await saveReminder(currentFestival.id, set.id, minutes);
+      } catch {
+        /* store surfaces error */
+      } finally {
+        setReminderBusy(null);
+      }
+    },
+    [currentFestival, set.id, saveReminder, selectHaptic],
   );
 
   // Conflict switch handler
@@ -136,14 +188,19 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
       await api.post(`/profiles`, { festivalId: currentFestival.id });
       await useFestivalStore.getState().loadProfiles(currentFestival.id);
       onClose();
-    } catch { /* Join failed */ }
-    finally { setJoinBusy(false); }
+    } catch {
+      /* Join failed */
+    } finally {
+      setJoinBusy(false);
+    }
   }, [currentFestival, onClose]);
 
   return (
     <Drawer.Root
       open
-      onOpenChange={(o: boolean) => { if (!o) handleClose(); }}
+      onOpenChange={(o: boolean) => {
+        if (!o) handleClose();
+      }}
       dismissible
       handleOnly
     >
@@ -158,11 +215,16 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
                      lg:-translate-x-1/2 lg:-translate-y-1/2
                      lg:w-[clamp(420px,40vw,540px)] lg:max-w-[calc(100vw-2rem)] lg:max-h-[85dvh]
                      lg:rounded-DEFAULT"
-          onOpenAutoFocus={(e: Event) => { e.preventDefault(); closeBtnRef.current?.focus(); }}
+          onOpenAutoFocus={(e: Event) => {
+            e.preventDefault();
+            closeBtnRef.current?.focus();
+          }}
         >
           <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-border-light flex-shrink-0 lg:hidden" />
           <Drawer.Title className="sr-only">{artistDisplayName(set, b2bSeparator)}</Drawer.Title>
-          <Drawer.Description className="sr-only">Set details, schedule, and crew info for {artistDisplayName(set, b2bSeparator)}</Drawer.Description>
+          <Drawer.Description className="sr-only">
+            Set details, schedule, and crew info for {artistDisplayName(set, b2bSeparator)}
+          </Drawer.Description>
           <button
             className="absolute top-4 right-4 w-11 h-11 min-w-11 min-h-11 rounded-full bg-bg-card border border-border-light flex items-center justify-center text-text-secondary text-lg cursor-pointer transition-all duration-200 ease-[var(--ease-standard)] hover:bg-accent-coral hover:text-text-on-accent hover:border-accent-coral focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua z-10"
             type="button"
@@ -172,7 +234,10 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
           >
             {'×'}
           </button>
-          <div className="min-h-0 flex flex-col gap-[var(--space-4)] overflow-y-auto overscroll-contain p-7 pb-[max(12px,env(safe-area-inset-bottom))]" ref={panelRef}>
+          <div
+            className="min-h-0 flex flex-col gap-[var(--space-4)] overflow-y-auto overscroll-contain p-7 pb-[max(12px,env(safe-area-inset-bottom))]"
+            ref={panelRef}
+          >
             <div>
               <div
                 className="inline-block self-start px-3 py-1 rounded-DEFAULT type-micro mb-3"
@@ -182,9 +247,14 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
               </div>
 
               <DetailArtistHeader
-                artistName={artistName} subtitle={sub} primaryArtist={primaryArtist}
-                stageColor={stageColor} artistLinks={artistLinks} isB2B={isB2B}
-                genres={allGenres} setArtist={set.artist}
+                artistName={artistName}
+                subtitle={sub}
+                primaryArtist={primaryArtist}
+                stageColor={stageColor}
+                artistLinks={artistLinks}
+                isB2B={isB2B}
+                genres={allGenres}
+                setArtist={set.artist}
               />
 
               <div className="text-[15px] text-text-secondary tabular-nums">
@@ -193,21 +263,48 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             </div>
 
             {spotifyPreview && (
-              <DetailSpotifySection preview={spotifyPreview} visible={spotifyVisible} onToggle={() => setSpotifyVisible((v) => !v)} />
+              <DetailSpotifySection
+                preview={spotifyPreview}
+                visible={spotifyVisible}
+                onToggle={() => setSpotifyVisible((v) => !v)}
+              />
             )}
 
             <DetailConflictWarning
-              conflicts={conflicts} currentSetId={set.id} myPick={myPick || null}
-              b2bSeparator={b2bSeparator} getStageName={getStageName}
-              getOtherPicks={getOtherPicks} onSwitch={handleConflictSwitch}
+              conflicts={conflicts}
+              currentSetId={set.id}
+              myPick={myPick || null}
+              b2bSeparator={b2bSeparator}
+              getStageName={getStageName}
+              getOtherPicks={getOtherPicks}
+              onSwitch={handleConflictSwitch}
             />
 
             {currentProfile ? (
-              <DetailPriorityPicker myPick={myPick || null} priorityBusy={priorityBusy} onPriorityClick={handlePriorityClick} />
+              <>
+                <DetailPriorityPicker
+                  myPick={myPick || null}
+                  priorityBusy={priorityBusy}
+                  onPriorityClick={handlePriorityClick}
+                />
+                <DetailReminderPicker
+                  myReminder={myReminder}
+                  reminderBusy={reminderBusy}
+                  onReminderClick={handleReminderClick}
+                />
+              </>
             ) : (
               <div className="p-4 rounded-DEFAULT bg-[var(--color-overlay-2)] border border-border">
-                <p className="text-[13px] text-text-secondary leading-normal mb-3">Join this festival to save picks, keep private notes, and compare crew overlap.</p>
-                <Button variant="primary" type="button" disabled={joinBusy} isLoading={joinBusy} onClick={handleJoinFestival}>
+                <p className="text-[13px] text-text-secondary leading-normal mb-3">
+                  Join this festival to save picks, keep private notes, and compare crew overlap.
+                </p>
+                <Button
+                  variant="primary"
+                  type="button"
+                  disabled={joinBusy}
+                  isLoading={joinBusy}
+                  onClick={handleJoinFestival}
+                >
                   {joinBusy ? 'Joining...' : 'Join Festival'}
                 </Button>
               </div>
@@ -215,9 +312,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
 
             {currentProfile && set && currentFestival && hasSetStarted(set, currentFestival, festivalDays) && (
               <div className="mx-0 text-center">
-                <div className="mb-2 text-[11px] uppercase tracking-wide text-text-muted">
-                  Rate this set
-                </div>
+                <div className="mb-2 text-[11px] uppercase tracking-wide text-text-muted">Rate this set</div>
                 <RatingButtons setId={set.id} festivalId={currentFestival.id} />
               </div>
             )}
@@ -225,7 +320,12 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             <DetailCrewSection title={whoTitle} others={others} crewNotes={crewNotes} />
 
             {currentProfile && (
-              <DetailNotesSection personalNote={personalNote} crewNote={crewNote} onPersonalChange={handlePersonalNoteChange} onCrewChange={handleCrewNoteChange} />
+              <DetailNotesSection
+                personalNote={personalNote}
+                crewNote={crewNote}
+                onPersonalChange={handlePersonalNoteChange}
+                onCrewChange={handleCrewNoteChange}
+              />
             )}
           </div>
         </Drawer.Content>
