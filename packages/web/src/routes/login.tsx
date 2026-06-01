@@ -4,6 +4,7 @@ import { useAuth } from '@festie/shared';
 import { useToast } from '../lib/toastContext';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import Button from '../components/ui/Button';
+import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function LoginPage() {
@@ -21,6 +22,7 @@ function LoginPageInner() {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [formError, setFormError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,10 +63,7 @@ function LoginPageInner() {
       </p>
 
       <div
-        className={cn(
-          'flex gap-1 p-1 mb-6 bg-bg-secondary rounded-full',
-          'w-full max-w-[360px] relative z-[1]',
-        )}
+        className={cn('flex gap-1 p-1 mb-6 bg-bg-secondary rounded-full', 'w-full max-w-[360px] relative z-[1]')}
         role="tablist"
         aria-label="Authentication method"
       >
@@ -148,36 +147,40 @@ function LoginPageInner() {
         <label htmlFor="authPassword" className="sr-only">
           Password
         </label>
-        <input
-          type="password"
-          id="authPassword"
-          placeholder="Password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSubmit(e);
-          }}
-          disabled={isLoading}
-          aria-invalid={Boolean(formError && !password)}
-          aria-describedby={formError ? 'authFormError' : undefined}
-          className={cn(
-            'w-full py-3.5 px-[18px] text-[16px] text-left mb-3 min-h-11',
-            'rounded-xl bg-bg-card border border-border text-text-primary',
-            'placeholder:text-text-placeholder',
-            'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
-            'focus:outline-none focus:border-accent-aqua',
-            'focus:shadow-[0_0_0_4px_var(--color-aqua-a1),0_0_24px_var(--color-aqua-a06)]',
-          )}
-        />
+        <div className="relative mb-3">
+          <input
+            type={showPw ? 'text' : 'password'}
+            id="authPassword"
+            placeholder="Password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSubmit(e);
+            }}
+            disabled={isLoading}
+            aria-invalid={Boolean(formError && !password)}
+            aria-describedby={formError ? 'authFormError' : undefined}
+            className={cn(
+              'w-full py-3.5 pl-[18px] pr-11 text-[16px] text-left min-h-11',
+              'rounded-xl bg-bg-card border border-border text-text-primary',
+              'placeholder:text-text-placeholder',
+              'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
+              'focus:outline-none focus:border-accent-aqua',
+              'focus:shadow-[0_0_0_4px_var(--color-aqua-a1),0_0_24px_var(--color-aqua-a06)]',
+            )}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPw((v) => !v)}
+            aria-label={showPw ? 'Hide password' : 'Show password'}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary"
+          >
+            {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </button>
+        </div>
 
-        <Button
-          variant="primary"
-          fullWidth
-          type="submit"
-          disabled={isLoading}
-          isLoading={isLoading}
-        >
+        <Button variant="primary" fullWidth type="submit" disabled={isLoading} isLoading={isLoading}>
           {isLoading ? 'Logging in...' : 'Login'}
         </Button>
 

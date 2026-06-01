@@ -4,6 +4,7 @@ import { useAuth } from '@festie/shared';
 import { useToast } from '../lib/toastContext';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import Button from '../components/ui/Button';
+import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function RegisterPage() {
@@ -29,6 +30,7 @@ function RegisterPageInner() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [email, setEmail] = useState('');
   const [tosAccepted, setTosAccepted] = useState(false);
   const [formError, setFormError] = useState('');
@@ -163,27 +165,37 @@ function RegisterPageInner() {
         <label htmlFor="authPassword" className="sr-only">
           Password
         </label>
-        <input
-          type="password"
-          id="authPassword"
-          placeholder="Password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') document.getElementById('authPassword2')?.focus();
-          }}
-          disabled={isLoading}
-          aria-invalid={Boolean(formError && !password)}
-          aria-describedby={formError ? 'authFormError' : undefined}
-          className={authInputClasses}
-        />
+        <div className="relative">
+          <input
+            type={showPw ? 'text' : 'password'}
+            id="authPassword"
+            placeholder="Password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') document.getElementById('authPassword2')?.focus();
+            }}
+            disabled={isLoading}
+            aria-invalid={Boolean(formError && !password)}
+            aria-describedby={formError ? 'authFormError' : undefined}
+            className={cn(authInputClasses, 'pr-11')}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPw((v) => !v)}
+            aria-label={showPw ? 'Hide password' : 'Show password'}
+            className="absolute right-3 top-[22px] -translate-y-1/2 text-text-secondary hover:text-text-primary"
+          >
+            {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+          </button>
+        </div>
 
         <label htmlFor="authPassword2" className="sr-only">
           Confirm Password
         </label>
         <input
-          type="password"
+          type={showPw ? 'text' : 'password'}
           id="authPassword2"
           placeholder="Confirm Password"
           autoComplete="new-password"
@@ -235,13 +247,7 @@ function RegisterPageInner() {
           </span>
         </label>
 
-        <Button
-          variant="primary"
-          fullWidth
-          type="submit"
-          disabled={isLoading}
-          isLoading={isLoading}
-        >
+        <Button variant="primary" fullWidth type="submit" disabled={isLoading} isLoading={isLoading}>
           {isLoading ? 'Creating account...' : 'Create Account'}
         </Button>
       </form>
