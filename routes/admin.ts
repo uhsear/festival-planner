@@ -315,6 +315,11 @@ export default function createAdminRoutes(deps: any): Router {
         }
       }
 
+      // Bump the festival timestamp so the list/detail cache (keyed on
+      // updated_at) actually invalidates — set updates alone don't change it.
+      if (updated > 0) {
+        await stores.pool.query('UPDATE festivals SET updated_at = NOW() WHERE id = $1', [festivalId]);
+      }
       if (_invalidateFestivalCache) _invalidateFestivalCache();
       log.info('spotify backfill complete', {
         festivalId,
