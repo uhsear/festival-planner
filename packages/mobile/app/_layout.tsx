@@ -10,8 +10,13 @@ import { configureApi, setAuthToken } from '@festie/shared/services';
 import { useAuthStore } from '@festie/shared/stores';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UIProvider } from '../contexts/UIContext';
 import OfflineBanner from '../components/OfflineBanner';
+import FirstRunIntro from '../components/FirstRunIntro';
+
+// First-run intro flag — mirrors the web key for parity.
+const INTRO_KEY = 'festie_onboarding_completed';
 
 // @sentry/react-native is a third-party NATIVE module not present in the Expo
 // Go runtime — calling init()/wrap() there warns and degrades. Detect Expo Go
@@ -56,6 +61,19 @@ function AuthGate() {
   const router = useRouter();
   const navState = useRootNavigationState();
   const [hydrated, setHydrated] = useState(false);
+  // null = still reading the flag; false = show intro; true = already seen.
+  const [introSeen, setIntroSeen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem(INTRO_KEY)
+      .then((v) => setIntroSeen(v === 'true'))
+      .catch(() => setIntroSeen(true)); // on error, don't block with the intro
+  }, []);
+
+  const dismissIntro = () => {
+    setIntroSeen(true);
+    AsyncStorage.setItem(INTRO_KEY, 'true').catch(() => {});
+  };
 
   // Wait for Zustand persist to rehydrate from AsyncStorage, then restore
   // the bearer token into the API client's in-memory state so that
@@ -143,6 +161,7 @@ function AuthGate() {
           <ActivityIndicator size="large" color="#FF6B6B" />
         </View>
       )}
+      {!loading && introSeen === false && <FirstRunIntro onDone={dismissIntro} />}
     </View>
   );
 }
