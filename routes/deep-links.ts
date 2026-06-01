@@ -32,15 +32,13 @@ export default function createDeepLinkRoutes(deps: any) {
     return res.json({
       applinks: {
         apps: [],
-        details: [{
-          appIDs: [
-            `${config.APPLE_TEAM_ID}.us.festie.app`,
-          ],
-          paths: ['/set/*'],
-          components: [
-            { '/': '/set/*' },
-          ],
-        }],
+        details: [
+          {
+            appIDs: [`${config.APPLE_TEAM_ID}.us.festie.app`],
+            paths: ['/set/*', '/reset-password'],
+            components: [{ '/': '/set/*' }, { '/': '/reset-password' }],
+          },
+        ],
       },
       webcredentials: {
         apps: [`${config.APPLE_TEAM_ID}.us.festie.app`],
@@ -60,15 +58,18 @@ export default function createDeepLinkRoutes(deps: any) {
     }
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    return res.json([{
-      relation: ['delegate_permission/common.handle_all_urls'],
-      target: {
-        namespace: 'android_app',
-        package_name: 'us.festie.app',
-        sha256_cert_fingerprints: config.ANDROID_CERT_FINGERPRINTS
-          .split(',').map((s: string) => s.trim()).filter(Boolean),
+    return res.json([
+      {
+        relation: ['delegate_permission/common.handle_all_urls'],
+        target: {
+          namespace: 'android_app',
+          package_name: 'us.festie.app',
+          sha256_cert_fingerprints: config.ANDROID_CERT_FINGERPRINTS.split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean),
+        },
       },
-    }]);
+    ]);
   });
 
   return router;
