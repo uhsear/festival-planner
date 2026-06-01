@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@festie/shared/stores';
 import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
 
@@ -19,6 +20,9 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [tosAccepted, setTosAccepted] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const router = useRouter();
   const register = useAuthStore((s) => s.register);
   const isLoading = useAuthStore((s) => s.isLoading);
   const error = useAuthStore((s) => s.error);
@@ -31,8 +35,16 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     Keyboard.dismiss();
     if (!username.trim() || !email.trim() || !password.trim()) return;
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      return;
+    }
+    if (!tosAccepted) {
+      setError('Please accept the Privacy Policy & Terms to continue');
       return;
     }
     setError(null);
@@ -42,7 +54,7 @@ export default function RegisterScreen() {
         email: email.trim(),
         password,
         confirmPassword,
-        tosAccepted: true,
+        tosAccepted,
       });
     } catch {
       // Error is set in the store.
@@ -50,20 +62,13 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.inner}>
         <Text style={styles.title}>Festie</Text>
         <Text style={styles.subtitle}>Create your account</Text>
 
         {error ? (
-          <Text
-            style={styles.error}
-            accessibilityRole="alert"
-            accessibilityLiveRegion="assertive"
-          >
+          <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
             {error}
           </Text>
         ) : null}
@@ -98,20 +103,31 @@ export default function RegisterScreen() {
           blurOnSubmit={false}
         />
 
-        <TextInput
-          ref={passwordRef}
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor={colors.text.placeholder}
-          accessibilityLabel="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          textContentType="newPassword"
-          returnKeyType="next"
-          onSubmitEditing={() => confirmRef.current?.focus()}
-          blurOnSubmit={false}
-        />
+        <View style={styles.passwordRow}>
+          <TextInput
+            ref={passwordRef}
+            style={styles.passwordInput}
+            placeholder="Password"
+            placeholderTextColor={colors.text.placeholder}
+            accessibilityLabel="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPw}
+            textContentType="newPassword"
+            returnKeyType="next"
+            onSubmitEditing={() => confirmRef.current?.focus()}
+            blurOnSubmit={false}
+          />
+          <TouchableOpacity
+            onPress={() => setShowPw((v) => !v)}
+            style={styles.eyeButton}
+            accessibilityRole="button"
+            accessibilityLabel={showPw ? 'Hide password' : 'Show password'}
+          >
+            <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.hint}>At least 8 characters. Avoid common passwords and your name.</Text>
 
         <TextInput
           ref={confirmRef}
@@ -121,11 +137,33 @@ export default function RegisterScreen() {
           accessibilityLabel="Confirm password"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
-          secureTextEntry
+          secureTextEntry={!showPw}
           textContentType="newPassword"
           returnKeyType="go"
           onSubmitEditing={handleRegister}
         />
+
+        <TouchableOpacity
+          style={styles.tosRow}
+          onPress={() => setTosAccepted((v) => !v)}
+          activeOpacity={0.7}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: tosAccepted }}
+          accessibilityLabel="I agree to the Privacy Policy and Terms"
+        >
+          <Ionicons
+            name={tosAccepted ? 'checkbox' : 'square-outline'}
+            size={20}
+            color={tosAccepted ? colors.accent.aqua : colors.text.secondary}
+          />
+          <Text style={styles.tosText}>
+            I agree to the{' '}
+            <Text style={styles.linkTextAccent} onPress={() => router.push('/privacy')}>
+              Privacy Policy
+            </Text>{' '}
+            &amp; Terms
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, isLoading && styles.buttonDisabled]}
@@ -150,11 +188,19 @@ export default function RegisterScreen() {
             accessibilityLabel="Sign in to an existing account"
           >
             <Text style={styles.linkText}>
-              Already have an account?{' '}
-              <Text style={styles.linkTextAccent}>Sign in</Text>
+              Already have an account? <Text style={styles.linkTextAccent}>Sign in</Text>
             </Text>
           </TouchableOpacity>
         </Link>
+
+        <TouchableOpacity
+          style={styles.guestButton}
+          onPress={() => router.replace('/(tabs)')}
+          accessibilityRole="button"
+          accessibilityLabel="Browse without an account"
+        >
+          <Text style={styles.linkText}>Maybe later — just browse</Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -199,6 +245,47 @@ const styles = StyleSheet.create({
     fontSize: fontSize[16],
     color: colors.text.primary,
     marginBottom: spacing[3],
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bg.input,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    borderRadius: radii.default,
+    marginBottom: spacing[3],
+    paddingRight: spacing[2],
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    fontSize: fontSize[16],
+    color: colors.text.primary,
+  },
+  eyeButton: {
+    padding: spacing[2],
+  },
+  hint: {
+    fontSize: fontSize[12],
+    color: colors.text.muted,
+    marginTop: -spacing[1],
+    marginBottom: spacing[3],
+  },
+  tosRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginTop: spacing[1],
+  },
+  tosText: {
+    flex: 1,
+    fontSize: fontSize[14],
+    color: colors.text.secondary,
+  },
+  guestButton: {
+    marginTop: spacing[5],
+    alignItems: 'center',
   },
   button: {
     backgroundColor: colors.accent.coral,

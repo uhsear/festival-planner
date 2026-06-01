@@ -10,13 +10,16 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@festie/shared/stores';
 import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
 
 export default function LoginScreen() {
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const login = useAuthStore((s) => s.login);
   const isLoading = useAuthStore((s) => s.isLoading);
   const error = useAuthStore((s) => s.error);
@@ -36,20 +39,13 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.inner}>
         <Text style={styles.title}>Festie</Text>
         <Text style={styles.subtitle}>Sign in to your account</Text>
 
         {error ? (
-          <Text
-            style={styles.error}
-            accessibilityRole="alert"
-            accessibilityLiveRegion="assertive"
-          >
+          <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
             {error}
           </Text>
         ) : null}
@@ -68,19 +64,29 @@ export default function LoginScreen() {
           blurOnSubmit={false}
         />
 
-        <TextInput
-          ref={passwordRef}
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor={colors.text.placeholder}
-          accessibilityLabel="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          textContentType="password"
-          returnKeyType="go"
-          onSubmitEditing={handleLogin}
-        />
+        <View style={styles.passwordRow}>
+          <TextInput
+            ref={passwordRef}
+            style={styles.passwordInput}
+            placeholder="Password"
+            placeholderTextColor={colors.text.placeholder}
+            accessibilityLabel="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPw}
+            textContentType="password"
+            returnKeyType="go"
+            onSubmitEditing={handleLogin}
+          />
+          <TouchableOpacity
+            onPress={() => setShowPw((v) => !v)}
+            style={styles.eyeButton}
+            accessibilityRole="button"
+            accessibilityLabel={showPw ? 'Hide password' : 'Show password'}
+          >
+            <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           style={[styles.button, isLoading && styles.buttonDisabled]}
@@ -99,11 +105,7 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <Link href="/(auth)/forgot-password" asChild>
-          <TouchableOpacity
-            style={styles.forgotButton}
-            accessibilityRole="link"
-            accessibilityLabel="Forgot password?"
-          >
+          <TouchableOpacity style={styles.forgotButton} accessibilityRole="link" accessibilityLabel="Forgot password?">
             <Text style={styles.linkTextAccent}>Forgot password?</Text>
           </TouchableOpacity>
         </Link>
@@ -115,11 +117,19 @@ export default function LoginScreen() {
             accessibilityLabel="Sign up for an account"
           >
             <Text style={styles.linkText}>
-              Don't have an account?{' '}
-              <Text style={styles.linkTextAccent}>Sign up</Text>
+              Don't have an account? <Text style={styles.linkTextAccent}>Sign up</Text>
             </Text>
           </TouchableOpacity>
         </Link>
+
+        <TouchableOpacity
+          style={styles.guestButton}
+          onPress={() => router.replace('/(tabs)')}
+          accessibilityRole="button"
+          accessibilityLabel="Browse without signing in"
+        >
+          <Text style={styles.linkText}>Browse without signing in</Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -164,6 +174,30 @@ const styles = StyleSheet.create({
     fontSize: fontSize[16],
     color: colors.text.primary,
     marginBottom: spacing[3],
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bg.input,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    borderRadius: radii.default,
+    marginBottom: spacing[3],
+    paddingRight: spacing[2],
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    fontSize: fontSize[16],
+    color: colors.text.primary,
+  },
+  eyeButton: {
+    padding: spacing[2],
+  },
+  guestButton: {
+    marginTop: spacing[5],
+    alignItems: 'center',
   },
   button: {
     backgroundColor: colors.accent.coral,
