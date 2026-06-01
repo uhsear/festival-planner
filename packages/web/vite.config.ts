@@ -20,7 +20,8 @@ export default defineConfig({
           if (id.match(/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/)) return 'react-core';
           if (id.includes('@tanstack')) return 'router';
           if (id.includes('zustand') || id.includes('socket.io-client') || id.includes('/zod/')) return 'data';
-          if (id.includes('vaul') || id.includes('@radix-ui') || id.includes('/motion/') || id.includes('@use-gesture')) return 'ui-motion';
+          if (id.includes('vaul') || id.includes('@radix-ui') || id.includes('/motion/') || id.includes('@use-gesture'))
+            return 'ui-motion';
           if (id.includes('lucide-react')) return 'icons';
           if (id.includes('html-to-image')) return 'export-tools';
           if (id.includes('@sentry')) return 'telemetry';
@@ -52,6 +53,19 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Serve the SPA shell for client-routed navigations, but let real
+        // server-rendered static pages (privacy/terms/etc., any *.html, the
+        // API, and /.well-known) fall through to the network — otherwise the
+        // service worker shadows them with index.html and the router 404s.
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [
+          /^\/privacy/,
+          /^\/terms/,
+          /^\/security-whitepaper/,
+          /\.html$/,
+          /^\/api/,
+          /^\/\.well-known/,
+        ],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         globIgnores: ['**/admin-*.js'],
         cleanupOutdatedCaches: true,
@@ -66,8 +80,7 @@ export default defineConfig({
             // cookie), so on a shared device an account switch would otherwise
             // repaint the previous user's data until the revalidate lands.
             urlPattern: ({ url, request }: { url: URL; request: Request }) =>
-              request.method === 'GET' &&
-              /^\/api\/v1\/festivals(\/[^/]+)?$/.test(url.pathname),
+              request.method === 'GET' && /^\/api\/v1\/festivals(\/[^/]+)?$/.test(url.pathname),
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'api-cache',
@@ -107,8 +120,8 @@ export default defineConfig({
           proxy.on('proxyRes', (proxyRes) => {
             const sc = proxyRes.headers['set-cookie'];
             if (sc) {
-              proxyRes.headers['set-cookie'] = (Array.isArray(sc) ? sc : [sc]).map(
-                (c) => c.replace(/;\s*Secure/gi, '').replace(/;\s*SameSite=Strict/gi, '; SameSite=Lax')
+              proxyRes.headers['set-cookie'] = (Array.isArray(sc) ? sc : [sc]).map((c) =>
+                c.replace(/;\s*Secure/gi, '').replace(/;\s*SameSite=Strict/gi, '; SameSite=Lax'),
               );
             }
           });
