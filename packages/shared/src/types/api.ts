@@ -47,6 +47,13 @@ export interface SaveNoteRequest {
   note: string;
 }
 
+export interface SaveReminderRequest {
+  festivalId: string;
+  setId: string;
+  /** Lead time in minutes (5|10|15|30|60), or null to clear the reminder. */
+  minutes: number | null;
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;

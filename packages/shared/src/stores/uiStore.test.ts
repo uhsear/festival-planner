@@ -11,6 +11,7 @@ describe('uiStore', () => {
       offlineMode: false,
       pendingSync: 0,
       onlineUsers: [],
+      toasts: [],
     });
   });
 
@@ -162,6 +163,36 @@ describe('uiStore', () => {
       useUIStore.getState().setOnlineUsers([{ id: 'u1', status: 'online' }]);
       useUIStore.getState().removeOnlineUser('u999');
       expect(useUIStore.getState().onlineUsers).toHaveLength(1);
+    });
+  });
+
+  describe('toasts', () => {
+    it('queues a toast with defaults and a unique id', () => {
+      const id = useUIStore.getState().showToast('Reminder set');
+      const toasts = useUIStore.getState().toasts;
+      expect(toasts).toHaveLength(1);
+      expect(toasts[0]!.message).toBe('Reminder set');
+      expect(toasts[0]!.kind).toBe('info');
+      expect(toasts[0]!.durationMs).toBe(2500);
+      expect(toasts[0]!.id).toBe(id);
+    });
+
+    it('honors kind and durationMs options', () => {
+      useUIStore.getState().showToast('Saved', { kind: 'success', durationMs: 1000 });
+      const t = useUIStore.getState().toasts[0]!;
+      expect(t.kind).toBe('success');
+      expect(t.durationMs).toBe(1000);
+    });
+
+    it('assigns increasing ids and dismisses by id', () => {
+      const a = useUIStore.getState().showToast('A');
+      const b = useUIStore.getState().showToast('B');
+      expect(b).toBeGreaterThan(a);
+      expect(useUIStore.getState().toasts).toHaveLength(2);
+      useUIStore.getState().dismissToast(a);
+      const remaining = useUIStore.getState().toasts;
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0]!.id).toBe(b);
     });
   });
 });

@@ -1,13 +1,15 @@
 import { useCallback } from 'react';
 import { useFestivalStore } from '../stores/festivalStore';
-import { Priority, SavePickRequest, SaveNoteRequest } from '../types';
+import { Priority, SavePickRequest, SaveNoteRequest, SaveReminderRequest } from '../types';
 
 export interface UsePicksReturn {
   savePick: (festivalId: string, setId: string, priority: Priority | null) => Promise<void>;
   removePick: (festivalId: string, setId: string) => Promise<void>;
   saveNote: (festivalId: string, setId: string, note: string) => Promise<void>;
+  saveReminder: (festivalId: string, setId: string, minutes: number | null) => Promise<void>;
   getMyPick: (setId: string) => Priority | null | undefined;
   getMyNote: (setId: string) => string | undefined;
+  getMyReminder: (setId: string) => number | undefined;
   getOtherPicks: (setId: string) => Array<{ profileId: string; priority: Priority; name?: string }>;
 }
 
@@ -17,6 +19,7 @@ export function usePicks(): UsePicksReturn {
   const savePick = useFestivalStore((state) => state.savePick);
   const removePick = useFestivalStore((state) => state.removePick);
   const saveNoteStore = useFestivalStore((state) => state.saveNote);
+  const saveReminderStore = useFestivalStore((state) => state.saveReminder);
 
   const handleSavePick = useCallback(
     async (festivalId: string, setId: string, priority: Priority | null) => {
@@ -48,6 +51,14 @@ export function usePicks(): UsePicksReturn {
     [saveNoteStore],
   );
 
+  const handleSaveReminder = useCallback(
+    async (festivalId: string, setId: string, minutes: number | null) => {
+      const request: SaveReminderRequest = { festivalId, setId, minutes };
+      await saveReminderStore(request);
+    },
+    [saveReminderStore],
+  );
+
   // Defensive reads — `picks` / `notes` are typed as Record but API payloads
   // have occasionally arrived as null when a profile has never had picks/
   // notes written. Bare `currentProfile.picks[setId]` then throws
@@ -71,6 +82,15 @@ export function usePicks(): UsePicksReturn {
     [currentProfile],
   );
 
+  const getMyReminder = useCallback(
+    (setId: string): number | undefined => {
+      if (!currentProfile) return undefined;
+      const reminders = currentProfile.reminders || {};
+      return reminders[setId];
+    },
+    [currentProfile],
+  );
+
   const getOtherPicks = useCallback(
     (setId: string): Array<{ profileId: string; priority: Priority; name?: string }> => {
       if (!currentProfile) return [];
@@ -89,8 +109,10 @@ export function usePicks(): UsePicksReturn {
     savePick: handleSavePick,
     removePick: handleRemovePick,
     saveNote: handleSaveNote,
+    saveReminder: handleSaveReminder,
     getMyPick,
     getMyNote,
+    getMyReminder,
     getOtherPicks,
   };
 }
