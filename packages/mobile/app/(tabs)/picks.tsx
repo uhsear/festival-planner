@@ -1,13 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  RefreshControl,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Alert, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -35,10 +27,7 @@ const PRIORITY_SECTIONS: readonly { value: Priority; label: string }[] = [
 ];
 
 /** Maps a priority to its accent token (matches SetCardMobile). */
-function priorityColor(
-  t: ReturnType<typeof useTokens>,
-  p: Priority,
-): string {
+function priorityColor(t: ReturnType<typeof useTokens>, p: Priority): string {
   if (p === 'must') return t.colors.priority.must;
   if (p === 'want-to-see') return t.colors.priority.want;
   return t.colors.priority.maybe;
@@ -76,10 +65,7 @@ export default function PicksScreen() {
 
   // Conflict highlighting mirrors the web schedule: any two picked sets whose
   // times overlap are flagged. Computed across all picked sets, not per-day.
-  const conflictIds = useMemo(
-    () => getConflictingSetIds(sets, getMyPick),
-    [sets, getMyPick],
-  );
+  const conflictIds = useMemo(() => getConflictingSetIds(sets, getMyPick), [sets, getMyPick]);
 
   // Build the flattened row list: for each day (in order), for each priority
   // bucket (must → want → maybe), the picked sets sorted by start time then
@@ -103,11 +89,9 @@ export default function PicksScreen() {
             if (timeA && timeB) return timeA.localeCompare(timeB);
             if (timeA && !timeB) return -1;
             if (!timeA && timeB) return 1;
-            return artistDisplayName(a, separator).localeCompare(
-              artistDisplayName(b, separator),
-              undefined,
-              { sensitivity: 'base' },
-            );
+            return artistDisplayName(a, separator).localeCompare(artistDisplayName(b, separator), undefined, {
+              sensitivity: 'base',
+            });
           });
 
         if (picked.length === 0) return;
@@ -187,16 +171,7 @@ export default function PicksScreen() {
         />
       );
     },
-    [
-      styles,
-      getStageName,
-      getStageColor,
-      getMyPick,
-      getMyNote,
-      handlePickChange,
-      conflictIds,
-      router,
-    ],
+    [styles, getStageName, getStageColor, getMyPick, getMyNote, handlePickChange, conflictIds, router],
   );
 
   const keyExtractor = useCallback((item: Row) => item.key, []);
@@ -224,9 +199,7 @@ export default function PicksScreen() {
         picks: currentProfile.picks,
         notes: currentProfile.notes,
       });
-      const safeName = (currentFestival.name || 'festival')
-        .replace(/[^a-z0-9_-]/gi, '_')
-        .slice(0, 60);
+      const safeName = (currentFestival.name || 'festival').replace(/[^a-z0-9_-]/gi, '_').slice(0, 60);
       const file = new File(Paths.cache, `${safeName}_picks.ics`);
       file.create({ overwrite: true });
       file.write(ics);
@@ -260,10 +233,31 @@ export default function PicksScreen() {
       ) : (
         <Ionicons name="calendar-outline" size={16} color={t.colors.accent.aqua} />
       )}
-      <Text style={styles.calendarButtonText}>
-        {exportBusy ? 'Exporting…' : 'Add to calendar'}
-      </Text>
+      <Text style={styles.calendarButtonText}>{exportBusy ? 'Exporting…' : 'Add to calendar'}</Text>
     </TouchableOpacity>
+  );
+
+  // Share a public, read-only link to my picks (server route GET /s/:profileId).
+  const handleSharePicks = useCallback(() => {
+    if (!currentProfile || !currentFestival) return;
+    const url = `https://festie.us/s/${currentProfile.id}`;
+    Share.share({ message: `My ${currentFestival.name} picks on Festie: ${url}`, url }).catch(() => {});
+  }, [currentProfile, currentFestival]);
+
+  const picksHeader = (
+    <View style={styles.headerActions}>
+      {calendarButton}
+      <TouchableOpacity
+        style={styles.calendarButton}
+        onPress={handleSharePicks}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Share my picks"
+      >
+        <Ionicons name="share-outline" size={16} color={t.colors.accent.aqua} />
+        <Text style={styles.calendarButtonText}>Share picks</Text>
+      </TouchableOpacity>
+    </View>
   );
 
   const refreshControl = (
@@ -319,7 +313,7 @@ export default function PicksScreen() {
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={calendarButton}
+        ListHeaderComponent={picksHeader}
         ItemSeparatorComponent={Separator}
         refreshControl={refreshControl}
       />
@@ -351,13 +345,18 @@ const useStyles = makeStyles((t) => ({
     padding: t.spacing[4],
     paddingBottom: t.spacing[6],
   },
+  headerActions: {
+    flexDirection: 'row',
+    gap: t.spacing[2],
+    marginBottom: t.spacing[2],
+  },
   calendarButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: t.spacing[2],
     paddingVertical: t.spacing[3],
-    marginBottom: t.spacing[2],
     borderRadius: t.radii.default,
     borderWidth: 1,
     borderColor: t.colors.accent.aqua,
