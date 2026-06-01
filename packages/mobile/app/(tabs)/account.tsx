@@ -1,13 +1,5 @@
 import { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@festie/shared/hooks';
@@ -17,6 +9,7 @@ import AccountAvatarSection from '../../components/AccountAvatarSection';
 import AccountUsernameSection from '../../components/AccountUsernameSection';
 import AccountPasswordSection from '../../components/AccountPasswordSection';
 import AccountNotificationsSection from '../../components/AccountNotificationsSection';
+import AccountNotificationPrefsSection from '../../components/AccountNotificationPrefsSection';
 import AccountDataSection from '../../components/AccountDataSection';
 import AccountDangerSection from '../../components/AccountDangerSection';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
@@ -87,10 +80,7 @@ export default function AccountScreen() {
     <View style={styles.container}>
       <ScreenHeader title="Account" subtitle="Settings & preferences" icon="person-circle-outline" />
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Identity */}
         <View style={styles.identity}>
           {avatarUrl ? (
@@ -102,11 +92,7 @@ export default function AccountScreen() {
             />
           ) : (
             <View style={styles.avatarFallback}>
-              <Ionicons
-                name="person"
-                size={36}
-                color={t.colors.accent.aqua}
-              />
+              <Ionicons name="person" size={36} color={t.colors.accent.aqua} />
             </View>
           )}
           <View style={styles.identityText}>
@@ -141,6 +127,7 @@ export default function AccountScreen() {
         {/* Preferences */}
         <Text style={styles.sectionLabel}>Preferences</Text>
         <AccountNotificationsSection />
+        <AccountNotificationPrefsSection />
         <View style={styles.card}>
           <View
             style={styles.row}
@@ -148,22 +135,14 @@ export default function AccountScreen() {
             accessibilityLabel={`Reduce motion is ${reduceMotion ? 'on' : 'off'} (controlled in system settings)`}
           >
             <View style={styles.rowIcon}>
-              <Ionicons
-                name="accessibility-outline"
-                size={20}
-                color={t.colors.text.secondary}
-              />
+              <Ionicons name="accessibility-outline" size={20} color={t.colors.text.secondary} />
             </View>
             <View style={styles.rowBody}>
               <Text style={styles.rowTitle}>Reduce Motion</Text>
               <Text style={styles.rowHint}>Follows your system accessibility setting</Text>
             </View>
-            <View
-              style={[styles.statusPill, reduceMotion && styles.statusPillOn]}
-            >
-              <Text
-                style={[styles.statusText, reduceMotion && styles.statusTextOn]}
-              >
+            <View style={[styles.statusPill, reduceMotion && styles.statusPillOn]}>
+              <Text style={[styles.statusText, reduceMotion && styles.statusTextOn]}>
                 {reduceMotion ? 'On' : 'Off'}
               </Text>
             </View>
@@ -181,11 +160,7 @@ export default function AccountScreen() {
             accessibilityLabel="Open your festival wrap"
           >
             <View style={styles.rowIcon}>
-              <Ionicons
-                name="sparkles-outline"
-                size={20}
-                color={t.colors.text.secondary}
-              />
+              <Ionicons name="sparkles-outline" size={20} color={t.colors.text.secondary} />
             </View>
             <View style={styles.rowBody}>
               <Text style={styles.rowTitle}>Festival Wrap</Text>
@@ -193,11 +168,7 @@ export default function AccountScreen() {
                 Your stats & top sets after the festival
               </Text>
             </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={t.colors.text.placeholder}
-            />
+            <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
           </TouchableOpacity>
         </View>
 
@@ -216,11 +187,7 @@ export default function AccountScreen() {
             accessibilityLabel="Open the privacy policy"
           >
             <View style={styles.rowIcon}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={20}
-                color={t.colors.text.secondary}
-              />
+              <Ionicons name="shield-checkmark-outline" size={20} color={t.colors.text.secondary} />
             </View>
             <View style={styles.rowBody}>
               <Text style={styles.rowTitle}>Privacy Policy</Text>
@@ -228,11 +195,7 @@ export default function AccountScreen() {
                 How we handle your data
               </Text>
             </View>
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={t.colors.text.placeholder}
-            />
+            <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
           </TouchableOpacity>
         </View>
 
@@ -249,11 +212,7 @@ export default function AccountScreen() {
             accessibilityState={{ disabled: loggingOut }}
           >
             <View style={styles.rowIcon}>
-              <Ionicons
-                name="log-out-outline"
-                size={20}
-                color={t.colors.text.danger}
-              />
+              <Ionicons name="log-out-outline" size={20} color={t.colors.text.danger} />
             </View>
             <View style={styles.rowBody}>
               <Text style={[styles.rowTitle, styles.dangerText]}>Sign Out</Text>
@@ -261,20 +220,14 @@ export default function AccountScreen() {
             {loggingOut ? (
               <ActivityIndicator size="small" color={t.colors.text.danger} />
             ) : (
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={t.colors.text.placeholder}
-              />
+              <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
             )}
           </TouchableOpacity>
         </View>
 
         {/* Danger zone */}
         <Text style={styles.sectionLabel}>Danger Zone</Text>
-        <AccountDangerSection
-          onDeleted={() => router.replace('/(auth)/login')}
-        />
+        <AccountDangerSection onDeleted={() => router.replace('/(auth)/login')} />
       </ScrollView>
     </View>
   );

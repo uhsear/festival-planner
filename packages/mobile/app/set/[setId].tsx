@@ -1,14 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-  Linking,
-  ActivityIndicator,
-  Share,
-} from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Linking, ActivityIndicator, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,6 +16,7 @@ import {
 } from '@festie/shared/utils';
 import type { Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
+import { useHaptics } from '../../hooks/useHaptics';
 import EmptyState from '../../components/EmptyState';
 import RatingButtons from '../../components/RatingButtons';
 
@@ -49,6 +41,15 @@ const PRIORITIES: readonly {
   { value: 'must', icon: 'star', label: 'Must See' },
   { value: 'want-to-see', icon: 'heart', label: 'Want to See' },
   { value: 'maybe', icon: 'ellipse', label: 'Maybe' },
+];
+
+/** Reminder lead-time options (minutes) — must match the server's allowed set. */
+const REMINDER_OPTIONS: readonly { value: number; label: string }[] = [
+  { value: 5, label: '5m' },
+  { value: 10, label: '10m' },
+  { value: 15, label: '15m' },
+  { value: 30, label: '30m' },
+  { value: 60, label: '1h' },
 ];
 
 /**
@@ -88,14 +89,12 @@ export default function SetDetailScreen() {
   const loadProfiles = useFestivalDataStore((s) => s.loadProfiles);
   const days = useFestivalDataStore((s) => s.days);
 
-  const { getMyPick, savePick, saveNote, getOtherPicks } = usePicks();
+  const { getMyPick, savePick, saveNote, getOtherPicks, saveReminder, getMyReminder } = usePicks();
   const { getStageColor, getStageName } = useFestival();
   const { getCrewScopedOtherPicks } = useCrew();
+  const haptics = useHaptics();
 
-  const set = useMemo(
-    () => sets.find((x) => x.id === setId),
-    [sets, setId],
-  );
+  const set = useMemo(() => sets.find((x) => x.id === setId), [sets, setId]);
 
   // Cold deep-link (festie.us/set/<id> or festie://set/<id>): the set isn't in
   // the store yet because its festival isn't loaded. Resolve which festival the
@@ -108,9 +107,7 @@ export default function SetDetailScreen() {
     resolveTried.current = true;
     (async () => {
       try {
-        const { festivalId } = await api.get<{ festivalId: string }>(
-          `/festivals/locate-set/${setId}`,
-        );
+        const { festivalId } = await api.get<{ festivalId: string }>(`/festivals/locate-set/${setId}`);
         if (festivalId && festivalId !== currentFestivalId) {
           await selectFestival(festivalId);
         }
@@ -147,24 +144,13 @@ export default function SetDetailScreen() {
   }, [set, artistName, currentFestival?.name, shareUrl]);
   const subtitle = set ? artistSubtitle(set, b2bSeparator) : '';
   const stageName = set ? getStageName(set.stageId) || 'Unknown' : 'Unknown';
-  const stageColor = safeStageColor(
-    set ? getStageColor(set.stageId) : undefined,
-    t.colors.text.muted,
-  );
+  const stageColor = safeStageColor(set ? getStageColor(set.stageId) : undefined, t.colors.text.muted);
   const timeLabel =
-    set && set.startTime && set.endTime
-      ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}`
-      : 'TBA';
+    set && set.startTime && set.endTime ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}` : 'TBA';
   const myPick = set ? getMyPick(set.id) : undefined;
+  const myReminder = set ? getMyReminder(set.id) : undefined;
 
-  const allGenres = useMemo(
-    () =>
-      [...new Set((set?.artists || []).flatMap((a) => a.genres || []))].slice(
-        0,
-        6,
-      ),
-    [set],
-  );
+  const allGenres = useMemo(() => [...new Set((set?.artists || []).flatMap((a) => a.genres || []))].slice(0, 6), [set]);
 
   const artistLinks = useMemo(() => (set ? getSetLinks(set) : []), [set]);
 
@@ -195,8 +181,7 @@ export default function SetDetailScreen() {
     });
   }, [set, currentProfile, getCrewScopedOtherPicks, getOtherPicks, allProfiles]);
 
-  const whoTitle =
-    others.length > 0 ? `Who's Going (${others.length})` : 'Nobody else going yet';
+  const whoTitle = others.length > 0 ? `Who's Going (${others.length})` : 'Nobody else going yet';
 
   const crewNotes = useMemo(() => {
     if (!set) return [];
@@ -256,17 +241,14 @@ export default function SetDetailScreen() {
   const [spotifyOpen, setSpotifyOpen] = useState(false);
 
   // Server returns artistName/trackName (no `label`); derive a display label.
-  const spotifyLabel =
-    spotify?.trackName || spotify?.artistName || 'Play on Spotify';
+  const spotifyLabel = spotify?.trackName || spotify?.artistName || 'Play on Spotify';
 
   useEffect(() => {
     if (!set) return;
     let cancelled = false;
     (async () => {
       try {
-        const preview = await api.get<SpotifyPreview>(
-          `/spotify/preview/${set.id}`,
-        );
+        const preview = await api.get<SpotifyPreview>(`/spotify/preview/${set.id}`);
         if (!cancelled && preview?.embedType) setSpotify(preview);
       } catch {
         /* No Spotify preview available */
@@ -284,6 +266,15 @@ export default function SetDetailScreen() {
       savePick(currentFestival.id, set.id, priority).catch(() => {});
     },
     [set, currentFestival, savePick],
+  );
+
+  const handleReminder = useCallback(
+    (minutes: number | null) => {
+      if (!set || !currentFestival) return;
+      haptics.select();
+      saveReminder(currentFestival.id, set.id, minutes).catch(() => {});
+    },
+    [set, currentFestival, saveReminder, haptics],
   );
 
   const handleConflictSwitch = useCallback(
@@ -366,9 +357,7 @@ export default function SetDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Stage pill */}
-        <View
-          style={[styles.stagePill, { backgroundColor: stageColor + '25' }]}
-        >
+        <View style={[styles.stagePill, { backgroundColor: stageColor + '25' }]}>
           <Text style={[styles.stageText, { color: stageColor }]} numberOfLines={1}>
             {stageName}
           </Text>
@@ -405,11 +394,7 @@ export default function SetDetailScreen() {
                   accessibilityRole="link"
                   accessibilityLabel={`Open ${entry.name} on ${key}`}
                 >
-                  <Ionicons
-                    name="open-outline"
-                    size={14}
-                    color={t.colors.accent.aqua}
-                  />
+                  <Ionicons name="open-outline" size={14} color={t.colors.accent.aqua} />
                   <Text style={styles.linkText}>{key}</Text>
                 </TouchableOpacity>
               )),
@@ -428,42 +413,22 @@ export default function SetDetailScreen() {
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityState={{ expanded: spotifyOpen }}
-              accessibilityLabel={
-                spotifyOpen
-                  ? `Hide preview: ${spotifyLabel}`
-                  : `Play preview: ${spotifyLabel}`
-              }
+              accessibilityLabel={spotifyOpen ? `Hide preview: ${spotifyLabel}` : `Play preview: ${spotifyLabel}`}
             >
-              <Ionicons
-                name="musical-note"
-                size={16}
-                color={t.colors.spotify.brand}
-              />
+              <Ionicons name="musical-note" size={16} color={t.colors.spotify.brand} />
               <Text style={styles.spotifyText} numberOfLines={1}>
                 {spotifyLabel}
               </Text>
-              <Ionicons
-                name={spotifyOpen ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color={t.colors.text.secondary}
-              />
+              <Ionicons name={spotifyOpen ? 'chevron-up' : 'chevron-down'} size={16} color={t.colors.text.secondary} />
             </TouchableOpacity>
             {spotifyOpen ? (
-              <View
-                style={[
-                  styles.spotifyEmbed,
-                  { height: spotify.embedType === 'track' ? 152 : 352 },
-                ]}
-              >
+              <View style={[styles.spotifyEmbed, { height: spotify.embedType === 'track' ? 152 : 352 }]}>
                 <WebView
                   source={{ uri: spotify.embedUrl }}
                   style={styles.spotifyWebView}
                   allowsInlineMediaPlayback
                   mediaPlaybackRequiresUserAction={false}
-                  originWhitelist={[
-                    'https://open.spotify.com',
-                    'https://*.spotify.com',
-                  ]}
+                  originWhitelist={['https://open.spotify.com', 'https://*.spotify.com']}
                   onShouldStartLoadWithRequest={(req) => {
                     // Default-DENY: only the embed itself + in-frame Spotify
                     // resource loads stay in the WebView. User clicks (Spotify
@@ -495,15 +460,9 @@ export default function SetDetailScreen() {
         {currentProfile && conflicts.length > 0 ? (
           <View style={styles.conflictBox}>
             <View style={styles.conflictHeader}>
-              <Ionicons
-                name="warning"
-                size={16}
-                color={t.colors.accent.coral}
-              />
+              <Ionicons name="warning" size={16} color={t.colors.accent.coral} />
               <Text style={styles.conflictTitle}>
-                {conflicts.length === 1
-                  ? '1 scheduling conflict'
-                  : `${conflicts.length} scheduling conflicts`}
+                {conflicts.length === 1 ? '1 scheduling conflict' : `${conflicts.length} scheduling conflicts`}
               </Text>
             </View>
             {conflicts.map((c) => (
@@ -533,49 +492,68 @@ export default function SetDetailScreen() {
 
         {/* Priority picker / Join CTA */}
         {currentProfile ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Your pick</Text>
-            <View style={styles.priorityRow}>
-              {PRIORITIES.map((option) => {
-                const active = myPick === option.value;
-                const accent = priorityColor(t, option.value);
-                return (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[
-                      styles.priorityButton,
-                      active && { backgroundColor: accent, borderColor: accent },
-                    ]}
-                    onPress={() => handlePriority(active ? null : option.value)}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={
-                      active ? `${option.label} (selected)` : option.label
-                    }
-                  >
-                    <Ionicons
-                      name={option.icon}
-                      size={16}
-                      color={
-                        active
-                          ? t.colors.text.onLightAccent
-                          : t.colors.text.muted
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.priorityText,
-                        active && { color: t.colors.text.onLightAccent },
-                      ]}
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Your pick</Text>
+              <View style={styles.priorityRow}>
+                {PRIORITIES.map((option) => {
+                  const active = myPick === option.value;
+                  const accent = priorityColor(t, option.value);
+                  return (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[styles.priorityButton, active && { backgroundColor: accent, borderColor: accent }]}
+                      onPress={() => handlePriority(active ? null : option.value)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={active ? `${option.label} (selected)` : option.label}
                     >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                      <Ionicons
+                        name={option.icon}
+                        size={16}
+                        color={active ? t.colors.text.onLightAccent : t.colors.text.muted}
+                      />
+                      <Text style={[styles.priorityText, active && { color: t.colors.text.onLightAccent }]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
-          </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Remind me before it starts</Text>
+              <View style={styles.priorityRow}>
+                {REMINDER_OPTIONS.map((opt) => {
+                  const active = myReminder === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[
+                        styles.priorityButton,
+                        active && {
+                          backgroundColor: t.colors.accent.aqua,
+                          borderColor: t.colors.accent.aqua,
+                        },
+                      ]}
+                      onPress={() => handleReminder(active ? null : opt.value)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={
+                        active ? `Reminder set ${opt.label} before, tap to clear` : `Remind me ${opt.label} before`
+                      }
+                    >
+                      <Text style={[styles.priorityText, active && { color: t.colors.text.onLightAccent }]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </>
         ) : (
           <View style={styles.joinBox}>
             <Text style={styles.joinCopy}>
@@ -592,10 +570,7 @@ export default function SetDetailScreen() {
               accessibilityLabel={user ? 'Join festival' : 'Sign in to join'}
             >
               {joinBusy ? (
-                <ActivityIndicator
-                  size="small"
-                  color={t.colors.text.onLightAccent}
-                />
+                <ActivityIndicator size="small" color={t.colors.text.onLightAccent} />
               ) : (
                 <Text style={styles.joinButtonText}>{user ? 'Join Festival' : 'Sign in to join'}</Text>
               )}
@@ -604,9 +579,7 @@ export default function SetDetailScreen() {
         )}
 
         {/* Ratings — only once the set has started (web parity). */}
-        {currentProfile &&
-        currentFestival &&
-        hasSetStarted(set, currentFestival, days) ? (
+        {currentProfile && currentFestival && hasSetStarted(set, currentFestival, days) ? (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Rate this set</Text>
             <RatingButtons setId={set.id} festivalId={currentFestival.id} />
@@ -618,12 +591,7 @@ export default function SetDetailScreen() {
           <Text style={styles.sectionLabel}>{whoTitle}</Text>
           {others.map((o) => (
             <View key={o.profileId} style={styles.crewRow}>
-              <View
-                style={[
-                  styles.crewDot,
-                  { backgroundColor: priorityColor(t, o.priority) },
-                ]}
-              />
+              <View style={[styles.crewDot, { backgroundColor: priorityColor(t, o.priority) }]} />
               <Text style={styles.crewName} numberOfLines={1}>
                 {o.name}
               </Text>

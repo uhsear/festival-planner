@@ -17,6 +17,24 @@ Notifications.setNotificationHandler({
   }),
 });
 
+/**
+ * Ensure the Android channels exist. The FCM sender targets channelId
+ * 'updates' for set reminders + crew updates; it MUST exist as HIGH importance
+ * or time-critical set reminders arrive silently/low-importance (the old code
+ * only created 'default'). Idempotent — safe to call on every mount.
+ */
+async function ensureAndroidChannels(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync('default', {
+    name: 'General',
+    importance: Notifications.AndroidImportance.DEFAULT,
+  });
+  await Notifications.setNotificationChannelAsync('updates', {
+    name: 'Set reminders & crew updates',
+    importance: Notifications.AndroidImportance.HIGH,
+  });
+}
+
 export interface MobilePush {
   registered: boolean;
   busy: boolean;
@@ -44,6 +62,9 @@ export function useMobilePush(): MobilePush {
     AsyncStorage.getItem(TOKEN_KEY)
       .then((t) => setRegistered(!!t))
       .catch(() => {});
+    // Create/upgrade channels on mount so already-registered users (who won't
+    // re-run register) get the correct 'updates' HIGH channel after this update.
+    ensureAndroidChannels().catch(() => {});
   }, []);
 
   const register = useCallback(async () => {
@@ -60,12 +81,7 @@ export function useMobilePush(): MobilePush {
         throw new Error('Notifications permission was denied.');
       }
 
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'Default',
-          importance: Notifications.AndroidImportance.DEFAULT,
-        });
-      }
+      await ensureAndroidChannels();
 
       const { data: token } = await Notifications.getDevicePushTokenAsync();
       await api.post('/notifications/token', {
