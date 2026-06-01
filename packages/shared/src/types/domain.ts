@@ -91,6 +91,8 @@ export interface Profile {
   name?: string;
   picks: Record<string, Priority>;
   notes: Record<string, string>;
+  /** setId -> reminder lead time in minutes (5|10|15|30|60). */
+  reminders?: Record<string, number>;
   updatedAt: string;
   etag?: string;
 }

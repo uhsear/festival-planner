@@ -39,6 +39,7 @@ import {
   Priority,
   SavePickRequest,
   SaveNoteRequest,
+  SaveReminderRequest,
 } from '../types';
 
 import { useFestivalUIStore } from './festivalUIStore';
@@ -77,6 +78,7 @@ export interface FestivalDataActions {
   savePick: (request: SavePickRequest) => Promise<void>;
   removePick: (festivalId: string, setId: string) => Promise<void>;
   saveNote: (request: SaveNoteRequest) => Promise<void>;
+  saveReminder: (request: SaveReminderRequest) => Promise<void>;
   setError: (error: string | null) => void;
 }
 
@@ -118,7 +120,9 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       if (useAuthStore.getState().user) {
         try {
           profiles = await api.get<Profile[]>(`/profiles/${festivalId}`);
-        } catch (_) { /* session expired mid-flight -- ignore */ }
+        } catch (_) {
+          /* session expired mid-flight -- ignore */
+        }
       }
 
       const { stages, days: rawDays, ...festival } = detail;
@@ -139,9 +143,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
 
       // Find the current user's profile from the loaded profiles
       const userId = useAuthStore.getState().user?.id;
-      const currentProfile = userId
-        ? profiles.find((p) => p.userId === userId) || null
-        : null;
+      const currentProfile = userId ? profiles.find((p) => p.userId === userId) || null : null;
 
       set({
         currentFestival: festival,
@@ -171,9 +173,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
     try {
       const profiles = await api.get<Profile[]>(`/profiles/${festivalId}`);
       const userId = useAuthStore.getState().user?.id;
-      const currentProfile = userId
-        ? profiles.find((p) => p.userId === userId) || null
-        : null;
+      const currentProfile = userId ? profiles.find((p) => p.userId === userId) || null : null;
       set({ allProfiles: profiles, currentProfile, isLoading: false });
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to load profiles');
@@ -196,8 +196,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
     next[idx] = updated;
     set({
       allProfiles: next,
-      currentProfile:
-        currentProfile && currentProfile.id === profileId ? updated : currentProfile,
+      currentProfile: currentProfile && currentProfile.id === profileId ? updated : currentProfile,
     });
     return true;
   },
@@ -256,9 +255,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         throw new Error('No active profile -- select a festival first');
       }
 
-      const mergedPicks = Object.fromEntries(
-        Object.entries(currentProfile.picks).filter(([id]) => id !== setId),
-      );
+      const mergedPicks = Object.fromEntries(Object.entries(currentProfile.picks).filter(([id]) => id !== setId));
 
       set({
         currentProfile: {
@@ -269,11 +266,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
 
       // Same clientId as savePick so a toggle-on-then-off offline sequence
       // collapses to one PUT whose body is the latest map.
-      await offlinePut(
-        `/profiles/${currentProfile.id}`,
-        { picks: mergedPicks },
-        `pick-${currentProfile.id}-${setId}`,
-      );
+      await offlinePut(`/profiles/${currentProfile.id}`, { picks: mergedPicks }, `pick-${currentProfile.id}-${setId}`);
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to remove pick');
       set({ currentProfile: prev, error: message });
@@ -316,6 +309,46 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
     }
   },
 
+  // PUT /profiles/:profileId with the full reminders map (mirrors savePick).
+  // The reminder backend (scheduler/FCM/DND) is live; this is the write path
+  // no client previously exercised. minutes=null clears the set's reminder.
+  saveReminder: async (request: SaveReminderRequest) => {
+    const prev = get().currentProfile;
+    set({ error: null });
+    try {
+      const { currentProfile } = get();
+      if (!currentProfile) {
+        throw new Error('No active profile -- select a festival first');
+      }
+
+      const mergedReminders: Record<string, number> = {
+        ...(currentProfile.reminders || {}),
+      };
+      if (request.minutes != null) {
+        mergedReminders[request.setId] = request.minutes;
+      } else {
+        delete mergedReminders[request.setId];
+      }
+
+      set({
+        currentProfile: {
+          ...currentProfile,
+          reminders: mergedReminders,
+        },
+      });
+
+      await offlinePut(
+        `/profiles/${currentProfile.id}`,
+        { reminders: mergedReminders },
+        `reminder-${currentProfile.id}-${request.setId}`,
+      );
+    } catch (err) {
+      const message = mapErrorToUserMessage(err, 'Failed to save reminder');
+      set({ currentProfile: prev, error: message });
+      throw err;
+    }
+  },
+
   setError: (error: string | null) => {
     set({ error });
   },
@@ -325,8 +358,18 @@ export const useFestivalDataStore = create<FestivalDataStore>()(
   persist(festivalDataStore, {
     name: 'festie-festival',
     storage: createJSONStorage(() => getStorage()),
+    // Persist the selected festival's schedule + the user's own profile so a
+    // cold start with no signal (the festival condition) renders the cached
+    // schedule and picks/reminders instantly; selectFestival revalidates when
+    // online. allProfiles is intentionally NOT persisted (crew data can be
+    // large and is re-fetched on reconnect).
     partialize: (state) => ({
       currentFestivalId: state.currentFestivalId,
+      currentFestival: state.currentFestival,
+      sets: state.sets,
+      stages: state.stages,
+      days: state.days,
+      currentProfile: state.currentProfile,
     }),
   }),
 );
