@@ -13,12 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFestivalDataStore, useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { usePicks, useFestival } from '@festie/shared/hooks';
-import {
-  artistDisplayName,
-  getSetHotness,
-  getConflictingSetIds,
-
-  timeToMinutes} from '@festie/shared/utils';
+import { artistDisplayName, getSetHotness, getConflictingSetIds, timeToMinutes } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { useUI, type ViewMode } from '../../contexts/UIContext';
@@ -89,11 +84,15 @@ export default function TimelineScreen() {
   const searchQuery = useFestivalStore((s) => s.searchQuery);
   const setSearchQuery = useFestivalStore((s) => s.setSearchQuery);
   const activeStages = useFestivalStore((s) => s.activeStages);
+  const setActiveStages = useFestivalStore((s) => s.setActiveStages);
 
   const { getDays, getFilteredSets, getStageColor, getStageName } = useFestival();
   const { getMyPick, getOtherPicks, getMyNote, savePick } = usePicks();
 
   const [search, setSearch] = useState(searchQuery);
+  // "My picks only" filter — on-site you mostly want to read your own day.
+  const [onlyMine, setOnlyMine] = useState(false);
+  const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
 
   const clearSelection = useCallback(() => {
     useFestivalDataStore.setState({
@@ -155,10 +154,7 @@ export default function TimelineScreen() {
   // Does this festival have any timed sets at all? A festival whose lineup is
   // published without set times (everything TBA) renders nothing in the
   // Timeline/Grid views — Cards is the only useful view for it.
-  const festivalHasTimedSets = useMemo(
-    () => allSets.some((s) => s.startTime && s.endTime),
-    [allSets],
-  );
+  const festivalHasTimedSets = useMemo(() => allSets.some((s) => s.startTime && s.endTime), [allSets]);
 
   // Pick a sensible default view per festival: Timeline for festivals with a
   // timed schedule, Cards for all-TBA festivals (otherwise they'd open on an
@@ -189,7 +185,8 @@ export default function TimelineScreen() {
   // (getFilteredSets mirrors cards.tsx's filteredSets). We then apply the same
   // hotness → time → name sort the web Cards view uses.
   const filteredSets = useMemo(() => {
-    const filtered = [...getFilteredSets()];
+    let filtered = [...getFilteredSets()];
+    if (onlyMine) filtered = filtered.filter((s) => getMyPick(s.id));
     return filtered.sort((a, b) => {
       const hotA = getSetHotness(a);
       const hotB = getSetHotness(b);
@@ -205,28 +202,19 @@ export default function TimelineScreen() {
       );
     });
     // getFilteredSets is recreated when day/stage/search/sets change.
-  }, [getFilteredSets, currentFestival?.b2bSeparator]);
+  }, [getFilteredSets, currentFestival?.b2bSeparator, onlyMine, getMyPick]);
 
   // Conflict set IDs — same util the web Cards view uses.
-  const conflictIds = useMemo(
-    () => getConflictingSetIds(filteredSets, getMyPick),
-    [filteredSets, getMyPick],
-  );
+  const conflictIds = useMemo(() => getConflictingSetIds(filteredSets, getMyPick), [filteredSets, getMyPick]);
 
   // Cards view: a flat hotness-sorted list of set rows.
-  const rows = useMemo<ListRow[]>(
-    () => filteredSets.map((set) => ({ kind: 'set', key: set.id, set })),
-    [filteredSets],
-  );
+  const rows = useMemo<ListRow[]>(() => filteredSets.map((set) => ({ kind: 'set', key: set.id, set })), [filteredSets]);
 
   // Timeline/Grid views consume the same day-filtered set list (filteredSets
   // already applies day + active-stage + search), split into timed vs. TBA and
   // bounded by the day's earliest start / latest end — mirroring the web
   // useTimelineFilters logic, adapted to mobile's stores.
-  const timedSets = useMemo(
-    () => filteredSets.filter((s) => s.startTime && s.endTime),
-    [filteredSets],
-  );
+  const timedSets = useMemo(() => filteredSets.filter((s) => s.startTime && s.endTime), [filteredSets]);
 
   const timelessSets = useMemo(
     () =>
@@ -264,6 +252,22 @@ export default function TimelineScreen() {
     return stages.filter((st) => activeStages.includes(st.id));
   }, [stages, activeStages]);
 
+  // Stage filter chips — wires the previously-dead setActiveStages path. A stage
+  // is "on" when it's in the effective set (all when activeStages is empty).
+  const allStageIds = useMemo(() => stages.map((s) => s.id), [stages]);
+  const effectiveStages = activeStages.length ? activeStages : allStageIds;
+  const toggleStage = useCallback(
+    (id: string) => {
+      const sel = new Set(effectiveStages);
+      if (sel.has(id)) sel.delete(id);
+      else sel.add(id);
+      const next = allStageIds.filter((sid) => sel.has(sid));
+      // empty or all-selected both mean "show all" — store [] to keep it clean
+      setActiveStages(next.length === 0 || next.length === allStageIds.length ? [] : next);
+    },
+    [effectiveStages, allStageIds, setActiveStages],
+  );
+
   // ROW_HEIGHT here matches TimelineView's slot height so scroll-to-now lands
   // on the right offset.
   const { nowIndicator } = useNowIndicator(timeBounds, selectedDay, 22);
@@ -281,9 +285,7 @@ export default function TimelineScreen() {
       if (item.kind === 'stageHeader') {
         return (
           <View style={styles.stageHeader}>
-            <View
-              style={[styles.stageDot, { backgroundColor: item.stageColor }]}
-            />
+            <View style={[styles.stageDot, { backgroundColor: item.stageColor }]} />
             <Text style={styles.stageHeaderText} numberOfLines={1}>
               {item.stageName}
             </Text>
@@ -324,15 +326,11 @@ export default function TimelineScreen() {
   // Stage color resolver that substitutes a real token for web's `var(...)`
   // fallback so the timeline/grid views never receive an unparseable color.
   const resolveStageColor = useCallback(
-    (stageId: string) =>
-      safeStageColor(getStageColor(stageId), t.colors.text.muted),
+    (stageId: string) => safeStageColor(getStageColor(stageId), t.colors.text.muted),
     [getStageColor, t.colors.text.muted],
   );
 
-  const handleSetPress = useCallback(
-    (set: FestivalSet) => router.push(`/set/${set.id}`),
-    [router],
-  );
+  const handleSetPress = useCallback((set: FestivalSet) => router.push(`/set/${set.id}`), [router]);
 
   // Shared TBA section, reused as a footer across all three views.
   const tbaSection =
@@ -408,11 +406,7 @@ export default function TimelineScreen() {
             accessibilityRole="button"
             accessibilityLabel="Switch festival"
           >
-            <Ionicons
-              name="swap-horizontal"
-              size={14}
-              color={t.colors.accent.aqua}
-            />
+            <Ionicons name="swap-horizontal" size={14} color={t.colors.accent.aqua} />
             <Text style={styles.switchText}>Switch</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -436,12 +430,7 @@ export default function TimelineScreen() {
 
       {/* Search */}
       <View style={styles.searchRow}>
-        <Ionicons
-          name="search"
-          size={16}
-          color={t.colors.text.placeholder}
-          style={styles.searchIcon}
-        />
+        <Ionicons name="search" size={16} color={t.colors.text.placeholder} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           value={search}
@@ -460,11 +449,7 @@ export default function TimelineScreen() {
             accessibilityLabel="Clear search"
             hitSlop={8}
           >
-            <Ionicons
-              name="close-circle"
-              size={18}
-              color={t.colors.text.muted}
-            />
+            <Ionicons name="close-circle" size={18} color={t.colors.text.muted} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -472,13 +457,10 @@ export default function TimelineScreen() {
       {/* Day selector */}
       {days.length > 1 ? (
         <View style={styles.daysWrap}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.daysContent}
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysContent}>
             {days.map((day) => {
               const active = day.index === selectedDay;
+              const isToday = day.date === todayStr;
               return (
                 <TouchableOpacity
                   key={day.index}
@@ -487,17 +469,57 @@ export default function TimelineScreen() {
                   activeOpacity={0.7}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
-                  accessibilityLabel={`Day: ${day.label ?? day.date}`}
+                  accessibilityLabel={`Day: ${day.label ?? day.date}${isToday ? ' (today)' : ''}`}
                 >
-                  <Text
-                    style={[styles.dayText, active && styles.dayTextActive]}
-                    numberOfLines={1}
-                  >
+                  {isToday ? <View style={[styles.todayDot, active && styles.todayDotActive]} /> : null}
+                  <Text style={[styles.dayText, active && styles.dayTextActive]} numberOfLines={1}>
                     {day.label ?? day.date}
                   </Text>
                 </TouchableOpacity>
               );
             })}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {/* Stage + my-picks filters */}
+      {currentProfile || stages.length > 1 ? (
+        <View style={styles.filterRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+            {currentProfile ? (
+              <TouchableOpacity
+                style={[styles.filterChip, onlyMine && styles.filterChipActive]}
+                onPress={() => setOnlyMine((v) => !v)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityState={{ selected: onlyMine }}
+                accessibilityLabel="Show only my picks"
+              >
+                <Ionicons name="star" size={12} color={onlyMine ? t.colors.text.onLightAccent : t.colors.text.muted} />
+                <Text style={[styles.filterChipText, onlyMine && styles.filterChipTextActive]}>My picks</Text>
+              </TouchableOpacity>
+            ) : null}
+            {stages.length > 1
+              ? stages.map((st) => {
+                  const on = effectiveStages.includes(st.id);
+                  return (
+                    <TouchableOpacity
+                      key={st.id}
+                      style={[styles.filterChip, !on && styles.filterChipOff]}
+                      onPress={() => toggleStage(st.id)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                      accessibilityLabel={`${on ? 'Hide' : 'Show'} ${st.name}`}
+                    >
+                      <View style={[styles.stageDotSmall, { backgroundColor: resolveStageColor(st.id) }]} />
+                      <Text style={[styles.filterChipText, !on && styles.filterChipTextOff]} numberOfLines={1}>
+                        {st.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
+              : null}
           </ScrollView>
         </View>
       ) : null}
@@ -514,11 +536,7 @@ export default function TimelineScreen() {
           ListEmptyComponent={
             <EmptyState
               icon={search.length > 0 ? 'search' : 'musical-notes'}
-              title={
-                search.length > 0
-                  ? 'No artists match your search'
-                  : 'No sets for this day'
-              }
+              title={search.length > 0 ? 'No artists match your search' : 'No sets for this day'}
               message={
                 search.length > 0
                   ? 'Try a different spelling or clear the search to see the full lineup.'
@@ -646,6 +664,9 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[2],
   },
   dayChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
     paddingHorizontal: t.spacing[4],
     paddingVertical: t.spacing[2],
     borderRadius: t.radii.pill,
@@ -663,6 +684,55 @@ const useStyles = makeStyles((t) => ({
   },
   dayTextActive: {
     color: t.colors.text.onLightAccent,
+  },
+  todayDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: t.colors.accent.aqua,
+  },
+  todayDotActive: {
+    backgroundColor: t.colors.text.onLightAccent,
+  },
+  filterRow: {
+    paddingBottom: t.spacing[2],
+  },
+  filterContent: {
+    paddingHorizontal: t.spacing[4],
+    gap: t.spacing[2],
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[1],
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  filterChipActive: {
+    backgroundColor: t.colors.accent.aqua,
+    borderColor: t.colors.accent.aqua,
+  },
+  filterChipOff: {
+    opacity: 0.4,
+  },
+  filterChipText: {
+    ...typeStyle('label'),
+    color: t.colors.text.secondary,
+  },
+  filterChipTextActive: {
+    color: t.colors.text.onLightAccent,
+  },
+  filterChipTextOff: {
+    color: t.colors.text.muted,
+  },
+  stageDotSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   stageHeader: {
     flexDirection: 'row',
