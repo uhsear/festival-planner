@@ -38,6 +38,10 @@ const PROFILE_SELECT = `
      FROM festival_profile_notes n WHERE n.profile_id = fp.id),
     '{}'::jsonb
   ) AS "notesJson",
+  -- Reminders have no normalized table (dropped in migration 013); they live in
+  -- the reminders_json JSONB column (write path + reminder-scheduler use it).
+  -- Without this select the API always returned reminders: {} (read-back bug).
+  COALESCE(fp.reminders_json, '{}'::jsonb) AS "remindersJson",
   fp.created_at AS "createdAt",
   fp.updated_at AS "updatedAt"
 `;
@@ -47,23 +51,29 @@ export default function createProfilesStore(pool: Pool, utils: any) {
 
   const profiles = {
     async readAll({ limit = 10000 } = {}) {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT ${PROFILE_SELECT}
         FROM festival_profiles fp
         WHERE fp.deleted_at IS NULL
         ORDER BY fp.created_at ASC, fp.id ASC
         LIMIT $1
-      `, [limit]);
+      `,
+        [limit],
+      );
       return result.rows.map(mapProfileRow);
     },
 
     async getByFestival(festivalId: string) {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT ${PROFILE_SELECT}
         FROM festival_profiles fp
         WHERE fp.festival_id = $1 AND fp.deleted_at IS NULL
         ORDER BY fp.created_at ASC, fp.id ASC
-      `, [festivalId]);
+      `,
+        [festivalId],
+      );
       return result.rows.map(mapProfileRow);
     },
 
@@ -76,7 +86,8 @@ export default function createProfilesStore(pool: Pool, utils: any) {
     },
 
     async getByUserId(userId: string) {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT
           fp.id,
           fp.festival_id AS "festivalId",
@@ -91,7 +102,9 @@ export default function createProfilesStore(pool: Pool, utils: any) {
           AND fp.deleted_at IS NULL
         ORDER BY
           fp.created_at ASC
-      `, [userId]);
+      `,
+        [userId],
+      );
       return result.rows;
     },
 
@@ -106,7 +119,9 @@ export default function createProfilesStore(pool: Pool, utils: any) {
     async replaceAll(nextProfiles: any[]) {
       return withTransaction(pool, async (client) => {
         if (nextProfiles.length === 0) {
-          await client.query('UPDATE festival_profiles SET deleted_at = NOW(), updated_at = NOW() WHERE deleted_at IS NULL');
+          await client.query(
+            'UPDATE festival_profiles SET deleted_at = NOW(), updated_at = NOW() WHERE deleted_at IS NULL',
+          );
           return;
         }
 
@@ -134,7 +149,8 @@ export default function createProfilesStore(pool: Pool, utils: any) {
           );
           return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9})`;
         });
-        await client.query(`
+        await client.query(
+          `
           INSERT INTO festival_profiles (id, festival_id, user_id, name, picks_json, notes_json, reminders_json, created_at, updated_at)
           VALUES ${upsertPlaceholders.join(', ')}
           ON CONFLICT(id) DO UPDATE SET
@@ -147,7 +163,9 @@ export default function createProfilesStore(pool: Pool, utils: any) {
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at,
             deleted_at = NULL
-        `, upsertValues);
+        `,
+          upsertValues,
+        );
 
         // #24: Batch sync normalized picks/notes tables
         // Delete all existing picks/notes for these profiles in two queries
@@ -191,7 +209,16 @@ export default function createProfilesStore(pool: Pool, utils: any) {
   VALUES
     ($1, $2, $3, $4, $5, $6, $7, $8)
 `,
-          [id, festivalId, userId || null, name, serializeJson(picks || {}), serializeJson(notes || {}), serializeJson(reminders || {}), createdAt || new Date().toISOString()]
+          [
+            id,
+            festivalId,
+            userId || null,
+            name,
+            serializeJson(picks || {}),
+            serializeJson(notes || {}),
+            serializeJson(reminders || {}),
+            createdAt || new Date().toISOString(),
+          ],
         );
         // Sync normalized picks/notes/reminders tables (batch)
         if (picks && Object.keys(picks).length > 0) {
@@ -203,19 +230,25 @@ export default function createProfilesStore(pool: Pool, utils: any) {
           await batchInsert(client, 'festival_profile_notes', ['profile_id', 'set_id', 'text'], noteRows);
         }
 
-        const result = await client.query(`
+        const result = await client.query(
+          `
           SELECT ${PROFILE_SELECT}
           FROM festival_profiles fp WHERE fp.id = $1 AND fp.deleted_at IS NULL
-        `, [id]);
+        `,
+          [id],
+        );
         return result.rows[0] ? mapProfileRow(result.rows[0]) : null;
       });
     },
 
     async getById(profileId: string) {
-      const { rows } = await pool.query(`
+      const { rows } = await pool.query(
+        `
         SELECT ${PROFILE_SELECT}
         FROM festival_profiles fp WHERE fp.id = $1 AND fp.deleted_at IS NULL
-      `, [profileId]);
+      `,
+        [profileId],
+      );
       if (!rows[0]) return null;
       return mapProfileRow(rows[0]);
     },
@@ -227,14 +260,39 @@ export default function createProfilesStore(pool: Pool, utils: any) {
         const sets: string[] = [];
         const values: any[] = [];
         let idx = 1;
-        if (fields.picks !== undefined) { sets.push(`picks_json = $${idx}`); values.push(serializeJson(fields.picks)); idx++; }
-        if (fields.notes !== undefined) { sets.push(`notes_json = $${idx}`); values.push(serializeJson(fields.notes)); idx++; }
-        if (fields.reminders !== undefined) { sets.push(`reminders_json = $${idx}`); values.push(serializeJson(fields.reminders)); idx++; }
-        if (fields.userId !== undefined) { sets.push(`user_id = $${idx}`); values.push(fields.userId); idx++; }
-        if (fields.name !== undefined) { sets.push(`name = $${idx}`); values.push(fields.name); idx++; }
-        sets.push(`updated_at = $${idx}`); values.push(new Date().toISOString()); idx++;
+        if (fields.picks !== undefined) {
+          sets.push(`picks_json = $${idx}`);
+          values.push(serializeJson(fields.picks));
+          idx++;
+        }
+        if (fields.notes !== undefined) {
+          sets.push(`notes_json = $${idx}`);
+          values.push(serializeJson(fields.notes));
+          idx++;
+        }
+        if (fields.reminders !== undefined) {
+          sets.push(`reminders_json = $${idx}`);
+          values.push(serializeJson(fields.reminders));
+          idx++;
+        }
+        if (fields.userId !== undefined) {
+          sets.push(`user_id = $${idx}`);
+          values.push(fields.userId);
+          idx++;
+        }
+        if (fields.name !== undefined) {
+          sets.push(`name = $${idx}`);
+          values.push(fields.name);
+          idx++;
+        }
+        sets.push(`updated_at = $${idx}`);
+        values.push(new Date().toISOString());
+        idx++;
         values.push(profileId);
-        await client.query(`UPDATE festival_profiles SET ${sets.join(', ')} WHERE id = $${idx} AND deleted_at IS NULL`, values);
+        await client.query(
+          `UPDATE festival_profiles SET ${sets.join(', ')} WHERE id = $${idx} AND deleted_at IS NULL`,
+          values,
+        );
         // Sync normalized tables (batch inserts)
         if (fields.picks !== undefined) {
           await client.query('DELETE FROM festival_profile_picks WHERE profile_id = $1', [profileId]);
@@ -246,10 +304,13 @@ export default function createProfilesStore(pool: Pool, utils: any) {
           const noteRows = Object.entries(fields.notes).map(([setId, text]) => [profileId, setId, text]);
           await batchInsert(client, 'festival_profile_notes', ['profile_id', 'set_id', 'text'], noteRows);
         }
-        const result = await client.query(`
+        const result = await client.query(
+          `
           SELECT ${PROFILE_SELECT}
           FROM festival_profiles fp WHERE fp.id = $1 AND fp.deleted_at IS NULL
-        `, [profileId]);
+        `,
+          [profileId],
+        );
         return result.rows[0] ? mapProfileRow(result.rows[0]) : null;
       });
     },
@@ -258,7 +319,10 @@ export default function createProfilesStore(pool: Pool, utils: any) {
       const profile = await this.getById(profileId);
       if (!profile) return null;
       await withTransaction(pool, async (client) => {
-        await client.query('UPDATE festival_profiles SET deleted_at = NOW(), updated_at = NOW(), deleted_by = $2, deletion_reason = $3 WHERE id = $1 AND deleted_at IS NULL', [profileId, deletedBy || null, reason || null]);
+        await client.query(
+          'UPDATE festival_profiles SET deleted_at = NOW(), updated_at = NOW(), deleted_by = $2, deletion_reason = $3 WHERE id = $1 AND deleted_at IS NULL',
+          [profileId, deletedBy || null, reason || null],
+        );
         await client.query('DELETE FROM festival_profile_picks WHERE profile_id = $1', [profileId]);
         await client.query('DELETE FROM festival_profile_notes WHERE profile_id = $1', [profileId]);
       });
@@ -266,7 +330,8 @@ export default function createProfilesStore(pool: Pool, utils: any) {
     },
 
     async deleteByUserId(userId: string, { deletedBy, reason }: { deletedBy?: string; reason?: string } = {}) {
-      const { rows } = await pool.query(`
+      const { rows } = await pool.query(
+        `
         SELECT
           id,
           festival_id AS "festivalId",
@@ -277,11 +342,16 @@ export default function createProfilesStore(pool: Pool, utils: any) {
         WHERE
           user_id = $1
           AND deleted_at IS NULL
-      `, [userId]);
+      `,
+        [userId],
+      );
       if (rows.length > 0) {
         const profileIds = rows.map((r: any) => r.id);
         await withTransaction(pool, async (client) => {
-          await client.query('UPDATE festival_profiles SET deleted_at = NOW(), updated_at = NOW(), deleted_by = $2, deletion_reason = $3 WHERE user_id = $1 AND deleted_at IS NULL', [userId, deletedBy || null, reason || null]);
+          await client.query(
+            'UPDATE festival_profiles SET deleted_at = NOW(), updated_at = NOW(), deleted_by = $2, deletion_reason = $3 WHERE user_id = $1 AND deleted_at IS NULL',
+            [userId, deletedBy || null, reason || null],
+          );
           await client.query('DELETE FROM festival_profile_picks WHERE profile_id = ANY($1)', [profileIds]);
           await client.query('DELETE FROM festival_profile_notes WHERE profile_id = ANY($1)', [profileIds]);
         });
@@ -291,20 +361,29 @@ export default function createProfilesStore(pool: Pool, utils: any) {
 
     async claimOrphan(festivalId: string, userId: string, username: string) {
       // Find orphan profile matching username
-      const { rows } = await pool.query(`
+      const { rows } = await pool.query(
+        `
         SELECT id FROM festival_profiles
         WHERE festival_id = $1 AND user_id IS NULL AND LOWER(name) = LOWER($2) AND deleted_at IS NULL
         LIMIT 1
-      `, [festivalId, username]);
+      `,
+        [festivalId, username],
+      );
       if (rows[0]) {
-        await pool.query('UPDATE festival_profiles SET user_id = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL', [userId, rows[0].id]);
+        await pool.query(
+          'UPDATE festival_profiles SET user_id = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL',
+          [userId, rows[0].id],
+        );
         return this.getById(rows[0].id);
       }
       return null;
     },
 
     async countByFestival(festivalId: string) {
-      const { rows } = await pool.query('SELECT COUNT(*) AS count FROM festival_profiles WHERE festival_id = $1 AND deleted_at IS NULL', [festivalId]);
+      const { rows } = await pool.query(
+        'SELECT COUNT(*) AS count FROM festival_profiles WHERE festival_id = $1 AND deleted_at IS NULL',
+        [festivalId],
+      );
       return parseInt(rows[0].count, 10);
     },
 
@@ -320,7 +399,8 @@ export default function createProfilesStore(pool: Pool, utils: any) {
   // #24: Picks store for querying normalized picks data
   const picks = {
     async bySetId(setId: string) {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT
           p.profile_id AS "profileId",
           fp.user_id AS "userId",
@@ -332,12 +412,15 @@ export default function createProfilesStore(pool: Pool, utils: any) {
         WHERE
           p.set_id = $1
           AND fp.deleted_at IS NULL
-      `, [setId]);
+      `,
+        [setId],
+      );
       return result.rows;
     },
 
     async byFestival(festivalId: string) {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT
           p.set_id AS "setId",
           p.priority,
@@ -348,7 +431,9 @@ export default function createProfilesStore(pool: Pool, utils: any) {
         WHERE
           fp.festival_id = $1
           AND fp.deleted_at IS NULL
-      `, [festivalId]);
+      `,
+        [festivalId],
+      );
       return result.rows;
     },
   };
