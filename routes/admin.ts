@@ -221,6 +221,7 @@ export default function createAdminRoutes(deps: any): Router {
       // precedence over search; `force` re-links sets that already have a link.
       const body = req.body || {};
       const force = body.force === true;
+      const skipSearch = body.skipSearch === true; // overrides-only, no Spotify calls
       const normName = (s: any) =>
         spotify
           .cleanArtistName(s)
@@ -250,13 +251,15 @@ export default function createAdminRoutes(deps: any): Router {
 
       // Collect cleaned sub-artist names that need a search (skip overridden).
       const searchNames = new Set<string>();
-      for (const set of sets) {
-        const arr = set.artists?.length ? set.artists : [{ name: set.artist }];
-        for (const a of arr) {
-          for (const part of splitB2B(a?.name)) {
-            if (overrideMap.has(normName(part))) continue;
-            const cleaned = spotify.cleanArtistName(part) || part;
-            if (cleaned) searchNames.add(cleaned);
+      if (!skipSearch) {
+        for (const set of sets) {
+          const arr = set.artists?.length ? set.artists : [{ name: set.artist }];
+          for (const a of arr) {
+            for (const part of splitB2B(a?.name)) {
+              if (overrideMap.has(normName(part))) continue;
+              const cleaned = spotify.cleanArtistName(part) || part;
+              if (cleaned) searchNames.add(cleaned);
+            }
           }
         }
       }

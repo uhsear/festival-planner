@@ -111,23 +111,36 @@ async function searchArtist(name: any, clientId: any, clientSecret: any) {
 }
 
 /**
- * Bulk search multiple artist names with rate-limit-safe staggering.
- * Returns Map<artistName, { spotifyUrl, spotifyId, imageUrl }>
+ * Bulk search multiple artist names with a bounded concurrency pool (keeps a
+ * large lineup well under request timeouts while staying gentle on the API).
+ * Returns Map<artistName, { spotifyUrl, spotifyId, imageUrl, genres }>
  */
-async function bulkSearchArtists(names: any, clientId: any, clientSecret: any, { delayMs = 50, log }: any = {}) {
+async function bulkSearchArtists(names: any, clientId: any, clientSecret: any, { concurrency = 6, log }: any = {}) {
   const results = new Map();
   const uniqueNames = [...new Set(names.filter(Boolean))];
+  if (!uniqueNames.length) return results;
 
-  for (const name of uniqueNames) {
-    try {
-      const result = await searchArtist(name, clientId, clientSecret);
-      if (result) results.set(name, result);
-    } catch (err: any) {
-      if (log) log.warn('spotify search failed for artist', { artist: name, error: err.message });
-    }
-    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+  // Prime the token once so the concurrent workers don't all race to fetch it.
+  // Swallow failures here — each worker surfaces its own error below.
+  try {
+    await getToken(clientId, clientSecret);
+  } catch {
+    /* workers will report per-name */
   }
 
+  let cursor = 0;
+  async function worker() {
+    while (cursor < uniqueNames.length) {
+      const name = uniqueNames[cursor++];
+      try {
+        const result = await searchArtist(name, clientId, clientSecret);
+        if (result) results.set(name, result);
+      } catch (err: any) {
+        if (log) log.warn('spotify search failed for artist', { artist: name, error: err.message });
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, uniqueNames.length) }, worker));
   return results;
 }
 
