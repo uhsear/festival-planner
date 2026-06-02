@@ -71,8 +71,9 @@ vi.mock('lucide-react', () => ({
   Share2: () => <span data-testid="share-icon" />,
 }));
 
+const mockToast = vi.fn();
 vi.mock('../lib/toastContext', () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: mockToast }),
 }));
 
 import PicksView from './picks';
@@ -215,5 +216,68 @@ describe('PicksView', () => {
     expect(revokeObjectURL).toHaveBeenCalledTimes(1);
 
     clickSpy.mockRestore();
+  });
+
+  it('shares picks via navigator.share when available', async () => {
+    const sets = [{ id: 's1', artist: 'Daft Punk', stageId: 'st1', startTime: '14:00', dayIndex: 0 }];
+    setStoreState({
+      sets,
+      currentFestival: { id: 'f1', name: 'Bonnaroo', b2bSeparator: undefined },
+      currentProfile: { id: 'p1', picks: { s1: 'must' }, notes: {} },
+    });
+    vi.mocked(usePicks).mockReturnValue({
+      getMyPick: vi.fn(() => 'must'),
+      savePick: vi.fn(),
+      getMyNote: vi.fn(() => ''),
+    });
+
+    const shareSpy = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'share', { value: shareSpy, configurable: true, writable: true });
+
+    render(<PicksView />);
+    const btn = screen.getByRole('button', { name: 'Share my picks' });
+    btn.click();
+    // handleSharePicks is async; let the awaited share settle.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(shareSpy).toHaveBeenCalledTimes(1);
+    expect(shareSpy).toHaveBeenCalledWith({
+      title: 'My Bonnaroo picks on Festie',
+      text: 'My Bonnaroo picks on Festie',
+      url: 'https://festie.us/s/p1',
+    });
+
+    // Cleanup so the fallback test sees navigator.share as undefined.
+    delete (navigator as { share?: unknown }).share;
+  });
+
+  it('falls back to clipboard + toast when navigator.share is undefined', async () => {
+    const sets = [{ id: 's1', artist: 'Daft Punk', stageId: 'st1', startTime: '14:00', dayIndex: 0 }];
+    setStoreState({
+      sets,
+      currentFestival: { id: 'f1', name: 'Bonnaroo', b2bSeparator: undefined },
+      currentProfile: { id: 'p1', picks: { s1: 'must' }, notes: {} },
+    });
+    vi.mocked(usePicks).mockReturnValue({
+      getMyPick: vi.fn(() => 'must'),
+      savePick: vi.fn(),
+      getMyNote: vi.fn(() => ''),
+    });
+
+    // Ensure no native share is present so we exercise the desktop fallback.
+    delete (navigator as { share?: unknown }).share;
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true, writable: true });
+
+    render(<PicksView />);
+    const btn = screen.getByRole('button', { name: 'Share my picks' });
+    btn.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText).toHaveBeenCalledWith('https://festie.us/s/p1');
+    expect(mockToast).toHaveBeenCalledWith('Share link copied to clipboard', 'success');
   });
 });

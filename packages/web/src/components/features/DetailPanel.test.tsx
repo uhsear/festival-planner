@@ -6,13 +6,21 @@ import type { FestivalSet, Priority } from '@festie/shared/types';
 // Mock vaul Drawer
 vi.mock('vaul', () => ({
   Drawer: {
-    Root: ({ children, open, onOpenChange: _onOpenChange }: { children: React.ReactNode; open: boolean; onOpenChange: (o: boolean) => void }) => (
-      open ? <div data-testid="drawer-root">{children}</div> : null
-    ),
+    Root: ({
+      children,
+      open,
+      onOpenChange: _onOpenChange,
+    }: {
+      children: React.ReactNode;
+      open: boolean;
+      onOpenChange: (o: boolean) => void;
+    }) => (open ? <div data-testid="drawer-root">{children}</div> : null),
     Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     Overlay: () => <div data-testid="drawer-overlay" />,
     Content: ({ children, ...props }: { children: React.ReactNode; 'aria-label'?: string }) => (
-      <div data-testid="drawer-content" aria-label={props['aria-label']}>{children}</div>
+      <div data-testid="drawer-content" aria-label={props['aria-label']}>
+        {children}
+      </div>
     ),
     Title: ({ children, className }: { children: React.ReactNode; className?: string }) => (
       <h2 className={className}>{children}</h2>
@@ -26,6 +34,7 @@ vi.mock('vaul', () => ({
 // Mock useDetailPanelData
 const mockSavePick = vi.fn(async () => {});
 const mockSaveNote = vi.fn(async () => {});
+const mockSaveReminder = vi.fn(async () => {});
 vi.mock('./useDetailPanelData', () => ({
   useDetailPanelData: vi.fn(() => ({
     currentFestival: { id: 'fest-1', name: 'Test Fest' },
@@ -35,6 +44,7 @@ vi.mock('./useDetailPanelData', () => ({
     stageColor: '#ff3366',
     stageName: 'Main Stage',
     myPick: null as Priority | null,
+    myReminder: undefined as number | undefined,
     artistName: 'Daft Punk',
     sub: '',
     artistLinks: [],
@@ -46,6 +56,7 @@ vi.mock('./useDetailPanelData', () => ({
     crewNotes: [],
     whoTitle: "Who's going",
     savePick: mockSavePick,
+    saveReminder: mockSaveReminder,
     saveNote: mockSaveNote,
     getOtherPicks: vi.fn(() => []),
     getStageName: vi.fn(() => 'Main Stage'),
@@ -128,6 +139,7 @@ function defaultDetailData() {
     stageColor: '#ff3366',
     stageName: 'Main Stage',
     myPick: null as Priority | null,
+    myReminder: undefined as number | undefined,
     artistName: 'Daft Punk',
     sub: '',
     artistLinks: [] as ReturnType<typeof useDetailPanelData>['artistLinks'],
@@ -139,6 +151,7 @@ function defaultDetailData() {
     crewNotes: [] as ReturnType<typeof useDetailPanelData>['crewNotes'],
     whoTitle: "Who's going",
     savePick: mockSavePick,
+    saveReminder: mockSaveReminder,
     saveNote: mockSaveNote,
     getOtherPicks: vi.fn(() => []) as ReturnType<typeof useDetailPanelData>['getOtherPicks'],
     getStageName: vi.fn(() => 'Main Stage') as ReturnType<typeof useDetailPanelData>['getStageName'],
@@ -177,12 +190,7 @@ describe('DetailPanel', () => {
   });
 
   it('renders TBA when times are missing', () => {
-    render(
-      <DetailPanel
-        {...defaultProps}
-        set={makeSet({ startTime: '', endTime: '' })}
-      />,
-    );
+    render(<DetailPanel {...defaultProps} set={makeSet({ startTime: '', endTime: '' })} />);
     expect(screen.getByText('TBA')).toBeInTheDocument();
   });
 
@@ -240,5 +248,40 @@ describe('DetailPanel', () => {
     render(<DetailPanel {...defaultProps} />);
     // Drawer.Title with sr-only renders the artist name
     expect(screen.getByText('Daft Punk', { selector: 'h2' })).toBeInTheDocument();
+  });
+
+  it('renders the reminder picker when user has a profile', () => {
+    render(<DetailPanel {...defaultProps} />);
+    expect(screen.getByText('Remind me before it starts')).toBeInTheDocument();
+  });
+
+  it('calls saveReminder when a reminder option is selected', async () => {
+    const user = userEvent.setup();
+    render(<DetailPanel {...defaultProps} />);
+    await user.click(screen.getByRole('button', { name: 'Remind me 15m before' }));
+    expect(mockSaveReminder).toHaveBeenCalledWith('fest-1', 'set-1', 15);
+  });
+
+  it('clears the reminder (null) when the active option is clicked', async () => {
+    const user = userEvent.setup();
+    vi.mocked(useDetailPanelData).mockReturnValue({
+      ...defaultDetailData(),
+      myReminder: 30,
+    });
+    render(<DetailPanel {...defaultProps} />);
+    await user.click(screen.getByRole('button', { name: 'Reminder 30m before, click to clear' }));
+    expect(mockSaveReminder).toHaveBeenCalledWith('fest-1', 'set-1', null);
+  });
+
+  it('surfaces no error and resets busy when saveReminder rejects', async () => {
+    const user = userEvent.setup();
+    mockSaveReminder.mockRejectedValueOnce(new Error('network'));
+    render(<DetailPanel {...defaultProps} />);
+    const btn = screen.getByRole('button', { name: 'Remind me 5m before' });
+    await user.click(btn);
+    expect(mockSaveReminder).toHaveBeenCalledWith('fest-1', 'set-1', 5);
+    // handleReminderClick swallows the error and clears reminderBusy in finally,
+    // so the buttons become interactive again (not stuck disabled).
+    expect(screen.getByRole('button', { name: 'Remind me 5m before' })).not.toBeDisabled();
   });
 });

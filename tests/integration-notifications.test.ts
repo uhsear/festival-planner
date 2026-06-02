@@ -1,9 +1,5 @@
 import { afterEach, describe, test } from 'node:test';
-import {
-  assert,
-  startServer,
-  registerUser,
-} from './_integration-helpers';
+import { assert, startServer, registerUser } from './_integration-helpers';
 
 const servers: any[] = [];
 
@@ -166,6 +162,47 @@ describe('Integration — Notifications', { concurrency: 1 }, () => {
       .set('x-user-token', alice.token)
       .send({ unknownField: true });
     assert.equal(noFields.status, 400);
+  });
+
+  test('GET /prefs returns persisted toggle + DND fields after PUT', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const alice = await registerUser(server, 'alice');
+
+    // PUT a mix of toggles (on + off) plus DND/quiet-hours time strings.
+    const putRes = await server.request
+      .put('/api/v1/notifications/prefs')
+      .set('x-user-token', alice.token)
+      .send({
+        crewUpdates: false,
+        setReminders: true,
+        scheduleChanges: false,
+        dndStart: '23:30',
+        dndEnd: '07:15',
+      })
+      .expect(200);
+    assert.ok(putRes.body.data);
+
+    // GET them back.
+    const getRes = await server.request.get('/api/v1/notifications/prefs').set('x-user-token', alice.token).expect(200);
+    const prefs = getRes.body.data;
+    assert.ok(prefs);
+
+    // Toggle fields are persisted as 0/1 integers (notification_preferences
+    // columns are INTEGER; neither the store nor the route coerces to JS
+    // booleans). This is the real read-back contract.
+    assert.equal(prefs.crewUpdates, 0);
+    assert.equal(prefs.setReminders, 1);
+    assert.equal(prefs.scheduleChanges, 0);
+    assert.equal(typeof prefs.crewUpdates, 'number');
+    assert.equal(typeof prefs.setReminders, 'number');
+    assert.equal(typeof prefs.scheduleChanges, 'number');
+
+    // DND / quiet-hours times are preserved verbatim as HH:MM strings.
+    assert.equal(prefs.dndStart, '23:30');
+    assert.equal(prefs.dndEnd, '07:15');
+    assert.equal(typeof prefs.dndStart, 'string');
+    assert.equal(typeof prefs.dndEnd, 'string');
   });
 
   test('notification token registration enforces rate limits', async () => {

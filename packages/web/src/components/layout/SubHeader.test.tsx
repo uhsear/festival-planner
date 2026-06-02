@@ -18,6 +18,10 @@ const storeState = {
   setSelectedDay: vi.fn(),
   setActiveStages: vi.fn(),
   setSearchQuery: vi.fn(),
+  // My picks toggle: gated on currentProfile + currentFestival.
+  currentProfile: { id: 'p1' } as { id: string } | null,
+  onlyMine: false,
+  setOnlyMine: vi.fn(),
 };
 
 vi.mock('@festie/shared/stores', () => ({
@@ -82,5 +86,42 @@ describe('SubHeader layout density', () => {
   it('shows search box only when not dayOnly/festivalOnly', () => {
     render(<SubHeader dayOnly={false} festivalOnly={false} />);
     expect(screen.getByRole('search')).toBeInTheDocument();
+  });
+});
+
+describe('SubHeader My picks toggle', () => {
+  afterEach(() => {
+    // Restore the default state mutated by the tests below.
+    storeState.currentProfile = { id: 'p1' };
+    storeState.currentFestival = { id: 'f1', name: 'Festival One' };
+    storeState.onlyMine = false;
+    vi.clearAllMocks();
+  });
+
+  it('renders the My picks toggle when currentProfile + currentFestival are present', () => {
+    render(<SubHeader dayOnly={false} festivalOnly={false} />);
+    expect(screen.getByRole('button', { name: 'Show only my picks' })).toBeInTheDocument();
+  });
+
+  it('hides the My picks toggle when there is no profile', () => {
+    storeState.currentProfile = null;
+    render(<SubHeader dayOnly={false} festivalOnly={false} />);
+    expect(screen.queryByRole('button', { name: 'Show only my picks' })).not.toBeInTheDocument();
+  });
+
+  it('calls setOnlyMine(!onlyMine) when the toggle is clicked', () => {
+    storeState.onlyMine = false;
+    render(<SubHeader dayOnly={false} festivalOnly={false} />);
+    screen.getByRole('button', { name: 'Show only my picks' }).click();
+    expect(storeState.setOnlyMine).toHaveBeenCalledWith(true);
+  });
+
+  it('toggles back off when already showing only my picks', () => {
+    storeState.onlyMine = true;
+    render(<SubHeader dayOnly={false} festivalOnly={false} />);
+    const btn = screen.getByRole('button', { name: 'Show only my picks' });
+    expect(btn).toHaveAttribute('aria-pressed', 'true');
+    btn.click();
+    expect(storeState.setOnlyMine).toHaveBeenCalledWith(false);
   });
 });

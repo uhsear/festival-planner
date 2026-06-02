@@ -50,9 +50,27 @@ function makeFestivalFixture() {
         label: 'Friday',
         date: '2026-06-05',
         sets: [
-          { id: `set-a-${RUN_ID}`, artist: 'Alpha', stageId: `stg-main-${RUN_ID}`, startTime: '10:00', endTime: '11:00' },
-          { id: `set-b-${RUN_ID}`, artist: 'Beta', stageId: `stg-forest-${RUN_ID}`, startTime: '10:30', endTime: '11:30' },
-          { id: `set-c-${RUN_ID}`, artist: 'Gamma', stageId: `stg-main-${RUN_ID}`, startTime: '12:00', endTime: '13:00' },
+          {
+            id: `set-a-${RUN_ID}`,
+            artist: 'Alpha',
+            stageId: `stg-main-${RUN_ID}`,
+            startTime: '10:00',
+            endTime: '11:00',
+          },
+          {
+            id: `set-b-${RUN_ID}`,
+            artist: 'Beta',
+            stageId: `stg-forest-${RUN_ID}`,
+            startTime: '10:30',
+            endTime: '11:30',
+          },
+          {
+            id: `set-c-${RUN_ID}`,
+            artist: 'Gamma',
+            stageId: `stg-main-${RUN_ID}`,
+            startTime: '12:00',
+            endTime: '13:00',
+          },
         ],
       },
     ],
@@ -63,19 +81,15 @@ async function ensureTestSchema() {
   if (testDbReady) return;
   const pool = new Pool({ connectionString: TEST_DATABASE_URL });
   try {
-    const { rows } = await pool.query(
-      "SELECT 1 FROM information_schema.tables WHERE table_name = 'users' LIMIT 1"
-    );
+    const { rows } = await pool.query("SELECT 1 FROM information_schema.tables WHERE table_name = 'users' LIMIT 1");
     if (rows.length === 0) {
       await pool.query('CREATE EXTENSION IF NOT EXISTS citext');
-      const schema = fs.readFileSync(
-        path.join(__dirname, '..', 'migrations', '004_postgresql_baseline.sql'),
-        'utf8'
-      );
+      const schema = fs.readFileSync(path.join(__dirname, '..', 'migrations', '004_postgresql_baseline.sql'), 'utf8');
       await pool.query(schema);
     }
     const migrationsDir = path.join(__dirname, '..', 'migrations');
-    const migrationFiles = fs.readdirSync(migrationsDir)
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
       .filter((f: string) => f.endsWith('.sql') && !f.startsWith('004_'))
       .sort();
     for (const file of migrationFiles) {
@@ -93,26 +107,26 @@ async function seedFestival(festival: any) {
   try {
     await pool.query(
       'INSERT INTO festivals (id, name, location, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT (id) DO NOTHING',
-      [festival.id, festival.name, festival.location]
+      [festival.id, festival.name, festival.location],
     );
     for (let si = 0; si < festival.stages.length; si++) {
       const st = festival.stages[si];
       await pool.query(
         'INSERT INTO festival_stages (festival_id, id, name, color, sort_order) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING',
-        [festival.id, st.id, st.name, st.color, si]
+        [festival.id, st.id, st.name, st.color, si],
       );
     }
     for (let di = 0; di < festival.days.length; di++) {
       const day = festival.days[di];
       await pool.query(
         'INSERT INTO festival_days (festival_id, day_index, label, date) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING',
-        [festival.id, di, day.label, day.date]
+        [festival.id, di, day.label, day.date],
       );
       for (let sei = 0; sei < day.sets.length; sei++) {
         const s = day.sets[sei];
         await pool.query(
           'INSERT INTO festival_sets (id, festival_id, day_index, artist, stage_id, start_time, end_time, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING',
-          [s.id, festival.id, di, s.artist, s.stageId, s.startTime, s.endTime, sei]
+          [s.id, festival.id, di, s.artist, s.stageId, s.startTime, s.endTime, sei],
         );
       }
     }
@@ -130,7 +144,7 @@ async function cleanupCreated() {
     if (createdUserIds.length > 0) {
       await pool.query(
         'DELETE FROM festival_profile_picks WHERE profile_id IN (SELECT id FROM festival_profiles WHERE user_id = ANY($1))',
-        [createdUserIds]
+        [createdUserIds],
       );
       await pool.query('DELETE FROM festival_profiles WHERE user_id = ANY($1)', [createdUserIds]);
       await pool.query('DELETE FROM refresh_tokens WHERE user_id = ANY($1)', [createdUserIds]);
@@ -213,7 +227,7 @@ async function grantAdminTo(username: any) {
          FROM users u, roles r
         WHERE u.username = $1 AND r.name = 'admin'
        ON CONFLICT (user_id, role_id) DO NOTHING`,
-      [username]
+      [username],
     );
   } finally {
     await pool.end();
@@ -224,7 +238,11 @@ const servers: any[] = [];
 afterEach(async () => {
   while (servers.length > 0) {
     const s = servers.pop();
-    try { await s.close(); } catch (_) { /* noop */ }
+    try {
+      await s.close();
+    } catch (_) {
+      /* noop */
+    }
   }
   await cleanupCreated();
 });
@@ -305,18 +323,24 @@ describe('profiles: pick priority transitions', { concurrency: 1 }, () => {
 
     const url = `/api/v1/profiles/${profile.id}`;
 
-    const r1 = await server.request.put(url)
-      .set('x-user-token', user.token).set(TRUSTED_MUTATION_HEADER, '1')
+    const r1 = await server.request
+      .put(url)
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
       .send({ picks: { [setId]: 'must' } });
     assert.equal(r1.body.data.picks[setId], 'must');
 
-    const r2 = await server.request.put(url)
-      .set('x-user-token', user.token).set(TRUSTED_MUTATION_HEADER, '1')
+    const r2 = await server.request
+      .put(url)
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
       .send({ picks: { [setId]: 'maybe' } });
     assert.equal(r2.body.data.picks[setId], 'maybe');
 
-    const r3 = await server.request.put(url)
-      .set('x-user-token', user.token).set(TRUSTED_MUTATION_HEADER, '1')
+    const r3 = await server.request
+      .put(url)
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
       .send({ picks: {} });
     assert.ok(!r3.body.data.picks || !r3.body.data.picks[setId]);
   });
@@ -427,6 +451,73 @@ describe('profiles: ETag optimistic concurrency', { concurrency: 1 }, () => {
 // ──────────────────────────────────────────────────────────────────────────
 // Admin profile delete (soft-delete)
 // ──────────────────────────────────────────────────────────────────────────
+
+// ──────────────────────────────────────────────────────────────────────────
+// Reminders write path
+// ──────────────────────────────────────────────────────────────────────────
+
+describe('profiles: reminders write path', { concurrency: 1 }, () => {
+  test('PUT persists reminders and they read back via GET', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const user = await registerUser(server, `rem-write-${Date.now()}`);
+    const profile = await joinFestival(server, user.token, server.festival.id);
+    const setId = server.festival.days[0]!.sets[0]!.id;
+
+    // PUT the profile with a reminder (lead minutes must be one of the
+    // ALLOWED_REMINDER_MINUTES values: 5, 10, 15, 30, 60).
+    const putRes = await server.request
+      .put(`/api/v1/profiles/${profile.id}`)
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({ reminders: { [setId]: 15 } });
+    assert.equal(putRes.status, 200);
+    // serializeOwnProfile exposes reminders to the owner on the write response.
+    assert.deepEqual(putRes.body.data.reminders, { [setId]: 15 });
+
+    // GET it back via the festival roster — the owning viewer sees reminders.
+    const getRes = await server.request.get(`/api/v1/profiles/${server.festival.id}`).set('x-user-token', user.token);
+    assert.equal(getRes.status, 200);
+    const mine = getRes.body.data.find((p: any) => p.id === profile.id);
+    assert.ok(mine, 'own profile should be present in festival roster');
+    assert.deepEqual(mine.reminders, { [setId]: 15 });
+  });
+
+  test('rejects reminder referencing an unknown set with 400', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const user = await registerUser(server, `rem-badset-${Date.now()}`);
+    const profile = await joinFestival(server, user.token, server.festival.id);
+
+    const res = await server.request
+      .put(`/api/v1/profiles/${profile.id}`)
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({ reminders: { 'set-does-not-exist': 15 } });
+    assert.equal(res.status, 400);
+  });
+
+  test('enforces the 200-reminder cap with 400', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const user = await registerUser(server, `rem-cap-${Date.now()}`);
+    const profile = await joinFestival(server, user.token, server.festival.id);
+
+    // 201 reminders (over the route's 200 cap). Each value is a valid lead
+    // (15) so the Zod schema passes; the route's count cap (checked before the
+    // set-reference validation) is what rejects the payload.
+    const reminders: Record<string, number> = {};
+    for (let i = 0; i < 201; i++) reminders[`set-cap-${i}`] = 15;
+
+    const res = await server.request
+      .put(`/api/v1/profiles/${profile.id}`)
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({ reminders });
+    assert.equal(res.status, 400);
+    assert.match(String(res.body.error?.message || res.body.error || ''), /200 reminders/i);
+  });
+});
 
 describe('profiles: admin soft-delete', { concurrency: 1 }, () => {
   test('non-admin cannot delete a profile', async () => {
