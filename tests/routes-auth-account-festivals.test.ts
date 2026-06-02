@@ -90,7 +90,8 @@ function makeMockDeps(overrides: any = {}) {
     createOpaqueId: mock.fn(() => 'opaque-123'),
     serializePublicUser: mock.fn((u: any) => ({ id: u.id, username: u.username })),
     sendSuccess: (res: any, data: any) => res.json({ data, error: null }),
-    sendError: (res: any, status: any, msg: any, code: any) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
+    sendError: (res: any, status: any, msg: any, code: any) =>
+      res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       NOT_FOUND: 'NOT_FOUND',
@@ -110,10 +111,26 @@ function makeMockDeps(overrides: any = {}) {
     rateLimit: () => (_req: any, _res: any, next: any) => next(),
     io: { to: () => ({ emit: () => {} }), sockets: { sockets: new Map() } },
     DUMMY_PASSWORD_HASH: 'dummy-hash',
-    schemas: { genericIdParams: {}, festivalDepthQuery: {}, festivalDeleteQuery: {}, festivalCreate: {}, festivalUpdate: {}, setLink: {} },
-    validate: () => (req: any, _res: any, next: any) => { req.validatedBody = req.body; next(); },
-    validateQuery: () => (req: any, _res: any, next: any) => { req.validatedQuery = req.query; next(); },
-    validateParams: () => (req: any, _res: any, next: any) => { req.validatedParams = req.params; next(); },
+    schemas: {
+      genericIdParams: {},
+      festivalDepthQuery: {},
+      festivalDeleteQuery: {},
+      festivalCreate: {},
+      festivalUpdate: {},
+      setLink: {},
+    },
+    validate: () => (req: any, _res: any, next: any) => {
+      req.validatedBody = req.body;
+      next();
+    },
+    validateQuery: () => (req: any, _res: any, next: any) => {
+      req.validatedQuery = req.query;
+      next();
+    },
+    validateParams: () => (req: any, _res: any, next: any) => {
+      req.validatedParams = req.params;
+      next();
+    },
     stores: {
       users: {
         create: mock.fn(async (d) => d),
@@ -209,7 +226,6 @@ function createApp(router: any, prefix = '') {
 // AUTH ROUTES
 // ═══════════════════════════════════════════════════════════════════════
 describe('routes/auth.js — createAuthRoutes', () => {
-
   test('factory returns an Express router', () => {
     const deps = makeMockDeps();
     const router = createAuthRoutes(deps);
@@ -345,9 +361,12 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/register')
-        .send({ username: 'newuser', password: 'Str0ngTest!Pw', confirmPassword: 'Str0ngTest!Pw', email: 'taken@example.com' });
+      const res = await request(app).post('/register').send({
+        username: 'newuser',
+        password: 'Str0ngTest!Pw',
+        confirmPassword: 'Str0ngTest!Pw',
+        email: 'taken@example.com',
+      });
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'ALREADY_EXISTS');
@@ -355,7 +374,9 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
     test('returns 500 on internal error', async () => {
       const deps = makeMockDeps();
-      deps.stores.users.getByUsername = mock.fn(async () => { throw new Error('db down'); });
+      deps.stores.users.getByUsername = mock.fn(async () => {
+        throw new Error('db down');
+      });
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
@@ -372,15 +393,17 @@ describe('routes/auth.js — createAuthRoutes', () => {
   describe('POST /login', () => {
     test('successful login returns user and token', async () => {
       const deps = makeMockDeps();
-      deps.stores.users.getByUsername = mock.fn(async () => ({ id: 'u-1', username: 'testuser', passwordHash: 'hashed-pw' }));
+      deps.stores.users.getByUsername = mock.fn(async () => ({
+        id: 'u-1',
+        username: 'testuser',
+        passwordHash: 'hashed-pw',
+      }));
       deps.stores.users.findByUsername = mock.fn(async () => null);
       deps.stores.roles = { getUserRoles: mock.fn(async () => ['user']) };
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/login')
-        .send({ username: 'testuser', password: 'Str0ngTest!Pw' });
+      const res = await request(app).post('/login').send({ username: 'testuser', password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 200);
       assert.equal(res.body.error, null);
@@ -392,9 +415,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/login')
-        .send({ username: '', password: '' });
+      const res = await request(app).post('/login').send({ username: '', password: '' });
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'MISSING_FIELD');
@@ -409,9 +430,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/login')
-        .send({ username: 'nobody', password: 'Str0ngTest!Pw' });
+      const res = await request(app).post('/login').send({ username: 'nobody', password: 'Str0ngTest!Pw' });
 
       // Login failures use setTimeout for jitter -- status is 401
       assert.equal(res.status, 401);
@@ -422,13 +441,15 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const deps = makeMockDeps({
         verifyPassword: mock.fn(async () => false),
       });
-      deps.stores.users.getByUsername = mock.fn(async () => ({ id: 'u-1', username: 'testuser', passwordHash: 'hashed-pw' }));
+      deps.stores.users.getByUsername = mock.fn(async () => ({
+        id: 'u-1',
+        username: 'testuser',
+        passwordHash: 'hashed-pw',
+      }));
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/login')
-        .send({ username: 'testuser', password: 'wrong' });
+      const res = await request(app).post('/login').send({ username: 'testuser', password: 'wrong' });
 
       assert.equal(res.status, 401);
       assert.equal(res.body.error.code, 'INVALID_CREDENTIALS');
@@ -449,9 +470,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/login')
-        .send({ username: 'testuser', password: 'Str0ngTest!Pw' });
+      const res = await request(app).post('/login').send({ username: 'testuser', password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 200);
       assert.equal(updateFn.mock.calls.length, 1);
@@ -460,13 +479,13 @@ describe('routes/auth.js — createAuthRoutes', () => {
 
     test('returns 500 on internal error', async () => {
       const deps = makeMockDeps();
-      deps.stores.users.getByUsername = mock.fn(async () => { throw new Error('db down'); });
+      deps.stores.users.getByUsername = mock.fn(async () => {
+        throw new Error('db down');
+      });
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/login')
-        .send({ username: 'testuser', password: 'Str0ngTest!Pw' });
+      const res = await request(app).post('/login').send({ username: 'testuser', password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 500);
       assert.equal(res.body.error.code, 'INTERNAL_ERROR');
@@ -483,9 +502,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/verify')
-        .set('Authorization', 'Bearer valid-token');
+      const res = await request(app).post('/verify').set('Authorization', 'Bearer valid-token');
 
       assert.equal(res.status, 200);
       assert.equal(res.body.error, null);
@@ -499,9 +516,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/verify')
-        .set('Authorization', 'Bearer bad-token');
+      const res = await request(app).post('/verify').set('Authorization', 'Bearer bad-token');
 
       assert.equal(res.status, 401);
       assert.equal(res.body.error.code, 'AUTH_REQUIRED');
@@ -515,9 +530,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/verify')
-        .set('Authorization', 'Bearer valid-token');
+      const res = await request(app).post('/verify').set('Authorization', 'Bearer valid-token');
 
       assert.equal(res.status, 401);
       assert.equal(res.body.error.code, 'AUTH_REQUIRED');
@@ -576,9 +589,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/logout')
-        .set('Authorization', 'Bearer my-token');
+      const res = await request(app).post('/logout').set('Authorization', 'Bearer my-token');
 
       assert.equal(res.status, 200);
       assert.equal(res.body.error, null);
@@ -630,9 +641,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/change-password')
-        .send({});
+      const res = await request(app).post('/change-password').send({});
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'MISSING_FIELD');
@@ -743,9 +752,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/refresh-token')
-        .send({ refreshToken: 'rt-abc' });
+      const res = await request(app).post('/refresh-token').send({ refreshToken: 'rt-abc' });
 
       assert.equal(res.status, 501);
     });
@@ -758,9 +765,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/refresh-token')
-        .send({ refreshToken: 'rt-invalid' });
+      const res = await request(app).post('/refresh-token').send({ refreshToken: 'rt-invalid' });
 
       assert.equal(res.status, 401);
       assert.equal(res.body.error.code, 'TOKEN_EXPIRED');
@@ -777,9 +782,7 @@ describe('routes/auth.js — createAuthRoutes', () => {
       const router = createAuthRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/refresh-token')
-        .send({ refreshToken: 'rt-valid' });
+      const res = await request(app).post('/refresh-token').send({ refreshToken: 'rt-valid' });
 
       assert.equal(res.status, 200);
       assert.equal(res.body.error, null);
@@ -858,7 +861,6 @@ describe('routes/auth.js — createAuthRoutes', () => {
 // ACCOUNT ROUTES
 // ═══════════════════════════════════════════════════════════════════════
 describe('routes/account.js — createAccountRoutes', () => {
-
   test('factory returns an Express router', () => {
     const deps = makeMockDeps();
     const router = createAccountRoutes(deps);
@@ -969,101 +971,65 @@ describe('routes/account.js — createAccountRoutes', () => {
     });
   });
 
-  // ── PUT /username ─────────────────────────────────────────────────
-  describe('PUT /username', () => {
-    test('changes username successfully', async () => {
-      const updateFn = mock.fn(async (id, data) => ({ id, username: data.username }));
+  // ── PUT|PATCH /display-name (username is immutable — route removed) ──
+  describe('PUT /display-name', () => {
+    test('changes display name successfully', async () => {
+      const updateFn = mock.fn(async (id, data) => ({ id, username: 'testuser', displayName: data.displayName }));
       const deps = makeMockDeps();
-      deps.stores.users.getByUsername = mock.fn(async () => null);
       deps.stores.users.update = updateFn;
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .put('/username')
-        .send({ username: 'newname' });
+      const res = await request(app).put('/display-name').send({ displayName: 'New Name' });
 
       assert.equal(res.status, 200);
       assert.equal(res.body.error, null);
       assert.equal(updateFn.mock.calls.length, 1);
+      // The editable display name is written to the display_name column.
+      assert.equal(updateFn.mock.calls[0]!.arguments[1].displayName, 'New Name');
     });
 
-    test('PATCH /username also works', async () => {
-      const updateFn = mock.fn(async (id, data) => ({ id, username: data.username }));
+    test('PATCH /display-name also works', async () => {
       const deps = makeMockDeps();
-      deps.stores.users.getByUsername = mock.fn(async () => null);
-      deps.stores.users.update = updateFn;
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .patch('/username')
-        .send({ username: 'patchname' });
+      const res = await request(app).patch('/display-name').send({ displayName: 'Patched Name' });
 
       assert.equal(res.status, 200);
       assert.equal(res.body.error, null);
     });
 
-    test('returns 400 when username validation fails', async () => {
-      const deps = makeMockDeps({
-        validateUsername: () => false,
-      });
+    test('returns 400 when display name is blank', async () => {
+      const deps = makeMockDeps();
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .put('/username')
-        .send({ username: '!' });
+      const res = await request(app).put('/display-name').send({ displayName: '   ' });
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'INVALID_INPUT');
     });
 
     test('returns 404 when current user not found', async () => {
-      const deps = makeMockDeps({
-        getUserById: mock.fn(async () => null),
-      });
-      deps.stores.users.getByUsername = mock.fn(async () => null);
+      const deps = makeMockDeps({ getUserById: mock.fn(async () => null) });
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .put('/username')
-        .send({ username: 'newname' });
+      const res = await request(app).put('/display-name').send({ displayName: 'New Name' });
 
       assert.equal(res.status, 404);
       assert.equal(res.body.error.code, 'NOT_FOUND');
     });
 
-    test('returns 400 when username is already taken by another user', async () => {
+    test('the self-serve username route is gone (404)', async () => {
       const deps = makeMockDeps();
-      deps.stores.users.getByUsername = mock.fn(async () => ({ id: 'user-other', username: 'taken' }));
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .put('/username')
-        .send({ username: 'taken' });
+      const res = await request(app).put('/username').send({ username: 'hacker' });
 
-      assert.equal(res.status, 400);
-      assert.equal(res.body.error.code, 'ALREADY_EXISTS');
-    });
-
-    test('returns 400 on unique constraint violation from DB', async () => {
-      const dbError: any = new Error('duplicate key');
-      dbError.code = '23505';
-      const deps = makeMockDeps();
-      deps.stores.users.getByUsername = mock.fn(async () => null);
-      deps.stores.users.update = mock.fn(async () => { throw dbError; });
-      const router = createAccountRoutes(deps);
-      const app = createApp(router);
-
-      const res = await request(app)
-        .put('/username')
-        .send({ username: 'racecondition' });
-
-      assert.equal(res.status, 400);
-      assert.equal(res.body.error.code, 'ALREADY_EXISTS');
+      assert.equal(res.status, 404);
     });
   });
 
@@ -1073,7 +1039,10 @@ describe('routes/account.js — createAccountRoutes', () => {
       const updateUser = mock.fn(async () => {});
       const deps = makeMockDeps({
         getUserById: mock.fn(async () => ({
-          id: 'user-1', username: 'testuser', passwordHash: 'hashed-pw', deletedAt: null,
+          id: 'user-1',
+          username: 'testuser',
+          passwordHash: 'hashed-pw',
+          deletedAt: null,
         })),
         verifyPassword: mock.fn(async () => true),
         invalidateUserSessions: mock.fn(async () => {}),
@@ -1091,9 +1060,7 @@ describe('routes/account.js — createAccountRoutes', () => {
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .delete('/')
-        .send({ password: 'Str0ngTest!Pw' });
+      const res = await request(app).delete('/').send({ password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 200);
       assert.equal(res.body.error, null);
@@ -1112,9 +1079,7 @@ describe('routes/account.js — createAccountRoutes', () => {
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .delete('/')
-        .send({ password: 'Str0ngTest!Pw' });
+      const res = await request(app).delete('/').send({ password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 404);
       assert.equal(res.body.error.code, 'NOT_FOUND');
@@ -1123,7 +1088,9 @@ describe('routes/account.js — createAccountRoutes', () => {
     test('returns 400 when account is already deleted', async () => {
       const deps = makeMockDeps({
         getUserById: mock.fn(async () => ({
-          id: 'user-1', username: 'testuser', passwordHash: 'hashed-pw',
+          id: 'user-1',
+          username: 'testuser',
+          passwordHash: 'hashed-pw',
           deletedAt: '2026-01-01T00:00:00.000Z',
         })),
         verifyPassword: mock.fn(async () => true),
@@ -1134,9 +1101,7 @@ describe('routes/account.js — createAccountRoutes', () => {
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .delete('/')
-        .send({ password: 'Str0ngTest!Pw' });
+      const res = await request(app).delete('/').send({ password: 'Str0ngTest!Pw' });
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'INVALID_INPUT');
@@ -1145,7 +1110,10 @@ describe('routes/account.js — createAccountRoutes', () => {
     test('returns 403 when password is incorrect', async () => {
       const deps = makeMockDeps({
         getUserById: mock.fn(async () => ({
-          id: 'user-1', username: 'testuser', passwordHash: 'hashed-pw', deletedAt: null,
+          id: 'user-1',
+          username: 'testuser',
+          passwordHash: 'hashed-pw',
+          deletedAt: null,
         })),
         verifyPassword: mock.fn(async () => false),
         invalidateUserSessions: mock.fn(async () => {}),
@@ -1155,9 +1123,7 @@ describe('routes/account.js — createAccountRoutes', () => {
       const router = createAccountRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .delete('/')
-        .send({ password: 'wrong' });
+      const res = await request(app).delete('/').send({ password: 'wrong' });
 
       assert.equal(res.status, 403);
       assert.equal(res.body.error.code, 'PASSWORD_INCORRECT');
@@ -1169,14 +1135,22 @@ describe('routes/account.js — createAccountRoutes', () => {
     test('exports user data as JSON', async () => {
       const deps = makeMockDeps({
         getUserById: mock.fn(async () => ({
-          id: 'user-1', username: 'testuser',
-          createdAt: '2026-01-01', updatedAt: '2026-01-01',
+          id: 'user-1',
+          username: 'testuser',
+          createdAt: '2026-01-01',
+          updatedAt: '2026-01-01',
         })),
         getProfiles: mock.fn(async () => [
           {
-            userId: 'user-1', festivalId: 'f-1', id: 'p-1', name: 'Me',
-            picks: {}, notes: {}, reminders: {},
-            createdAt: '2026-01-01', updatedAt: '2026-01-01',
+            userId: 'user-1',
+            festivalId: 'f-1',
+            id: 'p-1',
+            name: 'Me',
+            picks: {},
+            notes: {},
+            reminders: {},
+            createdAt: '2026-01-01',
+            updatedAt: '2026-01-01',
           },
         ]),
       });
@@ -1208,8 +1182,10 @@ describe('routes/account.js — createAccountRoutes', () => {
     test('includes crew and session data when stores are available', async () => {
       const deps = makeMockDeps({
         getUserById: mock.fn(async () => ({
-          id: 'user-1', username: 'testuser',
-          createdAt: '2026-01-01', updatedAt: '2026-01-01',
+          id: 'user-1',
+          username: 'testuser',
+          createdAt: '2026-01-01',
+          updatedAt: '2026-01-01',
         })),
         getProfiles: mock.fn(async () => []),
         stores: {
@@ -1219,9 +1195,7 @@ describe('routes/account.js — createAccountRoutes', () => {
           roles: { getUserRoles: mock.fn(async () => []) },
           sessions: {
             deleteUserSession: mock.fn(async () => {}),
-            listUserSessions: mock.fn(async () => [
-              { createdAt: Date.now(), lastAccess: Date.now() },
-            ]),
+            listUserSessions: mock.fn(async () => [{ createdAt: Date.now(), lastAccess: Date.now() }]),
           },
           deviceTokens: {
             listByUser: mock.fn(async () => [
@@ -1258,7 +1232,6 @@ describe('routes/account.js — createAccountRoutes', () => {
 // FESTIVAL ROUTES
 // ═══════════════════════════════════════════════════════════════════════
 describe('routes/festivals.js — createFestivalsRoutes', () => {
-
   test('factory returns an Express router', () => {
     const deps = makeMockDeps();
     const router = createFestivalsRoutes(deps);
@@ -1288,9 +1261,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
     });
 
     test('returns 304 for matching ETag', async () => {
-      const festivals = [
-        { id: 'f-1', name: 'Fest', location: 'Here', stages: [], days: [], createdAt: '2026-01-01' },
-      ];
+      const festivals = [{ id: 'f-1', name: 'Fest', location: 'Here', stages: [], days: [], createdAt: '2026-01-01' }];
       const deps = makeMockDeps({
         getFestivals: mock.fn(async () => festivals),
       });
@@ -1302,16 +1273,16 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const etag = first.headers.etag as string;
 
       // Second request with matching ETag
-      const second = await request(app)
-        .get('/')
-        .set('If-None-Match', etag);
+      const second = await request(app).get('/').set('If-None-Match', etag);
 
       assert.equal(second.status, 304);
     });
 
     test('returns 500 on internal error', async () => {
       const deps = makeMockDeps({
-        getFestivals: mock.fn(async () => { throw new Error('db down'); }),
+        getFestivals: mock.fn(async () => {
+          throw new Error('db down');
+        }),
       });
       const router = createFestivalsRoutes(deps);
       const app = createApp(router);
@@ -1327,7 +1298,9 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
   describe('GET /:id', () => {
     test('returns full festival for depth=2 (default)', async () => {
       const festival = {
-        id: 'f-1', name: 'Big Fest', location: 'Miami',
+        id: 'f-1',
+        name: 'Big Fest',
+        location: 'Miami',
         stages: [{ id: 's-1', name: 'Main', color: '#ff0000' }],
         days: [{ label: 'Day 1', date: '2026-03-01', sets: [] }],
       };
@@ -1346,13 +1319,19 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
 
     test('returns L1 structural data for depth=1', async () => {
       const festival = {
-        id: 'f-1', name: 'Big Fest', location: 'Miami',
+        id: 'f-1',
+        name: 'Big Fest',
+        location: 'Miami',
         stages: [{ id: 's-1', name: 'Main', color: '#ff0000' }],
-        days: [{
-          label: 'Day 1', date: '2026-03-01',
-          sets: [{ id: 'set-1', artist: 'DJ X', artists: [], stageId: 's-1', startTime: '14:00', endTime: '15:00' }],
-        }],
-        createdAt: '2026-01-01', updatedAt: '2026-01-01',
+        days: [
+          {
+            label: 'Day 1',
+            date: '2026-03-01',
+            sets: [{ id: 'set-1', artist: 'DJ X', artists: [], stageId: 's-1', startTime: '14:00', endTime: '15:00' }],
+          },
+        ],
+        createdAt: '2026-01-01',
+        updatedAt: '2026-01-01',
       };
       const deps = makeMockDeps({
         getFestivalById: mock.fn(async () => festival),
@@ -1384,7 +1363,9 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
 
     test('returns 500 on internal error', async () => {
       const deps = makeMockDeps({
-        getFestivalById: mock.fn(async () => { throw new Error('db down'); }),
+        getFestivalById: mock.fn(async () => {
+          throw new Error('db down');
+        }),
       });
       const router = createFestivalsRoutes(deps);
       const app = createApp(router);
@@ -1402,7 +1383,11 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const createFn = mock.fn(async (d) => d);
       const deps = makeMockDeps({
         stores: {
-          festivals: { create: createFn, update: mock.fn(async (id, d) => ({ id, ...d })), softDelete: mock.fn(async () => {}) },
+          festivals: {
+            create: createFn,
+            update: mock.fn(async (id, d) => ({ id, ...d })),
+            softDelete: mock.fn(async () => {}),
+          },
           users: { create: mock.fn(async (d) => d) },
           profiles: { update: mock.fn(async () => {}) },
           pool: { query: mock.fn(async () => ({ rows: [] })) },
@@ -1413,9 +1398,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const router = createFestivalsRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/')
-        .send({ name: 'New Fest', location: 'NYC' });
+      const res = await request(app).post('/').send({ name: 'New Fest', location: 'NYC' });
 
       assert.equal(res.status, 201);
       assert.equal(res.body.error, null);
@@ -1430,9 +1413,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const router = createFestivalsRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/')
-        .send({});
+      const res = await request(app).post('/').send({});
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'INVALID_INPUT');
@@ -1442,7 +1423,11 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
     test('returns 500 on internal error', async () => {
       const deps = makeMockDeps({
         stores: {
-          festivals: { create: mock.fn(async () => { throw new Error('db down'); }) },
+          festivals: {
+            create: mock.fn(async () => {
+              throw new Error('db down');
+            }),
+          },
           users: { create: mock.fn(async (d) => d) },
           profiles: { update: mock.fn(async () => {}) },
           pool: { query: mock.fn(async () => ({ rows: [] })) },
@@ -1453,9 +1438,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const router = createFestivalsRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .post('/')
-        .send({ name: 'New Fest', location: 'NYC' });
+      const res = await request(app).post('/').send({ name: 'New Fest', location: 'NYC' });
 
       assert.equal(res.status, 500);
       assert.equal(res.body.error.code, 'INTERNAL_ERROR');
@@ -1481,9 +1464,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const router = createFestivalsRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .put('/f-1')
-        .send({ name: 'New Name', location: 'New Place' });
+      const res = await request(app).put('/f-1').send({ name: 'New Name', location: 'New Place' });
 
       assert.equal(res.status, 200);
       assert.equal(res.body.error, null);
@@ -1498,9 +1479,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const router = createFestivalsRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .put('/nonexistent')
-        .send({ name: 'Updated' });
+      const res = await request(app).put('/nonexistent').send({ name: 'Updated' });
 
       assert.equal(res.status, 404);
       assert.equal(res.body.error.code, 'NOT_FOUND');
@@ -1514,9 +1493,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const router = createFestivalsRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .put('/f-1')
-        .send({ name: 'Updated' });
+      const res = await request(app).put('/f-1').send({ name: 'Updated' });
 
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'INVALID_INPUT');
@@ -1530,7 +1507,11 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const deps = makeMockDeps({
         getFestivalById: mock.fn(async () => ({ id: 'f-1', name: 'Fest' })),
         stores: {
-          festivals: { create: mock.fn(async (d) => d), update: mock.fn(async (id, d) => ({ id, ...d })), softDelete: softDeleteFn },
+          festivals: {
+            create: mock.fn(async (d) => d),
+            update: mock.fn(async (id, d) => ({ id, ...d })),
+            softDelete: softDeleteFn,
+          },
           users: { create: mock.fn(async (d) => d) },
           profiles: { update: mock.fn(async () => {}) },
           pool: { query: mock.fn(async () => ({ rows: [] })) },
@@ -1555,7 +1536,11 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const deps = makeMockDeps({
         getFestivalById: mock.fn(async () => ({ id: 'f-1', name: 'Fest' })),
         stores: {
-          festivals: { create: mock.fn(async (d) => d), update: mock.fn(async (id, d) => ({ id, ...d })), hardDelete: hardDeleteFn },
+          festivals: {
+            create: mock.fn(async (d) => d),
+            update: mock.fn(async (id, d) => ({ id, ...d })),
+            hardDelete: hardDeleteFn,
+          },
           users: { create: mock.fn(async (d) => d) },
           profiles: { update: mock.fn(async () => {}) },
           pool: { query: mock.fn(async () => ({ rows: [] })) },
@@ -1595,7 +1580,9 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
         getFestivalById: mock.fn(async () => ({ id: 'f-1', name: 'Fest' })),
         stores: {
           festivals: {
-            softDelete: mock.fn(async () => { throw new Error('db error'); }),
+            softDelete: mock.fn(async () => {
+              throw new Error('db error');
+            }),
           },
           users: { create: mock.fn(async (d) => d) },
           profiles: { update: mock.fn(async () => {}) },
@@ -1618,17 +1605,24 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
   describe('PUT /:festivalId/sets/:setId/link', () => {
     test('updates set link successfully', async () => {
       const festival = {
-        id: 'f-1', name: 'Fest',
-        days: [{
-          label: 'Day 1',
-          sets: [{ id: 'set-1', artist: 'DJ Test', artists: [{ name: 'DJ Test', links: {} }] }],
-        }],
+        id: 'f-1',
+        name: 'Fest',
+        days: [
+          {
+            label: 'Day 1',
+            sets: [{ id: 'set-1', artist: 'DJ Test', artists: [{ name: 'DJ Test', links: {} }] }],
+          },
+        ],
       };
       const poolQuery = mock.fn(async () => ({ rows: [] }));
       const deps = makeMockDeps({
         getFestivalById: mock.fn(async () => festival),
         stores: {
-          festivals: { create: mock.fn(async (d) => d), update: mock.fn(async (id, d) => ({ id, ...d })), softDelete: mock.fn(async () => {}) },
+          festivals: {
+            create: mock.fn(async (d) => d),
+            update: mock.fn(async (id, d) => ({ id, ...d })),
+            softDelete: mock.fn(async () => {}),
+          },
           users: { create: mock.fn(async (d) => d) },
           profiles: { update: mock.fn(async () => {}) },
           pool: { query: poolQuery },
@@ -1657,9 +1651,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const router = createFestivalsRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .put('/f-missing/sets/set-1/link')
-        .send({ linkUrl: 'https://example.com' });
+      const res = await request(app).put('/f-missing/sets/set-1/link').send({ linkUrl: 'https://example.com' });
 
       assert.equal(res.status, 404);
       assert.equal(res.body.error.code, 'NOT_FOUND');
@@ -1667,7 +1659,8 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
 
     test('returns 404 when set not found in festival', async () => {
       const festival = {
-        id: 'f-1', name: 'Fest',
+        id: 'f-1',
+        name: 'Fest',
         days: [{ label: 'Day 1', sets: [{ id: 'set-other', artist: 'Other' }] }],
       };
       const deps = makeMockDeps({
@@ -1676,9 +1669,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const router = createFestivalsRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .put('/f-1/sets/set-missing/link')
-        .send({ linkUrl: 'https://example.com' });
+      const res = await request(app).put('/f-1/sets/set-missing/link').send({ linkUrl: 'https://example.com' });
 
       assert.equal(res.status, 404);
       assert.equal(res.body.error.code, 'NOT_FOUND');
@@ -1686,14 +1677,19 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
 
     test('clears link when linkUrl is empty', async () => {
       const festival = {
-        id: 'f-1', name: 'Fest',
+        id: 'f-1',
+        name: 'Fest',
         days: [{ label: 'Day 1', sets: [{ id: 'set-1', artist: 'DJ', artists: [] }] }],
       };
       const poolQuery = mock.fn(async () => ({ rows: [] }));
       const deps = makeMockDeps({
         getFestivalById: mock.fn(async () => festival),
         stores: {
-          festivals: { create: mock.fn(async (d) => d), update: mock.fn(async (id, d) => ({ id, ...d })), softDelete: mock.fn(async () => {}) },
+          festivals: {
+            create: mock.fn(async (d) => d),
+            update: mock.fn(async (id, d) => ({ id, ...d })),
+            softDelete: mock.fn(async () => {}),
+          },
           users: { create: mock.fn(async (d) => d) },
           profiles: { update: mock.fn(async () => {}) },
           pool: { query: poolQuery },
@@ -1704,9 +1700,7 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       const router = createFestivalsRoutes(deps);
       const app = createApp(router);
 
-      const res = await request(app)
-        .put('/f-1/sets/set-1/link')
-        .send({ linkUrl: '' });
+      const res = await request(app).put('/f-1/sets/set-1/link').send({ linkUrl: '' });
 
       assert.equal(res.status, 200);
       assert.equal(res.body.error, null);
@@ -1718,13 +1712,15 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
   describe('GET /:festivalId/sets/links', () => {
     test('returns list of set links', async () => {
       const poolQuery = mock.fn(async () => ({
-        rows: [
-          { id: 'set-1', artist: 'DJ One', linkUrl: 'https://example.com', artists: [] },
-        ],
+        rows: [{ id: 'set-1', artist: 'DJ One', linkUrl: 'https://example.com', artists: [] }],
       }));
       const deps = makeMockDeps({
         stores: {
-          festivals: { create: mock.fn(async (d) => d), update: mock.fn(async (id, d) => ({ id, ...d })), softDelete: mock.fn(async () => {}) },
+          festivals: {
+            create: mock.fn(async (d) => d),
+            update: mock.fn(async (id, d) => ({ id, ...d })),
+            softDelete: mock.fn(async () => {}),
+          },
           users: { create: mock.fn(async (d) => d) },
           profiles: { update: mock.fn(async () => {}) },
           pool: { query: poolQuery },
@@ -1747,7 +1743,11 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
           festivals: { create: mock.fn(async (d) => d) },
           users: { create: mock.fn(async (d) => d) },
           profiles: { update: mock.fn(async () => {}) },
-          pool: { query: mock.fn(async () => { throw new Error('db error'); }) },
+          pool: {
+            query: mock.fn(async () => {
+              throw new Error('db error');
+            }),
+          },
           roles: { getUserRoles: mock.fn(async () => []) },
           sessions: { deleteUserSession: mock.fn(async () => {}), listUserSessions: mock.fn(async () => []) },
         },
