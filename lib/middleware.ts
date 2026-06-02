@@ -19,27 +19,39 @@ import { default as createAuditMiddleware } from './audit-middleware.js';
  */
 function configureMiddleware(app: Application, ctx: any) {
   const {
-    express, config, log, state,
-    contentSecurityPolicy, enforceAllowedOrigin,
-    avatarDirPath, isAllowedOrigin, setNoStore, getRequestIp,
-    rateLimit, authRateLimit,
-    sendError, ErrorCodes,
-    generateOpenAPISpec, stores,
+    express,
+    config,
+    log,
+    state,
+    contentSecurityPolicy,
+    enforceAllowedOrigin,
+    avatarDirPath,
+    isAllowedOrigin,
+    setNoStore,
+    getRequestIp,
+    rateLimit,
+    authRateLimit,
+    sendError,
+    ErrorCodes,
+    generateOpenAPISpec,
+    stores,
   } = ctx;
 
   app.disable('x-powered-by');
   app.set('trust proxy', config.TRUST_PROXY);
 
   // ── Compression ───────────────────────────────────────────────────────
-  app.use(compression({
-    level: 6,
-    threshold: 1024,
-    filter(req: any, res: any) {
-      const contentType = res.getHeader('content-type') || '';
-      if (/image\/(webp|png|jpeg|gif)/.test(contentType as string)) return false;
-      return compression.filter(req, res);
-    },
-  }));
+  app.use(
+    compression({
+      level: 6,
+      threshold: 1024,
+      filter(req: any, res: any) {
+        const contentType = res.getHeader('content-type') || '';
+        if (/image\/(webp|png|jpeg|gif)/.test(contentType as string)) return false;
+        return compression.filter(req, res);
+      },
+    }),
+  );
 
   // ── Helmet ────────────────────────────────────────────────────────────
   // Helmet's built-in CSP is disabled because we use a custom CSP built by
@@ -80,8 +92,14 @@ function configureMiddleware(app: Application, ctx: any) {
     res.setHeader('Content-Security-Policy', contentSecurityPolicy);
     // Report-To header defines the reporting group referenced by CSP report-to directive.
     // Forward-compat: browsers that support Reporting API v1 use this; older ones fall back to report-uri.
-    res.setHeader('Report-To', JSON.stringify({ group: 'csp-endpoint', max_age: 86400, endpoints: [{ url: '/api/csp-report' }] }));
-    res.setHeader('Permissions-Policy', 'accelerometer=(), autoplay=(self), browsing-topics=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(self), screen-wake-lock=(), sync-xhr=(), usb=(), xr-spatial-tracking=()');
+    res.setHeader(
+      'Report-To',
+      JSON.stringify({ group: 'csp-endpoint', max_age: 86400, endpoints: [{ url: '/api/csp-report' }] }),
+    );
+    res.setHeader(
+      'Permissions-Policy',
+      'accelerometer=(), autoplay=(self), browsing-topics=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(self), screen-wake-lock=(), sync-xhr=(), usb=(), xr-spatial-tracking=()',
+    );
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
     next();
@@ -91,12 +109,15 @@ function configureMiddleware(app: Application, ctx: any) {
   app.use((req: any, res: any, next: any) => {
     const origin = req.headers.origin;
     if (!origin) return next();
-    const isAllowed = isAllowedOrigin(origin, req.get('host'))
-      || config.MOBILE_ORIGINS.some((mo: any) => origin === mo);
+    const isAllowed =
+      isAllowedOrigin(origin, req.get('host')) || config.MOBILE_ORIGINS.some((mo: any) => origin === mo);
     if (isAllowed) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Festival-Planner-Request, X-User-Token, X-Admin-Token');
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        'Content-Type, Authorization, X-Festival-Planner-Request, X-User-Token, X-Admin-Token',
+      );
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
       res.setHeader('Access-Control-Max-Age', '86400');
       res.setHeader('Vary', 'Origin');
@@ -130,16 +151,22 @@ function configureMiddleware(app: Application, ctx: any) {
   });
 
   // ── Avatar static files ───────────────────────────────────────────────
-  app.use('/uploads/avatars', express.static(avatarDirPath(), {
-    immutable: true,
-    maxAge: '365d',
-    fallthrough: true,
-    setHeaders(res: any, filePath: any) {
-      if (filePath.endsWith('.webp')) res.setHeader('Content-Type', 'image/webp');
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'none'; script-src 'none'");
-    },
-  }));
+  app.use(
+    '/uploads/avatars',
+    express.static(avatarDirPath(), {
+      immutable: true,
+      maxAge: '365d',
+      fallthrough: true,
+      setHeaders(res: any, filePath: any) {
+        if (filePath.endsWith('.webp')) res.setHeader('Content-Type', 'image/webp');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader(
+          'Content-Security-Policy',
+          "default-src 'none'; img-src 'self'; style-src 'none'; script-src 'none'",
+        );
+      },
+    }),
+  );
 
   // ── Liveness probe ────────────────────────────────────────────────────
   app.get('/health/live', (req: any, res: any) => {
@@ -161,7 +188,13 @@ function configureMiddleware(app: Application, ctx: any) {
     setNoStore(res);
     res.sendFile(_reactSwPath, (err: any) => {
       if (err && !res.headersSent) {
-        res.status(404).json({ ok: false, code: 'NOT_FOUND', message: 'Service worker not found — run pnpm build in packages/web/' });
+        res
+          .status(404)
+          .json({
+            ok: false,
+            code: 'NOT_FOUND',
+            message: 'Service worker not found — run pnpm build in packages/web/',
+          });
       }
     });
   });
@@ -178,18 +211,20 @@ function configureMiddleware(app: Application, ctx: any) {
   // (icons, legal pages, screenshots, etc.).
   const reactDistDir = path.join(config.PUBLIC_DIR, '..', 'packages', 'web', 'dist');
   if (fs.existsSync(reactDistDir)) {
-    app.use(express.static(reactDistDir, {
-      maxAge: '7d',
-      dotfiles: 'deny',
-      index: false, // SPA catch-all in routes/pages.js handles /
-      setHeaders(res: any, filePath: any) {
-        if (filePath.endsWith('.html')) setNoStore(res);
-        // Vite hashed assets are safe to cache immutably
-        if (/\.[0-9a-f]{8,}\.(js|css)$/i.test(filePath) || /assets\//.test(filePath)) {
-          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        }
-      },
-    }));
+    app.use(
+      express.static(reactDistDir, {
+        maxAge: '7d',
+        dotfiles: 'deny',
+        index: false, // SPA catch-all in routes/pages.js handles /
+        setHeaders(res: any, filePath: any) {
+          if (filePath.endsWith('.html')) setNoStore(res);
+          // Vite hashed assets are safe to cache immutably
+          if (/\.[0-9a-f]{8,}\.(js|css)$/i.test(filePath) || /assets\//.test(filePath)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
+        },
+      }),
+    );
     log.info('react frontend active', { reactDistDir });
   }
 
@@ -199,29 +234,34 @@ function configureMiddleware(app: Application, ctx: any) {
   // `.well-known` dot-directory into the SPA catch-all — breaking both
   // security.txt (RFC 9116) and assetlinks.json (Android App Links
   // verification). Scoped to this dir only, so no other dotfiles are exposed.
-  app.use('/.well-known', express.static(path.join(config.PUBLIC_DIR, '.well-known'), {
-    maxAge: '1d',
-    dotfiles: 'allow',
-  }));
+  app.use(
+    '/.well-known',
+    express.static(path.join(config.PUBLIC_DIR, '.well-known'), {
+      maxAge: '1d',
+      dotfiles: 'allow',
+    }),
+  );
 
   // ── Static assets (public/) ────────────────────────────────────────────
   // Serves static assets that live outside the React build: icons,
   // screenshots, legal pages (privacy, terms, security-whitepaper),
   // firebase-messaging-sw.js, robots.txt, sitemap.xml, etc.
-  app.use(express.static(config.PUBLIC_DIR, {
-    maxAge: '7d',
-    dotfiles: 'deny',
-    index: false, // SPA catch-all serves React index.html for /
-    setHeaders(res: any, filePath: any) {
-      if (filePath.endsWith('.html')) setNoStore(res);
-      if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
-        res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
-      }
-      if (filePath.endsWith('.png') || filePath.endsWith('.svg')) {
-        res.setHeader('Cache-Control', 'public, max-age=604800');
-      }
-    },
-  }));
+  app.use(
+    express.static(config.PUBLIC_DIR, {
+      maxAge: '7d',
+      dotfiles: 'deny',
+      index: false, // SPA catch-all serves React index.html for /
+      setHeaders(res: any, filePath: any) {
+        if (filePath.endsWith('.html')) setNoStore(res);
+        if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+          res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+        }
+        if (filePath.endsWith('.png') || filePath.endsWith('.svg')) {
+          res.setHeader('Cache-Control', 'public, max-age=604800');
+        }
+      },
+    }),
+  );
 
   // ── Request timeout ───────────────────────────────────────────────────
   app.use('/api', (req: any, res: any, next: any) => {
@@ -252,8 +292,13 @@ function configureMiddleware(app: Application, ctx: any) {
       recorded = true;
       const duration = Date.now() - start;
       const meta: any = {
-        method: req.method, path: (req.originalUrl || req.path || '').split('?')[0], status: res.statusCode,
-        ms: duration, ip: getRequestIp(req), reqId: req.id, traceId: req.traceId,
+        method: req.method,
+        path: (req.originalUrl || req.path || '').split('?')[0],
+        status: res.statusCode,
+        ms: duration,
+        ip: getRequestIp(req),
+        reqId: req.id,
+        traceId: req.traceId,
       };
       if (req.user?.userId) meta.userId = req.user.userId;
       if (res.statusCode >= 500) log.error('request', meta);
@@ -270,7 +315,9 @@ function configureMiddleware(app: Application, ctx: any) {
       const routePath = req.route?.path || req.path?.replace(/\/[a-zA-Z0-9_-]{10,}(?=\/|$)/g, '/:id') || 'unknown';
       const endpointKey = `${req.method} ${routePath}`;
       if (!state.metrics.endpointLatency) state.metrics.endpointLatency = {};
-      const ep = state.metrics.endpointLatency[endpointKey] || (state.metrics.endpointLatency[endpointKey] = { count: 0, totalMs: 0, maxMs: 0 });
+      const ep =
+        state.metrics.endpointLatency[endpointKey] ||
+        (state.metrics.endpointLatency[endpointKey] = { count: 0, totalMs: 0, maxMs: 0 });
       ep.count += 1;
       ep.totalMs += duration;
       if (duration > ep.maxMs) ep.maxMs = duration;
@@ -322,7 +369,10 @@ function configureMiddleware(app: Application, ctx: any) {
         let oldestKey: any = null;
         let oldestTs = Infinity;
         for (const [k, v] of _idempotencyCache) {
-          if (v.ts < oldestTs) { oldestTs = v.ts; oldestKey = k; }
+          if (v.ts < oldestTs) {
+            oldestTs = v.ts;
+            oldestKey = k;
+          }
         }
         if (oldestKey) _idempotencyCache.delete(oldestKey);
       }
@@ -336,7 +386,15 @@ function configureMiddleware(app: Application, ctx: any) {
   const inFlightRequests = { count: 0 };
   app.use((req: any, res: any, next: any) => {
     inFlightRequests.count += 1;
-    const decrement = () => { if (--inFlightRequests.count < 0) inFlightRequests.count = 0; };
+    // Guard against double-decrement: both 'finish' and 'close' can fire for
+    // the same response, so only the first one counts (mirrors the `recorded`
+    // guard in the metrics block above).
+    let done = false;
+    const decrement = () => {
+      if (done) return;
+      done = true;
+      if (--inFlightRequests.count < 0) inFlightRequests.count = 0;
+    };
     res.on('finish', decrement);
     res.on('close', decrement);
     next();

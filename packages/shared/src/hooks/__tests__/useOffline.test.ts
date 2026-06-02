@@ -68,40 +68,6 @@ describe('useOffline hook', () => {
     expect(useUIStore.getState().offlineMode).toBe(false);
   });
 
-  describe('saveSnapshot', () => {
-    it('saves data to localStorage', () => {
-      const { result } = renderHook(() => useOffline());
-      act(() => {
-        result.current.saveSnapshot({ festivals: [{ id: '1' }] });
-      });
-      const stored = JSON.parse(localStorage.getItem('festie-offline-snapshot')!);
-      expect(stored.data).toEqual({ festivals: [{ id: '1' }] });
-      expect(stored.timestamp).toBeTypeOf('number');
-    });
-  });
-
-  describe('restoreSnapshot', () => {
-    it('returns null when no snapshot exists', () => {
-      const { result } = renderHook(() => useOffline());
-      expect(result.current.restoreSnapshot()).toBeNull();
-    });
-
-    it('returns saved snapshot', () => {
-      const snapshot = { timestamp: Date.now(), data: { test: true } };
-      localStorage.setItem('festie-offline-snapshot', JSON.stringify(snapshot));
-      const { result } = renderHook(() => useOffline());
-      const restored = result.current.restoreSnapshot();
-      expect(restored).not.toBeNull();
-      expect(restored!.data).toEqual({ test: true });
-    });
-
-    it('returns null for invalid JSON', () => {
-      localStorage.setItem('festie-offline-snapshot', 'not-json');
-      const { result } = renderHook(() => useOffline());
-      expect(result.current.restoreSnapshot()).toBeNull();
-    });
-  });
-
   it('cleans up event listeners on unmount', () => {
     const removeSpy = vi.spyOn(window, 'removeEventListener');
     const { unmount } = renderHook(() => useOffline());

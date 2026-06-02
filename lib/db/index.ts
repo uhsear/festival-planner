@@ -51,7 +51,6 @@ function createStores(pool: Pool, { nodeEnv }: { nodeEnv?: string } = {}) {
   const profiles = profilesResult.profiles;
   const picks = profilesResult.picks;
 
-
   const crewsResult = createCrewsStore(pool, utils);
   const crews = crewsResult.crews;
   const topicSubscriptions = crewsResult.topicSubscriptions;
@@ -133,7 +132,9 @@ function createStores(pool: Pool, { nodeEnv }: { nodeEnv?: string } = {}) {
         });
         // No-op cleanup for follower workers. Preserves the async contract
         // so callers can still `await` it without branching.
-        return async () => { /* not leader — cleanup runs on instance 0 */ };
+        return async () => {
+          /* not leader — cleanup runs on instance 0 */
+        };
       }
 
       log.info('cleanup enabled on this instance (leader)', {
@@ -143,39 +144,23 @@ function createStores(pool: Pool, { nodeEnv }: { nodeEnv?: string } = {}) {
       return async () => {
         try {
           await deviceTokens.deleteExpired();
-        } catch { /* ignore cleanup errors */ }
+        } catch {
+          /* ignore cleanup errors */
+        }
         try {
           await sessions.deleteExpiredUserSessions(sessionTtlMs);
-        } catch { /* ignore cleanup errors */ }
+        } catch {
+          /* ignore cleanup errors */
+        }
         // admin_sessions table removed in migration 011 (roles-based auth)
         try {
           if (refreshTokens) await refreshTokens.deleteExpired();
-        } catch { /* ignore cleanup errors */ }
+        } catch {
+          /* ignore cleanup errors */
+        }
       };
     },
   };
 }
 
-async function importLegacyDataToPostgres({ databaseUrl }: { databaseUrl: string }) {
-  const { pool } = openPlannerDatabase({ databaseUrl });
-  const _stores = createStores(pool);
-
-  // This function would be called with legacy JSON data
-  // For now, just validate that the pool works
-  try {
-    const _result = await pool.query('SELECT 1');
-    return { success: true };
-  } finally {
-    await pool.end();
-  }
-}
-
-export {
-  createStores,
-  createDbLatencyTracker,
-  importLegacyDataToPostgres,
-  openPlannerDatabase,
-  parseJsonObject,
-  serializeJson,
-  withTransaction,
-};
+export { createStores, createDbLatencyTracker, openPlannerDatabase, parseJsonObject, serializeJson, withTransaction };

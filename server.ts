@@ -33,7 +33,9 @@ function validateStartupConfig(config: any) {
 
   // 1. Production requires PUBLIC_ORIGIN (cookies, CORS, absolute links all depend on it)
   if (isProd && !config.PUBLIC_ORIGIN) {
-    throw new Error('Startup validation failed: PUBLIC_ORIGIN is required in production. Set it in .env (e.g. https://festie.us).');
+    throw new Error(
+      'Startup validation failed: PUBLIC_ORIGIN is required in production. Set it in .env (e.g. https://festie.us).',
+    );
   }
 
   // 2. FCM retry webhook requires an HMAC key to sign payloads
@@ -47,14 +49,23 @@ function validateStartupConfig(config: any) {
   // HMAC-signed sessions can be introduced without a redeployment. See ADR-004.
   if (isProd && Object.prototype.hasOwnProperty.call(config, 'SESSION_SECRET')) {
     if (!config.SESSION_SECRET || config.SESSION_SECRET === 'change-me') {
-      throw new Error('Startup validation failed: SESSION_SECRET must be set to a strong random value in production (not empty, not "change-me").');
+      throw new Error(
+        'Startup validation failed: SESSION_SECRET must be set to a strong random value in production (not empty, not "change-me").',
+      );
     }
   }
 
   // 4. Production sender must be an on-brand festie.us address (never a personal
   //    or off-domain email).
-  if (isProd && typeof config.EMAIL_FROM === 'string' && config.EMAIL_FROM.trim() !== '' && !config.EMAIL_FROM.includes('@festie.us')) {
-    throw new Error('Startup validation failed: EMAIL_FROM must use a festie.us sender address in production (e.g. "Festie <no-reply@festie.us>").');
+  if (
+    isProd &&
+    typeof config.EMAIL_FROM === 'string' &&
+    config.EMAIL_FROM.trim() !== '' &&
+    !config.EMAIL_FROM.includes('@festie.us')
+  ) {
+    throw new Error(
+      'Startup validation failed: EMAIL_FROM must use a festie.us sender address in production (e.g. "Festie <no-reply@festie.us>").',
+    );
   }
 }
 
@@ -70,7 +81,13 @@ import { createBackgroundTasks, createCloseHandler } from './lib/shutdown';
 import { createReminderScheduler } from './lib/reminder-scheduler';
 import createPageRoutes from './routes/pages';
 import { createLogger } from './lib/logger';
-import { createMetrics, metricsMiddleware, metricsHandler, startMetricsSampler, startMetricsListener } from './lib/metrics';
+import {
+  createMetrics,
+  metricsMiddleware,
+  metricsHandler,
+  startMetricsSampler,
+  startMetricsListener,
+} from './lib/metrics';
 import express from 'express';
 import createAuthRoutes from './routes/auth';
 import createEmailAuthRoutes from './routes/email-auth';
@@ -98,9 +115,12 @@ import createDeepLinkRoutes from './routes/deep-links';
 import type { Request, Response, NextFunction } from 'express';
 
 const metrics = createMetrics();
-const workerId = process.env.NODE_APP_INSTANCE !== undefined
-  ? Number(process.env.NODE_APP_INSTANCE)
-  : (process.env.PM_ID !== undefined ? Number(process.env.PM_ID) : 0);
+const workerId =
+  process.env.NODE_APP_INSTANCE !== undefined
+    ? Number(process.env.NODE_APP_INSTANCE)
+    : process.env.PM_ID !== undefined
+      ? Number(process.env.PM_ID)
+      : 0;
 startMetricsListener(metrics, { basePort: 9400, workerId });
 
 const log = createLogger();
@@ -108,7 +128,7 @@ const log = createLogger();
 async function createFestieApp(overrides: any = {}) {
   // 1. Create application context (config, DB, Redis, state, all utility functions)
   const ctx = await createAppContext({ ...overrides, promMetrics: metrics });
-  const { config, state, _stores, pool, redis, cacheBus, avatarPool } = ctx;
+  const { config, state, pool, redis, cacheBus, avatarPool } = ctx;
 
   // Re-run startup validation against the fully-resolved app-context config
   // (overrides from tests/harness may have changed what the boot-time check saw).
@@ -144,7 +164,11 @@ async function createFestieApp(overrides: any = {}) {
 
   // Phase 1A: Reminder scheduler for set notifications
   const reminderScheduler = createReminderScheduler({
-    pool, stores: ctx.stores, notificationService, log, config,
+    pool,
+    stores: ctx.stores,
+    notificationService,
+    log,
+    config,
   });
   ctx.reminderScheduler = reminderScheduler;
   deps.emitter = emitter;
@@ -221,7 +245,10 @@ async function createFestieApp(overrides: any = {}) {
       if (now - entry.firstSeen > ERROR_DEDUP_WINDOW) {
         if (entry.count > 1) {
           log.warn('deduplicated error summary', {
-            fingerprint: fp, count: entry.count, message: entry.message, path: entry.path,
+            fingerprint: fp,
+            count: entry.count,
+            message: entry.message,
+            path: entry.path,
           });
         }
         _errorFingerprints.delete(fp);
@@ -243,8 +270,13 @@ async function createFestieApp(overrides: any = {}) {
         existing.count += 1;
         if (existing.count % 10 === 0) {
           log.error('unhandled request error (repeated)', {
-            error: error.message, method: req.method, path: req.path,
-            reqId: (req as any).id, traceId: (req as any).traceId, status, repeatCount: existing.count,
+            error: error.message,
+            method: req.method,
+            path: req.path,
+            reqId: (req as any).id,
+            traceId: (req as any).traceId,
+            status,
+            repeatCount: existing.count,
           });
         }
       } else {
@@ -253,22 +285,46 @@ async function createFestieApp(overrides: any = {}) {
           _errorFingerprints.delete(oldestKey!);
         }
         _errorFingerprints.set(fingerprint, {
-          count: 1, firstSeen: Date.now(), message: error.message, path: req.path,
+          count: 1,
+          firstSeen: Date.now(),
+          message: error.message,
+          path: req.path,
         });
-        const meta: any = { error: error.message, method: req.method, path: req.path, reqId: (req as any).id, traceId: (req as any).traceId, status };
+        const meta: any = {
+          error: error.message,
+          method: req.method,
+          path: req.path,
+          reqId: (req as any).id,
+          traceId: (req as any).traceId,
+          status,
+        };
         if (config.NODE_ENV !== 'production') meta.stack = error.stack;
         log.error('unhandled request error', meta);
       }
     } else {
-      const meta: any = { error: error.message, method: req.method, path: req.path, reqId: (req as any).id, traceId: (req as any).traceId, status };
+      const meta: any = {
+        error: error.message,
+        method: req.method,
+        path: req.path,
+        reqId: (req as any).id,
+        traceId: (req as any).traceId,
+        status,
+      };
       if (config.NODE_ENV !== 'production') meta.stack = error.stack;
       log.warn('request error', meta);
     }
 
     if (res.headersSent) return;
     const message = status < 500 ? error.message : 'Internal server error';
-    const codeMap: Record<number, string> = { 400: ctx.ErrorCodes.INVALID_INPUT, 401: ctx.ErrorCodes.AUTH_REQUIRED, 403: ctx.ErrorCodes.FORBIDDEN, 404: ctx.ErrorCodes.NOT_FOUND, 409: ctx.ErrorCodes.VERSION_MISMATCH, 429: ctx.ErrorCodes.RATE_LIMITED };
-    const code = status >= 500 ? ctx.ErrorCodes.INTERNAL_ERROR : (codeMap[status] || undefined);
+    const codeMap: Record<number, string> = {
+      400: ctx.ErrorCodes.INVALID_INPUT,
+      401: ctx.ErrorCodes.AUTH_REQUIRED,
+      403: ctx.ErrorCodes.FORBIDDEN,
+      404: ctx.ErrorCodes.NOT_FOUND,
+      409: ctx.ErrorCodes.VERSION_MISMATCH,
+      429: ctx.ErrorCodes.RATE_LIMITED,
+    };
+    const code = status >= 500 ? ctx.ErrorCodes.INTERNAL_ERROR : codeMap[status] || undefined;
     const details = config.NODE_ENV === 'production' ? null : { stack: error.stack };
     ctx.sendError(res, status, message, code, details);
   }) as any);
@@ -277,19 +333,29 @@ async function createFestieApp(overrides: any = {}) {
   createSocketHandlers(deps);
 
   // ── Startup token purge ──────────────────────────────────────────
-  Promise.all([
-    pool.query("DELETE FROM password_reset_tokens WHERE expires_at < NOW()"),
-    pool.query("DELETE FROM email_verification_tokens WHERE expires_at < NOW()"),
-    pool.query("DELETE FROM refresh_tokens WHERE expires_at < NOW() OR revoked = TRUE"),
-  ]).then((purged: any[]) => {
-    log.info("startup token purge completed", {
-      resetTokens: purged[0].rowCount,
-      verifyTokens: purged[1].rowCount,
-      refreshTokens: purged[2].rowCount,
-    });
-  }).catch((err: any) => {
-    log.warn("startup token purge failed", { error: err.message });
-  });
+  // Same leader-election guard as the periodic token cleanup in
+  // createBackgroundTasks (lib/shutdown.ts): PM2 sets NODE_APP_INSTANCE to
+  // '0'..'N-1', so only instance 0 (or non-cluster mode where it's undefined)
+  // runs the boot-time purge — avoids N workers issuing identical DELETEs.
+  const _purgeInstance = process.env.NODE_APP_INSTANCE;
+  const _isPurgeLeader = _purgeInstance === undefined || _purgeInstance === '0';
+  if (_isPurgeLeader) {
+    Promise.all([
+      pool.query('DELETE FROM password_reset_tokens WHERE expires_at < NOW()'),
+      pool.query('DELETE FROM email_verification_tokens WHERE expires_at < NOW()'),
+      pool.query('DELETE FROM refresh_tokens WHERE expires_at < NOW() OR revoked = TRUE'),
+    ])
+      .then((purged: any[]) => {
+        log.info('startup token purge completed', {
+          resetTokens: purged[0].rowCount,
+          verifyTokens: purged[1].rowCount,
+          refreshTokens: purged[2].rowCount,
+        });
+      })
+      .catch((err: any) => {
+        log.warn('startup token purge failed', { error: err.message });
+      });
+  }
 
   // 8. Background tasks (session/avatar/token cleanup, memory monitoring)
   createBackgroundTasks(ctx, { io });
@@ -297,17 +363,26 @@ async function createFestieApp(overrides: any = {}) {
 
   // 9. Graceful shutdown handler
   const close = createCloseHandler({
-    server, io, config, state, log, pool, redis, cacheBus, emitter,
+    server,
+    io,
+    config,
+    state,
+    log,
+    pool,
+    redis,
+    cacheBus,
+    emitter,
     clearPresenceTimers: ctx.clearPresenceTimers,
-    avatarPool, inFlightRequests, sentry,
+    avatarPool,
+    inFlightRequests,
+    sentry,
   });
 
   return { app, server, io, config, state, close, setHealthReady };
 }
 
 // ── Main entry point ──────────────────────────────────────────────────────
-const isMainModule = import.meta.filename === process.argv[1]
-  || process.argv[1]?.endsWith('server.ts');
+const isMainModule = import.meta.filename === process.argv[1] || process.argv[1]?.endsWith('server.ts');
 
 if (isMainModule) {
   const planner = await createFestieApp();
@@ -343,6 +418,13 @@ if (isMainModule) {
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGQUIT', () => shutdown('SIGQUIT'));
   process.on('uncaughtException', (error) => shutdown('UNCAUGHT_EXCEPTION', error));
+  // DELIBERATE fail-fast policy: an unhandled promise rejection means the
+  // worker has reached an unknown/inconsistent state, so we intentionally tear
+  // it down via the graceful-shutdown path rather than swallowing the error and
+  // continuing. PM2 (cluster) or the process supervisor restarts a clean worker,
+  // and the load balancer drains the dying one. Do NOT "soften" this to a
+  // log-and-continue — keeping a process alive after an unhandled rejection
+  // risks serving corrupted state. Keep bringing the worker down.
   process.on('unhandledRejection', (error) => shutdown('UNHANDLED_REJECTION', error));
   process.on('warning', (warning) => {
     log.warn('node process warning', {
@@ -362,8 +444,14 @@ if (isMainModule) {
         return;
       }
       await new Promise<void>((resolve, reject) => {
-        const onError = (err: any) => { server.removeListener('listening', onSuccess); reject(err); };
-        const onSuccess = () => { server.removeListener('error', onError); resolve(); };
+        const onError = (err: any) => {
+          server.removeListener('listening', onSuccess);
+          reject(err);
+        };
+        const onSuccess = () => {
+          server.removeListener('error', onError);
+          resolve();
+        };
         server.once('error', onError);
         server.once('listening', onSuccess);
         server.listen(port, host);
@@ -392,7 +480,7 @@ if (isMainModule) {
             throw error;
           }
           log.warn('port in use, retrying', { port, host, retries, delay_ms: currentDelay });
-          await new Promise<void>(resolve => setTimeout(resolve, currentDelay));
+          await new Promise<void>((resolve) => setTimeout(resolve, currentDelay));
           currentDelay *= 2;
         } else {
           throw error;

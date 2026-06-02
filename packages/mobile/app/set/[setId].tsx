@@ -26,6 +26,7 @@ import {
 } from '@festie/shared/utils';
 import type { Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
+import { safeStageColor } from '../../lib/stageColor';
 import { useHaptics } from '../../hooks/useHaptics';
 import EmptyState from '../../components/EmptyState';
 import RatingButtons from '../../components/RatingButtons';
@@ -61,15 +62,6 @@ const REMINDER_OPTIONS: readonly { value: number; label: string }[] = [
   { value: 30, label: '30m' },
   { value: 60, label: '1h' },
 ];
-
-/**
- * Stage colors come from the API but the web fallback is a CSS custom property
- * (`var(--text-muted)`) React Native can't parse. Mirror index.tsx's guard.
- */
-function safeStageColor(color: string | undefined, fallback: string): string {
-  if (!color || color.startsWith('var(')) return fallback;
-  return color;
-}
 
 /** Maps a priority to its accent token (matches SetCardMobile). */
 function priorityColor(t: ReturnType<typeof useTokens>, p: Priority): string {

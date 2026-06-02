@@ -16,6 +16,7 @@ import { usePicks, useFestival } from '@festie/shared/hooks';
 import { artistDisplayName, getSetHotness, getConflictingSetIds, timeToMinutes } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
+import { safeStageColor } from '../../lib/stageColor';
 import { useUI, type ViewMode } from '../../contexts/UIContext';
 import { useNowIndicator, type TimeBounds } from '../../hooks/useNowIndicator';
 import SegmentedControl from '../../components/SegmentedControl';
@@ -35,16 +36,6 @@ const VIEW_OPTIONS: readonly { value: ViewMode; label: string }[] = [
   { value: 'grid', label: 'Grid' },
   { value: 'cards', label: 'Cards' },
 ];
-
-/**
- * Stage colors come from the API but the web fallback is a CSS custom property
- * (`var(--text-muted)`) that React Native can't parse. Guard against any
- * `var(...)` value and substitute a real token.
- */
-function safeStageColor(color: string | undefined, fallback: string): string {
-  if (!color || color.startsWith('var(')) return fallback;
-  return color;
-}
 
 /** Compare set start times for ascending time order. */
 function byStartTime(a: FestivalSet, b: FestivalSet): number {

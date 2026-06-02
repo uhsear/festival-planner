@@ -500,17 +500,17 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
         `
         SELECT
           id,
-          crew_id AS "crewId",
-          created_by AS "createdBy",
+          crew_id,
+          created_by,
           label,
           location,
           type,
-          meet_at AS "meetAt",
-          stage_reference AS "stageReference",
-          expires_at AS "expiresAt",
+          meet_at,
+          stage_reference,
+          expires_at,
           active,
-          created_at AS "createdAt",
-          updated_at AS "updatedAt"
+          created_at,
+          updated_at
         FROM
           crew_meeting_points
         WHERE
@@ -526,18 +526,18 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
         `
         SELECT
           mp.id,
-          mp.crew_id AS "crewId",
-          mp.created_by AS "createdBy",
+          mp.crew_id,
+          mp.created_by,
           mp.label,
           mp.location,
           mp.type,
-          mp.meet_at AS "meetAt",
-          mp.stage_reference AS "stageReference",
-          mp.expires_at AS "expiresAt",
+          mp.meet_at,
+          mp.stage_reference,
+          mp.expires_at,
           mp.active,
-          mp.created_at AS "createdAt",
-          mp.updated_at AS "updatedAt",
-          u.username AS "creatorName"
+          mp.created_at,
+          mp.updated_at,
+          u.username AS creator_name
         FROM
           crew_meeting_points mp
           JOIN users u ON u.id = mp.created_by
@@ -591,17 +591,17 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
         `
         SELECT
           id,
-          crew_id AS "crewId",
-          created_by AS "createdBy",
+          crew_id,
+          created_by,
           label,
           location,
           type,
-          meet_at AS "meetAt",
-          stage_reference AS "stageReference",
-          expires_at AS "expiresAt",
+          meet_at,
+          stage_reference,
+          expires_at,
           active,
-          created_at AS "createdAt",
-          updated_at AS "updatedAt"
+          created_at,
+          updated_at
         FROM
           crew_meeting_points
         WHERE
@@ -621,17 +621,17 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
         `
         SELECT
           id,
-          crew_id AS "crewId",
-          created_by AS "createdBy",
+          crew_id,
+          created_by,
           label,
           location,
           type,
-          meet_at AS "meetAt",
-          stage_reference AS "stageReference",
-          expires_at AS "expiresAt",
+          meet_at,
+          stage_reference,
+          expires_at,
           active,
-          created_at AS "createdAt",
-          updated_at AS "updatedAt"
+          created_at,
+          updated_at
         FROM
           crew_meeting_points
         WHERE

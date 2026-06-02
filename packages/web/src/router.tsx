@@ -15,10 +15,7 @@ import WrapSkeleton from './components/ui/skeletons/WrapSkeleton';
 // Wrap a lazy component so React.Suspense shows a layout-matched skeleton
 // while the chunk downloads — this replaces the previous single "Loading..."
 // text fallback and eliminates the visible layout jolt when content arrives.
-function withSkeleton(
-  LazyCmp: ComponentType,
-  Skeleton: ComponentType,
-): () => ReactElement {
+function withSkeleton(LazyCmp: ComponentType, Skeleton: ComponentType): () => ReactElement {
   return function SuspendedRoute() {
     return (
       <Suspense fallback={<Skeleton />}>
@@ -37,44 +34,48 @@ const isAdmin = () => useAuthStore.getState().user?.isAdmin || false;
 // taps its nav button. AppShell calls these on idle after first paint so
 // /grid + /timeline etc. are ready the moment the user switches tabs — no
 // more "tab switch → wait for chunk → scroll feels laggy" pattern.
-const loadCards         = () => import('./routes/cards');
-const loadTimeline      = () => import('./routes/timeline');
-const loadPicks         = () => import('./routes/picks');
-const loadCrew          = () => import('./routes/crew');
-const loadGrid          = () => import('./routes/grid');
-const loadFestivalMode  = () => import('./routes/festival-mode');
-const loadWrap          = () => import('./routes/wrap');
-const loadAdmin         = () => import('./routes/admin');
-const loadLogin         = () => import('./routes/login');
-const loadRegister      = () => import('./routes/register');
-const loadForgot        = () => import('./routes/forgot-password');
-const loadAccount       = () => import('./routes/account');
-const loadCompare       = () => import('./routes/compare');
-const loadSet           = () => import('./routes/set');
+const loadCards = () => import('./routes/cards');
+const loadTimeline = () => import('./routes/timeline');
+const loadPicks = () => import('./routes/picks');
+const loadCrew = () => import('./routes/crew');
+const loadGrid = () => import('./routes/grid');
+const loadFestivalMode = () => import('./routes/festival-mode');
+const loadWrap = () => import('./routes/wrap');
+const loadAdmin = () => import('./routes/admin');
+const loadLogin = () => import('./routes/login');
+const loadRegister = () => import('./routes/register');
+const loadForgot = () => import('./routes/forgot-password');
+const loadAccount = () => import('./routes/account');
+const loadCompare = () => import('./routes/compare');
+const loadSet = () => import('./routes/set');
 
 // Generic minimal fallback for auth/admin routes — these chunks are tiny and
 // a layout-matched skeleton isn't worth the bytes. Main-tab routes below get
 // dedicated skeletons keyed to their real layout.
 const MinimalFallback = () => (
-  <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--space-8)] px-6 py-4" aria-busy="true" aria-label="Loading">
+  <div
+    className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--space-8)] px-6 py-4"
+    aria-busy="true"
+    aria-label="Loading"
+  >
     <div className="skeleton-shimmer h-[200px] m-6 rounded-xl" />
   </div>
 );
 
-const CardsView        = withSkeleton(lazy(loadCards),         CardsSkeleton);
-const TimelineView     = withSkeleton(lazy(loadTimeline),      TimelineSkeleton);
-const PicksView        = withSkeleton(lazy(loadPicks),         PicksSkeleton);
-const CrewView         = withSkeleton(lazy(loadCrew),          CrewSkeleton);
-const GridView         = withSkeleton(lazy(loadGrid),          GridSkeleton);
-const FestivalModeView = withSkeleton(lazy(loadFestivalMode),  FestivalModeSkeleton);
-const WrapView         = withSkeleton(lazy(loadWrap),          WrapSkeleton);
-const AccountPage      = withSkeleton(lazy(loadAccount),       AccountSkeleton);
-const CompareView      = withSkeleton(lazy(loadCompare),       MinimalFallback);
-const SetDeepLinkView  = withSkeleton(lazy(loadSet),           CardsSkeleton);
-const AdminPanel       = withSkeleton(lazy(loadAdmin),         MinimalFallback);
-const LoginPage        = withSkeleton(lazy(loadLogin),         MinimalFallback);
-const RegisterPage     = withSkeleton(lazy(loadRegister),      MinimalFallback);
-const ForgotPasswordPage = withSkeleton(lazy(loadForgot),      MinimalFallback);
+const CardsView = withSkeleton(lazy(loadCards), CardsSkeleton);
+const TimelineView = withSkeleton(lazy(loadTimeline), TimelineSkeleton);
+const PicksView = withSkeleton(lazy(loadPicks), PicksSkeleton);
+const CrewView = withSkeleton(lazy(loadCrew), CrewSkeleton);
+const GridView = withSkeleton(lazy(loadGrid), GridSkeleton);
+const FestivalModeView = withSkeleton(lazy(loadFestivalMode), FestivalModeSkeleton);
+const WrapView = withSkeleton(lazy(loadWrap), WrapSkeleton);
+const AccountPage = withSkeleton(lazy(loadAccount), AccountSkeleton);
+const CompareView = withSkeleton(lazy(loadCompare), MinimalFallback);
+const SetDeepLinkView = withSkeleton(lazy(loadSet), CardsSkeleton);
+const AdminPanel = withSkeleton(lazy(loadAdmin), MinimalFallback);
+const LoginPage = withSkeleton(lazy(loadLogin), MinimalFallback);
+const RegisterPage = withSkeleton(lazy(loadRegister), MinimalFallback);
+const ForgotPasswordPage = withSkeleton(lazy(loadForgot), MinimalFallback);
 
 /**
  * Prefetch all authenticated main-tab chunks. Called from AppShell on idle
@@ -101,7 +102,7 @@ const rootRoute = new RootRoute({
 const indexRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: () => <CardsView />,
+  component: CardsView,
 });
 
 const cardsRoute = new Route({

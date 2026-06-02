@@ -27,16 +27,17 @@ function makeIo() {
   };
 }
 
+// getById results are read by the route in snake_case (crew_id, created_by, …).
 const DEFAULT_MEETING_POINT = {
   id: 'mp-1',
-  crewId: 'crew-1',
-  createdBy: 'user-1',
+  crew_id: 'crew-1',
+  created_by: 'user-1',
   label: 'Main Stage Left',
   location: 'Near the food trucks',
   type: 'during',
-  meetAt: null,
-  stageReference: null,
-  expiresAt: null,
+  meet_at: null,
+  stage_reference: null,
+  created_at: '2026-05-08T00:00:00.000Z',
   active: true,
 };
 
@@ -81,14 +82,17 @@ function makeDeps(overrides: any = {}) {
   const deps = {
     express,
     log: noopLog,
-    userAuth: overrides.userAuth || ((req: any, _res: any, next: any) => {
-      req.user = { userId: 'user-1', username: 'testuser' };
-      next();
-    }),
+    userAuth:
+      overrides.userAuth ||
+      ((req: any, _res: any, next: any) => {
+        req.user = { userId: 'user-1', username: 'testuser' };
+        next();
+      }),
     sanitizeIdentifier: overrides.sanitizeIdentifier || ((s: any) => (typeof s === 'string' ? s.trim() : '')),
     createOpaqueId: overrides.createOpaqueId || mock.fn(() => 'mp-new-1'),
     sendSuccess: (res: any, data: any) => res.json({ data, error: null }),
-    sendError: (res: any, status: any, msg: any, code: any) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
+    sendError: (res: any, status: any, msg: any, code: any) =>
+      res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       NOT_FOUND: 'NOT_FOUND',
@@ -97,8 +101,18 @@ function makeDeps(overrides: any = {}) {
       INTERNAL_ERROR: 'INTERNAL_ERROR',
     },
     rateLimit: overrides.rateLimit || (() => (_req: any, _res: any, next: any) => next()),
-    validate: overrides.validate || (() => (req: any, _res: any, next: any) => { req.validatedBody = req.body; next(); }),
-    validateParams: overrides.validateParams || (() => (req: any, _res: any, next: any) => { req.validatedParams = req.params; next(); }),
+    validate:
+      overrides.validate ||
+      (() => (req: any, _res: any, next: any) => {
+        req.validatedBody = req.body;
+        next();
+      }),
+    validateParams:
+      overrides.validateParams ||
+      (() => (req: any, _res: any, next: any) => {
+        req.validatedParams = req.params;
+        next();
+      }),
     schemas: {
       crewIdParams: {},
       crewIdMpIdParams: {},
@@ -127,7 +141,6 @@ async function buildApp(overrides: any = {}) {
 //  PUT /:crewId/home-base -- set crew home base (owner only)
 // =====================================================================
 describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
-
   test('factory returns an Express router', async () => {
     const { app } = await buildApp();
     assert.ok(app);
@@ -136,7 +149,9 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
   // ── Happy path ────────────────────────────────────────────────────
   test('owner can set home base location and time', async () => {
     const updateHomeBase = mock.fn(async () => ({
-      id: 'crew-1', homeBaseLocation: 'Gate A', homeBaseTime: '3pm',
+      id: 'crew-1',
+      homeBaseLocation: 'Gate A',
+      homeBaseTime: '3pm',
     }));
     const { app, deps } = await buildApp({
       stores: {
@@ -147,9 +162,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/home-base')
-      .send({ location: 'Gate A', time: '3pm' });
+    const res = await request(app).put('/crew-1/home-base').send({ location: 'Gate A', time: '3pm' });
 
     assert.equal(res.status, 200);
     assert.equal(res.body.error, null);
@@ -171,15 +184,15 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       },
     });
 
-    await request(app)
-      .put('/crew-1/home-base')
-      .send({ location: 'Gate A', time: '3pm' });
+    await request(app).put('/crew-1/home-base').send({ location: 'Gate A', time: '3pm' });
 
     assert.equal(ioObj.to.mock.calls.length, 1);
     assert.equal((ioObj.to.mock.calls as any[])[0].arguments[0], 'crew:crew-1');
     assert.equal((ioObj._emit.mock.calls as any[])[0].arguments[0], 'crew:home-base-updated');
     assert.deepEqual((ioObj._emit.mock.calls as any[])[0].arguments[1], {
-      crewId: 'crew-1', location: 'Gate A', time: '3pm',
+      crewId: 'crew-1',
+      location: 'Gate A',
+      time: '3pm',
     });
   });
 
@@ -195,9 +208,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       },
     });
 
-    await request(app)
-      .put('/crew-1/home-base')
-      .send({ location: 'Gate A', time: '3pm' });
+    await request(app).put('/crew-1/home-base').send({ location: 'Gate A', time: '3pm' });
 
     assert.equal(activityLog.mock.calls.length, 1);
     const logArg = (activityLog.mock.calls as any[])[0].arguments[0];
@@ -217,9 +228,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/home-base')
-      .send({ location: 'Gate A' });
+    const res = await request(app).put('/crew-1/home-base').send({ location: 'Gate A' });
 
     assert.equal(res.status, 403);
     assert.equal(res.body.error.code, 'FORBIDDEN');
@@ -235,9 +244,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/home-base')
-      .send({ location: 'Gate A' });
+    const res = await request(app).put('/crew-1/home-base').send({ location: 'Gate A' });
 
     assert.equal(res.status, 403);
     assert.equal(res.body.error.code, 'FORBIDDEN');
@@ -255,9 +262,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/home-base')
-      .send({ location: null, time: null });
+    const res = await request(app).put('/crew-1/home-base').send({ location: null, time: null });
 
     assert.equal(res.status, 200);
     assert.equal(res.body.error, null);
@@ -275,9 +280,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
       },
     });
 
-    await request(app)
-      .put('/crew-1/home-base')
-      .send({ time: '3pm' });
+    await request(app).put('/crew-1/home-base').send({ time: '3pm' });
 
     assert.equal((activityLog.mock.calls as any[])[0].arguments[0].detail, null);
   });
@@ -287,14 +290,14 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
     const { app } = await buildApp({
       stores: {
         crews: {
-          getMember: mock.fn(async () => { throw new Error('db down'); }),
+          getMember: mock.fn(async () => {
+            throw new Error('db down');
+          }),
         },
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/home-base')
-      .send({ location: 'Gate A' });
+    const res = await request(app).put('/crew-1/home-base').send({ location: 'Gate A' });
 
     assert.equal(res.status, 500);
     assert.equal(res.body.error.code, 'INTERNAL_ERROR');
@@ -305,12 +308,8 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
 //  GET /:crewId/meeting-points -- list meeting points
 // =====================================================================
 describe('routes/crew-meeting-points.js -- GET /:crewId/meeting-points', () => {
-
   test('returns meeting points for crew member', async () => {
-    const points = [
-      { ...DEFAULT_MEETING_POINT },
-      { ...DEFAULT_MEETING_POINT, id: 'mp-2', label: 'Ferris Wheel' },
-    ];
+    const points = [{ ...DEFAULT_MEETING_POINT }, { ...DEFAULT_MEETING_POINT, id: 'mp-2', label: 'Ferris Wheel' }];
     const { app } = await buildApp({
       stores: {
         crews: {
@@ -368,7 +367,9 @@ describe('routes/crew-meeting-points.js -- GET /:crewId/meeting-points', () => {
     const { app } = await buildApp({
       stores: {
         crews: {
-          getMember: mock.fn(async () => { throw new Error('db down'); }),
+          getMember: mock.fn(async () => {
+            throw new Error('db down');
+          }),
         },
       },
     });
@@ -384,7 +385,6 @@ describe('routes/crew-meeting-points.js -- GET /:crewId/meeting-points', () => {
 //  POST /:crewId/meeting-points -- create meeting point
 // =====================================================================
 describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => {
-
   test('creates meeting point for crew member', async () => {
     const createFn = mock.fn(async (data: any) => ({ ...data, active: true, createdAt: '2026-05-08T00:00:00.000Z' }));
     const { app } = await buildApp({
@@ -428,9 +428,7 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
       },
     });
 
-    await request(app)
-      .post('/crew-1/meeting-points')
-      .send({ label: 'Test', location: 'Here' });
+    await request(app).post('/crew-1/meeting-points').send({ label: 'Test', location: 'Here' });
 
     assert.equal((createOpaqueId.mock.calls as any[])[0].arguments[0], 'mp');
     assert.equal((createFn.mock.calls as any[])[0].arguments[0].id, 'mp-generated');
@@ -450,9 +448,7 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
       },
     });
 
-    await request(app)
-      .post('/crew-1/meeting-points')
-      .send({ label: 'Test', location: 'Here' });
+    await request(app).post('/crew-1/meeting-points').send({ label: 'Test', location: 'Here' });
 
     assert.equal((createFn.mock.calls as any[])[0].arguments[0].type, 'during');
   });
@@ -474,9 +470,7 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
       },
     });
 
-    await request(app)
-      .post('/crew-1/meeting-points')
-      .send({ label: 'Test', location: 'Here', meetAt });
+    await request(app).post('/crew-1/meeting-points').send({ label: 'Test', location: 'Here', meetAt });
 
     assert.equal((createFn.mock.calls as any[])[0].arguments[0].expiresAt, expectedExpiry);
     assert.equal((createFn.mock.calls as any[])[0].arguments[0].meetAt, meetAt);
@@ -496,9 +490,7 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
       },
     });
 
-    await request(app)
-      .post('/crew-1/meeting-points')
-      .send({ label: 'Test', location: 'Here' });
+    await request(app).post('/crew-1/meeting-points').send({ label: 'Test', location: 'Here' });
 
     assert.equal((createFn.mock.calls as any[])[0].arguments[0].expiresAt, null);
   });
@@ -518,9 +510,7 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
       },
     });
 
-    await request(app)
-      .post('/crew-1/meeting-points')
-      .send({ label: 'Stage B', location: 'Right side' });
+    await request(app).post('/crew-1/meeting-points').send({ label: 'Stage B', location: 'Right side' });
 
     assert.equal((ioObj.to.mock.calls as any[])[0].arguments[0], 'crew:crew-1');
     assert.equal((ioObj._emit.mock.calls as any[])[0].arguments[0], 'crew:meeting-point-created');
@@ -539,9 +529,7 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
       },
     });
 
-    const res = await request(app)
-      .post('/crew-1/meeting-points')
-      .send({ label: 'One more', location: 'Nope' });
+    const res = await request(app).post('/crew-1/meeting-points').send({ label: 'One more', location: 'Nope' });
 
     assert.equal(res.status, 400);
     assert.equal(res.body.error.code, 'VALIDATION_ERROR');
@@ -558,9 +546,7 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
       },
     });
 
-    const res = await request(app)
-      .post('/crew-1/meeting-points')
-      .send({ label: 'Test', location: 'Here' });
+    const res = await request(app).post('/crew-1/meeting-points').send({ label: 'Test', location: 'Here' });
 
     assert.equal(res.status, 403);
     assert.equal(res.body.error.code, 'FORBIDDEN');
@@ -570,14 +556,14 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
     const { app } = await buildApp({
       stores: {
         crews: {
-          getMember: mock.fn(async () => { throw new Error('db down'); }),
+          getMember: mock.fn(async () => {
+            throw new Error('db down');
+          }),
         },
       },
     });
 
-    const res = await request(app)
-      .post('/crew-1/meeting-points')
-      .send({ label: 'Test', location: 'Here' });
+    const res = await request(app).post('/crew-1/meeting-points').send({ label: 'Test', location: 'Here' });
 
     assert.equal(res.status, 500);
     assert.equal(res.body.error.code, 'INTERNAL_ERROR');
@@ -588,7 +574,6 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
 //  PUT /:crewId/meeting-points/:mpId -- update meeting point
 // =====================================================================
 describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', () => {
-
   test('creator can update their own meeting point', async () => {
     const updateFn = mock.fn(async (id: any, data: any) => ({ ...DEFAULT_MEETING_POINT, ...data, id }));
     const { app } = await buildApp({
@@ -603,9 +588,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/meeting-points/mp-1')
-      .send({ label: 'Updated Label' });
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ label: 'Updated Label' });
 
     assert.equal(res.status, 200);
     assert.equal(res.body.error, null);
@@ -614,7 +597,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
   });
 
   test('crew owner can update any meeting point', async () => {
-    const mpByOtherUser = { ...DEFAULT_MEETING_POINT, createdBy: 'user-2' };
+    const mpByOtherUser = { ...DEFAULT_MEETING_POINT, created_by: 'user-2' };
     const { app } = await buildApp({
       stores: {
         crews: {
@@ -627,9 +610,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/meeting-points/mp-1')
-      .send({ label: 'Owner Edit' });
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ label: 'Owner Edit' });
 
     assert.equal(res.status, 200);
     assert.equal(res.body.error, null);
@@ -650,9 +631,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       },
     });
 
-    await request(app)
-      .put('/crew-1/meeting-points/mp-1')
-      .send({ label: 'Updated' });
+    await request(app).put('/crew-1/meeting-points/mp-1').send({ label: 'Updated' });
 
     assert.equal((ioObj.to.mock.calls as any[])[0].arguments[0], 'crew:crew-1');
     assert.equal((ioObj._emit.mock.calls as any[])[0].arguments[0], 'crew:meeting-point-updated');
@@ -671,16 +650,14 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/meeting-points/mp-nonexistent')
-      .send({ label: 'Updated' });
+    const res = await request(app).put('/crew-1/meeting-points/mp-nonexistent').send({ label: 'Updated' });
 
     assert.equal(res.status, 404);
     assert.equal(res.body.error.code, 'NOT_FOUND');
   });
 
   test('returns 404 when meeting point belongs to different crew', async () => {
-    const mpFromOtherCrew = { ...DEFAULT_MEETING_POINT, crewId: 'crew-other' };
+    const mpFromOtherCrew = { ...DEFAULT_MEETING_POINT, crew_id: 'crew-other' };
     const { app } = await buildApp({
       stores: {
         crews: {
@@ -692,9 +669,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/meeting-points/mp-1')
-      .send({ label: 'Updated' });
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ label: 'Updated' });
 
     assert.equal(res.status, 404);
     assert.equal(res.body.error.code, 'NOT_FOUND');
@@ -713,9 +688,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/meeting-points/mp-1')
-      .send({ label: 'Updated' });
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ label: 'Updated' });
 
     assert.equal(res.status, 404);
     assert.equal(res.body.error.code, 'NOT_FOUND');
@@ -723,7 +696,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
 
   // ── Permission checks ─────────────────────────────────────────────
   test('returns 403 when non-creator non-owner tries to update', async () => {
-    const mpByOtherUser = { ...DEFAULT_MEETING_POINT, createdBy: 'user-2' };
+    const mpByOtherUser = { ...DEFAULT_MEETING_POINT, created_by: 'user-2' };
     const { app } = await buildApp({
       stores: {
         crews: {
@@ -735,9 +708,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/meeting-points/mp-1')
-      .send({ label: 'Updated' });
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ label: 'Updated' });
 
     assert.equal(res.status, 403);
     assert.equal(res.body.error.code, 'FORBIDDEN');
@@ -753,9 +724,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/meeting-points/mp-1')
-      .send({ label: 'Updated' });
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ label: 'Updated' });
 
     assert.equal(res.status, 403);
     assert.equal(res.body.error.code, 'FORBIDDEN');
@@ -765,14 +734,14 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
     const { app } = await buildApp({
       stores: {
         crews: {
-          getMember: mock.fn(async () => { throw new Error('db down'); }),
+          getMember: mock.fn(async () => {
+            throw new Error('db down');
+          }),
         },
       },
     });
 
-    const res = await request(app)
-      .put('/crew-1/meeting-points/mp-1')
-      .send({ label: 'Updated' });
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ label: 'Updated' });
 
     assert.equal(res.status, 500);
     assert.equal(res.body.error.code, 'INTERNAL_ERROR');
@@ -783,7 +752,6 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
 //  DELETE /:crewId/meeting-points/:mpId -- deactivate meeting point
 // =====================================================================
 describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId', () => {
-
   test('creator can delete their own meeting point', async () => {
     const deactivateFn = mock.fn(async () => {});
     const { app } = await buildApp({
@@ -808,7 +776,7 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
   });
 
   test('crew owner can delete any meeting point', async () => {
-    const mpByOther = { ...DEFAULT_MEETING_POINT, createdBy: 'user-2' };
+    const mpByOther = { ...DEFAULT_MEETING_POINT, created_by: 'user-2' };
     const deactivateFn = mock.fn(async () => {});
     const { app } = await buildApp({
       stores: {
@@ -875,7 +843,7 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
         crews: {
           getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
           meetingPoints: {
-            getById: mock.fn(async () => ({ ...DEFAULT_MEETING_POINT, crewId: 'crew-other' })),
+            getById: mock.fn(async () => ({ ...DEFAULT_MEETING_POINT, crew_id: 'crew-other' })),
           },
         },
       },
@@ -911,7 +879,7 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
         crews: {
           getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
           meetingPoints: {
-            getById: mock.fn(async () => ({ ...DEFAULT_MEETING_POINT, createdBy: 'user-2' })),
+            getById: mock.fn(async () => ({ ...DEFAULT_MEETING_POINT, created_by: 'user-2' })),
           },
         },
       },
@@ -943,7 +911,9 @@ describe('routes/crew-meeting-points.js -- DELETE /:crewId/meeting-points/:mpId'
     const { app } = await buildApp({
       stores: {
         crews: {
-          getMember: mock.fn(async () => { throw new Error('db down'); }),
+          getMember: mock.fn(async () => {
+            throw new Error('db down');
+          }),
         },
       },
     });

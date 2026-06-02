@@ -9,10 +9,7 @@ export interface ConflictDetected {
 
 export type GetMyPickFn = (setId: string) => Priority | undefined | null;
 
-export function detectConflicts(
-  sets: FestivalSet[],
-  getMyPick: GetMyPickFn,
-): ConflictDetected[] {
+export function detectConflicts(sets: FestivalSet[], getMyPick: GetMyPickFn): ConflictDetected[] {
   const picked = sets.filter((s) => getMyPick(s.id) && s.startTime && s.endTime);
   const conflicts: ConflictDetected[] = [];
   const seen = new Set<string>();
@@ -64,55 +61,7 @@ export function getConflictingSetIds(sets: FestivalSet[], getMyPick: GetMyPickFn
   return ids;
 }
 
-export function findAlternatives(
-  conflictingSetId: string,
-  allSets: FestivalSet[],
-  getMyPick: GetMyPickFn,
-  limit: number = 3,
-): FestivalSet[] {
-  const targetSet = allSets.find((s) => s.id === conflictingSetId);
-  if (!targetSet || !targetSet.startTime || !targetSet.endTime) return [];
-
-  const tS = timeToMinutes(targetSet.startTime);
-  let tE = timeToMinutes(targetSet.endTime);
-  if (tE <= tS) tE += 1440;
-
-  const otherPicked = allSets.filter(
-    (s) => s.id !== conflictingSetId && getMyPick(s.id) && s.startTime && s.endTime,
-  );
-
-  return allSets
-    .filter((s) => {
-      if (s.id === conflictingSetId) return false;
-      if (getMyPick(s.id)) return false;
-      if (!s.startTime || !s.endTime) return false;
-      if (s.stageId === targetSet.stageId) return false;
-      // Only suggest alternatives on the same day as the conflicting set.
-      if (s.dayIndex != null && targetSet.dayIndex != null && s.dayIndex !== targetSet.dayIndex) return false;
-
-      const sS = timeToMinutes(s.startTime);
-      let sE = timeToMinutes(s.endTime);
-      if (sE <= sS) sE += 1440;
-
-      if (!(sS < tE && tS < sE)) return false;
-
-      for (const op of otherPicked) {
-        const opS = timeToMinutes(op.startTime);
-        let opE = timeToMinutes(op.endTime);
-        if (opE <= opS) opE += 1440;
-        if (sS < opE && opS < sE) return false;
-      }
-
-      return true;
-    })
-    .slice(0, limit);
-}
-
-export function hasConflict(
-  setId: string,
-  sets: FestivalSet[],
-  getMyPick: GetMyPickFn,
-): boolean {
+export function hasConflict(setId: string, sets: FestivalSet[], getMyPick: GetMyPickFn): boolean {
   const conflictIds = getConflictingSetIds(sets, getMyPick);
   return conflictIds.has(setId);
 }

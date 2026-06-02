@@ -7,10 +7,6 @@ import ActivityTab from './ActivityTab';
 import type { TabKey } from './CrewTabBar';
 import type { CrewMember } from '@festie/shared/types';
 
-interface CrewMemberWithUsername extends CrewMember {
-  username?: string;
-}
-
 interface CrewTabContentProps {
   tab: TabKey;
   crewId: string;
@@ -18,10 +14,10 @@ interface CrewTabContentProps {
   isOwner: boolean;
   isAdmin: boolean;
   adminAddBusy: boolean;
-  members: CrewMemberWithUsername[];
+  members: CrewMember[];
   ownerId?: string;
   onForceAdd: () => void;
-  onTransferOwnership: (member: CrewMemberWithUsername) => void;
+  onTransferOwnership: (member: CrewMember) => void;
 }
 
 export default function CrewTabContent({
@@ -56,18 +52,10 @@ export default function CrewTabContent({
           onTransferOwnership={onTransferOwnership}
         />
       )}
-      {tab === 'meeting' && (
-        <MeetingPointsTab crewId={crewId} currentUserId={currentUserId} />
-      )}
-      {tab === 'polls' && (
-        <PollsTab crewId={crewId} currentUserId={currentUserId} isOwner={isOwner} />
-      )}
-      {tab === 'expenses' && (
-        <ExpensesTab crewId={crewId} members={members} currentUserId={currentUserId} />
-      )}
-      {tab === 'activity' && (
-        <ActivityTab crewId={crewId} />
-      )}
+      {tab === 'meeting' && <MeetingPointsTab crewId={crewId} currentUserId={currentUserId} />}
+      {tab === 'polls' && <PollsTab crewId={crewId} currentUserId={currentUserId} isOwner={isOwner} />}
+      {tab === 'expenses' && <ExpensesTab crewId={crewId} members={members} currentUserId={currentUserId} />}
+      {tab === 'activity' && <ActivityTab crewId={crewId} />}
     </div>
   );
 }

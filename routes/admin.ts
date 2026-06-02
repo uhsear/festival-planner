@@ -30,6 +30,7 @@ import mountAdminUserRoutes from './admin-users.js';
 import mountAdminAuditRoutes from './admin-audit.js';
 import mountAdminBulkRoutes from './admin-bulk.js';
 import * as spotify from '../lib/spotify.js';
+import { sanitizeLinkRecord } from '../lib/schemas.js';
 import type { Router } from 'express';
 
 export default function createAdminRoutes(deps: any): Router {
@@ -230,7 +231,10 @@ export default function createAdminRoutes(deps: any): Router {
       const overrideMap = new Map<string, string>();
       if (body.overrides && typeof body.overrides === 'object') {
         for (const [k, v] of Object.entries(body.overrides)) {
-          if (typeof v === 'string' && v) overrideMap.set(normName(k), v);
+          if (typeof v !== 'string' || !v) continue;
+          // Allowlist link schemes (drop javascript:/data: etc.) before persisting.
+          const safe = sanitizeLinkRecord({ spotify: v }).spotify;
+          if (safe) overrideMap.set(normName(k), safe);
         }
       }
       // "Artist A B2B Artist B" sets carry one combined name; split so each

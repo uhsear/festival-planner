@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  detectConflicts,
-  getConflictingSetIds,
-  findAlternatives,
-  hasConflict,
-} from './conflicts';
+import { detectConflicts, getConflictingSetIds, hasConflict } from './conflicts';
 import type { FestivalSet, Priority } from '../types/domain';
 
 function makeSet(overrides: Partial<FestivalSet> & { id: string }): FestivalSet {
@@ -144,61 +139,6 @@ describe('hasConflict', () => {
   });
 });
 
-describe('findAlternatives', () => {
-  it('returns empty array when target set not found', () => {
-    expect(findAlternatives('nonexistent', [], () => undefined)).toEqual([]);
-  });
-
-  it('returns empty array when target set has no times', () => {
-    const sets = [makeSet({ id: 's1', startTime: '', endTime: '' })];
-    expect(findAlternatives('s1', sets, () => undefined)).toEqual([]);
-  });
-
-  it('finds alternatives on different stages at overlapping times', () => {
-    const target = makeSet({ id: 's1', stageId: 'stage-a', startTime: '14:00', endTime: '15:00' });
-    const alt = makeSet({ id: 's2', stageId: 'stage-b', startTime: '14:00', endTime: '15:00' });
-    const noOverlap = makeSet({ id: 's3', stageId: 'stage-c', startTime: '18:00', endTime: '19:00' });
-
-    const sets = [target, alt, noOverlap];
-    const getMyPick = (id: string) => (id === 's1' ? 'must' as Priority : undefined);
-    const result = findAlternatives('s1', sets, getMyPick);
-    expect(result).toHaveLength(1);
-    expect(result[0]!.id).toBe('s2');
-  });
-
-  it('excludes already-picked sets from alternatives', () => {
-    const target = makeSet({ id: 's1', stageId: 'stage-a', startTime: '14:00', endTime: '15:00' });
-    const alreadyPicked = makeSet({ id: 's2', stageId: 'stage-b', startTime: '14:00', endTime: '15:00' });
-
-    const sets = [target, alreadyPicked];
-    const picks: Record<string, Priority> = { s1: 'must', s2: 'must' };
-    const getMyPick = (id: string) => picks[id];
-    const result = findAlternatives('s1', sets, getMyPick);
-    expect(result).toHaveLength(0);
-  });
-
-  it('excludes sets on the same stage', () => {
-    const target = makeSet({ id: 's1', stageId: 'stage-a', startTime: '14:00', endTime: '15:00' });
-    const sameStage = makeSet({ id: 's2', stageId: 'stage-a', startTime: '14:00', endTime: '15:00' });
-
-    const sets = [target, sameStage];
-    const getMyPick = (id: string) => (id === 's1' ? 'must' as Priority : undefined);
-    const result = findAlternatives('s1', sets, getMyPick);
-    expect(result).toHaveLength(0);
-  });
-
-  it('respects the limit parameter', () => {
-    const target = makeSet({ id: 's1', stageId: 'stage-a', startTime: '14:00', endTime: '16:00' });
-    const alts = Array.from({ length: 5 }, (_, i) =>
-      makeSet({ id: `alt-${i}`, stageId: `stage-${i + 1}`, startTime: '14:00', endTime: '15:00' }),
-    );
-    const sets = [target, ...alts];
-    const getMyPick = (id: string) => (id === 's1' ? 'must' as Priority : undefined);
-    const result = findAlternatives('s1', sets, getMyPick, 2);
-    expect(result).toHaveLength(2);
-  });
-});
-
 describe('multi-day conflict handling (S-3)', () => {
   const picks: Record<string, Priority> = { s1: 'must', s2: 'must' };
   const getMyPick = (id: string) => picks[id];
@@ -226,15 +166,6 @@ describe('multi-day conflict handling (S-3)', () => {
       makeSet({ id: 's2', startTime: '14:30', endTime: '15:30' }),
     ];
     expect(detectConflicts(sets, getMyPick)).toHaveLength(1);
-  });
-
-  it('findAlternatives excludes sets on a different day', () => {
-    const target = makeSet({ id: 's1', stageId: 'stage-a', startTime: '14:00', endTime: '16:00', dayIndex: 0 });
-    const sameDay = makeSet({ id: 'alt-same', stageId: 'stage-b', startTime: '14:00', endTime: '15:00', dayIndex: 0 });
-    const otherDay = makeSet({ id: 'alt-other', stageId: 'stage-c', startTime: '14:00', endTime: '15:00', dayIndex: 1 });
-    const getMyPickLocal = (id: string) => (id === 's1' ? 'must' as Priority : undefined);
-    const result = findAlternatives('s1', [target, sameDay, otherDay], getMyPickLocal);
-    expect(result.map((s) => s.id)).toEqual(['alt-same']);
   });
 });
 

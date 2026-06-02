@@ -70,3 +70,6 @@ storybook-static
 
 # Playwright auth storage-state (contains live session cookies — never commit)
 tests/e2e/.auth/
+
+# TypeScript incremental build cache (changes every build)
+*.tsbuildinfo

@@ -6,6 +6,11 @@ import TimelineGridCell from './TimelineGridCell';
 
 const SLOT_MINUTES = 15;
 
+// Shared frozen empty array so cells with no crew overlap always receive the
+// same reference — keeps the React.memo on TimelineGridCell from re-rendering
+// on a fresh `[]` each pass.
+const EMPTY_OTHERS: Array<{ profileId: string; priority: Priority; name?: string }> = [];
+
 function fmtHour(hh: number, mm: number): string {
   const h = hh % 12 || 12;
   const suffix = hh < 12 ? 'a' : 'p';
@@ -60,6 +65,18 @@ export default function TimelineGrid({
     }
     return m;
   }, [timedSets]);
+
+  // Pre-compute setId -> crew-overlap picks once per render. Calling
+  // getOtherPicks(s.id) inline returns a fresh array on every render, which
+  // would defeat the React.memo on TimelineGridCell (new `others` reference
+  // each time). Memoizing here gives each cell a referentially stable array
+  // unless the underlying pick data changes (which flips getOtherPicks'
+  // identity via usePicks).
+  const othersBySet = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof getOtherPicks>>();
+    for (const s of timedSets) m.set(s.id, getOtherPicks(s.id));
+    return m;
+  }, [timedSets, getOtherPicks]);
 
   return (
     <div
@@ -136,10 +153,7 @@ export default function TimelineGrid({
             style={{
               gridRow: i + 2,
               gridColumn: 1,
-              borderBottom:
-                mm === 0
-                  ? '1px solid var(--color-border-light)'
-                  : '1px solid var(--color-border)',
+              borderBottom: mm === 0 ? '1px solid var(--color-border-light)' : '1px solid var(--color-border)',
             }}
           >
             {show ? fmtHour(hh, mm) : ''}
@@ -159,10 +173,7 @@ export default function TimelineGrid({
               style={{
                 gridRow: i + 2,
                 gridColumn: ci + 2,
-                borderBottom:
-                  mm === 0
-                    ? '1px solid var(--color-border-light)'
-                    : '1px solid var(--color-border)',
+                borderBottom: mm === 0 ? '1px solid var(--color-border-light)' : '1px solid var(--color-border)',
               }}
             />
           );
@@ -174,32 +185,32 @@ export default function TimelineGrid({
         const color = getStageColor(st.id);
         const stageSets = setsByStage.get(st.id) || [];
         return stageSets.map((s) => {
-            const startMin = timeToMinutes(s.startTime!);
-            let endMin = timeToMinutes(s.endTime!);
-            if (endMin <= startMin) endMin += 24 * 60;
-            const topSlot = (startMin - timeBounds.minMin) / SLOT_MINUTES;
-            const spanSlots = (endMin - startMin) / SLOT_MINUTES;
+          const startMin = timeToMinutes(s.startTime!);
+          let endMin = timeToMinutes(s.endTime!);
+          if (endMin <= startMin) endMin += 24 * 60;
+          const topSlot = (startMin - timeBounds.minMin) / SLOT_MINUTES;
+          const spanSlots = (endMin - startMin) / SLOT_MINUTES;
 
-            return (
-              <TimelineGridCell
-                key={s.id}
-                set={s}
-                stageName={st.name}
-                stageColor={color}
-                columnIndex={ci}
-                topSlot={topSlot}
-                spanSlots={spanSlots}
-                rowHeight={rowHeight}
-                myPick={getMyPick(s.id)}
-                others={getOtherPicks(s.id)}
-                hasConflict={conflictIds.has(s.id)}
-                hasProfile={!!currentProfile}
-                festival={currentFestival}
-                onSetClick={onSetClick}
-                onSavePick={onSavePick}
-              />
-            );
-          });
+          return (
+            <TimelineGridCell
+              key={s.id}
+              set={s}
+              stageName={st.name}
+              stageColor={color}
+              columnIndex={ci}
+              topSlot={topSlot}
+              spanSlots={spanSlots}
+              rowHeight={rowHeight}
+              myPick={getMyPick(s.id)}
+              others={othersBySet.get(s.id) ?? EMPTY_OTHERS}
+              hasConflict={conflictIds.has(s.id)}
+              hasProfile={!!currentProfile}
+              festival={currentFestival}
+              onSetClick={onSetClick}
+              onSavePick={onSavePick}
+            />
+          );
+        });
       })}
 
       {/* Now-indicator line — thicker, brighter, and ringed so the NOW moment

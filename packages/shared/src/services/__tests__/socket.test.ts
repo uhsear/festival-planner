@@ -36,7 +36,7 @@ vi.mock('socket.io-client', () => ({
 }));
 
 // Must import AFTER the mock so the module picks up the mocked `io`.
-import { createSocket, SOCKET_EVENT_NAMES } from '../socket';
+import { createSocket } from '../socket';
 import { io } from 'socket.io-client';
 import { SOCKET_RECONNECTION_CONFIG } from '../../constants/config';
 
@@ -149,29 +149,6 @@ describe('socket service', () => {
       const err = Object.assign(new Error('mixed'), { data: { status: 200 }, status: 401 });
       lastMockSocket.__emit('connect_error', err);
       expect(lastMockSocket.disconnect).not.toHaveBeenCalled();
-    });
-  });
-
-  // ── SOCKET_EVENT_NAMES ────────────────────────────────────────────────
-
-  describe('SOCKET_EVENT_NAMES', () => {
-    it('exports all expected event name constants', () => {
-      expect(SOCKET_EVENT_NAMES.PICKS_UPDATED).toBe('picks:updated');
-      expect(SOCKET_EVENT_NAMES.PROFILE_JOINED).toBe('profile:joined');
-      expect(SOCKET_EVENT_NAMES.PROFILE_LEFT).toBe('profile:left');
-      expect(SOCKET_EVENT_NAMES.CREW_UPDATED).toBe('crew:updated');
-      expect(SOCKET_EVENT_NAMES.CREW_MEMBER_JOINED).toBe('crew:member:joined');
-      expect(SOCKET_EVENT_NAMES.CREW_MEMBER_LEFT).toBe('crew:member:left');
-      expect(SOCKET_EVENT_NAMES.PRESENCE_UPDATE).toBe('presence:update');
-      expect(SOCKET_EVENT_NAMES.FESTIVAL_UPDATED).toBe('festival:updated');
-      expect(SOCKET_EVENT_NAMES.SET_UPDATED).toBe('set:updated');
-      expect(SOCKET_EVENT_NAMES.MESSAGE_CREATED).toBe('message:created');
-      expect(SOCKET_EVENT_NAMES.NOTIFICATION).toBe('notification');
-      expect(SOCKET_EVENT_NAMES.ERROR).toBe('error');
-    });
-
-    it('has exactly 12 event names', () => {
-      expect(Object.keys(SOCKET_EVENT_NAMES)).toHaveLength(12);
     });
   });
 });

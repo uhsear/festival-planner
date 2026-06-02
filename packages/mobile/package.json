@@ -21,7 +21,6 @@
     "@sentry/cli": "2.55.0",
     "@sentry/react-native": "~7.2.0",
     "babel-preset-expo": "~54.0.11",
-    "eslint": "^10.4.1",
     "eslint-config-expo": "~10.0.0",
     "expo": "~54.0.35",
     "expo-constants": "^18.0.13",

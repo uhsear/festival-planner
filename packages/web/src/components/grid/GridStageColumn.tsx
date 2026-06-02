@@ -19,7 +19,7 @@ interface GridStageColumnProps {
   onSetClick: (set: FestivalSet | null) => void;
 }
 
-export default function GridStageColumn({
+function GridStageColumn({
   stageId,
   stageSets,
   stageColor,
@@ -41,11 +41,7 @@ export default function GridStageColumn({
       data-grid-col
     >
       {hours.map(({ m, px }) => (
-        <div
-          key={m}
-          className="absolute left-0 right-0 h-px bg-border-light pointer-events-none"
-          style={{ top: px }}
-        />
+        <div key={m} className="absolute left-0 right-0 h-px bg-border-light pointer-events-none" style={{ top: px }} />
       ))}
       {hours.slice(0, -1).map(({ m, px }) => (
         <div
@@ -86,9 +82,7 @@ export default function GridStageColumn({
                 height,
                 '--set-c': pc,
                 borderLeftColor: pc,
-                background: pick
-                  ? `color-mix(in srgb, ${pc} 28%, #0d0d1a)`
-                  : pc + '15',
+                background: pick ? `color-mix(in srgb, ${pc} 28%, #0d0d1a)` : pc + '15',
               } as React.CSSProperties
             }
             onClick={() => onSetClick(set)}
@@ -118,3 +112,5 @@ export default function GridStageColumn({
     </div>
   );
 }
+
+export default React.memo(GridStageColumn);
