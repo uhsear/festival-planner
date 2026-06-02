@@ -51,7 +51,8 @@ function baseDeps(overrides: any = {}) {
     },
     log: makeLog(),
     sendSuccess: (res: any, data: any) => res.json({ data, error: null }),
-    sendError: (res: any, status: any, msg: any, code: any) => res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
+    sendError: (res: any, status: any, msg: any, code: any) =>
+      res.status(status).json({ data: null, error: { message: msg, status, code: code || 'ERROR' } }),
     ErrorCodes: {
       INVALID_INPUT: 'INVALID_INPUT',
       NOT_FOUND: 'NOT_FOUND',
@@ -65,12 +66,24 @@ function baseDeps(overrides: any = {}) {
       VALIDATION_ERROR: 'VALIDATION_ERROR',
       CONFLICT: 'CONFLICT',
     },
-    userAuth: (req: any, _res: any, next: any) => { req.user = { userId: 'user-1' }; next(); },
+    userAuth: (req: any, _res: any, next: any) => {
+      req.user = { userId: 'user-1' };
+      next();
+    },
     adminAuth: noopMw,
     rateLimit: () => noopMw,
-    validate: () => (req: any, _res: any, next: any) => { req.validatedBody = req.body; next(); },
-    validateQuery: () => (req: any, _res: any, next: any) => { req.validatedQuery = req.query; next(); },
-    validateParams: () => (req: any, _res: any, next: any) => { req.validatedParams = req.params; next(); },
+    validate: () => (req: any, _res: any, next: any) => {
+      req.validatedBody = req.body;
+      next();
+    },
+    validateQuery: () => (req: any, _res: any, next: any) => {
+      req.validatedQuery = req.query;
+      next();
+    },
+    validateParams: () => (req: any, _res: any, next: any) => {
+      req.validatedParams = req.params;
+      next();
+    },
     schemas: {
       forgotPassword: {},
       resetPasswordPublic: {},
@@ -188,10 +201,7 @@ describe('routes/email-auth', () => {
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .post('/forgot-password')
-      .send({ email: 'nobody@test.com' })
-      .expect(200);
+    const res = await request(app).post('/forgot-password').send({ email: 'nobody@test.com' }).expect(200);
 
     assert.equal(res.body.error, null);
     assert.match(res.body.data.message, /reset link/i);
@@ -199,15 +209,16 @@ describe('routes/email-auth', () => {
 
   test('POST /forgot-password — sends reset email when user exists', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.emailTokens.findUserByEmail = mock.fn(async () => ({ id: 'user-1', username: 'alice', email: 'alice@test.com' }));
+    deps.stores.emailTokens.findUserByEmail = mock.fn(async () => ({
+      id: 'user-1',
+      username: 'alice',
+      email: 'alice@test.com',
+    }));
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .post('/forgot-password')
-      .send({ email: 'alice@test.com' })
-      .expect(200);
+    const res = await request(app).post('/forgot-password').send({ email: 'alice@test.com' }).expect(200);
 
     assert.equal(res.body.error, null);
     assert.ok(deps.stores.emailTokens.invalidateResetTokens.mock.calls.length >= 1);
@@ -215,38 +226,35 @@ describe('routes/email-auth', () => {
 
   test('POST /forgot-password — per-email rate limit kicks in after 3 attempts', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.emailTokens.findUserByEmail = mock.fn(async () => ({ id: 'u1', username: 'bob', email: 'bob@test.com' }));
+    deps.stores.emailTokens.findUserByEmail = mock.fn(async () => ({
+      id: 'u1',
+      username: 'bob',
+      email: 'bob@test.com',
+    }));
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
     // First 3 requests pass through the passwordResetRateLimit middleware
     for (let i = 0; i < 3; i++) {
-      const res = await request(app)
-        .post('/forgot-password')
-        .send({ email: 'ratelimit-test@test.com' })
-        .expect(200);
+      const res = await request(app).post('/forgot-password').send({ email: 'ratelimit-test@test.com' }).expect(200);
       assert.equal(res.body.error, null);
     }
     // 4th request exceeds the per-email limiter (3/hour) and gets 429
-    const res = await request(app)
-      .post('/forgot-password')
-      .send({ email: 'ratelimit-test@test.com' })
-      .expect(429);
+    const res = await request(app).post('/forgot-password').send({ email: 'ratelimit-test@test.com' }).expect(429);
     assert.equal(res.body.data, null);
   });
 
   test('POST /forgot-password — returns 500 on unexpected error', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.emailTokens.findUserByEmail = mock.fn(async () => { throw new Error('DB down'); });
+    deps.stores.emailTokens.findUserByEmail = mock.fn(async () => {
+      throw new Error('DB down');
+    });
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .post('/forgot-password')
-      .send({ email: 'err@test.com' })
-      .expect(500);
+    const res = await request(app).post('/forgot-password').send({ email: 'err@test.com' }).expect(500);
 
     assert.equal(res.body.data, null);
   });
@@ -257,9 +265,7 @@ describe('routes/email-auth', () => {
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .get('/verify-email?token=short')
-      .expect(400);
+    const res = await request(app).get('/verify-email?token=short').expect(400);
 
     assert.match(res.text, /invalid/i);
   });
@@ -270,9 +276,7 @@ describe('routes/email-auth', () => {
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .get('/verify-email')
-      .expect(400);
+    const res = await request(app).get('/verify-email').expect(400);
 
     assert.match(res.text, /invalid/i);
   });
@@ -285,9 +289,7 @@ describe('routes/email-auth', () => {
     const app = mountApp(router);
 
     const validHex = 'a'.repeat(64);
-    const res = await request(app)
-      .get(`/verify-email?token=${validHex}`)
-      .expect(400);
+    const res = await request(app).get(`/verify-email?token=${validHex}`).expect(400);
 
     assert.match(res.text, /expired|already been used/i);
   });
@@ -295,16 +297,16 @@ describe('routes/email-auth', () => {
   test('GET /verify-email — verifies email successfully', async () => {
     const deps = buildEmailAuthDeps();
     deps.stores.emailTokens.findVerificationToken = mock.fn(async () => ({
-      id: 'tok-1', user_id: 'user-1', email: 'verified@test.com',
+      id: 'tok-1',
+      user_id: 'user-1',
+      email: 'verified@test.com',
     }));
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
     const validHex = 'b'.repeat(64);
-    const res = await request(app)
-      .get(`/verify-email?token=${validHex}`)
-      .expect(200);
+    const res = await request(app).get(`/verify-email?token=${validHex}`).expect(200);
 
     assert.match(res.text, /verified/i);
     assert.ok(deps.invalidateUserCache.mock.calls.length >= 1);
@@ -312,15 +314,15 @@ describe('routes/email-auth', () => {
 
   test('GET /verify-email — returns 500 on DB error', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.emailTokens.findVerificationToken = mock.fn(async () => { throw new Error('DB fail'); });
+    deps.stores.emailTokens.findVerificationToken = mock.fn(async () => {
+      throw new Error('DB fail');
+    });
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
     const validHex = 'c'.repeat(64);
-    const res = await request(app)
-      .get(`/verify-email?token=${validHex}`)
-      .expect(500);
+    const res = await request(app).get(`/verify-email?token=${validHex}`).expect(500);
 
     assert.match(res.text, /wrong/i);
   });
@@ -332,10 +334,7 @@ describe('routes/email-auth', () => {
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .post('/update-email')
-      .send({ email: 'new@test.com', password: 'wrong' })
-      .expect(400);
+    const res = await request(app).post('/update-email').send({ email: 'new@test.com', password: 'wrong' }).expect(400);
 
     assert.equal(res.body.data, null);
     assert.equal(res.body.error.code, 'PASSWORD_INCORRECT');
@@ -379,10 +378,7 @@ describe('routes/email-auth', () => {
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .post('/update-email')
-      .send({ email: 'x@test.com', password: 'p' })
-      .expect(404);
+    const res = await request(app).post('/update-email').send({ email: 'x@test.com', password: 'p' }).expect(404);
 
     assert.equal(res.body.error.code, 'NOT_FOUND');
   });
@@ -390,16 +386,16 @@ describe('routes/email-auth', () => {
   test('POST /resend-verification — rejects when already verified', async () => {
     const deps = buildEmailAuthDeps();
     deps.getUserById = mock.fn(async () => ({
-      id: 'user-1', username: 'alice', email: 'alice@test.com',
+      id: 'user-1',
+      username: 'alice',
+      email: 'alice@test.com',
       emailVerifiedAt: new Date().toISOString(),
     }));
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .post('/resend-verification')
-      .expect(400);
+    const res = await request(app).post('/resend-verification').expect(400);
 
     assert.match(res.body.error.message, /already verified/i);
   });
@@ -407,16 +403,16 @@ describe('routes/email-auth', () => {
   test('POST /resend-verification — rejects when no email on file', async () => {
     const deps = buildEmailAuthDeps();
     deps.getUserById = mock.fn(async () => ({
-      id: 'user-1', username: 'alice', email: null,
+      id: 'user-1',
+      username: 'alice',
+      email: null,
       emailVerifiedAt: null,
     }));
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .post('/resend-verification')
-      .expect(400);
+    const res = await request(app).post('/resend-verification').expect(400);
 
     assert.match(res.body.error.message, /no email/i);
   });
@@ -428,9 +424,7 @@ describe('routes/email-auth', () => {
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .post('/resend-verification')
-      .expect(404);
+    const res = await request(app).post('/resend-verification').expect(404);
 
     assert.equal(res.body.error.code, 'NOT_FOUND');
   });
@@ -442,9 +436,7 @@ describe('routes/email-auth', () => {
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .post('/resend-verification')
-      .expect(200);
+    const res = await request(app).post('/resend-verification').expect(200);
 
     assert.equal(res.body.error, null);
     assert.match(res.body.data.message, /verification email sent/i);
@@ -548,7 +540,6 @@ describe('routes/email-auth', () => {
   });
 });
 
-
 // ════════════════════════════════════════════════════════════════════════════
 // 2. socket.js
 // ════════════════════════════════════════════════════════════════════════════
@@ -578,7 +569,12 @@ describe('routes/socket', () => {
       _getUserById: mock.fn(async () => ({ id: 'user-1', username: 'alice' })),
       _buildAvatarUrl: mock.fn(() => '/avatar.png'),
       _emitter: { emit: noop },
-      stores: { crews: { getById: mock.fn(async () => ({ id: 'crew-1' })), getMember: mock.fn(async () => ({ role: 'member' })) } },
+      stores: {
+        crews: {
+          getById: mock.fn(async () => ({ id: 'crew-1' })),
+          getMember: mock.fn(async () => ({ role: 'member' })),
+        },
+      },
       removeSocketPresence: mock.fn(noop),
       getPresenceList: mock.fn(async () => []),
       clearSocketSession: mock.fn(noop),
@@ -630,7 +626,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -643,7 +641,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -662,7 +662,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -680,7 +682,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -698,7 +702,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -715,7 +721,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -734,7 +742,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -752,7 +762,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
     socketHandlers['leave:festival']();
@@ -767,7 +779,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
     socket.data.userId = 'user-1';
@@ -782,7 +796,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -800,7 +816,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -818,7 +836,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -835,7 +855,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
     socket.data.crewId = 'crew-1';
@@ -851,7 +873,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -869,7 +893,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -885,7 +911,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
     socket.data.festivalId = 'fest-1';
@@ -904,7 +932,9 @@ describe('routes/socket', () => {
     const handlers = await setupAndGetHandlers(deps);
     const socket = makeSocket();
     const socketHandlers: Record<string, any> = {};
-    socket.on = mock.fn((event: any, handler: any) => { socketHandlers[event] = handler; });
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
 
     handlers.connection(socket);
 
@@ -915,7 +945,6 @@ describe('routes/socket', () => {
     assert.equal(deps.emitPresence.mock.calls.length, 0);
   });
 });
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // 3. crew-features.js
@@ -933,7 +962,7 @@ describe('routes/crew-features', () => {
             listByCrew: mock.fn(async () => [{ id: 'mp-1', label: 'Gate A' }]),
             countByCrew: mock.fn(async () => 2),
             create: mock.fn(async (data) => ({ ...data })),
-            getById: mock.fn(async () => ({ id: 'mp-1', crewId: 'crew-1', createdBy: 'user-1', active: true })),
+            getById: mock.fn(async () => ({ id: 'mp-1', crew_id: 'crew-1', created_by: 'user-1', active: true })),
             update: mock.fn(async (id, data) => ({ id, ...data })),
             deactivate: mock.fn(noopAsync),
           },
@@ -942,7 +971,12 @@ describe('routes/crew-features', () => {
           listByCrew: mock.fn(async () => []),
           countActiveByCrew: mock.fn(async () => 0),
           create: mock.fn(async (data) => ({ id: 'poll-1', ...data })),
-          getById: mock.fn(async () => ({ id: 'poll-1', crew_id: 'crew-1', created_by: 'user-1', options: ['A', 'B'] })),
+          getById: mock.fn(async () => ({
+            id: 'poll-1',
+            crew_id: 'crew-1',
+            created_by: 'user-1',
+            options: ['A', 'B'],
+          })),
           vote: mock.fn(noopAsync),
           close: mock.fn(async () => ({ id: 'poll-1', closedAt: new Date() })),
         },
@@ -965,10 +999,7 @@ describe('routes/crew-features', () => {
     const deps = buildCrewFeaturesDeps();
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .put('/crew-1/home-base')
-      .send({ location: 'Main Stage', time: '14:00' })
-      .expect(200);
+    const res = await request(app).put('/crew-1/home-base').send({ location: 'Main Stage', time: '14:00' }).expect(200);
 
     assert.equal(res.body.error, null);
   });
@@ -978,10 +1009,7 @@ describe('routes/crew-features', () => {
     deps.stores.crews.getMember = mock.fn(async () => null);
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .put('/crew-1/home-base')
-      .send({ location: 'Stage A' })
-      .expect(403);
+    const res = await request(app).put('/crew-1/home-base').send({ location: 'Stage A' }).expect(403);
 
     assert.equal(res.body.error.code, 'FORBIDDEN');
   });
@@ -991,10 +1019,7 @@ describe('routes/crew-features', () => {
     deps.stores.crews.getMember = mock.fn(async () => ({ role: 'member' }));
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .put('/crew-1/home-base')
-      .send({ location: 'Stage B' })
-      .expect(403);
+    const res = await request(app).put('/crew-1/home-base').send({ location: 'Stage B' }).expect(403);
 
     assert.match(res.body.error.message, /owner/i);
   });
@@ -1003,9 +1028,7 @@ describe('routes/crew-features', () => {
     const deps = buildCrewFeaturesDeps();
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .get('/crew-1/meeting-points')
-      .expect(200);
+    const res = await request(app).get('/crew-1/meeting-points').expect(200);
 
     assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data.meetingPoints));
@@ -1048,10 +1071,7 @@ describe('routes/crew-features', () => {
     const deps = buildCrewFeaturesDeps();
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .put('/crew-1/meeting-points/mp-1')
-      .send({ label: 'Updated Location' })
-      .expect(200);
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ label: 'Updated Location' }).expect(200);
 
     assert.equal(res.body.error, null);
   });
@@ -1061,10 +1081,7 @@ describe('routes/crew-features', () => {
     deps.stores.crews.meetingPoints.getById = mock.fn(async () => null);
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .put('/crew-1/meeting-points/mp-missing')
-      .send({ label: 'Nope' })
-      .expect(404);
+    const res = await request(app).put('/crew-1/meeting-points/mp-missing').send({ label: 'Nope' }).expect(404);
 
     assert.equal(res.body.error.code, 'NOT_FOUND');
   });
@@ -1072,13 +1089,15 @@ describe('routes/crew-features', () => {
   test('PUT /:crewId/meeting-points/:mpId — rejects non-creator non-owner', async () => {
     const deps = buildCrewFeaturesDeps();
     deps.stores.crews.getMember = mock.fn(async () => ({ role: 'member' }));
-    deps.stores.crews.meetingPoints.getById = mock.fn(async () => ({ id: 'mp-1', crewId: 'crew-1', createdBy: 'other-user', active: true }));
+    deps.stores.crews.meetingPoints.getById = mock.fn(async () => ({
+      id: 'mp-1',
+      crew_id: 'crew-1',
+      created_by: 'other-user',
+      active: true,
+    }));
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .put('/crew-1/meeting-points/mp-1')
-      .send({ label: 'Hacked' })
-      .expect(403);
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ label: 'Hacked' }).expect(403);
 
     assert.match(res.body.error.message, /creator or crew owner/i);
   });
@@ -1087,9 +1106,7 @@ describe('routes/crew-features', () => {
     const deps = buildCrewFeaturesDeps();
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .delete('/crew-1/meeting-points/mp-1')
-      .expect(200);
+    const res = await request(app).delete('/crew-1/meeting-points/mp-1').expect(200);
 
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.removed, true);
@@ -1097,7 +1114,12 @@ describe('routes/crew-features', () => {
 
   test('DELETE /:crewId/meeting-points/:mpId — 404 when inactive', async () => {
     const deps = buildCrewFeaturesDeps();
-    deps.stores.crews.meetingPoints.getById = mock.fn(async () => ({ id: 'mp-1', crewId: 'crew-1', createdBy: 'user-1', active: false }));
+    deps.stores.crews.meetingPoints.getById = mock.fn(async () => ({
+      id: 'mp-1',
+      crew_id: 'crew-1',
+      created_by: 'user-1',
+      active: false,
+    }));
     const app = await mountCrewFeatures(deps);
 
     await request(app).delete('/crew-1/meeting-points/mp-1').expect(404);
@@ -1141,10 +1163,7 @@ describe('routes/crew-features', () => {
     const deps = buildCrewFeaturesDeps();
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .post('/crew-1/polls/poll-1/vote')
-      .send({ optionIndex: 0 })
-      .expect(200);
+    const res = await request(app).post('/crew-1/polls/poll-1/vote').send({ optionIndex: 0 }).expect(200);
 
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.voted, true);
@@ -1154,10 +1173,7 @@ describe('routes/crew-features', () => {
     const deps = buildCrewFeaturesDeps();
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .post('/crew-1/polls/poll-1/vote')
-      .send({ optionIndex: 99 })
-      .expect(400);
+    const res = await request(app).post('/crew-1/polls/poll-1/vote').send({ optionIndex: 99 }).expect(400);
 
     assert.match(res.body.error.message, /invalid option/i);
   });
@@ -1166,9 +1182,7 @@ describe('routes/crew-features', () => {
     const deps = buildCrewFeaturesDeps();
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .delete('/crew-1/polls/poll-1')
-      .expect(200);
+    const res = await request(app).delete('/crew-1/polls/poll-1').expect(200);
 
     assert.equal(res.body.error, null);
   });
@@ -1176,17 +1190,19 @@ describe('routes/crew-features', () => {
   test('DELETE /:crewId/polls/:pollId — rejects non-creator non-owner', async () => {
     const deps = buildCrewFeaturesDeps();
     deps.stores.crews.getMember = mock.fn(async () => ({ role: 'member' }));
-    deps.stores.polls.getById = mock.fn(async () => ({ id: 'poll-1', crew_id: 'crew-1', created_by: 'other-user', options: ['A'] }));
+    deps.stores.polls.getById = mock.fn(async () => ({
+      id: 'poll-1',
+      crew_id: 'crew-1',
+      created_by: 'other-user',
+      options: ['A'],
+    }));
     const app = await mountCrewFeatures(deps);
 
-    const res = await request(app)
-      .delete('/crew-1/polls/poll-1')
-      .expect(403);
+    const res = await request(app).delete('/crew-1/polls/poll-1').expect(403);
 
     assert.match(res.body.error.message, /creator or owner/i);
   });
 });
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // 4. expenses.js
@@ -1205,9 +1221,9 @@ describe('routes/expenses', () => {
           getMembers: mock.fn(async () => [{ userId: 'user-1' }, { userId: 'user-2' }]),
         },
         expenses: {
-          getByCrew: mock.fn(async () => [{ id: 'exp-1', amount: 25.50 }]),
+          getByCrew: mock.fn(async () => [{ id: 'exp-1', amount: 25.5 }]),
           create: mock.fn(async (data) => ({ id: 'exp-new', ...data })),
-          getById: mock.fn(async () => ({ id: 'exp-1', crew_id: 'crew-1', paid_by: 'user-1', amount: 25.50 })),
+          getById: mock.fn(async () => ({ id: 'exp-1', crew_id: 'crew-1', paid_by: 'user-1', amount: 25.5 })),
           delete: mock.fn(noopAsync),
           getBalances: mock.fn(async () => ({ balances: [] })),
         },
@@ -1255,9 +1271,7 @@ describe('routes/expenses', () => {
     const deps = buildExpenseDeps();
     const app = await mountExpenses(deps);
 
-    const res = await request(app)
-      .delete('/crews/crew-1/expenses/exp-1')
-      .expect(200);
+    const res = await request(app).delete('/crews/crew-1/expenses/exp-1').expect(200);
 
     assert.equal(res.body.data.deleted, true);
   });
@@ -1292,13 +1306,12 @@ describe('routes/expenses', () => {
 
     const res = await request(app)
       .post('/crews/crew-1/expenses/settle')
-      .send({ toUserId: 'user-2', amount: 15.00 })
+      .send({ toUserId: 'user-2', amount: 15.0 })
       .expect(201);
 
     assert.equal(res.body.error, null);
   });
 });
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // 5. ratings.js
@@ -1337,10 +1350,7 @@ describe('routes/ratings', () => {
     const deps = buildRatingDeps();
     const app = await mountRatings(deps);
 
-    const res = await request(app)
-      .post('/set-a')
-      .send({ rating: 5, note: 'Great!' })
-      .expect(200);
+    const res = await request(app).post('/set-a').send({ rating: 5, note: 'Great!' }).expect(200);
 
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.rating, 5);
@@ -1351,10 +1361,7 @@ describe('routes/ratings', () => {
     deps.stores.pool.query = mock.fn(async () => ({ rows: [] }));
     const app = await mountRatings(deps);
 
-    const res = await request(app)
-      .post('/set-missing')
-      .send({ rating: 3 })
-      .expect(404);
+    const res = await request(app).post('/set-missing').send({ rating: 3 }).expect(404);
 
     assert.equal(res.body.error.code, 'NOT_FOUND');
   });
@@ -1410,7 +1417,6 @@ describe('routes/ratings', () => {
   });
 });
 
-
 // ════════════════════════════════════════════════════════════════════════════
 // 6. calendar-sync.js
 // ════════════════════════════════════════════════════════════════════════════
@@ -1426,7 +1432,12 @@ describe('routes/calendar-sync', () => {
         },
         calendarTokens: {
           getOrCreate: mock.fn(async () => ({ id: 'cal-tok-1' })),
-          getByToken: mock.fn(async () => ({ id: 'cal-tok-1', festival_id: 'fest-1', profile_id: 'prof-1', user_id: 'user-1' })),
+          getByToken: mock.fn(async () => ({
+            id: 'cal-tok-1',
+            festival_id: 'fest-1',
+            profile_id: 'prof-1',
+            user_id: 'user-1',
+          })),
         },
         festivals: {
           getById: mock.fn(async () => ({
@@ -1434,11 +1445,13 @@ describe('routes/calendar-sync', () => {
             name: 'Test Fest',
             location: 'Miami',
             stages: [{ id: 'stage-1', name: 'Main Stage' }],
-            days: [{
-              label: 'Day 1',
-              date: '2026-06-01',
-              sets: [{ id: 'set-a', artist: 'DJ Test', stageId: 'stage-1', startTime: '14:00', endTime: '15:30' }],
-            }],
+            days: [
+              {
+                label: 'Day 1',
+                date: '2026-06-01',
+                sets: [{ id: 'set-a', artist: 'DJ Test', stageId: 'stage-1', startTime: '14:00', endTime: '15:30' }],
+              },
+            ],
           })),
         },
       },
@@ -1452,9 +1465,7 @@ describe('routes/calendar-sync', () => {
     const router = createCalendarSyncRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .post('/calendar-sync/fest-1')
-      .expect(200);
+    const res = await request(app).post('/calendar-sync/fest-1').expect(200);
 
     assert.equal(res.body.error, null);
     assert.match(res.body.data.url, /\.ics$/);
@@ -1467,9 +1478,7 @@ describe('routes/calendar-sync', () => {
     const router = createCalendarSyncRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app)
-      .post('/calendar-sync/fest-1')
-      .expect(404);
+    const res = await request(app).post('/calendar-sync/fest-1').expect(404);
 
     assert.equal(res.body.error.code, 'NOT_FOUND');
   });
@@ -1480,9 +1489,7 @@ describe('routes/calendar-sync', () => {
     const feedRouter = createCalendarFeedRoute(deps);
     const app = mountApp(feedRouter);
 
-    const res = await request(app)
-      .get('/cal/cal-tok-1.ics')
-      .expect(200);
+    const res = await request(app).get('/cal/cal-tok-1.ics').expect(200);
 
     assert.match(res.headers['content-type'] as string, /text\/calendar/);
     assert.match(res.text, /BEGIN:VCALENDAR/);
@@ -1510,7 +1517,6 @@ describe('routes/calendar-sync', () => {
     await request(app).get(`/cal/${longToken}.ics`).expect(400);
   });
 });
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // 7. lineup-import.js
@@ -1554,12 +1560,10 @@ describe('routes/lineup-import', () => {
     const deps = buildLineupDeps();
     const app = await mountLineup(deps);
 
-    const csvText = 'artist,stage,day,start,end\nDJ Test,Main Stage,Day 1,14:00,15:00\nDJ Two,Main Stage,Day 1,16:00,17:00';
+    const csvText =
+      'artist,stage,day,start,end\nDJ Test,Main Stage,Day 1,14:00,15:00\nDJ Two,Main Stage,Day 1,16:00,17:00';
 
-    const res = await request(app)
-      .post('/fest-1/import-lineup')
-      .send({ text: csvText, format: 'auto' })
-      .expect(200);
+    const res = await request(app).post('/fest-1/import-lineup').send({ text: csvText, format: 'auto' }).expect(200);
 
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.imported, 2);
@@ -1571,10 +1575,7 @@ describe('routes/lineup-import', () => {
 
     const tsvText = 'DJ Tab\tMain Stage\tDay 1\t14:00\t15:00';
 
-    const res = await request(app)
-      .post('/fest-1/import-lineup')
-      .send({ text: tsvText, format: 'tsv' })
-      .expect(200);
+    const res = await request(app).post('/fest-1/import-lineup').send({ text: tsvText, format: 'tsv' }).expect(200);
 
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.imported, 1);
@@ -1584,10 +1585,7 @@ describe('routes/lineup-import', () => {
     const deps = buildLineupDeps();
     const app = await mountLineup(deps);
 
-    await request(app)
-      .post('/fest-1/import-lineup')
-      .send({ text: '', format: 'auto' })
-      .expect(400);
+    await request(app).post('/fest-1/import-lineup').send({ text: '', format: 'auto' }).expect(400);
   });
 
   test('POST /:id/import-lineup — 404 when festival not found', async () => {
@@ -1609,10 +1607,7 @@ describe('routes/lineup-import', () => {
 
     const csvText = 'DJ PM,Main Stage,Day 1,2:00 PM,3:30 PM';
 
-    const res = await request(app)
-      .post('/fest-1/import-lineup')
-      .send({ text: csvText, format: 'csv' })
-      .expect(200);
+    const res = await request(app).post('/fest-1/import-lineup').send({ text: csvText, format: 'csv' }).expect(200);
 
     const sets = res.body.data.sets;
     assert.equal(sets[0].startTime, '14:00');
@@ -1625,16 +1620,12 @@ describe('routes/lineup-import', () => {
 
     const csvText = 'DJ X,Unknown Stage,Day 1,14:00,15:00';
 
-    const res = await request(app)
-      .post('/fest-1/import-lineup')
-      .send({ text: csvText, format: 'csv' })
-      .expect(200);
+    const res = await request(app).post('/fest-1/import-lineup').send({ text: csvText, format: 'csv' }).expect(200);
 
     assert.ok(res.body.data.warnings.length > 0);
     assert.match(res.body.data.warnings[0], /unknown stage/i);
   });
 });
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // 8. weather.js
@@ -1701,7 +1692,13 @@ describe('routes/weather', () => {
       ok: true,
       json: async () => ({
         timezone: 'America/New_York',
-        daily: { time: ['2026-06-01'], temperature_2m_max: [32], temperature_2m_min: [24], precipitation_probability_max: [10], weathercode: [1] },
+        daily: {
+          time: ['2026-06-01'],
+          temperature_2m_max: [32],
+          temperature_2m_min: [24],
+          precipitation_probability_max: [10],
+          weathercode: [1],
+        },
         hourly: { time: ['2026-06-01T14:00'], temperature_2m: [30], precipitation_probability: [5], weathercode: [0] },
       }),
     }));
@@ -1716,7 +1713,6 @@ describe('routes/weather', () => {
     globalThis.fetch = originalFetch;
   });
 });
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // 9. deep-links.js
@@ -1767,7 +1763,6 @@ describe('routes/deep-links', () => {
   });
 });
 
-
 // ════════════════════════════════════════════════════════════════════════════
 // 10. analytics-install.js
 // ════════════════════════════════════════════════════════════════════════════
@@ -1784,10 +1779,7 @@ describe('routes/analytics-install', () => {
     const pool = makePool();
     const app = await mountAnalytics({ pool });
 
-    await request(app)
-      .post('/install')
-      .send({ platform: 'ios', event: 'shown' })
-      .expect(204);
+    await request(app).post('/install').send({ platform: 'ios', event: 'shown' }).expect(204);
 
     assert.ok(pool.query.mock.calls.length >= 1);
   });
@@ -1795,10 +1787,7 @@ describe('routes/analytics-install', () => {
   test('POST /install — rejects invalid platform', async () => {
     const app = await mountAnalytics({ pool: makePool() });
 
-    const res = await request(app)
-      .post('/install')
-      .send({ platform: 'windows', event: 'shown' })
-      .expect(400);
+    const res = await request(app).post('/install').send({ platform: 'windows', event: 'shown' }).expect(400);
 
     assert.match(res.body.error.message, /invalid platform/i);
   });
@@ -1806,10 +1795,7 @@ describe('routes/analytics-install', () => {
   test('POST /install — rejects invalid event', async () => {
     const app = await mountAnalytics({ pool: makePool() });
 
-    const res = await request(app)
-      .post('/install')
-      .send({ platform: 'ios', event: 'hacked' })
-      .expect(400);
+    const res = await request(app).post('/install').send({ platform: 'ios', event: 'hacked' }).expect(400);
 
     assert.match(res.body.error.message, /invalid event/i);
   });
@@ -1817,37 +1803,31 @@ describe('routes/analytics-install', () => {
   test('POST /install — returns 204 when no pool available', async () => {
     const app = await mountAnalytics({ pool: null, stores: { pool: null } });
 
-    await request(app)
-      .post('/install')
-      .send({ platform: 'android', event: 'accepted' })
-      .expect(204);
+    await request(app).post('/install').send({ platform: 'android', event: 'accepted' }).expect(204);
   });
 
   test('POST /install — handles DB error gracefully (still 204)', async () => {
-    const pool = { query: mock.fn(async () => { throw new Error('DB down'); }) };
+    const pool = {
+      query: mock.fn(async () => {
+        throw new Error('DB down');
+      }),
+    };
     const app = await mountAnalytics({ pool });
 
-    await request(app)
-      .post('/install')
-      .send({ platform: 'desktop', event: 'dismissed' })
-      .expect(204);
+    await request(app).post('/install').send({ platform: 'desktop', event: 'dismissed' }).expect(204);
   });
 
   test('POST /install — clamps engagement_ms', async () => {
     const pool = makePool();
     const app = await mountAnalytics({ pool });
 
-    await request(app)
-      .post('/install')
-      .send({ platform: 'ios', event: 'shown', engagement_ms: 999999999 })
-      .expect(204);
+    await request(app).post('/install').send({ platform: 'ios', event: 'shown', engagement_ms: 999999999 }).expect(204);
 
     const queryArgs = (pool.query.mock.calls[0] as any).arguments[1];
     // engagement_ms should be clamped to 86_400_000
     assert.ok(queryArgs[3] <= 86_400_000);
   });
 });
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // 11. client-metrics.js
@@ -1907,11 +1887,7 @@ describe('routes/client-metrics', () => {
   test('POST /web-vitals — handles non-object body', async () => {
     const app = await mountMetrics();
 
-    await request(app)
-      .post('/web-vitals')
-      .set('Content-Type', 'text/plain')
-      .send('not json at all')
-      .expect(204);
+    await request(app).post('/web-vitals').set('Content-Type', 'text/plain').send('not json at all').expect(204);
   });
 
   test('POST /web-vitals — records to histogram when promMetrics available', async () => {
@@ -1933,7 +1909,6 @@ describe('routes/client-metrics', () => {
     assert.ok(observeFn.mock.calls.length >= 1);
   });
 });
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // 12. activity.js
@@ -1992,7 +1967,11 @@ describe('routes/activity', () => {
     const app = await mountActivity({
       stores: {
         pool: makePool(),
-        crews: { getMember: mock.fn(async () => { throw new Error('DB down'); }) },
+        crews: {
+          getMember: mock.fn(async () => {
+            throw new Error('DB down');
+          }),
+        },
         activity: { getByCrew: mock.fn(noopAsync) },
       },
     });
