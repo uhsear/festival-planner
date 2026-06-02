@@ -34,6 +34,7 @@ export interface AuthActions {
   setUser: (user: User | null) => void;
   checkSession: () => Promise<boolean>;
   forgotPassword: (request: ForgotPasswordRequest) => Promise<void>;
+  resendVerification: () => Promise<void>;
   changePassword: (request: ChangePasswordRequest) => Promise<void>;
   updateDisplayName: (displayName: string) => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
@@ -266,6 +267,18 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
       set({ isLoading: false });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Request failed';
+      set({ error: message, isLoading: false });
+      throw err;
+    }
+  },
+
+  resendVerification: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.post('/auth/resend-verification', {});
+      set({ isLoading: false });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to resend verification email';
       set({ error: message, isLoading: false });
       throw err;
     }

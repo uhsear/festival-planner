@@ -36,6 +36,17 @@ function resetStore(overrides: Record<string, unknown> = {}) {
 
 vi.mock('@festie/shared/stores', () => ({
   useNotificationPrefsStore: (selector: (s: Record<string, unknown>) => unknown) => selector(storeState),
+  // The per-festival topic sub-section reads currentFestival; null here so it
+  // renders nothing and these tests stay focused on the global prefs toggles.
+  useFestivalStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ currentFestival: null }),
+}));
+
+vi.mock('@festie/shared/services', () => ({
+  api: { get: vi.fn().mockResolvedValue({}), put: vi.fn().mockResolvedValue({}) },
+}));
+
+vi.mock('../../lib/toastContext', () => ({
+  useToast: () => ({ toast: vi.fn() }),
 }));
 
 import NotificationPrefsSection from './NotificationPrefsSection';

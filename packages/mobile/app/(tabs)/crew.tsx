@@ -55,6 +55,8 @@ export default function CrewScreen() {
   const activeCrew = useCrewStore((s) => s.activeCrew);
   const crewMembers = useCrewStore((s) => s.crewMembers);
   const crewOverlap = useCrewStore((s) => s.crewOverlap);
+  const polls = useCrewStore((s) => s.polls);
+  const expenseBalances = useCrewStore((s) => s.expenseBalances);
   const crewLoading = useCrewStore((s) => s.crewLoading);
   const error = useCrewStore((s) => s.error);
   const loadCrews = useCrewStore((s) => s.loadCrews);
@@ -400,6 +402,13 @@ export default function CrewScreen() {
     .filter((o) => o.memberCount > 0)
     .sort((a, b) => b.memberCount - a.memberCount);
 
+  // Badge counts derived from already-loaded crew data (no extra fetch):
+  // open polls = polls not yet closed; unsettled = current user has a
+  // non-zero expense balance (owes or is owed).
+  const openPollCount = polls.filter((p) => !p.closed).length;
+  const myBalance = expenseBalances.find((b) => b.userId === user.id)?.balance ?? 0;
+  const hasUnsettledBalance = Math.abs(myBalance) > 0.01;
+
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScreenHeader
@@ -689,10 +698,22 @@ export default function CrewScreen() {
             <Text style={styles.sectionLabel}>Meeting points</Text>
             <CrewMeetingPoints crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
 
-            <Text style={styles.sectionLabel}>Polls</Text>
+            <View style={styles.sectionLabelRow}>
+              <Text style={styles.sectionLabel}>Polls</Text>
+              {openPollCount > 0 ? (
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{openPollCount}</Text>
+                </View>
+              ) : null}
+            </View>
             <CrewPolls crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
 
-            <Text style={styles.sectionLabel}>Expenses</Text>
+            <View style={styles.sectionLabelRow}>
+              <Text style={styles.sectionLabel}>Expenses</Text>
+              {hasUnsettledBalance ? (
+                <View style={styles.unsettledDot} accessibilityLabel="You have an unsettled balance" />
+              ) : null}
+            </View>
             <CrewExpenses crewId={crew.id} members={members} currentUserId={user.id} />
 
             <Text style={styles.sectionLabel}>Activity</Text>
@@ -942,6 +963,33 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.muted,
     marginBottom: t.spacing[1],
     textTransform: 'uppercase',
+  },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+  },
+  countBadge: {
+    minWidth: 18,
+    paddingHorizontal: t.spacing[1],
+    paddingVertical: 1,
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.aquaAlpha[15],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: t.spacing[1],
+  },
+  countBadgeText: {
+    ...typeStyle('caption'),
+    color: t.colors.accent.aqua,
+    fontWeight: '700',
+  },
+  unsettledDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: t.colors.accent.coral,
+    marginBottom: t.spacing[1],
   },
   memberRow: {
     flexDirection: 'row',
