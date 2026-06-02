@@ -73,6 +73,30 @@ module.exports = [
     },
   },
 
+  // Typed-handler ratchet — converted route modules + the typing foundation.
+  // These files have been brought under precise types; forbid NEW `any` here so
+  // the conversion can't silently regress. Scoped to EXACTLY the converted set;
+  // the rest of lib/ and routes/ stays on the looser server-TS rules above.
+  // Genuinely-unavoidable infra `any` (index-signature catch-alls, Zod's
+  // ZodType<any>) is opted out inline with a justified eslint-disable.
+  {
+    files: ['routes/crew-meeting-points.ts', 'routes/account.ts', 'lib/types/**/*.ts'],
+    plugins: {
+      '@typescript-eslint': tseslint.plugin,
+    },
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      parser: tseslint.parser,
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
+
   // Browser-side JS (public/)
   {
     files: ['public/**/*.js'],

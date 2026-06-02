@@ -81,14 +81,14 @@ export const DEFAULTS = {
   MAX_PROFILES_CACHE: 10_000,
   MEMORY_WARNING_MB: 384,
   MEMORY_CHECK_INTERVAL_MS: 120_000,
-  WEBHOOK_TOKEN_HMAC_KEY: '',       // REQUIRED when FCM_RETRY_WEBHOOK_URL is set; startup validator enforces
-  FCM_RETRY_WEBHOOK_URL: '',        // optional; triggers WEBHOOK_TOKEN_HMAC_KEY requirement when set
+  WEBHOOK_TOKEN_HMAC_KEY: '', // REQUIRED when FCM_RETRY_WEBHOOK_URL is set; startup validator enforces
+  FCM_RETRY_WEBHOOK_URL: '', // optional; triggers WEBHOOK_TOKEN_HMAC_KEY requirement when set
   TOKEN_CLEANUP_INTERVAL_MS: 300_000,
   WEATHER_API_TIMEOUT_MS: 8_000,
   WEBHOOK_RETRY_TIMEOUT_MS: 5_000,
   SPOTIFY_CLIENT_ID: '',
   SPOTIFY_CLIENT_SECRET: '',
-  CLUSTER_SIZE: 1,                  // dev/test default; prod ecosystem.config.js sets CLUSTER_SIZE=4 via env
+  CLUSTER_SIZE: 1, // matches the single PM2 fork worker; ecosystem.config.cjs sets CLUSTER_SIZE=1 to keep the in-memory rate-limit divisor accurate
   REMINDER_TICK_INTERVAL_MS: 60_000,
   REMINDER_FIRE_WINDOW_MS: 65_000,
   REMINDER_DEDUP_TTL_MS: 7_200_000,
@@ -97,7 +97,7 @@ export const DEFAULTS = {
   SENTRY_DSN: '',
   SENTRY_TRACES_RATE: 0.05,
   SENTRY_PROFILES_RATE: 0,
-  APP_VERSION: '',                  // loaded from package.json at boot
+  APP_VERSION: '', // loaded from package.json at boot
 } as const;
 
 function readInt(value: any, fallback: number, min = 0, max = Infinity): number {
@@ -122,17 +122,28 @@ function readList(value: any): string[] {
     .filter(Boolean);
 }
 
-function readTrustProxy(value: any, fallback: boolean | number = false): boolean | number {
+// Express 'trust proxy' accepts boolean | number | preset string
+// ('loopback' | 'linklocal' | 'uniquelocal'). We pass those preset strings
+// through unchanged so production can run with 'loopback' (defense in depth:
+// only loopback peers are trusted to set X-Forwarded-* even though the
+// hardened getRequestIp no longer relies on XFF). See
+// docs/security/trust-proxy-hardening.md.
+const TRUST_PROXY_PRESETS = ['loopback', 'linklocal', 'uniquelocal'] as const;
+
+function readTrustProxy(value: any, fallback: boolean | number | string = false): boolean | number | string {
   if (value === undefined || value === null || value === '') return fallback;
   const normalized = String(value).trim().toLowerCase();
   if (['false', 'off', 'no'].includes(normalized)) return false;
   if (['true', 'on', 'yes'].includes(normalized)) return true;
+  if ((TRUST_PROXY_PRESETS as readonly string[]).includes(normalized)) return normalized;
   const parsed = Number.parseInt(normalized, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function normalizeSameSite(value: any): 'strict' | 'lax' | 'none' {
-  const normalized = String(value || 'lax').trim().toLowerCase();
+  const normalized = String(value || 'lax')
+    .trim()
+    .toLowerCase();
   if (normalized === 'strict') return 'strict';
   if (normalized === 'none') return 'none';
   return 'lax';
@@ -144,7 +155,7 @@ export function loadConfig(overrides: Record<string, any> = {}): {
   NODE_ENV: string;
   PORT: number;
   BIND_ADDRESS: string;
-  TRUST_PROXY: boolean | number;
+  TRUST_PROXY: boolean | number | string;
   DATA_DIR: string;
   DATABASE_URL: string;
   PUBLIC_DIR: string;
@@ -252,20 +263,23 @@ export function loadConfig(overrides: Record<string, any> = {}): {
   SESSION_SECRET: string;
 } {
   let APP_VERSION = '';
-  try { APP_VERSION = require('../package.json').version; } catch { /* noop */ }
+  try {
+    APP_VERSION = require('../package.json').version;
+  } catch {
+    /* noop */
+  }
 
   const nodeEnv = overrides.NODE_ENV || process.env.NODE_ENV || 'development';
-  const publicDir = path.resolve(overrides.PUBLIC_DIR || process.env.PUBLIC_DIR || path.join(import.meta.dirname, '..', 'public'));
+  const publicDir = path.resolve(
+    overrides.PUBLIC_DIR || process.env.PUBLIC_DIR || path.join(import.meta.dirname, '..', 'public'),
+  );
   const dataDir = path.resolve(overrides.DATA_DIR || process.env.DATA_DIR || path.join(import.meta.dirname, 'data'));
   const databaseUrl = overrides.DATABASE_URL || process.env.DATABASE_URL || 'postgresql://localhost/festival_planner';
   if (!process.env.DATABASE_URL && !overrides.DATABASE_URL && process.env.NODE_ENV === 'production') {
     throw new Error('DATABASE_URL environment variable is required in production. Set it in .env.');
   }
-  const publicOrigin = 'PUBLIC_ORIGIN' in overrides ? (overrides.PUBLIC_ORIGIN || '') : (process.env.PUBLIC_ORIGIN || '');
-  const allowedOrigins = new Set([
-    ...readList(process.env.ALLOWED_ORIGINS),
-    ...readList(overrides.ALLOWED_ORIGINS),
-  ]);
+  const publicOrigin = 'PUBLIC_ORIGIN' in overrides ? overrides.PUBLIC_ORIGIN || '' : process.env.PUBLIC_ORIGIN || '';
+  const allowedOrigins = new Set([...readList(process.env.ALLOWED_ORIGINS), ...readList(overrides.ALLOWED_ORIGINS)]);
   if (publicOrigin) allowedOrigins.add(publicOrigin);
   const cookieSecureDefault = publicOrigin.startsWith('https://');
 
@@ -285,29 +299,85 @@ export function loadConfig(overrides: Record<string, any> = {}): {
     PUBLIC_ORIGIN: publicOrigin,
     ALLOWED_ORIGINS: [...allowedOrigins],
     USER_SESSION_COOKIE: overrides.USER_SESSION_COOKIE || process.env.USER_SESSION_COOKIE || 'festie_session',
-    ADMIN_SESSION_COOKIE: overrides.ADMIN_SESSION_COOKIE || process.env.ADMIN_SESSION_COOKIE || 'festival_admin_session',
+    ADMIN_SESSION_COOKIE:
+      overrides.ADMIN_SESSION_COOKIE || process.env.ADMIN_SESSION_COOKIE || 'festival_admin_session',
     COOKIE_SAME_SITE: normalizeSameSite(overrides.COOKIE_SAME_SITE || process.env.COOKIE_SAME_SITE),
     COOKIE_SECURE: readBool(overrides.COOKIE_SECURE || process.env.COOKIE_SECURE, cookieSecureDefault),
-    RATE_LIMIT_WINDOW: readInt(overrides.RATE_LIMIT_WINDOW || process.env.RATE_LIMIT_WINDOW, DEFAULTS.RATE_LIMIT_WINDOW),
+    RATE_LIMIT_WINDOW: readInt(
+      overrides.RATE_LIMIT_WINDOW || process.env.RATE_LIMIT_WINDOW,
+      DEFAULTS.RATE_LIMIT_WINDOW,
+    ),
     RATE_LIMIT_MAX: readInt(overrides.RATE_LIMIT_MAX || process.env.RATE_LIMIT_MAX, DEFAULTS.RATE_LIMIT_MAX),
-    MAX_RATE_LIMIT_ENTRIES: readInt(overrides.MAX_RATE_LIMIT_ENTRIES || process.env.MAX_RATE_LIMIT_ENTRIES, DEFAULTS.MAX_RATE_LIMIT_ENTRIES, 1),
-    AUTH_RATE_LIMIT_WINDOW: readInt(overrides.AUTH_RATE_LIMIT_WINDOW || process.env.AUTH_RATE_LIMIT_WINDOW, DEFAULTS.AUTH_RATE_LIMIT_WINDOW),
-    AUTH_RATE_LIMIT_MAX: readInt(overrides.AUTH_RATE_LIMIT_MAX || process.env.AUTH_RATE_LIMIT_MAX, DEFAULTS.AUTH_RATE_LIMIT_MAX),
-    SESSION_CLEANUP_INTERVAL_MS: readInt(overrides.SESSION_CLEANUP_INTERVAL_MS || process.env.SESSION_CLEANUP_INTERVAL_MS, DEFAULTS.SESSION_CLEANUP_INTERVAL_MS, 1000),
+    MAX_RATE_LIMIT_ENTRIES: readInt(
+      overrides.MAX_RATE_LIMIT_ENTRIES || process.env.MAX_RATE_LIMIT_ENTRIES,
+      DEFAULTS.MAX_RATE_LIMIT_ENTRIES,
+      1,
+    ),
+    AUTH_RATE_LIMIT_WINDOW: readInt(
+      overrides.AUTH_RATE_LIMIT_WINDOW || process.env.AUTH_RATE_LIMIT_WINDOW,
+      DEFAULTS.AUTH_RATE_LIMIT_WINDOW,
+    ),
+    AUTH_RATE_LIMIT_MAX: readInt(
+      overrides.AUTH_RATE_LIMIT_MAX || process.env.AUTH_RATE_LIMIT_MAX,
+      DEFAULTS.AUTH_RATE_LIMIT_MAX,
+    ),
+    SESSION_CLEANUP_INTERVAL_MS: readInt(
+      overrides.SESSION_CLEANUP_INTERVAL_MS || process.env.SESSION_CLEANUP_INTERVAL_MS,
+      DEFAULTS.SESSION_CLEANUP_INTERVAL_MS,
+      1000,
+    ),
     SESSION_TTL: sessionTtl,
-    SOCKET_CONNECT_WINDOW: readInt(overrides.SOCKET_CONNECT_WINDOW || process.env.SOCKET_CONNECT_WINDOW, DEFAULTS.SOCKET_CONNECT_WINDOW),
-    SOCKET_HEADERS_TIMEOUT: readInt(overrides.SOCKET_HEADERS_TIMEOUT || process.env.SOCKET_HEADERS_TIMEOUT, DEFAULTS.SOCKET_HEADERS_TIMEOUT, 1000),
-    SOCKET_KEEPALIVE_TIMEOUT: readInt(overrides.SOCKET_KEEPALIVE_TIMEOUT || process.env.SOCKET_KEEPALIVE_TIMEOUT, DEFAULTS.SOCKET_KEEPALIVE_TIMEOUT, 1000),
-    SOCKET_MAX_HTTP_BUFFER: readInt(overrides.SOCKET_MAX_HTTP_BUFFER || process.env.SOCKET_MAX_HTTP_BUFFER, DEFAULTS.SOCKET_MAX_HTTP_BUFFER, 1000),
-    SOCKET_PING_INTERVAL: readInt(overrides.SOCKET_PING_INTERVAL || process.env.SOCKET_PING_INTERVAL, DEFAULTS.SOCKET_PING_INTERVAL, 1000),
-    SOCKET_PING_TIMEOUT: readInt(overrides.SOCKET_PING_TIMEOUT || process.env.SOCKET_PING_TIMEOUT, DEFAULTS.SOCKET_PING_TIMEOUT, 1000),
-    SOCKET_CONNECT_RATE_LIMIT: readInt(overrides.SOCKET_CONNECT_RATE_LIMIT || process.env.SOCKET_CONNECT_RATE_LIMIT, DEFAULTS.SOCKET_CONNECT_RATE_LIMIT),
-    SOCKET_EVENT_WINDOW: readInt(overrides.SOCKET_EVENT_WINDOW || process.env.SOCKET_EVENT_WINDOW, DEFAULTS.SOCKET_EVENT_WINDOW),
-    SOCKET_JOIN_RATE_LIMIT: readInt(overrides.SOCKET_JOIN_RATE_LIMIT || process.env.SOCKET_JOIN_RATE_LIMIT, DEFAULTS.SOCKET_JOIN_RATE_LIMIT),
-    SOCKET_LEAVE_RATE_LIMIT: readInt(overrides.SOCKET_LEAVE_RATE_LIMIT || process.env.SOCKET_LEAVE_RATE_LIMIT, DEFAULTS.SOCKET_LEAVE_RATE_LIMIT),
+    SOCKET_CONNECT_WINDOW: readInt(
+      overrides.SOCKET_CONNECT_WINDOW || process.env.SOCKET_CONNECT_WINDOW,
+      DEFAULTS.SOCKET_CONNECT_WINDOW,
+    ),
+    SOCKET_HEADERS_TIMEOUT: readInt(
+      overrides.SOCKET_HEADERS_TIMEOUT || process.env.SOCKET_HEADERS_TIMEOUT,
+      DEFAULTS.SOCKET_HEADERS_TIMEOUT,
+      1000,
+    ),
+    SOCKET_KEEPALIVE_TIMEOUT: readInt(
+      overrides.SOCKET_KEEPALIVE_TIMEOUT || process.env.SOCKET_KEEPALIVE_TIMEOUT,
+      DEFAULTS.SOCKET_KEEPALIVE_TIMEOUT,
+      1000,
+    ),
+    SOCKET_MAX_HTTP_BUFFER: readInt(
+      overrides.SOCKET_MAX_HTTP_BUFFER || process.env.SOCKET_MAX_HTTP_BUFFER,
+      DEFAULTS.SOCKET_MAX_HTTP_BUFFER,
+      1000,
+    ),
+    SOCKET_PING_INTERVAL: readInt(
+      overrides.SOCKET_PING_INTERVAL || process.env.SOCKET_PING_INTERVAL,
+      DEFAULTS.SOCKET_PING_INTERVAL,
+      1000,
+    ),
+    SOCKET_PING_TIMEOUT: readInt(
+      overrides.SOCKET_PING_TIMEOUT || process.env.SOCKET_PING_TIMEOUT,
+      DEFAULTS.SOCKET_PING_TIMEOUT,
+      1000,
+    ),
+    SOCKET_CONNECT_RATE_LIMIT: readInt(
+      overrides.SOCKET_CONNECT_RATE_LIMIT || process.env.SOCKET_CONNECT_RATE_LIMIT,
+      DEFAULTS.SOCKET_CONNECT_RATE_LIMIT,
+    ),
+    SOCKET_EVENT_WINDOW: readInt(
+      overrides.SOCKET_EVENT_WINDOW || process.env.SOCKET_EVENT_WINDOW,
+      DEFAULTS.SOCKET_EVENT_WINDOW,
+    ),
+    SOCKET_JOIN_RATE_LIMIT: readInt(
+      overrides.SOCKET_JOIN_RATE_LIMIT || process.env.SOCKET_JOIN_RATE_LIMIT,
+      DEFAULTS.SOCKET_JOIN_RATE_LIMIT,
+    ),
+    SOCKET_LEAVE_RATE_LIMIT: readInt(
+      overrides.SOCKET_LEAVE_RATE_LIMIT || process.env.SOCKET_LEAVE_RATE_LIMIT,
+      DEFAULTS.SOCKET_LEAVE_RATE_LIMIT,
+    ),
     JSON_LIMIT: overrides.JSON_LIMIT || process.env.JSON_LIMIT || DEFAULTS.JSON_LIMIT,
     MAX_USERS: maxUsers,
-    MAX_PROFILES_PER_FESTIVAL: readInt(overrides.MAX_PROFILES_PER_FESTIVAL || process.env.MAX_PROFILES_PER_FESTIVAL, DEFAULTS.MAX_PROFILES_PER_FESTIVAL),
+    MAX_PROFILES_PER_FESTIVAL: readInt(
+      overrides.MAX_PROFILES_PER_FESTIVAL || process.env.MAX_PROFILES_PER_FESTIVAL,
+      DEFAULTS.MAX_PROFILES_PER_FESTIVAL,
+    ),
     MAX_STAGES: readInt(overrides.MAX_STAGES || process.env.MAX_STAGES, DEFAULTS.MAX_STAGES),
     MAX_DAYS: readInt(overrides.MAX_DAYS || process.env.MAX_DAYS, DEFAULTS.MAX_DAYS),
     MAX_SETS_PER_DAY: readInt(overrides.MAX_SETS_PER_DAY || process.env.MAX_SETS_PER_DAY, DEFAULTS.MAX_SETS_PER_DAY),
@@ -316,28 +386,87 @@ export function loadConfig(overrides: Record<string, any> = {}): {
     MAX_NOTE_LENGTH: readInt(overrides.MAX_NOTE_LENGTH || process.env.MAX_NOTE_LENGTH, DEFAULTS.MAX_NOTE_LENGTH),
     MAX_STATUS_TEXT: readInt(overrides.MAX_STATUS_TEXT || process.env.MAX_STATUS_TEXT, DEFAULTS.MAX_STATUS_TEXT),
     AVATAR_SIZE: avatarSize,
-    AVATAR_MAX_UPLOAD_BYTES: readInt(overrides.AVATAR_MAX_UPLOAD_BYTES || process.env.AVATAR_MAX_UPLOAD_BYTES, DEFAULTS.AVATAR_MAX_UPLOAD_BYTES),
-    AVATAR_MAX_PIXELS: readInt(overrides.AVATAR_MAX_PIXELS || process.env.AVATAR_MAX_PIXELS, DEFAULTS.AVATAR_MAX_PIXELS),
-    AVATAR_WEBP_QUALITY: readInt(overrides.AVATAR_WEBP_QUALITY || process.env.AVATAR_WEBP_QUALITY, DEFAULTS.AVATAR_WEBP_QUALITY),
-    ADMIN_SESSION_MAX: readInt(overrides.ADMIN_SESSION_MAX || process.env.ADMIN_SESSION_MAX, DEFAULTS.ADMIN_SESSION_MAX),
+    AVATAR_MAX_UPLOAD_BYTES: readInt(
+      overrides.AVATAR_MAX_UPLOAD_BYTES || process.env.AVATAR_MAX_UPLOAD_BYTES,
+      DEFAULTS.AVATAR_MAX_UPLOAD_BYTES,
+    ),
+    AVATAR_MAX_PIXELS: readInt(
+      overrides.AVATAR_MAX_PIXELS || process.env.AVATAR_MAX_PIXELS,
+      DEFAULTS.AVATAR_MAX_PIXELS,
+    ),
+    AVATAR_WEBP_QUALITY: readInt(
+      overrides.AVATAR_WEBP_QUALITY || process.env.AVATAR_WEBP_QUALITY,
+      DEFAULTS.AVATAR_WEBP_QUALITY,
+    ),
+    ADMIN_SESSION_MAX: readInt(
+      overrides.ADMIN_SESSION_MAX || process.env.ADMIN_SESSION_MAX,
+      DEFAULTS.ADMIN_SESSION_MAX,
+    ),
     USER_SESSION_MAX: readInt(overrides.USER_SESSION_MAX || process.env.USER_SESSION_MAX, DEFAULTS.USER_SESSION_MAX),
-    MAX_CONCURRENT_EXPORTS: readInt(overrides.MAX_CONCURRENT_EXPORTS || process.env.MAX_CONCURRENT_EXPORTS, DEFAULTS.MAX_CONCURRENT_EXPORTS),
-    MAX_CREW_IN_EXPORT: readInt(overrides.MAX_CREW_IN_EXPORT || process.env.MAX_CREW_IN_EXPORT, DEFAULTS.MAX_CREW_IN_EXPORT),
-    EXPORT_COOLDOWN_MS: readInt(overrides.EXPORT_COOLDOWN_MS || process.env.EXPORT_COOLDOWN_MS, DEFAULTS.EXPORT_COOLDOWN_MS),
-    EXPORT_TIMEOUT_MS: readInt(overrides.EXPORT_TIMEOUT_MS || process.env.EXPORT_TIMEOUT_MS, DEFAULTS.EXPORT_TIMEOUT_MS),
-    MAX_EXPORT_SETS_PER_STREAM: readInt(overrides.MAX_EXPORT_SETS_PER_STREAM || process.env.MAX_EXPORT_SETS_PER_STREAM, DEFAULTS.MAX_EXPORT_SETS_PER_STREAM),
-    SSE_HEARTBEAT_INTERVAL: readInt(overrides.SSE_HEARTBEAT_INTERVAL || process.env.SSE_HEARTBEAT_INTERVAL, DEFAULTS.SSE_HEARTBEAT_INTERVAL),
-    AUDIT_LOG_RETENTION_DAYS: readInt(overrides.AUDIT_LOG_RETENTION_DAYS || process.env.AUDIT_LOG_RETENTION_DAYS, DEFAULTS.AUDIT_LOG_RETENTION_DAYS),
-    SHUTDOWN_TIMEOUT_MS: readInt(overrides.SHUTDOWN_TIMEOUT_MS || process.env.SHUTDOWN_TIMEOUT_MS, DEFAULTS.SHUTDOWN_TIMEOUT_MS),
+    MAX_CONCURRENT_EXPORTS: readInt(
+      overrides.MAX_CONCURRENT_EXPORTS || process.env.MAX_CONCURRENT_EXPORTS,
+      DEFAULTS.MAX_CONCURRENT_EXPORTS,
+    ),
+    MAX_CREW_IN_EXPORT: readInt(
+      overrides.MAX_CREW_IN_EXPORT || process.env.MAX_CREW_IN_EXPORT,
+      DEFAULTS.MAX_CREW_IN_EXPORT,
+    ),
+    EXPORT_COOLDOWN_MS: readInt(
+      overrides.EXPORT_COOLDOWN_MS || process.env.EXPORT_COOLDOWN_MS,
+      DEFAULTS.EXPORT_COOLDOWN_MS,
+    ),
+    EXPORT_TIMEOUT_MS: readInt(
+      overrides.EXPORT_TIMEOUT_MS || process.env.EXPORT_TIMEOUT_MS,
+      DEFAULTS.EXPORT_TIMEOUT_MS,
+    ),
+    MAX_EXPORT_SETS_PER_STREAM: readInt(
+      overrides.MAX_EXPORT_SETS_PER_STREAM || process.env.MAX_EXPORT_SETS_PER_STREAM,
+      DEFAULTS.MAX_EXPORT_SETS_PER_STREAM,
+    ),
+    SSE_HEARTBEAT_INTERVAL: readInt(
+      overrides.SSE_HEARTBEAT_INTERVAL || process.env.SSE_HEARTBEAT_INTERVAL,
+      DEFAULTS.SSE_HEARTBEAT_INTERVAL,
+    ),
+    AUDIT_LOG_RETENTION_DAYS: readInt(
+      overrides.AUDIT_LOG_RETENTION_DAYS || process.env.AUDIT_LOG_RETENTION_DAYS,
+      DEFAULTS.AUDIT_LOG_RETENTION_DAYS,
+    ),
+    SHUTDOWN_TIMEOUT_MS: readInt(
+      overrides.SHUTDOWN_TIMEOUT_MS || process.env.SHUTDOWN_TIMEOUT_MS,
+      DEFAULTS.SHUTDOWN_TIMEOUT_MS,
+    ),
     DRAIN_BATCH_SIZE: readInt(overrides.DRAIN_BATCH_SIZE || process.env.DRAIN_BATCH_SIZE, DEFAULTS.DRAIN_BATCH_SIZE, 1),
-    DRAIN_BATCH_DELAY_MS: readInt(overrides.DRAIN_BATCH_DELAY_MS || process.env.DRAIN_BATCH_DELAY_MS, DEFAULTS.DRAIN_BATCH_DELAY_MS, 0),
+    DRAIN_BATCH_DELAY_MS: readInt(
+      overrides.DRAIN_BATCH_DELAY_MS || process.env.DRAIN_BATCH_DELAY_MS,
+      DEFAULTS.DRAIN_BATCH_DELAY_MS,
+      0,
+    ),
 
-    REQUEST_TIMEOUT_MS: readInt(overrides.REQUEST_TIMEOUT_MS || process.env.REQUEST_TIMEOUT_MS, DEFAULTS.REQUEST_TIMEOUT_MS),
-    ROOM_CAPACITY_LIMIT: readInt(overrides.ROOM_CAPACITY_LIMIT || process.env.ROOM_CAPACITY_LIMIT, DEFAULTS.ROOM_CAPACITY_LIMIT, 1),
+    REQUEST_TIMEOUT_MS: readInt(
+      overrides.REQUEST_TIMEOUT_MS || process.env.REQUEST_TIMEOUT_MS,
+      DEFAULTS.REQUEST_TIMEOUT_MS,
+    ),
+    ROOM_CAPACITY_LIMIT: readInt(
+      overrides.ROOM_CAPACITY_LIMIT || process.env.ROOM_CAPACITY_LIMIT,
+      DEFAULTS.ROOM_CAPACITY_LIMIT,
+      1,
+    ),
     MAX_HEAP_BYTES: readInt(overrides.MAX_HEAP_BYTES || process.env.MAX_HEAP_BYTES, DEFAULTS.MAX_HEAP_BYTES, 1),
-    RATE_LIMIT_CLEANUP_INTERVAL: readInt(overrides.RATE_LIMIT_CLEANUP_INTERVAL || process.env.RATE_LIMIT_CLEANUP_INTERVAL, DEFAULTS.RATE_LIMIT_CLEANUP_INTERVAL, 1),
-    EXPORT_COOLDOWN_CLEANUP_INTERVAL: readInt(overrides.EXPORT_COOLDOWN_CLEANUP_INTERVAL || process.env.EXPORT_COOLDOWN_CLEANUP_INTERVAL, DEFAULTS.EXPORT_COOLDOWN_CLEANUP_INTERVAL, 1),
-    FCM_REQUEST_TIMEOUT_MS: readInt(overrides.FCM_REQUEST_TIMEOUT_MS || process.env.FCM_REQUEST_TIMEOUT_MS, DEFAULTS.FCM_REQUEST_TIMEOUT_MS, 1000),
+    RATE_LIMIT_CLEANUP_INTERVAL: readInt(
+      overrides.RATE_LIMIT_CLEANUP_INTERVAL || process.env.RATE_LIMIT_CLEANUP_INTERVAL,
+      DEFAULTS.RATE_LIMIT_CLEANUP_INTERVAL,
+      1,
+    ),
+    EXPORT_COOLDOWN_CLEANUP_INTERVAL: readInt(
+      overrides.EXPORT_COOLDOWN_CLEANUP_INTERVAL || process.env.EXPORT_COOLDOWN_CLEANUP_INTERVAL,
+      DEFAULTS.EXPORT_COOLDOWN_CLEANUP_INTERVAL,
+      1,
+    ),
+    FCM_REQUEST_TIMEOUT_MS: readInt(
+      overrides.FCM_REQUEST_TIMEOUT_MS || process.env.FCM_REQUEST_TIMEOUT_MS,
+      DEFAULTS.FCM_REQUEST_TIMEOUT_MS,
+      1000,
+    ),
     API_VERSION: overrides.API_VERSION || process.env.API_VERSION || DEFAULTS.API_VERSION,
 
     // Mobile app origins (TWA or custom schemes)
@@ -359,48 +488,140 @@ export function loadConfig(overrides: Record<string, any> = {}): {
     RESEND_API_KEY: overrides.RESEND_API_KEY || process.env.RESEND_API_KEY || '',
     EMAIL_FROM: overrides.EMAIL_FROM || process.env.EMAIL_FROM || 'Festie <no-reply@festie.us>',
 
-    REFRESH_TOKEN_TTL: readInt(overrides.REFRESH_TOKEN_TTL || process.env.REFRESH_TOKEN_TTL, DEFAULTS.REFRESH_TOKEN_TTL, 60000),
-    MAX_LOGIN_FAILURES: readInt(overrides.MAX_LOGIN_FAILURES || process.env.MAX_LOGIN_FAILURES, DEFAULTS.MAX_LOGIN_FAILURES, 1),
-    LOGIN_LOCKOUT_MS: readInt(overrides.LOGIN_LOCKOUT_MS || process.env.LOGIN_LOCKOUT_MS, DEFAULTS.LOGIN_LOCKOUT_MS, 1000),
-    PROFILE_RATE_LIMIT_MAX: readInt(overrides.PROFILE_RATE_LIMIT_MAX || process.env.PROFILE_RATE_LIMIT_MAX, DEFAULTS.PROFILE_RATE_LIMIT_MAX, 1),
-    OVERLAP_RATE_LIMIT_MAX: readInt(overrides.OVERLAP_RATE_LIMIT_MAX || process.env.OVERLAP_RATE_LIMIT_MAX, DEFAULTS.OVERLAP_RATE_LIMIT_MAX, 1),
-    ADMIN_WRITE_RATE_LIMIT_MAX: readInt(overrides.ADMIN_WRITE_RATE_LIMIT_MAX || process.env.ADMIN_WRITE_RATE_LIMIT_MAX, DEFAULTS.ADMIN_WRITE_RATE_LIMIT_MAX, 1),
+    REFRESH_TOKEN_TTL: readInt(
+      overrides.REFRESH_TOKEN_TTL || process.env.REFRESH_TOKEN_TTL,
+      DEFAULTS.REFRESH_TOKEN_TTL,
+      60000,
+    ),
+    MAX_LOGIN_FAILURES: readInt(
+      overrides.MAX_LOGIN_FAILURES || process.env.MAX_LOGIN_FAILURES,
+      DEFAULTS.MAX_LOGIN_FAILURES,
+      1,
+    ),
+    LOGIN_LOCKOUT_MS: readInt(
+      overrides.LOGIN_LOCKOUT_MS || process.env.LOGIN_LOCKOUT_MS,
+      DEFAULTS.LOGIN_LOCKOUT_MS,
+      1000,
+    ),
+    PROFILE_RATE_LIMIT_MAX: readInt(
+      overrides.PROFILE_RATE_LIMIT_MAX || process.env.PROFILE_RATE_LIMIT_MAX,
+      DEFAULTS.PROFILE_RATE_LIMIT_MAX,
+      1,
+    ),
+    OVERLAP_RATE_LIMIT_MAX: readInt(
+      overrides.OVERLAP_RATE_LIMIT_MAX || process.env.OVERLAP_RATE_LIMIT_MAX,
+      DEFAULTS.OVERLAP_RATE_LIMIT_MAX,
+      1,
+    ),
+    ADMIN_WRITE_RATE_LIMIT_MAX: readInt(
+      overrides.ADMIN_WRITE_RATE_LIMIT_MAX || process.env.ADMIN_WRITE_RATE_LIMIT_MAX,
+      DEFAULTS.ADMIN_WRITE_RATE_LIMIT_MAX,
+      1,
+    ),
     IDEMPOTENCY_TTL: readInt(overrides.IDEMPOTENCY_TTL || process.env.IDEMPOTENCY_TTL, DEFAULTS.IDEMPOTENCY_TTL, 1000),
-    IDEMPOTENCY_MAX_ENTRIES: readInt(overrides.IDEMPOTENCY_MAX_ENTRIES || process.env.IDEMPOTENCY_MAX_ENTRIES, DEFAULTS.IDEMPOTENCY_MAX_ENTRIES, 100),
-    ERROR_DEDUP_WINDOW: readInt(overrides.ERROR_DEDUP_WINDOW || process.env.ERROR_DEDUP_WINDOW, DEFAULTS.ERROR_DEDUP_WINDOW, 1000),
+    IDEMPOTENCY_MAX_ENTRIES: readInt(
+      overrides.IDEMPOTENCY_MAX_ENTRIES || process.env.IDEMPOTENCY_MAX_ENTRIES,
+      DEFAULTS.IDEMPOTENCY_MAX_ENTRIES,
+      100,
+    ),
+    ERROR_DEDUP_WINDOW: readInt(
+      overrides.ERROR_DEDUP_WINDOW || process.env.ERROR_DEDUP_WINDOW,
+      DEFAULTS.ERROR_DEDUP_WINDOW,
+      1000,
+    ),
     ERROR_DEDUP_MAX: readInt(overrides.ERROR_DEDUP_MAX || process.env.ERROR_DEDUP_MAX, DEFAULTS.ERROR_DEDUP_MAX, 10),
-    ERROR_DEDUP_CLEANUP_INTERVAL_MS: readInt(overrides.ERROR_DEDUP_CLEANUP_INTERVAL_MS || process.env.ERROR_DEDUP_CLEANUP_INTERVAL_MS, DEFAULTS.ERROR_DEDUP_CLEANUP_INTERVAL_MS, 1000),
+    ERROR_DEDUP_CLEANUP_INTERVAL_MS: readInt(
+      overrides.ERROR_DEDUP_CLEANUP_INTERVAL_MS || process.env.ERROR_DEDUP_CLEANUP_INTERVAL_MS,
+      DEFAULTS.ERROR_DEDUP_CLEANUP_INTERVAL_MS,
+      1000,
+    ),
     PG_POOL_MIN: readInt(overrides.PG_POOL_MIN || process.env.PG_POOL_MIN, DEFAULTS.PG_POOL_MIN, 1, 20),
     PG_POOL_MAX: readInt(overrides.PG_POOL_MAX || process.env.PG_POOL_MAX, DEFAULTS.PG_POOL_MAX, 2, 50),
-    EMAIL_VERIFY_TOKEN_TTL_HOURS: readInt(overrides.EMAIL_VERIFY_TOKEN_TTL_HOURS || process.env.EMAIL_VERIFY_TOKEN_TTL_HOURS, DEFAULTS.EMAIL_VERIFY_TOKEN_TTL_HOURS, 1, 168),
+    EMAIL_VERIFY_TOKEN_TTL_HOURS: readInt(
+      overrides.EMAIL_VERIFY_TOKEN_TTL_HOURS || process.env.EMAIL_VERIFY_TOKEN_TTL_HOURS,
+      DEFAULTS.EMAIL_VERIFY_TOKEN_TTL_HOURS,
+      1,
+      168,
+    ),
 
     MAX_IMPORT_SETS: readInt(overrides.MAX_IMPORT_SETS || process.env.MAX_IMPORT_SETS, DEFAULTS.MAX_IMPORT_SETS, 1),
-    SPOTIFY_CACHE_TTL_MS: readInt(overrides.SPOTIFY_CACHE_TTL_MS || process.env.SPOTIFY_CACHE_TTL_MS, DEFAULTS.SPOTIFY_CACHE_TTL_MS, 1000),
-    SPOTIFY_CACHE_MAX: readInt(overrides.SPOTIFY_CACHE_MAX || process.env.SPOTIFY_CACHE_MAX, DEFAULTS.SPOTIFY_CACHE_MAX, 1),
-    MAX_EXPORT_COOLDOWN_ENTRIES: readInt(overrides.MAX_EXPORT_COOLDOWN_ENTRIES || process.env.MAX_EXPORT_COOLDOWN_ENTRIES, DEFAULTS.MAX_EXPORT_COOLDOWN_ENTRIES, 1),
-    MEMORY_WARNING_MB: readInt(overrides.MEMORY_WARNING_MB || process.env.MEMORY_WARNING_MB, DEFAULTS.MEMORY_WARNING_MB, 64),
-    MEMORY_CHECK_INTERVAL_MS: readInt(overrides.MEMORY_CHECK_INTERVAL_MS || process.env.MEMORY_CHECK_INTERVAL_MS, DEFAULTS.MEMORY_CHECK_INTERVAL_MS, 1000),
-    REMINDER_TICK_INTERVAL_MS: readInt(overrides.REMINDER_TICK_INTERVAL_MS || process.env.REMINDER_TICK_INTERVAL_MS, DEFAULTS.REMINDER_TICK_INTERVAL_MS, 1000),
-    REMINDER_FIRE_WINDOW_MS: readInt(overrides.REMINDER_FIRE_WINDOW_MS || process.env.REMINDER_FIRE_WINDOW_MS, DEFAULTS.REMINDER_FIRE_WINDOW_MS, 1000),
-    REMINDER_DEDUP_TTL_MS: readInt(overrides.REMINDER_DEDUP_TTL_MS || process.env.REMINDER_DEDUP_TTL_MS, DEFAULTS.REMINDER_DEDUP_TTL_MS, 1000),
-    TOKEN_CLEANUP_INTERVAL_MS: readInt(overrides.TOKEN_CLEANUP_INTERVAL_MS || process.env.TOKEN_CLEANUP_INTERVAL_MS, DEFAULTS.TOKEN_CLEANUP_INTERVAL_MS, 1000),
-    WEATHER_API_TIMEOUT_MS: readInt(overrides.WEATHER_API_TIMEOUT_MS || process.env.WEATHER_API_TIMEOUT_MS, DEFAULTS.WEATHER_API_TIMEOUT_MS, 1000),
+    SPOTIFY_CACHE_TTL_MS: readInt(
+      overrides.SPOTIFY_CACHE_TTL_MS || process.env.SPOTIFY_CACHE_TTL_MS,
+      DEFAULTS.SPOTIFY_CACHE_TTL_MS,
+      1000,
+    ),
+    SPOTIFY_CACHE_MAX: readInt(
+      overrides.SPOTIFY_CACHE_MAX || process.env.SPOTIFY_CACHE_MAX,
+      DEFAULTS.SPOTIFY_CACHE_MAX,
+      1,
+    ),
+    MAX_EXPORT_COOLDOWN_ENTRIES: readInt(
+      overrides.MAX_EXPORT_COOLDOWN_ENTRIES || process.env.MAX_EXPORT_COOLDOWN_ENTRIES,
+      DEFAULTS.MAX_EXPORT_COOLDOWN_ENTRIES,
+      1,
+    ),
+    MEMORY_WARNING_MB: readInt(
+      overrides.MEMORY_WARNING_MB || process.env.MEMORY_WARNING_MB,
+      DEFAULTS.MEMORY_WARNING_MB,
+      64,
+    ),
+    MEMORY_CHECK_INTERVAL_MS: readInt(
+      overrides.MEMORY_CHECK_INTERVAL_MS || process.env.MEMORY_CHECK_INTERVAL_MS,
+      DEFAULTS.MEMORY_CHECK_INTERVAL_MS,
+      1000,
+    ),
+    REMINDER_TICK_INTERVAL_MS: readInt(
+      overrides.REMINDER_TICK_INTERVAL_MS || process.env.REMINDER_TICK_INTERVAL_MS,
+      DEFAULTS.REMINDER_TICK_INTERVAL_MS,
+      1000,
+    ),
+    REMINDER_FIRE_WINDOW_MS: readInt(
+      overrides.REMINDER_FIRE_WINDOW_MS || process.env.REMINDER_FIRE_WINDOW_MS,
+      DEFAULTS.REMINDER_FIRE_WINDOW_MS,
+      1000,
+    ),
+    REMINDER_DEDUP_TTL_MS: readInt(
+      overrides.REMINDER_DEDUP_TTL_MS || process.env.REMINDER_DEDUP_TTL_MS,
+      DEFAULTS.REMINDER_DEDUP_TTL_MS,
+      1000,
+    ),
+    TOKEN_CLEANUP_INTERVAL_MS: readInt(
+      overrides.TOKEN_CLEANUP_INTERVAL_MS || process.env.TOKEN_CLEANUP_INTERVAL_MS,
+      DEFAULTS.TOKEN_CLEANUP_INTERVAL_MS,
+      1000,
+    ),
+    WEATHER_API_TIMEOUT_MS: readInt(
+      overrides.WEATHER_API_TIMEOUT_MS || process.env.WEATHER_API_TIMEOUT_MS,
+      DEFAULTS.WEATHER_API_TIMEOUT_MS,
+      1000,
+    ),
 
     // Webhook / FCM retry integration
-    WEBHOOK_TOKEN_HMAC_KEY: overrides.WEBHOOK_TOKEN_HMAC_KEY || process.env.WEBHOOK_TOKEN_HMAC_KEY || DEFAULTS.WEBHOOK_TOKEN_HMAC_KEY,
-    WEBHOOK_RETRY_TIMEOUT_MS: readInt(overrides.WEBHOOK_RETRY_TIMEOUT_MS || process.env.WEBHOOK_RETRY_TIMEOUT_MS, DEFAULTS.WEBHOOK_RETRY_TIMEOUT_MS, 1000),
-    FCM_RETRY_WEBHOOK_URL: overrides.FCM_RETRY_WEBHOOK_URL || process.env.FCM_RETRY_WEBHOOK_URL || DEFAULTS.FCM_RETRY_WEBHOOK_URL,
+    WEBHOOK_TOKEN_HMAC_KEY:
+      overrides.WEBHOOK_TOKEN_HMAC_KEY || process.env.WEBHOOK_TOKEN_HMAC_KEY || DEFAULTS.WEBHOOK_TOKEN_HMAC_KEY,
+    WEBHOOK_RETRY_TIMEOUT_MS: readInt(
+      overrides.WEBHOOK_RETRY_TIMEOUT_MS || process.env.WEBHOOK_RETRY_TIMEOUT_MS,
+      DEFAULTS.WEBHOOK_RETRY_TIMEOUT_MS,
+      1000,
+    ),
+    FCM_RETRY_WEBHOOK_URL:
+      overrides.FCM_RETRY_WEBHOOK_URL || process.env.FCM_RETRY_WEBHOOK_URL || DEFAULTS.FCM_RETRY_WEBHOOK_URL,
 
     // Spotify (optional — lineup import / search disabled when unset)
     SPOTIFY_CLIENT_ID: overrides.SPOTIFY_CLIENT_ID || process.env.SPOTIFY_CLIENT_ID || DEFAULTS.SPOTIFY_CLIENT_ID,
-    SPOTIFY_CLIENT_SECRET: overrides.SPOTIFY_CLIENT_SECRET || process.env.SPOTIFY_CLIENT_SECRET || DEFAULTS.SPOTIFY_CLIENT_SECRET,
+    SPOTIFY_CLIENT_SECRET:
+      overrides.SPOTIFY_CLIENT_SECRET || process.env.SPOTIFY_CLIENT_SECRET || DEFAULTS.SPOTIFY_CLIENT_SECRET,
 
     // Cluster / observability
     CLUSTER_SIZE: Number(readInt(overrides.CLUSTER_SIZE || process.env.CLUSTER_SIZE, DEFAULTS.CLUSTER_SIZE, 1, 64)),
     LOG_LEVEL: overrides.LOG_LEVEL || process.env.LOG_LEVEL || DEFAULTS.LOG_LEVEL,
     SENTRY_DSN: overrides.SENTRY_DSN || process.env.SENTRY_DSN || DEFAULTS.SENTRY_DSN,
-    SENTRY_TRACES_RATE: Number(overrides.SENTRY_TRACES_RATE ?? process.env.SENTRY_TRACES_RATE ?? DEFAULTS.SENTRY_TRACES_RATE),
-    SENTRY_PROFILES_RATE: Number(overrides.SENTRY_PROFILES_RATE ?? process.env.SENTRY_PROFILES_RATE ?? DEFAULTS.SENTRY_PROFILES_RATE),
+    SENTRY_TRACES_RATE: Number(
+      overrides.SENTRY_TRACES_RATE ?? process.env.SENTRY_TRACES_RATE ?? DEFAULTS.SENTRY_TRACES_RATE,
+    ),
+    SENTRY_PROFILES_RATE: Number(
+      overrides.SENTRY_PROFILES_RATE ?? process.env.SENTRY_PROFILES_RATE ?? DEFAULTS.SENTRY_PROFILES_RATE,
+    ),
     APP_VERSION: overrides.APP_VERSION || process.env.APP_VERSION || APP_VERSION || DEFAULTS.APP_VERSION,
 
     // SESSION_SECRET: reserved for future HMAC-signed session tokens.

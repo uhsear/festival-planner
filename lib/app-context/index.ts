@@ -22,21 +22,26 @@ import express from 'express';
 
 import { createStores, openPlannerDatabase, createDbLatencyTracker } from '../planner-db-pg';
 import { loadConfig } from '../config';
-import { createRedisClient, createRedisRateLimiter, createRedisPresenceStore, createRedisCircuitBreaker, redisRateCheck } from '../redis';
+import {
+  createRedisClient,
+  createRedisRateLimiter,
+  createRedisPresenceStore,
+  createRedisCircuitBreaker,
+  redisRateCheck,
+} from '../redis';
 import { ErrorCodes, sendSuccess, sendError } from '../response';
 import { generateOpenAPISpec } from '../openapi';
 import {
-  schemas, validate, validateQuery, validateParams,
+  schemas,
+  validate,
+  validateQuery,
+  validateParams,
   normalizePickPayload as _normalizePickPayload,
   normalizeNotePayload as _normalizeNotePayload,
   normalizeReminderPayload as _normalizeReminderPayload,
   sanitizeFestivalPayload as _sanitizeFestivalPayload,
 } from '../schemas';
-import {
-  ALLOWED_PICK_PRIORITIES,
-  ALLOWED_REMINDER_MINUTES,
-  ALLOWED_AVATAR_MIME_TYPES,
-} from '../constants';
+import { ALLOWED_PICK_PRIORITIES, ALLOWED_REMINDER_MINUTES, ALLOWED_AVATAR_MIME_TYPES } from '../constants';
 import {
   encodeContentDispositionFilename,
   sanitizeString,
@@ -63,7 +68,16 @@ import {
   getLogSafeRequestInfo,
 } from '../helpers';
 import { createLogger } from '../logger';
-import { SCRYPT_KEYLEN, hashSessionToken, DUMMY_PASSWORD_SALT, DUMMY_PASSWORD_HASH, timingSafeEqualString, hashPassword, verifyPassword, setLogger as setCryptoLogger } from '../crypto-auth';
+import {
+  SCRYPT_KEYLEN,
+  hashSessionToken,
+  DUMMY_PASSWORD_SALT,
+  DUMMY_PASSWORD_HASH,
+  timingSafeEqualString,
+  hashPassword,
+  verifyPassword,
+  setLogger as setCryptoLogger,
+} from '../crypto-auth';
 
 import { buildCspPolicies, buildContentSecurityPolicy, collectInlineHashes } from './csp';
 import { createAvatarHelpers } from './avatar';
@@ -76,6 +90,7 @@ import {
 import { createCookieHelpers } from './cookies';
 import { createCacheHelpers } from './cache';
 import { createSessionHelpers } from './session';
+import type { AppContext, Stores } from '../types/app-context';
 
 const log = createLogger();
 setCryptoLogger(log.child({ module: 'crypto-auth' }));
@@ -85,7 +100,7 @@ const DANGEROUS_RECORD_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 /**
  * Create the full application context — config, databases, caches, utility functions.
  */
-async function createAppContext(overrides: any = {}): Promise<any> {
+async function createAppContext(overrides: any = {}): Promise<AppContext> {
   const config = loadConfig(overrides);
 
   log.info('startup config', {
@@ -103,7 +118,12 @@ async function createAppContext(overrides: any = {}): Promise<any> {
   });
 
   // ── Database ──────────────────────────────────────────────────────────
-  const { pool } = openPlannerDatabase({ databaseUrl: config.DATABASE_URL, log, poolSize: config.PG_POOL_MAX, poolMin: config.PG_POOL_MIN });
+  const { pool } = openPlannerDatabase({
+    databaseUrl: config.DATABASE_URL,
+    log,
+    poolSize: config.PG_POOL_MAX,
+    poolMin: config.PG_POOL_MIN,
+  });
   const rawStores = createStores(pool, { nodeEnv: config.NODE_ENV });
   const dbLatencyTracker = createDbLatencyTracker(log);
 
@@ -115,28 +135,36 @@ async function createAppContext(overrides: any = {}): Promise<any> {
     sessions: dbLatencyTracker.wrapStore('sessions', rawStores.sessions),
     crews: dbLatencyTracker.wrapStore('crews', rawStores.crews),
     picks: rawStores.picks ? dbLatencyTracker.wrapStore('picks', rawStores.picks) : rawStores.picks,
-    refreshTokens: rawStores.refreshTokens ? dbLatencyTracker.wrapStore('refreshTokens', rawStores.refreshTokens) : rawStores.refreshTokens,
+    refreshTokens: rawStores.refreshTokens
+      ? dbLatencyTracker.wrapStore('refreshTokens', rawStores.refreshTokens)
+      : rawStores.refreshTokens,
     auditLog: rawStores.auditLog ? dbLatencyTracker.wrapStore('auditLog', rawStores.auditLog) : rawStores.auditLog,
   };
 
   // ── Redis ─────────────────────────────────────────────────────────────
   const redis = createRedisClient({ log, enabled: config.REDIS_ENABLED });
   const redisCircuitBreaker = createRedisCircuitBreaker(redis, { maxFailures: 3, resetTimeMs: 30000, log });
-  const redisRateLimiter = redis ? createRedisRateLimiter(redis, {
-    windowMs: config.RATE_LIMIT_WINDOW,
-    maxRequests: config.RATE_LIMIT_MAX,
-    prefix: 'api',
-  }) : null;
-  const redisAuthRateLimiter = redis ? createRedisRateLimiter(redis, {
-    windowMs: config.AUTH_RATE_LIMIT_WINDOW,
-    maxRequests: config.AUTH_RATE_LIMIT_MAX,
-    prefix: 'auth',
-  }) : null;
-  const redisSocketConnectLimiter = redis ? createRedisRateLimiter(redis, {
-    windowMs: config.SOCKET_CONNECT_WINDOW,
-    maxRequests: config.SOCKET_CONNECT_RATE_LIMIT,
-    prefix: 'sock-conn',
-  }) : null;
+  const redisRateLimiter = redis
+    ? createRedisRateLimiter(redis, {
+        windowMs: config.RATE_LIMIT_WINDOW,
+        maxRequests: config.RATE_LIMIT_MAX,
+        prefix: 'api',
+      })
+    : null;
+  const redisAuthRateLimiter = redis
+    ? createRedisRateLimiter(redis, {
+        windowMs: config.AUTH_RATE_LIMIT_WINDOW,
+        maxRequests: config.AUTH_RATE_LIMIT_MAX,
+        prefix: 'auth',
+      })
+    : null;
+  const redisSocketConnectLimiter = redis
+    ? createRedisRateLimiter(redis, {
+        windowMs: config.SOCKET_CONNECT_WINDOW,
+        maxRequests: config.SOCKET_CONNECT_RATE_LIMIT,
+        prefix: 'sock-conn',
+      })
+    : null;
   const redisPresence = redis ? createRedisPresenceStore(redis) : null;
 
   const { createRateLimiters } = await import('../rate-limiting.js');
@@ -145,10 +173,17 @@ async function createAppContext(overrides: any = {}): Promise<any> {
   const cacheHelpers = createCacheHelpers({ stores, redis, log });
   const {
     cacheBus,
-    getUserMap, getUserById, invalidateUserCache,
-    getFestivalMap, getFestivalById, invalidateFestivalCache,
-    getFestivals, getProfiles, getUsers,
-    getProfileById, getUserFestivalProfile,
+    getUserMap,
+    getUserById,
+    invalidateUserCache,
+    getFestivalMap,
+    getFestivalById,
+    invalidateFestivalCache,
+    getFestivals,
+    getProfiles,
+    getUsers,
+    getProfileById,
+    getUserFestivalProfile,
   } = cacheHelpers;
 
   // ── CSP ───────────────────────────────────────────────────────────────
@@ -210,8 +245,12 @@ async function createAppContext(overrides: any = {}): Promise<any> {
 
   // ── IO injection point ────────────────────────────────────────────────
   let _io: any = null;
-  function setIO(io: any) { _io = io; }
-  function getIO() { return _io; }
+  function setIO(io: any) {
+    _io = io;
+  }
+  function getIO() {
+    return _io;
+  }
 
   // ── Avatar helpers (extracted to ./avatar) ────────────────────────────
   const avatarHelpers = createAvatarHelpers({ config, sendError, ErrorCodes });
@@ -240,7 +279,9 @@ async function createAppContext(overrides: any = {}): Promise<any> {
     return next;
   }
 
-  log.info('PostgreSQL pool initialized', { databaseUrl: config.DATABASE_URL ? config.DATABASE_URL.replace(/\/\/.*@/, '//***@') : 'not set' });
+  log.info('PostgreSQL pool initialized', {
+    databaseUrl: config.DATABASE_URL ? config.DATABASE_URL.replace(/\/\/.*@/, '//***@') : 'not set',
+  });
 
   // ── Request helpers (extracted to ./request-helpers) ──────────────────
   const {
@@ -268,11 +309,36 @@ async function createAppContext(overrides: any = {}): Promise<any> {
   const normalizePickPayload = (input: any) => _normalizePickPayload(input, config);
   const normalizeNotePayload = (input: any) => _normalizeNotePayload(input, config);
   const normalizeReminderPayload = (input: any) => _normalizeReminderPayload(input, config);
-  const sanitizeFestivalPayload = (input: any, existingFestival: any) => _sanitizeFestivalPayload(input, existingFestival, config, createOpaqueId);
+  const sanitizeFestivalPayload = (input: any, existingFestival: any) =>
+    _sanitizeFestivalPayload(input, existingFestival, config, createOpaqueId);
 
   // ── Rate limiters ─────────────────────────────────────────────────────
-  const rateLimiters = createRateLimiters({ config, state, log, getRequestIp, sendError, ErrorCodes, hashSessionToken, resolveRequestToken, redisRateLimiter, redisAuthRateLimiter, redisSocketConnectLimiter, redis, redisRateCheck, promMetrics: overrides.promMetrics || null });
-  const { rateLimit, authRateLimit, adminAuthRateLimit, enforceRateLimitMapCap, consumeSocketRateLimit, consumeUserAuthRateLimit, consumeSocketConnectRateLimitAsync, consumeSocketConnectRateLimit } = rateLimiters;
+  const rateLimiters = createRateLimiters({
+    config,
+    state,
+    log,
+    getRequestIp,
+    sendError,
+    ErrorCodes,
+    hashSessionToken,
+    resolveRequestToken,
+    redisRateLimiter,
+    redisAuthRateLimiter,
+    redisSocketConnectLimiter,
+    redis,
+    redisRateCheck,
+    promMetrics: overrides.promMetrics || null,
+  });
+  const {
+    rateLimit,
+    authRateLimit,
+    adminAuthRateLimit,
+    enforceRateLimitMapCap,
+    consumeSocketRateLimit,
+    consumeUserAuthRateLimit,
+    consumeSocketConnectRateLimitAsync,
+    consumeSocketConnectRateLimit,
+  } = rateLimiters;
 
   // ── Presence manager ──────────────────────────────────────────────────
   const { createPresenceManager } = await import('../presence.js');
@@ -286,11 +352,19 @@ async function createAppContext(overrides: any = {}): Promise<any> {
   });
 
   const {
-    removeSocketPresence, setSocketPresence, getPresenceList,
-    emitPresence, clearPresenceTimers, emitProfileIdentity,
-    clearSocketSession, leaveFestivalRealtime,
-    disconnectSocket, disconnectUserSockets, disconnectSessionTokens,
-    removeFestivalSockets, removeProfileSockets,
+    removeSocketPresence,
+    setSocketPresence,
+    getPresenceList,
+    emitPresence,
+    clearPresenceTimers,
+    emitProfileIdentity,
+    clearSocketSession,
+    leaveFestivalRealtime,
+    disconnectSocket,
+    disconnectUserSockets,
+    disconnectSessionTokens,
+    removeFestivalSockets,
+    removeProfileSockets,
   } = presenceManager;
 
   const emitProfileIdentityWrapped = (user: any, io: any) => emitProfileIdentity(user, io, getProfiles);
@@ -321,11 +395,14 @@ async function createAppContext(overrides: any = {}): Promise<any> {
     const testToken = crypto.randomBytes(32).toString('hex');
     const testHash = hashSessionToken(testToken);
     if (!testHash || testHash.length !== 64) throw new Error('Crypto self-test failed');
-    pool.query('SELECT 1').then(() => {
-      log.info('postgresql connection verified');
-    }).catch((pgErr: any) => {
-      log.error('postgresql connection failed', { error: pgErr.message });
-    });
+    pool
+      .query('SELECT 1')
+      .then(() => {
+        log.info('postgresql connection verified');
+      })
+      .catch((pgErr: any) => {
+        log.error('postgresql connection failed', { error: pgErr.message });
+      });
     log.info('startup self-test passed');
   } catch (err: any) {
     log.error('startup self-test failed', { error: err.message });
@@ -334,83 +411,157 @@ async function createAppContext(overrides: any = {}): Promise<any> {
   // ── Return context ────────────────────────────────────────────────────
   return {
     // Infrastructure
-    express, config, state, stores, pool, log,
-    redis, redisCircuitBreaker, redisPresence, redisRateLimiter,
-    cacheBus, dbLatencyTracker,
+    express,
+    config,
+    state,
+    stores: stores as unknown as Stores,
+    pool,
+    log,
+    redis,
+    redisCircuitBreaker,
+    redisPresence,
+    redisRateLimiter,
+    cacheBus,
+    dbLatencyTracker,
     avatarPool: _avatarPool,
     setIO,
 
     // CSP
-    contentSecurityPolicy, exportContentSecurityPolicy,
+    contentSecurityPolicy,
+    exportContentSecurityPolicy,
     generateOpenAPISpec,
 
     // Avatar
-    avatarDirPath, ensureAvatarDir, getAvatarFilePath,
-    processAvatarUpload, writeAvatarFile, removeAvatarFile,
+    avatarDirPath,
+    ensureAvatarDir,
+    getAvatarFilePath,
+    processAvatarUpload,
+    writeAvatarFile,
+    removeAvatarFile,
     handleAvatarUpload,
 
     // Task queue
     runUserTask,
 
     // Caches / data access
-    getUserMap, getUserById, invalidateUserCache,
-    getFestivalMap, getFestivalById, invalidateFestivalCache,
-    getFestivals, getProfiles, getUsers,
-    getProfileById, getUserFestivalProfile,
+    getUserMap,
+    getUserById,
+    invalidateUserCache,
+    getFestivalMap,
+    getFestivalById,
+    invalidateFestivalCache,
+    getFestivals,
+    getProfiles,
+    getUsers,
+    getProfileById,
+    getUserFestivalProfile,
 
     // Session / auth
-    createUserSession, validateUserSession, invalidateUserSessions,
-    resolveRequestToken, resolveSocketToken,
-    resolveUserRequestSession, userAuth, adminAuth,
+    createUserSession,
+    validateUserSession,
+    invalidateUserSessions,
+    resolveRequestToken,
+    resolveSocketToken,
+    resolveUserRequestSession,
+    userAuth,
+    adminAuth,
     hashSessionToken,
 
     // Request helpers
-    getRequestIp, getRawRequestIp,
-    isAllowedOrigin, enforceAllowedOrigin,
-    hasBearerToken, hasDirectAuthHeader, hasSessionCookie,
+    getRequestIp,
+    getRawRequestIp,
+    isAllowedOrigin,
+    enforceAllowedOrigin,
+    hasBearerToken,
+    hasDirectAuthHeader,
+    hasSessionCookie,
 
     // Cookie helpers
-    setNoStore, setSessionCookie, clearSessionCookie,
-    setUserSessionCookie, clearUserSessionCookie,
+    setNoStore,
+    setSessionCookie,
+    clearSessionCookie,
+    setUserSessionCookie,
+    clearUserSessionCookie,
 
     // Payload normalizers
-    normalizePickPayload, normalizeNotePayload, normalizeReminderPayload,
+    normalizePickPayload,
+    normalizeNotePayload,
+    normalizeReminderPayload,
     sanitizeFestivalPayload,
 
     // Rate limiters
-    rateLimit, authRateLimit, adminAuthRateLimit, enforceRateLimitMapCap,
-    consumeSocketRateLimit, consumeUserAuthRateLimit,
-    consumeSocketConnectRateLimitAsync, consumeSocketConnectRateLimit,
+    rateLimit,
+    authRateLimit,
+    adminAuthRateLimit,
+    enforceRateLimitMapCap,
+    consumeSocketRateLimit,
+    consumeUserAuthRateLimit,
+    consumeSocketConnectRateLimitAsync,
+    consumeSocketConnectRateLimit,
 
     // Presence
-    emitPresence, emitProfileIdentity: emitProfileIdentityWrapped,
-    removeSocketPresence, setSocketPresence, getPresenceList,
-    clearPresenceTimers, clearSocketSession, leaveFestivalRealtime,
-    disconnectSocket, disconnectUserSockets, disconnectSessionTokens,
-    removeFestivalSockets, removeProfileSockets,
+    emitPresence,
+    emitProfileIdentity: emitProfileIdentityWrapped,
+    removeSocketPresence,
+    setSocketPresence,
+    getPresenceList,
+    clearPresenceTimers,
+    clearSocketSession,
+    leaveFestivalRealtime,
+    disconnectSocket,
+    disconnectUserSockets,
+    disconnectSessionTokens,
+    removeFestivalSockets,
+    removeProfileSockets,
 
     // Response helpers (re-exports)
-    sendSuccess, sendError, ErrorCodes,
+    sendSuccess,
+    sendError,
+    ErrorCodes,
 
     // Helpers (re-exports for route modules)
-    sanitizeString, sanitizeIdentifier, normalizeRecordKey,
-    createOpaqueId, createVersionToken,
-    hashPassword, verifyPassword, timingSafeEqualString,
+    sanitizeString,
+    sanitizeIdentifier,
+    normalizeRecordKey,
+    createOpaqueId,
+    createVersionToken,
+    hashPassword,
+    verifyPassword,
+    timingSafeEqualString,
     parseCookies,
-    validateTime, validateColor, validateUsername, validatePasswordStrength, checkPasswordPolicy, validateFestival,
-    serializeOwnProfile, serializeProfileForViewer, serializePublicUser,
-    buildAvatarUrl, buildExportHtml, serializeExportCrewProfile,
-    escapeHtml, formatTime,
+    validateTime,
+    validateColor,
+    validateUsername,
+    validatePasswordStrength,
+    checkPasswordPolicy,
+    validateFestival,
+    serializeOwnProfile,
+    serializeProfileForViewer,
+    serializePublicUser,
+    buildAvatarUrl,
+    buildExportHtml,
+    serializeExportCrewProfile,
+    escapeHtml,
+    formatTime,
     encodeContentDispositionFilename,
-    createAuditLog, getLogSafeRequestInfo,
-    schemas, validate, validateQuery, validateParams,
+    createAuditLog,
+    getLogSafeRequestInfo,
+    schemas,
+    validate,
+    validateQuery,
+    validateParams,
     pagination: await import('../pagination.js'),
 
     // Constants (re-exports)
-    MUTATING_METHODS, TRUSTED_MUTATION_HEADER, TRUSTED_MUTATION_VALUE,
+    MUTATING_METHODS,
+    TRUSTED_MUTATION_HEADER,
+    TRUSTED_MUTATION_VALUE,
     DANGEROUS_RECORD_KEYS,
-    ALLOWED_PICK_PRIORITIES, ALLOWED_AVATAR_MIME_TYPES,
-    SCRYPT_KEYLEN, DUMMY_PASSWORD_SALT, DUMMY_PASSWORD_HASH,
+    ALLOWED_PICK_PRIORITIES,
+    ALLOWED_AVATAR_MIME_TYPES,
+    SCRYPT_KEYLEN,
+    DUMMY_PASSWORD_SALT,
+    DUMMY_PASSWORD_HASH,
     ALLOWED_REMINDER_MINUTES,
   };
 }

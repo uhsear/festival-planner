@@ -16,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 
 import * as exportUtils from './helpers/export-utils.js';
+import type { PublicUser } from './types/app-context';
 
 const { buildAvatarUrl } = exportUtils;
 
@@ -49,7 +50,7 @@ export function createVersionToken() {
 // User Serialization (kept here — used by routes, not export-specific)
 // ════════════════════════════════════════════════════════════════════════════════
 
-export function serializePublicUser(user: any) {
+export function serializePublicUser(user: any): PublicUser {
   return {
     id: user.id,
     username: user.username,

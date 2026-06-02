@@ -230,6 +230,16 @@ describe('config: readTrustProxy behavior via loadConfig', () => {
     const config = loadConfig({ PUBLIC_ORIGIN: '', TRUST_PROXY: 'false' });
     assert.equal(config.TRUST_PROXY, false);
   });
+
+  it('passes through the loopback preset string', () => {
+    const config = loadConfig({ PUBLIC_ORIGIN: '', TRUST_PROXY: 'loopback' });
+    assert.equal(config.TRUST_PROXY, 'loopback');
+  });
+
+  it('passes through linklocal/uniquelocal presets case-insensitively', () => {
+    assert.equal(loadConfig({ PUBLIC_ORIGIN: '', TRUST_PROXY: 'linklocal' }).TRUST_PROXY, 'linklocal');
+    assert.equal(loadConfig({ PUBLIC_ORIGIN: '', TRUST_PROXY: 'Uniquelocal' }).TRUST_PROXY, 'uniquelocal');
+  });
 });
 
 describe('config: string fields', () => {
