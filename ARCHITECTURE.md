@@ -25,13 +25,13 @@ server.ts ─── orchestrator
 
 `server.ts` calls `createAppContext()` to build the dependency injection container, applies middleware, mounts routes, starts Socket.IO, and registers shutdown handlers. It validates startup configuration (PUBLIC_ORIGIN, SESSION_SECRET, webhook keys) before any initialization runs.
 
-### Dependency Injection: `lib/app-context/` (580 lines)
+### Dependency Injection: `lib/app-context/` (418 lines)
 
 `lib/app-context/index.ts` is the central composition root. It creates and wires together every infrastructure dependency into a single `deps` object that route factories receive. Extracted sub-modules:
 
 | File | Lines | Responsibility |
 |------|-------|----------------|
-| `index.ts` | 580 | Compose config, DB pool, Redis, caches, auth, sessions, utilities |
+| `index.ts` | 418 | Compose config, DB pool, Redis, caches, auth, sessions, utilities |
 | `csp.ts` | 36 | Content Security Policy header generation |
 | `avatar.ts` | 130 | Avatar upload validation, resizing (Sharp worker pool), storage |
 | `request-helpers.ts` | 118 | IP extraction, origin checks, CSRF enforcement |
@@ -49,7 +49,7 @@ server.ts ─── orchestrator
 | `middleware.ts` | 338 | Express middleware composition (Helmet, CORS, compression, body parsing, metrics, rate limits) |
 | `reset-pages.ts` | 306 | Password reset HTML page templates |
 | `metrics.ts` | 267 | Prometheus metrics (prom-client) collection and endpoint |
-| `shutdown.ts` | 230 | Graceful shutdown (drain requests, close DB/Redis, clear timers) + background task scheduling |
+| `shutdown.ts` | 254 | Graceful shutdown (drain requests, close DB/Redis, clear timers) + background task scheduling |
 | `openapi.ts` | 203 | OpenAPI 3.0 spec generation from route metadata |
 | `emitter.ts` | 208 | Typed event emitter for internal pub/sub |
 | `reminder-scheduler.ts` | 199 | Background scheduler for set reminders (push notifications) |
@@ -82,7 +82,7 @@ FCM push notification subsystem with retry and do-not-disturb support.
 | File | Lines | Purpose |
 |------|-------|---------|
 | `send.ts` | 491 | Firebase Cloud Messaging dispatch (batch + individual) |
-| `payload.ts` | 74 | Notification payload builders (chat, picks, crew events) |
+| `payload.ts` | 60 | Notification payload builders (crew updates, schedule changes, set reminders) |
 | `retry.ts` | 70 | Exponential backoff retry for failed sends |
 | `dnd.ts` | 23 | Do-not-disturb time window checks |
 | `index.ts` | 38 | Module barrel export |
@@ -129,7 +129,7 @@ export default function createFeatureRoutes({ pool, redis, config, io, log }: Ap
 | `export.ts` | 485 | HTML/ICS exports, presence list, message export |
 | `admin-status.ts` | 433 | Admin dashboard: server status, connections, DB stats |
 | `share.ts` | 431 | Festival sharing, public schedule links |
-| `socket.ts` | 404 | Real-time: presence, chat, typing, reactions, crew updates |
+| `socket.ts` | 387 | Real-time: presence, crew updates, festival room management |
 | `email-auth.ts` | 368 | Email-based auth (magic links, verification, password reset) |
 | `account.ts` | 334 | Profile settings, avatar upload/delete, display name |
 | `admin-users.ts` | 283 | Admin user management, search, ban, password reset |
@@ -165,10 +165,10 @@ React 19 SPA with file-based routing via TanStack Router. Built with Vite 8 and 
 
 | Route | Lines | View |
 |-------|-------|------|
-| `timeline.tsx` | 656 | Main schedule timeline (drag-scroll, time markers) |
+| `timeline.tsx` | 189 | Main schedule timeline (drag-scroll, time markers) |
 | `account.tsx` | 466 | User settings, avatar, notifications, sessions |
 | `grid.tsx` | 368 | Grid/spreadsheet schedule view |
-| `crew.tsx` | 343 | Crew management, chat, member list |
+| `crew.tsx` | 273 | Crew management, member list |
 | `wrap.tsx` | 269 | Post-festival wrap-up / recap |
 | `picks.tsx` | 244 | Personal picks list with conflict detection |
 | `festival-mode.tsx` | 198 | Festival day-of mode (current/next set) |
@@ -195,7 +195,7 @@ TypeScript package imported by the frontend via workspace aliases (`@festie/shar
 |-------|-------|-------|
 | `festivalStore.ts` | 307 | Festival data, sets, stages, days |
 | `authStore.ts` | 263 | User session, tokens, login state |
-| `crewStore.ts` | 226 | Crew membership, activity, chat |
+| `crewStore.ts` | 654 | Crew membership, activity |
 | `festivalModeStore.ts` | 122 | Day-of festival mode (current set tracking) |
 | `uiStore.ts` | 73 | UI state (modals, toasts, theme) |
 
@@ -216,7 +216,7 @@ TypeScript package imported by the frontend via workspace aliases (`@festie/shar
 
 ## Database
 
-PostgreSQL 16 with connection pooling (pg, min 2 / max 20). 28 migrations in `migrations/` (004 baseline through 032), all idempotent with parameterized queries.
+PostgreSQL 16 with connection pooling (pg, min 2 / max 20). 37 migrations in `migrations/` (004 baseline through 041), all idempotent with parameterized queries.
 
 Key tables: `users`, `user_sessions`, `festivals`, `festival_stages`, `festival_days`, `festival_sets`, `festival_profiles`, `crews`, `crew_members`, `crew_activity`, `crew_polls`, `crew_expenses`, `device_tokens`, `audit_log`, `user_roles`.
 
@@ -230,7 +230,7 @@ The central architectural pattern. Every route module exports a factory that rec
 
 ### Multi-Tier Rate Limiting
 
-- **In-memory** (single process): per-IP API limit, per-IP auth limit, per-userId auth limit, per-user chat limit
+- **In-memory** (single process): per-IP API limit, per-IP auth limit, per-userId auth limit
 - **Redis-backed** (cluster mode): same limits shared across PM2 workers
 - **Graceful fallback**: if Redis is unavailable, falls back to in-memory with logged warning
 - Maps pruned every 60s; capped at 10,000 entries with LRU eviction
@@ -247,7 +247,7 @@ The central architectural pattern. Every route module exports a factory that rec
 
 - Festival rooms for scoped broadcasts
 - Presence tracking with debounced updates (500ms)
-- Message sequencing for gap-fill on reconnect
+- Presence state recovery on reconnect
 - Redis adapter for multi-worker pub/sub
 - Push notifications (FCM) for offline users with DND support
 

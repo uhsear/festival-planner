@@ -6,13 +6,23 @@ import createCrewMemberRoutes from './crew-members.js';
 
 export default function createCrewRoutes(deps: any) {
   const {
-    express, log, pool,
-    userAuth, setNoStore,
-    sanitizeString, sanitizeIdentifier,
+    express,
+    log,
+    pool,
+    userAuth,
+    setNoStore,
+    sanitizeString,
+    sanitizeIdentifier,
     createOpaqueId,
-    sendSuccess, sendError, ErrorCodes,
-    rateLimit, stores,
-    schemas, validate, validateQuery, validateParams,
+    sendSuccess,
+    sendError,
+    ErrorCodes,
+    rateLimit,
+    stores,
+    schemas,
+    validate,
+    validateQuery,
+    validateParams,
     io,
   } = deps;
 
@@ -27,7 +37,10 @@ export default function createCrewRoutes(deps: any) {
    */
   async function resolveCrewOwnership(res: any, crewId: any, userId: any, actionLabel: any) {
     const crew = await stores.crews.getById(crewId);
-    if (!crew) { sendError(res, 404, 'Crew not found', ErrorCodes.NOT_FOUND); return null; }
+    if (!crew) {
+      sendError(res, 404, 'Crew not found', ErrorCodes.NOT_FOUND);
+      return null;
+    }
     const membership = await stores.crews.getMember(crewId, userId);
     if (!membership || membership.role !== 'owner') {
       sendError(res, 403, `Only the crew owner can ${actionLabel}`, ErrorCodes.FORBIDDEN);
@@ -77,7 +90,12 @@ export default function createCrewRoutes(deps: any) {
   }
 
   // Share helpers with sub-routers via deps
-  const _crewHelpers = { resolveCrewOwnership, serializeCrew, serializeCrewWithMembers, MAX_CREWS_PER_USER_PER_FESTIVAL };
+  const _crewHelpers = {
+    resolveCrewOwnership,
+    serializeCrew,
+    serializeCrewWithMembers,
+    MAX_CREWS_PER_USER_PER_FESTIVAL,
+  };
   const subDeps = { ...deps, _crewHelpers };
 
   // ── Mount sub-routers ──────────────────────────────────────────────
@@ -93,10 +111,9 @@ export default function createCrewRoutes(deps: any) {
 
   // ── Crew creation helpers ────────────────────────────────────────
   async function validateCrewCreation(req: any, cleanFestivalId: any) {
-    const { rows: festivalRows } = await pool.query(
-      'SELECT 1 FROM festivals WHERE id = $1 AND deleted_at IS NULL',
-      [cleanFestivalId],
-    );
+    const { rows: festivalRows } = await pool.query('SELECT 1 FROM festivals WHERE id = $1 AND deleted_at IS NULL', [
+      cleanFestivalId,
+    ]);
     if (festivalRows.length === 0) return 'Festival not found';
 
     const profile = await stores.profiles.readByUserAndFestival?.(req.user.userId, cleanFestivalId);
@@ -130,11 +147,13 @@ export default function createCrewRoutes(deps: any) {
 
       const validationError = await validateCrewCreation(req, cleanFestivalId);
       if (validationError) {
-        const code = validationError.startsWith('Maximum') ? ErrorCodes.MAX_LIMIT_REACHED
-          : validationError === 'Festival not found' ? ErrorCodes.NOT_FOUND
+        const code = validationError.startsWith('Maximum')
+          ? ErrorCodes.MAX_LIMIT_REACHED
+          : validationError === 'Festival not found'
+            ? ErrorCodes.NOT_FOUND
             : ErrorCodes.FORBIDDEN;
-        const status = validationError === 'Festival not found' ? 404
-          : validationError.startsWith('Maximum') ? 400 : 403;
+        const status =
+          validationError === 'Festival not found' ? 404 : validationError.startsWith('Maximum') ? 400 : 403;
         return sendError(res, status, validationError, code);
       }
 
@@ -156,6 +175,14 @@ export default function createCrewRoutes(deps: any) {
 
       if (!crew || !Array.isArray(members)) {
         log.error('crew creation incomplete', { crewId });
+        // Compensating cleanup: persistCrew already committed the crew row + owner
+        // membership, so delete it to avoid an orphaned crew (crew_members cascades
+        // via ON DELETE CASCADE). Cleanup failure still returns 500.
+        try {
+          await stores.crews.delete(crewId);
+        } catch (cleanupError: any) {
+          log.error('crew creation cleanup failed', { crewId, error: cleanupError.message });
+        }
         return sendError(res, 500, 'Failed to create crew', ErrorCodes.INTERNAL_ERROR);
       }
 
@@ -169,115 +196,142 @@ export default function createCrewRoutes(deps: any) {
   });
 
   // ── GET / — List my crews (optionally filtered by festivalId) ───
-  router.get('/', userAuth, rateLimit(120, 'crew-list'), validateQuery(schemas.crewListQuery), async (req: any, res: any) => {
-    try {
-      setNoStore(res);
-      const festivalId = req.validatedQuery.festivalId ? sanitizeIdentifier(req.validatedQuery.festivalId, 100) : null;
+  router.get(
+    '/',
+    userAuth,
+    rateLimit(120, 'crew-list'),
+    validateQuery(schemas.crewListQuery),
+    async (req: any, res: any) => {
+      try {
+        setNoStore(res);
+        const festivalId = req.validatedQuery.festivalId
+          ? sanitizeIdentifier(req.validatedQuery.festivalId, 100)
+          : null;
 
-      let crews;
-      if (festivalId) {
-        crews = await stores.crews.listByUserAndFestival(req.user.userId, festivalId);
-      } else {
-        crews = await stores.crews.listByUser(req.user.userId);
+        let crews;
+        if (festivalId) {
+          crews = await stores.crews.listByUserAndFestival(req.user.userId, festivalId);
+        } else {
+          crews = await stores.crews.listByUser(req.user.userId);
+        }
+
+        // Batch-load members for all crews in a single query (avoids N+1)
+        const crewIds = crews.map((c: any) => c.id);
+        const membersByCrewId = await stores.crews.getMembersForCrews(crewIds);
+
+        const result = crews.map((crew: any) => {
+          const members = membersByCrewId.get(crew.id) || [];
+          return serializeCrewWithMembers(crew, members, req.user.userId);
+        });
+        return sendSuccess(res, result);
+      } catch (error: any) {
+        log.error('crew list failed', { error: error.message, userId: req.user.userId });
+        return sendError(res, 500, 'Failed to list crews', ErrorCodes.INTERNAL_ERROR);
       }
-
-      // Batch-load members for all crews in a single query (avoids N+1)
-      const crewIds = crews.map((c: any) => c.id);
-      const membersByCrewId = await stores.crews.getMembersForCrews(crewIds);
-
-      const result = crews.map((crew: any) => {
-        const members = membersByCrewId.get(crew.id) || [];
-        return serializeCrewWithMembers(crew, members, req.user.userId);
-      });
-      return sendSuccess(res, result);
-    } catch (error: any) {
-      log.error('crew list failed', { error: error.message, userId: req.user.userId });
-      return sendError(res, 500, 'Failed to list crews', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   // ── GET /:crewId — Get crew details with members ───────────────
-  router.get('/:crewId', userAuth, rateLimit(120, 'crew-get'), validateParams(schemas.crewIdParams), async (req: any, res: any) => {
-    try {
-      setNoStore(res);
-      const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
+  router.get(
+    '/:crewId',
+    userAuth,
+    rateLimit(120, 'crew-get'),
+    validateParams(schemas.crewIdParams),
+    async (req: any, res: any) => {
+      try {
+        setNoStore(res);
+        const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
+        if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
 
-      const crew = await stores.crews.getById(crewId);
-      if (!crew) return sendError(res, 404, 'Crew not found', ErrorCodes.NOT_FOUND);
+        const crew = await stores.crews.getById(crewId);
+        if (!crew) return sendError(res, 404, 'Crew not found', ErrorCodes.NOT_FOUND);
 
-      const membership = await stores.crews.getMember(crewId, req.user.userId);
-      if (!membership) return sendError(res, 403, 'Not a member of this crew', ErrorCodes.FORBIDDEN);
+        const membership = await stores.crews.getMember(crewId, req.user.userId);
+        if (!membership) return sendError(res, 403, 'Not a member of this crew', ErrorCodes.FORBIDDEN);
 
-      const members = await stores.crews.getMembers(crewId);
-      return sendSuccess(res, serializeCrewWithMembers(crew, members, req.user.userId));
-    } catch (error: any) {
-      log.error('crew get failed', { error: error.message, crewId: req.validatedParams?.crewId });
-      return sendError(res, 500, 'Failed to get crew', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+        const members = await stores.crews.getMembers(crewId);
+        return sendSuccess(res, serializeCrewWithMembers(crew, members, req.user.userId));
+      } catch (error: any) {
+        log.error('crew get failed', { error: error.message, crewId: req.validatedParams?.crewId });
+        return sendError(res, 500, 'Failed to get crew', ErrorCodes.INTERNAL_ERROR);
+      }
+    },
+  );
 
   // ── PUT /:crewId — Update crew (owner only) ────────────────────
-  router.put('/:crewId', userAuth, rateLimit(10, 'crew-update'), validateParams(schemas.crewIdParams), validate(schemas.crewUpdate), async (req: any, res: any) => {
-    try {
-      const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
+  router.put(
+    '/:crewId',
+    userAuth,
+    rateLimit(10, 'crew-update'),
+    validateParams(schemas.crewIdParams),
+    validate(schemas.crewUpdate),
+    async (req: any, res: any) => {
+      try {
+        const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
+        if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
 
-      const resolved = await resolveCrewOwnership(res, crewId, req.user.userId, 'update');
-      if (!resolved) return;
-      const { crew } = resolved;
+        const resolved = await resolveCrewOwnership(res, crewId, req.user.userId, 'update');
+        if (!resolved) return;
+        const { crew } = resolved;
 
-      const updateData: any = { id: crewId };
-      if (req.validatedBody.name !== undefined) {
-        updateData.name = sanitizeString(req.validatedBody.name, 60);
-      } else {
-        updateData.name = crew.name;
+        const updateData: any = { id: crewId };
+        if (req.validatedBody.name !== undefined) {
+          updateData.name = sanitizeString(req.validatedBody.name, 60);
+        } else {
+          updateData.name = crew.name;
+        }
+        if (req.validatedBody.maxMembers !== undefined) {
+          updateData.maxMembers = req.validatedBody.maxMembers;
+        } else {
+          updateData.maxMembers = crew.maxMembers;
+        }
+
+        await stores.crews.update(updateData);
+        const updated = await stores.crews.getById(crewId);
+        const members = await stores.crews.getMembers(crewId);
+
+        if (io) {
+          const broadcastData = serializeCrewWithMembers(updated, members, null);
+          delete broadcastData.inviteCode;
+          io.to(`crew:${crewId}`).emit('crew:updated', broadcastData);
+        }
+
+        log.info('crew:updated', { crewId, userId: req.user.userId });
+        return sendSuccess(res, serializeCrewWithMembers(updated, members, req.user.userId));
+      } catch (error: any) {
+        log.error('crew update failed', { error: error.message, crewId: req.validatedParams?.crewId });
+        return sendError(res, 500, 'Failed to update crew', ErrorCodes.INTERNAL_ERROR);
       }
-      if (req.validatedBody.maxMembers !== undefined) {
-        updateData.maxMembers = req.validatedBody.maxMembers;
-      } else {
-        updateData.maxMembers = crew.maxMembers;
-      }
-
-      await stores.crews.update(updateData);
-      const updated = await stores.crews.getById(crewId);
-      const members = await stores.crews.getMembers(crewId);
-
-      if (io) {
-        const broadcastData = serializeCrewWithMembers(updated, members, null);
-        delete broadcastData.inviteCode;
-        io.to(`crew:${crewId}`).emit('crew:updated', broadcastData);
-      }
-
-      log.info('crew:updated', { crewId, userId: req.user.userId });
-      return sendSuccess(res, serializeCrewWithMembers(updated, members, req.user.userId));
-    } catch (error: any) {
-      log.error('crew update failed', { error: error.message, crewId: req.validatedParams?.crewId });
-      return sendError(res, 500, 'Failed to update crew', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   // ── DELETE /:crewId — Delete crew (owner only) ──────────────────
-  router.delete('/:crewId', userAuth, rateLimit(5, 'crew-delete'), validateParams(schemas.crewIdParams), async (req: any, res: any) => {
-    try {
-      const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
+  router.delete(
+    '/:crewId',
+    userAuth,
+    rateLimit(5, 'crew-delete'),
+    validateParams(schemas.crewIdParams),
+    async (req: any, res: any) => {
+      try {
+        const crewId = sanitizeIdentifier(req.validatedParams.crewId, 100);
+        if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
 
-      const resolved = await resolveCrewOwnership(res, crewId, req.user.userId, 'delete');
-      if (!resolved) return;
-      const { crew } = resolved;
+        const resolved = await resolveCrewOwnership(res, crewId, req.user.userId, 'delete');
+        if (!resolved) return;
+        const { crew } = resolved;
 
-      if (io) io.to(`crew:${crewId}`).emit('crew:deleted', { crewId, festivalId: crew.festivalId });
+        if (io) io.to(`crew:${crewId}`).emit('crew:deleted', { crewId, festivalId: crew.festivalId });
 
-      await stores.crews.delete(crewId);
+        await stores.crews.delete(crewId);
 
-      log.info('crew:deleted', { crewId, festivalId: crew.festivalId, userId: req.user.userId });
-      return sendSuccess(res, { success: true });
-    } catch (error: any) {
-      log.error('crew delete failed', { error: error.message, crewId: req.validatedParams?.crewId });
-      return sendError(res, 500, 'Failed to delete crew', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+        log.info('crew:deleted', { crewId, festivalId: crew.festivalId, userId: req.user.userId });
+        return sendSuccess(res, { success: true });
+      } catch (error: any) {
+        log.error('crew delete failed', { error: error.message, crewId: req.validatedParams?.crewId });
+        return sendError(res, 500, 'Failed to delete crew', ErrorCodes.INTERNAL_ERROR);
+      }
+    },
+  );
 
   return router;
 }

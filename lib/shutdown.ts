@@ -11,9 +11,16 @@ import path from 'path';
  */
 function createBackgroundTasks(ctx: any, { io }: any) {
   const {
-    config, state, stores, log, _pool,
-    validateUserSession, disconnectSocket, emitPresence,
-    getUsers, avatarDirPath,
+    config,
+    state,
+    stores,
+    log,
+    _pool,
+    validateUserSession,
+    disconnectSocket,
+    emitPresence,
+    getUsers,
+    avatarDirPath,
   } = ctx;
 
   // ── Leader election for cleanup tasks (PM2 cluster mode) ──────────────────
@@ -35,7 +42,11 @@ function createBackgroundTasks(ctx: any, { io }: any) {
           rssMB,
           heapMB,
           heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
-          rateLimitEntries: state.rateLimits.size + state.routeRateLimits.size + state.authRateLimits.size + state.socketRateLimits.size,
+          rateLimitEntries:
+            state.rateLimits.size +
+            state.routeRateLimits.size +
+            state.authRateLimits.size +
+            state.socketRateLimits.size,
           onlineRooms: state.onlineUsers.size,
           connections: io.engine?.clientsCount || 0,
         });
@@ -66,65 +77,74 @@ function createBackgroundTasks(ctx: any, { io }: any) {
   state.timers.push(_sessionCleanupTimer);
 
   // Avatar orphan cleanup — remove avatar files without corresponding users (runs daily)
-  const _avatarCleanupTimer = setInterval(async () => {
-    try {
-      const avatarDir = avatarDirPath();
-      if (!fs.existsSync(avatarDir)) return;
-      const files = fs.readdirSync(avatarDir);
-      const users = await getUsers();
-      const validAvatarKeys = new Set(users.map((u: any) => u.avatarKey).filter(Boolean));
-      for (const file of files) {
-        if (!file.endsWith('.webp')) continue;
-        const avatarKey = file.replace(/\.webp$/, '');
-        if (!validAvatarKeys.has(avatarKey)) {
-          try {
-            fs.unlinkSync(path.join(avatarDir, file));
-            log.debug('orphan avatar removed', { avatarKey });
-          } catch (err: any) {
-            log.warn('failed to remove orphan avatar', { avatarKey, error: err.message });
+  const _avatarCleanupTimer = setInterval(
+    async () => {
+      try {
+        const avatarDir = avatarDirPath();
+        if (!fs.existsSync(avatarDir)) return;
+        const files = fs.readdirSync(avatarDir);
+        const users = await getUsers();
+        const validAvatarKeys = new Set(users.map((u: any) => u.avatarKey).filter(Boolean));
+        for (const file of files) {
+          if (!file.endsWith('.webp')) continue;
+          const avatarKey = file.replace(/\.webp$/, '');
+          if (!validAvatarKeys.has(avatarKey)) {
+            try {
+              fs.unlinkSync(path.join(avatarDir, file));
+              log.debug('orphan avatar removed', { avatarKey });
+            } catch (err: any) {
+              log.warn('failed to remove orphan avatar', { avatarKey, error: err.message });
+            }
           }
         }
+      } catch (err: any) {
+        log.warn('avatar cleanup failed', { error: err.message });
       }
-    } catch (err: any) {
-      log.warn('avatar cleanup failed', { error: err.message });
-    }
-  }, 6 * 60 * 60 * 1000);
+    },
+    6 * 60 * 60 * 1000,
+  );
   _avatarCleanupTimer.unref();
   state.timers.push(_avatarCleanupTimer);
 
   // Expired token cleanup — purge password_reset_tokens and email_verification_tokens
-  const _tokenCleanupTimer = setInterval(async () => {
-    try {
-      const { rowCount: resetPurged } = await stores.pool.query(
-        `DELETE FROM password_reset_tokens WHERE expires_at < NOW()`
-      );
-      const { rowCount: verifyPurged } = await stores.pool.query(
-        `DELETE FROM email_verification_tokens WHERE expires_at < NOW()`
-      );
-      const { rowCount: refreshPurged } = await stores.pool.query(
-        'DELETE FROM refresh_tokens WHERE expires_at < NOW() OR revoked = TRUE'
-      );
-      if (resetPurged > 0 || verifyPurged > 0 || refreshPurged > 0) {
-        log.info('token cleanup', { resetPurged, verifyPurged, refreshPurged });
+  const _tokenCleanupTimer = setInterval(
+    async () => {
+      try {
+        const { rowCount: resetPurged } = await stores.pool.query(
+          `DELETE FROM password_reset_tokens WHERE expires_at < NOW()`,
+        );
+        const { rowCount: verifyPurged } = await stores.pool.query(
+          `DELETE FROM email_verification_tokens WHERE expires_at < NOW()`,
+        );
+        const { rowCount: refreshPurged } = await stores.pool.query(
+          'DELETE FROM refresh_tokens WHERE expires_at < NOW() OR revoked = TRUE',
+        );
+        if (resetPurged > 0 || verifyPurged > 0 || refreshPurged > 0) {
+          log.info('token cleanup', { resetPurged, verifyPurged, refreshPurged });
+        }
+      } catch (err: any) {
+        log.warn('token cleanup failed', { error: err.message });
       }
-    } catch (err: any) {
-      log.warn('token cleanup failed', { error: err.message });
-    }
-  }, 6 * 60 * 60 * 1000);
+    },
+    6 * 60 * 60 * 1000,
+  );
   _tokenCleanupTimer.unref();
   state.timers.push(_tokenCleanupTimer);
 
   // Audit log cleanup — purge entries older than retention threshold
-  const _auditCleanupTimer = setInterval(async () => {
-    try {
-      const deleted = await stores.auditLog.cleanup(config.AUDIT_LOG_RETENTION_DAYS);
-      if (deleted > 0) {
-        log.info('audit log cleanup', { deleted, retentionDays: config.AUDIT_LOG_RETENTION_DAYS });
+  const _auditCleanupTimer = setInterval(
+    async () => {
+      try {
+        const deleted = await stores.auditLog.cleanup(config.AUDIT_LOG_RETENTION_DAYS);
+        if (deleted > 0) {
+          log.info('audit log cleanup', { deleted, retentionDays: config.AUDIT_LOG_RETENTION_DAYS });
+        }
+      } catch (err: any) {
+        log.warn('audit log cleanup failed', { error: err.message });
       }
-    } catch (err: any) {
-      log.warn('audit log cleanup failed', { error: err.message });
-    }
-  }, 6 * 60 * 60 * 1000);
+    },
+    6 * 60 * 60 * 1000,
+  );
   _auditCleanupTimer.unref();
   state.timers.push(_auditCleanupTimer);
 
@@ -138,7 +158,8 @@ function createBackgroundTasks(ctx: any, { io }: any) {
         rssMB,
         heapMB,
         heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
-        rateLimitEntries: state.rateLimits.size + state.routeRateLimits.size + state.authRateLimits.size + state.socketRateLimits.size,
+        rateLimitEntries:
+          state.rateLimits.size + state.routeRateLimits.size + state.authRateLimits.size + state.socketRateLimits.size,
         onlineRooms: state.onlineUsers.size,
         connections: io.engine?.clientsCount || 0,
       });
@@ -172,7 +193,21 @@ function createBackgroundTasks(ctx: any, { io }: any) {
 /**
  * Create the server close handler for graceful shutdown.
  */
-function createCloseHandler({ server, io, config, state, log, pool, redis, cacheBus, emitter, clearPresenceTimers, avatarPool, inFlightRequests, sentry }: any) {
+function createCloseHandler({
+  server,
+  io,
+  config,
+  state,
+  log,
+  pool,
+  redis,
+  cacheBus,
+  emitter,
+  clearPresenceTimers,
+  avatarPool,
+  inFlightRequests,
+  sentry,
+}: any) {
   return async function close() {
     const closeStart = Date.now();
     const activeConnections = io.engine?.clientsCount || 0;
@@ -185,7 +220,11 @@ function createCloseHandler({ server, io, config, state, log, pool, redis, cache
     clearPresenceTimers();
     for (const timer of state.timers) clearInterval(timer);
     if (state.reminderScheduler) {
-      try { state.reminderScheduler.stop(); } catch { /* ignore */ }
+      try {
+        state.reminderScheduler.stop();
+      } catch {
+        /* ignore */
+      }
     }
 
     // Flush any pending batched events before disconnecting sockets
@@ -210,7 +249,7 @@ function createCloseHandler({ server, io, config, state, log, pool, redis, cache
         (socket as any).disconnect(true);
       }
       if (i + batchSize < sockets.length) {
-        await new Promise(resolve => setTimeout(resolve, batchDelay));
+        await new Promise((resolve) => setTimeout(resolve, batchDelay));
       }
     }
 
@@ -218,14 +257,17 @@ function createCloseHandler({ server, io, config, state, log, pool, redis, cache
     if (io.engine) {
       await new Promise<void>((resolve) => {
         const timeout = setTimeout(resolve, 2000);
-        io.engine.close(() => { clearTimeout(timeout); resolve(); });
+        io.engine.close(() => {
+          clearTimeout(timeout);
+          resolve();
+        });
       });
     }
 
     // Wait for in-flight requests to complete (with timeout)
     const shutdownStart = Date.now();
     while (inFlightRequests.count > 0 && Date.now() - shutdownStart < config.SHUTDOWN_TIMEOUT_MS) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
     if (inFlightRequests.count > 0) {
       log.warn('shutdown timeout reached, closing with in-flight requests', {
@@ -233,19 +275,26 @@ function createCloseHandler({ server, io, config, state, log, pool, redis, cache
       });
     }
 
-    // Clean up resources
-    try {
-      // admin_sessions cleanup removed — role-based auth uses user_sessions only
-    } catch { /* ignore */ }
-
     if (sentry?.close) await sentry.close(2000);
     await pool.end();
-    try { await avatarPool.terminate(); } catch { /* ignore */ }
+    try {
+      await avatarPool.terminate();
+    } catch {
+      /* ignore */
+    }
     if (cacheBus) {
-      try { await cacheBus.close(); } catch { /* ignore */ }
+      try {
+        await cacheBus.close();
+      } catch {
+        /* ignore */
+      }
     }
     if (redis) {
-      try { redis.disconnect(); } catch { /* ignore */ }
+      try {
+        redis.disconnect();
+      } catch {
+        /* ignore */
+      }
     }
     log.info('server closed', { durationMs: Date.now() - closeStart });
   };
