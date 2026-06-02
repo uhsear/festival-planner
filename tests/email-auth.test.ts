@@ -39,19 +39,15 @@ async function ensureTestSchema() {
   if (testDbReady) return;
   const pool = new Pool({ connectionString: TEST_DATABASE_URL });
   try {
-    const { rows } = await pool.query(
-      "SELECT 1 FROM information_schema.tables WHERE table_name = 'users' LIMIT 1"
-    );
+    const { rows } = await pool.query("SELECT 1 FROM information_schema.tables WHERE table_name = 'users' LIMIT 1");
     if (rows.length === 0) {
       await pool.query('CREATE EXTENSION IF NOT EXISTS citext');
-      const schema = fs.readFileSync(
-        path.join(__dirname, '..', 'migrations', '004_postgresql_baseline.sql'),
-        'utf8'
-      );
+      const schema = fs.readFileSync(path.join(__dirname, '..', 'migrations', '004_postgresql_baseline.sql'), 'utf8');
       await pool.query(schema);
     }
     const migrationsDir = path.join(__dirname, '..', 'migrations');
-    const migrationFiles = fs.readdirSync(migrationsDir)
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
       .filter((f: string) => f.endsWith('.sql') && !f.startsWith('004_'))
       .sort();
     for (const file of migrationFiles) {
@@ -107,10 +103,7 @@ async function startServer(overrides: any = {}) {
 async function registerUser(server: any, username: any, password = DEFAULT_PASSWORD, email?: any) {
   const body: any = { username, password, confirmPassword: password, tosAccepted: true };
   if (email) body.email = email;
-  const res = await server.request
-    .post('/api/v1/auth/register')
-    .set(TRUSTED_MUTATION_HEADER, '1')
-    .send(body);
+  const res = await server.request.post('/api/v1/auth/register').set(TRUSTED_MUTATION_HEADER, '1').send(body);
   assert.ok(res.status === 201 || res.status === 200, `register failed: ${res.status} ${JSON.stringify(res.body)}`);
   // Capture id for cleanup
   const pool = new Pool({ connectionString: TEST_DATABASE_URL });
@@ -127,7 +120,11 @@ const servers: any[] = [];
 afterEach(async () => {
   while (servers.length > 0) {
     const s = servers.pop();
-    try { await s.close(); } catch (_) { /* noop */ }
+    try {
+      await s.close();
+    } catch (_) {
+      /* noop */
+    }
   }
   await cleanupCreatedUsers();
 });
@@ -168,7 +165,7 @@ describe('email-auth: forgot-password', { concurrency: 1 }, () => {
         `SELECT COUNT(*)::int AS c FROM password_reset_tokens t
            JOIN users u ON u.id = t.user_id
           WHERE u.username = $1 AND t.used_at IS NULL`,
-        [username]
+        [username],
       );
       assert.ok(rows[0].c >= 1, 'expected at least one active reset token');
     } finally {
@@ -199,8 +196,10 @@ describe('email-auth: forgot-password', { concurrency: 1 }, () => {
       .post('/api/v1/auth/forgot-password')
       .set(TRUSTED_MUTATION_HEADER, '1')
       .send({ email });
-    assert.ok(fourth.status === 200 || fourth.status === 429,
-      `4th request should be 200 (silent throttle) or 429 (visible), got ${fourth.status}`);
+    assert.ok(
+      fourth.status === 200 || fourth.status === 429,
+      `4th request should be 200 (silent throttle) or 429 (visible), got ${fourth.status}`,
+    );
   });
 
   test('endpoint-level rate limit eventually returns 429 under burst', async () => {
@@ -262,7 +261,7 @@ describe('email-auth: verify-email', { concurrency: 1 }, () => {
       await pool.query(
         `INSERT INTO email_verification_tokens (user_id, token_hash, email, expires_at)
          VALUES ($1, $2, $3, NOW() + INTERVAL '1 hour')`,
-        [userId, tokenHash, pendingEmail]
+        [userId, tokenHash, pendingEmail],
       );
 
       const res = await server.request.get(`/api/v1/auth/verify-email?token=${verifyToken}`);
@@ -315,7 +314,7 @@ describe('email-auth: reset-password', { concurrency: 1 }, () => {
       await pool.query(
         `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
          VALUES ($1, $2, NOW() - INTERVAL '1 hour')`,
-        [rows[0].id, tokenHash]
+        [rows[0].id, tokenHash],
       );
     } finally {
       await pool.end();
@@ -371,7 +370,7 @@ describe('email-auth: reset-password', { concurrency: 1 }, () => {
       await pool.query(
         `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
          VALUES ($1, $2, NOW() + INTERVAL '1 hour')`,
-        [rows[0].id, tokenHash]
+        [rows[0].id, tokenHash],
       );
     } finally {
       await pool.end();
@@ -449,10 +448,7 @@ describe('email-auth: update-email', { concurrency: 1 }, () => {
     // email should be set but unverified
     const pool = new Pool({ connectionString: TEST_DATABASE_URL });
     try {
-      const { rows } = await pool.query(
-        'SELECT email, email_verified_at FROM users WHERE username = $1',
-        [username]
-      );
+      const { rows } = await pool.query('SELECT email, email_verified_at FROM users WHERE username = $1', [username]);
       assert.equal(String(rows[0].email).toLowerCase(), newEmail);
       assert.equal(rows[0].email_verified_at, null);
     } finally {
@@ -488,5 +484,83 @@ describe('email-auth: resend-verification', { concurrency: 1 }, () => {
       .set(TRUSTED_MUTATION_HEADER, '1')
       .send({});
     assert.equal(res.status, 400);
+  });
+
+  test('200 happy path when email is set but unverified', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const ts = Date.now();
+    const username = `rv-ok-${ts}`;
+    const email = `rv-ok-${ts}@example.com`;
+    // Registering with an email sets users.email but leaves email_verified_at NULL.
+    const user = await registerUser(server, username, DEFAULT_PASSWORD, email);
+
+    const res = await server.request
+      .post('/api/v1/auth/resend-verification')
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({});
+    assert.equal(res.status, 200);
+
+    // A fresh verification token should now exist for this user.
+    const pool = new Pool({ connectionString: TEST_DATABASE_URL });
+    try {
+      const { rows } = await pool.query(
+        `SELECT COUNT(*)::int AS c FROM email_verification_tokens t
+           JOIN users u ON u.id = t.user_id
+          WHERE u.username = $1 AND t.used_at IS NULL`,
+        [username],
+      );
+      assert.ok(rows[0].c >= 1, 'expected at least one active verification token');
+    } finally {
+      await pool.end();
+    }
+  });
+
+  test('returns 400 when the email is already verified', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const ts = Date.now();
+    const username = `rv-verified-${ts}`;
+    const email = `rv-verified-${ts}@example.com`;
+    const user = await registerUser(server, username, DEFAULT_PASSWORD, email);
+
+    // Mark the email verified directly in the DB.
+    const pool = new Pool({ connectionString: TEST_DATABASE_URL });
+    try {
+      await pool.query('UPDATE users SET email_verified_at = NOW() WHERE username = $1', [username]);
+    } finally {
+      await pool.end();
+    }
+
+    const res = await server.request
+      .post('/api/v1/auth/resend-verification')
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({});
+    assert.equal(res.status, 400);
+    assert.match(JSON.stringify(res.body), /already verified/i);
+  });
+
+  test('rapid repeated requests eventually return 429 (rate limited)', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const ts = Date.now();
+    const username = `rv-rl-${ts}`;
+    const email = `rv-rl-${ts}@example.com`;
+    const user = await registerUser(server, username, DEFAULT_PASSWORD, email);
+
+    // The route is guarded by a scoped IP/user limiter (2/window) plus a
+    // per-email limiter (3/5min). Either way, rapid repeats must surface a 429.
+    const statuses: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const r = await server.request
+        .post('/api/v1/auth/resend-verification')
+        .set('x-user-token', user.token)
+        .set(TRUSTED_MUTATION_HEADER, '1')
+        .send({});
+      statuses.push(r.status);
+    }
+    assert.ok(statuses.includes(429), `expected a 429 among ${statuses.join(',')}`);
   });
 });

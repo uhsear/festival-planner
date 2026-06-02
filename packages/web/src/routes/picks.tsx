@@ -1,5 +1,6 @@
-import React, { useMemo, useEffect, useCallback, Component, ReactNode } from 'react';
+import { useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
@@ -27,43 +28,6 @@ const PRIORITY_SECTIONS: Array<{
   { value: 'want-to-see', label: 'Want to See', accent: 'var(--color-priority-want)', badge: 'want' },
   { value: 'maybe', label: 'Maybe', accent: 'var(--color-priority-maybe)', badge: 'maybe' },
 ];
-
-/**
- * Route-level error boundary for /picks. User reported the view "erroring
- * out" without a reproducible stack. Rather than ship a blank page on a
- * render throw, catch + render a helpful card that tells them what to try
- * (reload, re-select festival, report). Also logs to console so production
- * Sentry breadcrumbs pick it up. Defensive reads in usePicks already
- * handle the known null-picks case — this is belt + suspenders for
- * anything that slips through.
- */
-class PicksErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state = { error: null as Error | null };
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[picks] render failed:', error, info.componentStack);
-  }
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="pb-5" role="alert" aria-label="Picks view error">
-          <div className="flex flex-col items-center justify-center h-full text-center text-text-muted p-6">
-            <h2 className="mt-0">Something went wrong loading your picks.</h2>
-            <p className="text-sm text-[var(--color-text-secondary)] max-w-[400px]">
-              Try reloading the page. If this keeps happening, switch festivals and back, or sign out and back in.
-            </p>
-            <Button variant="primary" size="sm" className="mt-3" type="button" onClick={() => window.location.reload()}>
-              Reload
-            </Button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 function PicksViewInner() {
   const navigate = useNavigate();
@@ -340,8 +304,8 @@ function PicksViewInner() {
 
 export default function PicksView() {
   return (
-    <PicksErrorBoundary>
+    <RenderErrorBoundary name="picks">
       <PicksViewInner />
-    </PicksErrorBoundary>
+    </RenderErrorBoundary>
   );
 }

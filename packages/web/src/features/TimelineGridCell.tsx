@@ -35,7 +35,7 @@ export interface TimelineGridCellProps {
   onSavePick: (setId: string, priority: string | null) => void;
 }
 
-export default function TimelineGridCell({
+function TimelineGridCell({
   set,
   stageName,
   stageColor,
@@ -78,18 +78,22 @@ export default function TimelineGridCell({
         '[animation-delay:var(--tl-stagger,0ms)]',
         'motion-reduce:!animate-none motion-reduce:!transition-none',
         // Priority variants
-        myPick === 'must' && 'border-l-[var(--color-priority-must)] shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
-        myPick === 'want-to-see' && 'border-l-[var(--color-priority-want)] shadow-[inset_0_0_24px_var(--color-aqua-a12)]',
+        myPick === 'must' &&
+          'border-l-[var(--color-priority-must)] shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
+        myPick === 'want-to-see' &&
+          'border-l-[var(--color-priority-want)] shadow-[inset_0_0_24px_var(--color-aqua-a12)]',
         myPick === 'maybe' && 'border-l-[var(--color-priority-maybe)] shadow-[inset_0_0_24px_var(--color-amber-a12)]',
         // Conflict indicator
         hasConflictActive && '!border-2 !border-[var(--color-accent-amber)] shadow-[0_0_8px_rgba(245,158,11,0.3)]',
       )}
-      style={{
-        gridRow: `${Math.floor(topSlot) + 2} / span ${Math.max(1, Math.ceil(spanSlots))}`,
-        gridColumn: columnIndex + 2,
-        background: stageColor + '20',
-        '--tl-stagger': `${Math.min(columnIndex, 5) * 40}ms`,
-      } as React.CSSProperties}
+      style={
+        {
+          gridRow: `${Math.floor(topSlot) + 2} / span ${Math.max(1, Math.ceil(spanSlots))}`,
+          gridColumn: columnIndex + 2,
+          background: stageColor + '20',
+          '--tl-stagger': `${Math.min(columnIndex, 5) * 40}ms`,
+        } as React.CSSProperties
+      }
       data-set-id={set.id}
       data-short={isShort ? '1' : '0'}
       role="button"
@@ -168,9 +172,15 @@ export default function TimelineGridCell({
                   'min-[380px]:min-w-10 min-[380px]:min-h-10',
                   'min-[380px]:after:inset-[-2px]',
                   // Active priority states
-                  active && p === 'must' && 'bg-[var(--color-priority-must)] text-[var(--color-text-on-accent)] border-[var(--color-priority-must)] opacity-100',
-                  active && p === 'want-to-see' && 'bg-[var(--color-priority-want)] text-[var(--color-text-on-dark)] border-[var(--color-priority-want)] opacity-100',
-                  active && p === 'maybe' && 'bg-[var(--color-priority-maybe)] text-[var(--color-text-on-dark)] border-[var(--color-priority-maybe)] opacity-100',
+                  active &&
+                    p === 'must' &&
+                    'bg-[var(--color-priority-must)] text-[var(--color-text-on-accent)] border-[var(--color-priority-must)] opacity-100',
+                  active &&
+                    p === 'want-to-see' &&
+                    'bg-[var(--color-priority-want)] text-[var(--color-text-on-dark)] border-[var(--color-priority-want)] opacity-100',
+                  active &&
+                    p === 'maybe' &&
+                    'bg-[var(--color-priority-maybe)] text-[var(--color-text-on-dark)] border-[var(--color-priority-maybe)] opacity-100',
                 )}
                 type="button"
                 aria-pressed={active ? 'true' : 'false'}
@@ -210,3 +220,5 @@ export default function TimelineGridCell({
     </div>
   );
 }
+
+export default React.memo(TimelineGridCell);

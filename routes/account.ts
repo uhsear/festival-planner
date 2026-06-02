@@ -239,6 +239,7 @@ export default function createAccountRoutes(deps: any) {
       if (!currentUser) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
 
       const result = await stores.users.update(req.user.userId, { displayName: cleanDisplayName });
+      if (!result) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
       invalidateUserCache();
 
       emitProfileIdentity(result, io);

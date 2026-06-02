@@ -124,7 +124,9 @@ function createRedisPresenceStore(redis: Redis | null) {
           if (!users.has(userId)) {
             users.set(userId, { userId, username, socketId });
           }
-        } catch { /* skip corrupt entries */ }
+        } catch {
+          /* skip corrupt entries */
+        }
       }
       return [...users.values()];
     },
@@ -180,14 +182,26 @@ function createCacheInvalidationBus(redis: Redis | null, { log, onInvalidateUser
 
   return {
     publishUserInvalidation() {
-      redis.publish(CHANNEL_USERS, String(Date.now())).catch((err) => log.warn('redis cleanup failed', { error: err.message }));
+      redis
+        .publish(CHANNEL_USERS, String(Date.now()))
+        .catch((err) => log.warn('cache-bus invalidation publish failed', { error: err.message }));
     },
     publishFestivalInvalidation() {
-      redis.publish(CHANNEL_FESTIVALS, String(Date.now())).catch((err) => log.warn('redis cleanup failed', { error: err.message }));
+      redis
+        .publish(CHANNEL_FESTIVALS, String(Date.now()))
+        .catch((err) => log.warn('cache-bus invalidation publish failed', { error: err.message }));
     },
     async close() {
-      try { await sub.unsubscribe(); } catch { /* ignore */ }
-      try { sub.disconnect(); } catch { /* ignore */ }
+      try {
+        await sub.unsubscribe();
+      } catch {
+        /* ignore */
+      }
+      try {
+        sub.disconnect();
+      } catch {
+        /* ignore */
+      }
     },
   };
 }
@@ -259,83 +273,6 @@ function createRedisCircuitBreaker(redis: Redis | null, { maxFailures = 3, reset
   };
 }
 
-// ─── Query Result Caching (Redis-backed with in-memory fallback) ───────────────
-
-/**
- * Create a cached query fetcher with Redis + in-memory fallback
- * Pattern: check Redis first, fall back to in-memory cache, populate Redis on miss
- * Useful for expensive queries like festival load, profile load, user maps
- */
-function createCachedFetcher({ redis, fetcher, ttl = 60, key }: any) {
-  let inMemoryCache: any = null;
-  let inMemoryExpires = 0;
-
-  return {
-    /**
-     * Get value from cache or fetch fresh
-     */
-    async get() {
-      const now = Date.now();
-
-      // Check in-memory cache first (fast path)
-      if (inMemoryCache !== null && now < inMemoryExpires) {
-        return inMemoryCache;
-      }
-
-      // Try Redis (distributed cache)
-      if (redis) {
-        try {
-          const cached = await redis.get(key);
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            // Populate in-memory cache
-            // eslint-disable-next-line require-atomic-updates -- closure-scoped cache, not shared
-            inMemoryCache = parsed;
-            // eslint-disable-next-line require-atomic-updates -- closure-scoped cache, not shared
-            inMemoryExpires = now + (ttl * 1000);
-            return parsed;
-          }
-        } catch {
-          // Redis error or parse error — continue to fetcher
-        }
-      }
-
-      // Cache miss — fetch fresh data
-      const fresh = await fetcher();
-
-      // Populate both caches
-      if (redis) {
-        try {
-          await redis.setex(key, ttl, JSON.stringify(fresh));
-        } catch {
-          // Redis write failed — still have in-memory cache
-        }
-      }
-      // eslint-disable-next-line require-atomic-updates -- closure-scoped cache, not shared
-      inMemoryCache = fresh;
-      // eslint-disable-next-line require-atomic-updates -- closure-scoped cache, not shared
-      inMemoryExpires = now + (ttl * 1000);
-
-      return fresh;
-    },
-
-    /**
-     * Invalidate cache (both Redis and in-memory)
-     */
-    async invalidate() {
-      inMemoryCache = null;
-      inMemoryExpires = 0;
-      if (redis) {
-        try {
-          await redis.del(key);
-        } catch {
-          // Ignore Redis errors
-        }
-      }
-    },
-  };
-}
-
 // ─── Generic Rate Check (Redis-backed, per-call max) ─────────────────────────
 
 /**
@@ -374,7 +311,6 @@ export {
   createRedisPresenceStore,
   createCacheInvalidationBus,
   createRedisCircuitBreaker,
-  createCachedFetcher,
   redisRateCheck,
   REDIS_ENABLED,
   REDIS_PREFIX,

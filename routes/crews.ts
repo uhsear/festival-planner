@@ -54,6 +54,9 @@ export default function createCrewRoutes(deps: any) {
       id: crew.id,
       festivalId: crew.festivalId,
       name: crew.name,
+      // `owner` is what the shared Crew type and clients read for ownership
+      // checks; keep `createdBy` for backward compat.
+      owner: crew.createdBy,
       createdBy: crew.createdBy,
       maxMembers: crew.maxMembers,
       createdAt: crew.createdAt,

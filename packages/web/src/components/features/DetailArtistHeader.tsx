@@ -36,10 +36,7 @@ export default function DetailArtistHeader({
     <>
       {/* Artist photo */}
       {primaryArtist && primaryArtist.photo && (
-        <div
-          className="text-center my-3 mb-1.5"
-          style={{ background: stageColor + '18' }}
-        >
+        <div className="text-center my-3 mb-1.5" style={{ background: stageColor + '18' }}>
           <img
             src={primaryArtist.photo}
             alt={primaryArtist.name || setArtist || ''}
@@ -90,16 +87,14 @@ export default function DetailArtistHeader({
         <div>
           {artistLinks.map((a, i) => (
             <React.Fragment key={a.name + i}>
-              {isB2B && (
-                <div className="mt-1.5 text-xs font-semibold text-text-secondary">
-                  {a.name}
-                </div>
-              )}
+              {isB2B && <div className="mt-1.5 text-xs font-semibold text-text-secondary">{a.name}</div>}
               <div className="py-1 pb-2 text-[13px] flex flex-wrap gap-2.5">
                 {Object.entries(a.links || {}).map(([platform, url]) => (
                   <a
                     key={platform}
-                    href={url}
+                    // Defense-in-depth: React passes javascript:/data: URLs
+                    // through to the DOM, so only emit an href for http(s).
+                    href={/^https?:/i.test(url) ? url : undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[13px] text-accent-aqua no-underline hover:underline"

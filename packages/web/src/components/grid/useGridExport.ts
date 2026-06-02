@@ -5,16 +5,19 @@ import type { RefObject } from 'react';
  * Encapsulates the grid-to-image export logic. Dynamically imports
  * html-to-image so the ~50 KB gzipped bundle only loads on demand.
  */
-export function useGridExport(
-  gridRef: RefObject<HTMLDivElement | null>,
-  selectedDay: number,
-) {
+export function useGridExport(gridRef: RefObject<HTMLDivElement | null>, selectedDay: number, dayLabel: string) {
   const [exporting, setExporting] = useState(false);
 
   const exportGrid = useCallback(async () => {
     if (!gridRef.current || exporting) return;
     setExporting(true);
-    const dayName = selectedDay === 0 ? 'saturday' : 'sunday';
+    // Normalize the resolved festival day label into a filename-safe slug for
+    // the PNG name; the share title keeps the human-readable label.
+    const daySlug =
+      dayLabel
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || `day-${selectedDay + 1}`;
     const el = gridRef.current;
     const body = el.querySelector<HTMLElement>('[data-grid-body]');
     const cols = el.querySelector<HTMLElement>('[data-grid-cols]');
@@ -39,12 +42,12 @@ export function useGridExport(
       el.style.overflow = 'visible';
       el.style.height = fullH + 'px';
       body.style.overflow = 'visible';
-      body.style.height = (cols.scrollHeight) + 'px';
+      body.style.height = cols.scrollHeight + 'px';
       body.style.width = fullW + 'px';
       head.style.width = fullW + 'px';
       cols.style.minWidth = fullW - gutterW + 'px';
 
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
       if (document.fonts?.ready) await document.fonts.ready;
 
       const { toBlob } = await import('html-to-image');
@@ -57,10 +60,10 @@ export function useGridExport(
       });
       if (!blob) throw new Error('Capture failed');
 
-      const filename = `festie-${dayName}-grid.png`;
+      const filename = `festie-${daySlug}-grid.png`;
       const file = new File([blob], filename, { type: 'image/png' });
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `${dayName} Grid` });
+        await navigator.share({ files: [file], title: `${dayLabel} Grid` });
       } else {
         const url = URL.createObjectURL(blob);
         const a = Object.assign(document.createElement('a'), { href: url, download: filename });
@@ -80,7 +83,7 @@ export function useGridExport(
       cols.style.minWidth = saved.colsMinWidth;
       setExporting(false);
     }
-  }, [gridRef, selectedDay, exporting]);
+  }, [gridRef, selectedDay, dayLabel, exporting]);
 
   return { exporting, exportGrid };
 }

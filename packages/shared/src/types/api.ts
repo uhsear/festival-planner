@@ -1,3 +1,5 @@
+import type { User } from './domain';
+
 export interface ApiResponse<T> {
   data: T | null;
   error: ApiError | null;
@@ -54,14 +56,6 @@ export interface SaveReminderRequest {
   minutes: number | null;
 }
 
-export interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
-}
-
 export interface UpdateProfileRequest {
   picks?: Record<string, string>;
   notes?: Record<string, string>;
@@ -72,9 +66,13 @@ export interface UploadAvatarRequest {
   file: File | Blob;
 }
 
+/**
+ * Shape of the avatar upload/remove response after the api-client envelope is
+ * unwrapped. The server (routes/account.ts) returns the full re-serialized user
+ * via serializePublicUser, whose avatar field is `avatarUrl` (null when cleared).
+ */
 export interface AvatarResponse {
-  url: string;
-  updatedAt: string;
+  user: User;
 }
 
 export interface UserSettingsRequest {
@@ -103,32 +101,4 @@ export interface TransferCrewRequest {
 export interface PollVoteRequest {
   pollId: string;
   optionId: string;
-}
-
-export interface MeetingPointRequest {
-  festivalId: string;
-  name: string;
-  location: string;
-  time?: string;
-}
-
-export interface ActivityRequest {
-  festivalId: string;
-  type: string;
-  title: string;
-  description?: string;
-  startTime?: string;
-  endTime?: string;
-  location?: string;
-}
-
-export interface RatingRequest {
-  setId: string;
-  score: number;
-  comment?: string;
-}
-
-export interface ConflictDetectionRequest {
-  festivalId: string;
-  profileId: string;
 }

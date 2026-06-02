@@ -23,6 +23,7 @@
 
 import crypto from 'crypto';
 import { z } from 'zod';
+import { sanitizeLinkRecord } from '../lib/schemas.js';
 
 const importLineupSchema = z.object({
   text: z.string().min(1).max(100_000),
@@ -32,11 +33,20 @@ const importLineupSchema = z.object({
 
 export default function createLineupImportRoute(deps: any) {
   const {
-    express, log, config,
-    adminAuth, setNoStore, rateLimit,
-    getFestivalById, sanitizeIdentifier, sanitizeString,
-    sendSuccess, sendError, ErrorCodes,
-    stores, invalidateFestivalCache,
+    express,
+    log,
+    config,
+    adminAuth,
+    setNoStore,
+    rateLimit,
+    getFestivalById,
+    sanitizeIdentifier,
+    sanitizeString,
+    sendSuccess,
+    sendError,
+    ErrorCodes,
+    stores,
+    invalidateFestivalCache,
     getRequestIp,
   } = deps;
 
@@ -47,12 +57,14 @@ export default function createLineupImportRoute(deps: any) {
   const spotifyClientId = config.SPOTIFY_CLIENT_ID;
   const spotifyClientSecret = config.SPOTIFY_CLIENT_SECRET;
   if (spotifyClientId && spotifyClientSecret) {
-    import('../lib/spotify.js').then((mod) => {
-      spotify = (mod as any).default || mod;
-      log.info('spotify integration enabled for lineup import');
-    }).catch(() => {
-      log.warn('spotify module not available');
-    });
+    import('../lib/spotify.js')
+      .then((mod) => {
+        spotify = (mod as any).default || mod;
+        log.info('spotify integration enabled for lineup import');
+      })
+      .catch(() => {
+        log.warn('spotify module not available');
+      });
   }
 
   function detectDelimiter(firstLine: any) {
@@ -69,8 +81,12 @@ export default function createLineupImportRoute(deps: any) {
       for (let i = 0; i < line.length; i++) {
         const ch = line[i];
         if (ch === '"') {
-          if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-          else { inQuotes = !inQuotes; }
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
         } else if (ch === ',' && !inQuotes) {
           fields.push(current.trim());
           current = '';
@@ -145,12 +161,20 @@ export default function createLineupImportRoute(deps: any) {
       let columnMap: any;
       if (hasHeader) {
         const HEADER_TO_FIELD: any = {
-          artist: 'artist', name: 'artist', act: 'artist',
+          artist: 'artist',
+          name: 'artist',
+          act: 'artist',
           stage: 'stage',
-          day: 'day', date: 'day',
-          start: 'startTime', starttime: 'startTime',
-          end: 'endTime', endtime: 'endTime',
-          link: 'linkUrl', linkurl: 'linkUrl', url: 'linkUrl', spotify: 'linkUrl',
+          day: 'day',
+          date: 'day',
+          start: 'startTime',
+          starttime: 'startTime',
+          end: 'endTime',
+          endtime: 'endTime',
+          link: 'linkUrl',
+          linkurl: 'linkUrl',
+          url: 'linkUrl',
+          spotify: 'linkUrl',
         };
         columnMap = {};
         for (let i = 0; i < headerLower.length; i++) {
@@ -173,21 +197,26 @@ export default function createLineupImportRoute(deps: any) {
         const lineNum = hasHeader ? i + 2 : i + 1;
         const fields = parseLine(dataLines[i], delimiter);
         if (imported.length >= config.MAX_IMPORT_SETS) {
-          warnings.push(`Line ${lineNum}: max import limit (${config.MAX_IMPORT_SETS}) reached, remaining lines skipped`);
+          warnings.push(
+            `Line ${lineNum}: max import limit (${config.MAX_IMPORT_SETS}) reached, remaining lines skipped`,
+          );
           break;
         }
 
-        const rawArtist = sanitizeString((fields[columnMap.artist] || ''), 300);
-        if (!rawArtist) { warnings.push(`Line ${lineNum}: empty artist, skipped`); continue; }
+        const rawArtist = sanitizeString(fields[columnMap.artist] || '', 300);
+        if (!rawArtist) {
+          warnings.push(`Line ${lineNum}: empty artist, skipped`);
+          continue;
+        }
         const artist = rawArtist;
 
-        const rawStage = sanitizeString((fields[columnMap.stage] || ''), 100);
-        const rawDay = sanitizeString((fields[columnMap.day] || ''), 100);
+        const rawStage = sanitizeString(fields[columnMap.stage] || '', 100);
+        const rawDay = sanitizeString(fields[columnMap.day] || '', 100);
         const rawStart = (fields[columnMap.startTime] || '').trim().slice(0, 20);
         const rawEnd = (fields[columnMap.endTime] || '').trim().slice(0, 20);
         const rawLink = columnMap.linkUrl !== undefined ? (fields[columnMap.linkUrl] || '').trim() : '';
 
-        const stageId = stageMap.get((rawStage || '').toLowerCase()) || (festival.stages?.[0]?.id || null);
+        const stageId = stageMap.get((rawStage || '').toLowerCase()) || festival.stages?.[0]?.id || null;
         if (rawStage && !stageMap.has(rawStage.toLowerCase())) {
           warnings.push(`Line ${lineNum}: unknown stage, defaulting to first stage`);
         }
@@ -202,15 +231,22 @@ export default function createLineupImportRoute(deps: any) {
         const startTime = normalizeTime(rawStart);
         const endTime = normalizeTime(rawEnd);
 
+        // Allowlist link schemes (drop javascript:/data: etc.) before persisting.
+        const safeLinks = rawLink ? sanitizeLinkRecord({ spotify: rawLink }) : {};
+        const safeLink = safeLinks.spotify || null;
+        if (rawLink && !safeLink) {
+          warnings.push(`Line ${lineNum}: link dropped (unsupported URL scheme)`);
+        }
+
         imported.push({
           id: `set-import-${crypto.randomBytes(6).toString('hex')}`,
           artist,
-          artists: [{ name: artist, links: rawLink ? { spotify: rawLink } : {} }],
+          artists: [{ name: artist, links: safeLinks }],
           stageId,
           dayIndex,
           startTime,
           endTime,
-          linkUrl: rawLink || null,
+          linkUrl: safeLink,
         });
       }
 
@@ -225,7 +261,9 @@ export default function createLineupImportRoute(deps: any) {
         if (needsLink.length > 0) {
           try {
             const artistNames = needsLink.map((s) => s.artist);
-            const spotifyResults = await spotify.bulkSearchArtists(artistNames, spotifyClientId, spotifyClientSecret, { log });
+            const spotifyResults = await spotify.bulkSearchArtists(artistNames, spotifyClientId, spotifyClientSecret, {
+              log,
+            });
             for (const set of needsLink) {
               const match = spotifyResults.get(set.artist);
               if (match?.spotifyUrl) {
@@ -249,7 +287,9 @@ export default function createLineupImportRoute(deps: any) {
       // Insert imported sets via centralized store method
       const setsWithSortOrder = imported.map((set) => {
         const existingDay = festival.days?.[set.dayIndex];
-        const sortOrder = (existingDay?.sets?.length || 0) + imported.filter((s) => s.dayIndex === set.dayIndex && imported.indexOf(s) < imported.indexOf(set)).length;
+        const sortOrder =
+          (existingDay?.sets?.length || 0) +
+          imported.filter((s) => s.dayIndex === set.dayIndex && imported.indexOf(s) < imported.indexOf(set)).length;
         return { ...set, sortOrder };
       });
       await stores.festivals.insertSets(festivalId, setsWithSortOrder);
@@ -258,12 +298,26 @@ export default function createLineupImportRoute(deps: any) {
       await stores.pool.query('UPDATE festivals SET updated_at = NOW() WHERE id = $1', [festivalId]);
       invalidateFestivalCache();
 
-      log.info('lineup imported', { festivalId, count: imported.length, spotifyMatched, warnings: warnings.length, ip: getRequestIp(req) });
+      log.info('lineup imported', {
+        festivalId,
+        count: imported.length,
+        spotifyMatched,
+        warnings: warnings.length,
+        ip: getRequestIp(req),
+      });
       return sendSuccess(res, {
         imported: imported.length,
         spotifyMatched,
         warnings,
-        sets: imported.map((s) => ({ id: s.id, artist: s.artist, stageId: s.stageId, dayIndex: s.dayIndex, startTime: s.startTime, endTime: s.endTime, linkUrl: s.linkUrl })),
+        sets: imported.map((s) => ({
+          id: s.id,
+          artist: s.artist,
+          stageId: s.stageId,
+          dayIndex: s.dayIndex,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          linkUrl: s.linkUrl,
+        })),
       });
     } catch (error: any) {
       log.error('lineup import failed', { error: error.message, festivalId: req.params.id });

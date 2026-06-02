@@ -10,6 +10,7 @@ import type { FestivalSet, Priority } from '@festie/shared/types';
 import { artistDisplayName, getConflictingSetIds, buildPicksIcs } from '@festie/shared/utils';
 import { mapErrorToUserMessage } from '@festie/shared/services';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
+import { safeStageColor } from '../../lib/stageColor';
 import ScreenHeader from '../../components/ScreenHeader';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
@@ -161,8 +162,8 @@ export default function PicksScreen() {
       return (
         <SetCardMobile
           set={item.set}
-          stageName={getStageName(item.set.stageId) || ''}
-          stageColor={getStageColor(item.set.stageId)}
+          stageName={getStageName(item.set.stageId) || 'Unknown'}
+          stageColor={safeStageColor(getStageColor(item.set.stageId), t.colors.text.muted)}
           myPick={getMyPick(item.set.id)}
           onPickChange={(priority) => handlePickChange(item.set, priority)}
           onPress={() => router.push(`/set/${item.set.id}`)}
@@ -171,7 +172,7 @@ export default function PicksScreen() {
         />
       );
     },
-    [styles, getStageName, getStageColor, getMyPick, getMyNote, handlePickChange, conflictIds, router],
+    [styles, getStageName, getStageColor, getMyPick, getMyNote, handlePickChange, conflictIds, router, t],
   );
 
   const keyExtractor = useCallback((item: Row) => item.key, []);

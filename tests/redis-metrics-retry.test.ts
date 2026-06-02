@@ -11,17 +11,29 @@ function makeMockRedis(overrides: any = {}) {
   const redis: any = {
     store,
     hashStore,
-    async get(key: any) { return store.get(key) ?? null; },
-    async set(key: any, val: any) { store.set(key, val); },
-    async setex(key: any, _ttl: any, val: any) { store.set(key, val); },
-    async del(key: any) { store.delete(key); },
+    async get(key: any) {
+      return store.get(key) ?? null;
+    },
+    async set(key: any, val: any) {
+      store.set(key, val);
+    },
+    async setex(key: any, _ttl: any, val: any) {
+      store.set(key, val);
+    },
+    async del(key: any) {
+      store.delete(key);
+    },
     async incr(key: any) {
       const v = (store.get(key) || 0) + 1;
       store.set(key, v);
       return v;
     },
-    async pexpire() { return 1; },
-    async expire() { return 1; },
+    async pexpire() {
+      return 1;
+    },
+    async expire() {
+      return 1;
+    },
     async hset(key: any, field: any, val: any) {
       if (!hashStore.has(key)) hashStore.set(key, new Map());
       hashStore.get(key).set(field, val);
@@ -39,9 +51,18 @@ function makeMockRedis(overrides: any = {}) {
     pipeline() {
       const cmds: any[] = [];
       const p: any = {
-        incr(key: any) { cmds.push(['incr', key]); return p; },
-        pttl(key: any) { cmds.push(['pttl', key]); return p; },
-        hdel(key: any, field: any) { cmds.push(['hdel', key, field]); return p; },
+        incr(key: any) {
+          cmds.push(['incr', key]);
+          return p;
+        },
+        pttl(key: any) {
+          cmds.push(['pttl', key]);
+          return p;
+        },
+        hdel(key: any, field: any) {
+          cmds.push(['hdel', key, field]);
+          return p;
+        },
         async exec() {
           const results: any[] = [];
           for (const [cmd, key, field] of cmds) {
@@ -61,11 +82,17 @@ function makeMockRedis(overrides: any = {}) {
       };
       return p;
     },
-    async publish() { return 1; },
+    async publish() {
+      return 1;
+    },
     duplicate() {
       const sub: any = {
-        on(_event: any, _cb: any) { sub['_on_' + _event] = _cb; },
-        subscribe(_c1: any, _c2: any, cb: any) { if (cb) cb(null); },
+        on(_event: any, _cb: any) {
+          sub['_on_' + _event] = _cb;
+        },
+        subscribe(_c1: any, _c2: any, cb: any) {
+          if (cb) cb(null);
+        },
         async unsubscribe() {},
         disconnect() {},
       };
@@ -93,7 +120,6 @@ import {
   createRedisPresenceStore,
   createCacheInvalidationBus,
   createRedisCircuitBreaker,
-  createCachedFetcher,
   redisRateCheck,
 } from '../lib/redis.js';
 
@@ -117,7 +143,6 @@ const sharedMetrics = createMetrics();
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('redis.js', () => {
-
   // ── Rate Limiter (lines 67-104) ────────────────────────────────────────────
 
   describe('createRedisRateLimiter', () => {
@@ -147,7 +172,10 @@ describe('redis.js', () => {
     it('check() sets expiry on first request (count === 1)', async () => {
       const pexpireCalled: any[] = [];
       const redis = makeMockRedis({
-        async pexpire(key: any, ms: any) { pexpireCalled.push({ key, ms }); return 1; },
+        async pexpire(key: any, ms: any) {
+          pexpireCalled.push({ key, ms });
+          return 1;
+        },
       });
       const limiter = createRedisRateLimiter(redis, { windowMs: 30000, maxRequests: 10, prefix: 'exp' });
       await limiter!.check('ip1');
@@ -159,9 +187,15 @@ describe('redis.js', () => {
       const redis = makeMockRedis({
         pipeline() {
           return {
-            incr() { return this; },
-            pttl() { return this; },
-            async exec() { throw new Error('connection refused'); },
+            incr() {
+              return this;
+            },
+            pttl() {
+              return this;
+            },
+            async exec() {
+              throw new Error('connection refused');
+            },
           };
         },
       });
@@ -242,7 +276,9 @@ describe('redis.js', () => {
     it('refresh updates TTL', async () => {
       const expireCalls: any[] = [];
       const redis = makeMockRedis({
-        async expire(key: any, ttl: any) { expireCalls.push({ key, ttl }); },
+        async expire(key: any, ttl: any) {
+          expireCalls.push({ key, ttl });
+        },
       });
       const store = createRedisPresenceStore(redis)!;
       await store.refresh('fest1');
@@ -276,7 +312,11 @@ describe('redis.js', () => {
           };
         },
       });
-      const bus = createCacheInvalidationBus(redis, { log, onInvalidateUsers: () => {}, onInvalidateFestivals: () => {} });
+      const bus = createCacheInvalidationBus(redis, {
+        log,
+        onInvalidateUsers: () => {},
+        onInvalidateFestivals: () => {},
+      });
       assert.ok(bus);
       assert.equal(subscribedChannels.length, 2);
     });
@@ -285,11 +325,17 @@ describe('redis.js', () => {
       const published: any[] = [];
       const log = makeLog();
       const redis = makeMockRedis({
-        async publish(channel: any, msg: any) { published.push({ channel, msg }); return 1; },
+        async publish(channel: any, msg: any) {
+          published.push({ channel, msg });
+          return 1;
+        },
         duplicate() {
           return {
             on() {},
-            subscribe(...args: any[]) { const cb = args[args.length - 1]; if (typeof cb === 'function') cb(null); },
+            subscribe(...args: any[]) {
+              const cb = args[args.length - 1];
+              if (typeof cb === 'function') cb(null);
+            },
             async unsubscribe() {},
             disconnect() {},
           };
@@ -298,19 +344,25 @@ describe('redis.js', () => {
       const bus = createCacheInvalidationBus(redis, { log, onInvalidateUsers: () => {} });
       bus!.publishUserInvalidation();
       // Allow promise microtask to resolve
-      await new Promise(r => setImmediate(r));
-      assert.ok(published.some(p => p.channel === 'cache:invalidate:users'));
+      await new Promise((r) => setImmediate(r));
+      assert.ok(published.some((p) => p.channel === 'cache:invalidate:users'));
     });
 
     it('publishFestivalInvalidation calls redis.publish', async () => {
       const published: any[] = [];
       const log = makeLog();
       const redis = makeMockRedis({
-        async publish(channel: any, msg: any) { published.push({ channel, msg }); return 1; },
+        async publish(channel: any, msg: any) {
+          published.push({ channel, msg });
+          return 1;
+        },
         duplicate() {
           return {
             on() {},
-            subscribe(...args: any[]) { const cb = args[args.length - 1]; if (typeof cb === 'function') cb(null); },
+            subscribe(...args: any[]) {
+              const cb = args[args.length - 1];
+              if (typeof cb === 'function') cb(null);
+            },
             async unsubscribe() {},
             disconnect() {},
           };
@@ -318,8 +370,8 @@ describe('redis.js', () => {
       });
       const bus = createCacheInvalidationBus(redis, { log, onInvalidateFestivals: () => {} });
       bus!.publishFestivalInvalidation();
-      await new Promise(r => setImmediate(r));
-      assert.ok(published.some(p => p.channel === 'cache:invalidate:festivals'));
+      await new Promise((r) => setImmediate(r));
+      assert.ok(published.some((p) => p.channel === 'cache:invalidate:festivals'));
     });
 
     it('close() unsubscribes and disconnects', async () => {
@@ -330,9 +382,16 @@ describe('redis.js', () => {
         duplicate() {
           return {
             on() {},
-            subscribe(...args: any[]) { const cb = args[args.length - 1]; if (typeof cb === 'function') cb(null); },
-            async unsubscribe() { unsubCalled = true; },
-            disconnect() { disconnectCalled = true; },
+            subscribe(...args: any[]) {
+              const cb = args[args.length - 1];
+              if (typeof cb === 'function') cb(null);
+            },
+            async unsubscribe() {
+              unsubCalled = true;
+            },
+            disconnect() {
+              disconnectCalled = true;
+            },
           };
         },
       });
@@ -348,9 +407,16 @@ describe('redis.js', () => {
         duplicate() {
           return {
             on() {},
-            subscribe(...args: any[]) { const cb = args[args.length - 1]; if (typeof cb === 'function') cb(null); },
-            async unsubscribe() { throw new Error('already unsubscribed'); },
-            disconnect() { throw new Error('already disconnected'); },
+            subscribe(...args: any[]) {
+              const cb = args[args.length - 1];
+              if (typeof cb === 'function') cb(null);
+            },
+            async unsubscribe() {
+              throw new Error('already unsubscribed');
+            },
+            disconnect() {
+              throw new Error('already disconnected');
+            },
           };
         },
       });
@@ -385,14 +451,24 @@ describe('redis.js', () => {
       const redis = makeMockRedis({
         duplicate() {
           return {
-            on(event: any, cb: any) { if (event === 'message') messageHandler = cb; },
-            subscribe(...args: any[]) { const cb = args[args.length - 1]; if (typeof cb === 'function') cb(null); },
+            on(event: any, cb: any) {
+              if (event === 'message') messageHandler = cb;
+            },
+            subscribe(...args: any[]) {
+              const cb = args[args.length - 1];
+              if (typeof cb === 'function') cb(null);
+            },
             async unsubscribe() {},
             disconnect() {},
           };
         },
       });
-      createCacheInvalidationBus(redis, { log, onInvalidateUsers: () => { usersCalled = true; } });
+      createCacheInvalidationBus(redis, {
+        log,
+        onInvalidateUsers: () => {
+          usersCalled = true;
+        },
+      });
       assert.ok(messageHandler);
       messageHandler('cache:invalidate:users', String(Date.now()));
       assert.ok(usersCalled);
@@ -405,14 +481,24 @@ describe('redis.js', () => {
       const redis = makeMockRedis({
         duplicate() {
           return {
-            on(event: any, cb: any) { if (event === 'message') messageHandler = cb; },
-            subscribe(...args: any[]) { const cb = args[args.length - 1]; if (typeof cb === 'function') cb(null); },
+            on(event: any, cb: any) {
+              if (event === 'message') messageHandler = cb;
+            },
+            subscribe(...args: any[]) {
+              const cb = args[args.length - 1];
+              if (typeof cb === 'function') cb(null);
+            },
             async unsubscribe() {},
             disconnect() {},
           };
         },
       });
-      createCacheInvalidationBus(redis, { log, onInvalidateFestivals: () => { festivalsCalled = true; } });
+      createCacheInvalidationBus(redis, {
+        log,
+        onInvalidateFestivals: () => {
+          festivalsCalled = true;
+        },
+      });
       messageHandler('cache:invalidate:festivals', String(Date.now()));
       assert.ok(festivalsCalled);
     });
@@ -454,7 +540,10 @@ describe('redis.js', () => {
       const cb = createRedisCircuitBreaker(redis, { maxFailures: 1, resetTimeMs: 60000, log: makeLog() })!;
       await cb.exec(() => Promise.reject(new Error('fail')));
       let fnCalled = false;
-      const result = await cb.exec(() => { fnCalled = true; return Promise.resolve('x'); }, 'fallback');
+      const result = await cb.exec(() => {
+        fnCalled = true;
+        return Promise.resolve('x');
+      }, 'fallback');
       assert.equal(result, 'fallback');
       assert.equal(fnCalled, false);
     });
@@ -473,7 +562,7 @@ describe('redis.js', () => {
       const cb = createRedisCircuitBreaker(redis, { maxFailures: 1, resetTimeMs: 1, log })!;
       await cb.exec(() => Promise.reject(new Error('fail')));
       // resetTimeMs is 1ms — yield event loop so the timer expires
-      await new Promise(r => setImmediate(r));
+      await new Promise((r) => setImmediate(r));
       const result = await cb.exec(() => Promise.resolve('recovered'));
       assert.equal(result, 'recovered');
       const state = cb.getState();
@@ -497,109 +586,6 @@ describe('redis.js', () => {
       assert.equal(cb.getState().failures, 1);
       await cb.exec(() => Promise.resolve('ok'));
       assert.equal(cb.getState().failures, 0);
-    });
-  });
-
-  // ── Cached Fetcher (lines 287-356) ─────────────────────────────────────────
-
-  describe('createCachedFetcher', () => {
-    it('fetches fresh data when no cache', async () => {
-      const fetcher = mock.fn(async () => ({ data: 42 }));
-      const cf = createCachedFetcher({ redis: null, fetcher, ttl: 60, key: 'test:key' });
-      const result = await cf.get();
-      assert.deepEqual(result, { data: 42 });
-      assert.equal(fetcher.mock.callCount(), 1);
-    });
-
-    it('returns in-memory cache on second get', async () => {
-      const fetcher = mock.fn(async () => ({ data: 42 }));
-      const cf = createCachedFetcher({ redis: null, fetcher, ttl: 60, key: 'test:key2' });
-      await cf.get();
-      const result = await cf.get();
-      assert.deepEqual(result, { data: 42 });
-      assert.equal(fetcher.mock.callCount(), 1);
-    });
-
-    it('uses Redis cache when available', async () => {
-      const redis = makeMockRedis();
-      await redis.setex('cached:key', 60, JSON.stringify({ fromRedis: true }));
-      const fetcher = mock.fn(async () => ({ fromFetcher: true }));
-      const cf = createCachedFetcher({ redis, fetcher, ttl: 60, key: 'cached:key' });
-      const result = await cf.get();
-      assert.deepEqual(result, { fromRedis: true });
-      assert.equal(fetcher.mock.callCount(), 0);
-    });
-
-    it('populates Redis on cache miss', async () => {
-      const redis = makeMockRedis();
-      const fetcher = mock.fn(async () => ({ fresh: true }));
-      const cf = createCachedFetcher({ redis, fetcher, ttl: 30, key: 'pop:key' });
-      await cf.get();
-      const stored = await redis.get('pop:key');
-      assert.deepEqual(JSON.parse(stored), { fresh: true });
-    });
-
-    it('invalidate clears both in-memory and Redis cache', async () => {
-      const redis = makeMockRedis();
-      const fetcher = mock.fn(async () => ({ val: 1 }));
-      const cf = createCachedFetcher({ redis, fetcher, ttl: 60, key: 'inv:key' });
-      await cf.get();
-      await cf.invalidate();
-      assert.equal(await redis.get('inv:key'), null);
-      // Next get should call fetcher again
-      await cf.get();
-      assert.equal(fetcher.mock.callCount(), 2);
-    });
-
-    it('tolerates Redis get error and falls through to fetcher', async () => {
-      const redis = makeMockRedis({
-        async get() { throw new Error('redis down'); },
-      });
-      const fetcher = mock.fn(async () => ({ fallback: true }));
-      const cf = createCachedFetcher({ redis, fetcher, ttl: 60, key: 'err:key' });
-      const result = await cf.get();
-      assert.deepEqual(result, { fallback: true });
-    });
-
-    it('tolerates Redis setex error after fetcher call', async () => {
-      const redis = makeMockRedis({
-        async get() { return null; },
-        async setex() { throw new Error('redis write fail'); },
-      });
-      const fetcher = mock.fn(async () => ({ data: 'ok' }));
-      const cf = createCachedFetcher({ redis, fetcher, ttl: 60, key: 'werr:key' });
-      const result = await cf.get();
-      assert.deepEqual(result, { data: 'ok' });
-    });
-
-    it('invalidate tolerates Redis del error', async () => {
-      const redis = makeMockRedis({
-        async del() { throw new Error('redis del fail'); },
-      });
-      const fetcher = mock.fn(async () => ({ val: 1 }));
-      const cf = createCachedFetcher({ redis, fetcher, ttl: 60, key: 'delerr:key' });
-      await cf.get();
-      // Should not throw
-      await cf.invalidate();
-    });
-
-    it('invalidate works without redis', async () => {
-      const fetcher = mock.fn(async () => ({ val: 1 }));
-      const cf = createCachedFetcher({ redis: null, fetcher, ttl: 60, key: 'nored:key' });
-      await cf.get();
-      await cf.invalidate();
-      await cf.get();
-      assert.equal(fetcher.mock.callCount(), 2);
-    });
-
-    it('tolerates corrupt JSON in Redis', async () => {
-      const redis = makeMockRedis({
-        async get() { return '{bad-json'; },
-      });
-      const fetcher = mock.fn(async () => ({ fresh: true }));
-      const cf = createCachedFetcher({ redis, fetcher, ttl: 60, key: 'bad:json' });
-      const result = await cf.get();
-      assert.deepEqual(result, { fresh: true });
     });
   });
 
@@ -632,7 +618,9 @@ describe('redis.js', () => {
     it('sets pexpire on first request (count === 1)', async () => {
       const pexpireCalls: any[] = [];
       const redis = makeMockRedis({
-        async pexpire(key: any, ms: any) { pexpireCalls.push({ key, ms }); },
+        async pexpire(key: any, ms: any) {
+          pexpireCalls.push({ key, ms });
+        },
       });
       await redisRateCheck(redis, 'rr:exp', 5, 30000);
       assert.ok(pexpireCalls.length > 0);
@@ -643,9 +631,15 @@ describe('redis.js', () => {
       const redis = makeMockRedis({
         pipeline() {
           return {
-            incr() { return this; },
-            pttl() { return this; },
-            async exec() { throw new Error('connection lost'); },
+            incr() {
+              return this;
+            },
+            pttl() {
+              return this;
+            },
+            async exec() {
+              throw new Error('connection lost');
+            },
           };
         },
       });
@@ -660,8 +654,14 @@ describe('redis.js', () => {
       redis.pipeline = () => {
         const cmds: any[] = [];
         const p: any = {
-          incr(key: any) { cmds.push(['incr', key]); return p; },
-          pttl(key: any) { cmds.push(['pttl', key]); return p; },
+          incr(key: any) {
+            cmds.push(['incr', key]);
+            return p;
+          },
+          pttl(key: any) {
+            cmds.push(['pttl', key]);
+            return p;
+          },
           async exec() {
             const results: any[] = [];
             for (const [cmd, key] of cmds) {
@@ -693,7 +693,6 @@ describe('redis.js', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('metrics.js', () => {
-
   describe('createMetrics', () => {
     it('returns an object with available property', () => {
       assert.ok(typeof sharedMetrics.available === 'boolean');
@@ -732,14 +731,18 @@ describe('metrics.js', () => {
     it('returns passthrough when metrics is null', () => {
       const mw = metricsMiddleware(null);
       let called = false;
-      mw({} as any, {} as any, () => { called = true; });
+      mw({} as any, {} as any, () => {
+        called = true;
+      });
       assert.ok(called);
     });
 
     it('returns passthrough when metrics.available is false', () => {
       const mw = metricsMiddleware({ available: false } as any);
       let called = false;
-      mw({} as any, {} as any, () => { called = true; });
+      mw({} as any, {} as any, () => {
+        called = true;
+      });
       assert.ok(called);
     });
 
@@ -751,10 +754,14 @@ describe('metrics.js', () => {
       const req = { method: 'GET', route: { path: '/api/test' }, baseUrl: '/api' };
       const res = {
         statusCode: 200,
-        on(event: any, cb: any) { if (event === 'finish') finishCallback = cb; },
+        on(event: any, cb: any) {
+          if (event === 'finish') finishCallback = cb;
+        },
       };
       let nextCalled = false;
-      mw(req as any, res as any, () => { nextCalled = true; });
+      mw(req as any, res as any, () => {
+        nextCalled = true;
+      });
       assert.ok(nextCalled);
       // Simulate response finish
       assert.ok(finishCallback);
@@ -769,7 +776,9 @@ describe('metrics.js', () => {
       const req = { method: 'POST', baseUrl: '/api/v2' };
       const res = {
         statusCode: 201,
-        on(event: any, cb: any) { if (event === 'finish') finishCallback = cb; },
+        on(event: any, cb: any) {
+          if (event === 'finish') finishCallback = cb;
+        },
       };
       mw(req as any, res as any, () => {});
       finishCallback();
@@ -783,7 +792,9 @@ describe('metrics.js', () => {
       const req = { method: 'GET' };
       const res = {
         statusCode: 404,
-        on(event: any, cb: any) { if (event === 'finish') finishCallback = cb; },
+        on(event: any, cb: any) {
+          if (event === 'finish') finishCallback = cb;
+        },
       };
       mw(req as any, res as any, () => {});
       finishCallback();
@@ -795,9 +806,18 @@ describe('metrics.js', () => {
       const handler = metricsHandler(null);
       let statusCode: any, contentType: any, body: any;
       const res: any = {
-        status(s: any) { statusCode = s; return res; },
-        type(t: any) { contentType = t; return res; },
-        send(b: any) { body = b; return res; },
+        status(s: any) {
+          statusCode = s;
+          return res;
+        },
+        type(t: any) {
+          contentType = t;
+          return res;
+        },
+        send(b: any) {
+          body = b;
+          return res;
+        },
       };
       await handler({} as any, res);
       assert.equal(statusCode, 503);
@@ -810,9 +830,17 @@ describe('metrics.js', () => {
       let statusCode: any, body: any;
       const req = { ip: '8.8.8.8', connection: {} };
       const res: any = {
-        status(s: any) { statusCode = s; return res; },
-        type(t: any) { return res; },
-        send(b: any) { body = b; return res; },
+        status(s: any) {
+          statusCode = s;
+          return res;
+        },
+        type(t: any) {
+          return res;
+        },
+        send(b: any) {
+          body = b;
+          return res;
+        },
       };
       await handler(req as any, res);
       assert.equal(statusCode, 403);
@@ -825,11 +853,24 @@ describe('metrics.js', () => {
       let responseBody: any;
       const req = { ip: '127.0.0.1', connection: {} };
       const res: any = {
-        set(k: any, v: any) { headers[k] = v; return res; },
-        end(b: any) { responseBody = b; return res; },
-        status(s: any) { return res; },
-        type(t: any) { return res; },
-        send(b: any) { responseBody = b; return res; },
+        set(k: any, v: any) {
+          headers[k] = v;
+          return res;
+        },
+        end(b: any) {
+          responseBody = b;
+          return res;
+        },
+        status(s: any) {
+          return res;
+        },
+        type(t: any) {
+          return res;
+        },
+        send(b: any) {
+          responseBody = b;
+          return res;
+        },
       };
       await handler(req as any, res);
       assert.ok(responseBody);
@@ -841,11 +882,23 @@ describe('metrics.js', () => {
       let responseBody: any;
       const req = { ip: '10.0.0.5', connection: {} };
       const res: any = {
-        set() { return res; },
-        end(b: any) { responseBody = b; return res; },
-        status() { return res; },
-        type() { return res; },
-        send(b: any) { responseBody = b; return res; },
+        set() {
+          return res;
+        },
+        end(b: any) {
+          responseBody = b;
+          return res;
+        },
+        status() {
+          return res;
+        },
+        type() {
+          return res;
+        },
+        send(b: any) {
+          responseBody = b;
+          return res;
+        },
       };
       await handler(req as any, res);
       assert.ok(responseBody);
@@ -857,11 +910,23 @@ describe('metrics.js', () => {
       let responseBody: any;
       const req = { ip: '192.168.1.100', connection: {} };
       const res: any = {
-        set() { return res; },
-        end(b: any) { responseBody = b; return res; },
-        status() { return res; },
-        type() { return res; },
-        send(b: any) { responseBody = b; return res; },
+        set() {
+          return res;
+        },
+        end(b: any) {
+          responseBody = b;
+          return res;
+        },
+        status() {
+          return res;
+        },
+        type() {
+          return res;
+        },
+        send(b: any) {
+          responseBody = b;
+          return res;
+        },
       };
       await handler(req as any, res);
       assert.ok(responseBody);
@@ -873,11 +938,23 @@ describe('metrics.js', () => {
       let responseBody: any;
       const req = { ip: '172.20.0.1', connection: {} };
       const res: any = {
-        set() { return res; },
-        end(b: any) { responseBody = b; return res; },
-        status() { return res; },
-        type() { return res; },
-        send(b: any) { responseBody = b; return res; },
+        set() {
+          return res;
+        },
+        end(b: any) {
+          responseBody = b;
+          return res;
+        },
+        status() {
+          return res;
+        },
+        type() {
+          return res;
+        },
+        send(b: any) {
+          responseBody = b;
+          return res;
+        },
       };
       await handler(req as any, res);
       assert.ok(responseBody);
@@ -889,11 +966,23 @@ describe('metrics.js', () => {
       let responseBody: any;
       const req = { ip: '::1', connection: {} };
       const res: any = {
-        set() { return res; },
-        end(b: any) { responseBody = b; return res; },
-        status() { return res; },
-        type() { return res; },
-        send(b: any) { responseBody = b; return res; },
+        set() {
+          return res;
+        },
+        end(b: any) {
+          responseBody = b;
+          return res;
+        },
+        status() {
+          return res;
+        },
+        type() {
+          return res;
+        },
+        send(b: any) {
+          responseBody = b;
+          return res;
+        },
       };
       await handler(req as any, res);
       assert.ok(responseBody);
@@ -905,11 +994,23 @@ describe('metrics.js', () => {
       let responseBody: any;
       const req = { ip: '::ffff:127.0.0.1', connection: {} };
       const res: any = {
-        set() { return res; },
-        end(b: any) { responseBody = b; return res; },
-        status() { return res; },
-        type() { return res; },
-        send(b: any) { responseBody = b; return res; },
+        set() {
+          return res;
+        },
+        end(b: any) {
+          responseBody = b;
+          return res;
+        },
+        status() {
+          return res;
+        },
+        type() {
+          return res;
+        },
+        send(b: any) {
+          responseBody = b;
+          return res;
+        },
       };
       await handler(req as any, res);
       assert.ok(responseBody);
@@ -919,16 +1020,31 @@ describe('metrics.js', () => {
       if (!sharedMetrics.available) return;
       // Monkey-patch registry to throw
       const origMetrics = sharedMetrics.registry!.metrics;
-      sharedMetrics.registry!.metrics = async () => { throw new Error('boom'); };
+      sharedMetrics.registry!.metrics = async () => {
+        throw new Error('boom');
+      };
       const handler = metricsHandler(sharedMetrics);
       let statusCode: any, body: any;
       const req = { ip: '127.0.0.1', connection: {} };
       const res: any = {
-        set() { return res; },
-        end(b: any) { body = b; return res; },
-        status(s: any) { statusCode = s; return res; },
-        type() { return res; },
-        send(b: any) { body = b; return res; },
+        set() {
+          return res;
+        },
+        end(b: any) {
+          body = b;
+          return res;
+        },
+        status(s: any) {
+          statusCode = s;
+          return res;
+        },
+        type() {
+          return res;
+        },
+        send(b: any) {
+          body = b;
+          return res;
+        },
       };
       await handler(req as any, res);
       assert.equal(statusCode, 500);
@@ -943,9 +1059,16 @@ describe('metrics.js', () => {
       let statusCode: any;
       const req = { ip: '', connection: {} };
       const res: any = {
-        status(s: any) { statusCode = s; return res; },
-        type() { return res; },
-        send() { return res; },
+        status(s: any) {
+          statusCode = s;
+          return res;
+        },
+        type() {
+          return res;
+        },
+        send() {
+          return res;
+        },
       };
       await handler(req as any, res);
       assert.equal(statusCode, 403);
@@ -1017,7 +1140,9 @@ describe('metrics.js', () => {
           attempts++;
           const req = http.get(url, (res: any) => {
             let data = '';
-            res.on('data', (chunk: any) => { data += chunk; });
+            res.on('data', (chunk: any) => {
+              data += chunk;
+            });
             res.on('end', () => resolve({ statusCode: res.statusCode, body: data }));
           });
           req.on('error', (err: any) => {
@@ -1074,15 +1199,14 @@ describe('metrics.js', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('notifications/retry.js', () => {
-
   // Helper: advance mock timers and yield to let drain() async work complete.
   // mock.timers.tick() fires the setTimeout callbacks synchronously, but the
   // drain() function is async, so we need to yield the microtask queue.
   async function tickAndDrain(ctx: any, ms: any) {
     ctx.mock.timers.tick(ms);
     // Yield to let async drain() promises settle
-    await new Promise(r => setImmediate(r));
-    await new Promise(r => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
   }
 
   describe('createRetryQueue', () => {
@@ -1099,7 +1223,12 @@ describe('notifications/retry.js', () => {
       const log = makeLog();
       const q = createRetryQueue({ log, maxRetries: 3, maxAgeMs: 60000 });
       let sent = false;
-      q.enqueue({ sendFn: async () => { sent = true; }, userId: 'u1' });
+      q.enqueue({
+        sendFn: async () => {
+          sent = true;
+        },
+        userId: 'u1',
+      });
       // First drain is scheduled at 2s (2000 * 2^0)
       await tickAndDrain(t, 2000);
       assert.ok(sent);
@@ -1128,7 +1257,7 @@ describe('notifications/retry.js', () => {
       assert.ok(attempts >= 3); // 1 initial + 2 retries
       // Should have logged max retries exceeded
       const warnCalls = log.warn.mock.calls;
-      const maxRetryWarning = warnCalls.some(c => c.arguments[0] === 'fcm retry: max retries exceeded');
+      const maxRetryWarning = warnCalls.some((c) => c.arguments[0] === 'fcm retry: max retries exceeded');
       assert.ok(maxRetryWarning, 'should log max retries exceeded');
       q.shutdown();
     });
@@ -1137,7 +1266,12 @@ describe('notifications/retry.js', () => {
       t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
       const log = makeLog();
       const q = createRetryQueue({ log, maxRetries: 3, maxAgeMs: 1 }); // 1ms max age
-      q.enqueue({ sendFn: async () => { throw new Error('fail'); }, userId: 'u1' });
+      q.enqueue({
+        sendFn: async () => {
+          throw new Error('fail');
+        },
+        userId: 'u1',
+      });
       // First drain at 2s — entry will be expired by then (maxAgeMs: 1ms)
       await tickAndDrain(t, 2000);
       assert.equal(q.pending, 0);
@@ -1242,7 +1376,7 @@ describe('notifications/retry.js', () => {
       q.enqueue({ sendFn: async () => {}, userId: 'u1' });
       await tickAndDrain(t, 2000);
       const debugCalls = log.debug.mock.calls;
-      assert.ok(debugCalls.some(c => c.arguments[0] === 'fcm retry: resend succeeded'));
+      assert.ok(debugCalls.some((c) => c.arguments[0] === 'fcm retry: resend succeeded'));
       q.shutdown();
     });
 

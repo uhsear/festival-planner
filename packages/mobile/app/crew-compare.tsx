@@ -1,15 +1,12 @@
 import { useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import {
-  useAuthStore,
-  useCrewStore,
-  useFestivalStore,
-} from '@festie/shared/stores';
+import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/stores';
 import { useCrew, useFestival } from '@festie/shared/hooks';
 import { artistDisplayName, formatTime } from '@festie/shared/utils';
 import type { FestivalSet, Priority, Profile } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { safeStageColor } from '../lib/stageColor';
 import Avatar from '../components/Avatar';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
@@ -22,12 +19,6 @@ const PRIORITY_LABEL: Record<Priority, string> = {
   'want-to-see': 'Want',
   maybe: 'Maybe',
 };
-
-/** RN can't parse web's `var(--text-muted)` stage-color fallback. */
-function safeStageColor(color: string | undefined, fallback: string): string {
-  if (!color || color.startsWith('var(')) return fallback;
-  return color;
-}
 
 function byStartTime(a: FestivalSet, b: FestivalSet): number {
   const ta = a.startTime || '';
@@ -100,8 +91,7 @@ export default function CrewCompareScreen() {
       .sort(byStartTime);
   }, [sets, selectedDay, columns, profileById]);
 
-  const pickFor = (col: Column, setId: string): Priority | undefined =>
-    profileById.get(col.id)?.picks?.[setId];
+  const pickFor = (col: Column, setId: string): Priority | undefined => profileById.get(col.id)?.picks?.[setId];
 
   if (!user) {
     return (
@@ -210,9 +200,7 @@ export default function CrewCompareScreen() {
                         <Text style={styles.setArtist} numberOfLines={1}>
                           {artistDisplayName(set, currentFestival?.b2bSeparator)}
                         </Text>
-                        {set.startTime ? (
-                          <Text style={styles.setTime}>{formatTime(set.startTime)}</Text>
-                        ) : null}
+                        {set.startTime ? <Text style={styles.setTime}>{formatTime(set.startTime)}</Text> : null}
                       </View>
                     </View>
                   </TouchableOpacity>

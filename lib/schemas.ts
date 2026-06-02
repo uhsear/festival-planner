@@ -436,7 +436,7 @@ export function normalizeSetArtists(set: any): any[] {
   return [{ name, links }];
 }
 
-function sanitizeLinkRecord(links: any): Record<string, string> {
+export function sanitizeLinkRecord(links: any): Record<string, string> {
   if (!links || typeof links !== 'object') return {};
   const clean: Record<string, string> = {};
   for (const [platform, url] of Object.entries(links)) {

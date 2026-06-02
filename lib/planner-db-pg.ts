@@ -54,7 +54,6 @@ import { splitSqlStatements, usesConcurrently } from './db/sql-split.js';
 import {
   createStores,
   createDbLatencyTracker,
-  importLegacyDataToPostgres,
   openPlannerDatabase as openPlannerDatabaseRaw,
   parseJsonObject,
   serializeJson,
@@ -421,7 +420,6 @@ const __resetMigrationCacheForTests = () => {
 export {
   createStores,
   createDbLatencyTracker,
-  importLegacyDataToPostgres,
   openPlannerDatabase,
   parseJsonObject,
   serializeJson,

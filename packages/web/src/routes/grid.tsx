@@ -21,12 +21,13 @@ export default function GridView() {
 
 function GridViewInner() {
   const currentFestival = useFestivalStore((s) => s.currentFestival);
-  const sets            = useFestivalStore((s) => s.sets);
-  const stages          = useFestivalStore((s) => s.stages);
-  const selectedDay     = useFestivalStore((s) => s.selectedDay);
-  const activeStages    = useFestivalStore((s) => s.activeStages);
-  const setDetailSet    = useUIStore((s) => s.setDetailSet);
-  const { getMyPick }   = usePicks();
+  const sets = useFestivalStore((s) => s.sets);
+  const stages = useFestivalStore((s) => s.stages);
+  const selectedDay = useFestivalStore((s) => s.selectedDay);
+  const days = useFestivalStore((s) => s.days);
+  const activeStages = useFestivalStore((s) => s.activeStages);
+  const setDetailSet = useUIStore((s) => s.setDetailSet);
+  const { getMyPick } = usePicks();
   const { getStageColor, getStageName } = useFestival();
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +41,11 @@ function GridViewInner() {
   const PX_PER_MIN = getPxPerMin(vw);
   const GUTTER_W = getGutterW(vw);
 
-  const { exporting, exportGrid } = useGridExport(gridRef, selectedDay);
+  const { exporting, exportGrid } = useGridExport(
+    gridRef,
+    selectedDay,
+    days?.[selectedDay]?.label ?? `day-${selectedDay + 1}`,
+  );
 
   const visibleStages = useMemo(() => {
     if (activeStages.length > 0 && activeStages.length < stages.length)
@@ -55,9 +60,7 @@ function GridViewInner() {
           s.dayIndex === selectedDay &&
           s.startTime &&
           s.endTime &&
-          (activeStages.length === 0 ||
-            activeStages.length === stages.length ||
-            activeStages.includes(s.stageId)),
+          (activeStages.length === 0 || activeStages.length === stages.length || activeStages.includes(s.stageId)),
       ),
     [sets, selectedDay, activeStages, stages],
   );
@@ -76,7 +79,8 @@ function GridViewInner() {
 
   const bounds = useMemo(() => {
     if (!timedSets.length) return null;
-    let lo = Infinity, hi = 0;
+    let lo = Infinity,
+      hi = 0;
     for (const s of timedSets) {
       const a = toMin(s.startTime!);
       const b = toMin(s.endTime!);
@@ -91,8 +95,7 @@ function GridViewInner() {
   const hours = useMemo(() => {
     if (!bounds) return [];
     const out: { m: number; px: number }[] = [];
-    for (let m = bounds.lo; m <= bounds.hi; m += 60)
-      out.push({ m, px: (m - bounds.lo) * PX_PER_MIN });
+    for (let m = bounds.lo; m <= bounds.hi; m += 60) out.push({ m, px: (m - bounds.lo) * PX_PER_MIN });
     return out;
   }, [bounds, PX_PER_MIN]);
 
@@ -136,9 +139,7 @@ function GridViewInner() {
 
   return (
     <div
-      className={cn(
-        'fk-grid flex flex-col h-full min-h-0 overflow-hidden bg-bg-primary',
-      )}
+      className={cn('fk-grid flex flex-col h-full min-h-0 overflow-hidden bg-bg-primary')}
       ref={gridRef}
       role="grid"
       aria-label="Festival schedule grid — stages as columns, time as rows"

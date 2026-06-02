@@ -5,19 +5,15 @@ import EmptyState from '../ui/EmptyState';
 import { Users, UserPlus, Crown } from 'lucide-react';
 import type { CrewMember } from '@festie/shared/types';
 
-interface CrewMemberWithUsername extends CrewMember {
-  username?: string;
-}
-
 export interface MembersTabProps {
-  members: CrewMemberWithUsername[];
+  members: CrewMember[];
   ownerId: string | undefined;
   isAdmin: boolean;
   adminAddBusy: boolean;
   onForceAdd: () => void;
   isOwner: boolean;
   currentUserId: string;
-  onTransferOwnership: (member: CrewMemberWithUsername) => void;
+  onTransferOwnership: (member: CrewMember) => void;
 }
 
 export default function MembersTab({
@@ -38,12 +34,7 @@ export default function MembersTab({
             <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
             <span className="font-semibold">Admin</span>
           </div>
-          <Button
-            variant="outline"
-            onClick={onForceAdd}
-            disabled={adminAddBusy}
-            className="!py-1 !px-2.5 text-xs"
-          >
+          <Button variant="outline" onClick={onForceAdd} disabled={adminAddBusy} className="!py-1 !px-2.5 text-xs">
             {adminAddBusy ? 'Adding…' : 'Force Add'}
           </Button>
         </div>
@@ -52,8 +43,7 @@ export default function MembersTab({
         <div className="space-y-0.5">
           {members.map((m) => {
             const memberIsOwner = m.role === 'owner' || ownerId === m.userId;
-            const canTransfer =
-              isOwner && !memberIsOwner && m.userId !== currentUserId;
+            const canTransfer = isOwner && !memberIsOwner && m.userId !== currentUserId;
             const displayName = m.name || m.username || 'User';
             return (
               <div
@@ -62,12 +52,8 @@ export default function MembersTab({
               >
                 <Avatar name={displayName} size="sm" />
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-text-primary truncate">
-                    {m.name || m.username}
-                  </div>
-                  {memberIsOwner && (
-                    <div className="text-xs text-accent-amber">{'👑'} Owner</div>
-                  )}
+                  <div className="font-semibold text-text-primary truncate">{m.name || m.username}</div>
+                  {memberIsOwner && <div className="text-xs text-accent-amber">{'👑'} Owner</div>}
                 </div>
                 {canTransfer && (
                   <Button

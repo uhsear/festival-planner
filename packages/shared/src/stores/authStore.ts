@@ -325,9 +325,9 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
   },
 
   uploadAvatar: async (file: File | Blob) => {
-    // Capture the previous avatar up front so we can roll back on failure
+    // Capture the previous avatarUrl up front so we can roll back on failure
     // and avoid leaving a stale/broken URL in the store.
-    const previousAvatar = get().user?.avatar;
+    const previousAvatarUrl = get().user?.avatarUrl;
     set({ isLoading: true, error: null });
     try {
       const formData = new FormData();
@@ -348,18 +348,24 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
       if (!response.ok) {
         throw new Error('Upload failed');
       }
-      // Only update user.avatar after we've verified the upload succeeded
-      // and parsed the new URL from the response.
-      const data = (await response.json()) as AvatarResponse;
+      // This uses raw fetch (not the api client), so the server envelope
+      // { data, error } is NOT auto-unwrapped — pull the user out of data.
+      // The serialized user exposes the new avatar as `avatarUrl`.
+      const body = (await response.json()) as { data: AvatarResponse } | AvatarResponse;
+      const result: AvatarResponse =
+        body && typeof body === 'object' && 'data' in body
+          ? (body as { data: AvatarResponse }).data
+          : (body as AvatarResponse);
+      const newAvatarUrl = result.user?.avatarUrl;
       set((state) => ({
-        user: state.user ? { ...state.user, avatar: data.url } : null,
+        user: state.user ? { ...state.user, avatarUrl: newAvatarUrl } : null,
         isLoading: false,
       }));
-      return data;
+      return result;
     } catch (err) {
       // Roll back any partial avatar change to the previous value.
       set((state) => ({
-        user: state.user ? { ...state.user, avatar: previousAvatar } : null,
+        user: state.user ? { ...state.user, avatarUrl: previousAvatarUrl } : null,
         error: err instanceof Error ? err.message : 'Avatar upload failed',
         isLoading: false,
       }));
@@ -370,9 +376,11 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
   removeAvatar: async () => {
     set({ isLoading: true, error: null });
     try {
+      // api.delete unwraps the envelope to { user }. Clear avatarUrl locally
+      // (the server now returns the user with avatarUrl null).
       await api.delete('/account/avatar');
       set((state) => ({
-        user: state.user ? { ...state.user, avatar: undefined } : null,
+        user: state.user ? { ...state.user, avatarUrl: undefined } : null,
         isLoading: false,
       }));
     } catch (err) {

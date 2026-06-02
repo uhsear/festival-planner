@@ -85,14 +85,9 @@ describe('Integration — Picks', { concurrency: 1 }, () => {
     assert.ok(exportResponse.text.includes('Meet by the rail'));
     assert.ok(!exportResponse.text.includes('Private bob note'));
 
-    await server.request
-      .get(`/api/v1/export/fest-1/${bobProfile.id}`)
-      .set('x-user-token', alice.token)
-      .expect(403);
+    await server.request.get(`/api/v1/export/fest-1/${bobProfile.id}`).set('x-user-token', alice.token).expect(403);
 
-    await server.request
-      .get('/api/v1/profiles/fest-1')
-      .expect(401);
+    await server.request.get('/api/v1/profiles/fest-1').expect(401);
   });
 
   test('rejects updates to other users festival profiles', async () => {
@@ -107,7 +102,17 @@ describe('Integration — Picks', { concurrency: 1 }, () => {
     try {
       await pool.query(
         'INSERT INTO festival_profiles (id, festival_id, user_id, name, picks_json, notes_json, reminders_json, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-        ['profile-unclaimed', 'fest-1', bob.user.id, 'guest', '{}', '{}', '{}', '2026-03-09T00:00:00.000Z', '2026-03-09T00:00:00.000Z']
+        [
+          'profile-unclaimed',
+          'fest-1',
+          bob.user.id,
+          'guest',
+          '{}',
+          '{}',
+          '{}',
+          '2026-03-09T00:00:00.000Z',
+          '2026-03-09T00:00:00.000Z',
+        ],
       );
     } finally {
       await pool.end();
@@ -122,7 +127,9 @@ describe('Integration — Picks', { concurrency: 1 }, () => {
     // Verify the profile was not modified
     const checkPool = new Pool({ connectionString: server.databaseUrl });
     try {
-      const { rows } = await checkPool.query('SELECT picks_json FROM festival_profiles WHERE id = $1', ['profile-unclaimed']);
+      const { rows } = await checkPool.query('SELECT picks_json FROM festival_profiles WHERE id = $1', [
+        'profile-unclaimed',
+      ]);
       const picks = typeof rows[0].picks_json === 'string' ? JSON.parse(rows[0].picks_json) : rows[0].picks_json;
       assert.deepEqual(picks, {});
     } finally {
@@ -150,8 +157,85 @@ describe('Integration — Picks', { concurrency: 1 }, () => {
       .expect(400);
   });
 
-  test('reminders feature removed (migration 013)', async () => {
-    // Reminders feature and table dropped — test preserved as placeholder
+  test('persists reminders and reads them back on the owner profile', async () => {
+    const server = await startServer();
+    servers.push(server);
+
+    const alice = await registerUser(server, 'alice');
+    const aliceProfile = await joinFestivalProfile(server, alice.token);
+
+    // Reminder VALUE is a lead-time in minutes; only [5,10,15,30,60] are allowed
+    // (ALLOWED_REMINDER_MINUTES in lib/constants.ts).
+    const putRes = await server.request
+      .put(`/api/v1/profiles/${aliceProfile.id}`)
+      .set('x-user-token', alice.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({
+        picks: { 'set-a': 'must' },
+        reminders: { 'set-a': 15 },
+      })
+      .expect(200);
+    // PUT echoes the owner profile, which includes reminders.
+    assert.equal(putRes.body.data.reminders['set-a'], 15);
+
+    // Read back via the list endpoint — the viewer's OWN profile exposes reminders.
+    const profileList = await server.request
+      .get('/api/v1/profiles/fest-1')
+      .set('x-user-token', alice.token)
+      .expect(200);
+    const ownProfile = profileList.body.data.find((p: any) => p.id === aliceProfile.id);
+    assert.equal(ownProfile.reminders['set-a'], 15, 'reminder should persist and read back');
+  });
+
+  test('rejects a reminder value outside the allowed lead-minute set', async () => {
+    const server = await startServer();
+    servers.push(server);
+
+    const alice = await registerUser(server, 'alice');
+    const aliceProfile = await joinFestivalProfile(server, alice.token);
+
+    // 7 is not in ALLOWED_REMINDER_MINUTES ([5,10,15,30,60]) — schema rejects it.
+    await server.request
+      .put(`/api/v1/profiles/${aliceProfile.id}`)
+      .set('x-user-token', alice.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({ reminders: { 'set-a': 7 } })
+      .expect(400);
+  });
+
+  test('rejects a reminder referencing an unknown set', async () => {
+    const server = await startServer();
+    servers.push(server);
+
+    const alice = await registerUser(server, 'alice');
+    const aliceProfile = await joinFestivalProfile(server, alice.token);
+
+    await server.request
+      .put(`/api/v1/profiles/${aliceProfile.id}`)
+      .set('x-user-token', alice.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({ reminders: { 'missing-set': 15 } })
+      .expect(400);
+  });
+
+  test('enforces the 200-reminder-per-profile cap', async () => {
+    const server = await startServer();
+    servers.push(server);
+
+    const alice = await registerUser(server, 'alice');
+    const aliceProfile = await joinFestivalProfile(server, alice.token);
+
+    // 201 reminder entries (all valid values) exceed the route's 200 cap; the
+    // count check runs before set-reference validation, so arbitrary keys are fine.
+    const tooMany: Record<string, number> = {};
+    for (let i = 0; i < 201; i++) tooMany[`set-${i}`] = 15;
+
+    await server.request
+      .put(`/api/v1/profiles/${aliceProfile.id}`)
+      .set('x-user-token', alice.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({ reminders: tooMany })
+      .expect(400);
   });
 
   test('persists sessions and profile data across server restart', async () => {
@@ -205,16 +289,10 @@ describe('Integration — Picks', { concurrency: 1 }, () => {
     const secondRequest = request(second.app);
 
     try {
-      const verify = await secondRequest
-        .post('/api/v1/auth/verify')
-        .set('x-user-token', token)
-        .expect(200);
+      const verify = await secondRequest.post('/api/v1/auth/verify').set('x-user-token', token).expect(200);
       assert.equal(verify.body.data.user.username, 'persisted');
 
-      const profiles = await secondRequest
-        .get('/api/v1/profiles/fest-1')
-        .set('x-user-token', token)
-        .expect(200);
+      const profiles = await secondRequest.get('/api/v1/profiles/fest-1').set('x-user-token', token).expect(200);
       const ownProfile = profiles.body.data.find((entry: any) => entry.id === profile.body.data.id);
       assert.equal(ownProfile.picks['set-a'], 'must');
       assert.equal(ownProfile.notes['set-a'], 'Arrive early');
@@ -246,10 +324,7 @@ describe('Integration — Picks', { concurrency: 1 }, () => {
     ]);
 
     // Verify data persisted correctly
-    const profiles = await server.request
-      .get('/api/v1/profiles/fest-1')
-      .set('x-user-token', alice.token)
-      .expect(200);
+    const profiles = await server.request.get('/api/v1/profiles/fest-1').set('x-user-token', alice.token).expect(200);
     const ownProfile = profiles.body.data.find((p: any) => p.id === profile.id);
     // At least one update should be present (last-write-wins without If-Match)
     assert.ok(ownProfile.picks['set-a'] || ownProfile.picks['set-b']);
@@ -262,17 +337,12 @@ describe('Integration — Picks', { concurrency: 1 }, () => {
     const alice = await registerUser(server, 'alice');
 
     // Without joining the festival, presence should be forbidden
-    const res = await server.request
-      .get('/api/v1/presence/fest-1')
-      .set('x-user-token', alice.token);
+    const res = await server.request.get('/api/v1/presence/fest-1').set('x-user-token', alice.token);
     assert.equal(res.status, 403);
 
     // After joining, it should work
     await joinFestivalProfile(server, alice.token);
-    const res2 = await server.request
-      .get('/api/v1/presence/fest-1')
-      .set('x-user-token', alice.token)
-      .expect(200);
+    const res2 = await server.request.get('/api/v1/presence/fest-1').set('x-user-token', alice.token).expect(200);
     assert.ok(Array.isArray(res2.body.data.online));
   });
 });
@@ -283,7 +353,9 @@ describe('Integration — Picks', { concurrency: 1 }, () => {
 
 describe('Concurrent Profile Write Conflicts', { concurrency: 1 }, () => {
   let server: any;
-  afterEach(async () => { if (server) await server.close(); });
+  afterEach(async () => {
+    if (server) await server.close();
+  });
 
   test('returns 409 VERSION_MISMATCH when If-Match is stale', async () => {
     server = await startServer();
@@ -353,7 +425,9 @@ describe('Concurrent Profile Write Conflicts', { concurrency: 1 }, () => {
 
 describe('Database Transaction Rollback — profiles', { concurrency: 1 }, () => {
   let server: any;
-  afterEach(async () => { if (server) await server.close(); });
+  afterEach(async () => {
+    if (server) await server.close();
+  });
 
   test('delete user cascades profiles cleanly', async () => {
     server = await startServer();
@@ -380,7 +454,9 @@ describe('Database Transaction Rollback — profiles', { concurrency: 1 }, () =>
 
 describe('Rate Limiting Edge Cases — profiles', { concurrency: 1 }, () => {
   let server: any;
-  afterEach(async () => { if (server) await server.close(); });
+  afterEach(async () => {
+    if (server) await server.close();
+  });
 
   test('concurrent profile updates maintain consistency', async () => {
     server = await startServer();
@@ -395,25 +471,22 @@ describe('Rate Limiting Edge Cases — profiles', { concurrency: 1 }, () => {
     ];
 
     await Promise.all(
-      updates.map(update =>
-        server.request
-          .put(`/api/v1/profiles/${profile.id}`)
-          .set('x-user-token', user.token)
-          .send(update)
-      )
+      updates.map((update) =>
+        server.request.put(`/api/v1/profiles/${profile.id}`).set('x-user-token', user.token).send(update),
+      ),
     );
 
     // Verify final state is consistent
-    const finalRes = await server.request
-      .get(`/api/v1/profiles/fest-1`)
-      .set('x-user-token', user.token);
+    const finalRes = await server.request.get(`/api/v1/profiles/fest-1`).set('x-user-token', user.token);
     assert.equal(finalRes.status, 200);
   });
 });
 
 describe('Malformed Input Handling', { concurrency: 1 }, () => {
   let server: any;
-  afterEach(async () => { if (server) await server.close(); });
+  afterEach(async () => {
+    if (server) await server.close();
+  });
 
   test('rejects pick with non-existent set ID', async () => {
     server = await startServer();
@@ -463,7 +536,10 @@ describe('Malformed Input Handling', { concurrency: 1 }, () => {
 // ============================================================================
 describe('profile soft-delete filtering', { concurrency: 1 }, () => {
   const servers: any[] = [];
-  afterEach(async () => { for (const s of servers) await s.close().catch(() => {}); servers.length = 0; });
+  afterEach(async () => {
+    for (const s of servers) await s.close().catch(() => {});
+    servers.length = 0;
+  });
 
   test('create() returns null if profile is immediately soft-deleted', async () => {
     const server = await startServer();
@@ -477,15 +553,15 @@ describe('profile soft-delete filtering', { concurrency: 1 }, () => {
       await pool.query('UPDATE festival_profiles SET deleted_at = NOW() WHERE id = $1', [profile.id]);
 
       // Fetching the profile via API should return 404 or empty
-      const res = await server.request
-        .get(`/api/v1/profiles/fest-1`)
-        .set('x-user-token', alice.token);
+      const res = await server.request.get(`/api/v1/profiles/fest-1`).set('x-user-token', alice.token);
       // The user's profile for this festival should not be found
       if (res.status === 200 && res.body.data) {
         // If it returns profiles, the deleted one should not be in the list
         const found = Array.isArray(res.body.data)
           ? res.body.data.find((p: any) => p.id === profile.id)
-          : (res.body.data.id === profile.id ? res.body.data : null);
+          : res.body.data.id === profile.id
+            ? res.body.data
+            : null;
         assert.equal(found, undefined, 'Soft-deleted profile should not appear in results');
       }
     } finally {
@@ -543,10 +619,7 @@ describe('profile soft-delete filtering', { concurrency: 1 }, () => {
       await pool.query('UPDATE festival_profiles SET deleted_at = NOW() WHERE id = $1', [bobProfile.id]);
 
       // Fetch festival data — bob's picks should not appear
-      const res = await server.request
-        .get('/api/v1/festivals/fest-1')
-        .set('x-user-token', alice.token)
-        .expect(200);
+      const res = await server.request.get('/api/v1/festivals/fest-1').set('x-user-token', alice.token).expect(200);
 
       const profiles = res.body.data?.profiles || [];
       const bobInResults = profiles.find((p: any) => p.id === bobProfile.id);
@@ -565,10 +638,7 @@ describe('profile soft-delete filtering', { concurrency: 1 }, () => {
     const p2 = await joinFestivalProfile(server, u2.token, 'fest-1');
 
     // Get profiles list — both should appear
-    const resBefore = await server.request
-      .get('/api/v1/profiles/fest-1')
-      .set('x-user-token', u1.token)
-      .expect(200);
+    const resBefore = await server.request.get('/api/v1/profiles/fest-1').set('x-user-token', u1.token).expect(200);
     const profilesBefore = resBefore.body.data || [];
     assert.ok(profilesBefore.length >= 2, 'Both profiles should appear before soft-delete');
 
@@ -577,10 +647,7 @@ describe('profile soft-delete filtering', { concurrency: 1 }, () => {
     try {
       await pool.query('UPDATE festival_profiles SET deleted_at = NOW() WHERE id = $1', [p2.id]);
 
-      const resAfter = await server.request
-        .get('/api/v1/profiles/fest-1')
-        .set('x-user-token', u1.token)
-        .expect(200);
+      const resAfter = await server.request.get('/api/v1/profiles/fest-1').set('x-user-token', u1.token).expect(200);
       const profilesAfter = resAfter.body.data || [];
       const deletedInResults = profilesAfter.find((p: any) => p.id === p2.id);
       assert.equal(deletedInResults, undefined, 'Soft-deleted profile should not appear in profiles list');

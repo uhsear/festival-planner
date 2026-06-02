@@ -23,14 +23,7 @@ import type { Crew, CrewMember } from '@festie/shared/types';
 import type { TabKey } from '../components/crew/CrewTabBar';
 
 interface CrewWithHomeBase extends Crew {
-  homeBaseLocation?: string | null;
-  homeBaseTime?: string | null;
-  homeBaseUpdatedAt?: string | null;
   createdBy?: string;
-}
-
-interface CrewMemberWithUsername extends CrewMember {
-  username?: string;
 }
 
 export default function CrewView() {
@@ -160,7 +153,7 @@ function CrewViewInner() {
     }
   };
 
-  const handleTransferOwnership = (member: CrewMemberWithUsername) => {
+  const handleTransferOwnership = (member: CrewMember) => {
     if (!activeCrew) return;
     const name = member.name || member.username || 'this member';
     if (!window.confirm(`Make ${name} the crew owner? You will become a regular member.`)) return;
@@ -172,7 +165,7 @@ function CrewViewInner() {
   };
 
   const crew = activeCrew as CrewWithHomeBase | null;
-  const members = (crew?.members || []) as CrewMemberWithUsername[];
+  const members = crew?.members || [];
   const meMember = members.find((m) => m.userId === user.id);
   const isOwner = meMember?.role === 'owner' || crew?.createdBy === user.id || crew?.owner === user.id;
 

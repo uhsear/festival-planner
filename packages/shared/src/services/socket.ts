@@ -1,6 +1,5 @@
 import { io, Socket } from 'socket.io-client';
 import { SOCKET_RECONNECTION_CONFIG } from '../constants/config';
-import { SocketEvents } from '../types/domain';
 
 export interface SocketOptions {
   auth?: {
@@ -49,7 +48,9 @@ export function createSocket(
   // Guard so a burst of auth errors triggers at most one refresh attempt; reset
   // once a (re)connection succeeds so a later token expiry can re-trigger.
   let authErrorHandled = false;
-  socket.on('connect', () => { authErrorHandled = false; });
+  socket.on('connect', () => {
+    authErrorHandled = false;
+  });
   socket.on('connect_error', (err: Error & { data?: { status?: number }; status?: number }) => {
     const status = err?.data?.status ?? err?.status;
     if (status === 401 || status === 403) {
@@ -64,19 +65,4 @@ export function createSocket(
   return socket;
 }
 
-export { Socket, SocketEvents };
-
-export const SOCKET_EVENT_NAMES = {
-  PICKS_UPDATED: 'picks:updated' as const,
-  PROFILE_JOINED: 'profile:joined' as const,
-  PROFILE_LEFT: 'profile:left' as const,
-  CREW_UPDATED: 'crew:updated' as const,
-  CREW_MEMBER_JOINED: 'crew:member:joined' as const,
-  CREW_MEMBER_LEFT: 'crew:member:left' as const,
-  PRESENCE_UPDATE: 'presence:update' as const,
-  FESTIVAL_UPDATED: 'festival:updated' as const,
-  SET_UPDATED: 'set:updated' as const,
-  MESSAGE_CREATED: 'message:created' as const,
-  NOTIFICATION: 'notification' as const,
-  ERROR: 'error' as const,
-};
+export { Socket };

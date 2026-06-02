@@ -5,9 +5,7 @@ import { Profile, Priority } from '../types';
 
 export interface UseCrewReturn {
   getCrewScopedProfiles: () => Profile[];
-  getCrewScopedOtherPicks: (
-    setId: string,
-  ) => Array<{ profileId: string; priority: Priority }>;
+  getCrewScopedOtherPicks: (setId: string) => Array<{ profileId: string; priority: Priority }>;
 }
 
 export function useCrew(): UseCrewReturn {
@@ -24,10 +22,10 @@ export function useCrew(): UseCrewReturn {
     (setId: string): Array<{ profileId: string; priority: Priority }> => {
       const scopedProfiles = getCrewScopedProfiles();
       return scopedProfiles
-        .filter((p) => p.id !== currentProfile?.id && p.picks[setId])
+        .filter((p) => p.id !== currentProfile?.id && (p.picks || {})[setId])
         .map((p) => ({
           profileId: p.id,
-          priority: p.picks[setId] as Priority,
+          priority: (p.picks || {})[setId] as Priority,
         }));
     },
     [getCrewScopedProfiles, currentProfile?.id],
