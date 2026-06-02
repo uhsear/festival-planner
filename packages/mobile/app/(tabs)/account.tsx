@@ -8,6 +8,7 @@ import ScreenHeader from '../../components/ScreenHeader';
 import AccountAvatarSection from '../../components/AccountAvatarSection';
 import AccountDisplayNameSection from '../../components/AccountDisplayNameSection';
 import AccountPasswordSection from '../../components/AccountPasswordSection';
+import AccountEmailVerifySection from '../../components/AccountEmailVerifySection';
 import AccountNotificationsSection from '../../components/AccountNotificationsSection';
 import AccountNotificationPrefsSection from '../../components/AccountNotificationPrefsSection';
 import AccountDataSection from '../../components/AccountDataSection';
@@ -123,6 +124,7 @@ export default function AccountScreen() {
 
         {/* Security */}
         <Text style={styles.sectionLabel}>Security</Text>
+        <AccountEmailVerifySection />
         <AccountPasswordSection />
 
         {/* Preferences */}

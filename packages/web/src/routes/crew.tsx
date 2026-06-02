@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@festie/shared';
 import { useCrewStore } from '@festie/shared/stores';
 import { useAuthStore } from '@festie/shared/stores';
 import { useFestivalStore } from '@festie/shared/stores';
@@ -54,15 +56,16 @@ function CrewViewInner() {
   const [tab, setTab] = useState<TabKey>('members');
   const { toast } = useToast();
 
-  const {
-    isAdmin, adminOpen, setAdminOpen, adminAddBusy,
-    submitForceAdd, handleForceAdd,
-  } = useCrewAdmin(user, activeCrew?.id, toast);
+  const { isAdmin, adminOpen, setAdminOpen, adminAddBusy, submitForceAdd, handleForceAdd } = useCrewAdmin(
+    user,
+    activeCrew?.id,
+    toast,
+  );
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
-  const [joinOpen, setJoinOpen]     = useState(false);
-  const [joinBusy, setJoinBusy]     = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [joinBusy, setJoinBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
 
@@ -75,6 +78,36 @@ function CrewViewInner() {
   useEffect(() => {
     if (!user) navigate({ to: '/login' }).catch(() => {});
   }, [user, navigate]);
+
+  // Tab badge counts. These reuse the exact query keys + endpoints the Polls
+  // and Expenses tabs use, so the data is shared from the react-query cache
+  // (no extra backend calls beyond what the crew detail view already makes).
+  // Declared before the early return below to keep hook order stable.
+  const activeCrewId = activeCrew?.id;
+  const userId = user?.id;
+  const { data: openPollCount = 0 } = useQuery({
+    queryKey: ['polls', activeCrewId],
+    queryFn: async () => {
+      const res = await api.get<{ polls: { closed?: boolean }[] } | { closed?: boolean }[]>(
+        `/crews/${activeCrewId}/polls`,
+      );
+      return Array.isArray(res) ? res : res?.polls || [];
+    },
+    enabled: !!activeCrewId,
+    select: (list) => list.filter((p) => !p.closed).length,
+  });
+  const { data: hasUnsettledBalance = false } = useQuery({
+    queryKey: ['expense-balances', activeCrewId],
+    queryFn: async () => {
+      const res = await api.get<
+        { userId: string; balance: number }[] | { balances: { userId: string; balance: number }[] }
+      >(`/crews/${activeCrewId}/expenses/balances`);
+      return Array.isArray(res) ? res : res?.balances || [];
+    },
+    enabled: !!activeCrewId,
+    select: (balances) => Math.abs(balances.find((b) => b.userId === userId)?.balance ?? 0) > 0.01,
+  });
+
   if (!user) return null;
 
   const handleSelectCrew = (crewId: string) => {
@@ -90,7 +123,9 @@ function CrewViewInner() {
       setCreateOpen(false);
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Failed to create crew', 'error');
-    } finally { setCreateBusy(false); }
+    } finally {
+      setCreateBusy(false);
+    }
   };
 
   const handleJoinCrew = () => setJoinOpen(true);
@@ -101,7 +136,9 @@ function CrewViewInner() {
       setJoinOpen(false);
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Failed to join', 'error');
-    } finally { setJoinBusy(false); }
+    } finally {
+      setJoinBusy(false);
+    }
   };
 
   const submitDestroy = async () => {
@@ -117,15 +154,10 @@ function CrewViewInner() {
       }
       setConfirmOpen(false);
     } catch (e) {
-      toast(
-        e instanceof Error
-          ? e.message
-          : isOwner
-            ? 'Failed to delete crew'
-            : 'Failed to leave crew',
-        'error',
-      );
-    } finally { setConfirmBusy(false); }
+      toast(e instanceof Error ? e.message : isOwner ? 'Failed to delete crew' : 'Failed to leave crew', 'error');
+    } finally {
+      setConfirmBusy(false);
+    }
   };
 
   const handleTransferOwnership = (member: CrewMemberWithUsername) => {
@@ -142,23 +174,35 @@ function CrewViewInner() {
   const crew = activeCrew as CrewWithHomeBase | null;
   const members = (crew?.members || []) as CrewMemberWithUsername[];
   const meMember = members.find((m) => m.userId === user.id);
-  const isOwner = (meMember?.role === 'owner') || crew?.createdBy === user.id || crew?.owner === user.id;
+  const isOwner = meMember?.role === 'owner' || crew?.createdBy === user.id || crew?.owner === user.id;
 
   return (
     <div className="crew-page space-y-4 pb-6 max-w-2xl mx-auto px-3 min-w-0 w-full">
       {crews.length > 0 && (
-        <CrewSelector crews={crews} selectedCrewId={activeCrew?.id}
-          onSelectCrew={handleSelectCrew} onCreateCrew={handleCreateCrew} onJoinCrew={handleJoinCrew} />
+        <CrewSelector
+          crews={crews}
+          selectedCrewId={activeCrew?.id}
+          onSelectCrew={handleSelectCrew}
+          onCreateCrew={handleCreateCrew}
+          onJoinCrew={handleJoinCrew}
+        />
       )}
 
       {!activeCrew ? (
         <Card padding="lg" className="space-y-4">
-          <EmptyState icon={<Users className="w-12 h-12" aria-hidden="true" />} title="No crew yet"
-            description="Create a crew or join an existing one to coordinate with friends" />
+          <EmptyState
+            icon={<Users className="w-12 h-12" aria-hidden="true" />}
+            title="No crew yet"
+            description="Create a crew or join an existing one to coordinate with friends"
+          />
           {crews.length === 0 && (
             <div className="flex gap-4">
-              <Button variant="primary" onClick={handleCreateCrew} className="flex-1 min-h-11">Create Crew</Button>
-              <Button variant="outline" onClick={handleJoinCrew} className="flex-1 min-h-11">Join by Code</Button>
+              <Button variant="primary" onClick={handleCreateCrew} className="flex-1 min-h-11">
+                Create Crew
+              </Button>
+              <Button variant="outline" onClick={handleJoinCrew} className="flex-1 min-h-11">
+                Join by Code
+              </Button>
             </div>
           )}
         </Card>
@@ -173,11 +217,7 @@ function CrewViewInner() {
           />
 
           {activeCrew.inviteCode && (
-            <CrewInviteBar
-              inviteCode={activeCrew.inviteCode}
-              crewId={activeCrew.id}
-              isOwner={isOwner}
-            />
+            <CrewInviteBar inviteCode={activeCrew.inviteCode} crewId={activeCrew.id} isOwner={isOwner} />
           )}
 
           <Link
@@ -190,7 +230,11 @@ function CrewViewInner() {
             <span className="text-sm ml-auto">{'→'}</span>
           </Link>
 
-          <CrewTabBar activeTab={tab} onTabChange={setTab} />
+          <CrewTabBar
+            activeTab={tab}
+            onTabChange={setTab}
+            badges={{ polls: openPollCount, expenses: hasUnsettledBalance }}
+          />
 
           <CrewTabContent
             tab={tab}
@@ -206,16 +250,15 @@ function CrewViewInner() {
           />
 
           <div className="pt-2">
-            <Button
-              variant="danger"
-              fullWidth
-              onClick={() => setConfirmOpen(true)}
-              className="min-h-11"
-            >
+            <Button variant="danger" fullWidth onClick={() => setConfirmOpen(true)} className="min-h-11">
               {isOwner ? (
-                <><Trash2 className="w-4 h-4" aria-hidden="true" /> Delete crew</>
+                <>
+                  <Trash2 className="w-4 h-4" aria-hidden="true" /> Delete crew
+                </>
               ) : (
-                <><LogOut className="w-4 h-4" aria-hidden="true" /> Leave crew</>
+                <>
+                  <LogOut className="w-4 h-4" aria-hidden="true" /> Leave crew
+                </>
               )}
             </Button>
           </div>
