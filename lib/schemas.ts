@@ -37,13 +37,7 @@ import {
   ALLOWED_PICK_PRIORITIES,
   ALLOWED_REMINDER_MINUTES,
 } from './constants';
-import {
-  sanitizeString,
-  normalizeRecordKey,
-  sanitizeIdentifier,
-  validateTime,
-  validateColor,
-} from './helpers';
+import { sanitizeString, normalizeRecordKey, sanitizeIdentifier, validateTime, validateColor } from './helpers';
 import { sendError, ErrorCodes } from './response';
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -60,16 +54,18 @@ const shortText = z.string().max(1000);
 // ════════════════════════════════════════════════════════════════════════════════
 const email = z.string().email('Invalid email address').max(254).optional().or(z.literal(''));
 
-export const registerSchema = z.object({
-  username,
-  password,
-  confirmPassword: z.string(),
-  email: email.optional(),
-  tosAccepted: z.literal(true, { error: 'You must accept the Terms of Service' }),
-}).refine((d) => d.password === d.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+export const registerSchema = z
+  .object({
+    username,
+    password,
+    confirmPassword: z.string(),
+    email: email.optional(),
+    tosAccepted: z.literal(true, { error: 'You must accept the Terms of Service' }),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const loginSchema = z.object({
@@ -78,14 +74,16 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password required'),
-  newPassword: password,
-  confirmPassword: z.string(),
-}).refine((d) => d.newPassword === d.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password required'),
+    newPassword: password,
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -95,18 +93,18 @@ export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 const pickValue = z.enum(PICK_PRIORITY_VALUES);
 const picksMap = z.record(z.string().max(100), pickValue).optional();
 const notesMap = z.record(z.string().max(100), shortText).optional();
-const allowedReminderMinutes = z.union(
-  REMINDER_MINUTE_VALUES.map((m: any) => z.literal(m)) as any
-);
+const allowedReminderMinutes = z.union(REMINDER_MINUTE_VALUES.map((m: any) => z.literal(m)) as any);
 const remindersMap = z.record(z.string().max(100), allowedReminderMinutes).optional();
 
-export const profileUpdateSchema = z.object({
-  picks: picksMap,
-  notes: notesMap,
-  reminders: remindersMap,
-}).refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), {
-  message: 'At least one field required',
-});
+export const profileUpdateSchema = z
+  .object({
+    picks: picksMap,
+    notes: notesMap,
+    reminders: remindersMap,
+  })
+  .refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), {
+    message: 'At least one field required',
+  });
 export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
 
 export const joinFestivalSchema = z.object({
@@ -124,7 +122,10 @@ export const resetPasswordSchema = z.object({
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 export const resetPasswordPublicSchema = z.object({
-  token: z.string().regex(/^[a-f0-9]{64}$/, 'Invalid token').max(64),
+  token: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/, 'Invalid token')
+    .max(64),
   newPassword: password,
   confirmPassword: z.string().min(8).max(100),
 });
@@ -133,14 +134,19 @@ export type ResetPasswordPublicInput = z.infer<typeof resetPasswordPublicSchema>
 // ════════════════════════════════════════════════════════════════════════════════
 // Notification & Push Schemas
 // ════════════════════════════════════════════════════════════════════════════════
-const dndTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Must be HH:MM (24h)').nullable();
-export const notificationPrefsSchema = z.object({
-  crewUpdates: z.boolean().optional(),
-  setReminders: z.boolean().optional(),
-  scheduleChanges: z.boolean().optional(),
-  dndStart: dndTime.optional(),
-  dndEnd: dndTime.optional(),
-}).strict();
+const dndTime = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Must be HH:MM (24h)')
+  .nullable();
+export const notificationPrefsSchema = z
+  .object({
+    crewUpdates: z.boolean().optional(),
+    setReminders: z.boolean().optional(),
+    scheduleChanges: z.boolean().optional(),
+    dndStart: dndTime.optional(),
+    dndEnd: dndTime.optional(),
+  })
+  .strict();
 export type NotificationPrefsInput = z.infer<typeof notificationPrefsSchema>;
 
 export const pushTokenSchema = z.object({
@@ -162,12 +168,11 @@ export const markReadSchema = z.object({
 export type MarkReadInput = z.infer<typeof markReadSchema>;
 
 // ── Topic subscription schema ────────────────────────────────────
-export const topicSubscriptionSchema = z.record(
-  z.string(),
-  z.boolean()
-).refine((d) => Object.keys(d).length > 0 && Object.keys(d).length <= 10, {
-  message: 'At least one topic required, max 10',
-});
+export const topicSubscriptionSchema = z
+  .record(z.string(), z.boolean())
+  .refine((d) => Object.keys(d).length > 0 && Object.keys(d).length <= 10, {
+    message: 'At least one topic required, max 10',
+  });
 export type TopicSubscriptionInput = z.infer<typeof topicSubscriptionSchema>;
 
 // ── Account schemas ───────────────────────────────────────────────
@@ -175,6 +180,12 @@ export const usernameChangeSchema = z.object({
   username: z.string().trim().min(1, 'Username required').max(40),
 });
 export type UsernameChangeInput = z.infer<typeof usernameChangeSchema>;
+
+// Editable display name (friendly name). Username stays the immutable @handle.
+export const displayNameChangeSchema = z.object({
+  displayName: z.string().trim().min(1, 'Display name required').max(50),
+});
+export type DisplayNameChangeInput = z.infer<typeof displayNameChangeSchema>;
 
 export const accountDeleteSchema = z.object({
   password: z.string().min(1, 'Password confirmation required'),
@@ -196,38 +207,57 @@ export type UpdateEmailInput = z.infer<typeof updateEmailSchema>;
 export const stageSchema = z.object({
   id: z.string().max(100).optional(),
   name: z.string().min(1).max(100),
-  color: z.string().regex(/^#[0-9a-fA-F]{3,8}$/).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{3,8}$/)
+    .optional(),
 });
 export type StageInput = z.infer<typeof stageSchema>;
 
 export const artistLinkSchema = z.object({
   name: z.string().min(1).max(300),
-  links: z.record(
-    z.enum(ALLOWED_LINK_PLATFORMS),
-    z.string().url().max(500).or(z.literal("")).optional().nullable(),
-  ).optional().default({} as Record<string, string | null | undefined>).transform((obj: any) =>
-    Object.fromEntries(Object.entries(obj || {}).filter(([, v]: any) => v != null && v !== ''))
-  ),
+  links: z
+    .record(z.enum(ALLOWED_LINK_PLATFORMS), z.string().url().max(500).or(z.literal('')).optional().nullable())
+    .optional()
+    .default({} as Record<string, string | null | undefined>)
+    .transform((obj: any) =>
+      Object.fromEntries(Object.entries(obj || {}).filter(([, v]: any) => v != null && v !== '')),
+    ),
 });
 export type ArtistLinkInput = z.infer<typeof artistLinkSchema>;
 
-export const setSchema = z.object({
-  id: z.string().max(100).optional(),
-  artists: z.array(artistLinkSchema).min(1).max(MAX_ARTISTS_PER_SET).optional(),
-  // Backward compat — old clients may still send artist/linkUrl
-  artist: z.string().max(300).optional(),
-  stageId: z.string().max(100).optional().nullable(),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable().or(z.literal('')),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable().or(z.literal('')),
-  linkUrl: z.string().max(500).optional().nullable().or(z.literal('')),
-}).refine((d) => (d.artists?.length ?? 0) > 0 || (d.artist && d.artist.length > 0), {
-  message: 'At least one artist is required (via artists[] or artist)',
-});
+export const setSchema = z
+  .object({
+    id: z.string().max(100).optional(),
+    artists: z.array(artistLinkSchema).min(1).max(MAX_ARTISTS_PER_SET).optional(),
+    // Backward compat — old clients may still send artist/linkUrl
+    artist: z.string().max(300).optional(),
+    stageId: z.string().max(100).optional().nullable(),
+    startTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .optional()
+      .nullable()
+      .or(z.literal('')),
+    endTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .optional()
+      .nullable()
+      .or(z.literal('')),
+    linkUrl: z.string().max(500).optional().nullable().or(z.literal('')),
+  })
+  .refine((d) => (d.artists?.length ?? 0) > 0 || (d.artist && d.artist.length > 0), {
+    message: 'At least one artist is required (via artists[] or artist)',
+  });
 export type SetInput = z.infer<typeof setSchema>;
 
 export const daySchema = z.object({
   label: z.string().max(100).optional(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   sets: z.array(setSchema).optional(),
 });
 export type DayInput = z.infer<typeof daySchema>;
@@ -242,10 +272,9 @@ export const festivalCreateSchema = z.object({
 });
 export type FestivalCreateInput = z.infer<typeof festivalCreateSchema>;
 
-export const festivalUpdateSchema = festivalCreateSchema.partial().refine(
-  (d) => Object.keys(d).some((k) => (d as any)[k] !== undefined),
-  'At least one field required'
-);
+export const festivalUpdateSchema = festivalCreateSchema
+  .partial()
+  .refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), 'At least one field required');
 export type FestivalUpdateInput = z.infer<typeof festivalUpdateSchema>;
 
 // ── Crew schemas ─────────────────────────────────────────────────────
@@ -255,12 +284,14 @@ export const crewCreateSchema = z.object({
 });
 export type CrewCreateInput = z.infer<typeof crewCreateSchema>;
 
-export const crewUpdateSchema = z.object({
-  name: z.string().trim().min(1).max(60).optional(),
-  maxMembers: z.number().int().min(2).max(30).optional(),
-}).refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), {
-  message: 'At least one field required',
-});
+export const crewUpdateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(60).optional(),
+    maxMembers: z.number().int().min(2).max(30).optional(),
+  })
+  .refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), {
+    message: 'At least one field required',
+  });
 export type CrewUpdateInput = z.infer<typeof crewUpdateSchema>;
 
 export const crewJoinSchema = z.object({
@@ -284,7 +315,6 @@ export const setLinkSchema = z.object({
 });
 export type SetLinkInput = z.infer<typeof setLinkSchema>;
 
-
 // ── Meeting Point schemas (Phase 1B) ────────────────────────────
 
 export const meetingPointCreateSchema = z.object({
@@ -296,15 +326,17 @@ export const meetingPointCreateSchema = z.object({
 });
 export type MeetingPointCreateInput = z.infer<typeof meetingPointCreateSchema>;
 
-export const meetingPointUpdateSchema = z.object({
-  label: z.string().trim().min(1).max(100).optional(),
-  location: z.string().trim().min(1).max(200).optional(),
-  type: z.enum(MEETING_POINT_TYPES).optional(),
-  meetAt: z.string().datetime().optional().nullable(),
-  stageReference: z.string().max(100).optional().nullable(),
-}).refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), {
-  message: 'At least one field required',
-});
+export const meetingPointUpdateSchema = z
+  .object({
+    label: z.string().trim().min(1).max(100).optional(),
+    location: z.string().trim().min(1).max(200).optional(),
+    type: z.enum(MEETING_POINT_TYPES).optional(),
+    meetAt: z.string().datetime().optional().nullable(),
+    stageReference: z.string().max(100).optional().nullable(),
+  })
+  .refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), {
+    message: 'At least one field required',
+  });
 export type MeetingPointUpdateInput = z.infer<typeof meetingPointUpdateSchema>;
 
 // ── Validation middleware factory ───────────────────────────────────
@@ -313,9 +345,8 @@ export function validate(schema: z.ZodType<any>) {
     const result = schema.safeParse(req.body);
     if (!result.success) {
       const firstIssue = result.error.issues[0]!;
-      const message = firstIssue.path.length > 0
-        ? `${firstIssue.path.join('.')}: ${firstIssue.message}`
-        : firstIssue.message;
+      const message =
+        firstIssue.path.length > 0 ? `${firstIssue.path.join('.')}: ${firstIssue.message}` : firstIssue.message;
       return sendError(res, 400, message, ErrorCodes.VALIDATION_ERROR, {
         fields: result.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
       });
@@ -334,9 +365,8 @@ export function validateQuery(schema: z.ZodType<any>) {
     const result = schema.safeParse(req.query);
     if (!result.success) {
       const firstIssue = result.error.issues[0]!;
-      const message = firstIssue.path.length > 0
-        ? `${firstIssue.path.join('.')}: ${firstIssue.message}`
-        : firstIssue.message;
+      const message =
+        firstIssue.path.length > 0 ? `${firstIssue.path.join('.')}: ${firstIssue.message}` : firstIssue.message;
       return sendError(res, 400, message, ErrorCodes.VALIDATION_ERROR, {
         fields: result.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
       });
@@ -355,9 +385,8 @@ export function validateParams(schema: z.ZodType<any>) {
     const result = schema.safeParse(req.params);
     if (!result.success) {
       const firstIssue = result.error.issues[0]!;
-      const message = firstIssue.path.length > 0
-        ? `${firstIssue.path.join('.')}: ${firstIssue.message}`
-        : firstIssue.message;
+      const message =
+        firstIssue.path.length > 0 ? `${firstIssue.path.join('.')}: ${firstIssue.message}` : firstIssue.message;
       return sendError(res, 400, message, ErrorCodes.VALIDATION_ERROR, {
         fields: result.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
       });
@@ -390,10 +419,13 @@ export function artistDisplayName(artists: any[], separator = 'b2b'): string {
  */
 export function normalizeSetArtists(set: any): any[] {
   if (set.artists?.length > 0) {
-    return set.artists.slice(0, _MAX_ARTISTS).map((a: any) => ({
-      name: sanitizeString(a.name || '', 300),
-      links: sanitizeLinkRecord(a.links),
-    })).filter((a: any) => a.name);
+    return set.artists
+      .slice(0, _MAX_ARTISTS)
+      .map((a: any) => ({
+        name: sanitizeString(a.name || '', 300),
+        links: sanitizeLinkRecord(a.links),
+      }))
+      .filter((a: any) => a.name);
   }
   // Backward compat: convert old artist + linkUrl to artists[]
   const name = sanitizeString(set.artist || '', 300);
@@ -484,11 +516,13 @@ export function sanitizeFestivalPayload(input: any, existingFestival: any, confi
     name: sanitizeString(input.name || existingFestival?.name || ''),
     location: sanitizeString(input.location ?? existingFestival?.location ?? '', 500),
     b2bSeparator: b2bSep,
-    stages: (input.stages || existingFestival?.stages || []).slice(0, config.MAX_STAGES).map((stage: any, index: number) => ({
-      id: sanitizeIdentifier(stage.id, 100) || createOpaqueId(`stage-${index}`),
-      name: sanitizeString(stage.name || '', 100),
-      color: validateColor(stage.color) ? stage.color : '#666666',
-    })),
+    stages: (input.stages || existingFestival?.stages || [])
+      .slice(0, config.MAX_STAGES)
+      .map((stage: any, index: number) => ({
+        id: sanitizeIdentifier(stage.id, 100) || createOpaqueId(`stage-${index}`),
+        name: sanitizeString(stage.name || '', 100),
+        color: validateColor(stage.color) ? stage.color : '#666666',
+      })),
     days: (input.days || existingFestival?.days || []).slice(0, config.MAX_DAYS).map((day: any) => ({
       label: sanitizeString(day.label || '', 100),
       date: sanitizeString(day.date || '', 20),
@@ -510,7 +544,6 @@ export function sanitizeFestivalPayload(input: any, existingFestival: any, confi
     updatedAt: now,
   };
 }
-
 
 // ── Poll Schemas ──────────────────────────────────────────────────
 export const crewHomeBaseSchema = z.object({
@@ -580,10 +613,7 @@ export const paginationQuery = z.object({
 export type PaginationQueryInput = z.infer<typeof paginationQuery>;
 
 // ── Admin audit query schema ──────────────────────────────────
-const validDateString = z.string().refine(
-  (v) => !isNaN(new Date(v).getTime()),
-  'Must be a valid date string',
-);
+const validDateString = z.string().refine((v) => !isNaN(new Date(v).getTime()), 'Must be a valid date string');
 export const adminAuditQuery = z.object({
   actor_id: z.string().trim().max(100).optional(),
   action: z.string().trim().max(100).optional(),
@@ -700,6 +730,7 @@ export const schemas = {
   deleteToken: deleteTokenSchema,
   markRead: markReadSchema,
   usernameChange: usernameChangeSchema,
+  displayNameChange: displayNameChangeSchema,
   accountDelete: accountDeleteSchema,
   topicSubscription: topicSubscriptionSchema,
   festivalCreate: festivalCreateSchema,

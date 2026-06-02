@@ -3,7 +3,6 @@
  * Supports Redis-backed cross-worker presence with in-memory fallback.
  */
 export function createPresenceManager({ state, redisPresence, redis, log, getUserMap, buildAvatarUrl }: any) {
-
   function removeSocketPresence(socket: any) {
     const festivalId = socket.data?.festivalId;
     if (!festivalId) return null;
@@ -67,15 +66,18 @@ export function createPresenceManager({ state, redisPresence, redis, log, getUse
   const _presenceDebounce = new Map();
   function emitPresence(festivalId: any, io: any) {
     if (_presenceDebounce.has(festivalId)) clearTimeout(_presenceDebounce.get(festivalId));
-    _presenceDebounce.set(festivalId, setTimeout(async () => {
-      _presenceDebounce.delete(festivalId);
-      try {
-        const online = await getPresenceList(festivalId);
-        io.to(festivalId).emit('presence:update', { online });
-      } catch (err: any) {
-        log.warn('emitPresence failed', { festivalId, error: err.message });
-      }
-    }, 200));
+    _presenceDebounce.set(
+      festivalId,
+      setTimeout(async () => {
+        _presenceDebounce.delete(festivalId);
+        try {
+          const online = await getPresenceList(festivalId);
+          io.to(festivalId).emit('presence:update', { online });
+        } catch (err: any) {
+          log.warn('emitPresence failed', { festivalId, error: err.message });
+        }
+      }, 200),
+    );
   }
 
   function clearPresenceTimers() {
@@ -94,6 +96,7 @@ export function createPresenceManager({ state, redisPresence, redis, log, getUse
         festivalId: profile.festivalId,
         profileId: profile.id,
         username: user.username,
+        name: user.displayName || null,
         avatarUrl,
       });
     }
@@ -129,7 +132,8 @@ export function createPresenceManager({ state, redisPresence, redis, log, getUse
       if (socket.data?.userId !== userId) continue;
       disconnectSocket(socket, io, presenceTargets);
     }
-    if (presenceTargets.size > 0) log.info('presence: disconnected all sockets for user', { userId, festivals: [...presenceTargets] });
+    if (presenceTargets.size > 0)
+      log.info('presence: disconnected all sockets for user', { userId, festivals: [...presenceTargets] });
     for (const festivalId of presenceTargets) emitPresence(festivalId, io);
   }
 

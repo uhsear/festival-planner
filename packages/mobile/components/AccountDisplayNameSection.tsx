@@ -1,64 +1,50 @@
 import { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@festie/shared/stores';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 /**
- * Username-change form for the Account screen.
+ * Display-name editor for the Account screen.
  *
- * Wired to the shared authStore.updateUsername → PUT /account/username with
- * { username }. The shared action is platform-neutral and updates the store
- * user on success, so this is just the UI: a collapsible row, a single text
- * field, client-side validation matching the server's validateUsername rules
- * (2-30 chars; letters, numbers, spaces, hyphens, underscores), an in-flight
- * spinner, inline errors, and a success Alert.
+ * Wired to the shared authStore.updateDisplayName → PUT /account/display-name
+ * with { displayName }. The display name is the friendly name shown across
+ * crews/account; it falls back to the @username when unset. The username
+ * itself is the permanent handle and is NOT editable here — it's shown
+ * read-only beneath the form.
  */
-export default function AccountUsernameSection() {
+export default function AccountDisplayNameSection() {
   const t = useTokens();
   const styles = useStyles();
   const user = useAuthStore((s) => s.user);
-  const updateUsername = useAuthStore((s) => s.updateUsername);
+  const updateDisplayName = useAuthStore((s) => s.updateDisplayName);
 
-  const currentUsername = user?.username ?? '';
+  const username = user?.username ?? '';
+  const currentName = user?.name ?? '';
 
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(currentUsername);
+  const [value, setValue] = useState(currentName);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
-    setValue(currentUsername);
+    setValue(currentName);
     setError(null);
   };
 
   const toggle = () => {
     setOpen((prev) => {
       if (prev) reset();
-      else setValue(currentUsername);
+      else setValue(currentName);
       return !prev;
     });
   };
 
   const validate = (): string | null => {
     const trimmed = value.trim();
-    if (!trimmed) return 'Enter a username.';
-    if (trimmed.length < 2 || trimmed.length > 30) {
-      return 'Username must be 2-30 characters.';
-    }
-    if (!/^[A-Za-z0-9 _-]+$/.test(trimmed)) {
-      return 'Use only letters, numbers, spaces, hyphens, or underscores.';
-    }
-    if (trimmed === currentUsername) {
-      return 'That is already your username.';
-    }
+    if (!trimmed) return 'Enter a display name.';
+    if (trimmed.length > 50) return 'Display name must be 50 characters or fewer.';
+    if (trimmed === currentName) return 'That is already your display name.';
     return null;
   };
 
@@ -71,11 +57,11 @@ export default function AccountUsernameSection() {
     setSubmitting(true);
     setError(null);
     try {
-      await updateUsername(value.trim());
+      await updateDisplayName(value.trim());
       setOpen(false);
-      Alert.alert('Username updated', 'Your username has been changed.');
+      Alert.alert('Display name updated', 'Your display name has been changed.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not change username.');
+      setError(err instanceof Error ? err.message : 'Could not change display name.');
     } finally {
       setSubmitting(false);
     }
@@ -88,23 +74,19 @@ export default function AccountUsernameSection() {
         onPress={toggle}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={open ? 'Hide change username form' : 'Change username'}
+        accessibilityLabel={open ? 'Hide change display name form' : 'Change display name'}
         accessibilityState={{ expanded: open }}
       >
         <View style={styles.rowIcon}>
-          <Ionicons name="at-outline" size={20} color={t.colors.text.secondary} />
+          <Ionicons name="person-outline" size={20} color={t.colors.text.secondary} />
         </View>
         <View style={styles.rowBody}>
-          <Text style={styles.rowTitle}>Username</Text>
+          <Text style={styles.rowTitle}>Display name</Text>
           <Text style={styles.rowHint} numberOfLines={1}>
-            {currentUsername ? `@${currentUsername}` : 'Set a username'}
+            {currentName || (username ? `@${username}` : 'Set a display name')}
           </Text>
         </View>
-        <Ionicons
-          name={open ? 'chevron-up' : 'chevron-forward'}
-          size={18}
-          color={t.colors.text.placeholder}
-        />
+        <Ionicons name={open ? 'chevron-up' : 'chevron-forward'} size={18} color={t.colors.text.placeholder} />
       </TouchableOpacity>
 
       {open ? (
@@ -113,14 +95,16 @@ export default function AccountUsernameSection() {
             style={styles.input}
             value={value}
             onChangeText={setValue}
-            placeholder="Username"
+            placeholder="How your name appears to your crew"
             placeholderTextColor={t.colors.text.placeholder}
-            autoCapitalize="none"
+            autoCapitalize="words"
             autoCorrect={false}
-            maxLength={30}
+            maxLength={50}
             editable={!submitting}
-            accessibilityLabel="New username"
+            accessibilityLabel="New display name"
           />
+
+          {username ? <Text style={styles.handleHint}>@{username} · username can’t be changed</Text> : null}
 
           {error ? (
             <Text style={styles.error} accessibilityLiveRegion="polite">
@@ -134,13 +118,13 @@ export default function AccountUsernameSection() {
             disabled={submitting}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Save username"
+            accessibilityLabel="Save display name"
             accessibilityState={{ disabled: submitting }}
           >
             {submitting ? (
               <ActivityIndicator size="small" color={t.colors.text.onLightAccent} />
             ) : (
-              <Text style={styles.submitText}>Save Username</Text>
+              <Text style={styles.submitText}>Save Display Name</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -199,6 +183,10 @@ const useStyles = makeStyles((t) => ({
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[3],
     minHeight: 48,
+  },
+  handleHint: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
   },
   error: {
     ...typeStyle('caption'),

@@ -5,11 +5,12 @@ import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Avatar from '../ui/Avatar';
-import { Camera, Trash2, User } from 'lucide-react';
+import { AtSign, Camera, Trash2, User } from 'lucide-react';
 
 interface ProfileSectionProps {
   user: {
     name?: string;
+    username?: string;
     avatar?: string;
   };
 }
@@ -22,8 +23,8 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
   const removeAvatar = useAuthStore((s) => s.removeAvatar);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [username, setUsername] = useState(user.name || '');
-  const [savingUsername, setSavingUsername] = useState(false);
+  const [displayName, setDisplayName] = useState(user.name || '');
+  const [savingDisplayName, setSavingDisplayName] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [removingAvatar, setRemovingAvatar] = useState(false);
 
@@ -55,21 +56,22 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
     }
   };
 
-  const handleUsernameChange = async (e: React.FormEvent) => {
+  const handleDisplayNameChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim()) return;
+    const next = displayName.trim();
+    if (!next) return;
 
-    setSavingUsername(true);
+    setSavingDisplayName(true);
     try {
-      const updated = await api.put<{ name: string }>('/account/username', {
-        username: username.trim(),
+      const res = await api.put<{ user: { name?: string } }>('/account/display-name', {
+        displayName: next,
       });
-      if (storeUser) setUser({ ...storeUser, name: updated.name ?? username.trim() });
-      toast('Username updated', 'success');
+      if (storeUser) setUser({ ...storeUser, name: res.user?.name ?? next });
+      toast('Display name updated', 'success');
     } catch {
-      toast("Couldn't change username. Try again.", 'error');
+      toast("Couldn't change display name. Try again.", 'error');
     } finally {
-      setSavingUsername(false);
+      setSavingDisplayName(false);
     }
   };
 
@@ -83,7 +85,7 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
         </h2>
 
         <div className="flex items-center gap-4">
-          <Avatar name={user.name || 'User'} image={user.avatar} size="lg" />
+          <Avatar name={user.name || user.username || 'User'} image={user.avatar} size="lg" />
 
           <div className="flex gap-2">
             <Button
@@ -120,33 +122,44 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
         />
       </section>
 
-      {/* Username section */}
+      {/* Display name section */}
       <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
         <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
           <User className="w-4 h-4" aria-hidden="true" />
-          Username
+          Display name
         </h2>
 
-        <form onSubmit={handleUsernameChange} className="flex gap-2">
+        <form onSubmit={handleDisplayNameChange} className="flex gap-2">
           <Input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Display name"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="How your name appears to your crew"
             className="flex-1"
-            autoComplete="username"
-            maxLength={40}
+            autoComplete="name"
+            maxLength={50}
           />
           <Button
             type="submit"
             variant="primary"
             size="md"
-            isLoading={savingUsername}
-            disabled={!username.trim() || username === user.name}
+            isLoading={savingDisplayName}
+            disabled={!displayName.trim() || displayName.trim() === (user.name ?? '')}
             className="min-h-[44px] min-w-[44px]"
           >
             Save
           </Button>
         </form>
+
+        {/* Username is the permanent @handle — shown read-only. */}
+        {user.username ? (
+          <div className="flex items-center gap-2 pt-1 text-sm text-text-secondary">
+            <AtSign className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span className="truncate">
+              <span className="text-text-primary font-medium">@{user.username}</span>
+              <span className="text-text-muted"> · username can’t be changed</span>
+            </span>
+          </div>
+        ) : null}
       </section>
     </>
   );

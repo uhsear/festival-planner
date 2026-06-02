@@ -25,7 +25,7 @@ const TRUSTED_MUTATION_HEADER = 'x-festie-request';
 // Valid 2x2 PNG (Sharp-parseable)
 const AVATAR_FIXTURE = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP8z/CfAQgwgImBgaEBAAriA/1oCbcnAAAAAElFTkSuQmCC',
-  'base64'
+  'base64',
 );
 
 // DB skip-gate: these integration tests require a live Postgres database.
@@ -40,19 +40,15 @@ async function ensureTestSchema() {
   if (testDbReady) return;
   const pool = new Pool({ connectionString: TEST_DATABASE_URL });
   try {
-    const { rows } = await pool.query(
-      "SELECT 1 FROM information_schema.tables WHERE table_name = 'users' LIMIT 1"
-    );
+    const { rows } = await pool.query("SELECT 1 FROM information_schema.tables WHERE table_name = 'users' LIMIT 1");
     if (rows.length === 0) {
       await pool.query('CREATE EXTENSION IF NOT EXISTS citext');
-      const schema = fs.readFileSync(
-        path.join(__dirname, '..', 'migrations', '004_postgresql_baseline.sql'),
-        'utf8'
-      );
+      const schema = fs.readFileSync(path.join(__dirname, '..', 'migrations', '004_postgresql_baseline.sql'), 'utf8');
       await pool.query(schema);
     }
     const migrationsDir = path.join(__dirname, '..', 'migrations');
-    const migrationFiles = fs.readdirSync(migrationsDir)
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
       .filter((f: string) => f.endsWith('.sql') && !f.startsWith('004_'))
       .sort();
     for (const file of migrationFiles) {
@@ -88,7 +84,7 @@ async function seedTestData() {
   try {
     await pool.query(
       'INSERT INTO festivals (id, name, location, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW()) ON CONFLICT (id) DO NOTHING',
-      [`fest-${RUN_TAG}`, 'Account Fest', 'Ground']
+      [`fest-${RUN_TAG}`, 'Account Fest', 'Ground'],
     );
   } finally {
     await pool.end();
@@ -113,7 +109,9 @@ async function startServer(overrides: any = {}) {
     planner,
     databaseUrl: TEST_DATABASE_URL,
     request: request(planner.app),
-    async close() { await planner.close(); },
+    async close() {
+      await planner.close();
+    },
   };
 }
 
@@ -129,8 +127,7 @@ async function registerUser(server: any, username: any, password = DEFAULT_PASSW
     .post('/api/v1/auth/register')
     .set(TRUSTED_MUTATION_HEADER, '1')
     .send({ username, password, confirmPassword: password, tosAccepted: true });
-  assert.ok(res.status === 201 || res.status === 200,
-    `register failed: ${res.status} ${JSON.stringify(res.body)}`);
+  assert.ok(res.status === 201 || res.status === 200, `register failed: ${res.status} ${JSON.stringify(res.body)}`);
   // Response shape: { user: { id, username, ... }, token, refreshToken }
   // Flatten so callers can use user.id + user.token uniformly.
   return { ...res.body.data.user, token: res.body.data.token, refreshToken: res.body.data.refreshToken };
@@ -140,7 +137,11 @@ const servers: any[] = [];
 afterEach(async () => {
   while (servers.length > 0) {
     const s = servers.pop();
-    try { await s.close(); } catch (_) { /* noop */ }
+    try {
+      await s.close();
+    } catch (_) {
+      /* noop */
+    }
   }
 });
 
@@ -148,63 +149,69 @@ afterEach(async () => {
 // Username change
 // ──────────────────────────────────────────────────────────────────────────
 
-describe('account: username change', { concurrency: 1, skip }, () => {
-  test('PUT /api/v1/account/username requires authentication (401)', async () => {
+describe('account: display name change', { concurrency: 1, skip }, () => {
+  test('PUT /api/v1/account/display-name requires authentication (401)', async () => {
     const server = await startServer();
     servers.push(server);
     const res = await server.request
-      .put('/api/v1/account/username')
+      .put('/api/v1/account/display-name')
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: 'anything' });
+      .send({ displayName: 'Anything' });
     assert.equal(res.status, 401);
   });
 
-  test('PUT /api/v1/account/username rejects already-taken name (400)', async () => {
+  test('PUT /api/v1/account/display-name rejects empty value (400)', async () => {
     const server = await startServer();
     servers.push(server);
-    const nameA = uniqueUsername('dupa');
-    const nameB = uniqueUsername('dupb');
-    await registerUser(server, nameA);
-    const userB = await registerUser(server, nameB);
+    const user = await registerUser(server, uniqueUsername('dnempty'));
 
     const res = await server.request
-      .put('/api/v1/account/username')
-      .set('x-user-token', userB.token)
+      .put('/api/v1/account/display-name')
+      .set('x-user-token', user.token)
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: nameA });
+      .send({ displayName: '   ' });
     assert.equal(res.status, 400);
   });
 
-  test('PUT /api/v1/account/username renames to an available username', async () => {
+  test('PUT /api/v1/account/display-name sets the display name (200)', async () => {
     const server = await startServer();
     servers.push(server);
-    const original = uniqueUsername('renok');
-    const user = await registerUser(server, original);
-    const next = uniqueUsername('renok2');
+    const user = await registerUser(server, uniqueUsername('dnok'));
+
+    const res = await server.request
+      .put('/api/v1/account/display-name')
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({ displayName: 'Festival Fiona' });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.data?.user?.name, 'Festival Fiona');
+  });
+
+  test('PATCH /api/v1/account/display-name behaves identically to PUT', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const user = await registerUser(server, uniqueUsername('dnpatch'));
+
+    const res = await server.request
+      .patch('/api/v1/account/display-name')
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({ displayName: 'Patched Pat' });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.data?.user?.name, 'Patched Pat');
+  });
+
+  test('username is no longer self-editable — PUT /account/username is gone (404)', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const user = await registerUser(server, uniqueUsername('noedit'));
 
     const res = await server.request
       .put('/api/v1/account/username')
       .set('x-user-token', user.token)
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: next });
-    assert.equal(res.status, 200);
-    assert.equal(res.body.data?.user?.username, next);
-  });
-
-  test('PATCH /api/v1/account/username behaves identically to PUT', async () => {
-    const server = await startServer();
-    servers.push(server);
-    const original = uniqueUsername('patok');
-    const user = await registerUser(server, original);
-    const next = uniqueUsername('patok2');
-
-    const res = await server.request
-      .patch('/api/v1/account/username')
-      .set('x-user-token', user.token)
-      .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: next });
-    assert.equal(res.status, 200);
-    assert.equal(res.body.data?.user?.username, next);
+      .send({ username: uniqueUsername('hacked') });
+    assert.equal(res.status, 404);
   });
 });
 
@@ -227,10 +234,7 @@ describe('account: avatar', { concurrency: 1, skip }, () => {
 
     // serializePublicUser output is nested at data.user; accept either avatarUrl
     // (public serializer) or avatarKey (raw).
-    const avatarRef =
-      res.body.data?.user?.avatarUrl ||
-      res.body.data?.avatarUrl ||
-      res.body.data?.user?.avatarKey;
+    const avatarRef = res.body.data?.user?.avatarUrl || res.body.data?.avatarUrl || res.body.data?.user?.avatarKey;
     assert.ok(avatarRef, 'avatar url or key should be returned on successful upload');
   });
 
@@ -278,8 +282,7 @@ describe('account: avatar', { concurrency: 1, skip }, () => {
       .set(TRUSTED_MUTATION_HEADER, '1');
     assert.equal(delRes.status, 200);
 
-    const afterUrl =
-      delRes.body.data?.user?.avatarUrl ?? delRes.body.data?.avatarUrl ?? null;
+    const afterUrl = delRes.body.data?.user?.avatarUrl ?? delRes.body.data?.avatarUrl ?? null;
     assert.equal(afterUrl, null);
   });
 });
@@ -330,9 +333,7 @@ describe('account: soft-delete', { concurrency: 1, skip }, () => {
     assert.ok(res.body.data?.deletionDate, 'response should include deletionDate');
 
     // Subsequent auth check should fail (session invalidated).
-    const verifyRes = await server.request
-      .post('/api/v1/auth/verify')
-      .set('x-user-token', user.token);
+    const verifyRes = await server.request.post('/api/v1/auth/verify').set('x-user-token', user.token);
     assert.equal(verifyRes.status, 401);
 
     // deleted_at set in DB
@@ -365,9 +366,7 @@ describe('account: GDPR export', { concurrency: 1, skip }, () => {
     const username = uniqueUsername('gdpr');
     const user = await registerUser(server, username);
 
-    const res = await server.request
-      .get('/api/v1/account/export')
-      .set('x-user-token', user.token);
+    const res = await server.request.get('/api/v1/account/export').set('x-user-token', user.token);
     assert.equal(res.status, 200);
     assert.match(res.headers['content-type'] || '', /application\/json/);
     const disp = res.headers['content-disposition'] || '';
@@ -390,14 +389,10 @@ describe('account: GDPR export', { concurrency: 1, skip }, () => {
     servers.push(server);
     const user = await registerUser(server, uniqueUsername('gdprrl'));
 
-    const first = await server.request
-      .get('/api/v1/account/export')
-      .set('x-user-token', user.token);
+    const first = await server.request.get('/api/v1/account/export').set('x-user-token', user.token);
     assert.equal(first.status, 200);
 
-    const second = await server.request
-      .get('/api/v1/account/export')
-      .set('x-user-token', user.token);
+    const second = await server.request.get('/api/v1/account/export').set('x-user-token', user.token);
     assert.equal(second.status, 429);
   });
 });
