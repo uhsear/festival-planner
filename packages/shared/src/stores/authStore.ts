@@ -35,7 +35,7 @@ export interface AuthActions {
   checkSession: () => Promise<boolean>;
   forgotPassword: (request: ForgotPasswordRequest) => Promise<void>;
   changePassword: (request: ChangePasswordRequest) => Promise<void>;
-  updateUsername: (username: string) => Promise<void>;
+  updateDisplayName: (displayName: string) => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
   uploadAvatar: (file: File | Blob) => Promise<AvatarResponse>;
   removeAvatar: () => Promise<void>;
@@ -59,12 +59,23 @@ const SECURE_PREFIX = 'festie-secure-';
 function safeSecure<T>(op: () => Promise<T> | T, fallback: T): Promise<T> {
   return new Promise<T>((resolve) => {
     let settled = false;
-    const finish = (v: T) => { if (!settled) { settled = true; resolve(v); } };
+    const finish = (v: T) => {
+      if (!settled) {
+        settled = true;
+        resolve(v);
+      }
+    };
     const timer = setTimeout(() => finish(fallback), 1500);
     Promise.resolve()
       .then(op)
-      .then((v) => { clearTimeout(timer); finish(v); })
-      .catch(() => { clearTimeout(timer); finish(fallback); });
+      .then((v) => {
+        clearTimeout(timer);
+        finish(v);
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        finish(fallback);
+      });
   });
 }
 
@@ -98,7 +109,7 @@ const defaultStorage: PersistStorage<AuthState> = {
         if (secureVal != null) parsed.state[field] = secureVal;
       }
     }
-    return (parsed as unknown) as StorageValue<AuthState> | null;
+    return parsed as unknown as StorageValue<AuthState> | null;
   },
   setItem: async (name, value) => {
     const state = { ...(value.state as unknown as Record<string, unknown>) };
@@ -272,18 +283,16 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
     }
   },
 
-  updateUsername: async (username: string) => {
+  updateDisplayName: async (displayName: string) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await api.put<{ user: User }>('/account/username', { username });
+      const res = await api.put<{ user: User }>('/account/display-name', { displayName });
       set((s) => ({
-        user: s.user
-          ? { ...s.user, username: res.user.username, name: res.user.username }
-          : null,
+        user: s.user ? { ...s.user, name: res.user.name ?? displayName } : null,
         isLoading: false,
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Username update failed';
+      const message = err instanceof Error ? err.message : 'Display name update failed';
       set({ error: message, isLoading: false });
       throw err;
     }

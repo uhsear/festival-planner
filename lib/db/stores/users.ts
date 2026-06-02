@@ -9,6 +9,7 @@ export default function createUsersStore(pool: Pool, utils: any) {
 
   const COLUMN_MAP: Record<string, string> = {
     username: 'username',
+    displayName: 'display_name',
     email: 'email',
     passwordHash: 'password_hash',
     avatarKey: 'avatar_key',
@@ -30,6 +31,7 @@ export default function createUsersStore(pool: Pool, utils: any) {
 
   const USER_COLUMNS = `
     id, username, email,
+    display_name AS "displayName",
     password_hash AS "passwordHash",
     avatar_key AS "avatarKey",
     avatar_version AS "avatarVersion",
@@ -46,6 +48,7 @@ export default function createUsersStore(pool: Pool, utils: any) {
     if (!row) return null;
     return {
       ...row,
+      displayName: row.displayName || null,
       avatarKey: row.avatarKey || null,
       avatarVersion: row.avatarVersion || null,
       avatarUpdatedAt: toISOString(row.avatarUpdatedAt) || null,
@@ -61,7 +64,9 @@ export default function createUsersStore(pool: Pool, utils: any) {
 
   const users: any = {
     async readAll() {
-      const result = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE deleted_at IS NULL ORDER BY created_at ASC, id ASC`);
+      const result = await pool.query(
+        `SELECT ${USER_COLUMNS} FROM users WHERE deleted_at IS NULL ORDER BY created_at ASC, id ASC`,
+      );
       return result.rows.map(normalizeRow);
     },
 
@@ -80,7 +85,8 @@ export default function createUsersStore(pool: Pool, utils: any) {
 
         for (const user of nextUsers) {
           const createdAt = user.createdAt || new Date().toISOString();
-          await client.query(`
+          await client.query(
+            `
             INSERT INTO users (id, username, password_hash, avatar_key, avatar_version, avatar_updated_at, tos_accepted_at, tos_version, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT(id) DO UPDATE SET
@@ -94,33 +100,36 @@ export default function createUsersStore(pool: Pool, utils: any) {
               created_at = EXCLUDED.created_at,
               updated_at = EXCLUDED.updated_at,
               deleted_at = NULL
-          `, [
-            user.id,
-            user.username,
-            user.passwordHash,
-            user.avatarKey || null,
-            user.avatarVersion || null,
-            user.avatarUpdatedAt || null,
-            user.tosAcceptedAt || null,
-            user.tosVersion || null,
-            createdAt,
-            user.updatedAt || createdAt,
-          ]);
+          `,
+            [
+              user.id,
+              user.username,
+              user.passwordHash,
+              user.avatarKey || null,
+              user.avatarVersion || null,
+              user.avatarUpdatedAt || null,
+              user.tosAcceptedAt || null,
+              user.tosVersion || null,
+              createdAt,
+              user.updatedAt || createdAt,
+            ],
+          );
         }
       });
     },
 
     async getById(userId: string) {
-      const result = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1 AND deleted_at IS NULL`, [userId]);
+      const result = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1 AND deleted_at IS NULL`, [
+        userId,
+      ]);
       return normalizeRow(result.rows[0]);
     },
 
     async getByIds(userIds: string[]) {
       if (!userIds || userIds.length === 0) return new Map();
-      const result = await pool.query(
-        `SELECT ${USER_COLUMNS} FROM users WHERE id = ANY($1) AND deleted_at IS NULL`,
-        [userIds],
-      );
+      const result = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = ANY($1) AND deleted_at IS NULL`, [
+        userIds,
+      ]);
       const map = new Map();
       for (const row of result.rows) {
         map.set(row.id, normalizeRow(row));
@@ -129,7 +138,10 @@ export default function createUsersStore(pool: Pool, utils: any) {
     },
 
     async getByUsername(username: string) {
-      const result = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE username = $1 AND deleted_at IS NULL LIMIT 1`, [username]);
+      const result = await pool.query(
+        `SELECT ${USER_COLUMNS} FROM users WHERE username = $1 AND deleted_at IS NULL LIMIT 1`,
+        [username],
+      );
       return normalizeRow(result.rows[0]);
     },
 
@@ -154,7 +166,15 @@ export default function createUsersStore(pool: Pool, utils: any) {
     async create({ id, username, passwordHash, email, createdAt, tosAcceptedAt, tosVersion }: any) {
       await pool.query(
         'INSERT INTO users (id, username, password_hash, email, created_at, tos_accepted_at, tos_version) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-        [id, username, passwordHash, email || null, createdAt || new Date().toISOString(), tosAcceptedAt || null, tosVersion || null]
+        [
+          id,
+          username,
+          passwordHash,
+          email || null,
+          createdAt || new Date().toISOString(),
+          tosAcceptedAt || null,
+          tosVersion || null,
+        ],
       );
       return this.getById(id);
     },
@@ -174,14 +194,19 @@ export default function createUsersStore(pool: Pool, utils: any) {
       values.push(userId);
 
       await pool.query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${idx} AND deleted_at IS NULL`, values);
-      const result = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1 AND deleted_at IS NULL`, [userId]);
+      const result = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1 AND deleted_at IS NULL`, [
+        userId,
+      ]);
       return normalizeRow(result.rows[0]);
     },
 
     async delete(userId: string, { deletedBy, reason }: { deletedBy?: string; reason?: string } = {}) {
       const user = await this.getById(userId);
       if (!user) return null;
-      await pool.query('UPDATE users SET deleted_at = NOW(), updated_at = NOW(), deleted_by = $2, deletion_reason = $3 WHERE id = $1 AND deleted_at IS NULL', [userId, deletedBy || null, reason || null]);
+      await pool.query(
+        'UPDATE users SET deleted_at = NOW(), updated_at = NOW(), deleted_by = $2, deletion_reason = $3 WHERE id = $1 AND deleted_at IS NULL',
+        [userId, deletedBy || null, reason || null],
+      );
       return user;
     },
 

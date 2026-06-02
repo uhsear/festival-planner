@@ -27,7 +27,7 @@ async function collectGdprData(userId: any, currentUser: any, deps: any) {
   // Get profiles for this user — use targeted query when available
   const userProfiles = stores?.profiles?.getByUserId
     ? await stores.profiles.getByUserId(userId)
-    : (getProfiles ? (await getProfiles()) : []).filter((p: any) => p.userId === userId);
+    : (getProfiles ? await getProfiles() : []).filter((p: any) => p.userId === userId);
 
   for (const profile of userProfiles) {
     exportData.profiles.push({
@@ -46,7 +46,7 @@ async function collectGdprData(userId: any, currentUser: any, deps: any) {
 
   // Get device tokens
   if (stores?.deviceTokens?.listByUser) {
-    const tokens = await stores.deviceTokens.listByUser(userId) || [];
+    const tokens = (await stores.deviceTokens.listByUser(userId)) || [];
     exportData.deviceTokens = tokens.map((t: any) => ({
       id: t.id,
       platform: t.platform,
@@ -97,9 +97,7 @@ async function collectGdprData(userId: any, currentUser: any, deps: any) {
     const results = await Promise.all(
       userProfiles.map(async (profile: any) => {
         const subs = await stores.topicSubscriptions.getForUser(userId, profile.festivalId);
-        return (subs && Object.keys(subs).length > 0)
-          ? { festivalId: profile.festivalId, subscriptions: subs }
-          : null;
+        return subs && Object.keys(subs).length > 0 ? { festivalId: profile.festivalId, subscriptions: subs } : null;
       }),
     );
     exportData.topicSubscriptions = results.filter(Boolean);
@@ -110,17 +108,31 @@ async function collectGdprData(userId: any, currentUser: any, deps: any) {
 
 export default function createAccountRoutes(deps: any) {
   const {
-    express, _config, log,
-    userAuth, handleAvatarUpload, processAvatarUpload,
-    runUserTask, getUserById, getUsers: _getUsers,
-    writeAvatarFile, removeAvatarFile, createVersionToken,
-    emitProfileIdentity, setNoStore, serializePublicUser,
-    sanitizeString, validateUsername,
+    express,
+    _config,
+    log,
+    userAuth,
+    handleAvatarUpload,
+    processAvatarUpload,
+    runUserTask,
+    getUserById,
+    getUsers: _getUsers,
+    writeAvatarFile,
+    removeAvatarFile,
+    createVersionToken,
+    emitProfileIdentity,
+    setNoStore,
+    serializePublicUser,
+    sanitizeString,
     rateLimit,
-    sendSuccess, sendError, ErrorCodes,
-    schemas, validate,
+    sendSuccess,
+    sendError,
+    ErrorCodes,
+    schemas,
+    validate,
     io,
-    stores, invalidateUserCache,
+    stores,
+    invalidateUserCache,
   } = deps;
 
   const router = express.Router();
@@ -210,103 +222,110 @@ export default function createAccountRoutes(deps: any) {
     }
   });
 
-  // ── PUT|PATCH /username — change username ─────────────────────────────
-  const updateUsername = async (req: any, res: any) => {
+  // ── PUT|PATCH /display-name — change the editable display name ─────────
+  // The username is the immutable @handle and is NOT user-editable (only
+  // admins can rename via the admin tools). display_name is the friendly name
+  // shown across crews/account; clients fall back to @username when it's unset.
+  const updateDisplayName = async (req: any, res: any) => {
     try {
       setNoStore(res);
-      const { username } = req.validatedBody;
-      const cleanUsername = sanitizeString(username, 30);
-      if (!validateUsername(cleanUsername)) {
-        return sendError(res, 400, 'Username must be 2-30 characters (letters, numbers, spaces, hyphens, underscores)', ErrorCodes.INVALID_INPUT);
+      const { displayName } = req.validatedBody;
+      const cleanDisplayName = sanitizeString(displayName, 50);
+      if (!cleanDisplayName) {
+        return sendError(res, 400, 'Display name must be 1-50 characters', ErrorCodes.INVALID_INPUT);
       }
 
-      // Check if username is available (targeted query instead of loading all users)
-      const [currentUser, existingUser] = await Promise.all([
-        getUserById(req.user.userId),
-        stores.users.getByUsername(cleanUsername),
-      ]);
+      const currentUser = await getUserById(req.user.userId);
       if (!currentUser) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
 
-      // Allow case-only changes for the same user; reject if another user holds it
-      if (existingUser && existingUser.id !== req.user.userId) {
-        return sendError(res, 400, 'Username already taken', ErrorCodes.ALREADY_EXISTS);
-      }
-
-      // Update username — DB UNIQUE constraint is the authoritative guard
-      let result;
-      try {
-        result = await stores.users.update(req.user.userId, { username: cleanUsername });
-      } catch (err: any) {
-        if (err.code === '23505') {
-          return sendError(res, 400, 'Username already taken', ErrorCodes.ALREADY_EXISTS);
-        }
-        throw new Error('Username update failed', { cause: err });
-      }
+      const result = await stores.users.update(req.user.userId, { displayName: cleanDisplayName });
       invalidateUserCache();
 
       emitProfileIdentity(result, io);
       return sendSuccess(res, { user: serializePublicUser(result) });
     } catch (error: any) {
-      log.error('username change failed', { error: error.message, userId: req.user.userId });
-      return sendError(res, 500, 'Failed to change username', ErrorCodes.INTERNAL_ERROR);
+      log.error('display name change failed', { error: error.message, userId: req.user.userId });
+      return sendError(res, 500, 'Failed to change display name', ErrorCodes.INTERNAL_ERROR);
     }
   };
-  router.put('/username', userAuth, rateLimit(10, 'username-change'), validate(schemas.usernameChange), updateUsername);
-  router.patch('/username', userAuth, rateLimit(10, 'username-change'), validate(schemas.usernameChange), updateUsername);
+  router.put(
+    '/display-name',
+    userAuth,
+    rateLimit(10, 'display-name-change'),
+    validate(schemas.displayNameChange),
+    updateDisplayName,
+  );
+  router.patch(
+    '/display-name',
+    userAuth,
+    rateLimit(10, 'display-name-change'),
+    validate(schemas.displayNameChange),
+    updateDisplayName,
+  );
 
   // ── DELETE / — soft-delete account (30-day grace period) ──────────────
-  router.delete('/', userAuth, rateLimit(5, 'account-delete'), validate(schemas.accountDelete), async (req: any, res: any) => {
-    try {
-      const { password } = req.validatedBody;
-
-      const { verifyPassword, invalidateUserSessions, disconnectUserSockets, getRequestIp } = deps;
-      const currentUser = await getUserById(req.user.userId);
-      if (!currentUser) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
-
-      // Already soft-deleted?
-      if (currentUser.deletedAt) {
-        return sendError(res, 400, 'Account is already scheduled for deletion', ErrorCodes.INVALID_INPUT);
-      }
-
-      const passwordValid = await verifyPassword(password, currentUser.passwordHash);
-      if (!passwordValid) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        return sendError(res, 403, 'Incorrect password', ErrorCodes.PASSWORD_INCORRECT);
-      }
-
-      // Soft-delete: set deleted_at, keep all data for 30-day grace period.
-      // Retry once on deadlock (PG 40P01) — concurrent test cleanup can trigger this.
-      const performSoftDelete = async () => {
-        await stores.users.update(req.user.userId, { deletedAt: new Date().toISOString() });
-        invalidateUserCache();
-        await invalidateUserSessions(req.user.userId);
-        if (stores.refreshTokens) await stores.refreshTokens.revokeAll(req.user.userId);
-        if (stores.deviceTokens) await stores.deviceTokens.deleteByUser(req.user.userId);
-        if (stores.profiles) await stores.profiles.deleteByUserId(req.user.userId);
-        disconnectUserSockets(req.user.userId, io);
-      };
+  router.delete(
+    '/',
+    userAuth,
+    rateLimit(5, 'account-delete'),
+    validate(schemas.accountDelete),
+    async (req: any, res: any) => {
       try {
-        await performSoftDelete();
-      } catch (err: any) {
-        if (err.code === '40P01') {
-          await performSoftDelete();
-        } else {
-          throw new Error('Account soft-delete failed', { cause: err });
-        }
-      }
+        const { password } = req.validatedBody;
 
-      log.warn('account:soft-delete', { userId: req.user.userId, username: currentUser.username, ip: getRequestIp(req) });
-      deps.clearUserSessionCookie(res);
-      return sendSuccess(res, {
-        success: true,
-        message: 'Account scheduled for deletion. You have 30 days to reactivate by logging in.',
-        deletionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      });
-    } catch (error: any) {
-      log.error('account soft-delete failed', { error: error.message, userId: req.user.userId });
-      return sendError(res, 500, 'Failed to delete account', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+        const { verifyPassword, invalidateUserSessions, disconnectUserSockets, getRequestIp } = deps;
+        const currentUser = await getUserById(req.user.userId);
+        if (!currentUser) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
+
+        // Already soft-deleted?
+        if (currentUser.deletedAt) {
+          return sendError(res, 400, 'Account is already scheduled for deletion', ErrorCodes.INVALID_INPUT);
+        }
+
+        const passwordValid = await verifyPassword(password, currentUser.passwordHash);
+        if (!passwordValid) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          return sendError(res, 403, 'Incorrect password', ErrorCodes.PASSWORD_INCORRECT);
+        }
+
+        // Soft-delete: set deleted_at, keep all data for 30-day grace period.
+        // Retry once on deadlock (PG 40P01) — concurrent test cleanup can trigger this.
+        const performSoftDelete = async () => {
+          await stores.users.update(req.user.userId, { deletedAt: new Date().toISOString() });
+          invalidateUserCache();
+          await invalidateUserSessions(req.user.userId);
+          if (stores.refreshTokens) await stores.refreshTokens.revokeAll(req.user.userId);
+          if (stores.deviceTokens) await stores.deviceTokens.deleteByUser(req.user.userId);
+          if (stores.profiles) await stores.profiles.deleteByUserId(req.user.userId);
+          disconnectUserSockets(req.user.userId, io);
+        };
+        try {
+          await performSoftDelete();
+        } catch (err: any) {
+          if (err.code === '40P01') {
+            await performSoftDelete();
+          } else {
+            throw new Error('Account soft-delete failed', { cause: err });
+          }
+        }
+
+        log.warn('account:soft-delete', {
+          userId: req.user.userId,
+          username: currentUser.username,
+          ip: getRequestIp(req),
+        });
+        deps.clearUserSessionCookie(res);
+        return sendSuccess(res, {
+          success: true,
+          message: 'Account scheduled for deletion. You have 30 days to reactivate by logging in.',
+          deletionDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+      } catch (error: any) {
+        log.error('account soft-delete failed', { error: error.message, userId: req.user.userId });
+        return sendError(res, 500, 'Failed to delete account', ErrorCodes.INTERNAL_ERROR);
+      }
+    },
+  );
 
   // ── GET /export — GDPR data export ────────────────────────────────────────
   router.get('/export', userAuth, rateLimit(10, 'account-export'), async (req: any, res: any) => {

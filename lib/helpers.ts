@@ -19,7 +19,14 @@ import * as exportUtils from './helpers/export-utils.js';
 
 const { buildAvatarUrl } = exportUtils;
 
-const INLINE_HASH_FILES = ['index.html', 'export-template.html', 'privacy.html', 'terms.html', 'security-whitepaper.html', 'offline.html'];
+const INLINE_HASH_FILES = [
+  'index.html',
+  'export-template.html',
+  'privacy.html',
+  'terms.html',
+  'security-whitepaper.html',
+  'offline.html',
+];
 
 // ── Sub-module re-exports ─────────────────────────────────────────────────────
 export * from './helpers/sanitize.js';
@@ -38,7 +45,6 @@ export function createVersionToken() {
   return crypto.randomUUID();
 }
 
-
 // ════════════════════════════════════════════════════════════════════════════════
 // User Serialization (kept here — used by routes, not export-specific)
 // ════════════════════════════════════════════════════════════════════════════════
@@ -47,12 +53,13 @@ export function serializePublicUser(user: any) {
   return {
     id: user.id,
     username: user.username,
+    // Editable display name; null when unset so clients fall back to username.
+    name: user.displayName || null,
     avatarUrl: buildAvatarUrl(user),
     email: user.email || null,
     emailVerified: !!user.emailVerifiedAt,
   };
 }
-
 
 export function collectInlineHashes(publicDir: any) {
   const hashes: { script: Set<string>; style: Set<string> } = { script: new Set(), style: new Set() };
@@ -152,8 +159,8 @@ export function buildContentSecurityPolicy(config: any, inlineHashes: any, optio
     directives.push('upgrade-insecure-requests');
   }
 
-  directives.push("report-uri /api/csp-report");
-  directives.push("report-to csp-endpoint");
+  directives.push('report-uri /api/csp-report');
+  directives.push('report-to csp-endpoint');
 
   return directives.join('; ');
 }
@@ -161,7 +168,6 @@ export function buildContentSecurityPolicy(config: any, inlineHashes: any, optio
 // ════════════════════════════════════════════════════════════════════════════════
 // Retry Utility
 // ════════════════════════════════════════════════════════════════════════════════
-
 
 /**
  * Retry async function with exponential backoff (from promptfoo/MiroFish patterns)
@@ -173,7 +179,10 @@ export function buildContentSecurityPolicy(config: any, inlineHashes: any, optio
  * @param opts.isRetryable - Predicate to check if error is retryable (default: all errors)
  * @returns Result of fn
  */
-export async function withRetry(fn: any, { maxAttempts = 3, baseDelay = 500, maxDelay = 10000, isRetryable = () => true }: any = {}) {
+export async function withRetry(
+  fn: any,
+  { maxAttempts = 3, baseDelay = 500, maxDelay = 10000, isRetryable = () => true }: any = {},
+) {
   let lastError;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -183,7 +192,7 @@ export async function withRetry(fn: any, { maxAttempts = 3, baseDelay = 500, max
       if (attempt === maxAttempts || !isRetryable(error)) throw error;
       const jitter = Math.random() * 200;
       const delay = Math.min(baseDelay * Math.pow(2, attempt - 1) + jitter, maxDelay);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
   throw lastError;

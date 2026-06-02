@@ -6,7 +6,7 @@ import { useAuth } from '@festie/shared/hooks';
 import { useAuthStore } from '@festie/shared/stores';
 import ScreenHeader from '../../components/ScreenHeader';
 import AccountAvatarSection from '../../components/AccountAvatarSection';
-import AccountUsernameSection from '../../components/AccountUsernameSection';
+import AccountDisplayNameSection from '../../components/AccountDisplayNameSection';
 import AccountPasswordSection from '../../components/AccountPasswordSection';
 import AccountNotificationsSection from '../../components/AccountNotificationsSection';
 import AccountNotificationPrefsSection from '../../components/AccountNotificationPrefsSection';
@@ -22,8 +22,9 @@ import { useReduceMotion } from '../../hooks/useReduceMotion';
  * change form, the read-only device preferences that map to shared state today,
  * and a Logout action — all wired to platform-neutral shared store methods.
  *
- * Username change and account deletion are now wired to additive shared actions
- * (authStore.updateUsername / authStore.deleteAccount) via dedicated sections.
+ * Display-name change and account deletion are wired to platform-neutral shared
+ * actions (authStore.updateDisplayName / authStore.deleteAccount) via dedicated
+ * sections. The username is the permanent @handle and is not user-editable.
  *
  * Data export (GDPR) is wired via AccountDataSection (GET /account/export →
  * expo-file-system + expo-sharing).
@@ -118,7 +119,7 @@ export default function AccountScreen() {
 
         {/* Profile */}
         <Text style={styles.sectionLabel}>Profile</Text>
-        <AccountUsernameSection />
+        <AccountDisplayNameSection />
 
         {/* Security */}
         <Text style={styles.sectionLabel}>Security</Text>
