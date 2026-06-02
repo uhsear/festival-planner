@@ -50,6 +50,7 @@
 import fs from 'fs';
 import path from 'path';
 
+import { splitSqlStatements, usesConcurrently } from './db/sql-split.js';
 import {
   createStores,
   createDbLatencyTracker,
@@ -121,9 +122,7 @@ async function ensureSchemaMigrationsTable(client: any) {
   `);
   // Legacy databases may have the table without the `name` column; add
   // it additively. Safe no-op on new installs.
-  await client.query(
-    "ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT ''",
-  );
+  await client.query("ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT ''");
   await client.query(
     'ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS applied_at TIMESTAMPTZ NOT NULL DEFAULT now()',
   );
@@ -138,9 +137,8 @@ async function loadAppliedVersions(client: any) {
   for (const row of res.rows) {
     // Column is INTEGER in live; be defensive against the text-PK
     // variant (strip any trailing suffix letter).
-    const raw = typeof row.version === 'number'
-      ? row.version
-      : parseInt(String(row.version).replace(/[a-z]$/i, ''), 10);
+    const raw =
+      typeof row.version === 'number' ? row.version : parseInt(String(row.version).replace(/[a-z]$/i, ''), 10);
     if (Number.isFinite(raw)) out.add(raw);
   }
   return out;
@@ -158,10 +156,7 @@ async function applyOneMigration(client: any, migration: any, log: any) {
   try {
     sql = fs.readFileSync(fullPath, 'utf8');
   } catch (readErr: any) {
-    throw new Error(
-      `migration read failed for ${file} (version ${version}): ${readErr.message}`,
-      { cause: readErr },
-    );
+    throw new Error(`migration read failed for ${file} (version ${version}): ${readErr.message}`, { cause: readErr });
   }
 
   const cleaned = stripOuterTxBoundaries(sql);
@@ -169,19 +164,42 @@ async function applyOneMigration(client: any, migration: any, log: any) {
   log('info', 'applying migration', { version, file });
 
   try {
+    // CONCURRENTLY migrations (CREATE/DROP INDEX CONCURRENTLY) cannot run
+    // inside a transaction block, and a multi-statement query is wrapped in
+    // an implicit one — so run each statement separately in autocommit. No
+    // atomic rollback is possible here; these migrations are written
+    // idempotently (IF [NOT] EXISTS / guarded DO blocks). See lib/db/sql-split.ts.
+    if (usesConcurrently(cleaned)) {
+      const alreadyConc = await client.query('SELECT 1 FROM schema_migrations WHERE version = $1', [version]);
+      if (alreadyConc.rowCount > 0) {
+        log('info', 'migration already recorded; skipping', { version, file });
+        return false;
+      }
+      for (const statement of splitSqlStatements(cleaned)) {
+        await client.query(statement);
+      }
+      // Some CONCURRENTLY migrations self-record their row; ON CONFLICT keeps
+      // this bookkeeping INSERT a harmless no-op in that case.
+      await client.query(
+        'INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, now()) ON CONFLICT (version) DO NOTHING',
+        [version, file],
+      );
+      const durationConc = Date.now() - started;
+      log('info', 'migration applied (non-transactional / CONCURRENTLY)', { version, file, durationMs: durationConc });
+      return true;
+    }
+
     await client.query('BEGIN');
 
     // Double-check inside the txn — another process may have applied
     // this version between our pre-scan and now. If so, silently skip
     // (commit empty txn) rather than crash on PK conflict.
-    const already = await client.query(
-      'SELECT 1 FROM schema_migrations WHERE version = $1',
-      [version],
-    );
+    const already = await client.query('SELECT 1 FROM schema_migrations WHERE version = $1', [version]);
     if (already.rowCount > 0) {
       await client.query('COMMIT');
       log('info', 'migration already recorded by concurrent runner; skipping', {
-        version, file,
+        version,
+        file,
       });
       return false;
     }
@@ -190,11 +208,11 @@ async function applyOneMigration(client: any, migration: any, log: any) {
     // via a single query call.
     await client.query(cleaned);
 
-    // Record the row in the SAME transaction. If this INSERT fails
-    // (e.g. PK collision because someone else raced us), the whole
-    // apply rolls back atomically.
+    // Record the row in the SAME transaction. ON CONFLICT DO NOTHING so a
+    // migration that self-records its own row (some do) doesn't cause a PK
+    // collision that rolls the whole apply back.
     await client.query(
-      'INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, now())',
+      'INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, now()) ON CONFLICT (version) DO NOTHING',
       [version, file],
     );
 
@@ -205,15 +223,20 @@ async function applyOneMigration(client: any, migration: any, log: any) {
   } catch (err: any) {
     // Best-effort rollback; swallow rollback errors so we always surface
     // the original failure.
-    try { await client.query('ROLLBACK'); } catch { /* ignore */ }
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
     const durationMs = Date.now() - started;
     const psqlMsg = err && err.message ? err.message : String(err);
     log('error', 'MIGRATION FAILED — rolled back', {
-      version, file, durationMs, error: psqlMsg,
+      version,
+      file,
+      durationMs,
+      error: psqlMsg,
     });
-    const wrapped: any = new Error(
-      `migration ${file} (version ${version}) failed: ${psqlMsg}`,
-    );
+    const wrapped: any = new Error(`migration ${file} (version ${version}) failed: ${psqlMsg}`);
     wrapped.cause = err;
     wrapped.migrationVersion = version;
     wrapped.migrationFile = file;
@@ -234,14 +257,8 @@ async function applyOneMigration(client: any, migration: any, log: any) {
 function stripOuterTxBoundaries(sql: string) {
   if (!sql || typeof sql !== 'string') return sql;
   let out = sql;
-  out = out.replace(
-    /^(\s*(?:--[^\n]*\n|\/\*[\s\S]*?\*\/|\s)*)BEGIN(?:\s+TRANSACTION)?\s*;\s*/i,
-    '$1',
-  );
-  out = out.replace(
-    /;?\s*COMMIT\s*;?\s*(?:(?:--[^\n]*|\/\*[\s\S]*?\*\/)\s*)*$/i,
-    ';',
-  );
+  out = out.replace(/^(\s*(?:--[^\n]*\n|\/\*[\s\S]*?\*\/|\s)*)BEGIN(?:\s+TRANSACTION)?\s*;\s*/i, '$1');
+  out = out.replace(/;?\s*COMMIT\s*;?\s*(?:(?:--[^\n]*|\/\*[\s\S]*?\*\/)\s*)*$/i, ';');
   return out;
 }
 
@@ -338,7 +355,7 @@ function openPlannerDatabase(opts: any = {}) {
   const result = openPlannerDatabaseRaw(opts);
   const pool = result && result.pool;
   const databaseUrl = opts.databaseUrl || process.env.DATABASE_URL || '';
-  const log = typeof opts.log === 'function' ? opts.log : (() => {});
+  const log = typeof opts.log === 'function' ? opts.log : () => {};
 
   if (!pool) {
     // Upstream did something unexpected; preserve its return value and
@@ -353,8 +370,8 @@ function openPlannerDatabase(opts: any = {}) {
   // their own ensureTestSchema() and truncate between tests. Running the
   // startup runner against a test DB re-applies migrations that aren't
   // recorded in schema_migrations and breaks NOT-NULL constraints mid-suite.
-  const isTestEnv = process.env.NODE_ENV === 'test'
-    || (typeof databaseUrl === 'string' && /_test(\?|$)/.test(databaseUrl));
+  const isTestEnv =
+    process.env.NODE_ENV === 'test' || (typeof databaseUrl === 'string' && /_test(\?|$)/.test(databaseUrl));
   if (isTestEnv) {
     return Object.assign(result, {
       migrationsReady: Promise.resolve({ applied: [], current: 0, gap: [] }),
@@ -391,7 +408,10 @@ function openPlannerDatabase(opts: any = {}) {
  * the test harness can opt-in without polluting the public API. Not
  * used in production code.
  */
-const __resetMigrationCacheForTests = () => { MIGRATED_URLS.clear(); _migrationsRan = false; };
+const __resetMigrationCacheForTests = () => {
+  MIGRATED_URLS.clear();
+  _migrationsRan = false;
+};
 
 // ── Public API ───────────────────────────────────────────────────────────
 // Re-export everything from ./db/index unchanged, substituting our
