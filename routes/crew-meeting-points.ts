@@ -1,8 +1,19 @@
 import { Router } from 'express';
+import type { Request, Response } from 'express';
+import type { z } from 'zod';
+
+import type { RouteDeps } from '../lib/types';
+import type {
+  crewIdParams,
+  crewIdMpIdParams,
+  crewHomeBaseSchema,
+  meetingPointCreateSchema,
+  meetingPointUpdateSchema,
+} from '../lib/schemas';
 
 const MAX_MEETING_POINTS_PER_CREW = 20;
 
-export default function createCrewMeetingPointRoutes(deps: any) {
+export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
   const {
     log,
     userAuth,
@@ -28,22 +39,24 @@ export default function createCrewMeetingPointRoutes(deps: any) {
     rateLimit(10, 'crew-homebase'),
     validateParams(schemas.crewIdParams),
     validate(schemas.crewHomeBase),
-    async (req: any, res: any) => {
+    async (req: Request, res: Response) => {
       try {
-        const crewId = sanitizeIdentifier(req.validatedParams.crewId);
+        const params = req.validatedParams as z.infer<typeof crewIdParams>;
+        const body = req.validatedBody as z.infer<typeof crewHomeBaseSchema>;
+        const crewId = sanitizeIdentifier(params.crewId);
         const member = await stores.crews.getMember(crewId, req.user.userId);
         if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
         if (member.role !== 'owner') return sendError(res, 403, 'Only owner can set home base', ErrorCodes.FORBIDDEN);
 
-        const { location, time } = req.validatedBody;
+        const { location, time } = body;
         const updated = await stores.crews.updateHomeBase(crewId, { location, time });
         io.to('crew:' + crewId).emit('crew:home-base-updated', { crewId, location, time });
         await stores.activity
           .log({ crewId, userId: req.user.userId, type: 'home-base-updated', detail: location || null })
           .catch(() => {});
         return sendSuccess(res, { crew: updated });
-      } catch (err: any) {
-        log.error('set home base failed', { error: err.message });
+      } catch (err) {
+        log.error('set home base failed', { error: (err as Error).message });
         return sendError(res, 500, 'Failed to update home base', ErrorCodes.INTERNAL_ERROR);
       }
     },
@@ -55,15 +68,16 @@ export default function createCrewMeetingPointRoutes(deps: any) {
     userAuth,
     rateLimit(120, 'crew-mp-list'),
     validateParams(schemas.crewIdParams),
-    async (req: any, res: any) => {
+    async (req: Request, res: Response) => {
       try {
-        const crewId = sanitizeIdentifier(req.validatedParams.crewId);
+        const params = req.validatedParams as z.infer<typeof crewIdParams>;
+        const crewId = sanitizeIdentifier(params.crewId);
         const member = await stores.crews.getMember(crewId, req.user.userId);
         if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
         const points = await stores.crews.meetingPoints.listByCrew(crewId);
         return sendSuccess(res, { meetingPoints: points });
-      } catch (err: any) {
-        log.error('get meeting points failed', { error: err.message });
+      } catch (err) {
+        log.error('get meeting points failed', { error: (err as Error).message });
         return sendError(res, 500, 'Failed to load meeting points', ErrorCodes.INTERNAL_ERROR);
       }
     },
@@ -76,9 +90,11 @@ export default function createCrewMeetingPointRoutes(deps: any) {
     rateLimit(20, 'crew-mp-create'),
     validateParams(schemas.crewIdParams),
     validate(schemas.meetingPointCreate),
-    async (req: any, res: any) => {
+    async (req: Request, res: Response) => {
       try {
-        const crewId = sanitizeIdentifier(req.validatedParams.crewId);
+        const params = req.validatedParams as z.infer<typeof crewIdParams>;
+        const body = req.validatedBody as z.infer<typeof meetingPointCreateSchema>;
+        const crewId = sanitizeIdentifier(params.crewId);
         const member = await stores.crews.getMember(crewId, req.user.userId);
         if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
 
@@ -92,7 +108,7 @@ export default function createCrewMeetingPointRoutes(deps: any) {
           );
         }
 
-        const { label, location, type, meetAt, stageReference } = req.validatedBody;
+        const { label, location, type, meetAt, stageReference } = body;
         const id = createOpaqueId('mp');
         let expiresAt = null;
         if (meetAt) {
@@ -114,8 +130,8 @@ export default function createCrewMeetingPointRoutes(deps: any) {
         io.to('crew:' + crewId).emit('crew:meeting-point-created', point);
         res.status(201);
         return sendSuccess(res, { meetingPoint: point });
-      } catch (err: any) {
-        log.error('create meeting point failed', { error: err.message });
+      } catch (err) {
+        log.error('create meeting point failed', { error: (err as Error).message });
         return sendError(res, 500, 'Failed to create meeting point', ErrorCodes.INTERNAL_ERROR);
       }
     },
@@ -128,10 +144,12 @@ export default function createCrewMeetingPointRoutes(deps: any) {
     rateLimit(20, 'crew-mp-update'),
     validateParams(schemas.crewIdMpIdParams),
     validate(schemas.meetingPointUpdate),
-    async (req: any, res: any) => {
+    async (req: Request, res: Response) => {
       try {
-        const crewId = sanitizeIdentifier(req.validatedParams.crewId);
-        const mpId = sanitizeIdentifier(req.validatedParams.mpId);
+        const params = req.validatedParams as z.infer<typeof crewIdMpIdParams>;
+        const body = req.validatedBody as z.infer<typeof meetingPointUpdateSchema>;
+        const crewId = sanitizeIdentifier(params.crewId);
+        const mpId = sanitizeIdentifier(params.mpId);
 
         const member = await stores.crews.getMember(crewId, req.user.userId);
         if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
@@ -145,11 +163,11 @@ export default function createCrewMeetingPointRoutes(deps: any) {
           return sendError(res, 403, 'Only the creator or crew owner can edit', ErrorCodes.FORBIDDEN);
         }
 
-        const updated = await stores.crews.meetingPoints.update(mpId, req.validatedBody);
+        const updated = await stores.crews.meetingPoints.update(mpId, body);
         io.to('crew:' + crewId).emit('crew:meeting-point-updated', updated);
         return sendSuccess(res, { meetingPoint: updated });
-      } catch (err: any) {
-        log.error('update meeting point failed', { error: err.message });
+      } catch (err) {
+        log.error('update meeting point failed', { error: (err as Error).message });
         return sendError(res, 500, 'Failed to update meeting point', ErrorCodes.INTERNAL_ERROR);
       }
     },
@@ -161,10 +179,11 @@ export default function createCrewMeetingPointRoutes(deps: any) {
     userAuth,
     rateLimit(20, 'crew-mp-delete'),
     validateParams(schemas.crewIdMpIdParams),
-    async (req: any, res: any) => {
+    async (req: Request, res: Response) => {
       try {
-        const crewId = sanitizeIdentifier(req.validatedParams.crewId);
-        const mpId = sanitizeIdentifier(req.validatedParams.mpId);
+        const params = req.validatedParams as z.infer<typeof crewIdMpIdParams>;
+        const crewId = sanitizeIdentifier(params.crewId);
+        const mpId = sanitizeIdentifier(params.mpId);
 
         const member = await stores.crews.getMember(crewId, req.user.userId);
         if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
@@ -181,8 +200,8 @@ export default function createCrewMeetingPointRoutes(deps: any) {
         await stores.crews.meetingPoints.deactivate(mpId);
         io.to('crew:' + crewId).emit('crew:meeting-point-removed', { id: mpId, crewId });
         return sendSuccess(res, { removed: true });
-      } catch (err: any) {
-        log.error('delete meeting point failed', { error: err.message });
+      } catch (err) {
+        log.error('delete meeting point failed', { error: (err as Error).message });
         return sendError(res, 500, 'Failed to remove meeting point', ErrorCodes.INTERNAL_ERROR);
       }
     },

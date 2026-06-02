@@ -15,15 +15,10 @@
 import crypto from 'crypto';
 import type { Request, Response, Router } from 'express';
 import { sendVerificationEmail } from '../lib/email';
-
-// Augment Express Request with custom properties added by auth/validation middleware
-declare module 'express' {
-  interface Request {
-    validatedBody: any;
-    user: { userId: string; username: string };
-    userToken: string;
-  }
-}
+// Request augmentation (validatedBody, user, userToken, …) now lives centrally
+// in lib/types/request.ts. Importing the types barrel pulls in its global
+// side-effect so this module sees the augmented Request.
+import type {} from '../lib/types';
 
 /**
  * Create a new user, link orphan festival profiles, and optionally send
@@ -33,9 +28,7 @@ declare module 'express' {
  */
 async function createUserWithProfile(userData: any, deps: any) {
   const { cleanUsername, passwordHash, newUserId, cleanEmail } = userData;
-  const {
-    stores, config, log, invalidateUserCache,
-  } = deps;
+  const { stores, config, log, invalidateUserCache } = deps;
 
   // Create user in database
   const user = await stores.users.create({
@@ -58,7 +51,7 @@ async function createUserWithProfile(userData: any, deps: any) {
       const verifyToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
       await stores.pool.query(
-        'INSERT INTO email_verification_tokens (user_id, token_hash, email, expires_at) VALUES ($1, $2, $3, NOW() + ($4 || \' hours\')::INTERVAL)',
+        "INSERT INTO email_verification_tokens (user_id, token_hash, email, expires_at) VALUES ($1, $2, $3, NOW() + ($4 || ' hours')::INTERVAL)",
         [user.id, tokenHash, cleanEmail, config.EMAIL_VERIFY_TOKEN_TTL_HOURS],
       );
       const verifyUrl = `${config.PUBLIC_ORIGIN}/api/v1/auth/verify-email?token=${verifyToken}`;
@@ -136,22 +129,43 @@ function disconnectSessionSockets(userId: string, targetTokenHash: string, reaso
 
 export default function createAuthRoutes(deps: any): Router {
   const {
-    express, config, log,
-    sanitizeString, validateUsername, validatePasswordStrength, checkPasswordPolicy,
-    hashPassword, verifyPassword,
-    createUserSession, validateUserSession,
-    invalidateUserSessions, resolveRequestToken,
-    setNoStore, setUserSessionCookie, clearUserSessionCookie,
-    userAuth, getUserById, getUsers: _getUsers,
-    disconnectUserSockets, createOpaqueId,
-    sendSuccess, sendError, ErrorCodes, rateLimit,
-    io, DUMMY_PASSWORD_HASH,
-    schemas, validate,
-    stores, invalidateUserCache,
+    express,
+    config,
+    log,
+    sanitizeString,
+    validateUsername,
+    validatePasswordStrength,
+    checkPasswordPolicy,
+    hashPassword,
+    verifyPassword,
+    createUserSession,
+    validateUserSession,
+    invalidateUserSessions,
+    resolveRequestToken,
+    setNoStore,
+    setUserSessionCookie,
+    clearUserSessionCookie,
+    userAuth,
+    getUserById,
+    getUsers: _getUsers,
+    disconnectUserSockets,
+    createOpaqueId,
+    sendSuccess,
+    sendError,
+    ErrorCodes,
+    rateLimit,
+    io,
+    DUMMY_PASSWORD_HASH,
+    schemas,
+    validate,
+    stores,
+    invalidateUserCache,
 
-
-
-    _pool, _state, _hashSessionToken, _createAuditLog, _getRequestIp,
+    _pool,
+    _state,
+    _hashSessionToken,
+    _createAuditLog,
+    _getRequestIp,
   } = deps;
 
   const router = express.Router();
@@ -190,39 +204,46 @@ export default function createAuthRoutes(deps: any): Router {
     return null;
   }
 
-  router.post('/register', rateLimit(5, 'register'), validate(schemas.register), async (req: Request, res: Response) => {
-    try {
-      const validated = await validateRegistrationInput(req.validatedBody);
-      if (validated.error) return sendError(res, 400, validated.error, ErrorCodes.INVALID_INPUT);
-      const { cleanUsername, cleanEmail } = validated;
+  router.post(
+    '/register',
+    rateLimit(5, 'register'),
+    validate(schemas.register),
+    async (req: Request, res: Response) => {
+      try {
+        const validated = await validateRegistrationInput(req.validatedBody as any);
+        if (validated.error) return sendError(res, 400, validated.error, ErrorCodes.INVALID_INPUT);
+        const { cleanUsername, cleanEmail } = validated;
 
-      const conflict = await checkRegistrationConflicts(cleanUsername!, cleanEmail!);
-      if (conflict) {
-        const code = conflict === 'Maximum users reached' ? ErrorCodes.MAX_LIMIT_REACHED : ErrorCodes.ALREADY_EXISTS;
-        return sendError(res, 400, conflict, code);
+        const conflict = await checkRegistrationConflicts(cleanUsername!, cleanEmail!);
+        if (conflict) {
+          const code = conflict === 'Maximum users reached' ? ErrorCodes.MAX_LIMIT_REACHED : ErrorCodes.ALREADY_EXISTS;
+          return sendError(res, 400, conflict, code);
+        }
+
+        const passwordHash = await hashPassword((req.validatedBody as any).password);
+        const newUserId = createOpaqueId('user');
+        const user = await createUserWithProfile({ cleanUsername, passwordHash, newUserId, cleanEmail }, deps);
+
+        const token = await createUserSession(user.id, user.username);
+        setNoStore(res);
+        setUserSessionCookie(res, token);
+        const refreshToken = await issueRefreshToken(user.id, token, deps);
+
+        const { serializePublicUser } = deps;
+        const _roles = await stores.roles.getUserRoles(user.id);
+        res.status(201);
+        return sendSuccess(res, {
+          user: serializePublicUser(user),
+          token,
+          refreshToken,
+          emailVerificationSent: !!cleanEmail,
+        });
+      } catch (error: any) {
+        log.error('register failed', { error: error.message });
+        return sendError(res, 500, 'Registration failed', ErrorCodes.INTERNAL_ERROR);
       }
-
-      const passwordHash = await hashPassword(req.validatedBody.password);
-      const newUserId = createOpaqueId('user');
-      const user = await createUserWithProfile(
-        { cleanUsername, passwordHash, newUserId, cleanEmail },
-        deps,
-      );
-
-      const token = await createUserSession(user.id, user.username);
-      setNoStore(res);
-      setUserSessionCookie(res, token);
-      const refreshToken = await issueRefreshToken(user.id, token, deps);
-
-      const { serializePublicUser } = deps;
-      const _roles = await stores.roles.getUserRoles(user.id);
-      res.status(201);
-      return sendSuccess(res, { user: serializePublicUser(user), token, refreshToken, emailVerificationSent: !!cleanEmail });
-    } catch (error: any) {
-      log.error('register failed', { error: error.message });
-      return sendError(res, 500, 'Registration failed', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   async function resolveLoginUser(username: string) {
     let user = await stores.users.getByUsername(String(username).trim());
@@ -230,7 +251,9 @@ export default function createAuthRoutes(deps: any): Router {
       try {
         const softDeleted = await stores.users.findByUsername?.(String(username).trim());
         if (softDeleted?.deletedAt) user = softDeleted;
-      } catch { /* ignored */ }
+      } catch {
+        /* ignored */
+      }
     }
     return user;
   }
@@ -249,7 +272,7 @@ export default function createAuthRoutes(deps: any): Router {
 
   router.post('/login', rateLimit(10, 'login'), validate(schemas.login), async (req: Request, res: Response) => {
     try {
-      const { username, password } = req.validatedBody;
+      const { username, password } = req.validatedBody as any;
       if (!username || !password) {
         return sendError(res, 400, 'Username and password required', ErrorCodes.MISSING_FIELD);
       }
@@ -259,7 +282,10 @@ export default function createAuthRoutes(deps: any): Router {
 
       if (user && !deps.consumeUserAuthRateLimit(user.id, config.AUTH_RATE_LIMIT_MAX)) {
         const jitter = 100 + Math.floor(Math.random() * 100);
-        return setTimeout(() => sendError(res, 429, 'Too many login attempts for this account', ErrorCodes.RATE_LIMITED), jitter);
+        return setTimeout(
+          () => sendError(res, 429, 'Too many login attempts for this account', ErrorCodes.RATE_LIMITED),
+          jitter,
+        );
       }
 
       const passwordValid = await verifyPassword(String(password), user?.passwordHash || DUMMY_PASSWORD_HASH);
@@ -267,7 +293,10 @@ export default function createAuthRoutes(deps: any): Router {
         await handleLoginFailure(user, deps);
         const jitter = 500 + Math.floor(Math.random() * 1000);
         log.warn('authentication failed', { username: user ? user.username : 'unknown', ip: req.ip });
-        return setTimeout(() => sendError(res, 401, 'Invalid username or password', ErrorCodes.INVALID_CREDENTIALS), jitter);
+        return setTimeout(
+          () => sendError(res, 401, 'Invalid username or password', ErrorCodes.INVALID_CREDENTIALS),
+          jitter,
+        );
       }
 
       if (stores.loginFailures) await stores.loginFailures.reset(user.id);
@@ -335,7 +364,7 @@ export default function createAuthRoutes(deps: any): Router {
     try {
       setNoStore(res);
       const { token } = resolveRequestToken(req, 'x-user-token', config.USER_SESSION_COOKIE);
-       
+
       const { hashSessionToken } = deps;
       if (token) {
         await stores.sessions.deleteUserSession(hashSessionToken(token));
@@ -374,52 +403,57 @@ export default function createAuthRoutes(deps: any): Router {
   });
 
   // ── POST /refresh-token — exchange refresh token for new session + new refresh token ──
-  router.post('/refresh-token', rateLimit(20, 'refresh-token'), validate(schemas.refreshToken), async (req: Request, res: Response) => {
-    try {
-      setNoStore(res);
-      const { refreshToken: incomingRefreshToken } = req.validatedBody;
-      if (!stores.refreshTokens) {
-        return sendError(res, 501, 'Refresh tokens not supported', ErrorCodes.INTERNAL_ERROR);
+  router.post(
+    '/refresh-token',
+    rateLimit(20, 'refresh-token'),
+    validate(schemas.refreshToken),
+    async (req: Request, res: Response) => {
+      try {
+        setNoStore(res);
+        const { refreshToken: incomingRefreshToken } = req.validatedBody as any;
+        if (!stores.refreshTokens) {
+          return sendError(res, 501, 'Refresh tokens not supported', ErrorCodes.INTERNAL_ERROR);
+        }
+
+        const { hashSessionToken: hashToken } = deps;
+        const hashedToken = hashToken(incomingRefreshToken);
+        const stored = await stores.refreshTokens.validate(hashedToken);
+        if (!stored) {
+          return sendError(res, 401, 'Invalid or expired refresh token', ErrorCodes.TOKEN_EXPIRED);
+        }
+
+        const user = await getUserById(stored.userId);
+        if (!user) {
+          return sendError(res, 401, 'User not found', ErrorCodes.AUTH_REQUIRED);
+        }
+
+        // Issue new session token
+        const newSessionToken = await createUserSession(user.id, user.username);
+        setUserSessionCookie(res, newSessionToken);
+
+        // Rotate refresh token (old one marked revoked, new one issued)
+        const newRefreshToken = createOpaqueId('rt');
+        const newRefreshHash = hashToken(newRefreshToken);
+        await stores.refreshTokens.rotate(
+          hashedToken,
+          newRefreshHash,
+          hashToken(newSessionToken),
+          new Date(Date.now() + config.REFRESH_TOKEN_TTL),
+        );
+
+        const { serializePublicUser } = deps;
+        const _roles = await stores.roles.getUserRoles(user.id);
+        return sendSuccess(res, {
+          user: serializePublicUser(user),
+          token: newSessionToken,
+          refreshToken: newRefreshToken,
+        });
+      } catch (error: any) {
+        log.error('refresh-token failed', { error: error.message });
+        return sendError(res, 500, 'Token refresh failed', ErrorCodes.INTERNAL_ERROR);
       }
-
-      const { hashSessionToken: hashToken } = deps;
-      const hashedToken = hashToken(incomingRefreshToken);
-      const stored = await stores.refreshTokens.validate(hashedToken);
-      if (!stored) {
-        return sendError(res, 401, 'Invalid or expired refresh token', ErrorCodes.TOKEN_EXPIRED);
-      }
-
-      const user = await getUserById(stored.userId);
-      if (!user) {
-        return sendError(res, 401, 'User not found', ErrorCodes.AUTH_REQUIRED);
-      }
-
-      // Issue new session token
-      const newSessionToken = await createUserSession(user.id, user.username);
-      setUserSessionCookie(res, newSessionToken);
-
-      // Rotate refresh token (old one marked revoked, new one issued)
-      const newRefreshToken = createOpaqueId('rt');
-      const newRefreshHash = hashToken(newRefreshToken);
-      await stores.refreshTokens.rotate(
-        hashedToken,
-        newRefreshHash,
-        hashToken(newSessionToken),
-        new Date(Date.now() + config.REFRESH_TOKEN_TTL),
-      );
-
-      const { serializePublicUser } = deps;
-      const _roles = await stores.roles.getUserRoles(user.id);
-      return sendSuccess(res, {
-        user: serializePublicUser(user),
-        token: newSessionToken,
-        refreshToken: newRefreshToken,
-      });
-    } catch (error: any) {
-      log.error('refresh-token failed', { error: error.message });
-      return sendError(res, 500, 'Token refresh failed', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   // ── GET /sessions — list active sessions for current user ─────────────
   // Session management: Justified. Users need control over active sessions for security on shared devices.
@@ -427,7 +461,7 @@ export default function createAuthRoutes(deps: any): Router {
   router.get('/sessions', userAuth, rateLimit(60, 'get-sessions'), async (req: Request, res: Response) => {
     try {
       setNoStore(res);
-       
+
       const { hashSessionToken: hashToken } = deps;
       const sessions = await stores.sessions.listUserSessions(req.user.userId);
       const currentTokenHash = req.userToken ? hashToken(req.userToken) : null;
@@ -448,7 +482,7 @@ export default function createAuthRoutes(deps: any): Router {
   router.delete('/sessions/:id', userAuth, rateLimit(10, 'del-session'), async (req: Request, res: Response) => {
     try {
       setNoStore(res);
-       
+
       const { hashSessionToken: hashToken } = deps;
       const sessionId = req.params.id as string;
       if (!sessionId || sessionId.length !== 16 || !/^[a-f0-9]+$/i.test(sessionId)) {
@@ -502,49 +536,54 @@ export default function createAuthRoutes(deps: any): Router {
     }
   });
 
-  router.post('/change-password', userAuth, rateLimit(5, 'change-password'), validate(schemas.changePassword), async (req: Request, res: Response) => {
-    try {
-      const { currentPassword, newPassword, confirmPassword } = req.validatedBody;
-      if (!currentPassword || !newPassword || !confirmPassword) {
-        return sendError(res, 400, 'Current and new password required', ErrorCodes.MISSING_FIELD);
-      }
-      const pwError = checkPasswordPolicy(newPassword, { username: req.user?.username });
-      if (pwError) {
-        return sendError(res, 400, pwError, ErrorCodes.INVALID_INPUT);
-      }
-      if (newPassword !== confirmPassword) {
-        return sendError(res, 400, 'New passwords do not match', ErrorCodes.INVALID_INPUT);
-      }
+  router.post(
+    '/change-password',
+    userAuth,
+    rateLimit(5, 'change-password'),
+    validate(schemas.changePassword),
+    async (req: Request, res: Response) => {
+      try {
+        const { currentPassword, newPassword, confirmPassword } = req.validatedBody as any;
+        if (!currentPassword || !newPassword || !confirmPassword) {
+          return sendError(res, 400, 'Current and new password required', ErrorCodes.MISSING_FIELD);
+        }
+        const pwError = checkPasswordPolicy(newPassword, { username: req.user?.username });
+        if (pwError) {
+          return sendError(res, 400, pwError, ErrorCodes.INVALID_INPUT);
+        }
+        if (newPassword !== confirmPassword) {
+          return sendError(res, 400, 'New passwords do not match', ErrorCodes.INVALID_INPUT);
+        }
 
-      // Hash new password outside the write lock to minimize lock time
-      const newPasswordHash = await hashPassword(newPassword);
+        // Hash new password outside the write lock to minimize lock time
+        const newPasswordHash = await hashPassword(newPassword);
 
-      // Verify current password first
-      const user = await getUserById(req.user.userId);
-      if (!user) {
-        return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
+        // Verify current password first
+        const user = await getUserById(req.user.userId);
+        if (!user) {
+          return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
+        }
+        if (!(await verifyPassword(currentPassword, user.passwordHash))) {
+          return sendError(res, 400, 'Current password incorrect', ErrorCodes.PASSWORD_INCORRECT);
+        }
+
+        // Update password in database
+        await stores.users.update(req.user.userId, { passwordHash: newPasswordHash });
+        invalidateUserCache();
+        // Invalidate all existing sessions immediately after password change
+        // to close the window where old sessions remain valid
+        await invalidateUserSessions(req.user.userId);
+        disconnectUserSockets(req.user.userId, io);
+        const token = await createUserSession(req.user.userId, req.user.username);
+        setNoStore(res);
+        setUserSessionCookie(res, token);
+        return sendSuccess(res, { success: true, token });
+      } catch (error: any) {
+        log.error('change-password failed', { error: error.message });
+        return sendError(res, 500, 'Failed to change password', ErrorCodes.INTERNAL_ERROR);
       }
-      if (!await verifyPassword(currentPassword, user.passwordHash)) {
-        return sendError(res, 400, 'Current password incorrect', ErrorCodes.PASSWORD_INCORRECT);
-      }
-
-      // Update password in database
-      await stores.users.update(req.user.userId, { passwordHash: newPasswordHash });
-      invalidateUserCache();
-      // Invalidate all existing sessions immediately after password change
-      // to close the window where old sessions remain valid
-      await invalidateUserSessions(req.user.userId);
-      disconnectUserSockets(req.user.userId, io);
-      const token = await createUserSession(req.user.userId, req.user.username);
-      setNoStore(res);
-      setUserSessionCookie(res, token);
-      return sendSuccess(res, { success: true, token });
-    } catch (error: any) {
-      log.error('change-password failed', { error: error.message });
-      return sendError(res, 500, 'Failed to change password', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
-
+    },
+  );
 
   return router;
 }

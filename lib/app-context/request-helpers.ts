@@ -12,8 +12,17 @@
  *     are declared here (previously at module top of index.js). They
  *     remain re-exported on the context object for byte-identical
  *     downstream consumption.
- *   - `getRequestIp` consults `cf-connecting-ip` and `x-forwarded-for`
- *     only when `config.TRUST_PROXY` is truthy — unchanged.
+ *   - `getRequestIp` IP-resolution contract (TRUST_PROXY hardening, 2026-06-02):
+ *       When `config.TRUST_PROXY` is truthy the origin is only reachable behind
+ *       the trusted edge (Cloudflare → loopback tunnel), so we trust ONLY a
+ *       `net.isIP`-validated `cf-connecting-ip`, then fall back to the raw socket
+ *       peer. We do NOT read `req.ip` in this branch (it is itself derived from
+ *       `x-forwarded-for` under Express trust-proxy and therefore spoofable) and
+ *       we do NOT consult `x-forwarded-for` at all — a client cannot move its
+ *       rate-limit / audit key by forging XFF.
+ *       When `config.TRUST_PROXY` is falsy (local dev) behaviour is unchanged:
+ *       use `req.ip` plus the socket addresses, never proxy headers.
+ *     See docs/security/trust-proxy-hardening.md.
  */
 import net from 'net';
 
@@ -26,14 +35,29 @@ export const TRUSTED_MUTATION_VALUE = '1';
 /**
  * Build request helpers bound to the given config + logger + response helpers.
  */
-export function createRequestHelpers({ config, log, sendError, ErrorCodes }: { config: any; log: any; sendError: any; ErrorCodes: any }) {
+export function createRequestHelpers({
+  config,
+  log,
+  sendError,
+  ErrorCodes,
+}: {
+  config: any;
+  log: any;
+  sendError: any;
+  ErrorCodes: any;
+}) {
   function getRequestIp(req: any) {
     const candidates: any[] = [];
     if (config.TRUST_PROXY) {
+      // Behind the trusted edge: trust ONLY a validated cf-connecting-ip,
+      // then the raw socket peer. Never req.ip (XFF-derived) or x-forwarded-for
+      // (forgeable) — a client must not be able to move its key via headers.
       candidates.push(req.get('cf-connecting-ip'));
-      candidates.push(String(req.get('x-forwarded-for') || '').split(',')[0]!.trim());
+      candidates.push(req.socket?.remoteAddress, req.connection?.remoteAddress);
+    } else {
+      // Local dev: no proxy in front, trust Express's req.ip + socket addresses.
+      candidates.push(req.ip, req.connection?.remoteAddress, req.socket?.remoteAddress);
     }
-    candidates.push(req.ip, req.connection?.remoteAddress, req.socket?.remoteAddress);
     for (const candidate of candidates) {
       if (candidate && net.isIP(candidate)) return candidate;
     }

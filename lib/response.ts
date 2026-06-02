@@ -31,7 +31,12 @@ export const RETRYABLE_CODES: Set<string> = new Set([
   ErrorCodes.VERSION_MISMATCH,
 ]);
 
-export function sendSuccess(res: Response, data: any, meta: Record<string, any> | null = null, config: AppConfig | null = null) {
+export function sendSuccess<T = unknown>(
+  res: Response,
+  data: T,
+  meta: Record<string, any> | null = null,
+  config: AppConfig | null = null,
+) {
   const body: Record<string, any> = { data, error: null };
   if (meta && Object.keys(meta).length > 0) {
     const keys = Object.keys(meta);
@@ -50,7 +55,13 @@ export function sendSuccess(res: Response, data: any, meta: Record<string, any> 
   return res.json(body);
 }
 
-export function sendError(res: Response, status: number, message: string, code: string | null = null, details: Record<string, any> | null = null) {
+export function sendError(
+  res: Response,
+  status: number,
+  message: string,
+  code: string | null = null,
+  details: Record<string, any> | null = null,
+) {
   const error: Record<string, any> = { message, status };
   if (code) {
     error.code = code;

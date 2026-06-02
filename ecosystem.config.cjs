@@ -49,14 +49,14 @@ module.exports = {
       NODE_ENV: 'production',
       PUBLIC_ORIGIN: 'https://festie.us',
       ALLOWED_ORIGINS: 'https://festie.us',
-      TRUST_PROXY: 'true',
+      TRUST_PROXY: 'loopback',
       COOKIE_SECURE: 'true',
       COOKIE_SAME_SITE: 'strict',
       BIND_ADDRESS: '127.0.0.1',
       LOG_LEVEL: 'info',
       REDIS_URL: 'redis://127.0.0.1:6379',
       REDIS_ENABLED: 'true',
-      CLUSTER_SIZE: '4'
+      CLUSTER_SIZE: '1'
     },
 
     // Log configuration

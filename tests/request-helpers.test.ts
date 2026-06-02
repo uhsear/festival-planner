@@ -70,10 +70,35 @@ describe('request-helpers: getRequestIp', () => {
     assert.equal(helpers.getRequestIp(req), '1.2.3.4');
   });
 
-  it('returns x-forwarded-for first IP when TRUST_PROXY is true', () => {
+  it('does NOT trust x-forwarded-for when TRUST_PROXY is true (falls back to socket peer)', () => {
+    // Under the hardened contract XFF is never consulted. With only XFF set
+    // and no cf-connecting-ip, the key comes from the raw socket peer.
     const helpers = makeHelpers({ TRUST_PROXY: true });
-    const req = mockReq({ headers: { 'x-forwarded-for': '10.0.0.1, 10.0.0.2' } });
-    assert.equal(helpers.getRequestIp(req), '10.0.0.1');
+    const req = mockReq({
+      headers: { 'x-forwarded-for': '10.0.0.1, 10.0.0.2' },
+      ip: undefined,
+      socket: { remoteAddress: '203.0.113.7' },
+    });
+    assert.equal(helpers.getRequestIp(req), '203.0.113.7');
+  });
+
+  it('prefers cf-connecting-ip over a spoofed x-forwarded-for when TRUST_PROXY is true', () => {
+    const helpers = makeHelpers({ TRUST_PROXY: true });
+    const req = mockReq({
+      headers: { 'cf-connecting-ip': '1.2.3.4', 'x-forwarded-for': '9.9.9.9' },
+    });
+    assert.equal(helpers.getRequestIp(req), '1.2.3.4');
+  });
+
+  it('x-forwarded-for cannot move the key off the socket peer when TRUST_PROXY is true', () => {
+    // Spoof regression: a forged XFF must not override the real socket address.
+    const helpers = makeHelpers({ TRUST_PROXY: true });
+    const req = mockReq({
+      headers: { 'x-forwarded-for': '9.9.9.9' },
+      ip: undefined,
+      socket: { remoteAddress: '127.0.0.1' },
+    });
+    assert.equal(helpers.getRequestIp(req), '127.0.0.1');
   });
 
   it('ignores proxy headers when TRUST_PROXY is false', () => {
@@ -195,19 +220,25 @@ describe('request-helpers: enforceAllowedOrigin', () => {
   it('passes through GET requests without checking origin', (t, done) => {
     const helpers = makeHelpers();
     const req = mockReq({ method: 'GET' });
-    helpers.enforceAllowedOrigin(req, {}, () => { done(); });
+    helpers.enforceAllowedOrigin(req, {}, () => {
+      done();
+    });
   });
 
   it('passes through POST with Bearer token', (t, done) => {
     const helpers = makeHelpers();
     const req = mockReq({ method: 'POST', headers: { authorization: 'Bearer tok123' } });
-    helpers.enforceAllowedOrigin(req, {}, () => { done(); });
+    helpers.enforceAllowedOrigin(req, {}, () => {
+      done();
+    });
   });
 
   it('passes through POST with valid origin', (t, done) => {
     const helpers = makeHelpers();
     const req = mockReq({ method: 'POST', headers: { origin: 'https://festie.us', host: 'festie.us' } });
-    helpers.enforceAllowedOrigin(req, {}, () => { done(); });
+    helpers.enforceAllowedOrigin(req, {}, () => {
+      done();
+    });
   });
 
   it('blocks POST with invalid origin', () => {
@@ -215,7 +246,9 @@ describe('request-helpers: enforceAllowedOrigin', () => {
     const helpers = createRequestHelpers({
       config: baseConfig,
       log: noopLog,
-      sendError: (res: any, status: any, msg: any, code: any) => { errorCode = code; },
+      sendError: (res: any, status: any, msg: any, code: any) => {
+        errorCode = code;
+      },
       ErrorCodes,
     });
     const req = mockReq({ method: 'POST', headers: { origin: 'https://evil.com', host: 'festie.us' } });
@@ -226,13 +259,17 @@ describe('request-helpers: enforceAllowedOrigin', () => {
   it('passes through POST with trusted mutation header and no origin', (t, done) => {
     const helpers = makeHelpers();
     const req = mockReq({ method: 'POST', headers: { 'x-festie-request': '1' } });
-    helpers.enforceAllowedOrigin(req, {}, () => { done(); });
+    helpers.enforceAllowedOrigin(req, {}, () => {
+      done();
+    });
   });
 
   it('passes through POST with no session cookie and no origin', (t, done) => {
     const helpers = makeHelpers();
     const req = mockReq({ method: 'POST', headers: {} });
-    helpers.enforceAllowedOrigin(req, {}, () => { done(); });
+    helpers.enforceAllowedOrigin(req, {}, () => {
+      done();
+    });
   });
 
   it('blocks POST with session cookie but no origin or auth header', () => {
@@ -240,7 +277,9 @@ describe('request-helpers: enforceAllowedOrigin', () => {
     const helpers = createRequestHelpers({
       config: baseConfig,
       log: noopLog,
-      sendError: (res: any, status: any, msg: any, code: any) => { errorCode = code; },
+      sendError: (res: any, status: any, msg: any, code: any) => {
+        errorCode = code;
+      },
       ErrorCodes,
     });
     const req = mockReq({ method: 'POST', headers: { cookie: 'festie_session=abc' } });

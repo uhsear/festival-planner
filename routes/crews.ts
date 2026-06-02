@@ -1,8 +1,37 @@
+import type { Crew, CrewMember } from '../lib/types';
+
 import { generateUniqueInviteCode } from './crew-invites.js';
 import createInviteRoutes from './crew-invites.js';
 import createMeetingPointRoutes from './crew-meeting-points.js';
 import createPollRoutes from './crew-polls.js';
 import createCrewMemberRoutes from './crew-members.js';
+
+/**
+ * The crew shape this route actually serializes: the shared `Crew` minus
+ * `members` (added by serializeCrewWithMembers), plus backend-only extras
+ * (`createdBy`, `maxMembers`) and the owner-only / membership-conditional
+ * fields. Typing the literal against this catches drift such as the historical
+ * "Crew serialized without `owner`" bug at compile time.
+ */
+type SerializedCrew = Omit<Crew, 'members'> & {
+  createdBy: string;
+  maxMembers?: number;
+  role?: string;
+  joinedAt?: string;
+  inviteExpiresAt?: string | null;
+};
+
+/**
+ * The member shape this route emits. It is a superset of the shared
+ * `CrewMember` (carries `avatarKey`/`avatarVersion`/`joinedAt` and uses
+ * `username` as the display `name`) — kept explicit so the serializer is honest
+ * about what crosses the wire rather than pretending to be a bare CrewMember.
+ */
+type SerializedCrewMember = Pick<CrewMember, 'userId' | 'username' | 'name' | 'role'> & {
+  avatarKey: string | null;
+  avatarVersion: string | null;
+  joinedAt?: string;
+};
 
 export default function createCrewRoutes(deps: any) {
   const {
@@ -49,8 +78,8 @@ export default function createCrewRoutes(deps: any) {
     return { crew, membership };
   }
 
-  function serializeCrew(crew: any, membership: any) {
-    const result: any = {
+  function serializeCrew(crew: any, membership: any): SerializedCrew {
+    const result: SerializedCrew = {
       id: crew.id,
       festivalId: crew.festivalId,
       name: crew.name,
@@ -78,8 +107,8 @@ export default function createCrewRoutes(deps: any) {
 
   function serializeCrewWithMembers(crew: any, members: any, requestingUserId: any) {
     const membership = members.find((m: any) => m.userId === requestingUserId);
-    const result: any = serializeCrew(crew, membership);
-    result.members = members.map((m: any) => ({
+    const base = serializeCrew(crew, membership);
+    const serializedMembers: SerializedCrewMember[] = members.map((m: any) => ({
       userId: m.userId,
       username: m.username,
       name: m.username,
@@ -88,8 +117,7 @@ export default function createCrewRoutes(deps: any) {
       role: m.role,
       joinedAt: m.joinedAt,
     }));
-    result.memberCount = members.length;
-    return result;
+    return { ...base, members: serializedMembers, memberCount: members.length };
   }
 
   // Share helpers with sub-routers via deps

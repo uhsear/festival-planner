@@ -1,11 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Socket } from 'socket.io-client';
 import { useSocket } from '@festie/shared/hooks/useSocket';
+import { useCrewRealtime } from '@festie/shared/hooks/useCrewRealtime';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useFestivalStore } from '@festie/shared/stores/festivalStore';
 import { useCrewStore } from '@festie/shared/stores/crewStore';
 import type { OnlineUser } from '@festie/shared/types';
+import { useCrewQuerySink } from './useCrewQuerySink';
 import type {
   ProfileUpdatedPayload,
   ProfileDeletedPayload,
@@ -19,6 +21,15 @@ export interface UseRealtimeSyncReturn {
   connected: boolean;
   onlineUsers: OnlineUser[];
 }
+
+/**
+ * Opt-in flag for the shared crew sub-feature realtime path (polls / meeting
+ * points / expenses / home base over `crew:*` socket events). Default OFF — when
+ * `VITE_CREW_REALTIME` is unset (or anything other than '1') the shared hook is
+ * still called for stable hook order but is fed a null socket, so it registers
+ * no listeners, joins no room, and produces zero behavior change.
+ */
+const CREW_REALTIME = import.meta.env.VITE_CREW_REALTIME === '1';
 
 /**
  * Bridge Socket.IO events to local state. Each event has ONE source of
@@ -53,6 +64,21 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
 
   const { socket } = useSocket(currentFestivalId || undefined);
 
+  // ── Crew sub-feature realtime (flag-gated; default OFF) ──────────────────
+  // Web crew tabs are TanStack-Query backed, so the sink invalidates query keys
+  // (home base is the exception — it applies to the crewStore). Resolve the
+  // active crew live so guards reflect the latest open crew. The shared hook is
+  // always called (stable hook order); passing socket=null when the flag is off
+  // makes it a no-op that registers no listeners and joins no room.
+  const crewSink = useCrewQuerySink();
+  const getActiveCrewId = useCallback(() => useCrewStore.getState().activeCrew?.id ?? null, []);
+  useCrewRealtime({
+    socket: CREW_REALTIME ? socket : null,
+    getActiveCrewId,
+    sink: crewSink,
+    joinRoom: true,
+  });
+
   // Set up Socket.IO event listeners
   useEffect(() => {
     if (!socket) return;
@@ -74,24 +100,36 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     const reloadProfiles = () => {
       if (!currentFestivalId) return;
       schedule(`profiles:${currentFestivalId}`, () => {
-        useFestivalStore.getState().loadProfiles(currentFestivalId).catch(() => {});
+        useFestivalStore
+          .getState()
+          .loadProfiles(currentFestivalId)
+          .catch(() => {});
       });
     };
 
     const reloadFestival = () => {
       if (!currentFestivalId) return;
       schedule(`festival:${currentFestivalId}`, () => {
-        useFestivalStore.getState().selectFestival(currentFestivalId).catch(() => {});
+        useFestivalStore
+          .getState()
+          .selectFestival(currentFestivalId)
+          .catch(() => {});
       });
     };
 
     const reloadCrews = (crewId?: string) => {
       schedule('crews', () => {
-        useCrewStore.getState().loadCrews().catch(() => {});
+        useCrewStore
+          .getState()
+          .loadCrews()
+          .catch(() => {});
         const activeId = useCrewStore.getState().activeCrew?.id;
         const targetId = crewId || activeId;
         if (targetId && targetId === activeId) {
-          useCrewStore.getState().selectCrew(targetId).catch(() => {});
+          useCrewStore
+            .getState()
+            .selectCrew(targetId)
+            .catch(() => {});
         }
       });
     };
@@ -133,7 +171,10 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
 
     // --- Presence (uiStore only; no refetch) ---
     const handlePresenceUpdate = (data: PresenceUpdatePayload) => {
-      if (data.online) setOnlineUsers(data.online.map(u => ({ id: u.userId, name: u.username, avatar: u.avatarUrl, status: 'online' as const })));
+      if (data.online)
+        setOnlineUsers(
+          data.online.map((u) => ({ id: u.userId, name: u.username, avatar: u.avatarUrl, status: 'online' as const })),
+        );
     };
 
     const handleConnect = () => {

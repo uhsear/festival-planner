@@ -130,7 +130,9 @@ function makeDeps(overrides: any = {}) {
 async function buildApp(overrides: any = {}) {
   const deps = makeDeps(overrides);
   const { default: createRoutes } = await import('../routes/crew-meeting-points.js');
-  const router = createRoutes(deps);
+  // The factory now takes a typed RouteDeps; the test supplies a purpose-built
+  // partial mock, so cast through `any` at the boundary.
+  const router = createRoutes(deps as any);
   const app = express();
   app.use(express.json());
   app.use('/', router);
