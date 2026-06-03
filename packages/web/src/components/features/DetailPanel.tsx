@@ -8,6 +8,7 @@ import RatingButtons from './RatingButtons';
 import DetailArtistHeader from './DetailArtistHeader';
 import DetailSpotifySection from './DetailSpotifySection';
 import DetailConflictWarning from './DetailConflictWarning';
+import ClashPrompt from './ClashPrompt';
 import DetailPriorityPicker from './DetailPriorityPicker';
 import DetailReminderPicker from './DetailReminderPicker';
 import DetailCrewSection from './DetailCrewSection';
@@ -198,6 +199,17 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     [currentFestival, savePick],
   );
 
+  // Clash-prompt clear handler — demote one side of a clash to null. savePick is
+  // offline-queued, so resolving a clash works on dead signal.
+  const handleClashClear = useCallback(
+    (setId: string) => {
+      if (!currentFestival) return;
+      selectHaptic();
+      savePick(currentFestival.id, setId, null);
+    },
+    [currentFestival, savePick, selectHaptic],
+  );
+
   // Join festival handler
   const handleJoinFestival = useCallback(async () => {
     if (!currentFestival) return;
@@ -295,6 +307,15 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
                 preview={spotifyPreview}
                 visible={spotifyVisible}
                 onToggle={() => setSpotifyVisible((v) => !v)}
+              />
+            )}
+
+            {currentProfile && (
+              <ClashPrompt
+                currentSet={set}
+                conflicts={conflicts}
+                b2bSeparator={b2bSeparator}
+                onClear={handleClashClear}
               />
             )}
 

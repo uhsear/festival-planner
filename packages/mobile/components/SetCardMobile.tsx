@@ -1,8 +1,9 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName, artistSubtitle } from '@festie/shared/utils';
+import { useCrewStore, useFestivalStore } from '@festie/shared/stores';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useSetStatus } from '../hooks/useSetStatus';
 import Avatar from './Avatar';
@@ -58,6 +59,36 @@ const PRIORITIES: readonly {
   { value: 'maybe', icon: 'ellipse', label: 'Maybe' },
 ];
 
+// Crew-overlap avatars cluster by priority: must first, then want, then maybe.
+const PRIORITY_RANK: Record<Priority, number> = {
+  must: 0,
+  'want-to-see': 1,
+  maybe: 2,
+};
+
+const PRIORITY_NOUN: Record<Priority, string> = {
+  must: 'must',
+  'want-to-see': 'want',
+  maybe: 'maybe',
+};
+
+/**
+ * Build the "N must, N want" breakdown phrase for the crew-overlap accessibility
+ * label. Empty groups are dropped; an all-empty list yields ''.
+ */
+function buildOverlapBreakdown(friends: readonly { priority: Priority }[]): string {
+  const counts: Record<Priority, number> = {
+    must: 0,
+    'want-to-see': 0,
+    maybe: 0,
+  };
+  for (const f of friends) counts[f.priority] = (counts[f.priority] ?? 0) + 1;
+  return (['must', 'want-to-see', 'maybe'] as const)
+    .filter((p) => counts[p] > 0)
+    .map((p) => `${counts[p]} ${PRIORITY_NOUN[p]}`)
+    .join(', ');
+}
+
 /** Maps a priority to its accent token for active styling. */
 function priorityColor(t: ReturnType<typeof useTokens>, p: Priority): string {
   if (p === 'must') return t.colors.priority.must;
@@ -77,21 +108,14 @@ function PriorityButton({ option, active, onPress }: PriorityButtonProps) {
   const accent = priorityColor(t, option.value);
   return (
     <TouchableOpacity
-      style={[
-        styles.priorityButton,
-        active && { backgroundColor: accent, borderColor: accent },
-      ]}
+      style={[styles.priorityButton, active && { backgroundColor: accent, borderColor: accent }]}
       onPress={() => onPress(active ? null : option.value)}
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       accessibilityLabel={active ? `${option.label} (selected)` : option.label}
     >
-      <Ionicons
-        name={option.icon}
-        size={16}
-        color={active ? t.colors.text.onLightAccent : t.colors.text.muted}
-      />
+      <Ionicons name={option.icon} size={16} color={active ? t.colors.text.onLightAccent : t.colors.text.muted} />
     </TouchableOpacity>
   );
 }
@@ -119,15 +143,9 @@ function SetCardMobileImpl({
 
   const artistName = artistDisplayName(set);
   const subtitle = artistSubtitle(set);
-  const timeLabel =
-    set.startTime && set.endTime
-      ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}`
-      : 'TBA';
+  const timeLabel = set.startTime && set.endTime ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}` : 'TBA';
 
-  const handlePick = useCallback(
-    (priority: Priority | null) => onPickChange(priority),
-    [onPickChange],
-  );
+  const handlePick = useCallback((priority: Priority | null) => onPickChange(priority), [onPickChange]);
 
   // The tappable card body and the priority footer are SIBLINGS inside a plain
   // <View> card — never parent/child touchables. On react-native-web a nested
@@ -172,11 +190,7 @@ function SetCardMobileImpl({
           ) : null}
           {hasConflict ? (
             <View style={styles.conflictBadge}>
-              <Ionicons
-                name="warning"
-                size={12}
-                color={t.colors.accent.coral}
-              />
+              <Ionicons name="warning" size={12} color={t.colors.accent.coral} />
               <Text style={styles.conflictText}>Conflict</Text>
             </View>
           ) : null}
@@ -186,18 +200,11 @@ function SetCardMobileImpl({
       <View style={styles.footer}>
         <View style={styles.priorityGroup}>
           {PRIORITIES.map((option) => (
-            <PriorityButton
-              key={option.value}
-              option={option}
-              active={myPick === option.value}
-              onPress={handlePick}
-            />
+            <PriorityButton key={option.value} option={option} active={myPick === option.value} onPress={handlePick} />
           ))}
         </View>
 
-        {friendProfiles && friendProfiles.length > 0 ? (
-          <CrewCluster friendProfiles={friendProfiles} />
-        ) : null}
+        {friendProfiles && friendProfiles.length > 0 ? <CrewCluster friendProfiles={friendProfiles} /> : null}
       </View>
     </View>
   );
@@ -247,45 +254,53 @@ interface CrewClusterProps {
 function CrewCluster({ friendProfiles }: CrewClusterProps) {
   const t = useTokens();
   const styles = useStyles();
+  // Read-only joins (both already persisted via Foundations F1, so the cluster
+  // renders offline): profiles supply profileId -> userId, crew members supply
+  // the avatar image. Mirrors the web SetCard.
+  const allProfiles = useFestivalStore((s) => s.allProfiles);
+  const crewMembers = useCrewStore((s) => s.crewMembers);
 
-  const visible = friendProfiles.slice(0, 3);
-  const overflow = friendProfiles.length - visible.length;
-  const hasAvatarData = friendProfiles.some(
-    (f) => f.name || f.initials || f.avatarUrl,
-  );
-  const count = friendProfiles.length;
+  // Enrich (avatar join) + group by priority (must > want > maybe).
+  const grouped = useMemo(() => {
+    const userIdByProfileId = new Map<string, string>();
+    for (const p of allProfiles) userIdByProfileId.set(p.id, p.userId);
+    const memberByUserId = new Map<string, (typeof crewMembers)[number]>();
+    for (const m of crewMembers) memberByUserId.set(m.userId, m);
+
+    return friendProfiles
+      .map((f) => {
+        const userId = f.profileId ? userIdByProfileId.get(f.profileId) : undefined;
+        const member = userId ? memberByUserId.get(userId) : undefined;
+        return {
+          ...f,
+          avatarUrl: member?.avatar ?? f.avatarUrl ?? null,
+          name: f.name ?? member?.name,
+        };
+      })
+      .sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
+  }, [friendProfiles, allProfiles, crewMembers]);
+
+  const visible = grouped.slice(0, 3);
+  const overflow = grouped.length - visible.length;
+  const hasAvatarData = grouped.some((f) => f.name || f.initials || f.avatarUrl);
+  const count = grouped.length;
   const countLabel = count === 1 ? '1 going' : `${count} going`;
-  const a11yLabel = `${count} crew ${count === 1 ? 'member' : 'members'} going`;
+  const breakdown = buildOverlapBreakdown(grouped);
+  const a11yLabel = `${count} crew ${count === 1 ? 'member' : 'members'} going` + (breakdown ? ` — ${breakdown}` : '');
 
   if (!hasAvatarData) {
     return (
-      <View
-        style={styles.crewCluster}
-        accessibilityRole="text"
-        accessibilityLabel={a11yLabel}
-      >
+      <View style={styles.crewCluster} accessibilityRole="text" accessibilityLabel={a11yLabel}>
         <Text style={styles.countPill}>{countLabel}</Text>
       </View>
     );
   }
 
   return (
-    <View
-      style={styles.crewCluster}
-      accessibilityRole="image"
-      accessibilityLabel={a11yLabel}
-    >
+    <View style={styles.crewCluster} accessibilityRole="image" accessibilityLabel={a11yLabel}>
       {visible.map((f, i) => (
-        <View
-          key={f.profileId ?? `${f.name ?? 'crew'}-${i}`}
-          style={i > 0 ? styles.avatarOverlap : undefined}
-        >
-          <Avatar
-            name={f.name || f.initials || 'Crew'}
-            image={f.avatarUrl}
-            size="xs"
-            borderColor={t.colors.bg.card}
-          />
+        <View key={f.profileId ?? `${f.name ?? 'crew'}-${i}`} style={i > 0 ? styles.avatarOverlap : undefined}>
+          <Avatar name={f.name || f.initials || 'Crew'} image={f.avatarUrl} size="xs" borderColor={t.colors.bg.card} />
         </View>
       ))}
       {overflow > 0 ? (

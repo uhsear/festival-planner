@@ -8,20 +8,8 @@ import { useUIStore } from '@festie/shared/stores';
 import type { FailedSyncItem } from '@festie/shared/stores';
 import * as offlineQueue from '@festie/shared/services/offlineQueue';
 import { drainQueue, refreshPendingCount } from '@festie/shared/services';
+import { timeAgo } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
-
-/** Compact relative-time label from an epoch-ms timestamp (inlined, no shared dep). */
-function timeAgo(ms: number): string {
-  const diff = Date.now() - ms;
-  if (diff < 0 || !Number.isFinite(diff)) return 'just now';
-  const s = Math.floor(diff / 1000);
-  if (s < 45) return 'just now';
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
 
 /**
  * Retry a single failed mutation via the shared queue helper, which re-enqueues

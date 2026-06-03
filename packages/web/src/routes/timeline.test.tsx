@@ -170,7 +170,9 @@ describe('TimelineView', () => {
 
   it('renders timeline grid when timed sets and visible stages exist', () => {
     setFilters({
-      allDaySets: [{ id: 's1', artist: 'Daft Punk', stageId: 'st1', startTime: '14:00', endTime: '15:00', dayIndex: 0 }],
+      allDaySets: [
+        { id: 's1', artist: 'Daft Punk', stageId: 'st1', startTime: '14:00', endTime: '15:00', dayIndex: 0 },
+      ],
       timedSets: [{ id: 's1', artist: 'Daft Punk', stageId: 'st1', startTime: '14:00', endTime: '15:00', dayIndex: 0 }],
       timelessSets: [],
       visibleStages: [{ id: 'st1', name: 'Main Stage' }],
@@ -249,5 +251,61 @@ describe('TimelineView', () => {
     });
     render(<TimelineView />);
     expect(screen.getByTestId('refreshable-view')).toBeInTheDocument();
+  });
+
+  describe('Live mode — next-pick countdown', () => {
+    // A set the device clock places 45 minutes in the future, on the same local
+    // calendar day so getSetTimeBounds resolves it via set.date (no festival-day
+    // lookup needed). Anchored to a fixed local "now" via fake timers.
+    const sameLocalDay = (base: Date) =>
+      `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`;
+
+    beforeEach(() => {
+      // 13:00 local on a fixed day so 13:45 is comfortably "up next".
+      const fixed = new Date(2030, 5, 15, 13, 0, 0, 0);
+      vi.useFakeTimers();
+      vi.setSystemTime(fixed);
+      const day = sameLocalDay(fixed);
+      const pickedSet = {
+        id: 's-next',
+        artist: 'Future Headliner',
+        stageId: 'st1',
+        startTime: '13:45',
+        endTime: '14:45',
+        dayIndex: 0,
+        date: day,
+      };
+      storeState.currentProfile = { id: 'p1', picks: { 's-next': 'must' } };
+      storeState.days = [{ id: 'd1', date: day, dayIndex: 0 }];
+      storeState.sets = [pickedSet];
+      setFilters({
+        allDaySets: [pickedSet],
+        timedSets: [pickedSet],
+        timelessSets: [],
+        visibleStages: [{ id: 'st1', name: 'Main Stage' }],
+        timeBounds: { minMin: 780, maxMin: 900, totalSlots: 8 },
+      });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      storeState.currentProfile = undefined;
+      storeState.days = undefined;
+      storeState.sets = undefined;
+    });
+
+    it('renders an "Up next" countdown to the soonest future pick from the device clock', () => {
+      render(<TimelineView />);
+      const countdown = screen.getByTestId('next-pick-countdown');
+      expect(countdown).toHaveTextContent('Up next in');
+      expect(countdown).toHaveTextContent('45m');
+      expect(countdown).toHaveTextContent('Future Headliner');
+    });
+
+    it('does not render the countdown when the user has no upcoming picks', () => {
+      storeState.currentProfile = { id: 'p1', picks: {} };
+      render(<TimelineView />);
+      expect(screen.queryByTestId('next-pick-countdown')).not.toBeInTheDocument();
+    });
   });
 });

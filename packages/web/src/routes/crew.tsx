@@ -6,6 +6,7 @@ import { useCrewStore } from '@festie/shared/stores';
 import { useAuthStore } from '@festie/shared/stores';
 import { useFestivalStore } from '@festie/shared/stores';
 import CrewSelector from '../components/features/CrewSelector';
+import FreshnessChip from '../components/features/FreshnessChip';
 import EmptyState from '../components/ui/EmptyState';
 import Button from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -201,6 +202,8 @@ function CrewViewInner() {
         </Card>
       ) : (
         <div className="crew-content space-y-4 min-w-0">
+          <FreshnessChip surface="crew" />
+
           <HomeBaseCard
             crewId={activeCrew.id}
             currentLocation={crew?.homeBaseLocation ?? null}

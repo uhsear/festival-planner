@@ -30,6 +30,7 @@ import { safeStageColor } from '../../lib/stageColor';
 import { useHaptics } from '../../hooks/useHaptics';
 import EmptyState from '../../components/EmptyState';
 import RatingButtons from '../../components/RatingButtons';
+import ClashPrompt from '../../components/ClashPrompt';
 
 /**
  * Spotify preview payload returned by GET /spotify/preview/:setId. The server
@@ -290,6 +291,17 @@ export default function SetDetailScreen() {
     [set, currentFestival, savePick, getMyPick],
   );
 
+  // Clash-prompt clear — demote one side of a clash to null. savePick is
+  // offline-queued, so resolving a clash works on dead signal.
+  const handleClashClear = useCallback(
+    (clearSetId: string) => {
+      if (!currentFestival) return;
+      haptics.select();
+      savePick(currentFestival.id, clearSetId, null).catch(() => {});
+    },
+    [currentFestival, savePick, haptics],
+  );
+
   const user = useAuthStore((s) => s.user);
   const [joinBusy, setJoinBusy] = useState(false);
   const handleJoin = useCallback(async () => {
@@ -467,6 +479,12 @@ export default function SetDetailScreen() {
               </View>
             ) : null}
           </View>
+        ) : null}
+
+        {/* Inline clash prompt — actionable "keep one" nudge (M1). The passive
+            conflict box below stays as the ambient marker. */}
+        {currentProfile && conflicts.length > 0 ? (
+          <ClashPrompt currentSet={set} conflicts={conflicts} b2bSeparator={b2bSeparator} onClear={handleClashClear} />
         ) : null}
 
         {/* Conflict warning */}

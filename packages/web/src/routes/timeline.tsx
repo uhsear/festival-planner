@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import { Priority } from '@festie/shared/types';
+import { getSetTimeBounds, artistDisplayName } from '@festie/shared/utils';
 import RefreshableView from '../components/layout/RefreshableView';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import TimelineGrid from '../features/TimelineGrid';
@@ -25,6 +26,8 @@ export default function TimelineView() {
 
 function TimelineViewInner() {
   const currentProfile = useFestivalStore((state) => state.currentProfile);
+  const days = useFestivalStore((state) => state.days);
+  const allSets = useFestivalStore((state) => state.sets);
   const setDetailSet = useUIStore((state) => state.setDetailSet);
   const { getMyPick, getOtherPicks, savePick } = usePicks();
   const { getStageColor } = useFestival();
@@ -43,6 +46,76 @@ function TimelineViewInner() {
 
   const { vpW, rowHeight } = useTimelineViewport(timeBounds?.totalSlots);
   const { nowIndicator, gridRef, scrollToNow } = useNowIndicator(timeBounds, selectedDay);
+
+  // --- Live mode -----------------------------------------------------------
+  // A 60s device-clock tick drives the next-pick countdown and the auto-scroll.
+  // Fully offline-native: reads only cached sets + the local clock, never the
+  // network. Set-time math comes from the SHARED getSetTimeBounds (TZ-safe,
+  // post-midnight rollover) — never a local parseSetMs.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Countdown to the next picked set (across all days, like festival-mode's
+  // "up next"), recomputed every tick from the device clock.
+  const nextPick = useMemo(() => {
+    const picks = currentProfile?.picks;
+    if (!picks) return null;
+    let best: { set: (typeof allSets)[number]; startMs: number } | null = null;
+    for (const s of allSets) {
+      if (!picks[s.id]) continue;
+      const bounds = getSetTimeBounds(s, days);
+      if (!bounds || bounds.startMs <= nowMs) continue;
+      if (!best || bounds.startMs < best.startMs) best = { set: s, startMs: bounds.startMs };
+    }
+    return best;
+  }, [currentProfile?.picks, allSets, days, nowMs]);
+
+  const nextPickLabel = useMemo(() => {
+    if (!nextPick) return null;
+    const totalMin = Math.max(0, Math.round((nextPick.startMs - nowMs) / 60_000));
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    const eta = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+    return {
+      eta,
+      name: artistDisplayName(nextPick.set, currentFestival?.b2bSeparator),
+    };
+  }, [nextPick, nowMs, currentFestival?.b2bSeparator]);
+
+  // Track active user scrolling so the tick-driven auto-scroll never fights a
+  // user who is reading another part of the timeline. Any scroll on the
+  // container arms the flag for 8s; while armed, the tick won't yank the view.
+  const recentlyScrolledRef = useRef(false);
+  const scrollArmTimerRef = useRef<number | null>(null);
+
+  const handleUserScroll = useCallback(() => {
+    recentlyScrolledRef.current = true;
+    if (scrollArmTimerRef.current !== null) window.clearTimeout(scrollArmTimerRef.current);
+    scrollArmTimerRef.current = window.setTimeout(() => {
+      recentlyScrolledRef.current = false;
+    }, 8_000);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (scrollArmTimerRef.current !== null) window.clearTimeout(scrollArmTimerRef.current);
+    },
+    [],
+  );
+
+  // Auto-scroll to now on each tick — but only when the user isn't actively
+  // scrolling and a now-line exists for the current day.
+  useEffect(() => {
+    if (nowIndicator === null) return;
+    if (recentlyScrolledRef.current) return;
+    const id = window.requestAnimationFrame(() => {
+      if (!recentlyScrolledRef.current) scrollToNow();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [nowMs, nowIndicator, scrollToNow]);
 
   const handleSavePick = useCallback(
     async (setId: string, priority: string | null) => {
@@ -117,6 +190,7 @@ function TimelineViewInner() {
   return (
     <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
       <div
+        onScroll={handleUserScroll}
         className="relative overflow-auto h-full [-webkit-overflow-scrolling:touch] overscroll-contain"
         role="region"
         aria-label="Timeline view"
@@ -124,6 +198,20 @@ function TimelineViewInner() {
       >
         <div className="sticky top-0 z-20 bg-bg-sticky shadow-sticky [backdrop-filter:saturate(140%)_blur(8px)]">
           <TimelineLegend />
+          {nextPickLabel && (
+            <div
+              className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-text-secondary border-t border-border-default/40"
+              aria-live="polite"
+              data-testid="next-pick-countdown"
+            >
+              <Music aria-hidden="true" className="w-3.5 h-3.5 text-[var(--color-accent-coral,#ff6b6b)]" />
+              <span>
+                Up next in <span className="text-[var(--color-accent-coral,#ff6b6b)]">{nextPickLabel.eta}</span>
+                {' · '}
+                <span className="text-text-primary">{nextPickLabel.name}</span>
+              </span>
+            </div>
+          )}
         </div>
         <TimelineGrid
           visibleStages={visibleStages}
