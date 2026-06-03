@@ -3,7 +3,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 // Mock the offlineQueue module that api.ts dynamically imports on the native
 // path, so we can assert what gets enqueued without touching storage.
 const enqueueMutation = vi.fn(async () => {});
-vi.mock('../offlineQueue', () => ({ enqueueMutation }));
+const drainQueue = vi.fn(async () => {});
+vi.mock('../offlineQueue', () => ({ enqueueMutation, drainQueue }));
 
 import { api, isOfflineEligible } from '../api';
 import { useUIStore } from '../../stores/uiStore';
@@ -139,6 +140,41 @@ describe('api offline interception', () => {
       await api.get('/profiles/p1');
       expect(fetchSpy).toHaveBeenCalledTimes(1);
       expect(enqueueMutation).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('network failure on a not-yet-detected-offline device (festival case)', () => {
+    it('queues an eligible mutation + flips store offline when the fetch rejects', async () => {
+      useUIStore.setState({ offlineMode: false }); // navigator says online, but...
+      fetchSpy.mockRejectedValueOnce(new TypeError('Failed to fetch')); // ...network is dead
+      const result = await api.post<{ id: string; _optimistic: boolean }>('/crews/c1/meeting-points', {
+        label: 'Main gate',
+      });
+      // fetch was attempted (offline not known up-front) then the write was rescued.
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(enqueueMutation).toHaveBeenCalledTimes(1);
+      expect(result._optimistic).toBe(true);
+      expect(useUIStore.getState().offlineMode).toBe(true);
+    });
+
+    it('still throws the network error for an INELIGIBLE mutation (not lost-silently elsewhere)', async () => {
+      useUIStore.setState({ offlineMode: false });
+      fetchSpy.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+      await expect(api.post('/auth/login', { username: 'a', password: 'b' })).rejects.toMatchObject({
+        isNetworkError: true,
+      });
+      expect(enqueueMutation).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('auto-recovery: a successful response after a false-offline drains the queue', () => {
+    it('flips offline→online and drains on the next successful request', async () => {
+      useUIStore.setState({ offlineMode: true });
+      // A GET succeeds (reads still fetch) → reachability proven.
+      await api.get('/profiles/p1');
+      expect(useUIStore.getState().offlineMode).toBe(false);
+      // drain is dispatched via a fire-and-forget dynamic import; let it settle.
+      await vi.waitFor(() => expect(drainQueue).toHaveBeenCalledTimes(1));
     });
   });
 });

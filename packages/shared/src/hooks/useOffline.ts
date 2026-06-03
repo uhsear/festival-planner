@@ -19,6 +19,14 @@ export function useOffline(): UseOfflineReturn {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // Cold-start sync: the page may have loaded while already offline (the
+    // festival case — dead signal before the app is even opened), in which case
+    // no 'offline' event ever fires. Seed the store from navigator.onLine so the
+    // banner shows and the api-layer write queue engages from the first action.
+    const online = navigator.onLine;
+    setIsOnline(online);
+    setOfflineMode(!online);
+
     const handleOnline = () => {
       setIsOnline(true);
       setOfflineMode(false);
