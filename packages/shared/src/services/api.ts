@@ -103,24 +103,11 @@ function randomId(): string {
 }
 
 /**
- * When offline (uiStore.offlineMode === true) and the path is replay-safe, route
- * a mutation into the offline queue instead of fetching. Returns a synthetic
- * optimistic result so optimistic UIs don't throw. Returns the sentinel
- * `NOT_QUEUED` when the request should proceed to a normal fetch.
+ * Enqueue a replay-safe mutation into the platform offline queue and return a
+ * synthetic optimistic result so optimistic UIs don't throw. No gating — the
+ * caller decides WHEN to queue (offline-up-front, or on a network failure).
  */
-const NOT_QUEUED = Symbol('not-queued');
-
-async function maybeQueueOffline<T>(path: string, method: string, options: ApiOptions): Promise<T | typeof NOT_QUEUED> {
-  if (!isMutatingMethod(method) || !isOfflineEligible(path)) return NOT_QUEUED;
-
-  let offline: boolean;
-  try {
-    offline = useUIStore.getState().offlineMode === true;
-  } catch {
-    offline = false;
-  }
-  if (!offline) return NOT_QUEUED;
-
+async function enqueueOfflineMutation<T>(path: string, method: string, options: ApiOptions): Promise<T> {
   // POST creates stay distinct; PUT/PATCH/DELETE coalesce per-resource.
   const clientId = options.clientId ?? (method === 'POST' ? `POST:${path}:${randomId()}` : `${method}:${path}`);
   const label = options.offlineLabel ?? `${method} ${path}`;
@@ -142,7 +129,6 @@ async function maybeQueueOffline<T>(path: string, method: string, options: ApiOp
     });
   }
 
-  // Synthetic optimistic result so callers awaiting the write don't throw.
   if (method === 'POST') {
     return { ...(body as object), id: clientId, _optimistic: true } as T;
   }
@@ -151,6 +137,55 @@ async function maybeQueueOffline<T>(path: string, method: string, options: ApiOp
   }
   // DELETE
   return { ok: true, _optimistic: true } as T;
+}
+
+/** Best-effort store flip into offline mode (banner + pre-emptive write queueing). */
+function markOffline(): void {
+  try {
+    if (useUIStore.getState().offlineMode !== true) useUIStore.getState().setOfflineMode(true);
+  } catch {
+    /* store not ready */
+  }
+}
+
+/**
+ * A successful response proves reachability. If we'd flipped offline on a prior
+ * network failure (e.g. a dead-but-"online" festival connection that recovered),
+ * flip back and drain whatever queued in the meantime.
+ */
+function markOnlineAndDrain(): void {
+  try {
+    if (useUIStore.getState().offlineMode !== true) return;
+    useUIStore.getState().setOfflineMode(false);
+    if (typeof window !== 'undefined' && window.__festieQueue?.processQueue) {
+      void window.__festieQueue.processQueue();
+    } else {
+      void import('./offlineQueue').then((m) => m.drainQueue()).catch(() => {});
+    }
+  } catch {
+    /* store not ready */
+  }
+}
+
+/**
+ * When offline (uiStore.offlineMode === true) and the path is replay-safe, route
+ * a mutation into the offline queue instead of fetching. Returns the sentinel
+ * `NOT_QUEUED` when the request should proceed to a normal fetch.
+ */
+const NOT_QUEUED = Symbol('not-queued');
+
+async function maybeQueueOffline<T>(path: string, method: string, options: ApiOptions): Promise<T | typeof NOT_QUEUED> {
+  if (!isMutatingMethod(method) || !isOfflineEligible(path)) return NOT_QUEUED;
+
+  let offline: boolean;
+  try {
+    offline = useUIStore.getState().offlineMode === true;
+  } catch {
+    offline = false;
+  }
+  if (!offline) return NOT_QUEUED;
+
+  return enqueueOfflineMutation<T>(path, method, options);
 }
 
 export class ApiClientError extends Error implements ApiError {
@@ -252,6 +287,9 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}, _isRetry = 
       throw error;
     }
 
+    // Reachability confirmed — recover from a prior false-offline and drain.
+    markOnlineAndDrain();
+
     const body = await response.json();
     if (body !== null && typeof body === 'object' && 'data' in body && 'error' in body) {
       return body.data as T;
@@ -261,6 +299,21 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}, _isRetry = 
     clearTimeout(timeoutId);
     if (error instanceof ApiClientError) {
       throw error;
+    }
+
+    // Network failure (fetch rejected or timed out). If this was a replay-safe
+    // mutation, the device is effectively offline even if offlineMode wasn't set
+    // up-front — the festival case: a cold start, or a connection that is
+    // navigator.onLine===true but dead/congested. Capture the write into the
+    // queue instead of losing it, and flip the store offline so the banner shows
+    // and subsequent writes pre-emptively queue.
+    if (!_isRetry && isMutatingMethod(method) && isOfflineEligible(path)) {
+      markOffline();
+      try {
+        return await enqueueOfflineMutation<T>(path, method, options);
+      } catch {
+        /* fall through to surface the network error */
+      }
     }
 
     const isAbort = error instanceof Error && error.name === 'AbortError';

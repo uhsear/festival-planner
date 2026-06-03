@@ -51,6 +51,21 @@ describe('useOffline hook', () => {
     expect(result.current.isOffline).toBe(true);
   });
 
+  it('seeds offlineMode from navigator.onLine on cold-start mount (no event)', () => {
+    // Festival case: the page loads while already offline, so no 'offline' event
+    // ever fires. The hook must still flip the store offline on mount.
+    Object.defineProperty(navigator, 'onLine', { writable: true, value: false });
+    expect(useUIStore.getState().offlineMode).toBe(false);
+    renderHook(() => useOffline());
+    expect(useUIStore.getState().offlineMode).toBe(true);
+  });
+
+  it('seeds offlineMode=false on cold-start mount when online', () => {
+    useUIStore.setState({ offlineMode: true }); // stale from a previous session
+    renderHook(() => useOffline());
+    expect(useUIStore.getState().offlineMode).toBe(false);
+  });
+
   it('sets offlineMode in store on offline event', () => {
     renderHook(() => useOffline());
     act(() => {
