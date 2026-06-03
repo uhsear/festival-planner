@@ -20,6 +20,9 @@ export default function createUsersStore(pool: Pool, utils: any) {
     tosAcceptedAt: 'tos_accepted_at',
     tosVersion: 'tos_version',
     emailVerifiedAt: 'email_verified_at',
+    venmoHandle: 'venmo_handle',
+    cashappCashtag: 'cashapp_cashtag',
+    paypalHandle: 'paypal_handle',
   };
 
   const ALLOWED_UPDATE_KEYS = new Set([...Object.keys(COLUMN_MAP), ...Object.values(COLUMN_MAP)]);
@@ -39,6 +42,9 @@ export default function createUsersStore(pool: Pool, utils: any) {
     tos_accepted_at AS "tosAcceptedAt",
     tos_version AS "tosVersion",
     email_verified_at AS "emailVerifiedAt",
+    venmo_handle AS "venmoHandle",
+    cashapp_cashtag AS "cashappCashtag",
+    paypal_handle AS "paypalHandle",
     created_at AS "createdAt",
     updated_at AS "updatedAt",
     deleted_at AS "deletedAt"
@@ -59,6 +65,9 @@ export default function createUsersStore(pool: Pool, utils: any) {
       deletedAt: toISOString(row.deletedAt) || null,
       email: row.email || null,
       emailVerifiedAt: toISOString(row.emailVerifiedAt) || null,
+      venmoHandle: row.venmoHandle || null,
+      cashappCashtag: row.cashappCashtag || null,
+      paypalHandle: row.paypalHandle || null,
     };
   }
 

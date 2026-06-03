@@ -187,6 +187,22 @@ export const displayNameChangeSchema = z.object({
 });
 export type DisplayNameChangeInput = z.infer<typeof displayNameChangeSchema>;
 
+// Payment handles for settle-up deep links. All optional; an explicit empty
+// string clears the handle (stored as NULL). Handles are short identifiers, not
+// URLs — the deep-link builders prepend the scheme/host. A leading '@' or '$'
+// is tolerated and normalized server-side.
+const paymentHandle = z.string().trim().max(64).optional();
+export const paymentHandlesSchema = z
+  .object({
+    venmoHandle: paymentHandle,
+    cashappCashtag: paymentHandle,
+    paypalHandle: paymentHandle,
+  })
+  .refine((v) => v.venmoHandle !== undefined || v.cashappCashtag !== undefined || v.paypalHandle !== undefined, {
+    message: 'At least one payment handle is required',
+  });
+export type PaymentHandlesInput = z.infer<typeof paymentHandlesSchema>;
+
 export const accountDeleteSchema = z.object({
   password: z.string().min(1, 'Password confirmation required'),
 });
@@ -731,6 +747,7 @@ export const schemas = {
   markRead: markReadSchema,
   usernameChange: usernameChangeSchema,
   displayNameChange: displayNameChangeSchema,
+  paymentHandles: paymentHandlesSchema,
   accountDelete: accountDeleteSchema,
   topicSubscription: topicSubscriptionSchema,
   festivalCreate: festivalCreateSchema,

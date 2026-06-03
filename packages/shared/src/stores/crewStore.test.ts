@@ -426,20 +426,34 @@ describe('crewStore', () => {
         },
       ];
       const balances = [{ userId: 'user-1', username: 'Alice', balance: 20 }];
-      vi.mocked(api.get).mockResolvedValueOnce(expenses).mockResolvedValueOnce(balances);
+      // The settlement-plan endpoint returns BOTH balances and the netted plan.
+      const settlements = [
+        {
+          fromUserId: 'user-2',
+          fromName: 'Bob',
+          toUserId: 'user-1',
+          toName: 'Alice',
+          amountCents: 2000,
+          amount: 20,
+          payeeHandles: { venmo: null, cashapp: null, paypal: null },
+        },
+      ];
+      vi.mocked(api.get).mockResolvedValueOnce(expenses).mockResolvedValueOnce({ balances, settlements });
       await useCrewStore.getState().loadExpenses('crew-1');
       expect(useCrewStore.getState().expenses).toEqual(expenses);
       expect(useCrewStore.getState().expenseBalances).toEqual(balances);
+      expect(useCrewStore.getState().settlements).toEqual(settlements);
       expect(api.get).toHaveBeenCalledWith('/crews/crew-1/expenses');
-      expect(api.get).toHaveBeenCalledWith('/crews/crew-1/expenses/balances');
+      expect(api.get).toHaveBeenCalledWith('/crews/crew-1/expenses/settlement-plan');
     });
 
-    it('unwraps a { balances } envelope', async () => {
+    it('defaults balances and settlements to empty when the plan is empty', async () => {
       vi.mocked(api.get)
         .mockResolvedValueOnce([])
-        .mockResolvedValueOnce({ balances: [{ userId: 'u', username: 'U', balance: 5 }] });
+        .mockResolvedValueOnce({ balances: [{ userId: 'u', username: 'U', balance: 5 }], settlements: [] });
       await useCrewStore.getState().loadExpenses('crew-1');
       expect(useCrewStore.getState().expenseBalances).toHaveLength(1);
+      expect(useCrewStore.getState().settlements).toHaveLength(0);
     });
 
     it('sets error and throws on failure', async () => {

@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared/stores/authStore';
 import ProfileSection from '../components/account/ProfileSection';
+import PaymentHandlesSection from '../components/account/PaymentHandlesSection';
 import PasswordSection from '../components/account/PasswordSection';
 import NotificationSection from '../components/account/NotificationSection';
 import NotificationPrefsSection from '../components/account/NotificationPrefsSection';
@@ -54,6 +55,11 @@ function AccountPageInner() {
         {/* Profile */}
         <Section label="Profile">
           <ProfileSection user={user} />
+        </Section>
+
+        {/* Payment */}
+        <Section label="Payment">
+          <PaymentHandlesSection />
         </Section>
 
         {/* Security */}

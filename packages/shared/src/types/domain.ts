@@ -65,6 +65,11 @@ export interface User {
   avatar?: string;
   avatarUrl?: string;
   isAdmin?: boolean;
+  // Payment handles for settle-up deep links (serializePublicUser surfaces
+  // these; null when unset). Used by account settings + the settlement plan.
+  venmoHandle?: string | null;
+  cashappCashtag?: string | null;
+  paypalHandle?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -275,6 +280,33 @@ export interface CreateCrewExpenseRequest {
 export interface SettleCrewExpenseRequest {
   toUserId: string;
   amount: number;
+}
+
+/** Payee payment handles attached to a settlement row (null when unset). */
+export interface SettlementPayeeHandles {
+  venmo: string | null;
+  cashapp: string | null;
+  paypal: string | null;
+}
+
+/**
+ * One netted transfer in the simplified settlement plan: `from` pays `to`.
+ * Amount carried as both integer cents (ledger source of truth) and dollars.
+ */
+export interface CrewSettlement {
+  fromUserId: string;
+  fromName: string;
+  toUserId: string;
+  toName: string;
+  amountCents: number;
+  amount: number;
+  payeeHandles: SettlementPayeeHandles;
+}
+
+/** Response of GET /crews/:crewId/expenses/settlement-plan. */
+export interface CrewSettlementPlan {
+  balances: CrewExpenseBalance[];
+  settlements: CrewSettlement[];
 }
 
 /**

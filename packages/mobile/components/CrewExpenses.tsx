@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore } from '@festie/shared/stores';
-import type { CrewExpense, CrewMember } from '@festie/shared/types';
+import type { CrewExpense, CrewMember, CrewSettlement } from '@festie/shared/types';
+import { venmoLink, cashAppLink, payPalLink } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 interface CrewExpensesProps {
@@ -37,16 +38,13 @@ function categoryFor(key: string): (typeof CATEGORIES)[number] {
  * crewStore actions (addExpense / removeExpense / settleExpense). The screen
  * owns the initial load.
  */
-export default function CrewExpenses({
-  crewId,
-  members,
-  currentUserId,
-}: CrewExpensesProps) {
+export default function CrewExpenses({ crewId, members, currentUserId }: CrewExpensesProps) {
   const t = useTokens();
   const styles = useStyles();
 
   const expenses = useCrewStore((s) => s.expenses);
   const balances = useCrewStore((s) => s.expenseBalances);
+  const settlements = useCrewStore((s) => s.settlements);
   const addExpense = useCrewStore((s) => s.addExpense);
   const removeExpense = useCrewStore((s) => s.removeExpense);
   const settleExpense = useCrewStore((s) => s.settleExpense);
@@ -55,9 +53,7 @@ export default function CrewExpenses({
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>('other');
-  const [splitWith, setSplitWith] = useState<string[]>(() =>
-    members.map((m) => m.userId),
-  );
+  const [splitWith, setSplitWith] = useState<string[]>(() => members.map((m) => m.userId));
   const [busy, setBusy] = useState(false);
 
   const reset = () => {
@@ -69,19 +65,17 @@ export default function CrewExpenses({
   };
 
   const toggleMember = (uid: string) => {
-    setSplitWith((prev) =>
-      prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid],
-    );
+    setSplitWith((prev) => (prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]));
   };
 
-  const myBalance =
-    balances.find((b) => b.userId === currentUserId)?.balance ?? 0;
+  const myBalance = balances.find((b) => b.userId === currentUserId)?.balance ?? 0;
   const totalSpent = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const nonZeroBalances = balances.filter((b) => Math.abs(b.balance) > 0.01);
+  // My outgoing transfers from the netted settlement plan.
+  const myPayments = settlements.filter((s) => s.fromUserId === currentUserId);
 
   const amt = Number(amount);
-  const canAdd =
-    !!description.trim() && Number.isFinite(amt) && amt > 0 && splitWith.length > 0;
+  const canAdd = !!description.trim() && Number.isFinite(amt) && amt > 0 && splitWith.length > 0;
 
   const handleAdd = async () => {
     if (!canAdd || busy) return;
@@ -114,22 +108,30 @@ export default function CrewExpenses({
     ]);
   };
 
-  const handleSettle = (toUserId: string, theirBalance: number) => {
-    const payAmount = Math.min(Math.abs(myBalance), theirBalance);
-    if (payAmount <= 0) return;
-    Alert.alert(
-      'Settle up',
-      `Pay $${payAmount.toFixed(2)} to settle your balance?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Settle',
-          onPress: () => {
-            settleExpense(crewId, { toUserId, amount: payAmount }).catch(() => {});
-          },
+  // Settle the exact netted amount from the plan (NOT a Math.min heuristic).
+  const handleSettle = (s: CrewSettlement) => {
+    if (s.amount <= 0) return;
+    Alert.alert('Settle up', `Record paying ${s.toName} $${s.amount.toFixed(2)}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Settle',
+        onPress: () => {
+          settleExpense(crewId, { toUserId: s.toUserId, amount: s.amount }).catch(() => {});
         },
-      ],
-    );
+      },
+    ]);
+  };
+
+  // Open a payment app deep link (falls back to the https URL if the app isn't
+  // installed / the scheme can't be opened).
+  const openPayLink = async (links: { app: string; web: string } | null) => {
+    if (!links) return;
+    try {
+      const supported = await Linking.canOpenURL(links.app);
+      await Linking.openURL(supported ? links.app : links.web);
+    } catch {
+      Linking.openURL(links.web).catch(() => {});
+    }
   };
 
   return (
@@ -155,47 +157,91 @@ export default function CrewExpenses({
         </View>
       ) : null}
 
-      {nonZeroBalances.length > 0 ? (
+      {myPayments.length > 0 ? (
         <View style={styles.ledger}>
-          <Text style={styles.ledgerLabel}>Who owes what</Text>
-          {nonZeroBalances.map((b) => {
-            const iOwe =
-              b.userId !== currentUserId &&
-              b.balance > 0.01 &&
-              myBalance < -0.01;
+          <Text style={styles.ledgerLabel}>Settle up</Text>
+          {myPayments.map((s) => {
+            const venmo = venmoLink({
+              handle: s.payeeHandles.venmo,
+              amountCents: s.amountCents,
+              note: 'Festie settle-up',
+            });
+            const cashapp = cashAppLink({ handle: s.payeeHandles.cashapp, amountCents: s.amountCents });
+            const paypal = payPalLink({ handle: s.payeeHandles.paypal, amountCents: s.amountCents });
+            const hasLinks = !!(venmo || cashapp || paypal);
             return (
-              <View key={b.userId} style={styles.ledgerRow}>
-                <Text style={styles.ledgerName}>
-                  {b.userId === currentUserId ? 'You' : b.username}{' '}
-                  <Text
-                    style={
-                      b.balance > 0
-                        ? styles.balancePositive
-                        : styles.balanceNegative
-                    }
-                  >
-                    {formatBalance(b.balance)}
+              <View key={s.toUserId} style={styles.settleGroup}>
+                <View style={styles.ledgerRow}>
+                  <Text style={styles.ledgerName}>
+                    You pay {s.toName} <Text style={styles.balanceNegative}>${s.amount.toFixed(2)}</Text>
                   </Text>
-                </Text>
-                {iOwe ? (
                   <TouchableOpacity
                     style={styles.settleButton}
-                    onPress={() => handleSettle(b.userId, b.balance)}
+                    onPress={() => handleSettle(s)}
                     activeOpacity={0.8}
                     accessibilityRole="button"
-                    accessibilityLabel={`Settle up with ${b.username}`}
+                    accessibilityLabel={`Record settling up with ${s.toName}`}
                   >
-                    <Ionicons
-                      name="cash-outline"
-                      size={14}
-                      color={t.colors.accent.aqua}
-                    />
+                    <Ionicons name="cash-outline" size={14} color={t.colors.accent.aqua} />
                     <Text style={styles.settleButtonText}>Settle up</Text>
                   </TouchableOpacity>
+                </View>
+                {hasLinks ? (
+                  <View style={styles.payLinkRow}>
+                    {venmo ? (
+                      <TouchableOpacity
+                        style={styles.payLink}
+                        onPress={() => void openPayLink(venmo)}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Pay ${s.toName} with Venmo`}
+                      >
+                        <Text style={styles.payLinkText}>Venmo</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {cashapp ? (
+                      <TouchableOpacity
+                        style={styles.payLink}
+                        onPress={() => void openPayLink(cashapp)}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Pay ${s.toName} with Cash App`}
+                      >
+                        <Text style={styles.payLinkText}>Cash App</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {paypal ? (
+                      <TouchableOpacity
+                        style={styles.payLink}
+                        onPress={() => void openPayLink(paypal)}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Pay ${s.toName} with PayPal`}
+                      >
+                        <Text style={styles.payLinkText}>PayPal</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 ) : null}
               </View>
             );
           })}
+        </View>
+      ) : null}
+
+      {nonZeroBalances.length > 0 ? (
+        <View style={styles.ledger}>
+          <Text style={styles.ledgerLabel}>Who owes what</Text>
+          {nonZeroBalances.map((b) => (
+            <View key={b.userId} style={styles.ledgerRow}>
+              <Text style={styles.ledgerName}>
+                {b.userId === currentUserId ? 'You' : b.username}{' '}
+                <Text style={b.balance > 0 ? styles.balancePositive : styles.balanceNegative}>
+                  {formatBalance(b.balance)}
+                </Text>
+              </Text>
+            </View>
+          ))}
         </View>
       ) : null}
 
@@ -263,9 +309,7 @@ export default function CrewExpenses({
                   accessibilityRole="button"
                   accessibilityLabel={`Split with ${m.name || 'member'}`}
                 >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {m.name || 'Member'}
-                  </Text>
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{m.name || 'Member'}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -301,9 +345,7 @@ export default function CrewExpenses({
       )}
 
       {expenses.length === 0 ? (
-        <Text style={styles.empty}>
-          No expenses yet — track shared costs so everyone knows where they stand.
-        </Text>
+        <Text style={styles.empty}>No expenses yet — track shared costs so everyone knows where they stand.</Text>
       ) : (
         expenses.map((e) => {
           const cat = categoryFor(e.category);
@@ -316,13 +358,10 @@ export default function CrewExpenses({
                   {e.description}
                 </Text>
                 <Text style={styles.expenseMeta} numberOfLines={1}>
-                  {e.paid_by === currentUserId ? 'You' : e.paid_by_name} paid · split{' '}
-                  {e.split_with.length}
+                  {e.paid_by === currentUserId ? 'You' : e.paid_by_name} paid · split {e.split_with.length}
                 </Text>
               </View>
-              <Text style={styles.expenseAmount}>
-                ${Number(e.amount).toFixed(2)}
-              </Text>
+              <Text style={styles.expenseAmount}>${Number(e.amount).toFixed(2)}</Text>
               {canRemove ? (
                 <TouchableOpacity
                   onPress={() => handleRemove(e)}
@@ -331,11 +370,7 @@ export default function CrewExpenses({
                   accessibilityRole="button"
                   accessibilityLabel={`Remove expense ${e.description}`}
                 >
-                  <Ionicons
-                    name="trash-outline"
-                    size={18}
-                    color={t.colors.text.danger}
-                  />
+                  <Ionicons name="trash-outline" size={18} color={t.colors.text.danger} />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -415,6 +450,26 @@ const useStyles = makeStyles((t) => ({
   settleButtonText: {
     ...typeStyle('caption'),
     color: t.colors.accent.aqua,
+  },
+  settleGroup: {
+    gap: t.spacing[2],
+  },
+  payLinkRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+  },
+  payLink: {
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.input,
+  },
+  payLinkText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
   },
   toggle: {
     flexDirection: 'row',

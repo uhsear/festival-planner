@@ -37,6 +37,10 @@ export interface PublicUser {
   avatarUrl: string | null;
   email: string | null;
   emailVerified: boolean;
+  // Payment handles for settle-up deep links (null when unset).
+  venmoHandle: string | null;
+  cashappCashtag: string | null;
+  paypalHandle: string | null;
 }
 
 /** A Zod-validation middleware factory (validate / validateParams / validateQuery). */
