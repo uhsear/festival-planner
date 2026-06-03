@@ -168,13 +168,32 @@ describe('api offline interception', () => {
   });
 
   describe('auto-recovery: a successful response after a false-offline drains the queue', () => {
-    it('flips offline→online and drains on the next successful request', async () => {
+    beforeEach(() => {
+      Object.defineProperty(navigator, 'onLine', { writable: true, value: true });
+    });
+
+    it('flips offline→online and drains on the next successful network request', async () => {
       useUIStore.setState({ offlineMode: true });
       // A GET succeeds (reads still fetch) → reachability proven.
       await api.get('/profiles/p1');
       expect(useUIStore.getState().offlineMode).toBe(false);
       // drain is dispatched via a fire-and-forget dynamic import; let it settle.
       await vi.waitFor(() => expect(drainQueue).toHaveBeenCalledTimes(1));
+    });
+
+    it('does NOT flip online when navigator.onLine is false (cold-start offline; cached 200)', async () => {
+      Object.defineProperty(navigator, 'onLine', { writable: true, value: false });
+      useUIStore.setState({ offlineMode: true });
+      await api.get('/profiles/p1'); // a SW-cached 200, but OS says offline
+      expect(useUIStore.getState().offlineMode).toBe(true);
+      expect(drainQueue).not.toHaveBeenCalled();
+    });
+
+    it('does NOT flip online on a /festivals 200 (service-worker StaleWhileRevalidate cache)', async () => {
+      useUIStore.setState({ offlineMode: true });
+      await api.get('/festivals/forbidden-kingdom-2026'); // can be served from SW cache offline
+      expect(useUIStore.getState().offlineMode).toBe(true);
+      expect(drainQueue).not.toHaveBeenCalled();
     });
   });
 });
