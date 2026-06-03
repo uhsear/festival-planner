@@ -1,24 +1,8 @@
 import React from 'react';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import type { FailedSyncItem } from '@festie/shared/stores/uiStore';
+import { timeAgo } from '@festie/shared/utils';
 import { cn } from '../../lib/utils';
-
-/**
- * Render a compact "N seconds/minutes ago" string from an epoch-ms timestamp.
- * Inlined (not shared) so this surface has no cross-platform dependency.
- */
-function timeAgo(ms: number): string {
-  const diff = Date.now() - ms;
-  if (diff < 0 || !Number.isFinite(diff)) return 'just now';
-  const s = Math.floor(diff / 1000);
-  if (s < 45) return 'just now';
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d}d ago`;
-}
 
 /**
  * Re-enqueue a single failed mutation through the global web offline queue and

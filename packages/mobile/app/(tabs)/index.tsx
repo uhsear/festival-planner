@@ -553,6 +553,9 @@ export default function TimelineScreen() {
               getStageColor={resolveStageColor}
               onPickChange={handlePickChange}
               onSetPress={handleSetPress}
+              days={days}
+              allSets={allSets}
+              picks={currentProfile?.picks ?? null}
             />
             {tbaSection}
           </View>
@@ -570,6 +573,7 @@ export default function TimelineScreen() {
           conflictIds={conflictIds}
           getMyPick={getMyPick}
           getMyNote={getMyNote}
+          getOtherPicks={getOtherPicks}
           getStageColor={resolveStageColor}
           getStageName={getStageName}
           onPickChange={handlePickChange}

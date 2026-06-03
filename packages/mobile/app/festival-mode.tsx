@@ -4,7 +4,7 @@ import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
-import { artistDisplayName } from '@festie/shared/utils';
+import { artistDisplayName, getSetTimeBounds } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import EmptyState from '../components/EmptyState';
@@ -12,8 +12,6 @@ import LiveDot from '../components/LiveDot';
 
 // Countdown flips to coral when a set is <= this many minutes away.
 const IMMINENT_MIN = 5;
-// Festival days span midnight: sets before 06:00 belong to the prior day.
-const POST_MIDNIGHT_CUTOFF_MIN = 6 * 60;
 
 function fmtClock(d: Date): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -25,14 +23,6 @@ function fmtCountdown(mins: number): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return m ? `in ${h}h ${m}m` : `in ${h}h`;
-}
-
-function parseSetMs(dateStr: string, timeStr: string): number {
-  const [h = 0, m = 0] = timeStr.split(':').map(Number);
-  const base = new Date(`${dateStr}T00:00:00`).getTime();
-  const totalMins = h * 60 + m;
-  const rollover = totalMins < POST_MIDNIGHT_CUTOFF_MIN ? 24 * 60 : 0;
-  return base + (totalMins + rollover) * 60_000;
 }
 
 interface TimedSet {
@@ -74,18 +64,11 @@ export default function FestivalModeScreen() {
     const timed: TimedSet[] = [];
     for (const s of sets) {
       const priority = picks[s.id];
-      if (!priority || !s.startTime) continue;
-      const date = s.date || days[s.dayIndex ?? -1]?.date;
-      if (!date) continue;
-      const start = parseSetMs(date, s.startTime);
-      let end: number;
-      if (s.endTime) {
-        end = parseSetMs(date, s.endTime);
-        if (end <= start) end += 24 * 60 * 60_000;
-      } else {
-        end = start + 60 * 60_000;
-      }
-      timed.push({ set: s, start, end, priority });
+      if (!priority) continue;
+      // Shared TZ-safe bounds (incl. post-midnight rollover); null = TBA.
+      const bounds = getSetTimeBounds(s, days);
+      if (!bounds) continue;
+      timed.push({ set: s, start: bounds.startMs, end: bounds.endMs, priority });
     }
     return {
       current: timed.filter((x) => x.start <= nowMs && x.end > nowMs),
@@ -130,31 +113,19 @@ export default function FestivalModeScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={`${artistDisplayName(s, currentFestival.b2bSeparator)} playing now, open details`}
                 >
-                  <Text style={styles.artist}>
-                    {artistDisplayName(s, currentFestival.b2bSeparator)}
-                  </Text>
-                  {stageName ? (
-                    <Text style={styles.stage}>{stageName}</Text>
-                  ) : null}
-                  <Text style={styles.untilText}>
-                    until {fmtClock(new Date(end))}
-                  </Text>
+                  <Text style={styles.artist}>{artistDisplayName(s, currentFestival.b2bSeparator)}</Text>
+                  {stageName ? <Text style={styles.stage}>{stageName}</Text> : null}
+                  <Text style={styles.untilText}>until {fmtClock(new Date(end))}</Text>
                 </TouchableOpacity>
               );
             })
           ) : (
-            <Text style={styles.empty}>
-              Nothing playing right now — your next set will show up below.
-            </Text>
+            <Text style={styles.empty}>Nothing playing right now — your next set will show up below.</Text>
           )}
 
           {/* UP NEXT */}
           <View style={styles.sectionHead}>
-            <Ionicons
-              name="play-skip-forward"
-              size={14}
-              color={t.colors.text.secondary}
-            />
+            <Ionicons name="play-skip-forward" size={14} color={t.colors.text.secondary} />
             <Text style={styles.sectionLabel}>UP NEXT</Text>
           </View>
           {upcoming.length > 0 ? (
@@ -171,19 +142,11 @@ export default function FestivalModeScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={`${artistDisplayName(s, currentFestival.b2bSeparator)} ${fmtCountdown(mins)}, open details`}
                 >
-                  <Text style={styles.artist}>
-                    {artistDisplayName(s, currentFestival.b2bSeparator)}
-                  </Text>
+                  <Text style={styles.artist}>{artistDisplayName(s, currentFestival.b2bSeparator)}</Text>
                   <View style={styles.nextMeta}>
-                    {stageName ? (
-                      <Text style={styles.stage}>{stageName}</Text>
-                    ) : null}
+                    {stageName ? <Text style={styles.stage}>{stageName}</Text> : null}
                     <Text style={styles.startText}>{fmtClock(new Date(start))}</Text>
-                    <Text
-                      style={[styles.countdown, imminent && styles.countdownImminent]}
-                    >
-                      {fmtCountdown(mins)}
-                    </Text>
+                    <Text style={[styles.countdown, imminent && styles.countdownImminent]}>{fmtCountdown(mins)}</Text>
                   </View>
                 </TouchableOpacity>
               );

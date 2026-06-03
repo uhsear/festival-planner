@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,8 @@ import {
   type ListRenderItem,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { FestivalSet, Priority, Stage } from '@festie/shared/types';
-import {
-  timeToMinutes,
-  formatTime,
-  artistDisplayName,
-} from '@festie/shared/utils';
+import type { FestivalDay, FestivalSet, Priority, Stage } from '@festie/shared/types';
+import { timeToMinutes, formatTime, artistDisplayName, getSetTimeBounds } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useNowIndicator, type TimeBounds } from '../hooks/useNowIndicator';
 
@@ -39,6 +35,17 @@ export interface TimelineViewProps {
   getStageColor: (stageId: string) => string;
   onPickChange: (setId: string, priority: Priority | null) => void;
   onSetPress: (set: FestivalSet) => void;
+  /**
+   * Live mode inputs (optional so existing callers keep working): the festival
+   * day records + the full set list power the "up next" countdown, which is
+   * computed off the SHARED getSetTimeBounds. Omit them and the countdown
+   * simply doesn't render. `days` is the screen's lightweight day shape
+   * (`getDays()` → `{ index, date }`); getSetTimeBounds only reads `.date` by
+   * dayIndex, so the minimal `{ date }` structure is all that's required.
+   */
+  days?: { date: string }[];
+  allSets?: FestivalSet[];
+  picks?: Record<string, Priority> | null;
 }
 
 function fmtHour(mins: number): string {
@@ -61,6 +68,7 @@ interface StageColumnProps {
   onSetPress: (set: FestivalSet) => void;
   columnWidth: number;
   scrollRef?: React.RefObject<ScrollView | null>;
+  onUserScroll?: () => void;
 }
 
 /**
@@ -81,6 +89,7 @@ function StageColumn({
   onSetPress,
   columnWidth,
   scrollRef,
+  onUserScroll,
 }: StageColumnProps) {
   const t = useTokens();
   const styles = useStyles();
@@ -107,10 +116,7 @@ function StageColumn({
     <View style={[styles.stageColumn, { width: columnWidth }]}>
       <View style={[styles.stageHeader, { borderBottomColor: stageColor }]}>
         <View style={[styles.stageDot, { backgroundColor: stageColor }]} />
-        <Text
-          style={[styles.stageHeaderText, { color: stageColor }]}
-          numberOfLines={1}
-        >
+        <Text style={[styles.stageHeaderText, { color: stageColor }]} numberOfLines={1}>
           {stage.name}
         </Text>
       </View>
@@ -120,6 +126,7 @@ function StageColumn({
         style={styles.columnScroll}
         contentContainerStyle={{ height: totalHeight }}
         showsVerticalScrollIndicator={false}
+        onScrollBeginDrag={onUserScroll}
       >
         {/* Time gutter + slot gridlines */}
         {timeLabels.map((tl) => (
@@ -129,9 +136,7 @@ function StageColumn({
               styles.gridLine,
               {
                 top: tl.top,
-                borderTopColor: tl.hour
-                  ? t.colors.border.light
-                  : t.colors.border.default,
+                borderTopColor: tl.hour ? t.colors.border.light : t.colors.border.default,
               },
             ]}
           >
@@ -145,10 +150,7 @@ function StageColumn({
           let endMin = timeToMinutes(s.endTime);
           if (endMin <= startMin) endMin += 24 * 60;
           const top = ((startMin - timeBounds.minMin) / SLOT_MINUTES) * ROW_HEIGHT;
-          const height = Math.max(
-            ROW_HEIGHT,
-            ((endMin - startMin) / SLOT_MINUTES) * ROW_HEIGHT,
-          );
+          const height = Math.max(ROW_HEIGHT, ((endMin - startMin) / SLOT_MINUTES) * ROW_HEIGHT);
           const myPick = getMyPick(s.id);
           const conflict = conflictIds.has(s.id);
           const name = artistDisplayName(s, b2bSeparator);
@@ -163,9 +165,7 @@ function StageColumn({
                   left: GUTTER_W + 2,
                   right: 2,
                   borderLeftColor: stageColor,
-                  backgroundColor: myPick
-                    ? t.colors.bg.hover
-                    : t.colors.bg.card,
+                  backgroundColor: myPick ? t.colors.bg.hover : t.colors.bg.card,
                 },
                 conflict && { borderColor: t.colors.accent.coral },
               ]}
@@ -183,12 +183,7 @@ function StageColumn({
                 </Text>
               ) : null}
               {conflict ? (
-                <Ionicons
-                  name="warning"
-                  size={10}
-                  color={t.colors.accent.coral}
-                  style={styles.conflictIcon}
-                />
+                <Ionicons name="warning" size={10} color={t.colors.accent.coral} style={styles.conflictIcon} />
               ) : null}
             </TouchableOpacity>
           );
@@ -238,15 +233,77 @@ export default function TimelineView({
   getMyPick,
   getStageColor,
   onSetPress,
+  days,
+  allSets,
+  picks,
 }: TimelineViewProps) {
   const t = useTokens();
   const styles = useStyles();
   const { width } = useWindowDimensions();
-  const { nowIndicator, scrollRef, scrollToNow } = useNowIndicator(
-    timeBounds,
-    selectedDay,
-    ROW_HEIGHT,
+  const { nowIndicator, scrollRef, scrollToNow } = useNowIndicator(timeBounds, selectedDay, ROW_HEIGHT);
+
+  // --- Live mode ----------------------------------------------------------
+  // 60s device-clock tick drives the "up next" countdown + the auto-scroll.
+  // Offline-native: only cached sets + the local clock, never the network.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Next picked set across all days, via the SHARED getSetTimeBounds (TZ-safe,
+  // post-midnight rollover) — never a local parseSetMs.
+  const nextPick = useMemo(() => {
+    if (!picks || !allSets || !days) return null;
+    // getSetTimeBounds indexes days[dayIndex]?.date — only `.date` is read, so
+    // the screen's lightweight `{ date }[]` is structurally sufficient. The cast
+    // satisfies the FestivalDay[] param without dragging the full record through.
+    const dayRecords = days as unknown as FestivalDay[];
+    let best: { set: FestivalSet; startMs: number } | null = null;
+    for (const s of allSets) {
+      if (!picks[s.id]) continue;
+      const bounds = getSetTimeBounds(s, dayRecords);
+      if (!bounds || bounds.startMs <= nowMs) continue;
+      if (!best || bounds.startMs < best.startMs) best = { set: s, startMs: bounds.startMs };
+    }
+    return best;
+  }, [picks, allSets, days, nowMs]);
+
+  const nextPickLabel = useMemo(() => {
+    if (!nextPick) return null;
+    const totalMin = Math.max(0, Math.round((nextPick.startMs - nowMs) / 60_000));
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    const eta = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+    return { eta, name: artistDisplayName(nextPick.set, b2bSeparator) };
+  }, [nextPick, nowMs, b2bSeparator]);
+
+  // Don't fight active user scrolling: any drag arms the flag for 8s, during
+  // which the tick-driven auto-scroll holds off.
+  const recentlyScrolledRef = useRef(false);
+  const scrollArmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleUserScroll = useCallback(() => {
+    recentlyScrolledRef.current = true;
+    if (scrollArmTimerRef.current) clearTimeout(scrollArmTimerRef.current);
+    scrollArmTimerRef.current = setTimeout(() => {
+      recentlyScrolledRef.current = false;
+    }, 8_000);
+  }, []);
+  useEffect(
+    () => () => {
+      if (scrollArmTimerRef.current) clearTimeout(scrollArmTimerRef.current);
+    },
+    [],
   );
+
+  // Auto-scroll to now on each tick, unless the user is actively scrolling.
+  useEffect(() => {
+    if (nowIndicator === null || recentlyScrolledRef.current) return;
+    const id = requestAnimationFrame(() => {
+      if (!recentlyScrolledRef.current) scrollToNow();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [nowMs, nowIndicator, scrollToNow]);
 
   // Single-column-per-page on phones; a touch of peek so swipe is discoverable.
   const columnWidth = useMemo(() => Math.min(width - 24, 360), [width]);
@@ -274,8 +331,10 @@ export default function TimelineView({
         getMyPick={getMyPick}
         onSetPress={onSetPress}
         columnWidth={columnWidth}
-        // Only the first column drives scroll-to-now (visible on first paint).
+        // Only the first column drives scroll-to-now (visible on first paint)
+        // and reports user drags so the tick won't fight active scrolling.
         scrollRef={index === 0 ? scrollRef : undefined}
+        onUserScroll={index === 0 ? handleUserScroll : undefined}
       />
     ),
     [
@@ -289,6 +348,7 @@ export default function TimelineView({
       onSetPress,
       columnWidth,
       scrollRef,
+      handleUserScroll,
     ],
   );
 
@@ -299,13 +359,19 @@ export default function TimelineView({
   return (
     <View style={styles.root}>
       <View style={styles.hintRow}>
-        <Ionicons
-          name="swap-horizontal"
-          size={12}
-          color={t.colors.text.muted}
-        />
+        <Ionicons name="swap-horizontal" size={12} color={t.colors.text.muted} />
         <Text style={styles.hintText}>Swipe to change stage</Text>
       </View>
+
+      {nextPickLabel ? (
+        <View style={styles.countdownRow} accessibilityRole="text">
+          <Ionicons name="musical-notes" size={12} color={t.colors.accent.coral} />
+          <Text style={styles.countdownText} numberOfLines={1}>
+            Up next in <Text style={styles.countdownEta}>{nextPickLabel.eta}</Text> ·{' '}
+            <Text style={styles.countdownName}>{nextPickLabel.name}</Text>
+          </Text>
+        </View>
+      ) : null}
 
       <FlatList
         data={visibleStages}
@@ -326,11 +392,7 @@ export default function TimelineView({
           accessibilityRole="button"
           accessibilityLabel="Scroll to current time"
         >
-          <Ionicons
-            name="musical-notes"
-            size={16}
-            color={t.colors.text.onAccent}
-          />
+          <Ionicons name="musical-notes" size={16} color={t.colors.text.onAccent} />
           <Text style={styles.fabText}>Now</Text>
         </TouchableOpacity>
       ) : null}
@@ -352,6 +414,27 @@ const useStyles = makeStyles((t) => ({
   hintText: {
     ...typeStyle('micro'),
     color: t.colors.text.muted,
+  },
+  countdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: t.spacing[1],
+    paddingBottom: t.spacing[2],
+    paddingHorizontal: t.spacing[3],
+  },
+  countdownText: {
+    ...typeStyle('micro'),
+    color: t.colors.text.secondary,
+    flexShrink: 1,
+  },
+  countdownEta: {
+    color: t.colors.accent.coral,
+    fontWeight: '700',
+  },
+  countdownName: {
+    color: t.colors.text.primary,
+    fontWeight: '600',
   },
   carousel: {
     paddingHorizontal: t.spacing[3],

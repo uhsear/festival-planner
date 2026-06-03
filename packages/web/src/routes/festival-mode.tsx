@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useFestival } from '@festie/shared/hooks';
-import { artistDisplayName } from '@festie/shared/utils';
+import { artistDisplayName, getSetTimeBounds } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import EmptyState from '../components/ui/EmptyState';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
@@ -24,22 +24,6 @@ function fmtCountdown(mins: number): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return m ? `in ${h}h ${m}m` : `in ${h}h`;
-}
-
-// Festival days commonly span midnight: a Friday-night lineup may include a
-// 02:00 set that's wall-clock-Saturday but logically part of Friday's day.
-// Matches timeline.tsx's end-past-midnight extension (line 96). Sets with
-// startTime before the cutoff (default 06:00) are shifted forward one day so
-// they sort and compare correctly against the real wall clock.
-const POST_MIDNIGHT_CUTOFF_MIN = 6 * 60;
-
-function parseSetMs(dateStr: string, timeStr: string): number {
-  const [h = 0, m = 0] = timeStr.split(':').map(Number);
-  const base = new Date(`${dateStr}T00:00:00`).getTime();
-  const totalMins = h * 60 + m;
-  // Wall-clock-before-6am on this festival day → it's the NEXT calendar day.
-  const rollover = totalMins < POST_MIDNIGHT_CUTOFF_MIN ? 24 * 60 : 0;
-  return base + (totalMins + rollover) * 60_000;
 }
 
 interface TimedSet {
@@ -85,21 +69,10 @@ function FestivalModeViewInner() {
     for (const s of sets) {
       const priority = picks[s.id];
       if (!priority) continue;
-      if (!s.startTime) continue;
-      const day = days[s.dayIndex ?? -1];
-      const date = s.date || day?.date;
-      if (!date) continue;
-      const start = parseSetMs(date, s.startTime);
-      let end: number;
-      if (s.endTime) {
-        end = parseSetMs(date, s.endTime);
-        // End ≤ start means the set spans midnight — shift end forward one
-        // day (same pattern as timeline.tsx line 96, hasSetStarted, etc).
-        if (end <= start) end += 24 * 60 * 60_000;
-      } else {
-        end = start + 60 * 60_000;
-      }
-      timed.push({ set: s, start, end, priority });
+      // Shared TZ-safe bounds (incl. post-midnight rollover); null = TBA.
+      const bounds = getSetTimeBounds(s, days);
+      if (!bounds) continue;
+      timed.push({ set: s, start: bounds.startMs, end: bounds.endMs, priority });
     }
     const currentSets = timed.filter((t) => t.start <= nowMs && t.end > nowMs);
     const upcomingSets = timed
@@ -122,10 +95,17 @@ function FestivalModeViewInner() {
   }
 
   return (
-    <div className="px-4 max-w-[500px] mx-auto pb-[calc(20px+env(safe-area-inset-bottom,0px))]" data-testid="festival-mode-view">
+    <div
+      className="px-4 max-w-[500px] mx-auto pb-[calc(20px+env(safe-area-inset-bottom,0px))]"
+      data-testid="festival-mode-view"
+    >
       <div className="flex justify-between items-baseline mb-5">
-        <div className="text-2xl font-bold font-display tracking-[-0.01em] text-text-primary">{currentFestival.name}</div>
-        <div className="text-base text-text-secondary tabular-nums" aria-label="Current time">{fmtClock(now)}</div>
+        <div className="text-2xl font-bold font-display tracking-[-0.01em] text-text-primary">
+          {currentFestival.name}
+        </div>
+        <div className="text-base text-text-secondary tabular-nums" aria-label="Current time">
+          {fmtClock(now)}
+        </div>
       </div>
 
       <section className="mb-5" aria-labelledby="fm-now-title">
@@ -159,7 +139,9 @@ function FestivalModeViewInner() {
               >
                 <div className="type-title text-text-primary">{artistDisplayName(s, currentFestival.b2bSeparator)}</div>
                 {stageName && <div className="type-caption text-text-secondary mt-0.5 leading-[1.3]">{stageName}</div>}
-                <div className="type-label text-accent-aqua mt-1 tabular-nums leading-[1.3] font-semibold">until {fmtClock(new Date(end))}</div>
+                <div className="type-label text-accent-aqua mt-1 tabular-nums leading-[1.3] font-semibold">
+                  until {fmtClock(new Date(end))}
+                </div>
               </button>
             );
           })
@@ -209,12 +191,16 @@ function FestivalModeViewInner() {
                 <div className="type-title text-text-primary">{artistDisplayName(s, currentFestival.b2bSeparator)}</div>
                 <div className="flex justify-between items-baseline gap-2 mt-1 flex-wrap">
                   {stageName && <span className="type-caption text-text-secondary leading-[1.3]">{stageName}</span>}
-                  <span className="type-caption text-accent-aqua tabular-nums leading-[1.3]">{fmtClock(new Date(start))}</span>
-                  <span className={cn(
-                    'type-caption text-accent-aqua font-semibold ml-1.5 tabular-nums leading-[1.15] tracking-[-0.01em]',
-                    'transition-colors duration-[var(--duration-med)] ease-[var(--ease-out)] motion-reduce:transition-none',
-                    imminent && 'text-accent-coral font-bold',
-                  )}>
+                  <span className="type-caption text-accent-aqua tabular-nums leading-[1.3]">
+                    {fmtClock(new Date(start))}
+                  </span>
+                  <span
+                    className={cn(
+                      'type-caption text-accent-aqua font-semibold ml-1.5 tabular-nums leading-[1.15] tracking-[-0.01em]',
+                      'transition-colors duration-[var(--duration-med)] ease-[var(--ease-out)] motion-reduce:transition-none',
+                      imminent && 'text-accent-coral font-bold',
+                    )}
+                  >
                     {fmtCountdown(mins)}
                   </span>
                 </div>

@@ -4,7 +4,7 @@ import { FlatList } from 'react-native';
 import type { FestivalSet, Priority, Stage } from '@festie/shared/types';
 import { timeToMinutes } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
-import SetCardMobile from './SetCardMobile';
+import SetCardMobile, { type FriendProfile } from './SetCardMobile';
 
 /** Compare set start times for ascending time order (TBA-less sets last). */
 function byStartTime(a: FestivalSet, b: FestivalSet): number {
@@ -36,6 +36,12 @@ export interface GridViewProps {
   getMyPick: (setId: string) => Priority | null | undefined;
   /** Optional: returns the user's personal note for a set, for the note indicator. */
   getMyNote?: (setId: string) => string | undefined;
+  /**
+   * Optional: other crew members who picked a set (M1 crew-overlap). When
+   * provided, each grid set card shows the crew avatar cluster, matching the
+   * card list. Omit to hide the cluster.
+   */
+  getOtherPicks?: (setId: string) => FriendProfile[];
   getStageColor: (stageId: string) => string;
   getStageName: (stageId: string) => string | undefined;
   onPickChange: (setId: string, priority: Priority | null) => void;
@@ -58,6 +64,7 @@ export default function GridView({
   conflictIds,
   getMyPick,
   getMyNote,
+  getOtherPicks,
   getStageColor,
   getStageName,
   onPickChange,
@@ -86,9 +93,7 @@ export default function GridView({
 
     const orderedStageIds = [
       ...visibleStages.map((s) => s.id).filter((id) => byStage.has(id)),
-      ...[...byStage.keys()].filter(
-        (id) => !visibleStages.some((s) => s.id === id),
-      ),
+      ...[...byStage.keys()].filter((id) => !visibleStages.some((s) => s.id === id)),
     ];
 
     const out: GridRow[] = [];
@@ -118,12 +123,7 @@ export default function GridView({
       let dividerPlaced = false;
       for (const set of stageSets) {
         const start = set.startTime ? timeToMinutes(set.startTime) : null;
-        if (
-          !dividerPlaced &&
-          nowMins !== null &&
-          start !== null &&
-          start >= nowMins
-        ) {
+        if (!dividerPlaced && nowMins !== null && start !== null && start >= nowMins) {
           out.push({ kind: 'nowDivider', key: `now-${stageId}` });
           dividerPlaced = true;
         }
@@ -138,19 +138,12 @@ export default function GridView({
       if (item.kind === 'stageHeader') {
         return (
           <View style={styles.stageHeader}>
-            <View
-              style={[styles.stageDot, { backgroundColor: item.stageColor }]}
-            />
+            <View style={[styles.stageDot, { backgroundColor: item.stageColor }]} />
             <Text style={styles.stageHeaderText} numberOfLines={1}>
               {item.stageName}
             </Text>
             {item.isNow ? (
-              <View
-                style={[
-                  styles.nowBadge,
-                  { backgroundColor: t.colors.accent.coral },
-                ]}
-              >
+              <View style={[styles.nowBadge, { backgroundColor: t.colors.accent.coral }]}>
                 <Text style={styles.nowBadgeText}>NOW</Text>
               </View>
             ) : null}
@@ -160,17 +153,8 @@ export default function GridView({
       if (item.kind === 'nowDivider') {
         return (
           <View style={styles.nowDividerRow}>
-            <View
-              style={[
-                styles.nowDividerLine,
-                { backgroundColor: t.colors.accent.coral },
-              ]}
-            />
-            <Text
-              style={[styles.nowDividerText, { color: t.colors.accent.coral }]}
-            >
-              NOW
-            </Text>
+            <View style={[styles.nowDividerLine, { backgroundColor: t.colors.accent.coral }]} />
+            <Text style={[styles.nowDividerText, { color: t.colors.accent.coral }]}>NOW</Text>
           </View>
         );
       }
@@ -183,6 +167,7 @@ export default function GridView({
           myPick={getMyPick(set.id)}
           hasConflict={conflictIds.has(set.id)}
           hasNote={!!getMyNote?.(set.id)}
+          friendProfiles={getOtherPicks?.(set.id)}
           onPickChange={(p) => onPickChange(set.id, p)}
           onPress={() => onSetPress(set)}
         />
@@ -195,6 +180,7 @@ export default function GridView({
       getStageColor,
       getMyPick,
       getMyNote,
+      getOtherPicks,
       conflictIds,
       onPickChange,
       onSetPress,

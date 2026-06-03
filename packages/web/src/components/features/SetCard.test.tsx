@@ -12,9 +12,19 @@ vi.mock('@festie/shared/hooks', () => ({
   })),
 }));
 
+// Mutable store snapshots so individual tests can seed allProfiles / crewMembers
+// for the crew-overlap avatar join without re-mocking the module.
+const festivalStoreState: Record<string, unknown> = {
+  currentFestival: { id: 'fest-1' },
+  allProfiles: [],
+};
+const crewStoreState: Record<string, unknown> = {
+  crewMembers: [],
+};
+
 vi.mock('@festie/shared/stores', () => ({
-  useFestivalStore: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ currentFestival: { id: 'fest-1' } }),
+  useFestivalStore: (selector: (s: Record<string, unknown>) => unknown) => selector(festivalStoreState),
+  useCrewStore: (selector: (s: Record<string, unknown>) => unknown) => selector(crewStoreState),
 }));
 
 vi.mock('@festie/shared/services/api', () => ({
@@ -68,6 +78,8 @@ describe('SetCard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    festivalStoreState.allProfiles = [];
+    crewStoreState.crewMembers = [];
     vi.mocked(useSetStatus).mockReturnValue({
       status: 'later',
       label: '2:00 PM',
@@ -197,24 +209,15 @@ describe('SetCard', () => {
         />,
       );
       // Avatars replace the bare count; the accessible label still conveys the count.
-      expect(
-        screen.getByLabelText(/2 crew members going to Daft Punk/),
-      ).toBeInTheDocument();
+      expect(screen.getByLabelText(/2 crew members going to Daft Punk/)).toBeInTheDocument();
       // Initials avatars render for each crew member (no avatar image provided).
       expect(screen.getByText('A')).toBeInTheDocument();
       expect(screen.getByText('B')).toBeInTheDocument();
     });
 
     it('uses singular phrasing in the accessible label for a single friend', () => {
-      render(
-        <SetCard
-          {...defaultProps}
-          friendProfiles={[{ profileId: 'p1', name: 'Alice', priority: 'must' }]}
-        />,
-      );
-      expect(
-        screen.getByLabelText(/1 crew member going to Daft Punk/),
-      ).toBeInTheDocument();
+      render(<SetCard {...defaultProps} friendProfiles={[{ profileId: 'p1', name: 'Alice', priority: 'must' }]} />);
+      expect(screen.getByLabelText(/1 crew member going to Daft Punk/)).toBeInTheDocument();
     });
 
     it('shows a +N overflow chip when more than 3 crew members are going', () => {
@@ -231,9 +234,68 @@ describe('SetCard', () => {
         />,
       );
       expect(screen.getByText('+2')).toBeInTheDocument();
-      expect(
-        screen.getByLabelText(/5 crew members going to Daft Punk/),
-      ).toBeInTheDocument();
+      expect(screen.getByLabelText(/5 crew members going to Daft Punk/)).toBeInTheDocument();
+    });
+
+    it('groups avatars by priority (must before want before maybe) in the cluster', () => {
+      // Provide friends out of priority order with distinct initials; the cluster
+      // should re-sort so must (A) renders before want (B) before maybe (C).
+      const { container } = render(
+        <SetCard
+          {...defaultProps}
+          friendProfiles={[
+            { profileId: 'p1', name: 'Cara', priority: 'maybe' },
+            { profileId: 'p2', name: 'Bea', priority: 'want-to-see' },
+            { profileId: 'p3', name: 'Ada', priority: 'must' },
+          ]}
+        />,
+      );
+      const text = container.querySelector('.card-overlap')?.textContent ?? '';
+      // Visible initials sequence reflects must → want → maybe ordering.
+      expect(text.indexOf('A')).toBeLessThan(text.indexOf('B'));
+      expect(text.indexOf('B')).toBeLessThan(text.indexOf('C'));
+    });
+
+    it('summarizes the priority breakdown in the accessible label', () => {
+      render(
+        <SetCard
+          {...defaultProps}
+          friendProfiles={[
+            { profileId: 'p1', name: 'Alice', priority: 'must' },
+            { profileId: 'p2', name: 'Bob', priority: 'must' },
+            { profileId: 'p3', name: 'Carol', priority: 'maybe' },
+          ]}
+        />,
+      );
+      // "N of your crew have this as a must" surfaces as a must/maybe breakdown
+      // appended to the count label.
+      expect(screen.getByLabelText(/3 crew members going to Daft Punk — 2 must, 1 maybe/)).toBeInTheDocument();
+    });
+
+    it('joins crew-member avatars by userId, falling back to initials', () => {
+      // Profile p1 -> user u1 -> crew member with an avatar image; p2 has no
+      // matching crew member, so it falls back to initials.
+      festivalStoreState.allProfiles = [
+        { id: 'p1', userId: 'u1' },
+        { id: 'p2', userId: 'u2' },
+      ];
+      crewStoreState.crewMembers = [{ id: 'cm1', userId: 'u1', name: 'Alice', avatar: 'https://cdn/alice.png' }];
+      const { container } = render(
+        <SetCard
+          {...defaultProps}
+          friendProfiles={[
+            { profileId: 'p1', priority: 'must' },
+            { profileId: 'p2', name: 'Bob', priority: 'maybe' },
+          ]}
+        />,
+      );
+      // Alice's avatar image is joined from the crew roster. The cluster is
+      // aria-hidden (the count label carries the a11y info), so the <img> isn't
+      // an accessible "img" role — query it by alt text directly.
+      const img = container.querySelector('img[alt="Alice"]');
+      expect(img).toHaveAttribute('src', 'https://cdn/alice.png');
+      // Bob has no crew-member match -> initials fallback.
+      expect(screen.getByText('B')).toBeInTheDocument();
     });
 
     it('falls back to the count when crew profiles have no identity data', () => {

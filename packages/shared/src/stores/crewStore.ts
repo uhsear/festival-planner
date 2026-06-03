@@ -495,13 +495,59 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   },
 
   // PUT /crews/:crewId/meeting-points/:mpId -> { meetingPoint }.
+  // Offline, api.put queues the write and returns the SYNTHETIC optimistic shape
+  // `{ ...request, _optimistic: true }` — NOT the server's { meetingPoint }
+  // envelope. Destructuring `{ meetingPoint }` from that wrote `undefined` into
+  // the list (latent bug). Detect the optimistic result and instead MERGE the
+  // request body onto the existing meeting point (camelCase request → snake_case
+  // stored fields), mirroring savePick / createMeetingPoint's optimistic pattern,
+  // so the edit shows immediately and reconciles cleanly when the PUT replays.
   updateMeetingPoint: async (crewId: string, mpId: string, request: UpdateCrewMeetingPointRequest) => {
     set({ error: null });
     try {
-      const { meetingPoint } = await api.put<{ meetingPoint: CrewMeetingPoint }>(
-        `/crews/${crewId}/meeting-points/${mpId}`,
-        request,
-      );
+      const res = await api.put<
+        { meetingPoint: CrewMeetingPoint } | (UpdateCrewMeetingPointRequest & { _optimistic: true })
+      >(`/crews/${crewId}/meeting-points/${mpId}`, request);
+
+      // Offline: synthetic optimistic result — merge the request fields onto the
+      // current entity (only the keys actually present in the request).
+      if (res && (res as { _optimistic?: boolean })._optimistic) {
+        let merged: CrewMeetingPoint | null = null;
+        set((state) => ({
+          meetingPoints: state.meetingPoints.map((m) => {
+            if (m.id !== mpId) return m;
+            merged = {
+              ...m,
+              ...(request.label !== undefined ? { label: request.label } : {}),
+              ...(request.location !== undefined ? { location: request.location } : {}),
+              ...(request.type !== undefined ? { type: request.type } : {}),
+              ...(request.meetAt !== undefined ? { meet_at: request.meetAt } : {}),
+              ...(request.stageReference !== undefined ? { stage_reference: request.stageReference } : {}),
+            };
+            return merged;
+          }),
+        }));
+        // Return the merged entity (or a best-effort synthetic if it wasn't in
+        // the list) so callers always get a CrewMeetingPoint, never undefined.
+        return (
+          merged ?? {
+            id: mpId,
+            crew_id: crewId,
+            created_by: '',
+            label: request.label ?? '',
+            location: request.location ?? '',
+            type: request.type ?? 'custom',
+            meet_at: request.meetAt ?? null,
+            stage_reference: request.stageReference ?? null,
+            active: true,
+            created_at: new Date().toISOString(),
+            _optimistic: true,
+          }
+        );
+      }
+
+      // Online: authoritative { meetingPoint } envelope.
+      const { meetingPoint } = res as { meetingPoint: CrewMeetingPoint };
       set((state) => ({
         meetingPoints: state.meetingPoints.map((m) => (m.id === mpId ? meetingPoint : m)),
       }));
@@ -514,6 +560,10 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   },
 
   // DELETE /crews/:crewId/meeting-points/:mpId.
+  // Offline, api.delete queues the write and resolves with a synthetic success
+  // ({ ok: true, _optimistic: true }) rather than throwing, so the optimistic
+  // removal below runs in both the online and offline paths — the deleted point
+  // disappears immediately and the queued DELETE replays on reconnect.
   deleteMeetingPoint: async (crewId: string, mpId: string) => {
     set({ error: null });
     try {

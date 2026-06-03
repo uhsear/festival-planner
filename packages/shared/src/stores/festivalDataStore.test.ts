@@ -44,6 +44,9 @@ function resetStores() {
     days: [],
     isLoading: false,
     error: null,
+    _festivalCachedAt: null,
+    _profilesCachedAt: null,
+    _cachedFestivalId: null,
   });
   useFestivalUIStore.setState({
     selectedDay: 0,
@@ -232,7 +235,13 @@ describe('festivalDataStore', () => {
         picks: { s1: 'must' },
         notes: {},
       } as unknown as import('../types').Profile;
-      useFestivalDataStore.setState({ currentProfile: persisted, allProfiles: [persisted] });
+      // _cachedFestivalId reflects the real store invariant: these cached
+      // profiles were loaded for fest-1, so the staleness guard preserves them.
+      useFestivalDataStore.setState({
+        currentProfile: persisted,
+        allProfiles: [persisted],
+        _cachedFestivalId: 'fest-1',
+      });
 
       const detailResponse = {
         ...mockFestival,
@@ -508,6 +517,125 @@ describe('festivalDataStore', () => {
 
       expect(api.put).toHaveBeenCalled();
       expect(useFestivalDataStore.getState().currentProfile!.picks['set-2']).toBe('want-to-see');
+    });
+  });
+
+  // ── F1: bounded, crew-scoped allProfiles persistence ─────────────────────
+  describe('persist partialize (F1: allProfiles snapshot)', () => {
+    // Reach into the persist middleware's configured partialize so we test the
+    // exact serialization the store ships, not a re-implementation.
+    const partialize = (state: ReturnType<typeof useFestivalDataStore.getState>) =>
+      (
+        useFestivalDataStore as unknown as {
+          persist: { getOptions: () => { partialize: (s: typeof state) => Record<string, unknown> } };
+        }
+      ).persist
+        .getOptions()
+        .partialize(state);
+
+    function profile(i: number): Profile {
+      return {
+        id: `prof-${i}`,
+        userId: `user-${i}`,
+        name: `User ${i}`,
+        festivalId: 'fest-1',
+        picks: { [`set-${i}`]: 'must' },
+        notes: { [`set-${i}`]: 'secret note' },
+        reminders: { [`set-${i}`]: 15 },
+        updatedAt: '2026-01-01T00:00:00Z',
+      };
+    }
+
+    it('persists allProfiles SLIMMED to { id, userId, name, picks } only', () => {
+      useFestivalDataStore.setState({
+        allProfiles: [profile(1)],
+        _cachedFestivalId: 'fest-1',
+        _profilesCachedAt: 123,
+        _festivalCachedAt: 456,
+      });
+      const out = partialize(useFestivalDataStore.getState()) as { allProfiles: Record<string, unknown>[] };
+      expect(out.allProfiles).toHaveLength(1);
+      const p = out.allProfiles[0]!;
+      expect(p.id).toBe('prof-1');
+      expect(p.userId).toBe('user-1');
+      expect(p.name).toBe('User 1');
+      expect(p.picks).toEqual({ 'set-1': 'must' });
+      // notes/reminders are dropped (not read by overlap/digest), notes backfilled empty.
+      expect(p.notes).toEqual({});
+      expect('reminders' in p).toBe(false);
+      // festivalId backfilled from the cached-festival tag.
+      expect(p.festivalId).toBe('fest-1');
+    });
+
+    it('caps the persisted snapshot at MAX_CACHED_PROFILES (60)', () => {
+      const many = Array.from({ length: 200 }, (_, i) => profile(i));
+      useFestivalDataStore.setState({ allProfiles: many, _cachedFestivalId: 'fest-1' });
+      const out = partialize(useFestivalDataStore.getState()) as { allProfiles: unknown[] };
+      expect(out.allProfiles).toHaveLength(60);
+    });
+
+    it('persists the freshness + staleness-guard bookkeeping fields', () => {
+      useFestivalDataStore.setState({
+        allProfiles: [],
+        _cachedFestivalId: 'fest-1',
+        _profilesCachedAt: 111,
+        _festivalCachedAt: 222,
+      });
+      const out = partialize(useFestivalDataStore.getState()) as Record<string, unknown>;
+      expect(out._cachedFestivalId).toBe('fest-1');
+      expect(out._profilesCachedAt).toBe(111);
+      expect(out._festivalCachedAt).toBe(222);
+    });
+  });
+
+  // ── F1: selectFestival freshness stamps + cross-festival staleness guard ──
+  describe('selectFestival F1 bookkeeping', () => {
+    it('stamps _festivalCachedAt, _profilesCachedAt and _cachedFestivalId on success', async () => {
+      useAuthStore.setState({
+        user: { id: 'user-1', username: 'alice', createdAt: '', updatedAt: '' },
+      });
+      const detailResponse = { ...mockFestival, stages: [], days: [] };
+      vi.mocked(api.get).mockResolvedValueOnce(detailResponse).mockResolvedValueOnce([mockProfile]);
+
+      const before = Date.now();
+      await useFestivalDataStore.getState().selectFestival('fest-1');
+      const state = useFestivalDataStore.getState();
+      expect(state._cachedFestivalId).toBe('fest-1');
+      expect(state._festivalCachedAt).toBeGreaterThanOrEqual(before);
+      expect(state._profilesCachedAt).toBeGreaterThanOrEqual(before);
+    });
+
+    it('preserves persisted allProfiles offline ONLY when they belong to this festival', async () => {
+      useAuthStore.setState({
+        user: { id: 'user-1', username: 'alice', createdAt: '', updatedAt: '' },
+      });
+      const cachedProfiles = [mockProfile];
+      useFestivalDataStore.setState({ allProfiles: cachedProfiles, _cachedFestivalId: 'fest-1' });
+
+      const detailResponse = { ...mockFestival, stages: [], days: [] };
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(detailResponse)
+        .mockRejectedValueOnce(new Error('Network request failed')); // /profiles offline
+
+      await useFestivalDataStore.getState().selectFestival('fest-1');
+      expect(useFestivalDataStore.getState().allProfiles).toEqual(cachedProfiles);
+    });
+
+    it('DROPS a persisted allProfiles snapshot from a DIFFERENT festival (staleness guard)', async () => {
+      useAuthStore.setState({
+        user: { id: 'user-1', username: 'alice', createdAt: '', updatedAt: '' },
+      });
+      // Cached profiles belong to fest-OTHER; selecting fest-1 offline must not
+      // bleed another festival's crew picks into the overlap/digest views.
+      useFestivalDataStore.setState({ allProfiles: [mockProfile], _cachedFestivalId: 'fest-OTHER' });
+
+      const detailResponse = { ...mockFestival, stages: [], days: [] };
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(detailResponse)
+        .mockRejectedValueOnce(new Error('Network request failed'));
+
+      await useFestivalDataStore.getState().selectFestival('fest-1');
+      expect(useFestivalDataStore.getState().allProfiles).toEqual([]);
     });
   });
 

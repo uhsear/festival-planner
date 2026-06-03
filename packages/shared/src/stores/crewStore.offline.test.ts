@@ -107,6 +107,46 @@ describe('crewStore offline optimistic create + reconciliation (Phase 2)', () =>
       expect(list[0]!.id).toBe(mp.id);
     });
 
+    it('updateMeetingPoint MERGES the request body into the existing point offline (not undefined)', async () => {
+      useUIStore.setState({ offlineMode: true });
+      useCrewStore.setState({
+        meetingPoints: [
+          {
+            id: 'mp-1',
+            crew_id: 'crew-1',
+            created_by: 'u1',
+            label: 'Old gate',
+            location: 'North',
+            type: 'custom',
+            meet_at: null,
+            stage_reference: null,
+            active: true,
+            created_at: '2026-06-03T00:00:00Z',
+          },
+        ],
+      });
+
+      const result = await useCrewStore.getState().updateMeetingPoint('crew-1', 'mp-1', {
+        label: 'New gate',
+        meetAt: '2026-06-03T20:00:00Z',
+      });
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      const list = useCrewStore.getState().meetingPoints;
+      // Exactly one entity, and it's a real merged point — never undefined.
+      expect(list).toHaveLength(1);
+      expect(list[0]).toBeDefined();
+      expect(list[0]!.label).toBe('New gate');
+      // Field NOT in the request keeps its prior value (no clobber to undefined).
+      expect(list[0]!.location).toBe('North');
+      // camelCase request → snake_case stored field mapping.
+      expect(list[0]!.meet_at).toBe('2026-06-03T20:00:00Z');
+      // The returned value is the merged entity, not undefined.
+      expect(result).toBeDefined();
+      expect(result.label).toBe('New gate');
+      expect(result.location).toBe('North');
+    });
+
     it('addExpense inserts an optimistic expense offline WITHOUT recomputing balances or refetching', async () => {
       useUIStore.setState({ offlineMode: true });
       useCrewStore.setState({ expenseBalances: [{ userId: 'u1', username: 'A', balance: 5 }] });

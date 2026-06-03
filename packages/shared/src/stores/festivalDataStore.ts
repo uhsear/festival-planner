@@ -67,6 +67,16 @@ export interface FestivalDataState {
   days: FestivalDay[];
   isLoading: boolean;
   error: string | null;
+  // ── Offline read-cache bookkeeping (persisted) ──────────────────
+  // `_festivalCachedAt` is the epoch-ms when the selected festival last loaded
+  // successfully — a "synced N ago" freshness chip reads it. `_profilesCachedAt`
+  // is when `allProfiles` was last persisted. `_cachedFestivalId` records which
+  // festival the persisted `allProfiles` snapshot belongs to, mirroring
+  // crewStore._cachedCrewId, so a different festival's crew picks never bleed
+  // into the digest/overlap views on a cold offline start.
+  _festivalCachedAt: number | null;
+  _profilesCachedAt: number | null;
+  _cachedFestivalId: string | null;
 }
 
 export interface FestivalDataActions {
@@ -90,6 +100,19 @@ export interface FestivalDataActions {
 
 export type FestivalDataStore = FestivalDataState & FestivalDataActions;
 
+// ── Persisted allProfiles snapshot bounds (F1) ─────────────────────────────
+// allProfiles powers crew-overlap / crew-digest / grid-overlap, which render
+// EMPTY on a cold offline start unless persisted. We persist a BOUNDED,
+// crew-scoped snapshot keyed by `_cachedFestivalId`: only the fields those
+// views read ({ id, userId, name, picks }) — never notes/reminders/etag — and
+// capped to MAX_CACHED_PROFILES so a large festival can't bloat the blob.
+const MAX_CACHED_PROFILES = 60;
+
+/** Strip a profile down to the crew-overlap/digest essentials for persistence. */
+function slimProfileForCache(p: Profile): Pick<Profile, 'id' | 'userId' | 'name' | 'picks'> {
+  return { id: p.id, userId: p.userId, name: p.name, picks: p.picks };
+}
+
 const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   festivals: [],
   currentFestivalId: null,
@@ -101,6 +124,9 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   days: [],
   isLoading: false,
   error: null,
+  _festivalCachedAt: null,
+  _profilesCachedAt: null,
+  _cachedFestivalId: null,
 
   loadFestivals: async () => {
     set({ isLoading: true, error: null });
@@ -161,16 +187,30 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       const currentProfile =
         fetchedProfile ??
         (profilesFetchFailed && prevState.currentProfile?.festivalId === festivalId ? prevState.currentProfile : null);
-      const allProfiles = profilesFetchFailed && profiles.length === 0 ? prevState.allProfiles : profiles;
+      // Offline-preserve: when the /profiles fetch failed (offline / session blip)
+      // keep the in-memory or rehydrated crew profiles INSTEAD of an empty list —
+      // but only when they belong to THIS festival (staleness guard, mirroring
+      // crewStore._cachedCrewId). A persisted snapshot from another festival must
+      // never bleed into overlap/digest views.
+      const preservedAllProfiles =
+        profilesFetchFailed && profiles.length === 0 && prevState._cachedFestivalId === festivalId
+          ? prevState.allProfiles
+          : profiles;
+      // Stamp the profiles cache time only when we actually hold a fresh list;
+      // a preserved (stale) list keeps its prior timestamp so freshness UI stays honest.
+      const profilesAreFresh = !(profilesFetchFailed && profiles.length === 0);
 
       set({
         currentFestival: festival,
         sets,
         stages,
         days,
-        allProfiles,
+        allProfiles: preservedAllProfiles,
         currentProfile,
         isLoading: false,
+        _festivalCachedAt: Date.now(),
+        _cachedFestivalId: festivalId,
+        _profilesCachedAt: profilesAreFresh ? Date.now() : prevState._profilesCachedAt,
       });
 
       // Default the day selector to today when the festival is in progress
@@ -197,7 +237,13 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       const profiles = await api.get<Profile[]>(`/profiles/${festivalId}`);
       const userId = useAuthStore.getState().user?.id;
       const currentProfile = userId ? profiles.find((p) => p.userId === userId) || null : null;
-      set({ allProfiles: profiles, currentProfile, isLoading: false });
+      set({
+        allProfiles: profiles,
+        currentProfile,
+        isLoading: false,
+        _profilesCachedAt: Date.now(),
+        _cachedFestivalId: festivalId,
+      });
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to load profiles');
       set({ error: message, isLoading: false });
@@ -384,8 +430,16 @@ export const useFestivalDataStore = create<FestivalDataStore>()(
     // Persist the selected festival's schedule + the user's own profile so a
     // cold start with no signal (the festival condition) renders the cached
     // schedule and picks/reminders instantly; selectFestival revalidates when
-    // online. allProfiles is intentionally NOT persisted (crew data can be
-    // large and is re-fetched on reconnect).
+    // online.
+    //
+    // allProfiles IS persisted now (F1) — but as a BOUNDED, crew-scoped, slimmed
+    // snapshot ({ id, userId, name, picks }, capped to MAX_CACHED_PROFILES),
+    // tagged with `_cachedFestivalId`. Without it crew-overlap / crew-digest /
+    // grid-overlap render empty on a cold offline start. The selectFestival
+    // staleness guard drops it when it belongs to a different festival, so one
+    // festival's picks never bleed into another's views. Required Profile fields
+    // not used by those views (notes/reminders/festivalId/updatedAt) are dropped
+    // here and backfilled with empties on rehydrate to keep the type valid.
     partialize: (state) => ({
       currentFestivalId: state.currentFestivalId,
       currentFestival: state.currentFestival,
@@ -393,6 +447,17 @@ export const useFestivalDataStore = create<FestivalDataStore>()(
       stages: state.stages,
       days: state.days,
       currentProfile: state.currentProfile,
+      allProfiles: state.allProfiles.slice(0, MAX_CACHED_PROFILES).map((p) => ({
+        ...slimProfileForCache(p),
+        // Backfill the Profile fields the overlap/digest views don't read so the
+        // rehydrated array still satisfies Profile[]; revalidated on reconnect.
+        festivalId: state._cachedFestivalId ?? '',
+        notes: {},
+        updatedAt: '',
+      })),
+      _festivalCachedAt: state._festivalCachedAt,
+      _profilesCachedAt: state._profilesCachedAt,
+      _cachedFestivalId: state._cachedFestivalId,
     }),
   }),
 );

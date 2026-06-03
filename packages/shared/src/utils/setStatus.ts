@@ -37,44 +37,74 @@ export function createDateInLocalFrame(dateStr: string, hours: number, minutes: 
 }
 
 /**
+ * Resolve a set's start/end to absolute epoch-ms in the device's local frame —
+ * the single source of truth for "when does this set happen". Returns `null`
+ * when the set has no usable date/time (TBA), so callers can skip it.
+ *
+ * Built on `createDateInLocalFrame` (no JS string-parser TZ skew) and includes
+ * the **post-midnight rollover**: when the end wall-clock is at or before the
+ * start (e.g. 23:30→01:00), the set runs past midnight, so the end is pushed to
+ * the next calendar day. This is the same math `getSetStatus` uses internally,
+ * extracted so festival/live mode, clash prompts and local reminders all read
+ * identical bounds instead of re-deriving them (the old hand-rolled `parseSetMs`
+ * copies in web/mobile festival-mode used a divergent 6am-cutoff heuristic).
+ *
+ * When `endTime` is missing the set is treated as one hour long.
+ */
+export function getSetTimeBounds(
+  set: Pick<FestivalSet, 'startTime' | 'endTime' | 'date' | 'dayIndex'>,
+  days: FestivalDay[] = [],
+): { startMs: number; endMs: number } | null {
+  // Look up the date via the festival days array first (the store flattens sets
+  // with a dayIndex); fall back to set.date for callers that still attach it.
+  const dayRecord = typeof set.dayIndex === 'number' ? days[set.dayIndex] : null;
+  const dateStr = dayRecord?.date || set.date;
+  if (!dateStr || !set.startTime) return null;
+
+  // Anchor on the first 10 chars (YYYY-MM-DD). Reject anything that isn't a
+  // well-formed calendar day before doing any time math.
+  const dayKey = dateStr.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return null;
+
+  const [startHh = 0, startMm = 0] = set.startTime.split(':').map((x) => parseInt(x, 10));
+  const startDate = createDateInLocalFrame(dayKey, startHh, startMm);
+  if (isNaN(startDate.getTime())) return null;
+  const startMs = startDate.getTime();
+
+  let endMs: number;
+  if (set.endTime) {
+    const [endHh = 0, endMm = 0] = set.endTime.split(':').map((x) => parseInt(x, 10));
+    const endDate = createDateInLocalFrame(dayKey, endHh, endMm);
+    // End at/before start means the set runs past midnight — push to next day.
+    if (endDate.getTime() <= startMs) {
+      endDate.setDate(endDate.getDate() + 1);
+    }
+    endMs = endDate.getTime();
+  } else {
+    // No end time: assume a one-hour set so "now / up next" stays sensible.
+    endMs = startMs + 60 * 60_000;
+  }
+
+  return { startMs, endMs };
+}
+
+/**
  * Compute a set's status relative to a given `now`. Pure — the time source is
  * injected so it stays testable and works identically on web and native. Shared
  * single source of truth consumed by both web's and mobile's useSetStatus hooks.
  */
 export function getSetStatus(set: FestivalSet, now: Date, days: FestivalDay[] = []): SetStatusResult {
-  // Look up the date via the festival days array first (the store flattens sets
-  // with a dayIndex); fall back to set.date for callers that still attach it.
-  const dayRecord = typeof set.dayIndex === 'number' ? days[set.dayIndex] : null;
-  const dateStr = dayRecord?.date || set.date;
-
-  if (!dateStr || !set.startTime || !set.endTime) {
+  if (!set.startTime || !set.endTime) {
     return { status: 'tba', label: 'TBA', minutesUntil: Infinity, progress: 0 };
   }
 
-  // Anchor on the first 10 chars (YYYY-MM-DD). Reject anything that isn't a
-  // well-formed calendar day before doing any time math (mirrors the old
-  // isNaN guard, but without depending on the JS string parser).
-  const dayKey = dateStr.slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+  // Delegate the TZ-safe start/end math (incl. post-midnight rollover) to the
+  // shared getSetTimeBounds so status + festival/live mode never diverge.
+  const bounds = getSetTimeBounds(set, days);
+  if (!bounds) {
     return { status: 'tba', label: 'TBA', minutesUntil: Infinity, progress: 0 };
   }
-
-  // Build both ends in one consistent local frame via createDateInLocalFrame so
-  // start/end/now are always compared apples-to-apples regardless of host TZ.
-  const [startHh = 0, startMm = 0] = (set.startTime || '00:00').split(':').map((x) => parseInt(x, 10));
-  const setDate = createDateInLocalFrame(dayKey, startHh, startMm);
-  if (isNaN(setDate.getTime())) {
-    return { status: 'tba', label: 'TBA', minutesUntil: Infinity, progress: 0 };
-  }
-  const setStartTime = setDate.getTime();
-
-  const [endHh = 0, endMm = 0] = (set.endTime || set.startTime).split(':').map((x) => parseInt(x, 10));
-  const endDate = createDateInLocalFrame(dayKey, endHh, endMm);
-  // If the end time is before the start time, the set runs past midnight.
-  if (endDate.getTime() <= setStartTime) {
-    endDate.setDate(endDate.getDate() + 1);
-  }
-  const setEndTime = endDate.getTime();
+  const { startMs: setStartTime, endMs: setEndTime } = bounds;
 
   const nowMs = now.getTime();
   const msUntilStart = setStartTime - nowMs;

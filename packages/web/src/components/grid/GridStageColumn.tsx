@@ -16,6 +16,11 @@ interface GridStageColumnProps {
   pxPerMin: number;
   b2bSeparator?: string;
   getMyPick: (setId: string) => Priority | null | undefined;
+  /**
+   * How many OTHER crew members picked a set (M1 crew-overlap). Optional so the
+   * column degrades gracefully when overlap data isn't wired (e.g. exports).
+   */
+  getOverlapCount?: (setId: string) => number;
   onSetClick: (set: FestivalSet | null) => void;
 }
 
@@ -30,6 +35,7 @@ function GridStageColumn({
   pxPerMin,
   b2bSeparator,
   getMyPick,
+  getOverlapCount,
   onSetClick,
 }: GridStageColumnProps) {
   return (
@@ -62,6 +68,8 @@ function GridStageColumn({
         const pick = getMyPick(set.id);
         const pc = pick ? PICK_COLOR[pick] : stageColor;
         const dn = artistDisplayName(set, b2bSeparator);
+        const overlap = getOverlapCount?.(set.id) ?? 0;
+        const overlapLabel = overlap > 0 ? `, ${overlap} crew ${overlap === 1 ? 'member' : 'members'} going` : '';
 
         return (
           <button
@@ -86,7 +94,7 @@ function GridStageColumn({
               } as React.CSSProperties
             }
             onClick={() => onSetClick(set)}
-            aria-label={`${dn} at ${stageName || stageId}, ${fmtShort(set.startTime!)} to ${fmtShort(set.endTime!)}${pick ? ', ' + pick : ''}`}
+            aria-label={`${dn} at ${stageName || stageId}, ${fmtShort(set.startTime!)} to ${fmtShort(set.endTime!)}${pick ? ', ' + pick : ''}${overlapLabel}`}
             data-grid-set
           >
             {pick && (
@@ -104,6 +112,18 @@ function GridStageColumn({
             {height >= 48 && (
               <span className="text-[length:var(--font-size-10)] text-text-secondary whitespace-nowrap overflow-hidden text-ellipsis shrink-0 leading-[var(--line-height-tight)] tabular-nums">
                 {fmtShort(set.startTime!)}–{fmtShort(set.endTime!)}
+              </span>
+            )}
+            {overlap > 0 && (
+              // Compact crew-overlap indicator: a people glyph + count pinned to
+              // the cell's bottom-right. aria-hidden — the count is already in
+              // the gridcell's aria-label above.
+              <span
+                className="fk-grid__overlap absolute bottom-[3px] right-[5px] flex items-center gap-[2px] rounded-full bg-[rgba(0,232,208,0.18)] px-1 py-px text-[length:var(--font-size-10)] font-bold leading-none text-accent-aqua pointer-events-none tabular-nums"
+                aria-hidden="true"
+                data-grid-overlap
+              >
+                &#128101;{overlap}
               </span>
             )}
           </button>

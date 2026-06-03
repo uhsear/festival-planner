@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
@@ -27,8 +27,13 @@ function GridViewInner() {
   const days = useFestivalStore((s) => s.days);
   const activeStages = useFestivalStore((s) => s.activeStages);
   const setDetailSet = useUIStore((s) => s.setDetailSet);
-  const { getMyPick } = usePicks();
+  const { getMyPick, getOtherPicks } = usePicks();
   const { getStageColor, getStageName } = useFestival();
+
+  // Compact crew-overlap indicator for grid cells: how many OTHER crew members
+  // picked a set. Reads persisted allProfiles (via getOtherPicks), so the
+  // count renders offline. The grid cell is the first surface to wire this.
+  const getOverlapCount = useCallback((setId: string) => getOtherPicks(setId).length, [getOtherPicks]);
   const gridRef = useRef<HTMLDivElement>(null);
 
   // Track viewport width so PX_PER_MIN + GUTTER_W can adapt on rotate/resize.
@@ -210,6 +215,7 @@ function GridViewInner() {
               pxPerMin={PX_PER_MIN}
               b2bSeparator={currentFestival.b2bSeparator}
               getMyPick={getMyPick}
+              getOverlapCount={getOverlapCount}
               onSetClick={setDetailSet}
             />
           ))}
