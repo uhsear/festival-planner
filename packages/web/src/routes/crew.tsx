@@ -19,7 +19,7 @@ import { useToast } from '../lib/toastContext';
 import PromptDialog from '../components/ui/PromptDialog';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
-import { Users, Columns3, Trash2, LogOut } from 'lucide-react';
+import { Users, Columns3, Trash2, LogOut, CalendarClock } from 'lucide-react';
 import type { Crew, CrewMember } from '@festie/shared/types';
 import type { TabKey } from '../components/crew/CrewTabBar';
 
@@ -215,6 +215,16 @@ function CrewViewInner() {
           {activeCrew.inviteCode && (
             <CrewInviteBar inviteCode={activeCrew.inviteCode} crewId={activeCrew.id} isOwner={isOwner} />
           )}
+
+          <Link
+            to="/crew-plan"
+            aria-label="View your crew's plan"
+            className="flex items-center gap-2 py-2 px-4 min-h-11 rounded-full bg-accent-coral text-[var(--text-on-light-accent)] hover:brightness-110 transition-all duration-200"
+          >
+            <CalendarClock className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+            <span className="text-sm font-semibold">Crew plan</span>
+            <span className="text-sm ml-auto">{'→'}</span>
+          </Link>
 
           <Link
             to="/compare"

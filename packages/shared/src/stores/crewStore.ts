@@ -12,6 +12,8 @@ import {
   JoinCrewRequest,
   CrewPoll,
   CreateCrewPollRequest,
+  PollSetRef,
+  ClosePollOptions,
   CrewMeetingPoint,
   CreateCrewMeetingPointRequest,
   UpdateCrewMeetingPointRequest,
@@ -60,9 +62,16 @@ export interface CrewActions {
   forceAddMember: (crewId: string, userId: string) => Promise<void>;
   // Polls (routes/crew-polls.ts).
   loadPolls: (crewId: string) => Promise<void>;
-  createPoll: (crewId: string, request: CreateCrewPollRequest) => Promise<CrewPoll>;
+  // `setRefs` (optional) carries the schedule-aware composer's option→set
+  // linkage (index-aligned with request.options). It is kept in LOCAL state
+  // only and never sent to the server — closePoll consumes it to spawn the
+  // winning set's meeting point + reminder. Plain polls omit it.
+  createPoll: (crewId: string, request: CreateCrewPollRequest, setRefs?: (PollSetRef | null)[]) => Promise<CrewPoll>;
   votePoll: (crewId: string, pollId: string, optionIndex: number) => Promise<void>;
-  closePoll: (crewId: string, pollId: string) => Promise<void>;
+  // `opts` (optional) lets a schedule-aware poll, on close, materialize the
+  // winning option's linked set as a meeting point + seeded reminder. Omitted →
+  // legacy close (just drop the poll).
+  closePoll: (crewId: string, pollId: string, opts?: ClosePollOptions) => Promise<void>;
   // Meeting points (routes/crew-meeting-points.ts).
   loadMeetingPoints: (crewId: string) => Promise<void>;
   createMeetingPoint: (crewId: string, request: CreateCrewMeetingPointRequest) => Promise<CrewMeetingPoint>;
@@ -124,6 +133,32 @@ const MAX_CACHED_EXPENSES = 100;
 // — the reload-dedup safety net behind the queue reconciler.
 function dropOptimistic<T extends { _optimistic?: boolean }>(list: T[]): T[] {
   return list.filter((item) => item._optimistic !== true);
+}
+
+// ── Schedule-aware poll close (M2) ─────────────────────────────────────────
+// Tally a poll's votes and return the set linkage behind the WINNING option, or
+// null when the poll isn't schedule-aware, has no votes, or the winner is a
+// free-text option (no set behind it). Ties resolve to the lowest option index
+// (deterministic). Used by closePoll to spawn the meeting point + reminder.
+function resolveWinningSetRef(poll: CrewPoll): PollSetRef | null {
+  const refs = poll._setRefs;
+  if (!refs || refs.length === 0) return null;
+  const counts = new Array<number>(poll.options.length).fill(0);
+  for (const v of poll.votes || []) {
+    if (typeof v.option === 'number' && v.option >= 0 && v.option < counts.length) {
+      counts[v.option] = (counts[v.option] ?? 0) + 1;
+    }
+  }
+  let winner = -1;
+  let best = 0; // a winner needs at least one vote
+  for (let i = 0; i < counts.length; i++) {
+    if ((counts[i] ?? 0) > best) {
+      best = counts[i] ?? 0;
+      winner = i;
+    }
+  }
+  if (winner < 0) return null;
+  return refs[winner] ?? null;
 }
 
 const crewStore: StateCreator<CrewStore> = (set) => ({
@@ -367,9 +402,14 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   // returns a synthetic optimistic poll (id = clientId, _optimistic: true);
   // onOptimisticCreate inserts it so it renders immediately. The reconciler
   // (registered below) swaps it for the real poll once the queued POST replays.
-  createPoll: async (crewId: string, request: CreateCrewPollRequest) => {
+  createPoll: async (crewId: string, request: CreateCrewPollRequest, setRefs?: (PollSetRef | null)[]) => {
     set({ error: null });
     try {
+      // Schedule-aware linkage is CLIENT-ONLY: attach it to local state but keep
+      // it out of the POST body so the server (which ignores it) stays the source
+      // of truth for the poll itself and no migration is needed. Only keep it
+      // when it actually links at least one option to a set.
+      const localSetRefs = setRefs && setRefs.some((r) => r != null) ? setRefs : undefined;
       let optimisticPoll: CrewPoll | null = null;
       // The offline synthetic result is the BODY shape ({ ...request, id, _optimistic }),
       // NOT the server's { poll } envelope — so build + return the placeholder here
@@ -391,6 +431,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
               closed: false,
               created_at: new Date().toISOString(),
               _optimistic: true,
+              ...(localSetRefs ? { _setRefs: localSetRefs } : {}),
             };
             set((state) => ({ polls: [optimisticPoll as CrewPoll, ...state.polls] }));
           },
@@ -399,7 +440,13 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       // Offline: the placeholder is already inserted; return it (don't re-insert).
       if (optimisticPoll) return optimisticPoll;
       const { poll } = res as { poll: CrewPoll };
-      const normalized: CrewPoll = { ...poll, votes: poll.votes ?? [] };
+      // Re-attach the client-only linkage onto the authoritative server poll
+      // (the server never echoes it back).
+      const normalized: CrewPoll = {
+        ...poll,
+        votes: poll.votes ?? [],
+        ...(localSetRefs ? { _setRefs: localSetRefs } : {}),
+      };
       set((state) => ({ polls: [normalized, ...state.polls] }));
       return normalized;
     } catch (err) {
@@ -424,8 +471,21 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   },
 
   // DELETE /crews/:crewId/polls/:pollId (close). Drop it from local state.
-  closePoll: async (crewId: string, pollId: string) => {
+  //
+  // Schedule-aware close (M2): if the poll carries `_setRefs` (set by the
+  // composer) AND `opts` is supplied, the WINNING option's linked set becomes a
+  // shared meeting point (label=artist, stageReference=stage, meetAt=set start)
+  // via the existing createMeetingPoint, and a reminder is seeded via the
+  // injected `opts.seedReminder` (bound to festivalDataStore.saveReminder). We
+  // resolve the winner + the linked set BEFORE deleting so the poll/linkage is
+  // still in state. The meeting-point create and reminder are best-effort: a
+  // failure there is swallowed so it never blocks closing the poll. Plain polls
+  // (no `_setRefs`/`opts`) close exactly as before.
+  closePoll: async (crewId: string, pollId: string, opts?: ClosePollOptions) => {
     set({ error: null });
+    // Resolve the winning set linkage up front (poll still present in state).
+    const poll = useCrewStore.getState().polls.find((p) => p.id === pollId);
+    const winningRef = poll ? resolveWinningSetRef(poll) : null;
     try {
       await api.delete(`/crews/${crewId}/polls/${pollId}`);
       set((state) => ({ polls: state.polls.filter((p) => p.id !== pollId) }));
@@ -433,6 +493,28 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       const message = mapErrorToUserMessage(err, 'Failed to close poll');
       set({ error: message });
       throw err;
+    }
+    // Post-close side effects — best-effort, never throw back to the caller so a
+    // meeting-point/reminder hiccup can't undo a successful close.
+    if (winningRef) {
+      try {
+        await useCrewStore.getState().createMeetingPoint(crewId, {
+          label: winningRef.label,
+          location: winningRef.stageReference ?? '',
+          type: 'set',
+          stageReference: winningRef.stageReference,
+          meetAt: winningRef.meetAt,
+        });
+      } catch {
+        // createMeetingPoint already surfaced the error on the store.
+      }
+      if (opts?.seedReminder && opts.festivalId) {
+        try {
+          await opts.seedReminder(winningRef.setId, opts.festivalId);
+        } catch {
+          // Reminder seeding is best-effort; saveReminder surfaces its own error.
+        }
+      }
     }
   },
 
@@ -826,10 +908,20 @@ registerCreateReconciler((clientId, serverResponse) => {
   if (clientId.includes('/polls')) {
     const poll = (res?.poll ?? res) as CrewPoll | undefined;
     useCrewStore.setState((state) => {
-      const hasTemp = state.polls.some((p) => p.id === clientId);
-      if (!hasTemp) return {};
+      const temp = state.polls.find((p) => p.id === clientId);
+      if (!temp) return {};
+      // Carry the client-only schedule-aware linkage forward onto the real poll
+      // (the server never echoes `_setRefs`), so close still spawns the meeting
+      // point + reminder after an offline-created poll reconciles.
       const real: CrewPoll | null =
-        poll && typeof poll.id === 'string' ? { ...poll, votes: poll.votes ?? [], _optimistic: false } : null;
+        poll && typeof poll.id === 'string'
+          ? {
+              ...poll,
+              votes: poll.votes ?? [],
+              _optimistic: false,
+              ...(temp._setRefs ? { _setRefs: temp._setRefs } : {}),
+            }
+          : null;
       const withoutTemp = state.polls.filter((p) => p.id !== clientId);
       // Guard against a real entity that somehow already arrived (e.g. via a
       // socket applyPollCreated) so we never end up with two copies.

@@ -133,6 +133,24 @@ export interface CrewPollVote {
   user_id: string | null;
 }
 
+/**
+ * Client-only linkage from a schedule-aware poll OPTION to the lineup set it
+ * was prefilled from (M2 "Schedule-aware polls"). Carried in local state /
+ * persisted on the poll, NEVER sent to the server (no migration) — so when the
+ * poll closes the winning option already knows which set won and can seed a
+ * meeting point + reminder. `null` marks a free-text option with no set behind
+ * it. Each entry is index-aligned with `CrewPoll.options`.
+ */
+export interface PollSetRef {
+  setId: string;
+  /** Artist/title → meeting-point label. */
+  label: string;
+  /** Stage name → meeting-point stageReference. */
+  stageReference: string | null;
+  /** Set start (ISO) → meeting-point meetAt. */
+  meetAt: string | null;
+}
+
 export interface CrewPoll {
   id: string;
   crew_id: string;
@@ -151,12 +169,40 @@ export interface CrewPoll {
    * server reload. Strict server consumers ignore it (optional).
    */
   _optimistic?: boolean;
+  /**
+   * Client-only set linkage (NOT sent by the server). Index-aligned with
+   * `options`: `_setRefs[i]` is the lineup set behind option `i`, or `null` for
+   * a free-text option. Set by the schedule-aware composer; consumed by
+   * `closePoll` to create the winning set's meeting point + reminder. Persisted
+   * with the poll so close works after a reload. Optional — plain polls omit it.
+   */
+  _setRefs?: (PollSetRef | null)[];
 }
 
 export interface CreateCrewPollRequest {
   question: string;
   options: string[];
   closesAt?: string;
+}
+
+/**
+ * Options for `closePoll`. When a schedule-aware poll closes, the winning
+ * option's linked set (carried in `CrewPoll._setRefs`) becomes a shared meeting
+ * point + a seeded reminder. crewStore owns the meeting-point create (same
+ * store); the reminder is seeded through the injected `seedReminder` callback so
+ * crewStore stays decoupled from festivalDataStore. Omit entirely for a plain
+ * close (the legacy `closePoll(crewId, pollId)` behavior is unchanged).
+ */
+export interface ClosePollOptions {
+  /** Active festival id — required to seed a reminder (SaveReminderRequest). */
+  festivalId?: string;
+  /**
+   * Seeds a set reminder for the winning option's set. Callers bind this to
+   * `useFestivalStore.getState().saveReminder`. Lead time is the caller's
+   * default. Errors here are swallowed (best-effort) so a reminder failure can
+   * never block closing the poll or creating the meeting point.
+   */
+  seedReminder?: (setId: string, festivalId: string) => Promise<void> | void;
 }
 
 /**

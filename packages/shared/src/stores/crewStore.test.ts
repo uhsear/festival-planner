@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useCrewStore } from './crewStore';
 import { api } from '../services/api';
-import type { Crew, CrewMember } from '../types/domain';
+import type { Crew, CrewMember, CrewPoll, PollSetRef } from '../types/domain';
 
 vi.mock('../services/api', () => ({
   api: {
@@ -490,6 +490,209 @@ describe('crewStore', () => {
         toUserId: 'user-2',
         amount: 10,
       });
+    });
+  });
+
+  describe('closePoll — schedule-aware (M2)', () => {
+    const setRef: PollSetRef = {
+      setId: 'set-9pm',
+      label: 'Fisher',
+      stageReference: 'Main Stage',
+      meetAt: '2026-07-01T21:00:00Z',
+    };
+
+    function makeSchedulePoll(overrides: Partial<CrewPoll> = {}): CrewPoll {
+      return {
+        id: 'poll-1',
+        crew_id: 'crew-1',
+        created_by: 'user-1',
+        question: 'Which set at 9pm?',
+        options: ['Fisher', 'Chris Lake'],
+        votes: [
+          { option: 0, user_id: 'user-1' },
+          { option: 0, user_id: 'user-2' },
+          { option: 1, user_id: 'user-3' },
+        ],
+        closes_at: null,
+        closed: false,
+        created_at: '2026-01-01T00:00:00Z',
+        _setRefs: [
+          setRef,
+          { setId: 'set-cl', label: 'Chris Lake', stageReference: 'Stage 2', meetAt: '2026-07-01T21:00:00Z' },
+        ],
+        ...overrides,
+      };
+    }
+
+    it('creates a meeting point at the winning set and seeds a reminder on close', async () => {
+      useCrewStore.setState({ polls: [makeSchedulePoll()], meetingPoints: [] });
+      vi.mocked(api.delete).mockResolvedValueOnce(undefined);
+      // createMeetingPoint posts and returns the server { meetingPoint } envelope.
+      vi.mocked(api.post).mockResolvedValueOnce({
+        meetingPoint: {
+          id: 'mp-1',
+          crew_id: 'crew-1',
+          created_by: 'user-1',
+          label: 'Fisher',
+          location: 'Main Stage',
+          type: 'set',
+          meet_at: setRef.meetAt,
+          stage_reference: 'Main Stage',
+          active: true,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      });
+      const seedReminder = vi.fn().mockResolvedValue(undefined);
+
+      await useCrewStore.getState().closePoll('crew-1', 'poll-1', {
+        festivalId: 'fest-1',
+        seedReminder,
+      });
+
+      // Poll dropped from local state.
+      expect(useCrewStore.getState().polls).toHaveLength(0);
+      // Meeting point created for the WINNING option (Fisher, 2 votes).
+      expect(api.post).toHaveBeenCalledWith(
+        '/crews/crew-1/meeting-points',
+        expect.objectContaining({
+          label: 'Fisher',
+          stageReference: 'Main Stage',
+          meetAt: setRef.meetAt,
+          type: 'set',
+        }),
+        expect.objectContaining({ onOptimisticCreate: expect.any(Function) }),
+      );
+      expect(useCrewStore.getState().meetingPoints[0]!.label).toBe('Fisher');
+      // Reminder seeded for the winning set in the active festival.
+      expect(seedReminder).toHaveBeenCalledWith('set-9pm', 'fest-1');
+    });
+
+    it('does not create a meeting point or reminder for a plain (non-schedule) poll', async () => {
+      useCrewStore.setState({
+        polls: [makeSchedulePoll({ _setRefs: undefined })],
+        meetingPoints: [],
+      });
+      vi.mocked(api.delete).mockResolvedValueOnce(undefined);
+      const seedReminder = vi.fn();
+
+      await useCrewStore.getState().closePoll('crew-1', 'poll-1', { festivalId: 'fest-1', seedReminder });
+
+      expect(api.post).not.toHaveBeenCalled();
+      expect(seedReminder).not.toHaveBeenCalled();
+      expect(useCrewStore.getState().meetingPoints).toHaveLength(0);
+    });
+
+    it('skips side effects when the winning option has no linked set (free-text)', async () => {
+      useCrewStore.setState({
+        polls: [makeSchedulePoll({ _setRefs: [null, null] })],
+        meetingPoints: [],
+      });
+      vi.mocked(api.delete).mockResolvedValueOnce(undefined);
+      const seedReminder = vi.fn();
+
+      await useCrewStore.getState().closePoll('crew-1', 'poll-1', { festivalId: 'fest-1', seedReminder });
+
+      expect(api.post).not.toHaveBeenCalled();
+      expect(seedReminder).not.toHaveBeenCalled();
+    });
+
+    it('still closes (drops the poll) when the meeting-point create fails', async () => {
+      useCrewStore.setState({ polls: [makeSchedulePoll()], meetingPoints: [] });
+      vi.mocked(api.delete).mockResolvedValueOnce(undefined);
+      vi.mocked(api.post).mockRejectedValueOnce(new Error('mp failed'));
+      const seedReminder = vi.fn().mockResolvedValue(undefined);
+
+      await expect(
+        useCrewStore.getState().closePoll('crew-1', 'poll-1', { festivalId: 'fest-1', seedReminder }),
+      ).resolves.toBeUndefined();
+      expect(useCrewStore.getState().polls).toHaveLength(0);
+    });
+
+    it('seeds no reminder without a festivalId, but still creates the meeting point', async () => {
+      useCrewStore.setState({ polls: [makeSchedulePoll()], meetingPoints: [] });
+      vi.mocked(api.delete).mockResolvedValueOnce(undefined);
+      vi.mocked(api.post).mockResolvedValueOnce({
+        meetingPoint: {
+          id: 'mp-1',
+          crew_id: 'crew-1',
+          created_by: 'user-1',
+          label: 'Fisher',
+          location: 'Main Stage',
+          type: 'set',
+          meet_at: setRef.meetAt,
+          stage_reference: 'Main Stage',
+          active: true,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      });
+      const seedReminder = vi.fn();
+
+      await useCrewStore.getState().closePoll('crew-1', 'poll-1', { seedReminder });
+
+      expect(api.post).toHaveBeenCalledTimes(1);
+      expect(seedReminder).not.toHaveBeenCalled();
+    });
+
+    it('legacy close (no opts) drops the poll without side effects', async () => {
+      useCrewStore.setState({ polls: [makeSchedulePoll()], meetingPoints: [] });
+      vi.mocked(api.delete).mockResolvedValueOnce(undefined);
+
+      await useCrewStore.getState().closePoll('crew-1', 'poll-1');
+
+      // No opts.seedReminder, but the poll IS schedule-aware, so the meeting
+      // point is still created from the carried linkage; only the reminder is
+      // skipped (no seeder/festivalId).
+      expect(useCrewStore.getState().polls).toHaveLength(0);
+    });
+  });
+
+  describe('createPoll — schedule-aware linkage (M2)', () => {
+    it('attaches _setRefs to the created poll but keeps them out of the POST body', async () => {
+      const setRefs: (PollSetRef | null)[] = [
+        { setId: 's1', label: 'A', stageReference: 'Stage 1', meetAt: null },
+        null,
+      ];
+      vi.mocked(api.post).mockResolvedValueOnce({
+        poll: {
+          id: 'srv-poll',
+          crew_id: 'crew-1',
+          created_by: 'user-1',
+          question: 'Q',
+          options: ['A', 'B'],
+          votes: [],
+          closes_at: null,
+          closed: false,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      });
+
+      const poll = await useCrewStore.getState().createPoll('crew-1', { question: 'Q', options: ['A', 'B'] }, setRefs);
+
+      expect(poll._setRefs).toEqual(setRefs);
+      // The POST body must NOT include _setRefs (client-only, no migration).
+      const body = vi.mocked(api.post).mock.calls[0]![1] as Record<string, unknown>;
+      expect(body).toEqual({ question: 'Q', options: ['A', 'B'] });
+      expect(useCrewStore.getState().polls[0]!._setRefs).toEqual(setRefs);
+    });
+
+    it('omits _setRefs when no option links to a set', async () => {
+      vi.mocked(api.post).mockResolvedValueOnce({
+        poll: {
+          id: 'srv-poll',
+          crew_id: 'crew-1',
+          created_by: 'user-1',
+          question: 'Q',
+          options: ['A', 'B'],
+          votes: [],
+          closes_at: null,
+          closed: false,
+          created_at: '2026-01-01T00:00:00Z',
+        },
+      });
+      const poll = await useCrewStore
+        .getState()
+        .createPoll('crew-1', { question: 'Q', options: ['A', 'B'] }, [null, null]);
+      expect(poll._setRefs).toBeUndefined();
     });
   });
 

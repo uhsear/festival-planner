@@ -400,6 +400,110 @@ describe('festivalDataStore', () => {
     });
   });
 
+  describe('bulkSavePicks', () => {
+    it('merges all setIds into the picks map in ONE coalesced PUT', async () => {
+      useFestivalDataStore.setState({ currentProfile: mockProfile });
+      vi.mocked(api.put).mockResolvedValueOnce(undefined);
+
+      await useFestivalDataStore.getState().bulkSavePicks(['set-2', 'set-3', 'set-4'], 'must');
+
+      // Exactly one write, not N.
+      expect(api.put).toHaveBeenCalledTimes(1);
+      expect(api.put).toHaveBeenCalledWith(
+        `/profiles/${mockProfile.id}`,
+        {
+          picks: {
+            'set-1': 'must', // pre-existing pick preserved
+            'set-2': 'must',
+            'set-3': 'must',
+            'set-4': 'must',
+          },
+        },
+        expect.objectContaining({ clientId: `bulk-${mockProfile.id}` }),
+      );
+
+      // Optimistic local state reflects all merged picks.
+      const profile = useFestivalDataStore.getState().currentProfile!;
+      expect(profile.picks['set-2']).toBe('must');
+      expect(profile.picks['set-3']).toBe('must');
+      expect(profile.picks['set-4']).toBe('must');
+    });
+
+    it('uses a profile-scoped clientId so repeated bulk applies coalesce', async () => {
+      useFestivalDataStore.setState({ currentProfile: mockProfile });
+      vi.mocked(api.put).mockResolvedValue(undefined);
+
+      await useFestivalDataStore.getState().bulkSavePicks(['set-2'], 'want-to-see');
+      await useFestivalDataStore.getState().bulkSavePicks(['set-3'], 'maybe');
+
+      // Both writes share the same deterministic clientId so the offline queue
+      // upserts them into one replayed PUT.
+      const calls = vi.mocked(api.put).mock.calls;
+      expect(calls).toHaveLength(2);
+      expect(calls[0]![2]).toEqual(expect.objectContaining({ clientId: `bulk-${mockProfile.id}` }));
+      expect(calls[1]![2]).toEqual(expect.objectContaining({ clientId: `bulk-${mockProfile.id}` }));
+    });
+
+    it('is idempotent: no write when every set is already at this priority', async () => {
+      // mockProfile already has set-1 -> 'must'.
+      useFestivalDataStore.setState({ currentProfile: mockProfile });
+      vi.mocked(api.put).mockResolvedValue(undefined);
+
+      await useFestivalDataStore.getState().bulkSavePicks(['set-1'], 'must');
+
+      // No redundant queued PUT.
+      expect(api.put).not.toHaveBeenCalled();
+    });
+
+    it('is idempotent: no write for an empty setIds list', async () => {
+      useFestivalDataStore.setState({ currentProfile: mockProfile });
+      vi.mocked(api.put).mockResolvedValue(undefined);
+
+      await useFestivalDataStore.getState().bulkSavePicks([], 'must');
+
+      expect(api.put).not.toHaveBeenCalled();
+    });
+
+    it('still writes once when only SOME of the sets change', async () => {
+      // set-1 is already 'must'; set-2 is new. One PUT, merged map.
+      useFestivalDataStore.setState({ currentProfile: mockProfile });
+      vi.mocked(api.put).mockResolvedValueOnce(undefined);
+
+      await useFestivalDataStore.getState().bulkSavePicks(['set-1', 'set-2'], 'must');
+
+      expect(api.put).toHaveBeenCalledTimes(1);
+      expect(useFestivalDataStore.getState().currentProfile!.picks['set-2']).toBe('must');
+    });
+
+    it('throws when no current profile', async () => {
+      useFestivalDataStore.setState({ currentProfile: null });
+      await expect(useFestivalDataStore.getState().bulkSavePicks(['set-1'], 'must')).rejects.toThrow(
+        'No active profile',
+      );
+    });
+
+    it('rolls back the optimistic update and sets error on API failure', async () => {
+      useFestivalDataStore.setState({ currentProfile: mockProfile });
+      vi.mocked(api.put).mockRejectedValueOnce(new Error('Server error'));
+
+      await expect(useFestivalDataStore.getState().bulkSavePicks(['set-2', 'set-3'], 'must')).rejects.toThrow(
+        'Server error',
+      );
+      const profile = useFestivalDataStore.getState().currentProfile!;
+      // Rolled back to the original picks map.
+      expect(profile.picks['set-2']).toBeUndefined();
+      expect(profile.picks['set-3']).toBeUndefined();
+      expect(useFestivalDataStore.getState().error).toBe('Server error');
+    });
+
+    it('handles non-Error thrown values', async () => {
+      useFestivalDataStore.setState({ currentProfile: mockProfile });
+      vi.mocked(api.put).mockRejectedValueOnce('string error');
+      await expect(useFestivalDataStore.getState().bulkSavePicks(['set-2'], 'must')).rejects.toBe('string error');
+      expect(useFestivalDataStore.getState().error).toBe('Failed to save picks');
+    });
+  });
+
   describe('removePick', () => {
     it('removes the pick from profile', async () => {
       useFestivalDataStore.setState({ currentProfile: mockProfile });

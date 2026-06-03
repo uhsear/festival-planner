@@ -38,6 +38,7 @@ const loadCards = () => import('./routes/cards');
 const loadTimeline = () => import('./routes/timeline');
 const loadPicks = () => import('./routes/picks');
 const loadCrew = () => import('./routes/crew');
+const loadCrewPlan = () => import('./routes/crew-plan');
 const loadGrid = () => import('./routes/grid');
 const loadFestivalMode = () => import('./routes/festival-mode');
 const loadWrap = () => import('./routes/wrap');
@@ -66,6 +67,7 @@ const CardsView = withSkeleton(lazy(loadCards), CardsSkeleton);
 const TimelineView = withSkeleton(lazy(loadTimeline), TimelineSkeleton);
 const PicksView = withSkeleton(lazy(loadPicks), PicksSkeleton);
 const CrewView = withSkeleton(lazy(loadCrew), CrewSkeleton);
+const CrewPlanView = withSkeleton(lazy(loadCrewPlan), CrewSkeleton);
 const GridView = withSkeleton(lazy(loadGrid), GridSkeleton);
 const FestivalModeView = withSkeleton(lazy(loadFestivalMode), FestivalModeSkeleton);
 const WrapView = withSkeleton(lazy(loadWrap), WrapSkeleton);
@@ -180,6 +182,16 @@ const crewRoute = new Route({
   },
 });
 
+// /crew-plan — one-screen offline-native "what's my crew's plan" digest.
+const crewPlanRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: '/crew-plan',
+  component: CrewPlanView,
+  beforeLoad: async () => {
+    if (!isAuthenticated()) throw redirect({ to: '/login' });
+  },
+});
+
 const accountRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/account',
@@ -238,6 +250,7 @@ const routeTree = rootRoute.addChildren([
   timelineRoute,
   picksRoute,
   crewRoute,
+  crewPlanRoute,
   gridRoute,
   festivalModeRoute,
   wrapRoute,

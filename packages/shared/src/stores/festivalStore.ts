@@ -109,6 +109,7 @@ useFestivalStore.setState = (partial: Partial<FestivalStore>) => {
     'loadProfiles',
     'setCurrentProfile',
     'savePick',
+    'bulkSavePicks',
     'removePick',
     'saveNote',
     'setError',
