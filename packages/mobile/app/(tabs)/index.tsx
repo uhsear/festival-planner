@@ -10,6 +10,7 @@ import {
   type ListRenderItem,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFestivalDataStore, useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { usePicks, useFestival } from '@festie/shared/hooks';
@@ -54,6 +55,7 @@ type ListRow =
 export default function TimelineScreen() {
   const t = useTokens();
   const styles = useStyles();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { viewMode, setViewMode } = useUI();
 
@@ -364,7 +366,7 @@ export default function TimelineScreen() {
   // when the festival list itself couldn't be fetched.
   if (!currentFestival) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <Ionicons name="musical-notes" size={24} color={t.colors.accent.aqua} />
           <Text style={styles.headerTitle}>Select a Festival</Text>
@@ -386,7 +388,7 @@ export default function TimelineScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.viewSwitcher}>
         <View style={styles.liveRow}>
           <LiveDot />

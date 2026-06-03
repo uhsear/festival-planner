@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
+import * as Sentry from '@sentry/react-native';
 import { useUIStore } from '@festie/shared/stores';
 import { drainQueue, refreshPendingCount } from '@festie/shared/services';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
@@ -26,12 +27,12 @@ export default function OfflineBanner() {
   // Drive shared offline state from device connectivity.
   useEffect(() => {
     // Publish any mutations queued in a previous session so the count is right.
-    refreshPendingCount().catch(() => {});
+    refreshPendingCount().catch((e) => Sentry.captureException(e));
     const unsubscribe = NetInfo.addEventListener((state) => {
       const online = state.isConnected === true && state.isInternetReachable !== false;
       setOfflineMode(!online);
       // Back online: replay any pick/note mutations queued while offline.
-      if (online) drainQueue().catch(() => {});
+      if (online) drainQueue().catch((e) => Sentry.captureException(e));
     });
     return () => unsubscribe();
   }, [setOfflineMode]);

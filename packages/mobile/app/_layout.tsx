@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UIProvider } from '../contexts/UIContext';
 import OfflineBanner from '../components/OfflineBanner';
 import FirstRunIntro from '../components/FirstRunIntro';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // First-run intro flag — mirrors the web key for parity.
 const INTRO_KEY = 'festie_onboarding_completed';
@@ -149,13 +150,15 @@ function AuthGate() {
       <StatusBar style="light" />
       {!loading && <OfflineBanner />}
       <View style={styles.appShell}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="set/[setId]" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="privacy" options={{ presentation: 'card', headerShown: false }} />
-          <Stack.Screen name="reset-password" options={{ presentation: 'card', headerShown: false }} />
-        </Stack>
+        <ErrorBoundary>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="set/[setId]" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="privacy" options={{ presentation: 'card', headerShown: false }} />
+            <Stack.Screen name="reset-password" options={{ presentation: 'card', headerShown: false }} />
+          </Stack>
+        </ErrorBoundary>
       </View>
       {loading && (
         <View style={[StyleSheet.absoluteFill, styles.splash]} pointerEvents="auto">

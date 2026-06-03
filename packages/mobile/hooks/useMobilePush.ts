@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Sentry from '@sentry/react-native';
 import { api } from '@festie/shared/services';
 
 const TOKEN_KEY = 'festie-push-token';
@@ -61,10 +62,15 @@ export function useMobilePush(): MobilePush {
   useEffect(() => {
     AsyncStorage.getItem(TOKEN_KEY)
       .then((t) => setRegistered(!!t))
+      // Intentional best-effort: this only seeds the toggle's initial state from
+      // the cached token. A storage-read miss just defaults to not-registered —
+      // not worth a Sentry event.
       .catch(() => {});
     // Create/upgrade channels on mount so already-registered users (who won't
     // re-run register) get the correct 'updates' HIGH channel after this update.
-    ensureAndroidChannels().catch(() => {});
+    // A failure here means reminders/crew updates arrive silently or at the wrong
+    // importance — a real, user-visible problem worth reporting.
+    ensureAndroidChannels().catch((e) => Sentry.captureException(e));
   }, []);
 
   const register = useCallback(async () => {

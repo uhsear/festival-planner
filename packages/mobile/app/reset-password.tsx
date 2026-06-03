@@ -11,6 +11,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { api } from '@festie/shared/services';
 import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
@@ -23,6 +24,7 @@ import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
  */
 export default function ResetPasswordScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { token } = useLocalSearchParams<{ token?: string }>();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -60,7 +62,7 @@ export default function ResetPasswordScreen() {
 
   if (done) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.inner}>
           <Ionicons name="checkmark-circle" size={56} color={colors.accent.aqua} style={styles.icon} />
           <Text style={styles.title}>Password reset</Text>
@@ -79,7 +81,10 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <View style={styles.inner}>
         <Text style={styles.title}>Set a new password</Text>
         <Text style={styles.subtitle}>Choose a new password for your account.</Text>
