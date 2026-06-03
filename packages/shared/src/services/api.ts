@@ -149,13 +149,21 @@ function markOffline(): void {
 }
 
 /**
- * A successful response proves reachability. If we'd flipped offline on a prior
- * network failure (e.g. a dead-but-"online" festival connection that recovered),
- * flip back and drain whatever queued in the meantime.
+ * A successful response from the NETWORK proves reachability. If we'd flipped
+ * offline on a prior failure (e.g. a dead-but-"online" festival connection that
+ * recovered), flip back and drain whatever queued in the meantime.
+ *
+ * Guards against false positives: a 200 is NOT reachability when the OS reports
+ * offline (navigator.onLine === false), nor when it came from the service-worker
+ * cache (only `/festivals` is runtime-cached StaleWhileRevalidate) — a cold
+ * offline start fetches `/festivals` and gets a cached 200, which must not be
+ * mistaken for a live connection.
  */
-function markOnlineAndDrain(): void {
+function markOnlineAndDrain(path: string): void {
   try {
     if (useUIStore.getState().offlineMode !== true) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+    if (/\/festivals(\/|$|\?)/.test(path)) return;
     useUIStore.getState().setOfflineMode(false);
     if (typeof window !== 'undefined' && window.__festieQueue?.processQueue) {
       void window.__festieQueue.processQueue();
@@ -287,8 +295,9 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}, _isRetry = 
       throw error;
     }
 
-    // Reachability confirmed — recover from a prior false-offline and drain.
-    markOnlineAndDrain();
+    // Reachability confirmed (from the network) — recover from a prior
+    // false-offline and drain. Guards inside reject cached/offline false 200s.
+    markOnlineAndDrain(path);
 
     const body = await response.json();
     if (body !== null && typeof body === 'object' && 'data' in body && 'error' in body) {
