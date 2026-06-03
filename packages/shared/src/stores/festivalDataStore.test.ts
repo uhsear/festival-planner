@@ -217,6 +217,64 @@ describe('festivalDataStore', () => {
       expect(state.currentProfile).toBeNull();
       expect(state.isLoading).toBe(false);
     });
+
+    it('preserves a persisted currentProfile when the profiles fetch fails offline', async () => {
+      // Festival case: /festivals is SW-cached (succeeds offline) but /profiles is
+      // not (throws). The persisted profile for THIS festival must survive so the
+      // user can still see and make picks with no signal.
+      useAuthStore.setState({
+        user: { id: 'user-1', username: 'alice', createdAt: '', updatedAt: '' },
+      });
+      const persisted = {
+        id: 'prof-1',
+        userId: 'user-1',
+        festivalId: 'fest-1',
+        picks: { s1: 'must' },
+        notes: {},
+      } as unknown as import('../types').Profile;
+      useFestivalDataStore.setState({ currentProfile: persisted, allProfiles: [persisted] });
+
+      const detailResponse = {
+        ...mockFestival,
+        stages: [{ id: 's1', name: 'Main', festivalId: 'fest-1', createdAt: '', updatedAt: '' }],
+        days: [],
+      };
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(detailResponse) // /festivals/:id from SW cache
+        .mockRejectedValueOnce(new Error('Network request failed')); // /profiles offline
+
+      await useFestivalDataStore.getState().selectFestival('fest-1');
+      const state = useFestivalDataStore.getState();
+      expect(state.currentProfile).toEqual(persisted); // NOT clobbered to null
+      expect(state.allProfiles).toEqual([persisted]); // preserved too
+    });
+
+    it('does NOT preserve a persisted profile from a DIFFERENT festival', async () => {
+      useAuthStore.setState({
+        user: { id: 'user-1', username: 'alice', createdAt: '', updatedAt: '' },
+      });
+      const otherFestProfile = {
+        id: 'prof-9',
+        userId: 'user-1',
+        festivalId: 'fest-OTHER',
+        picks: {},
+        notes: {},
+      } as unknown as import('../types').Profile;
+      useFestivalDataStore.setState({ currentProfile: otherFestProfile });
+
+      const detailResponse = {
+        ...mockFestival,
+        stages: [{ id: 's1', name: 'Main', festivalId: 'fest-1', createdAt: '', updatedAt: '' }],
+        days: [],
+      };
+      vi.mocked(api.get)
+        .mockResolvedValueOnce(detailResponse)
+        .mockRejectedValueOnce(new Error('Network request failed'));
+
+      await useFestivalDataStore.getState().selectFestival('fest-1');
+      // Wrong-festival profile must not leak in — picks would be meaningless.
+      expect(useFestivalDataStore.getState().currentProfile).toBeNull();
+    });
   });
 
   describe('loadProfiles', () => {

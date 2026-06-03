@@ -123,11 +123,14 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       // Festival detail is public; profiles require auth (401 for guests).
       const detail = await withRetry(() => api.get<FestivalDetailResponse>(`/festivals/${festivalId}`));
       let profiles: Profile[] = [];
+      let profilesFetchFailed = false;
       if (useAuthStore.getState().user) {
         try {
           profiles = await api.get<Profile[]>(`/profiles/${festivalId}`);
         } catch (_) {
-          /* session expired mid-flight -- ignore */
+          // Offline (the /profiles endpoint is not service-worker-cached) or a
+          // session blip. Don't trust the empty list — see currentProfile below.
+          profilesFetchFailed = true;
         }
       }
 
@@ -147,16 +150,25 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       // Initialize activeStages with ALL stage IDs (legacy behavior: show all by default)
       const allStageIds = stages.map((s) => s.id);
 
-      // Find the current user's profile from the loaded profiles
+      // Find the current user's profile from the loaded profiles. When the
+      // profiles fetch failed (offline — /festivals is SW-cached but /profiles is
+      // not), DON'T clobber the persisted profile: keep it if it belongs to this
+      // festival so the user can still see and make picks with no signal. Same
+      // for allProfiles (crew-scoped pick views) — preserve the persisted list.
       const userId = useAuthStore.getState().user?.id;
-      const currentProfile = userId ? profiles.find((p) => p.userId === userId) || null : null;
+      const fetchedProfile = userId ? profiles.find((p) => p.userId === userId) || null : null;
+      const prevState = get();
+      const currentProfile =
+        fetchedProfile ??
+        (profilesFetchFailed && prevState.currentProfile?.festivalId === festivalId ? prevState.currentProfile : null);
+      const allProfiles = profilesFetchFailed && profiles.length === 0 ? prevState.allProfiles : profiles;
 
       set({
         currentFestival: festival,
         sets,
         stages,
         days,
-        allProfiles: profiles,
+        allProfiles,
         currentProfile,
         isLoading: false,
       });
