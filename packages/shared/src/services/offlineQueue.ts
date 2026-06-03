@@ -132,21 +132,43 @@ function shortError(err: unknown): string {
   return status ? `Request failed (${status})` : 'Request failed';
 }
 
-/** Replay one queued mutation via the matching api verb (delete takes no body). */
-async function replay(m: QueuedMutation): Promise<void> {
+/**
+ * Reconciler invoked when a queued POST replays successfully on reconnect. It
+ * receives the temp clientId (which was used as the optimistic entity's id) and
+ * the authoritative server response, so a store can REPLACE the optimistic
+ * placeholder with the real entity instead of leaving a duplicate. Registered
+ * by the crewStore at module load (so offlineQueue stays decoupled from any
+ * store — no import cycle). Only POST replays are reconciled; PUT/PATCH/DELETE
+ * are unchanged. Errors in the reconciler are swallowed so they can never break
+ * the drain/no-silent-drops contract — the reload-dedup safety net still runs.
+ */
+export type CreateReconciler = (clientId: string, serverResponse: unknown) => void;
+
+let _createReconciler: CreateReconciler | null = null;
+
+/** Register the post-replay create reconciler (latest registration wins). */
+export function registerCreateReconciler(fn: CreateReconciler | null): void {
+  _createReconciler = fn;
+}
+
+/**
+ * Replay one queued mutation via the matching api verb (delete takes no body).
+ * Returns the server response for POST so drainQueue can reconcile the temp
+ * optimistic entity; other verbs return undefined (nothing to reconcile).
+ */
+async function replay(m: QueuedMutation): Promise<unknown> {
   switch (m.method) {
     case 'POST':
-      await api.post(m.url, m.body);
-      return;
+      return api.post(m.url, m.body);
     case 'PUT':
       await api.put(m.url, m.body);
-      return;
+      return undefined;
     case 'PATCH':
       await api.patch(m.url, m.body);
-      return;
+      return undefined;
     case 'DELETE':
       await api.delete(m.url);
-      return;
+      return undefined;
   }
 }
 
@@ -171,11 +193,21 @@ export async function drainQueue(): Promise<void> {
     const snapshot = (await readQueue()).sort((a, b) => a.createdAt - b.createdAt);
     for (const m of snapshot) {
       try {
-        await replay(m);
+        const serverResponse = await replay(m);
         // Success — drop just this entry (re-read so a concurrent enqueue of a
         // different clientId isn't clobbered).
         const queue = (await readQueue()).filter((q) => q.clientId !== m.clientId);
         await writeQueue(queue);
+        // Reconcile the optimistic placeholder (POST only) with the real
+        // server entity so no duplicate lingers. Best-effort: a throwing
+        // reconciler must not abort the drain or strand other entries.
+        if (m.method === 'POST' && _createReconciler) {
+          try {
+            _createReconciler(m.clientId, serverResponse);
+          } catch {
+            /* reload-dedup safety net still removes stale _optimistic entities */
+          }
+        }
       } catch (err) {
         if (isOffline()) break; // back offline — keep the rest, retry next time
         if (isPermanentFailure(err)) {
