@@ -217,6 +217,11 @@ export function loadConfig(overrides: Record<string, any> = {}): {
   API_VERSION: string;
   MOBILE_ORIGINS: string[];
   FIREBASE_CREDENTIALS_PATH: string;
+  APNS_KEY_PATH: string;
+  APNS_KEY_ID: string;
+  APNS_TEAM_ID: string;
+  APNS_BUNDLE_ID: string;
+  APNS_PRODUCTION: boolean;
   REDIS_URL: string;
   REDIS_ENABLED: boolean;
   REDIS_PREFIX: string;
@@ -474,6 +479,16 @@ export function loadConfig(overrides: Record<string, any> = {}): {
 
     // Firebase Cloud Messaging (optional — push notifications disabled when unset)
     FIREBASE_CREDENTIALS_PATH: overrides.FIREBASE_CREDENTIALS_PATH || process.env.FIREBASE_CREDENTIALS_PATH || '',
+
+    // Apple Push Notification service (optional — iOS direct push disabled when unset).
+    // expo-notifications returns a RAW APNs device token on iOS, which firebase-admin
+    // cannot send. These enable a direct APNs/2 sender for iOS device tokens.
+    // All empty/unset = APNs disabled (iOS tokens are skipped, never deleted).
+    APNS_KEY_PATH: overrides.APNS_KEY_PATH || process.env.APNS_KEY_PATH || '',
+    APNS_KEY_ID: overrides.APNS_KEY_ID || process.env.APNS_KEY_ID || '',
+    APNS_TEAM_ID: overrides.APNS_TEAM_ID || process.env.APNS_TEAM_ID || 'J63QL8R63J',
+    APNS_BUNDLE_ID: overrides.APNS_BUNDLE_ID || process.env.APNS_BUNDLE_ID || 'us.festie.app',
+    APNS_PRODUCTION: readBool(overrides.APNS_PRODUCTION ?? process.env.APNS_PRODUCTION, true),
 
     // Redis (optional — falls back to in-memory when unset or disabled)
     REDIS_URL: overrides.REDIS_URL || process.env.REDIS_URL || 'redis://127.0.0.1:6379',

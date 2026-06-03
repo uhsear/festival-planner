@@ -14,11 +14,16 @@ import {
 } from './payload.js';
 import { loadConfig as _loadSendConfig } from '../config.js';
 import { withRetry } from '../helpers.js';
+import { isApnsConfigured, getApnsProvider } from './apns.js';
 
 const require = createRequire(import.meta.url);
 
 // Reusable HTTPS agent for FCM — prevents TLS session corruption under load (from promptfoo pattern)
-const _fcmAgent = new https.Agent({ keepAlive: true, maxSockets: 10, timeout: _loadSendConfig().FCM_REQUEST_TIMEOUT_MS });
+const _fcmAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 10,
+  timeout: _loadSendConfig().FCM_REQUEST_TIMEOUT_MS,
+});
 
 // Firebase Admin SDK - loaded lazily only when credentials are configured
 let firebaseAdmin: any = null;
@@ -50,8 +55,7 @@ export function initFirebase(config: any, log: any) {
  * Replaces three inline checks throughout the send pipeline.
  */
 function isValidDeviceToken(device: any) {
-  return device?.token && typeof device.token === 'string'
-    && device.token.length >= 20 && device.token.length <= 4096;
+  return device?.token && typeof device.token === 'string' && device.token.length >= 20 && device.token.length <= 4096;
 }
 
 /**
@@ -87,7 +91,9 @@ function isStaleTokenError(code: any) {
 async function resolveFestivalTargets(stores: any, festivalId: any, excludeUserIds: any) {
   const festivalUserIds = stores.profiles.userIdsByFestival
     ? await stores.profiles.userIdsByFestival(festivalId)
-    : (await stores.profiles.readAll()).filter((p: any) => p.festivalId === festivalId && p.userId).map((p: any) => p.userId);
+    : (await stores.profiles.readAll())
+        .filter((p: any) => p.festivalId === festivalId && p.userId)
+        .map((p: any) => p.userId);
   const excludeSet = new Set(excludeUserIds);
   return festivalUserIds.filter((uid: any) => !excludeSet.has(uid));
 }
@@ -97,7 +103,18 @@ async function resolveFestivalTargets(stores: any, festivalId: any, excludeUserI
  * Takes a resolved `messaging` client (may be null when FCM is not configured) plus
  * the shared deps from the composer.
  */
-export function createSendService({ stores, config, log, messaging, retryQueue }: any) {
+export function createSendService({ stores, config, log, messaging, retryQueue, apnsProvider }: any) {
+  // Direct APNs provider for iOS device tokens (raw APNs tokens that firebase-admin
+  // cannot send). Guarded entirely by isApnsConfigured: when APNs is NOT configured
+  // this stays null and iOS tokens are skipped (NOT deleted as stale).
+  // `apnsProvider` may be injected for tests; otherwise resolved lazily from config.
+  const apnsConfigured = isApnsConfigured(config);
+  function getApns() {
+    if (!apnsConfigured) return null;
+    if (apnsProvider !== undefined) return apnsProvider; // DI (tests); null disables
+    return getApnsProvider(config, log);
+  }
+
   // Badge count management for iOS
   async function getUnreadCount(userId: any) {
     if (!stores.notificationCounts) return 1;
@@ -124,7 +141,9 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
     try {
       const id = crypto.randomUUID();
       await stores.notificationLog.insert({
-        id, userId, type,
+        id,
+        userId,
+        type,
         title: String(title || '').slice(0, MAX_TITLE_LENGTH),
         body: String(body || '').slice(0, MAX_BODY_LENGTH),
         dataJson: data ? JSON.stringify(data) : null,
@@ -163,7 +182,7 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
             badge: badgeCount,
             'mutable-content': 1,
             'thread-id': threadId || 'updates',
-            'category': 'CREW_UPDATE',
+            category: 'CREW_UPDATE',
           },
         },
         headers: { 'apns-priority': '10', 'apns-push-type': 'alert' },
@@ -178,10 +197,77 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
   }
 
   /**
+   * Build the APNs `aps` payload for an alert. Mirrors buildFcmMessage's
+   * apns.payload.aps EXACTLY (sound/badge/mutable-content/thread-id/category),
+   * plus the visible `alert` block — FCM injects title/body from `notification`,
+   * but direct APNs requires them in the aps body. Custom data is sent as
+   * sibling keys alongside `aps` (the standard APNs convention).
+   */
+  function buildApnsAlertPayload({ title, body, data, type, badgeCount, threadId }: any) {
+    return {
+      aps: {
+        alert: { title, body },
+        sound: 'default',
+        badge: badgeCount,
+        'mutable-content': 1,
+        'thread-id': threadId || 'updates',
+        category: 'CREW_UPDATE',
+      },
+      type,
+      ...data,
+    };
+  }
+
+  /**
+   * Send an alert to a single iOS device via direct APNs. Returns the same
+   * { sent, stale } shape as sendToDevice so callers stay symmetric. Logs the
+   * notification and never throws.
+   */
+  async function sendToIosDevice({ apns, device, payload, opts, userId, type, safeTitle, safeBody, safeData }: any) {
+    try {
+      const result = await apns.send(device.token, payload, opts);
+      await logNotification({
+        userId,
+        type,
+        title: safeTitle,
+        body: safeBody,
+        data: safeData,
+        status: result.sent ? 'sent' : 'failed',
+        platform: device.platform,
+        errorMessage: result.sent ? null : result.error,
+      });
+      if (!result.sent) log.debug('apns send failed', { userId, error: result.error });
+      return { sent: result.sent, stale: result.stale };
+    } catch (error: any) {
+      log.debug('apns send threw', { userId, error: error.message });
+      await logNotification({
+        userId,
+        type,
+        title: safeTitle,
+        body: safeBody,
+        data: safeData,
+        status: 'failed',
+        platform: device.platform,
+        errorMessage: error.message,
+      });
+      return { sent: false, stale: false };
+    }
+  }
+
+  /**
    * Handle sending to a single device — retry logic, stale token detection, logging.
    * Returns { sent: boolean, stale: boolean }.
    */
-  async function sendToDevice({ device, fcmMessage, userId, type, safeTitle, safeBody, safeData, retryQueue: deviceRetryQueue }: any) {
+  async function sendToDevice({
+    device,
+    fcmMessage,
+    userId,
+    type,
+    safeTitle,
+    safeBody,
+    safeData,
+    retryQueue: deviceRetryQueue,
+  }: any) {
     const sendStartTime = Date.now();
     try {
       await Promise.race([
@@ -196,23 +282,44 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('FCM_TIMEOUT')), 8000)),
       ]);
-      await logNotification({ userId, type, title: safeTitle, body: safeBody, data: safeData, status: 'sent', platform: device.platform });
+      await logNotification({
+        userId,
+        type,
+        title: safeTitle,
+        body: safeBody,
+        data: safeData,
+        status: 'sent',
+        platform: device.platform,
+      });
       return { sent: true, stale: false };
     } catch (error: any) {
       const code = error.code || '';
-      const isTimeout = error.message === 'FCM_TIMEOUT' || (Date.now() - sendStartTime) > 5000;
+      const isTimeout = error.message === 'FCM_TIMEOUT' || Date.now() - sendStartTime > 5000;
       const stale = isStaleTokenError(code);
 
       // Enqueue transient failures for retry (timeouts, 5xx, unavailable)
       const isTransient = isTimeout || code.includes('unavailable') || code.includes('internal');
       if (isTransient && !code.includes('not-registered') && !code.includes('invalid-registration')) {
-        const fcmMsg = { token: device.token, notification: { title: safeTitle, body: safeBody }, data: { type, ...safeData } };
+        const fcmMsg = {
+          token: device.token,
+          notification: { title: safeTitle, body: safeBody },
+          data: { type, ...safeData },
+        };
         deviceRetryQueue.enqueue({ userId, sendFn: () => messaging.send(fcmMsg) });
         postToWebhookRetry(device.token, { title: safeTitle, body: safeBody, type, ...safeData }, 0);
       }
 
       log.debug('push send failed', { userId, platform: device.platform, error: error.message });
-      await logNotification({ userId, type, title: safeTitle, body: safeBody, data: safeData, status: 'failed', platform: device.platform, errorMessage: error.message });
+      await logNotification({
+        userId,
+        type,
+        title: safeTitle,
+        body: safeBody,
+        data: safeData,
+        status: 'failed',
+        platform: device.platform,
+        errorMessage: error.message,
+      });
       return { sent: false, stale };
     }
   }
@@ -234,6 +341,7 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
     if (tokens.length === 0) return { sent: 0, reason: 'no_tokens' };
 
     const badgeCount = await getUnreadCount(userId);
+    const apns = getApns();
     let sent = 0;
     const staleTokens: any[] = [];
 
@@ -243,10 +351,59 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
         continue;
       }
 
-      const fcmMessage = buildFcmMessage({ token: device.token, title: safeTitle, body: safeBody, data: safeData, type, badgeCount, threadId });
+      // iOS device tokens are RAW APNs tokens that firebase-admin cannot send.
+      if (device.platform === 'ios') {
+        if (!apns) {
+          // APNs not configured: skip (counted as not-sent), do NOT unregister.
+          log.debug('apns not configured — skipping ios token', { userId });
+          continue;
+        }
+        const payload = buildApnsAlertPayload({
+          title: safeTitle,
+          body: safeBody,
+          data: safeData,
+          type,
+          badgeCount,
+          threadId,
+        });
+        const result = await sendToIosDevice({
+          apns,
+          device,
+          payload,
+          opts: { pushType: 'alert', priority: '10', collapseId: threadId },
+          userId,
+          type,
+          safeTitle,
+          safeBody,
+          safeData,
+        });
+        if (result.sent) sent += 1;
+        if (result.stale) staleTokens.push(device.token);
+        continue;
+      }
+
+      // Android / web (or unknown) → unchanged FCM path.
+      const fcmMessage = buildFcmMessage({
+        token: device.token,
+        title: safeTitle,
+        body: safeBody,
+        data: safeData,
+        type,
+        badgeCount,
+        threadId,
+      });
       enforcePayloadSize(fcmMessage, log);
 
-      const result = await sendToDevice({ device, fcmMessage, userId, type, safeTitle, safeBody, safeData, retryQueue });
+      const result = await sendToDevice({
+        device,
+        fcmMessage,
+        userId,
+        type,
+        safeTitle,
+        safeBody,
+        safeData,
+        retryQueue,
+      });
       if (result.sent) sent += 1;
       if (result.stale) staleTokens.push(device.token);
     }
@@ -299,7 +456,16 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
     return { successCount, failureCount, staleTokens };
   }
 
-  async function sendToOfflineUsers({ festivalId, type, title, body, data = {}, excludeUserIds = [], topic = null, threadId = null }: any) {
+  async function sendToOfflineUsers({
+    festivalId,
+    type,
+    title,
+    body,
+    data = {},
+    excludeUserIds = [],
+    topic = null,
+    threadId = null,
+  }: any) {
     if (!messaging) return { sent: 0 };
     if (!ALLOWED_NOTIFICATION_TYPES.has(type)) return { sent: 0, reason: 'invalid_type' };
 
@@ -321,8 +487,11 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
 
     const { safeTitle, safeBody, safeData } = enforcePayloadLimits(title, body, data);
     const prefKey = PREF_MAP[type];
+    const apns = getApns();
     const fcmMessages: any[] = [];
     const tokenUserMap = new Map();
+    // iOS device tokens routed to per-device APNs (APNs has no multicast).
+    const iosSends: any[] = [];
 
     for (const userId of batch) {
       const prefs = await stores.notificationPrefs.get(userId);
@@ -334,16 +503,67 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
 
       for (const device of tokens) {
         if (!isValidDeviceToken(device)) continue;
+
+        if (device.platform === 'ios') {
+          // APNs not configured → skip iOS token (do NOT unregister).
+          if (!apns) continue;
+          tokenUserMap.set(device.token, userId);
+          iosSends.push({
+            userId,
+            device,
+            payload: buildApnsAlertPayload({
+              title: safeTitle,
+              body: safeBody,
+              data: safeData,
+              type,
+              badgeCount,
+              threadId,
+            }),
+          });
+          continue;
+        }
+
+        // Android / web → FCM batch (unchanged).
         tokenUserMap.set(device.token, userId);
-        const msg = buildFcmMessage({ token: device.token, title: safeTitle, body: safeBody, data: safeData, type, badgeCount, threadId });
+        const msg = buildFcmMessage({
+          token: device.token,
+          title: safeTitle,
+          body: safeBody,
+          data: safeData,
+          type,
+          badgeCount,
+          threadId,
+        });
         enforcePayloadSize(msg, log, 'sendToOfflineUsers');
         fcmMessages.push(msg);
       }
     }
 
-    if (fcmMessages.length === 0) return { sent: 0 };
+    if (fcmMessages.length === 0 && iosSends.length === 0) return { sent: 0 };
 
-    const result = await sendBatch(fcmMessages);
+    const result =
+      fcmMessages.length > 0
+        ? await sendBatch(fcmMessages)
+        : { successCount: 0, failureCount: 0, staleTokens: [] as any[] };
+
+    // Per-device APNs sends for iOS (no multicast).
+    const apnsStaleTokens: any[] = [];
+    let apnsSent = 0;
+    for (const { userId, device, payload } of iosSends) {
+      const r = await sendToIosDevice({
+        apns,
+        device,
+        payload,
+        opts: { pushType: 'alert', priority: '10', collapseId: threadId },
+        userId,
+        type,
+        safeTitle,
+        safeBody,
+        safeData,
+      });
+      if (r.sent) apnsSent += 1;
+      if (r.stale) apnsStaleTokens.push(device.token);
+    }
 
     // Track unread counts for users who received notifications
     const notifiedUsers = new Set();
@@ -351,13 +571,17 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
       const uid = tokenUserMap.get(msg.token);
       if (uid) notifiedUsers.add(uid);
     }
+    for (const { userId } of iosSends) {
+      notifiedUsers.add(userId);
+    }
     for (const uid of notifiedUsers) {
       if (safeData.festivalId) await incrementUnread(uid, safeData.festivalId, type);
     }
 
     // Clean up stale tokens (deferred to avoid blocking the request path)
-    if (result.staleTokens.length > 0) {
-      const staleTokensCopy = [...result.staleTokens];
+    const allStaleTokens = [...result.staleTokens, ...apnsStaleTokens];
+    if (allStaleTokens.length > 0) {
+      const staleTokensCopy = [...allStaleTokens];
       const tokenUserMapCopy = new Map(tokenUserMap);
       setImmediate(async () => {
         for (const t of staleTokensCopy) {
@@ -372,11 +596,15 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
     }
 
     log.info('sendToOfflineUsers: batch complete', {
-      festivalId, type, messages: fcmMessages.length,
-      sent: result.successCount, failed: result.failureCount, stale: result.staleTokens.length,
+      festivalId,
+      type,
+      messages: fcmMessages.length + iosSends.length,
+      sent: result.successCount + apnsSent,
+      failed: result.failureCount + (iosSends.length - apnsSent),
+      stale: allStaleTokens.length,
     });
 
-    return { sent: result.successCount };
+    return { sent: result.successCount + apnsSent };
   }
 
   // #30: Silent push for background data sync — data-only, no visible notification
@@ -387,14 +615,45 @@ export function createSendService({ stores, config, log, messaging, retryQueue }
     const targetUserIds = allTargetIds.slice(0, MAX_PUSH_BATCH);
     if (targetUserIds.length === 0) return { sent: 0 };
     if (allTargetIds.length > MAX_PUSH_BATCH) {
-      log.warn('sendSilentSync: batch capped', { festivalId, syncType, total: allTargetIds.length, capped: MAX_PUSH_BATCH });
+      log.warn('sendSilentSync: batch capped', {
+        festivalId,
+        syncType,
+        total: allTargetIds.length,
+        capped: MAX_PUSH_BATCH,
+      });
     }
 
+    const apns = getApns();
     let totalSent = 0;
     for (const userId of targetUserIds) {
       const tokens = await stores.deviceTokens.listByUser(userId);
       for (const device of tokens) {
         if (!isValidDeviceToken(device)) continue;
+
+        // iOS device tokens → direct APNs background push (content-available:1).
+        if (device.platform === 'ios') {
+          if (!apns) continue; // not configured → skip, do NOT unregister
+          try {
+            const result = await apns.send(
+              device.token,
+              {
+                aps: { 'content-available': 1 },
+                type: 'silent_sync',
+                syncType,
+                festivalId,
+                timestamp: new Date().toISOString(),
+              },
+              { pushType: 'background', priority: '5' },
+            );
+            if (result.sent) totalSent += 1;
+            if (result.stale) await stores.deviceTokens.unregister(device.token, userId);
+          } catch (error: any) {
+            log.debug('sendSilentSync: apns error', { userId, error: error.message });
+          }
+          continue;
+        }
+
+        // Android / web → unchanged FCM path.
         try {
           await messaging.send({
             token: device.token,
