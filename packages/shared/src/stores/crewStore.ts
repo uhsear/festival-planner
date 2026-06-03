@@ -10,6 +10,7 @@ import {
   CrewOverlap,
   CreateCrewRequest,
   JoinCrewRequest,
+  ReformCrewResponse,
   CrewPoll,
   CreateCrewPollRequest,
   PollSetRef,
@@ -62,6 +63,12 @@ export interface CrewActions {
   kickMember: (crewId: string, memberId: string) => Promise<void>;
   transferOwnership: (crewId: string, newOwnerId: string) => Promise<void>;
   regenerateInvite: (crewId: string) => Promise<string>;
+  // Reform the given (source) crew for another festival: server creates a NEW
+  // crew in `targetFestivalId`, auto-adds prior members who already have a
+  // target-festival profile, and returns the rest as "to invite". Returns the
+  // new crew + roster outcome; the caller surfaces its invite link via
+  // CrewInviteBar. Online-only (a fresh crew can't be created offline).
+  reformCrew: (sourceCrewId: string, targetFestivalId: string) => Promise<ReformCrewResponse>;
   deleteCrew: (crewId: string) => Promise<void>;
   loadOverlap: (crewId: string, festivalId: string) => Promise<void>;
   forceAddMember: (crewId: string, userId: string) => Promise<void>;
@@ -335,6 +342,34 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to regenerate invite');
       set({ error: message });
+      throw err;
+    }
+  },
+
+  // POST /crews/:sourceCrewId/reform { targetFestivalId } -> the new crew +
+  // { reform: { autoAdded, invited } }. Insert the new crew into the list and
+  // select it so the screen shows its invite link immediately. Idempotent on
+  // the server: re-running returns the same reformed crew rather than a dupe.
+  reformCrew: async (sourceCrewId: string, targetFestivalId: string) => {
+    set({ crewLoading: true, error: null });
+    try {
+      const crew = await api.post<ReformCrewResponse>(`/crews/${sourceCrewId}/reform`, { targetFestivalId });
+      set((state) => ({
+        // Replace if the reformed crew is already in the list (idempotent
+        // re-run), otherwise append. Then make it the active crew.
+        crews: state.crews.some((c) => c.id === crew.id)
+          ? state.crews.map((c) => (c.id === crew.id ? crew : c))
+          : [...state.crews, crew],
+        activeCrew: crew,
+        crewMembers: crew.members ?? [],
+        crewLoading: false,
+        _cachedAt: Date.now(),
+        _cachedCrewId: crew.id,
+      }));
+      return crew;
+    } catch (err) {
+      const message = mapErrorToUserMessage(err, 'Failed to reform crew');
+      set({ error: message, crewLoading: false });
       throw err;
     }
   },

@@ -44,9 +44,13 @@ const norm = (s: any) => String(s).replace(/\s+/g, ' ').trim();
 function mockPoolThatThrows(error: any): any {
   return {
     queries: [],
-    query: async () => { throw error; },
+    query: async () => {
+      throw error;
+    },
     connect: async () => ({
-      query: async () => { throw error; },
+      query: async () => {
+        throw error;
+      },
       release: () => {},
     }),
   };
@@ -68,12 +72,14 @@ describe('createCrewsStore — topicSubscriptions', () => {
   });
 
   it('getForUser maps rows to boolean hash', async () => {
-    const pool = mockPool([{
-      rows: [
-        { topic: 'chat', subscribed: 1 },
-        { topic: 'schedule', subscribed: 0 },
-      ],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [
+          { topic: 'chat', subscribed: 1 },
+          { topic: 'schedule', subscribed: 0 },
+        ],
+      },
+    ]);
     const { topicSubscriptions } = createCrewsStore(pool, mockUtils);
 
     const subs = await topicSubscriptions.getForUser('u1', 'f1');
@@ -83,13 +89,15 @@ describe('createCrewsStore — topicSubscriptions', () => {
   });
 
   it('getForUser coerces truthy/falsy subscribed values', async () => {
-    const pool = mockPool([{
-      rows: [
-        { topic: 'a', subscribed: null },
-        { topic: 'b', subscribed: '' },
-        { topic: 'c', subscribed: 'yes' },
-      ],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [
+          { topic: 'a', subscribed: null },
+          { topic: 'b', subscribed: '' },
+          { topic: 'c', subscribed: 'yes' },
+        ],
+      },
+    ]);
     const { topicSubscriptions } = createCrewsStore(pool, mockUtils);
 
     const subs = await topicSubscriptions.getForUser('u1', 'f1');
@@ -139,9 +147,11 @@ describe('createCrewsStore — topicSubscriptions', () => {
   });
 
   it('getUnsubscribedUsers returns a Set of user ids', async () => {
-    const pool = mockPool([{
-      rows: [{ userId: 'u1' }, { userId: 'u2' }],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [{ userId: 'u1' }, { userId: 'u2' }],
+      },
+    ]);
     const { topicSubscriptions } = createCrewsStore(pool, mockUtils);
 
     const result = await topicSubscriptions.getUnsubscribedUsers('f1', 'chat');
@@ -168,13 +178,18 @@ describe('createCrewsStore — topicSubscriptions', () => {
 // =====================================================================
 describe('createCrewsStore — crews', () => {
   const sampleCrew = {
-    id: 'c1', festivalId: 'f1', name: 'The Crew',
-    createdBy: 'u1', inviteCode: 'abc123', inviteExpiresAt: null, maxMembers: 10,
+    id: 'c1',
+    festivalId: 'f1',
+    name: 'The Crew',
+    createdBy: 'u1',
+    inviteCode: 'abc123',
+    inviteExpiresAt: null,
+    maxMembers: 10,
   };
 
   it('create inserts and returns the crew', async () => {
     const pool = mockPool([
-      { rows: [], rowCount: 1 },          // INSERT
+      { rows: [], rowCount: 1 }, // INSERT
       { rows: [{ id: 'c1' }], rowCount: 1 }, // SELECT
     ]);
     const { crews } = createCrewsStore(pool, mockUtils);
@@ -184,7 +199,8 @@ describe('createCrewsStore — crews', () => {
     assert.deepStrictEqual(result, { id: 'c1' });
     assert.strictEqual(pool.queries.length, 2);
     assert.ok(norm(pool.queries[0].sql).includes('INSERT INTO crews'));
-    assert.deepStrictEqual(pool.queries[0].params, ['c1', 'f1', 'The Crew', 'u1', 'abc123', null, 10]);
+    // Trailing null is reformed_from (043_crew_lineage) — null for a normal crew.
+    assert.deepStrictEqual(pool.queries[0].params, ['c1', 'f1', 'The Crew', 'u1', 'abc123', null, 10, null]);
   });
 
   it('create returns null when SELECT finds nothing', async () => {
@@ -200,10 +216,7 @@ describe('createCrewsStore — crews', () => {
   });
 
   it('create passes inviteExpiresAt when provided', async () => {
-    const pool = mockPool([
-      { rows: [] },
-      { rows: [{ id: 'c1' }] },
-    ]);
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'c1' }] }]);
     const { crews } = createCrewsStore(pool, mockUtils);
 
     await crews.create({ ...sampleCrew, inviteExpiresAt: '2026-12-31' });
@@ -212,10 +225,7 @@ describe('createCrewsStore — crews', () => {
   });
 
   it('update updates and returns the crew', async () => {
-    const pool = mockPool([
-      { rows: [] },
-      { rows: [{ id: 'c1', name: 'New Name' }] },
-    ]);
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'c1', name: 'New Name' }] }]);
     const { crews } = createCrewsStore(pool, mockUtils);
 
     const result = await crews.update({ id: 'c1', name: 'New Name', maxMembers: 5 });
@@ -318,10 +328,7 @@ describe('createCrewsStore — crews', () => {
   });
 
   it('regenerateInviteCode updates and returns crew', async () => {
-    const pool = mockPool([
-      { rows: [] },
-      { rows: [{ id: 'c1', inviteCode: 'newcode' }] },
-    ]);
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'c1', inviteCode: 'newcode' }] }]);
     const { crews } = createCrewsStore(pool, mockUtils);
 
     const result = await crews.regenerateInviteCode('c1', 'newcode');
@@ -351,12 +358,14 @@ describe('createCrewsStore — crews', () => {
   });
 
   it('getMembers returns members with user info', async () => {
-    const pool = mockPool([{
-      rows: [
-        { crewId: 'c1', userId: 'u1', role: 'admin', username: 'alice' },
-        { crewId: 'c1', userId: 'u2', role: 'member', username: 'bob' },
-      ],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [
+          { crewId: 'c1', userId: 'u1', role: 'admin', username: 'alice' },
+          { crewId: 'c1', userId: 'u2', role: 'member', username: 'bob' },
+        ],
+      },
+    ]);
     const { crews } = createCrewsStore(pool, mockUtils);
 
     const result = await crews.getMembers('c1');
@@ -399,9 +408,11 @@ describe('createCrewsStore — crews', () => {
   });
 
   it('getCrewPickOverlap returns rows with picks', async () => {
-    const pool = mockPool([{
-      rows: [{ userId: 'u1', picksJson: '{}', username: 'alice' }],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [{ userId: 'u1', picksJson: '{}', username: 'alice' }],
+      },
+    ]);
     const { crews } = createCrewsStore(pool, mockUtils);
 
     const result = await crews.getCrewPickOverlap('f1', 'c1');
@@ -450,14 +461,17 @@ describe('createCrewsStore — crews', () => {
 describe('createCrewsStore — meetingPoints', () => {
   it('create inserts and returns the meeting point', async () => {
     const mp = {
-      id: 'mp1', crewId: 'c1', createdBy: 'u1', label: 'Gate A',
-      location: 'North', type: 'pre-show', meetAt: '18:00',
-      stageReference: 'Main', expiresAt: '2026-12-31',
+      id: 'mp1',
+      crewId: 'c1',
+      createdBy: 'u1',
+      label: 'Gate A',
+      location: 'North',
+      type: 'pre-show',
+      meetAt: '18:00',
+      stageReference: 'Main',
+      expiresAt: '2026-12-31',
     };
-    const pool = mockPool([
-      { rows: [] },
-      { rows: [{ id: 'mp1', label: 'Gate A' }] },
-    ]);
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'mp1', label: 'Gate A' }] }]);
     const { meetingPoints } = createCrewsStore(pool, mockUtils);
 
     const result = await meetingPoints.create(mp);
@@ -465,7 +479,15 @@ describe('createCrewsStore — meetingPoints', () => {
     assert.deepStrictEqual(result, { id: 'mp1', label: 'Gate A' });
     assert.ok(norm(pool.queries[0].sql).includes('INSERT INTO crew_meeting_points'));
     assert.deepStrictEqual(pool.queries[0].params, [
-      'mp1', 'c1', 'u1', 'Gate A', 'North', 'pre-show', '18:00', 'Main', '2026-12-31',
+      'mp1',
+      'c1',
+      'u1',
+      'Gate A',
+      'North',
+      'pre-show',
+      '18:00',
+      'Main',
+      '2026-12-31',
     ]);
   });
 
@@ -489,19 +511,25 @@ describe('createCrewsStore — meetingPoints', () => {
     const { meetingPoints } = createCrewsStore(pool, mockUtils);
 
     const result = await meetingPoints.create({
-      id: 'mp1', crewId: 'c1', createdBy: 'u1', label: 'X', location: 'Y',
+      id: 'mp1',
+      crewId: 'c1',
+      createdBy: 'u1',
+      label: 'X',
+      location: 'Y',
     });
 
     assert.strictEqual(result, null);
   });
 
   it('listByCrew returns active meeting points', async () => {
-    const pool = mockPool([{
-      rows: [
-        { id: 'mp1', type: 'emergency', creatorName: 'alice' },
-        { id: 'mp2', type: 'during', creatorName: 'bob' },
-      ],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [
+          { id: 'mp1', type: 'emergency', creatorName: 'alice' },
+          { id: 'mp2', type: 'during', creatorName: 'bob' },
+        ],
+      },
+    ]);
     const { meetingPoints } = createCrewsStore(pool, mockUtils);
 
     const result = await meetingPoints.listByCrew('c1');
@@ -511,10 +539,7 @@ describe('createCrewsStore — meetingPoints', () => {
   });
 
   it('update builds SET clause dynamically and returns point', async () => {
-    const pool = mockPool([
-      { rows: [] },
-      { rows: [{ id: 'mp1', label: 'New Label' }] },
-    ]);
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'mp1', label: 'New Label' }] }]);
     const { meetingPoints } = createCrewsStore(pool, mockUtils);
 
     const result = await meetingPoints.update('mp1', { label: 'New Label', location: 'South' });
@@ -594,7 +619,11 @@ describe('createNotificationsStore — deviceTokens', () => {
     const { deviceTokens } = createNotificationsStore(pool, mockUtils);
 
     await deviceTokens.register({
-      id: 'dt1', userId: 'u1', token: 'tok123', platform: 'ios', deviceName: 'iPhone',
+      id: 'dt1',
+      userId: 'u1',
+      token: 'tok123',
+      platform: 'ios',
+      deviceName: 'iPhone',
     });
 
     assert.strictEqual(pool.queries.length, 1);
@@ -659,12 +688,14 @@ describe('createNotificationsStore — deviceTokens', () => {
   });
 
   it('listByUser returns tokens ordered by last_used_at', async () => {
-    const pool = mockPool([{
-      rows: [
-        { id: 'dt1', token: 'a', platform: 'ios' },
-        { id: 'dt2', token: 'b', platform: 'web' },
-      ],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [
+          { id: 'dt1', token: 'a', platform: 'ios' },
+          { id: 'dt2', token: 'b', platform: 'web' },
+        ],
+      },
+    ]);
     const { deviceTokens } = createNotificationsStore(pool, mockUtils);
 
     const result = await deviceTokens.listByUser('u1');
@@ -690,9 +721,11 @@ describe('createNotificationsStore — deviceTokens', () => {
   });
 
   it('listByUsers builds IN clause for multiple ids', async () => {
-    const pool = mockPool([{
-      rows: [{ id: 'dt1', userId: 'u1', token: 't1', platform: 'ios' }],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [{ id: 'dt1', userId: 'u1', token: 't1', platform: 'ios' }],
+      },
+    ]);
     const { deviceTokens } = createNotificationsStore(pool, mockUtils);
 
     const result = await deviceTokens.listByUsers(['u1', 'u2', 'u3']);
@@ -778,12 +811,20 @@ describe('createNotificationsStore — deviceTokens', () => {
 // =====================================================================
 describe('createNotificationsStore — notificationPrefs', () => {
   it('get returns prefs when found', async () => {
-    const pool = mockPool([{
-      rows: [{
-        userId: 'u1', crewUpdates: 1, setReminders: 1,
-        scheduleChanges: 0, dndStart: '22:00', dndEnd: '08:00',
-      }],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [
+          {
+            userId: 'u1',
+            crewUpdates: 1,
+            setReminders: 1,
+            scheduleChanges: 0,
+            dndStart: '22:00',
+            dndEnd: '08:00',
+          },
+        ],
+      },
+    ]);
     const { notificationPrefs } = createNotificationsStore(pool, mockUtils);
 
     const result = await notificationPrefs.get('u1');
@@ -822,9 +863,9 @@ describe('createNotificationsStore — notificationPrefs', () => {
 
     const p = pool.queries[0].params;
     assert.strictEqual(p[0], 'u1');
-    assert.strictEqual(p[1], 1);  // crewUpdates true -> 1
-    assert.strictEqual(p[2], 0);  // setReminders false -> 0
-    assert.strictEqual(p[3], 1);  // scheduleChanges true -> 1
+    assert.strictEqual(p[1], 1); // crewUpdates true -> 1
+    assert.strictEqual(p[2], 0); // setReminders false -> 0
+    assert.strictEqual(p[3], 1); // scheduleChanges true -> 1
     assert.strictEqual(p[4], '23:00');
     assert.strictEqual(p[5], '07:00');
   });
@@ -834,8 +875,12 @@ describe('createNotificationsStore — notificationPrefs', () => {
     const { notificationPrefs } = createNotificationsStore(pool, mockUtils);
 
     await notificationPrefs.upsert({
-      userId: 'u1', crewUpdates: true, setReminders: true,
-      scheduleChanges: true, dndStart: '', dndEnd: null,
+      userId: 'u1',
+      crewUpdates: true,
+      setReminders: true,
+      scheduleChanges: true,
+      dndStart: '',
+      dndEnd: null,
     });
 
     assert.strictEqual(pool.queries[0].params[4], null);
@@ -852,8 +897,14 @@ describe('createNotificationsStore — notificationLog', () => {
     const { notificationLog } = createNotificationsStore(pool, mockUtils);
 
     await notificationLog.insert({
-      id: 'n1', userId: 'u1', type: 'chat', title: 'New message',
-      body: 'Hello!', dataJson: '{}', status: 'sent', platform: 'ios',
+      id: 'n1',
+      userId: 'u1',
+      type: 'chat',
+      title: 'New message',
+      body: 'Hello!',
+      dataJson: '{}',
+      status: 'sent',
+      platform: 'ios',
       errorMessage: null,
     });
 
@@ -900,12 +951,14 @@ describe('createNotificationsStore — notificationLog', () => {
 // =====================================================================
 describe('createNotificationsStore — notificationCounts', () => {
   it('getByUser returns counts for user', async () => {
-    const pool = mockPool([{
-      rows: [
-        { userId: 'u1', festivalId: 'f1', unreadUpdates: 3 },
-        { userId: 'u1', festivalId: 'f2', unreadUpdates: 0 },
-      ],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [
+          { userId: 'u1', festivalId: 'f1', unreadUpdates: 3 },
+          { userId: 'u1', festivalId: 'f2', unreadUpdates: 0 },
+        ],
+      },
+    ]);
     const { notificationCounts } = createNotificationsStore(pool, mockUtils);
 
     const result = await notificationCounts.getByUser('u1');
@@ -989,12 +1042,14 @@ describe('createRatingsStore', () => {
   });
 
   it('getByUser returns rated sets for a festival', async () => {
-    const pool = mockPool([{
-      rows: [
-        { setId: 's1', rating: 5, artist: 'Band A' },
-        { setId: 's2', rating: 3, artist: 'Band B' },
-      ],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [
+          { setId: 's1', rating: 5, artist: 'Band A' },
+          { setId: 's2', rating: 3, artist: 'Band B' },
+        ],
+      },
+    ]);
     const store = createRatingsStore(pool);
 
     const result = await store.getByUser('u1', 'f1');
@@ -1011,9 +1066,11 @@ describe('createRatingsStore', () => {
   });
 
   it('getByFestival returns items and nextCursor=null when no more pages', async () => {
-    const pool = mockPool([{
-      rows: [{ setId: 's1', totalRatings: 2, avgRating: 4.5 }],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [{ setId: 's1', totalRatings: 2, avgRating: 4.5 }],
+      },
+    ]);
     const store = createRatingsStore(pool);
 
     const result = await store.getByFestival('f1');
@@ -1023,9 +1080,11 @@ describe('createRatingsStore', () => {
   });
 
   it('getByFestival uses cursor when provided', async () => {
-    const pool = mockPool([{
-      rows: [{ setId: 's2', totalRatings: 1, avgRating: 3.0 }],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [{ setId: 's2', totalRatings: 1, avgRating: 3.0 }],
+      },
+    ]);
     const store = createRatingsStore(pool);
 
     const result = await store.getByFestival('f1', { cursor: 's1', limit: 10 });
@@ -1062,9 +1121,11 @@ describe('createRatingsStore', () => {
   });
 
   it('getCrewRatings returns items with pagination', async () => {
-    const pool = mockPool([{
-      rows: [{ id: 'r1', setId: 's1', userId: 'u1', rating: 5, username: 'alice', artist: 'Band' }],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [{ id: 'r1', setId: 's1', userId: 'u1', rating: 5, username: 'alice', artist: 'Band' }],
+      },
+    ]);
     const store = createRatingsStore(pool);
 
     const result = await store.getCrewRatings('c1', 'f1');
@@ -1086,9 +1147,7 @@ describe('createRatingsStore', () => {
   });
 
   it('getCrewRatings detects hasMore', async () => {
-    const rows = [
-      { id: 'r1' }, { id: 'r2' }, { id: 'r3' },
-    ];
+    const rows = [{ id: 'r1' }, { id: 'r2' }, { id: 'r3' }];
     const pool = mockPool([{ rows }]);
     const store = createRatingsStore(pool);
 
@@ -1171,10 +1230,7 @@ describe('createRolesStore', () => {
   });
 
   it('getUserRoles skips cache in test env (TTL=0)', async () => {
-    const pool = mockPool([
-      { rows: [{ name: 'admin' }] },
-      { rows: [{ name: 'superadmin' }] },
-    ]);
+    const pool = mockPool([{ rows: [{ name: 'admin' }] }, { rows: [{ name: 'superadmin' }] }]);
     const store = createRolesStore(pool, { nodeEnv: 'test' });
 
     const first = await store.getUserRoles('u1');
@@ -1208,9 +1264,9 @@ describe('createRolesStore', () => {
 
   it('grantRole inserts role and invalidates cache', async () => {
     const pool = mockPool([
-      { rows: [{ name: 'user' }] },  // first getUserRoles
-      { rows: [] },                    // grantRole INSERT
-      { rows: [{ name: 'user' }, { name: 'admin' }] },  // getUserRoles after invalidation
+      { rows: [{ name: 'user' }] }, // first getUserRoles
+      { rows: [] }, // grantRole INSERT
+      { rows: [{ name: 'user' }, { name: 'admin' }] }, // getUserRoles after invalidation
     ]);
     const store = createRolesStore(pool, { nodeEnv: 'production' });
 
@@ -1241,9 +1297,9 @@ describe('createRolesStore', () => {
 
   it('revokeRole deletes role and invalidates cache', async () => {
     const pool = mockPool([
-      { rows: [{ name: 'admin' }] },  // getUserRoles to populate cache
-      { rows: [] },                     // revokeRole DELETE
-      { rows: [] },                     // getUserRoles after invalidation
+      { rows: [{ name: 'admin' }] }, // getUserRoles to populate cache
+      { rows: [] }, // revokeRole DELETE
+      { rows: [] }, // getUserRoles after invalidation
     ]);
     const store = createRolesStore(pool, { nodeEnv: 'production' });
 
@@ -1281,9 +1337,11 @@ describe('createRolesStore', () => {
   });
 
   it('getUsersByRole returns users with role details', async () => {
-    const pool = mockPool([{
-      rows: [{ id: 'u1', username: 'alice', grantedAt: '2026-01-01', grantedBy: 'system' }],
-    }]);
+    const pool = mockPool([
+      {
+        rows: [{ id: 'u1', username: 'alice', grantedAt: '2026-01-01', grantedBy: 'system' }],
+      },
+    ]);
     const store = createRolesStore(pool, { nodeEnv: 'test' });
 
     const result = await store.getUsersByRole('admin');
@@ -1301,10 +1359,7 @@ describe('createRolesStore', () => {
   });
 
   it('invalidateCache removes a specific user from cache', async () => {
-    const pool = mockPool([
-      { rows: [{ name: 'admin' }] },
-      { rows: [{ name: 'user' }] },
-    ]);
+    const pool = mockPool([{ rows: [{ name: 'admin' }] }, { rows: [{ name: 'user' }] }]);
     const store = createRolesStore(pool, { nodeEnv: 'production' });
 
     await store.getUserRoles('u1');
@@ -1358,29 +1413,20 @@ describe('Store error propagation', () => {
     const pool = mockPoolThatThrows(new Error('timeout'));
     const { deviceTokens } = createNotificationsStore(pool, mockUtils);
 
-    await assert.rejects(
-      () => deviceTokens.register({ id: 'd1', userId: 'u1', token: 't' }),
-      { message: 'timeout' },
-    );
+    await assert.rejects(() => deviceTokens.register({ id: 'd1', userId: 'u1', token: 't' }), { message: 'timeout' });
   });
 
   it('ratings.upsert propagates pool.query errors', async () => {
     const pool = mockPoolThatThrows(new Error('unique violation'));
     const store = createRatingsStore(pool);
 
-    await assert.rejects(
-      () => store.upsert('u1', 's1', 5),
-      { message: 'unique violation' },
-    );
+    await assert.rejects(() => store.upsert('u1', 's1', 5), { message: 'unique violation' });
   });
 
   it('roles.getUserRoles propagates pool.query errors', async () => {
     const pool = mockPoolThatThrows(new Error('db down'));
     const store = createRolesStore(pool, { nodeEnv: 'test' });
 
-    await assert.rejects(
-      () => store.getUserRoles('u1'),
-      { message: 'db down' },
-    );
+    await assert.rejects(() => store.getUserRoles('u1'), { message: 'db down' });
   });
 });

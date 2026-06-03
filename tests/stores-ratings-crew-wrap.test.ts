@@ -195,3 +195,134 @@ describe('createRatingsStore.getCrewWrap — SQL wiring', () => {
     assert.strictEqual(wrap.biggestSpender, null);
   });
 });
+
+// ---------------------------------------------------------------------------
+// getLifetimeStats — cross-festival YoY history (mock pool)
+// ---------------------------------------------------------------------------
+
+describe('createRatingsStore.getLifetimeStats — SQL wiring', () => {
+  it('returns totals + per-festival breakdown + top artists, scoped to the user', async () => {
+    const pool = mockPool([
+      {
+        rows: [
+          {
+            totalRated: 12,
+            avgRating: 4.2,
+            festivalsAttended: 2,
+            stagesVisited: 5,
+            daysAttended: 4,
+            totalHours: 18.5,
+          },
+        ],
+      },
+      {
+        rows: [
+          {
+            festivalId: 'f2',
+            festivalName: 'Coast 2025',
+            startDate: '2025-08-29',
+            endDate: '2025-08-31',
+            totalRated: 7,
+            avgRating: 4.4,
+            stagesVisited: 3,
+            daysAttended: 3,
+            totalHours: 11,
+          },
+          {
+            festivalId: 'f1',
+            festivalName: 'Coast 2024',
+            startDate: '2024-08-30',
+            endDate: '2024-09-01',
+            totalRated: 5,
+            avgRating: 3.9,
+            stagesVisited: 2,
+            daysAttended: 1,
+            totalHours: 7.5,
+          },
+        ],
+      },
+      {
+        rows: [
+          { artist: 'Aphex Twin', timesRated: 2, bestRating: 5, avgRating: 5 },
+          { artist: 'Bonobo', timesRated: 3, bestRating: 5, avgRating: 4.3 },
+        ],
+      },
+    ]);
+    const store = createRatingsStore(pool);
+    const result = await store.getLifetimeStats('user-1');
+
+    assert.strictEqual(result.totals.totalRated, 12);
+    assert.strictEqual(result.totals.festivalsAttended, 2);
+    assert.strictEqual(result.totals.totalHours, 18.5);
+    assert.strictEqual(result.byFestival.length, 2);
+    assert.strictEqual(result.byFestival[0].festivalId, 'f2'); // newest first
+    assert.strictEqual(result.topArtists.length, 2);
+
+    // Every query is scoped to the user id only — no festival param.
+    assert.deepStrictEqual(pool.queries[0].params, ['user-1']);
+    assert.deepStrictEqual(pool.queries[1].params, ['user-1']);
+    assert.deepStrictEqual(pool.queries[2].params, ['user-1']);
+    // Totals query must NOT carry a festival filter (un-festival-scoped scan).
+    assert.ok(!pool.queries[0].sql.includes('s.festival_id ='));
+    // Soft-delete filters replicated from sibling queries.
+    assert.ok(pool.queries[0].sql.includes('f.deleted_at IS NULL'));
+    // Per-festival breakdown groups by festival.
+    assert.ok(pool.queries[1].sql.includes('GROUP BY f.id'));
+  });
+
+  it('empty archive (zero ratings) → clean zeroed totals, empty arrays, no 500', async () => {
+    // Postgres returns a single row of NULLs for the COUNT/AVG totals query
+    // when there are no matching rows; byFestival / topArtists come back empty.
+    const pool = mockPool([
+      {
+        rows: [
+          { totalRated: 0, avgRating: null, festivalsAttended: 0, stagesVisited: 0, daysAttended: 0, totalHours: null },
+        ],
+      },
+      { rows: [] },
+      { rows: [] },
+    ]);
+    const store = createRatingsStore(pool);
+    const result = await store.getLifetimeStats('user-1');
+
+    assert.strictEqual(result.totals.totalRated, 0);
+    assert.strictEqual(result.totals.avgRating, 0); // null coalesced to 0
+    assert.strictEqual(result.totals.totalHours, 0);
+    assert.deepStrictEqual(result.byFestival, []);
+    assert.deepStrictEqual(result.topArtists, []);
+  });
+
+  it('handles a totally empty totals result set without throwing', async () => {
+    const pool = mockPool([{ rows: [] }, { rows: [] }, { rows: [] }]);
+    const store = createRatingsStore(pool);
+    const result = await store.getLifetimeStats('user-1');
+    assert.strictEqual(result.totals.totalRated, 0);
+    assert.strictEqual(result.totals.festivalsAttended, 0);
+  });
+});
+
+describe('createRatingsStore.getAttendedFestivals — SQL wiring', () => {
+  it('returns distinct festivals, scoped to the user, newest first', async () => {
+    const pool = mockPool([
+      {
+        rows: [
+          { festivalId: 'f2', festivalName: 'Coast 2025', startDate: '2025-08-29', endDate: '2025-08-31' },
+          { festivalId: 'f1', festivalName: 'Coast 2024', startDate: '2024-08-30', endDate: '2024-09-01' },
+        ],
+      },
+    ]);
+    const store = createRatingsStore(pool);
+    const rows = await store.getAttendedFestivals('user-1');
+    assert.strictEqual(rows.length, 2);
+    assert.strictEqual(rows[0].festivalId, 'f2');
+    assert.deepStrictEqual(pool.queries[0].params, ['user-1']);
+    assert.ok(pool.queries[0].sql.includes('f.deleted_at IS NULL'));
+  });
+
+  it('empty footprint → empty array, no throw', async () => {
+    const pool = mockPool([{ rows: [] }]);
+    const store = createRatingsStore(pool);
+    const rows = await store.getAttendedFestivals('user-1');
+    assert.deepStrictEqual(rows, []);
+  });
+});

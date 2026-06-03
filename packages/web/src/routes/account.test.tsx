@@ -33,6 +33,9 @@ vi.mock('../components/account/DangerZone', () => ({
 vi.mock('../components/account/PaymentHandlesSection', () => ({
   default: () => <div data-testid="payment-handles-section" />,
 }));
+vi.mock('../components/account/HistorySection', () => ({
+  default: () => <div data-testid="history-section" />,
+}));
 vi.mock('../components/ui/Avatar', () => ({
   default: ({ name }: { name: string }) => <div data-testid="avatar" data-name={name} />,
 }));

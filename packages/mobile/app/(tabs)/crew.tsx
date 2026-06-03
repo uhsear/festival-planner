@@ -76,8 +76,12 @@ export default function CrewScreen() {
   const loadExpenses = useCrewStore((s) => s.loadExpenses);
   const setError = useCrewStore((s) => s.setError);
 
+  const reformCrew = useCrewStore((s) => s.reformCrew);
+
   const currentFestival = useFestivalStore((s) => s.currentFestival);
   const sets = useFestivalStore((s) => s.sets) as FestivalSet[];
+  const festivals = useFestivalStore((s) => s.festivals);
+  const loadFestivals = useFestivalStore((s) => s.loadFestivals);
 
   // Per-set crew picks (shared hook) — used to enrich the overlap UI without
   // an extra endpoint round-trip.
@@ -95,6 +99,7 @@ export default function CrewScreen() {
   const [forceAddOpen, setForceAddOpen] = useState(false);
   const [forceAddId, setForceAddId] = useState('');
   const [forceAddBusy, setForceAddBusy] = useState(false);
+  const [reformBusy, setReformBusy] = useState(false);
 
   // Load the user's crews once on mount.
   useEffect(() => {
@@ -203,6 +208,63 @@ export default function CrewScreen() {
       },
     ]);
   };
+
+  // Reform the active crew for another festival. Crews are festival-scoped, so
+  // this creates a NEW crew in the chosen festival and brings the prior roster
+  // across (members already in that festival are auto-added; the rest get the
+  // invite link). Presents the eligible target festivals as an action sheet.
+  const performReform = useCallback(
+    async (sourceCrewId: string, targetFestivalId: string, festivalName: string) => {
+      setReformBusy(true);
+      try {
+        const res = await reformCrew(sourceCrewId, targetFestivalId);
+        const added = res.reform?.autoAdded?.length ?? 0;
+        const invited = res.reform?.invited?.length ?? 0;
+        Alert.alert(
+          'Crew reformed',
+          `Started fresh for ${festivalName}. ${added} member${added === 1 ? '' : 's'} added; ` +
+            `share the invite code with the other ${invited} to bring them across.`,
+        );
+      } catch (err) {
+        Alert.alert('Reform failed', mapErrorToUserMessage(err, 'Failed to reform crew'));
+      } finally {
+        setReformBusy(false);
+      }
+    },
+    [reformCrew],
+  );
+
+  const handleReform = useCallback(
+    (sourceCrewId: string, sourceFestivalId: string | undefined) => {
+      const open = () => {
+        const options = festivals.filter((f) => f.id !== sourceFestivalId);
+        if (options.length === 0) {
+          Alert.alert('No other festivals', 'There are no other festivals to reform this crew for yet.');
+          return;
+        }
+        Alert.alert(
+          'Reform crew',
+          'Choose a festival to start this crew fresh for. Members already in that festival are added ' +
+            'automatically; share the invite link with everyone else.',
+          [
+            ...options.slice(0, 10).map((f) => ({
+              text: f.name,
+              onPress: () => performReform(sourceCrewId, f.id, f.name),
+            })),
+            { text: 'Cancel', style: 'cancel' as const },
+          ],
+        );
+      };
+      if (festivals.length === 0) {
+        loadFestivals()
+          .then(open)
+          .catch(() => Alert.alert('Reform crew', 'Could not load festivals. Try again.'));
+      } else {
+        open();
+      }
+    },
+    [festivals, loadFestivals, performReform],
+  );
 
   const handleToggleOverlap = async (crewId: string) => {
     if (showOverlap) {
@@ -495,6 +557,24 @@ export default function CrewScreen() {
                 })}
               </ScrollView>
             ) : null}
+
+            {/* Reform this crew for another festival (M3). */}
+            <TouchableOpacity
+              style={styles.overlapToggle}
+              onPress={() => handleReform(crew.id, crew.festivalId)}
+              disabled={reformBusy}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Reform this crew for another festival"
+            >
+              <Ionicons name="calendar-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.overlapToggleText}>{reformBusy ? 'Reforming…' : 'Reform for another festival'}</Text>
+              {reformBusy ? (
+                <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+              ) : (
+                <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+              )}
+            </TouchableOpacity>
 
             {/* One-screen offline-native "what's my crew's plan" digest. */}
             <TouchableOpacity

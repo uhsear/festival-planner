@@ -28,6 +28,7 @@ vi.mock('@festie/shared/stores', () => ({
   useCrewStore: vi.fn((sel: (s: Record<string, unknown>) => unknown) => sel(storeState)),
   useAuthStore: vi.fn((sel: (s: Record<string, unknown>) => unknown) => sel(storeState)),
   useFestivalStore: vi.fn((sel: (s: Record<string, unknown>) => unknown) => sel(storeState)),
+  useFestivalDataStore: vi.fn((sel: (s: Record<string, unknown>) => unknown) => sel(storeState)),
 }));
 
 vi.mock('../components/features/CrewSelector', () => ({
@@ -73,6 +74,10 @@ vi.mock('../components/crew/CrewTabBar', () => ({
 
 vi.mock('../components/crew/CrewTabContent', () => ({
   default: () => <div data-testid="crew-tab-content" />,
+}));
+
+vi.mock('../components/crew/ReformCrewButton', () => ({
+  default: () => <div data-testid="reform-crew-button" />,
 }));
 
 vi.mock('../components/crew/useCrewAdmin', () => ({
@@ -121,7 +126,11 @@ function setStoreState(overrides: Record<string, unknown> = {}) {
     selectCrew: vi.fn().mockResolvedValue(undefined),
     createCrew: vi.fn().mockResolvedValue(undefined),
     joinByCode: vi.fn().mockResolvedValue(undefined),
+    reformCrew: vi.fn().mockResolvedValue(undefined),
     currentFestival: { id: 'f1', name: 'Bonnaroo' },
+    // useFestivalDataStore selectors (ReformCrewButton)
+    festivals: [],
+    loadFestivals: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   });
 }

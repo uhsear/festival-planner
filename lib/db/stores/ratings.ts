@@ -402,6 +402,151 @@ export function createRatingsStore(pool: Pool) {
       await pool.query('DELETE FROM set_ratings WHERE user_id = $1 AND set_id = $2', [userId, setId]);
     },
 
+    /**
+     * Cross-festival year-over-year history (M3). Un-festival-scoped: drops the
+     * `s.festival_id = $2` filter that getWrapStats / getByUser apply, so it
+     * scans every set the user has ever rated (kept fast by the
+     * `set_ratings(user_id)` index added in migration 044).
+     *
+     * Returns three slices:
+     *   - totals: lifetime aggregates across ALL festivals (same per-row math
+     *     as getWrapStats so lifetime totals = sum of per-festival stats and
+     *     there's no TZ drift — the hours math reuses the identical
+     *     EXTRACT(EPOCH FROM end::time - start::time)/3600 expression).
+     *   - byFestival: one row per festival (a per-year breakdown), newest first,
+     *     carrying the festival name + its date span (MIN/MAX of festival_days,
+     *     which is the only date source — `festivals` has no start/end columns).
+     *   - topArtists: the user's highest-loved artists across every festival.
+     *
+     * Soft-deleted festivals and users are excluded (deleted_at IS NULL),
+     * matching the filters sibling queries (getCrewWrap roster, the rate-set
+     * existence check) apply. Empty input (zero ratings) yields clean zeroed
+     * totals + empty arrays — never a 500.
+     */
+    async getLifetimeStats(userId: string) {
+      // Reused hours expression — identical to getWrapStats so per-festival
+      // numbers sum to the lifetime total with no timezone drift.
+      const HOURS_EXPR = `
+        SUM(
+          CASE WHEN s.start_time IS NOT NULL AND s.end_time IS NOT NULL
+          THEN EXTRACT(EPOCH FROM (s.end_time::time - s.start_time::time)) / 3600.0
+          ELSE 0 END
+        )::float`;
+
+      const [totalsRes, byFestivalRes, topArtistsRes] = await Promise.all([
+        // Lifetime totals across every (non-deleted) festival the user rated in.
+        pool.query(
+          `
+          SELECT
+            COUNT(*)::int AS "totalRated",
+            ROUND(AVG(r.rating), 1)::float AS "avgRating",
+            COUNT(DISTINCT s.festival_id)::int AS "festivalsAttended",
+            COUNT(DISTINCT s.stage_id)::int AS "stagesVisited",
+            COUNT(DISTINCT s.day_index)::int AS "daysAttended",
+            ${HOURS_EXPR} AS "totalHours"
+          FROM set_ratings r
+          JOIN festival_sets s ON s.id = r.set_id
+          JOIN festivals f ON f.id = s.festival_id AND f.deleted_at IS NULL
+          WHERE r.user_id = $1
+        `,
+          [userId],
+        ),
+        // Per-festival (per-year) breakdown, newest span first. Dates come from
+        // festival_days (the only date source); a festival with no days sorts
+        // last via NULLS LAST.
+        pool.query(
+          `
+          SELECT
+            f.id AS "festivalId",
+            f.name AS "festivalName",
+            (SELECT MIN(d.date) FROM festival_days d WHERE d.festival_id = f.id) AS "startDate",
+            (SELECT MAX(d.date) FROM festival_days d WHERE d.festival_id = f.id) AS "endDate",
+            COUNT(*)::int AS "totalRated",
+            ROUND(AVG(r.rating), 1)::float AS "avgRating",
+            COUNT(DISTINCT s.stage_id)::int AS "stagesVisited",
+            COUNT(DISTINCT s.day_index)::int AS "daysAttended",
+            ${HOURS_EXPR} AS "totalHours"
+          FROM set_ratings r
+          JOIN festival_sets s ON s.id = r.set_id
+          JOIN festivals f ON f.id = s.festival_id AND f.deleted_at IS NULL
+          WHERE r.user_id = $1
+          GROUP BY f.id, f.name
+          ORDER BY "startDate" DESC NULLS LAST, f.name ASC
+        `,
+          [userId],
+        ),
+        // Top artists across ALL festivals — by best rating, then how many times
+        // loved. Capped for display.
+        pool.query(
+          `
+          SELECT
+            s.artist AS "artist",
+            COUNT(*)::int AS "timesRated",
+            MAX(r.rating)::int AS "bestRating",
+            ROUND(AVG(r.rating), 1)::float AS "avgRating"
+          FROM set_ratings r
+          JOIN festival_sets s ON s.id = r.set_id
+          JOIN festivals f ON f.id = s.festival_id AND f.deleted_at IS NULL
+          WHERE r.user_id = $1 AND s.artist IS NOT NULL AND s.artist <> ''
+          GROUP BY s.artist
+          ORDER BY "bestRating" DESC, "timesRated" DESC, s.artist ASC
+          LIMIT 10
+        `,
+          [userId],
+        ),
+      ]);
+
+      const totals = totalsRes.rows[0] || {};
+      return {
+        totals: {
+          totalRated: totals.totalRated ?? 0,
+          avgRating: totals.avgRating ?? 0,
+          festivalsAttended: totals.festivalsAttended ?? 0,
+          stagesVisited: totals.stagesVisited ?? 0,
+          daysAttended: totals.daysAttended ?? 0,
+          totalHours: totals.totalHours ?? 0,
+        },
+        byFestival: byFestivalRes.rows,
+        topArtists: topArtistsRes.rows,
+      };
+    },
+
+    /**
+     * Distinct festivals the user has a footprint in — either a rating or a
+     * festival profile — newest first. Used by the History surface to list
+     * everywhere the user has been, even festivals where they rated nothing.
+     * Soft-deleted festivals/profiles are excluded.
+     */
+    async getAttendedFestivals(userId: string) {
+      const result = await pool.query(
+        `
+        SELECT
+          f.id AS "festivalId",
+          f.name AS "festivalName",
+          (SELECT MIN(d.date) FROM festival_days d WHERE d.festival_id = f.id) AS "startDate",
+          (SELECT MAX(d.date) FROM festival_days d WHERE d.festival_id = f.id) AS "endDate"
+        FROM festivals f
+        WHERE f.deleted_at IS NULL
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM set_ratings r
+              JOIN festival_sets s ON s.id = r.set_id
+              WHERE r.user_id = $1 AND s.festival_id = f.id
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM festival_profiles p
+              WHERE p.user_id = $1 AND p.festival_id = f.id AND p.deleted_at IS NULL
+            )
+          )
+        ORDER BY "startDate" DESC NULLS LAST, f.name ASC
+      `,
+        [userId],
+      );
+      return result.rows;
+    },
+
     async getWrapStats(userId: string, festivalId: string) {
       const result = await pool.query(
         `

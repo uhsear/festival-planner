@@ -1,0 +1,18 @@
+-- 044: set_ratings(user_id) index for cross-festival year-over-year history.
+--
+-- The lifetime history (getLifetimeStats / getAttendedFestivals, M3) drops the
+-- per-festival `s.festival_id = $2` filter and scans every set the user has
+-- ever rated. The existing rating indexes are all festival- or set-scoped
+-- (idx_festival_sets_festival_id, the set_ratings PK on (user_id, set_id)) —
+-- none lets Postgres jump straight to a single user's rows for an
+-- un-festival-scoped query, so without this it falls back to a seq scan of
+-- set_ratings.
+--
+-- The PK is (user_id, set_id), which CAN serve a user_id prefix lookup, but a
+-- dedicated single-column index keeps the planner's choice cheap and explicit
+-- for the new history path. IF NOT EXISTS is safe regardless of whether a
+-- covering index already exists.
+--
+-- Additive, mirrors the style of 043_crew_lineage.sql / the _fk_indexes
+-- migrations. No backfill.
+CREATE INDEX IF NOT EXISTS idx_set_ratings_user ON set_ratings(user_id);

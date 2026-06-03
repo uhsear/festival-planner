@@ -5,6 +5,7 @@ import PaymentHandlesSection from '../components/account/PaymentHandlesSection';
 import PasswordSection from '../components/account/PasswordSection';
 import NotificationSection from '../components/account/NotificationSection';
 import NotificationPrefsSection from '../components/account/NotificationPrefsSection';
+import HistorySection from '../components/account/HistorySection';
 import DangerZone from '../components/account/DangerZone';
 import Avatar from '../components/ui/Avatar';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
@@ -55,6 +56,11 @@ function AccountPageInner() {
         {/* Profile */}
         <Section label="Profile">
           <ProfileSection user={user} />
+        </Section>
+
+        {/* History — cross-festival year-over-year (M3) */}
+        <Section label="History">
+          <HistorySection />
         </Section>
 
         {/* Payment */}
