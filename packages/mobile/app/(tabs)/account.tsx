@@ -7,6 +7,7 @@ import { useAuthStore } from '@festie/shared/stores';
 import ScreenHeader from '../../components/ScreenHeader';
 import AccountAvatarSection from '../../components/AccountAvatarSection';
 import AccountDisplayNameSection from '../../components/AccountDisplayNameSection';
+import AccountPaymentHandlesSection from '../../components/AccountPaymentHandlesSection';
 import AccountPasswordSection from '../../components/AccountPasswordSection';
 import AccountEmailVerifySection from '../../components/AccountEmailVerifySection';
 import AccountNotificationsSection from '../../components/AccountNotificationsSection';
@@ -121,6 +122,7 @@ export default function AccountScreen() {
         {/* Profile */}
         <Text style={styles.sectionLabel}>Profile</Text>
         <AccountDisplayNameSection />
+        <AccountPaymentHandlesSection />
 
         {/* Security */}
         <Text style={styles.sectionLabel}>Security</Text>

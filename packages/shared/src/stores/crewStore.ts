@@ -21,6 +21,8 @@ import {
   CrewExpenseBalance,
   CreateCrewExpenseRequest,
   SettleCrewExpenseRequest,
+  CrewSettlement,
+  CrewSettlementPlan,
   CrewActivityEntry,
 } from '../types';
 
@@ -35,6 +37,9 @@ export interface CrewState {
   meetingPoints: CrewMeetingPoint[];
   expenses: CrewExpense[];
   expenseBalances: CrewExpenseBalance[];
+  // Netted who-pays-whom plan (greedy min-cash-flow) + payee handles. Loaded
+  // alongside balances from the settlement-plan endpoint.
+  settlements: CrewSettlement[];
   activity: CrewActivityEntry[];
   crewLoading: boolean;
   error: string | null;
@@ -108,14 +113,16 @@ export type CrewStore = CrewState & CrewActions;
 
 type CrewSet = Parameters<StateCreator<CrewStore>>[0];
 
-// GET /crews/:crewId/expenses/balances -> array or { balances }. Shared by the
-// expense mutations so each refetches authoritative balances after writing.
+// GET /crews/:crewId/expenses/settlement-plan -> { balances, settlements }.
+// The settlement-plan endpoint returns BOTH the raw balances and the netted
+// who-pays-whom plan (with payee handles), so one call populates both. Shared
+// by the expense mutations so each refetches an authoritative plan after
+// writing.
 async function loadBalances(set: CrewSet, crewId: string): Promise<void> {
-  const res = await api.get<CrewExpenseBalance[] | { balances: CrewExpenseBalance[] }>(
-    `/crews/${crewId}/expenses/balances`,
-  );
-  const expenseBalances = Array.isArray(res) ? res : (res?.balances ?? []);
-  set({ expenseBalances });
+  const res = await api.get<CrewSettlementPlan>(`/crews/${crewId}/expenses/settlement-plan`);
+  const expenseBalances = res?.balances ?? [];
+  const settlements = res?.settlements ?? [];
+  set({ expenseBalances, settlements });
 }
 
 // ── Persisted read-cache size bounds ──────────────────────────────────────
@@ -170,6 +177,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   meetingPoints: [],
   expenses: [],
   expenseBalances: [],
+  settlements: [],
   activity: [],
   crewLoading: false,
   error: null,
@@ -208,6 +216,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         meetingPoints: sameCrew ? state.meetingPoints : [],
         expenses: sameCrew ? state.expenses : [],
         expenseBalances: sameCrew ? state.expenseBalances : [],
+        settlements: sameCrew ? state.settlements : [],
         activity: sameCrew ? state.activity : [],
       };
     });
@@ -878,6 +887,7 @@ export const useCrewStore = create<CrewStore>()(
       polls: state.polls.slice(0, MAX_CACHED_POLLS),
       expenses: state.expenses.slice(0, MAX_CACHED_EXPENSES),
       expenseBalances: state.expenseBalances,
+      settlements: state.settlements,
       activity: state.activity.slice(0, MAX_CACHED_ACTIVITY),
       _cachedAt: state._cachedAt,
       _cachedCrewId: state._cachedCrewId,

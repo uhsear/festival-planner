@@ -7,7 +7,7 @@ import type { Request, Response } from 'express';
 import type { z } from 'zod';
 
 import type { RouteDeps } from '../lib/types';
-import type { displayNameChangeSchema, accountDeleteSchema } from '../lib/schemas';
+import type { displayNameChangeSchema, accountDeleteSchema, paymentHandlesSchema } from '../lib/schemas';
 
 /**
  * Collect all user data for GDPR export. Gathers profiles, device tokens,
@@ -282,6 +282,66 @@ export default function createAccountRoutes(deps: RouteDeps) {
     rateLimit(10, 'display-name-change'),
     validate(schemas.displayNameChange),
     updateDisplayName,
+  );
+
+  // ── PUT|PATCH /payment-handles — set Venmo / Cash App / PayPal handles ─
+  // Used to build prefilled settle-up deep links. Each field is independently
+  // optional: only the provided keys are updated; an explicit empty string
+  // clears that handle (stored as NULL). A leading '@' or '$' is stripped so
+  // the deep-link builders get a bare identifier.
+  const updatePaymentHandles = async (req: Request, res: Response) => {
+    try {
+      setNoStore(res);
+      const body = req.validatedBody as z.infer<typeof paymentHandlesSchema>;
+
+      // Normalize a raw handle: trim, drop a leading @/$, cap length. Empty
+      // (or whitespace-only) clears the handle.
+      const clean = (raw: string | undefined): string | null | undefined => {
+        if (raw === undefined) return undefined; // not provided → leave unchanged
+        const trimmed = sanitizeString(raw, 64)
+          .replace(/^[@$]+/, '')
+          .trim();
+        return trimmed.length > 0 ? trimmed : null;
+      };
+
+      const fields: Record<string, string | null> = {};
+      const venmo = clean(body.venmoHandle);
+      const cashapp = clean(body.cashappCashtag);
+      const paypal = clean(body.paypalHandle);
+      if (venmo !== undefined) fields.venmoHandle = venmo;
+      if (cashapp !== undefined) fields.cashappCashtag = cashapp;
+      if (paypal !== undefined) fields.paypalHandle = paypal;
+
+      if (Object.keys(fields).length === 0) {
+        return sendError(res, 400, 'No payment handles provided', ErrorCodes.INVALID_INPUT);
+      }
+
+      const currentUser = await getUserById(req.user.userId);
+      if (!currentUser) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
+
+      const result = await stores.users.update(req.user.userId, fields);
+      if (!result) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
+      invalidateUserCache();
+
+      return sendSuccess(res, { user: serializePublicUser(result) });
+    } catch (error) {
+      log.error('payment handles update failed', { error: (error as Error).message, userId: req.user.userId });
+      return sendError(res, 500, 'Failed to update payment handles', ErrorCodes.INTERNAL_ERROR);
+    }
+  };
+  router.put(
+    '/payment-handles',
+    userAuth,
+    rateLimit(10, 'payment-handles-change'),
+    validate(schemas.paymentHandles),
+    updatePaymentHandles,
+  );
+  router.patch(
+    '/payment-handles',
+    userAuth,
+    rateLimit(10, 'payment-handles-change'),
+    validate(schemas.paymentHandles),
+    updatePaymentHandles,
   );
 
   // ── DELETE / — soft-delete account (30-day grace period) ──────────────

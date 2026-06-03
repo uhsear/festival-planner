@@ -1,23 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Share,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '@festie/shared/services';
-import { useFestivalDataStore } from '@festie/shared/stores';
+import { useFestivalDataStore, useCrewStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
 import { isFestivalOver } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import EmptyState from '../components/EmptyState';
 import WrapPoster from '../components/WrapPoster';
+import CrewWrapPoster, { type CrewWrapData } from '../components/CrewWrapPoster';
 
 interface WrapStats {
   totalRated: number;
@@ -53,10 +47,12 @@ export default function WrapScreen() {
 
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
   const days = useFestivalDataStore((s) => s.days);
+  const activeCrew = useCrewStore((s) => s.activeCrew);
   const { getStageName } = useFestival();
 
   const over = isFestivalOver(currentFestival, days);
 
+  const [tab, setTab] = useState<'me' | 'crew'>('me');
   const [data, setData] = useState<WrapResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -85,17 +81,11 @@ export default function WrapScreen() {
   }, [currentFestival?.id, over]);
 
   const allSorted = useMemo(
-    () =>
-      (data?.allRatings || [])
-        .slice()
-        .sort(
-          (a, b) => b.rating - a.rating,
-        ),
+    () => (data?.allRatings || []).slice().sort((a, b) => b.rating - a.rating),
     [data?.allRatings],
   );
 
-  const stageLabel = (s: WrapSet): string =>
-    s.stageName || (s.stageId ? getStageName(s.stageId) || 'Stage' : 'Stage');
+  const stageLabel = (s: WrapSet): string => s.stageName || (s.stageId ? getStageName(s.stageId) || 'Stage' : 'Stage');
 
   // Poster-shaped top sets (resolve stage names) — mirrors web's posterTopSets.
   const posterTopSets = useMemo(
@@ -275,15 +265,9 @@ export default function WrapScreen() {
             {sharing ? (
               <ActivityIndicator size="small" color={t.colors.text.onAccent} />
             ) : (
-              <Ionicons
-                name="share-social-outline"
-                size={16}
-                color={t.colors.text.onAccent}
-              />
+              <Ionicons name="share-social-outline" size={16} color={t.colors.text.onAccent} />
             )}
-            <Text style={styles.shareButtonText}>
-              {sharing ? 'Preparing…' : 'Share your wrap'}
-            </Text>
+            <Text style={styles.shareButtonText}>{sharing ? 'Preparing…' : 'Share your wrap'}</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -292,14 +276,48 @@ export default function WrapScreen() {
     );
   };
 
+  // Tab bar — Personal vs Crew wrap. Only shown once the festival is over (the
+  // not-over / no-festival empty states render the same regardless of tab).
+  const showTabs = !!currentFestival && over;
+
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ title: 'Festival Wrap', headerShown: true }} />
-      {body()}
+      {showTabs ? (
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tab, tab === 'me' && styles.tabActive]}
+            onPress={() => setTab('me')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === 'me' }}
+          >
+            <Text style={[styles.tabText, tab === 'me' && styles.tabTextActive]}>You</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, tab === 'crew' && styles.tabActive]}
+            onPress={() => setTab('crew')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === 'crew' }}
+          >
+            <Text style={[styles.tabText, tab === 'crew' && styles.tabTextActive]}>Crew wrap</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {showTabs && tab === 'crew' ? (
+        <CrewWrapTab
+          crewId={activeCrew?.id ?? null}
+          crewName={activeCrew?.name ?? 'Your crew'}
+          festivalId={currentFestival!.id}
+          festivalName={currentFestival!.name}
+        />
+      ) : (
+        body()
+      )}
       {/* Off-screen 1080×1920 poster, captured to PNG on share. collapsable=false
           keeps the View in the native tree so react-native-view-shot can grab it
           on Android. */}
-      {data && data.stats.totalRated > 0 ? (
+      {tab === 'me' && data && data.stats.totalRated > 0 ? (
         <View
           ref={posterRef}
           collapsable={false}
@@ -328,6 +346,226 @@ function Stat({ label, value }: { label: string; value: string }) {
     <View style={styles.statBox}>
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={styles.statValue}>{value}</Text>
+    </View>
+  );
+}
+
+const money = (n: number) =>
+  n.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 0 });
+
+interface CrewWrapResponse {
+  wrap: CrewWrapData;
+}
+
+/**
+ * Crew wrap tab — fetches GET /ratings/crew-wrap/:crewId/:festivalId and renders
+ * the shared recap, mirroring the web crew tab. Shares the off-screen poster +
+ * react-native-view-shot capture pipeline used by the personal wrap.
+ */
+function CrewWrapTab({
+  crewId,
+  crewName,
+  festivalId,
+  festivalName,
+}: {
+  crewId: string | null;
+  crewName: string;
+  festivalId: string;
+  festivalName: string;
+}) {
+  const t = useTokens();
+  const styles = useStyles();
+  const [wrap, setWrap] = useState<CrewWrapData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const posterRef = useRef<View>(null);
+
+  useEffect(() => {
+    if (!crewId) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    api
+      .get<CrewWrapResponse>(`/ratings/crew-wrap/${crewId}/${festivalId}`)
+      .then((res) => {
+        if (!cancelled) setWrap(res.wrap);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [crewId, festivalId]);
+
+  const hasData =
+    !!wrap &&
+    wrap.memberCount > 0 &&
+    (wrap.topOverlap !== null || wrap.setsSeenTogether.length > 0 || wrap.totalSplit > 0);
+
+  const handleShare = async () => {
+    if (!wrap || sharing) return;
+    setSharing(true);
+    try {
+      const uri = await captureRef(posterRef, {
+        format: 'png',
+        quality: 1,
+        width: 1080,
+        height: 1920,
+        result: 'tmpfile',
+      });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          UTI: 'public.png',
+          dialogTitle: 'Share your crew wrap',
+        });
+      } else {
+        await Share.share({
+          message: `Our ${festivalName} crew wrap 🎪\n${crewName} · ${wrap.memberCount} in the crew\nfestie.us`,
+        });
+      }
+    } catch {
+      // Capture failed or sheet dismissed.
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  if (!crewId) {
+    return (
+      <EmptyState
+        icon="people-outline"
+        title="No active crew"
+        message="Join or select a crew to see your shared festival recap."
+      />
+    );
+  }
+  if (loading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={t.colors.accent.aqua} />
+      </View>
+    );
+  }
+  if (error || !wrap) {
+    return (
+      <EmptyState
+        icon="people-outline"
+        title="Couldn't load your crew wrap"
+        message="Something went wrong loading the shared recap."
+      />
+    );
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.headerBlock}>
+          <View style={styles.kicker}>
+            <Ionicons name="people" size={14} color={t.colors.accent.aqua} />
+            <Text style={styles.kickerText}>Crew Wrap</Text>
+          </View>
+          <Text style={styles.festivalName}>{crewName}</Text>
+          <Text style={styles.crewFestival}>{festivalName}</Text>
+        </View>
+
+        <View style={styles.statsGrid}>
+          <Stat label="Crew" value={String(wrap.memberCount)} />
+          <Stat label="Seen together" value={String(wrap.setsSeenTogether.length)} />
+          <Stat label="Split" value={money(wrap.totalSplit)} />
+        </View>
+
+        <View style={styles.superlative}>
+          <Text style={styles.superLabel}>Most-overlapping taste</Text>
+          <Text style={styles.superValue} numberOfLines={1}>
+            {wrap.topOverlap ? `${wrap.topOverlap.aName} + ${wrap.topOverlap.bName}` : 'Rate more sets together'}
+          </Text>
+          {wrap.topOverlap ? (
+            <Text style={styles.superSub}>
+              {wrap.topOverlap.shared} shared favourite{wrap.topOverlap.shared === 1 ? '' : 's'}
+            </Text>
+          ) : null}
+        </View>
+
+        <View style={styles.superlative}>
+          <Text style={styles.superLabel}>Biggest spender</Text>
+          <Text style={styles.superValue} numberOfLines={1}>
+            {wrap.biggestSpender ? wrap.biggestSpender.name : 'No expenses yet'}
+          </Text>
+          {wrap.biggestSpender ? (
+            <Text style={styles.superSub}>fronted {money(wrap.biggestSpender.amount)}</Text>
+          ) : null}
+        </View>
+
+        {wrap.setsSeenTogether.length > 0 ? (
+          <View>
+            <Text style={styles.sectionLabel}>Sets you saw together</Text>
+            {wrap.setsSeenTogether.slice(0, 10).map((set) => (
+              <View key={set.setId} style={styles.allRow}>
+                <Text style={styles.allArtist} numberOfLines={1}>
+                  {set.artist || set.setId}
+                </Text>
+                <Text style={styles.seenCount}>{set.count} loved it</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {wrap.perMember.some((m) => m.topSets.length > 0) ? (
+          <View>
+            <Text style={styles.sectionLabel}>Everyone's top picks</Text>
+            {wrap.perMember.map((m) => (
+              <View key={m.userId} style={styles.memberCard}>
+                <Text style={styles.memberName}>{m.name}</Text>
+                {m.topSets.length > 0 ? (
+                  <Text style={styles.memberPicks} numberOfLines={2}>
+                    {m.topSets.map((set) => `${EMOJI[set.rating] ?? '⭐'} ${set.artist || set.setId}`).join('   ')}
+                  </Text>
+                ) : (
+                  <Text style={styles.memberEmpty}>No 4★+ sets yet</Text>
+                )}
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {hasData ? (
+          <TouchableOpacity
+            style={[styles.shareButton, sharing && styles.shareButtonBusy]}
+            onPress={() => void handleShare()}
+            disabled={sharing}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Share crew wrap"
+          >
+            {sharing ? (
+              <ActivityIndicator size="small" color={t.colors.text.onAccent} />
+            ) : (
+              <Ionicons name="share-social-outline" size={16} color={t.colors.text.onAccent} />
+            )}
+            <Text style={styles.shareButtonText}>{sharing ? 'Preparing…' : 'Share crew wrap'}</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        <Text style={styles.footer}>festie.us</Text>
+      </ScrollView>
+
+      {/* Off-screen poster for capture. */}
+      {hasData ? (
+        <View
+          ref={posterRef}
+          collapsable={false}
+          style={{ position: 'absolute', left: -99999, top: 0, width: 1080, height: 1920 }}
+          pointerEvents="none"
+        >
+          <CrewWrapPoster crewName={crewName} festivalName={festivalName} wrap={wrap} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -467,5 +705,84 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.muted,
     textAlign: 'center',
     paddingTop: t.spacing[2],
+  },
+  tabBar: {
+    flexDirection: 'row',
+    gap: t.spacing[1],
+    margin: t.spacing[4],
+    marginBottom: 0,
+    padding: t.spacing[1],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.sm,
+  },
+  tabActive: {
+    backgroundColor: t.colors.accent.coral,
+  },
+  tabText: {
+    ...typeStyle('label'),
+    color: t.colors.text.secondary,
+  },
+  tabTextActive: {
+    color: t.colors.text.onAccent,
+  },
+  crewFestival: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+    textAlign: 'center',
+  },
+  superlative: {
+    padding: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+    gap: t.spacing[1],
+  },
+  superLabel: {
+    ...typeStyle('micro'),
+    textTransform: 'uppercase',
+    color: t.colors.text.muted,
+  },
+  superValue: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+  },
+  superSub: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  seenCount: {
+    ...typeStyle('micro'),
+    color: t.colors.accent.aqua,
+  },
+  memberCard: {
+    padding: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+    marginBottom: t.spacing[2],
+    gap: t.spacing[1],
+  },
+  memberName: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+  },
+  memberPicks: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  memberEmpty: {
+    ...typeStyle('micro'),
+    color: t.colors.text.muted,
   },
 }));

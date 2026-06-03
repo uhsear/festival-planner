@@ -59,6 +59,12 @@ export function serializePublicUser(user: any): PublicUser {
     avatarUrl: buildAvatarUrl(user),
     email: user.email || null,
     emailVerified: !!user.emailVerifiedAt,
+    // Payment handles for settle-up deep links. Public identifiers (the same
+    // strings users hand out to get paid), surfaced so the owner can edit them
+    // in account settings and crewmates can build a prefilled pay link.
+    venmoHandle: user.venmoHandle || null,
+    cashappCashtag: user.cashappCashtag || null,
+    paypalHandle: user.paypalHandle || null,
   };
 }
 

@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { createExpensesStore } from '../lib/db/stores/expenses.js';
+import { createExpensesStore, simplifyDebts } from '../lib/db/stores/expenses.js';
+import type { BalanceCents } from '../lib/db/stores/expenses.js';
 
 // ---------------------------------------------------------------------------
 // Helper: mock pool factory
@@ -18,7 +19,9 @@ function makePool(queryResults: any[] = []) {
 
 function makeErrorPool(error: any) {
   return {
-    query: mock.fn(async () => { throw error; }),
+    query: mock.fn(async () => {
+      throw error;
+    }),
   };
 }
 
@@ -36,7 +39,7 @@ describe('expenses store — create()', () => {
       crew_id: 'crew-1',
       paid_by: 'user-1',
       description: 'Pizza',
-      amount: 25.50,
+      amount: 25.5,
       split_with: '["user-1","user-2"]',
       category: 'food',
       created_at: '2026-05-01T12:00:00Z',
@@ -48,7 +51,7 @@ describe('expenses store — create()', () => {
       crewId: 'crew-1',
       paidBy: 'user-1',
       description: 'Pizza',
-      amount: 25.50,
+      amount: 25.5,
       splitWith: ['user-1', 'user-2'],
       category: 'food',
     });
@@ -63,7 +66,7 @@ describe('expenses store — create()', () => {
     assert.strictEqual(params[1], 'crew-1');
     assert.strictEqual(params[2], 'user-1');
     assert.strictEqual(params[3], 'Pizza');
-    assert.strictEqual(params[4], 25.50);
+    assert.strictEqual(params[4], 25.5);
     assert.strictEqual(params[5], '["user-1","user-2"]');
     assert.strictEqual(params[6], 'food');
   });
@@ -122,13 +125,14 @@ describe('expenses store — create()', () => {
     const store = createExpensesStore(pool as any);
 
     await assert.rejects(
-      () => store.create({
-        crewId: 'crew-1',
-        paidBy: 'user-1',
-        description: 'Fail',
-        amount: 10,
-        splitWith: [],
-      }),
+      () =>
+        store.create({
+          crewId: 'crew-1',
+          paidBy: 'user-1',
+          description: 'Fail',
+          amount: 10,
+          splitWith: [],
+        }),
       { message: 'connection refused' },
     );
   });
@@ -188,17 +192,19 @@ describe('expenses store — getByCrew()', () => {
   });
 
   it('handles split_with that is already an array (not a string)', async () => {
-    const rows = [{
-      id: 'exp-arr',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Pre-parsed',
-      amount: 10,
-      split_with: ['user-1', 'user-2'],
-      category: 'other',
-      created_at: '2026-05-01T00:00:00Z',
-      paid_by_name: 'alice',
-    }];
+    const rows = [
+      {
+        id: 'exp-arr',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Pre-parsed',
+        amount: 10,
+        split_with: ['user-1', 'user-2'],
+        category: 'other',
+        created_at: '2026-05-01T00:00:00Z',
+        paid_by_name: 'alice',
+      },
+    ];
     const pool = makePool([{ rows }]);
     const store = createExpensesStore(pool as any);
 
@@ -207,17 +213,19 @@ describe('expenses store — getByCrew()', () => {
   });
 
   it('handles malformed JSON in split_with by falling back to empty array', async () => {
-    const rows = [{
-      id: 'exp-bad',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Bad JSON',
-      amount: 10,
-      split_with: '{not valid json[',
-      category: 'other',
-      created_at: '2026-05-01T00:00:00Z',
-      paid_by_name: 'alice',
-    }];
+    const rows = [
+      {
+        id: 'exp-bad',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Bad JSON',
+        amount: 10,
+        split_with: '{not valid json[',
+        category: 'other',
+        created_at: '2026-05-01T00:00:00Z',
+        paid_by_name: 'alice',
+      },
+    ];
     const pool = makePool([{ rows }]);
     const store = createExpensesStore(pool as any);
 
@@ -226,17 +234,19 @@ describe('expenses store — getByCrew()', () => {
   });
 
   it('handles null split_with by defaulting to empty array', async () => {
-    const rows = [{
-      id: 'exp-null',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Null split',
-      amount: 10,
-      split_with: null,
-      category: 'other',
-      created_at: '2026-05-01T00:00:00Z',
-      paid_by_name: 'alice',
-    }];
+    const rows = [
+      {
+        id: 'exp-null',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Null split',
+        amount: 10,
+        split_with: null,
+        category: 'other',
+        created_at: '2026-05-01T00:00:00Z',
+        paid_by_name: 'alice',
+      },
+    ];
     const pool = makePool([{ rows }]);
     const store = createExpensesStore(pool as any);
 
@@ -248,10 +258,7 @@ describe('expenses store — getByCrew()', () => {
     const pool = makeErrorPool(new Error('timeout'));
     const store = createExpensesStore(pool as any);
 
-    await assert.rejects(
-      () => store.getByCrew('crew-1'),
-      { message: 'timeout' },
-    );
+    await assert.rejects(() => store.getByCrew('crew-1'), { message: 'timeout' });
   });
 });
 
@@ -290,10 +297,7 @@ describe('expenses store — getById()', () => {
     const pool = makeErrorPool(new Error('relation does not exist'));
     const store = createExpensesStore(pool as any);
 
-    await assert.rejects(
-      () => store.getById('exp-1'),
-      { message: 'relation does not exist' },
-    );
+    await assert.rejects(() => store.getById('exp-1'), { message: 'relation does not exist' });
   });
 });
 
@@ -333,10 +337,7 @@ describe('expenses store — delete()', () => {
     const pool = makeErrorPool(new Error('permission denied'));
     const store = createExpensesStore(pool as any);
 
-    await assert.rejects(
-      () => store.delete('exp-1'),
-      { message: 'permission denied' },
-    );
+    await assert.rejects(() => store.delete('exp-1'), { message: 'permission denied' });
   });
 });
 
@@ -346,24 +347,23 @@ describe('expenses store — delete()', () => {
 describe('expenses store — getBalances()', () => {
   it('calculates balances for a simple two-person split', async () => {
     // user-1 paid $100, split between user-1 and user-2
-    const expenses = [{
-      id: 'exp-1',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Dinner',
-      amount: '100.00', // pg returns NUMERIC as a string — must not string-concat
-      split_with: '["user-1","user-2"]',
-      category: 'food',
-      created_at: '2026-05-01T00:00:00Z',
-    }];
+    const expenses = [
+      {
+        id: 'exp-1',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Dinner',
+        amount: '100.00', // pg returns NUMERIC as a string — must not string-concat
+        split_with: '["user-1","user-2"]',
+        category: 'food',
+        created_at: '2026-05-01T00:00:00Z',
+      },
+    ];
     const members = [
       { user_id: 'user-1', username: 'alice' },
       { user_id: 'user-2', username: 'bob' },
     ];
-    const pool = makePool([
-      { rows: expenses },
-      { rows: members },
-    ]);
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-1');
@@ -381,25 +381,24 @@ describe('expenses store — getBalances()', () => {
 
   it('splits among all members when splitWith is empty', async () => {
     // user-1 paid $90, split_with is empty => split among all 3 members
-    const expenses = [{
-      id: 'exp-1',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Parking',
-      amount: '90.00',
-      split_with: '[]',
-      category: 'transport',
-      created_at: '2026-05-01T00:00:00Z',
-    }];
+    const expenses = [
+      {
+        id: 'exp-1',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Parking',
+        amount: '90.00',
+        split_with: '[]',
+        category: 'transport',
+        created_at: '2026-05-01T00:00:00Z',
+      },
+    ];
     const members = [
       { user_id: 'user-1', username: 'alice' },
       { user_id: 'user-2', username: 'bob' },
       { user_id: 'user-3', username: 'charlie' },
     ];
-    const pool = makePool([
-      { rows: expenses },
-      { rows: members },
-    ]);
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-1');
@@ -442,10 +441,7 @@ describe('expenses store — getBalances()', () => {
       { user_id: 'user-1', username: 'alice' },
       { user_id: 'user-2', username: 'bob' },
     ];
-    const pool = makePool([
-      { rows: expenses },
-      { rows: members },
-    ]);
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-1');
@@ -459,16 +455,18 @@ describe('expenses store — getBalances()', () => {
   });
 
   it('distributes remainder pennies so an uneven split is exactly zero-sum ($10/3)', async () => {
-    const expenses = [{
-      id: 'exp-1',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Snacks',
-      amount: '10.00',
-      split_with: '["user-1","user-2","user-3"]',
-      category: 'food',
-      created_at: '2026-05-01T00:00:00Z',
-    }];
+    const expenses = [
+      {
+        id: 'exp-1',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Snacks',
+        amount: '10.00',
+        split_with: '["user-1","user-2","user-3"]',
+        category: 'food',
+        created_at: '2026-05-01T00:00:00Z',
+      },
+    ];
     const members = [
       { user_id: 'user-1', username: 'alice' },
       { user_id: 'user-2', username: 'bob' },
@@ -491,10 +489,7 @@ describe('expenses store — getBalances()', () => {
       { user_id: 'user-1', username: 'alice' },
       { user_id: 'user-2', username: 'bob' },
     ];
-    const pool = makePool([
-      { rows: [] },
-      { rows: members },
-    ]);
+    const pool = makePool([{ rows: [] }, { rows: members }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-1');
@@ -505,10 +500,7 @@ describe('expenses store — getBalances()', () => {
   });
 
   it('returns empty array when crew has no members', async () => {
-    const pool = makePool([
-      { rows: [] },
-      { rows: [] },
-    ]);
+    const pool = makePool([{ rows: [] }, { rows: [] }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-empty');
@@ -516,24 +508,23 @@ describe('expenses store — getBalances()', () => {
   });
 
   it('handles zero-amount expense without error', async () => {
-    const expenses = [{
-      id: 'exp-zero',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Free item',
-      amount: 0,
-      split_with: '["user-1","user-2"]',
-      category: 'other',
-      created_at: '2026-05-01T00:00:00Z',
-    }];
+    const expenses = [
+      {
+        id: 'exp-zero',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Free item',
+        amount: 0,
+        split_with: '["user-1","user-2"]',
+        category: 'other',
+        created_at: '2026-05-01T00:00:00Z',
+      },
+    ];
     const members = [
       { user_id: 'user-1', username: 'alice' },
       { user_id: 'user-2', username: 'bob' },
     ];
-    const pool = makePool([
-      { rows: expenses },
-      { rows: members },
-    ]);
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-1');
@@ -544,23 +535,20 @@ describe('expenses store — getBalances()', () => {
   });
 
   it('handles single-member crew (payer is sole member)', async () => {
-    const expenses = [{
-      id: 'exp-solo',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Solo expense',
-      amount: 50,
-      split_with: '["user-1"]',
-      category: 'other',
-      created_at: '2026-05-01T00:00:00Z',
-    }];
-    const members = [
-      { user_id: 'user-1', username: 'alice' },
+    const expenses = [
+      {
+        id: 'exp-solo',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Solo expense',
+        amount: 50,
+        split_with: '["user-1"]',
+        category: 'other',
+        created_at: '2026-05-01T00:00:00Z',
+      },
     ];
-    const pool = makePool([
-      { rows: expenses },
-      { rows: members },
-    ]);
+    const members = [{ user_id: 'user-1', username: 'alice' }];
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-1');
@@ -574,25 +562,24 @@ describe('expenses store — getBalances()', () => {
   it('rounds balances to 2 decimal places and stays zero-sum on an odd split', async () => {
     // $100 split 3 ways: cent-accurate distribution keeps the ledger zero-sum
     // (the old float math left a stray penny: 66.67 - 33.33 - 33.33 = 0.01).
-    const expenses = [{
-      id: 'exp-round',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Odd split',
-      amount: '100.00',
-      split_with: '["user-1","user-2","user-3"]',
-      category: 'other',
-      created_at: '2026-05-01T00:00:00Z',
-    }];
+    const expenses = [
+      {
+        id: 'exp-round',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Odd split',
+        amount: '100.00',
+        split_with: '["user-1","user-2","user-3"]',
+        category: 'other',
+        created_at: '2026-05-01T00:00:00Z',
+      },
+    ];
     const members = [
       { user_id: 'user-1', username: 'alice' },
       { user_id: 'user-2', username: 'bob' },
       { user_id: 'user-3', username: 'charlie' },
     ];
-    const pool = makePool([
-      { rows: expenses },
-      { rows: members },
-    ]);
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-1');
@@ -609,24 +596,23 @@ describe('expenses store — getBalances()', () => {
   });
 
   it('parses split_with from JSON string in expenses', async () => {
-    const expenses = [{
-      id: 'exp-str',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Parsed',
-      amount: 80,
-      split_with: '["user-1","user-2"]',
-      category: 'other',
-      created_at: '2026-05-01T00:00:00Z',
-    }];
+    const expenses = [
+      {
+        id: 'exp-str',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Parsed',
+        amount: 80,
+        split_with: '["user-1","user-2"]',
+        category: 'other',
+        created_at: '2026-05-01T00:00:00Z',
+      },
+    ];
     const members = [
       { user_id: 'user-1', username: 'alice' },
       { user_id: 'user-2', username: 'bob' },
     ];
-    const pool = makePool([
-      { rows: expenses },
-      { rows: members },
-    ]);
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-1');
@@ -641,24 +627,23 @@ describe('expenses store — getBalances()', () => {
 
   it('falls back to empty split when split_with is malformed JSON', async () => {
     // Malformed JSON => splitWith becomes [] => splits among all members
-    const expenses = [{
-      id: 'exp-bad',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Bad split',
-      amount: 60,
-      split_with: 'not-json!!!',
-      category: 'other',
-      created_at: '2026-05-01T00:00:00Z',
-    }];
+    const expenses = [
+      {
+        id: 'exp-bad',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Bad split',
+        amount: 60,
+        split_with: 'not-json!!!',
+        category: 'other',
+        created_at: '2026-05-01T00:00:00Z',
+      },
+    ];
     const members = [
       { user_id: 'user-1', username: 'alice' },
       { user_id: 'user-2', username: 'bob' },
     ];
-    const pool = makePool([
-      { rows: expenses },
-      { rows: members },
-    ]);
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-1');
@@ -674,24 +659,23 @@ describe('expenses store — getBalances()', () => {
 
   it('ignores payer credit if payer is not a crew member', async () => {
     // Payer user-99 is not in the members list
-    const expenses = [{
-      id: 'exp-ext',
-      crew_id: 'crew-1',
-      paid_by: 'user-99',
-      description: 'External payer',
-      amount: 100,
-      split_with: '["user-1","user-2"]',
-      category: 'other',
-      created_at: '2026-05-01T00:00:00Z',
-    }];
+    const expenses = [
+      {
+        id: 'exp-ext',
+        crew_id: 'crew-1',
+        paid_by: 'user-99',
+        description: 'External payer',
+        amount: 100,
+        split_with: '["user-1","user-2"]',
+        category: 'other',
+        created_at: '2026-05-01T00:00:00Z',
+      },
+    ];
     const members = [
       { user_id: 'user-1', username: 'alice' },
       { user_id: 'user-2', username: 'bob' },
     ];
-    const pool = makePool([
-      { rows: expenses },
-      { rows: members },
-    ]);
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-1');
@@ -709,24 +693,23 @@ describe('expenses store — getBalances()', () => {
     // split_with includes user-99 who is not a crew member; their share must
     // not silently vanish (old behavior left the ledger +$30 non-zero-sum) —
     // it redistributes across the current members.
-    const expenses = [{
-      id: 'exp-ghost',
-      crew_id: 'crew-1',
-      paid_by: 'user-1',
-      description: 'Ghost split',
-      amount: '90.00',
-      split_with: '["user-1","user-2","user-99"]',
-      category: 'other',
-      created_at: '2026-05-01T00:00:00Z',
-    }];
+    const expenses = [
+      {
+        id: 'exp-ghost',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Ghost split',
+        amount: '90.00',
+        split_with: '["user-1","user-2","user-99"]',
+        category: 'other',
+        created_at: '2026-05-01T00:00:00Z',
+      },
+    ];
     const members = [
       { user_id: 'user-1', username: 'alice' },
       { user_id: 'user-2', username: 'bob' },
     ];
-    const pool = makePool([
-      { rows: expenses },
-      { rows: members },
-    ]);
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
     const store = createExpensesStore(pool as any);
 
     const result = await store.getBalances('crew-1');
@@ -741,10 +724,7 @@ describe('expenses store — getBalances()', () => {
   });
 
   it('makes two SQL queries: expenses then members', async () => {
-    const pool = makePool([
-      { rows: [] },
-      { rows: [] },
-    ]);
+    const pool = makePool([{ rows: [] }, { rows: [] }]);
     const store = createExpensesStore(pool as any);
 
     await store.getBalances('crew-1');
@@ -762,9 +742,82 @@ describe('expenses store — getBalances()', () => {
     const pool = makeErrorPool(new Error('deadlock detected'));
     const store = createExpensesStore(pool as any);
 
-    await assert.rejects(
-      () => store.getBalances('crew-1'),
-      { message: 'deadlock detected' },
+    await assert.rejects(() => store.getBalances('crew-1'), { message: 'deadlock detected' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. simplifyDebts() — pure greedy min-cash-flow over integer cents
+// ---------------------------------------------------------------------------
+describe('simplifyDebts()', () => {
+  const b = (userId: string, username: string, balanceCents: number): BalanceCents => ({
+    userId,
+    username,
+    balanceCents,
+  });
+
+  // Every settlement is a real debtor→creditor transfer with a positive amount,
+  // and netting all of them returns each member to zero. This is the invariant
+  // the whole feature rests on, so assert it generically.
+  function assertResolvesLedger(balances: BalanceCents[]) {
+    const settlements = simplifyDebts(balances);
+    const net: Record<string, number> = {};
+    for (const x of balances) net[x.userId] = x.balanceCents;
+    for (const s of settlements) {
+      assert.ok(s.amountCents > 0, 'transfer amount must be positive');
+      assert.notStrictEqual(s.fromUserId, s.toUserId, 'cannot pay yourself');
+      net[s.fromUserId] = (net[s.fromUserId] ?? 0) + s.amountCents; // debtor pays down
+      net[s.toUserId] = (net[s.toUserId] ?? 0) - s.amountCents; // creditor receives
+    }
+    // After applying every transfer, all balances land within a 1-cent rounding
+    // tolerance of zero.
+    for (const userId of Object.keys(net)) {
+      assert.ok(Math.abs(net[userId]!) <= 1, `${userId} not settled: ${net[userId]}`);
+    }
+    return settlements;
+  }
+
+  it('nets a 3-way split to ≤2 transfers, zero-sum, no stray penny', () => {
+    // alice fronted everything: +$66.66 (6666c); bob & charlie each owe $33.33.
+    const balances = [b('u1', 'alice', 6666), b('u2', 'bob', -3333), b('u3', 'charlie', -3333)];
+    const settlements = assertResolvesLedger(balances);
+
+    // N=3 non-zero members ⇒ at most N-1 = 2 transfers.
+    assert.ok(settlements.length <= 2, `expected ≤2 transfers, got ${settlements.length}`);
+    // Both transfers must flow TO the sole creditor (alice).
+    for (const s of settlements) {
+      assert.strictEqual(s.toUserId, 'u1');
+      assert.strictEqual(s.toName, 'alice');
+    }
+    // The sum of transfers equals what the debtors owe (6666c), no stray penny.
+    const totalMoved = settlements.reduce((sum, s) => sum + s.amountCents, 0);
+    assert.strictEqual(totalMoved, 6666);
+  });
+
+  it('returns no transfers when everyone is square', () => {
+    const settlements = simplifyDebts([b('u1', 'a', 0), b('u2', 'b', 0)]);
+    assert.deepStrictEqual(settlements, []);
+  });
+
+  it('matches a single debtor to a single creditor', () => {
+    const settlements = simplifyDebts([b('u1', 'a', 5000), b('u2', 'b', -5000)]);
+    assert.strictEqual(settlements.length, 1);
+    assert.deepStrictEqual(
+      { from: settlements[0]!.fromUserId, to: settlements[0]!.toUserId, amt: settlements[0]!.amountCents },
+      { from: 'u2', to: 'u1', amt: 5000 },
     );
+  });
+
+  it('greedily matches largest creditor to largest debtor (≤N-1 transfers)', () => {
+    // 2 creditors, 2 debtors. Greedy min-cash-flow yields ≤3 transfers.
+    const balances = [b('u1', 'a', 7000), b('u2', 'b', 3000), b('u3', 'c', -6000), b('u4', 'd', -4000)];
+    const settlements = assertResolvesLedger(balances);
+    assert.ok(settlements.length <= 3, `expected ≤3 transfers, got ${settlements.length}`);
+  });
+
+  it('ignores a sub-2-cent rounding residual instead of emitting a phantom transfer', () => {
+    // A 1-cent imbalance is a zero-sum rounding artifact, not a real debt.
+    const settlements = simplifyDebts([b('u1', 'a', 1), b('u2', 'b', -1)]);
+    assert.deepStrictEqual(settlements, []);
   });
 });
