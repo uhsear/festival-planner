@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { View, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
@@ -18,19 +19,13 @@ interface ScreenHeaderProps {
  * Standard screen header: optional leading icon, a title with optional
  * subtitle, and an optional trailing slot. Purely presentational.
  */
-export default function ScreenHeader({
-  title,
-  subtitle,
-  right,
-  icon,
-}: ScreenHeaderProps) {
+export default function ScreenHeader({ title, subtitle, right, icon }: ScreenHeaderProps) {
   const t = useTokens();
   const styles = useStyles();
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.row}>
-      {icon ? (
-        <Ionicons name={icon} size={24} color={t.colors.accent.aqua} />
-      ) : null}
+    <View style={[styles.row, { paddingTop: insets.top + t.spacing[4] }]}>
+      {icon ? <Ionicons name={icon} size={24} color={t.colors.accent.aqua} /> : null}
       <View style={styles.titleBlock}>
         <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
           {title}

@@ -9,11 +9,16 @@ import {
   Platform,
   ActivityIndicator,
   Keyboard,
+  Linking,
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@festie/shared/stores';
 import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
+
+// No in-app Terms route exists yet; open the canonical web Terms of Service,
+// mirroring how the privacy screen links out to it.
+const TERMS_URL = 'https://festie.us/terms.html';
 
 export default function RegisterScreen() {
   const [username, setUsername] = useState('');
@@ -161,7 +166,10 @@ export default function RegisterScreen() {
             <Text style={styles.linkTextAccent} onPress={() => router.push('/privacy')}>
               Privacy Policy
             </Text>{' '}
-            &amp; Terms
+            &amp;{' '}
+            <Text style={styles.linkTextAccent} onPress={() => void Linking.openURL(TERMS_URL)}>
+              Terms
+            </Text>
           </Text>
         </TouchableOpacity>
 

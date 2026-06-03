@@ -16,11 +16,7 @@ export interface SetStatusResult {
  * injected so it stays testable and works identically on web and native. Shared
  * single source of truth consumed by both web's and mobile's useSetStatus hooks.
  */
-export function getSetStatus(
-  set: FestivalSet,
-  now: Date,
-  days: FestivalDay[] = [],
-): SetStatusResult {
+export function getSetStatus(set: FestivalSet, now: Date, days: FestivalDay[] = []): SetStatusResult {
   // Look up the date via the festival days array first (the store flattens sets
   // with a dayIndex); fall back to set.date for callers that still attach it.
   const dayRecord = typeof set.dayIndex === 'number' ? days[set.dayIndex] : null;
@@ -30,21 +26,22 @@ export function getSetStatus(
     return { status: 'tba', label: 'TBA', minutesUntil: Infinity, progress: 0 };
   }
 
-  const setDate = new Date(dateStr);
+  // Anchor on the first 10 chars (YYYY-MM-DD) and build a local midnight before
+  // any setHours math. Passing a bare/partial date string to `new Date()` is
+  // parsed inconsistently under Hermes' strict date parser, so normalise it the
+  // same way festivalTime.ts does.
+  const dayKey = dateStr.slice(0, 10);
+  const setDate = new Date(`${dayKey}T00:00:00`);
   if (isNaN(setDate.getTime())) {
     return { status: 'tba', label: 'TBA', minutesUntil: Infinity, progress: 0 };
   }
 
-  const [startHh = 0, startMm = 0] = (set.startTime || '00:00')
-    .split(':')
-    .map((x) => parseInt(x, 10));
+  const [startHh = 0, startMm = 0] = (set.startTime || '00:00').split(':').map((x) => parseInt(x, 10));
   setDate.setHours(startHh, startMm, 0, 0);
   const setStartTime = setDate.getTime();
 
-  const endDate = new Date(dateStr);
-  const [endHh = 0, endMm = 0] = (set.endTime || set.startTime)
-    .split(':')
-    .map((x) => parseInt(x, 10));
+  const endDate = new Date(`${dayKey}T00:00:00`);
+  const [endHh = 0, endMm = 0] = (set.endTime || set.startTime).split(':').map((x) => parseInt(x, 10));
   endDate.setHours(endHh, endMm, 0, 0);
   // If the end time is before the start time, the set runs past midnight.
   if (endDate <= setDate) {
