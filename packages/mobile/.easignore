@@ -1,0 +1,22 @@
+# Test automation files
+maestro/
+
+# Local build artifacts (regenerated during EAS build)
+dist/
+
+# Store/marketing metadata
+store/
+
+# Marketing documentation screenshots (root level)
+eg-*.png
+m1-*.png
+securestore-*.png
+
+# Local Expo cache
+.expo/
+
+# Standard patterns
+coverage/
+.DS_Store
+*.log
+*.lcov

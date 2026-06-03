@@ -12,6 +12,31 @@ export interface SetStatusResult {
 }
 
 /**
+ * Build a `Date` for a `YYYY-MM-DD` day-key plus an `HH:MM` wall-clock time in a
+ * single, consistent **local** frame — never touching the JS Date string parser.
+ *
+ * Why this matters: `new Date('2026-06-15')` is parsed as UTC midnight, whereas
+ * `new Date('2026-06-15T00:00:00')` is parsed as *local* midnight, and `setHours`
+ * always operates in local time. Mixing those two parse modes (e.g. comparing a
+ * UTC-parsed set time against a local `now`) silently shifts every comparison by
+ * the machine's UTC offset, so a set looks "live" / "past" at the wrong moment for
+ * any non-UTC user. CI runs in UTC, so the skew is invisible there. By splitting
+ * the date string ourselves and seeding the calendar fields explicitly, the result
+ * is anchored to the same local frame regardless of how the host parses strings.
+ */
+export function createDateInLocalFrame(dateStr: string, hours: number, minutes: number): Date {
+  const [y, m, d] = dateStr
+    .slice(0, 10)
+    .split('-')
+    .map((x) => parseInt(x, 10));
+  const date = new Date();
+  // setFullYear(year, monthIndex, day) — month is 0-based.
+  date.setFullYear(y!, m! - 1, d!);
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
+/**
  * Compute a set's status relative to a given `now`. Pure — the time source is
  * injected so it stays testable and works identically on web and native. Shared
  * single source of truth consumed by both web's and mobile's useSetStatus hooks.
@@ -26,25 +51,27 @@ export function getSetStatus(set: FestivalSet, now: Date, days: FestivalDay[] = 
     return { status: 'tba', label: 'TBA', minutesUntil: Infinity, progress: 0 };
   }
 
-  // Anchor on the first 10 chars (YYYY-MM-DD) and build a local midnight before
-  // any setHours math. Passing a bare/partial date string to `new Date()` is
-  // parsed inconsistently under Hermes' strict date parser, so normalise it the
-  // same way festivalTime.ts does.
+  // Anchor on the first 10 chars (YYYY-MM-DD). Reject anything that isn't a
+  // well-formed calendar day before doing any time math (mirrors the old
+  // isNaN guard, but without depending on the JS string parser).
   const dayKey = dateStr.slice(0, 10);
-  const setDate = new Date(`${dayKey}T00:00:00`);
-  if (isNaN(setDate.getTime())) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
     return { status: 'tba', label: 'TBA', minutesUntil: Infinity, progress: 0 };
   }
 
+  // Build both ends in one consistent local frame via createDateInLocalFrame so
+  // start/end/now are always compared apples-to-apples regardless of host TZ.
   const [startHh = 0, startMm = 0] = (set.startTime || '00:00').split(':').map((x) => parseInt(x, 10));
-  setDate.setHours(startHh, startMm, 0, 0);
+  const setDate = createDateInLocalFrame(dayKey, startHh, startMm);
+  if (isNaN(setDate.getTime())) {
+    return { status: 'tba', label: 'TBA', minutesUntil: Infinity, progress: 0 };
+  }
   const setStartTime = setDate.getTime();
 
-  const endDate = new Date(`${dayKey}T00:00:00`);
   const [endHh = 0, endMm = 0] = (set.endTime || set.startTime).split(':').map((x) => parseInt(x, 10));
-  endDate.setHours(endHh, endMm, 0, 0);
+  const endDate = createDateInLocalFrame(dayKey, endHh, endMm);
   // If the end time is before the start time, the set runs past midnight.
-  if (endDate <= setDate) {
+  if (endDate.getTime() <= setStartTime) {
     endDate.setDate(endDate.getDate() + 1);
   }
   const setEndTime = endDate.getTime();
