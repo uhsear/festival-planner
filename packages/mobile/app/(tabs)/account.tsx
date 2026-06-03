@@ -12,6 +12,7 @@ import AccountPasswordSection from '../../components/AccountPasswordSection';
 import AccountEmailVerifySection from '../../components/AccountEmailVerifySection';
 import AccountNotificationsSection from '../../components/AccountNotificationsSection';
 import AccountNotificationPrefsSection from '../../components/AccountNotificationPrefsSection';
+import AccountHistorySection from '../../components/AccountHistorySection';
 import AccountDataSection from '../../components/AccountDataSection';
 import AccountDangerSection from '../../components/AccountDangerSection';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
@@ -176,6 +177,10 @@ export default function AccountScreen() {
             <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
           </TouchableOpacity>
         </View>
+
+        {/* History — cross-festival year-over-year (M3) */}
+        <Text style={styles.sectionLabel}>History</Text>
+        <AccountHistorySection />
 
         {/* Data */}
         <Text style={styles.sectionLabel}>Data</Text>

@@ -158,6 +158,24 @@ export function createRatingsRoutes({
     },
   );
 
+  // Cross-festival year-over-year history (M3). No festival param — aggregates
+  // the user's entire rating archive across every festival. userAuth-gated;
+  // only ever returns the requester's own data. Empty (zero ratings) returns
+  // clean zeroed totals + empty arrays, never a 500.
+  router.get('/lifetime', userAuth, readLimit, async (req: any, res: any) => {
+    try {
+      const result = await stores.ratings.getLifetimeStats(req.user.userId);
+      return sendSuccess(res, {
+        totals: result.totals,
+        byFestival: result.byFestival,
+        topArtists: result.topArtists,
+      });
+    } catch (err: any) {
+      log.error('get lifetime stats failed', { error: err.message, userId: req.user?.userId });
+      return sendError(res, 500, 'Internal server error', ErrorCodes.INTERNAL_ERROR);
+    }
+  });
+
   // Get wrap stats for current user
   router.get(
     '/wrap/:festivalId',

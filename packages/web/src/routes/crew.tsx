@@ -12,6 +12,7 @@ import Button from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import HomeBaseCard from '../components/crew/HomeBaseCard';
 import CrewInviteBar from '../components/crew/CrewInviteBar';
+import ReformCrewButton from '../components/crew/ReformCrewButton';
 import CrewTabBar from '../components/crew/CrewTabBar';
 import CrewTabContent from '../components/crew/CrewTabContent';
 import { useCrewAdmin } from '../components/crew/useCrewAdmin';
@@ -215,6 +216,12 @@ function CrewViewInner() {
           {activeCrew.inviteCode && (
             <CrewInviteBar inviteCode={activeCrew.inviteCode} crewId={activeCrew.id} isOwner={isOwner} />
           )}
+
+          <ReformCrewButton
+            crewId={activeCrew.id}
+            sourceFestivalId={activeCrew.festivalId}
+            crewName={activeCrew.name}
+          />
 
           <Link
             to="/crew-plan"

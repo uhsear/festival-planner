@@ -73,7 +73,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
   };
 
   const CREW_COLUMNS =
-    'id, festival_id AS "festivalId", name, created_by AS "createdBy", invite_code AS "inviteCode", invite_expires_at AS "inviteExpiresAt", max_members AS "maxMembers", home_base_location AS "homeBaseLocation", home_base_time AS "homeBaseTime", home_base_updated_at AS "homeBaseUpdatedAt", created_at AS "createdAt", updated_at AS "updatedAt"';
+    'id, festival_id AS "festivalId", name, created_by AS "createdBy", invite_code AS "inviteCode", invite_expires_at AS "inviteExpiresAt", max_members AS "maxMembers", reformed_from AS "reformedFrom", home_base_location AS "homeBaseLocation", home_base_time AS "homeBaseTime", home_base_updated_at AS "homeBaseUpdatedAt", created_at AS "createdAt", updated_at AS "updatedAt"';
 
   // Phase 7: Crew system store
   const crews: any = {
@@ -89,11 +89,12 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
             invite_code,
             invite_expires_at,
             max_members,
+            reformed_from,
             created_at,
             updated_at
           )
         VALUES
-          ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+          ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
       `,
         [
           data.id,
@@ -103,6 +104,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           data.inviteCode,
           data.inviteExpiresAt || null,
           data.maxMembers,
+          data.reformedFrom || null,
         ],
       );
       const result = await pool.query(`SELECT ${CREW_COLUMNS} FROM crews WHERE id = $1`, [data.id]);
@@ -126,11 +128,12 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
               invite_code,
               invite_expires_at,
               max_members,
+              reformed_from,
               created_at,
               updated_at
             )
           VALUES
-            ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+            ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
         `,
           [
             data.id,
@@ -140,6 +143,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
             data.inviteCode,
             data.inviteExpiresAt || null,
             data.maxMembers,
+            data.reformedFrom || null,
           ],
         );
         await client.query(
@@ -226,6 +230,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           c.invite_code AS "inviteCode",
           c.invite_expires_at AS "inviteExpiresAt",
           c.max_members AS "maxMembers",
+          c.reformed_from AS "reformedFrom",
           c.home_base_location AS "homeBaseLocation",
           c.home_base_time AS "homeBaseTime",
           c.home_base_updated_at AS "homeBaseUpdatedAt",
@@ -257,6 +262,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           c.invite_code AS "inviteCode",
           c.invite_expires_at AS "inviteExpiresAt",
           c.max_members AS "maxMembers",
+          c.reformed_from AS "reformedFrom",
           c.home_base_location AS "homeBaseLocation",
           c.home_base_time AS "homeBaseTime",
           c.home_base_updated_at AS "homeBaseUpdatedAt",
@@ -436,10 +442,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
         'UPDATE crews SET home_base_location = $1, home_base_time = $2, home_base_updated_at = NOW(), updated_at = NOW() WHERE id = $3',
         [location || null, time || null, crewId],
       );
-      const result = await pool.query(
-        'SELECT id, festival_id AS "festivalId", name, created_by AS "createdBy", invite_code AS "inviteCode", invite_expires_at AS "inviteExpiresAt", max_members AS "maxMembers", home_base_location AS "homeBaseLocation", home_base_time AS "homeBaseTime", home_base_updated_at AS "homeBaseUpdatedAt", created_at AS "createdAt", updated_at AS "updatedAt" FROM crews WHERE id = $1',
-        [crewId],
-      );
+      const result = await pool.query(`SELECT ${CREW_COLUMNS} FROM crews WHERE id = $1`, [crewId]);
       return result.rows[0] || null;
     },
 

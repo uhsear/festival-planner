@@ -315,6 +315,14 @@ export const crewJoinSchema = z.object({
 });
 export type CrewJoinInput = z.infer<typeof crewJoinSchema>;
 
+// Reform a crew into a NEW crew in the target festival (M3). Crews are
+// festival-scoped, so "reform" = create a new crew in `targetFestivalId` +
+// invite the prior roster. `:crewId` (the source crew) comes from the path.
+export const crewReformSchema = z.object({
+  targetFestivalId: identifier,
+});
+export type CrewReformInput = z.infer<typeof crewReformSchema>;
+
 export const crewTransferSchema = z.object({
   userId: identifier,
 });
@@ -755,6 +763,7 @@ export const schemas = {
   crewCreate: crewCreateSchema,
   crewUpdate: crewUpdateSchema,
   crewJoin: crewJoinSchema,
+  crewReform: crewReformSchema,
   crewTransfer: crewTransferSchema,
   crewAddMember: crewAddMemberSchema,
   setLink: setLinkSchema,

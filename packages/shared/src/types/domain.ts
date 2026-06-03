@@ -118,8 +118,34 @@ export interface Crew {
   homeBaseLocation?: string | null;
   homeBaseTime?: string | null;
   homeBaseUpdatedAt?: string | null;
+  // Lineage (M3 "Reform crew for next festival"): the id of the crew this one
+  // was reformed from, or null/absent for a normally-created crew. Surfaced by
+  // routes/crews.ts so the UI can show "your crew last year". Additive/optional.
+  reformedFrom?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Per-roster outcome of POST /crews/:id/reform — who was auto-added to the new
+ * crew (already had a target-festival profile) vs who still needs to be invited
+ * via the shared link. Consent-safe: members without a profile are NEVER
+ * silently added.
+ */
+export interface CrewReformOutcome {
+  autoAdded: string[];
+  invited: string[];
+}
+
+/** Response of POST /crews/:crewId/reform — the new crew + the roster split. */
+export interface ReformCrewResponse extends Crew {
+  reformedFrom: string | null;
+  reform: CrewReformOutcome;
+}
+
+/** Request body for POST /crews/:crewId/reform. */
+export interface ReformCrewRequest {
+  targetFestivalId: string;
 }
 
 export interface CrewOverlap {
