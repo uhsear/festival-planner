@@ -272,6 +272,36 @@ export interface UpdateCrewMeetingPointRequest {
 }
 
 /**
+ * Crew packing-board item (M2 logistics) as serialized by the backend
+ * (routes/crew-packing.ts). snake_case from Postgres. A shared "who's bringing
+ * what" checklist row: a `label`, an optional `brought_by` owner, and a
+ * `claimed` flag.
+ */
+export interface CrewPackingItem {
+  id: string;
+  crew_id: string;
+  created_by: string;
+  label: string;
+  brought_by: string | null;
+  claimed: boolean;
+  created_at: string;
+  /** Client-only optimistic-offline flag (see CrewPoll._optimistic). */
+  _optimistic?: boolean;
+}
+
+export interface CreateCrewPackingItemRequest {
+  label: string;
+  broughtBy?: string | null;
+  claimed?: boolean;
+}
+
+export interface UpdateCrewPackingItemRequest {
+  label?: string;
+  broughtBy?: string | null;
+  claimed?: boolean;
+}
+
+/**
  * Crew expense as serialized by the backend (routes/crew-expenses.ts).
  * snake_case from Postgres. `amount` arrives as a numeric string from pg, so
  * consumers must Number() it.
@@ -285,6 +315,12 @@ export interface CrewExpense {
   amount: string | number;
   split_with: string[];
   category: string;
+  /**
+   * Budget = planned expenses. A planned row is a forecast/anticipated cost and
+   * is EXCLUDED from the balance ledger + settle-up (server getBalances filters
+   * planned=false). Absent/false on legacy rows means an actual expense.
+   */
+  planned?: boolean;
   created_at: string;
   /** Client-only optimistic-offline flag (see CrewPoll._optimistic). */
   _optimistic?: boolean;
@@ -301,6 +337,8 @@ export interface CreateCrewExpenseRequest {
   amount: number;
   splitWith: string[];
   category: string;
+  /** Mark as a planned/budget row (forecast-only, excluded from settle-up). */
+  planned?: boolean;
 }
 
 export interface SettleCrewExpenseRequest {

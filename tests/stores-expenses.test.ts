@@ -69,6 +69,27 @@ describe('expenses store — create()', () => {
     assert.strictEqual(params[4], 25.5);
     assert.strictEqual(params[5], '["user-1","user-2"]');
     assert.strictEqual(params[6], 'food');
+    // planned defaults to false when not passed (actual expense).
+    assert.strictEqual(params[7], false);
+    assert.ok(sql.includes('planned'));
+  });
+
+  it('passes planned=true through to the insert when marked as a budget row', async () => {
+    const pool = makePool([{ rows: [{ id: 'exp-planned' }] }]);
+    const store = createExpensesStore(pool as any);
+
+    await store.create({
+      crewId: 'crew-1',
+      paidBy: 'user-1',
+      description: 'Hotel (forecast)',
+      amount: 300,
+      splitWith: [],
+      category: 'hotel',
+      planned: true,
+    });
+
+    const params = (pool.query.mock.calls[0]!.arguments as any[])[1];
+    assert.strictEqual(params[7], true);
   });
 
   it('defaults category to "other" when not provided', async () => {
@@ -721,6 +742,46 @@ describe('expenses store — getBalances()', () => {
     assert.strictEqual(bob!.balance, -45);
     const total = result.reduce((s: number, r: any) => s + r.balance, 0);
     assert.ok(Math.abs(total) < 1e-9, `balances must be zero-sum, got ${total}`);
+  });
+
+  it('EXCLUDES planned (budget/forecast) expenses from the balance ledger', async () => {
+    // Two rows: one actual ($100), one planned ($1000). The planned row is a
+    // forecast and MUST NOT enter the who-owes-whom ledger. The mock pool would
+    // happily return both if the query didn't filter — but the store's SQL
+    // carries `planned IS NOT TRUE`, and we assert both: the SQL guard AND that
+    // only the actual row drives the resulting balances.
+    const expenses = [
+      {
+        id: 'exp-actual',
+        crew_id: 'crew-1',
+        paid_by: 'user-1',
+        description: 'Dinner',
+        amount: '100.00',
+        split_with: '["user-1","user-2"]',
+        category: 'food',
+        planned: false,
+        created_at: '2026-05-01T00:00:00Z',
+      },
+    ];
+    const members = [
+      { user_id: 'user-1', username: 'alice' },
+      { user_id: 'user-2', username: 'bob' },
+    ];
+    const pool = makePool([{ rows: expenses }, { rows: members }]);
+    const store = createExpensesStore(pool as any);
+
+    const result = await store.getBalances('crew-1');
+
+    // The expenses query must filter out planned rows at the DB level.
+    const expSql = norm((pool.query.mock.calls[0]!.arguments as any[])[0]);
+    assert.ok(expSql.includes('planned IS NOT TRUE'), `expected planned filter in: ${expSql}`);
+
+    // Only the $100 actual expense counts: alice +50, bob -50. A leaked $1000
+    // planned row would have made these ±550.
+    const alice = result.find((r: any) => r.userId === 'user-1');
+    assert.strictEqual(alice!.balance, 50);
+    const bob = result.find((r: any) => r.userId === 'user-2');
+    assert.strictEqual(bob!.balance, -50);
   });
 
   it('makes two SQL queries: expenses then members', async () => {

@@ -52,7 +52,7 @@ export default function createExpenseRoutes(deps: any) {
         const member = await stores.crews.getMember(crewId, req.user.userId);
         if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
 
-        const { description, amount, splitWith, category } = req.validatedBody;
+        const { description, amount, splitWith, category, planned } = req.validatedBody;
 
         // Every split target must be a current crew member, with no duplicates —
         // otherwise a non-member's share is counted but never owed, leaving the
@@ -72,6 +72,8 @@ export default function createExpenseRoutes(deps: any) {
           amount: Math.round(amount * 100) / 100,
           splitWith,
           category: category || 'other',
+          // Forecast/budget rows are excluded from the ledger (see getBalances).
+          planned: planned === true,
         });
 
         emitter.crewExpenseAdded({ crewId, expense });

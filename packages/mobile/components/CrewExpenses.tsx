@@ -53,13 +53,18 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>('other');
+  const [planned, setPlanned] = useState(false);
   const [splitWith, setSplitWith] = useState<string[]>(() => members.map((m) => m.userId));
   const [busy, setBusy] = useState(false);
+  // Planned-vs-actual filter. 'actual' = the real ledger (feeds settle-up);
+  // 'planned' = the budget/forecast view; 'all' = both.
+  const [view, setView] = useState<'all' | 'actual' | 'planned'>('actual');
 
   const reset = () => {
     setDescription('');
     setAmount('');
     setCategory('other');
+    setPlanned(false);
     setSplitWith(members.map((m) => m.userId));
     setShowForm(false);
   };
@@ -69,7 +74,13 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
   };
 
   const myBalance = balances.find((b) => b.userId === currentUserId)?.balance ?? 0;
-  const totalSpent = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  // Actual spend feeds the ledger; planned is the forecast/budget total. Keep
+  // them separate so a budget row never inflates "total spent".
+  const actualExpenses = expenses.filter((e) => !e.planned);
+  const plannedExpenses = expenses.filter((e) => e.planned);
+  const totalSpent = actualExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalPlanned = plannedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const visibleExpenses = view === 'actual' ? actualExpenses : view === 'planned' ? plannedExpenses : expenses;
   const nonZeroBalances = balances.filter((b) => Math.abs(b.balance) > 0.01);
   // My outgoing transfers from the netted settlement plan.
   const myPayments = settlements.filter((s) => s.fromUserId === currentUserId);
@@ -86,6 +97,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
         amount: amt,
         splitWith,
         category,
+        planned,
       });
       reset();
     } catch {
@@ -154,6 +166,36 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
               {formatBalance(myBalance)}
             </Text>
           </View>
+        </View>
+      ) : null}
+
+      {totalPlanned > 0 ? (
+        <View style={styles.statBox}>
+          <Text style={styles.statLabel}>Planned (budget)</Text>
+          <Text style={[styles.statValue, styles.balancePositive]}>${totalPlanned.toFixed(2)}</Text>
+        </View>
+      ) : null}
+
+      {expenses.length > 0 ? (
+        <View style={styles.filterRow}>
+          {(['actual', 'planned', 'all'] as const).map((v) => {
+            const active = view === v;
+            return (
+              <TouchableOpacity
+                key={v}
+                style={[styles.filterTab, active && styles.filterTabActive]}
+                onPress={() => setView(v)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`Show ${v} expenses`}
+              >
+                <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
+                  {v.charAt(0).toUpperCase() + v.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       ) : null}
 
@@ -319,6 +361,24 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
               ${(amt / splitWith.length).toFixed(2)}/person × {splitWith.length}
             </Text>
           ) : null}
+          {/* Planned = budget/forecast row. Excluded from balances + settle-up. */}
+          <TouchableOpacity
+            style={styles.plannedToggle}
+            onPress={() => setPlanned((p) => !p)}
+            activeOpacity={0.8}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: planned }}
+            accessibilityLabel="Mark as a planned (budget) expense"
+          >
+            <Ionicons
+              name={planned ? 'checkbox' : 'square-outline'}
+              size={20}
+              color={planned ? t.colors.accent.aqua : t.colors.text.secondary}
+            />
+            <Text style={styles.plannedToggleText}>
+              Planned expense <Text style={styles.splitHint}>(budget only — won't affect balances)</Text>
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.primaryButton, (busy || !canAdd) && styles.buttonDisabled]}
             onPress={handleAdd}
@@ -346,19 +406,33 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
 
       {expenses.length === 0 ? (
         <Text style={styles.empty}>No expenses yet — track shared costs so everyone knows where they stand.</Text>
+      ) : visibleExpenses.length === 0 ? (
+        <Text style={styles.empty}>
+          {view === 'planned'
+            ? 'No planned expenses — add one to start a budget for this trip.'
+            : 'No actual expenses yet.'}
+        </Text>
       ) : (
-        expenses.map((e) => {
+        visibleExpenses.map((e) => {
           const cat = categoryFor(e.category);
           const canRemove = e.paid_by === currentUserId;
           return (
             <View key={e.id} style={styles.expenseRow}>
               <Text style={styles.expenseEmoji}>{cat.emoji}</Text>
               <View style={styles.expenseInfo}>
-                <Text style={styles.expenseDesc} numberOfLines={1}>
-                  {e.description}
-                </Text>
+                <View style={styles.expenseTitleRow}>
+                  <Text style={styles.expenseDesc} numberOfLines={1}>
+                    {e.description}
+                  </Text>
+                  {e.planned ? (
+                    <View style={styles.plannedBadge}>
+                      <Text style={styles.plannedBadgeText}>Planned</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text style={styles.expenseMeta} numberOfLines={1}>
-                  {e.paid_by === currentUserId ? 'You' : e.paid_by_name} paid · split {e.split_with.length}
+                  {e.planned ? 'planned' : `${e.paid_by === currentUserId ? 'You' : e.paid_by_name} paid`} · split{' '}
+                  {e.split_with.length}
                 </Text>
               </View>
               <Text style={styles.expenseAmount}>${Number(e.amount).toFixed(2)}</Text>
@@ -412,6 +486,60 @@ const useStyles = makeStyles((t) => ({
   },
   balanceNegative: {
     color: t.colors.accent.coral,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: t.spacing[1],
+    padding: t.spacing[1],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  filterTab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.default,
+  },
+  filterTabActive: {
+    backgroundColor: t.colors.ring.aqua,
+  },
+  filterTabText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  filterTabTextActive: {
+    color: t.colors.accent.aqua,
+  },
+  plannedToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    paddingVertical: t.spacing[1],
+  },
+  plannedToggleText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.primary,
+    flexShrink: 1,
+  },
+  expenseTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+  },
+  plannedBadge: {
+    paddingHorizontal: t.spacing[2],
+    paddingVertical: 1,
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
+  },
+  plannedBadgeText: {
+    ...typeStyle('micro'),
+    color: t.colors.accent.aqua,
+    textTransform: 'uppercase',
   },
   ledger: {
     gap: t.spacing[2],

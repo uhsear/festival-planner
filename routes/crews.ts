@@ -5,6 +5,7 @@ import { generateUniqueInviteCode } from './crew-invites.js';
 import createInviteRoutes from './crew-invites.js';
 import createMeetingPointRoutes from './crew-meeting-points.js';
 import createPollRoutes from './crew-polls.js';
+import createPackingRoutes from './crew-packing.js';
 import createCrewMemberRoutes from './crew-members.js';
 
 /**
@@ -137,11 +138,13 @@ export default function createCrewRoutes(deps: any) {
   const inviteRoutes = createInviteRoutes(subDeps);
   const meetingPointRoutes = createMeetingPointRoutes(subDeps);
   const pollRoutes = createPollRoutes(subDeps);
+  const packingRoutes = createPackingRoutes(subDeps);
   const memberRoutes = createCrewMemberRoutes(subDeps);
 
   router.use('/', inviteRoutes);
   router.use('/', meetingPointRoutes);
   router.use('/', pollRoutes);
+  router.use('/', packingRoutes);
   router.use('/', memberRoutes);
 
   // ── Crew creation helpers ────────────────────────────────────────

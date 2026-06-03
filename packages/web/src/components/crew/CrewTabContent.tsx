@@ -2,6 +2,7 @@ import React from 'react';
 import MembersTab from './MembersTab';
 import MeetingPointsTab from './MeetingPointsTab';
 import PollsTab from './PollsTab';
+import PackingTab from './PackingTab';
 import ExpensesTab from './ExpensesTab';
 import ActivityTab from './ActivityTab';
 import type { TabKey } from './CrewTabBar';
@@ -54,6 +55,7 @@ export default function CrewTabContent({
       )}
       {tab === 'meeting' && <MeetingPointsTab crewId={crewId} currentUserId={currentUserId} />}
       {tab === 'polls' && <PollsTab crewId={crewId} currentUserId={currentUserId} isOwner={isOwner} />}
+      {tab === 'packing' && <PackingTab crewId={crewId} currentUserId={currentUserId} isOwner={isOwner} />}
       {tab === 'expenses' && <ExpensesTab crewId={crewId} members={members} currentUserId={currentUserId} />}
       {tab === 'activity' && <ActivityTab crewId={crewId} />}
     </div>

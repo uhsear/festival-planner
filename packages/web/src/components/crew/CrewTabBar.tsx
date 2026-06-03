@@ -1,13 +1,14 @@
 import React from 'react';
-import { Users, MapPin, BarChart3, DollarSign, Activity } from 'lucide-react';
+import { Users, MapPin, BarChart3, Backpack, DollarSign, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type TabKey = 'members' | 'meeting' | 'polls' | 'expenses' | 'activity';
+export type TabKey = 'members' | 'meeting' | 'polls' | 'packing' | 'expenses' | 'activity';
 
 const TABS: Array<{ key: TabKey; label: string; icon: React.ReactNode }> = [
   { key: 'members', label: 'Members', icon: <Users className="w-4 h-4" aria-hidden="true" /> },
   { key: 'meeting', label: 'Meet', icon: <MapPin className="w-4 h-4" aria-hidden="true" /> },
   { key: 'polls', label: 'Polls', icon: <BarChart3 className="w-4 h-4" aria-hidden="true" /> },
+  { key: 'packing', label: 'Packing', icon: <Backpack className="w-4 h-4" aria-hidden="true" /> },
   { key: 'expenses', label: 'Expenses', icon: <DollarSign className="w-4 h-4" aria-hidden="true" /> },
   { key: 'activity', label: 'Activity', icon: <Activity className="w-4 h-4" aria-hidden="true" /> },
 ];

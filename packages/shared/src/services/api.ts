@@ -94,6 +94,7 @@ const OFFLINE_ELIGIBLE_PATTERNS: RegExp[] = [
   // Crew sub-resources: /crews/:id/<resource>[/...]
   /^\/crews\/[^/]+\/meeting-points(\/|$)/,
   /^\/crews\/[^/]+\/polls(\/|$)/, // includes /polls/:id/vote
+  /^\/crews\/[^/]+\/packing(\/|$)/, // includes /packing/:id (claim/edit/delete)
   /^\/crews\/[^/]+\/expenses(\/|$)/,
   /^\/crews\/[^/]+\/home-base(\/|$)/,
   /^\/crews\/[^/]+\/reminders(\/|$)/,
