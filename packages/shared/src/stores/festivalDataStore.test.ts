@@ -111,13 +111,21 @@ describe('festivalDataStore', () => {
         stages: [{ id: 's1', name: 'Main', festivalId: 'fest-1', createdAt: '', updatedAt: '' }],
         days: [
           {
-            id: 'd1', festivalId: 'fest-1', date: '2026-06-01', label: 'Day 1',
-            createdAt: '', updatedAt: '',
+            id: 'd1',
+            festivalId: 'fest-1',
+            date: '2026-06-01',
+            label: 'Day 1',
+            createdAt: '',
+            updatedAt: '',
             sets: [
               {
-                id: 'set-1', festivalId: 'fest-1', stageId: 's1',
-                startTime: '14:00', endTime: '15:00',
-                createdAt: '', updatedAt: '',
+                id: 'set-1',
+                festivalId: 'fest-1',
+                stageId: 's1',
+                startTime: '14:00',
+                endTime: '15:00',
+                createdAt: '',
+                updatedAt: '',
               },
             ],
           },
@@ -179,17 +187,13 @@ describe('festivalDataStore', () => {
 
     it('sets error on failure', async () => {
       vi.mocked(api.get).mockRejectedValueOnce(new Error('404'));
-      await expect(
-        useFestivalDataStore.getState().selectFestival('bad'),
-      ).rejects.toThrow();
+      await expect(useFestivalDataStore.getState().selectFestival('bad')).rejects.toThrow();
       expect(useFestivalDataStore.getState().error).toBe('404');
     });
 
     it('handles non-Error thrown values', async () => {
       vi.mocked(api.get).mockRejectedValueOnce('string error');
-      await expect(
-        useFestivalDataStore.getState().selectFestival('bad'),
-      ).rejects.toBe('string error');
+      await expect(useFestivalDataStore.getState().selectFestival('bad')).rejects.toBe('string error');
       expect(useFestivalDataStore.getState().error).toBe('Failed to load festival');
     });
 
@@ -237,18 +241,14 @@ describe('festivalDataStore', () => {
 
     it('sets error and throws on failure', async () => {
       vi.mocked(api.get).mockRejectedValueOnce(new Error('Server error'));
-      await expect(
-        useFestivalDataStore.getState().loadProfiles('fest-1'),
-      ).rejects.toThrow('Server error');
+      await expect(useFestivalDataStore.getState().loadProfiles('fest-1')).rejects.toThrow('Server error');
       expect(useFestivalDataStore.getState().error).toBe('Server error');
       expect(useFestivalDataStore.getState().isLoading).toBe(false);
     });
 
     it('handles non-Error thrown values', async () => {
       vi.mocked(api.get).mockRejectedValueOnce('string error');
-      await expect(
-        useFestivalDataStore.getState().loadProfiles('fest-1'),
-      ).rejects.toBe('string error');
+      await expect(useFestivalDataStore.getState().loadProfiles('fest-1')).rejects.toBe('string error');
       expect(useFestivalDataStore.getState().error).toBe('Failed to load profiles');
     });
 
@@ -344,26 +344,20 @@ describe('festivalDataStore', () => {
 
     it('throws when no current profile', async () => {
       useFestivalDataStore.setState({ currentProfile: null });
-      await expect(
-        useFestivalDataStore.getState().removePick('fest-1', 'set-1'),
-      ).rejects.toThrow('No active profile');
+      await expect(useFestivalDataStore.getState().removePick('fest-1', 'set-1')).rejects.toThrow('No active profile');
     });
 
     it('sets error on API failure', async () => {
       useFestivalDataStore.setState({ currentProfile: mockProfile });
       vi.mocked(api.put).mockRejectedValueOnce(new Error('Server error'));
-      await expect(
-        useFestivalDataStore.getState().removePick('fest-1', 'set-1'),
-      ).rejects.toThrow('Server error');
+      await expect(useFestivalDataStore.getState().removePick('fest-1', 'set-1')).rejects.toThrow('Server error');
       expect(useFestivalDataStore.getState().error).toBe('Server error');
     });
 
     it('handles non-Error thrown values', async () => {
       useFestivalDataStore.setState({ currentProfile: mockProfile });
       vi.mocked(api.put).mockRejectedValueOnce('string error');
-      await expect(
-        useFestivalDataStore.getState().removePick('fest-1', 'set-1'),
-      ).rejects.toBe('string error');
+      await expect(useFestivalDataStore.getState().removePick('fest-1', 'set-1')).rejects.toBe('string error');
       expect(useFestivalDataStore.getState().error).toBe('Failed to remove pick');
     });
   });
@@ -420,38 +414,34 @@ describe('festivalDataStore', () => {
   });
 
   describe('offline queue integration', () => {
-    it('queues mutation via bridge when offline', async () => {
-      const queueMutation = vi.fn().mockResolvedValue(undefined);
-      (window as any).__festieQueue = { queueMutation };
-      Object.defineProperty(navigator, 'onLine', { writable: true, value: false });
-
+    // offlinePut now delegates to api.put, which owns offline interception
+    // (api routes to the platform queue when offlineMode is set). Here api is
+    // fully mocked, so we just assert the store calls api.put with the
+    // deterministic clientId + label and that the optimistic update survives.
+    it('routes the write through api.put with a deterministic clientId', async () => {
       useFestivalDataStore.setState({ currentProfile: mockProfile });
+      vi.mocked(api.put).mockResolvedValueOnce(undefined);
+
       await useFestivalDataStore.getState().savePick({
         festivalId: 'fest-1',
         setId: 'set-2',
         priority: 'maybe',
       });
 
-      expect(queueMutation).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'api',
-          method: 'PUT',
-          url: `/profiles/${mockProfile.id}`,
-        }),
+      expect(api.put).toHaveBeenCalledWith(
+        `/profiles/${mockProfile.id}`,
+        expect.objectContaining({ picks: expect.objectContaining({ 'set-2': 'maybe' }) }),
+        expect.objectContaining({ clientId: `pick-${mockProfile.id}-set-2` }),
       );
-      // Optimistic update should still have taken effect
+      // Optimistic update should have taken effect.
       expect(useFestivalDataStore.getState().currentProfile!.picks['set-2']).toBe('maybe');
-
-      // Cleanup
-      delete (window as any).__festieQueue;
-      Object.defineProperty(navigator, 'onLine', { writable: true, value: true });
     });
 
-    it('falls back to api.put when offline but no bridge', async () => {
-      Object.defineProperty(navigator, 'onLine', { writable: true, value: false });
-
+    it('keeps the optimistic update when api.put resolves (offline synthetic)', async () => {
       useFestivalDataStore.setState({ currentProfile: mockProfile });
-      vi.mocked(api.put).mockResolvedValueOnce(undefined);
+      // Simulate the offline synthetic optimistic result api would return.
+      vi.mocked(api.put).mockResolvedValueOnce({ _optimistic: true } as never);
+
       await useFestivalDataStore.getState().savePick({
         festivalId: 'fest-1',
         setId: 'set-2',
@@ -460,9 +450,6 @@ describe('festivalDataStore', () => {
 
       expect(api.put).toHaveBeenCalled();
       expect(useFestivalDataStore.getState().currentProfile!.picks['set-2']).toBe('want-to-see');
-
-      // Cleanup
-      Object.defineProperty(navigator, 'onLine', { writable: true, value: true });
     });
   });
 

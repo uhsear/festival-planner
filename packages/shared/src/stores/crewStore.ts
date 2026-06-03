@@ -1,6 +1,8 @@
 import { create, StateCreator } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { api } from '../services/api';
 import { mapErrorToUserMessage } from '../services/errors';
+import { getStorage } from '../platform/storage';
 import {
   Crew,
   CrewMember,
@@ -33,6 +35,14 @@ export interface CrewState {
   activity: CrewActivityEntry[];
   crewLoading: boolean;
   error: string | null;
+  // ── Offline read-cache bookkeeping (persisted) ──────────────────
+  // `_cachedAt` is the epoch-ms when the active crew's data was last loaded;
+  // a later UI can render "showing offline data · synced N ago" from it.
+  // `_cachedCrewId` records which crew the persisted sub-data (members /
+  // meetingPoints / polls / expenses / activity) belongs to, so a cold start
+  // never shows one crew's stale meeting points while another crew is open.
+  _cachedAt: number | null;
+  _cachedCrewId: string | null;
 }
 
 export interface CrewActions {
@@ -54,10 +64,7 @@ export interface CrewActions {
   closePoll: (crewId: string, pollId: string) => Promise<void>;
   // Meeting points (routes/crew-meeting-points.ts).
   loadMeetingPoints: (crewId: string) => Promise<void>;
-  createMeetingPoint: (
-    crewId: string,
-    request: CreateCrewMeetingPointRequest,
-  ) => Promise<CrewMeetingPoint>;
+  createMeetingPoint: (crewId: string, request: CreateCrewMeetingPointRequest) => Promise<CrewMeetingPoint>;
   updateMeetingPoint: (
     crewId: string,
     mpId: string,
@@ -66,31 +73,19 @@ export interface CrewActions {
   deleteMeetingPoint: (crewId: string, mpId: string) => Promise<void>;
   // Expenses (routes/crew-expenses.ts).
   loadExpenses: (crewId: string) => Promise<void>;
-  addExpense: (
-    crewId: string,
-    request: CreateCrewExpenseRequest,
-  ) => Promise<void>;
+  addExpense: (crewId: string, request: CreateCrewExpenseRequest) => Promise<void>;
   removeExpense: (crewId: string, expenseId: string) => Promise<void>;
-  settleExpense: (
-    crewId: string,
-    request: SettleCrewExpenseRequest,
-  ) => Promise<void>;
+  settleExpense: (crewId: string, request: SettleCrewExpenseRequest) => Promise<void>;
   // Activity feed (routes/crew-activity.ts).
   loadActivity: (crewId: string) => Promise<void>;
   // Home base (owner-only PUT /crews/:id/home-base).
-  updateHomeBase: (
-    crewId: string,
-    payload: { location: string | null; time: string | null },
-  ) => Promise<void>;
+  updateHomeBase: (crewId: string, payload: { location: string | null; time: string | null }) => Promise<void>;
   // ── Socket-driven setters (additive) ────────────────────────────
   // Applied by the realtime sync hook when crew:* events arrive for the
   // active crew. They mutate the in-memory polls / meetingPoints / activeCrew
   // home base so the open crew screen reflects remote changes live, without an
   // API round-trip. All are guarded by the caller against crew mismatch.
-  applyHomeBaseUpdate: (
-    crewId: string,
-    payload: { location: string | null; time: string | null },
-  ) => void;
+  applyHomeBaseUpdate: (crewId: string, payload: { location: string | null; time: string | null }) => void;
   applyMeetingPointUpsert: (meetingPoint: CrewMeetingPoint) => void;
   applyMeetingPointRemoval: (mpId: string) => void;
   applyPollCreated: (poll: CrewPoll) => void;
@@ -106,12 +101,20 @@ type CrewSet = Parameters<StateCreator<CrewStore>>[0];
 // GET /crews/:crewId/expenses/balances -> array or { balances }. Shared by the
 // expense mutations so each refetches authoritative balances after writing.
 async function loadBalances(set: CrewSet, crewId: string): Promise<void> {
-  const res = await api.get<
-    CrewExpenseBalance[] | { balances: CrewExpenseBalance[] }
-  >(`/crews/${crewId}/expenses/balances`);
+  const res = await api.get<CrewExpenseBalance[] | { balances: CrewExpenseBalance[] }>(
+    `/crews/${crewId}/expenses/balances`,
+  );
   const expenseBalances = Array.isArray(res) ? res : (res?.balances ?? []);
   set({ expenseBalances });
 }
+
+// ── Persisted read-cache size bounds ──────────────────────────────────────
+// Cap the persisted blob so a busy crew can't bloat AsyncStorage/localStorage.
+// Lists are stored newest-first by their loaders (server order / prepend), so
+// slicing the head keeps the most-recent items.
+const MAX_CACHED_ACTIVITY = 50;
+const MAX_CACHED_POLLS = 100;
+const MAX_CACHED_EXPENSES = 100;
 
 const crewStore: StateCreator<CrewStore> = (set) => ({
   crews: [],
@@ -125,6 +128,8 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   activity: [],
   crewLoading: false,
   error: null,
+  _cachedAt: null,
+  _cachedCrewId: null,
 
   loadCrews: async () => {
     set({ crewLoading: true, error: null });
@@ -141,13 +146,36 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   selectCrew: async (crewId: string) => {
     // Clear previous crew's data immediately so rapid switches don't
     // leave stale activeCrew/members visible during the fetch.
-    set({ crewLoading: true, error: null, activeCrew: null, crewMembers: [] });
+    //
+    // Staleness guard: if the persisted/rehydrated sub-data (members, meeting
+    // points, polls, expenses, activity) belongs to a DIFFERENT crew than the
+    // one being opened, drop it now so we never flash crew A's meeting points
+    // while crew B loads. When the cached crew matches we keep the sub-data so
+    // an offline cold start renders instantly until the fetch revalidates.
+    set((state) => {
+      const sameCrew = state._cachedCrewId === crewId;
+      return {
+        crewLoading: true,
+        error: null,
+        activeCrew: null,
+        crewMembers: sameCrew ? state.crewMembers : [],
+        polls: sameCrew ? state.polls : [],
+        meetingPoints: sameCrew ? state.meetingPoints : [],
+        expenses: sameCrew ? state.expenses : [],
+        expenseBalances: sameCrew ? state.expenseBalances : [],
+        activity: sameCrew ? state.activity : [],
+      };
+    });
     try {
       const crew = await api.get<Crew & { members: CrewMember[] }>(`/crews/${crewId}`);
       set({
         activeCrew: crew,
         crewMembers: crew.members ?? [],
         crewLoading: false,
+        // Mark this crew's data as freshly cached for the offline indicator
+        // and the cross-crew staleness guard above.
+        _cachedAt: Date.now(),
+        _cachedCrewId: crewId,
       });
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to load crew');
@@ -245,10 +273,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   regenerateInvite: async (crewId: string) => {
     set({ error: null });
     try {
-      const { inviteCode } = await api.post<{ inviteCode: string }>(
-        `/crews/${crewId}/invite`,
-        {},
-      );
+      const { inviteCode } = await api.post<{ inviteCode: string }>(`/crews/${crewId}/invite`, {});
       set((state) => ({
         activeCrew: state.activeCrew ? { ...state.activeCrew, inviteCode } : null,
       }));
@@ -278,9 +303,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   loadOverlap: async (crewId: string, festivalId: string) => {
     set({ error: null });
     try {
-      const overlap = await api.get<Record<string, CrewOverlap>>(
-        `/crews/${crewId}/overlap?festivalId=${festivalId}`,
-      );
+      const overlap = await api.get<Record<string, CrewOverlap>>(`/crews/${crewId}/overlap?festivalId=${festivalId}`);
       set({ crewOverlap: overlap });
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to load overlap');
@@ -314,15 +337,11 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   loadPolls: async (crewId: string) => {
     set({ error: null });
     try {
-      const res = await api.get<{ polls: CrewPoll[] } | CrewPoll[]>(
-        `/crews/${crewId}/polls`,
-      );
+      const res = await api.get<{ polls: CrewPoll[] } | CrewPoll[]>(`/crews/${crewId}/polls`);
       const list = Array.isArray(res) ? res : (res?.polls ?? []);
       const polls = list.map((p) => ({
         ...p,
-        votes: (p.votes || []).filter(
-          (v) => v && v.user_id && typeof v.option === 'number',
-        ),
+        votes: (p.votes || []).filter((v) => v && v.user_id && typeof v.option === 'number'),
       }));
       set({ polls });
     } catch (err) {
@@ -336,10 +355,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   createPoll: async (crewId: string, request: CreateCrewPollRequest) => {
     set({ error: null });
     try {
-      const { poll } = await api.post<{ poll: CrewPoll }>(
-        `/crews/${crewId}/polls`,
-        request,
-      );
+      const { poll } = await api.post<{ poll: CrewPoll }>(`/crews/${crewId}/polls`, request);
       const normalized: CrewPoll = { ...poll, votes: poll.votes ?? [] };
       set((state) => ({ polls: [normalized, ...state.polls] }));
       return normalized;
@@ -382,24 +398,20 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   loadMeetingPoints: async (crewId: string) => {
     set({ error: null });
     try {
-      const res = await api.get<
-        { meetingPoints: CrewMeetingPoint[] } | CrewMeetingPoint[]
-      >(`/crews/${crewId}/meeting-points`);
+      const res = await api.get<{ meetingPoints: CrewMeetingPoint[] } | CrewMeetingPoint[]>(
+        `/crews/${crewId}/meeting-points`,
+      );
       const meetingPoints = Array.isArray(res) ? res : (res?.meetingPoints ?? []);
       set({ meetingPoints });
     } catch (err) {
-      const message =
-        mapErrorToUserMessage(err, 'Failed to load meeting points');
+      const message = mapErrorToUserMessage(err, 'Failed to load meeting points');
       set({ error: message });
       throw err;
     }
   },
 
   // POST /crews/:crewId/meeting-points -> { meetingPoint } (201).
-  createMeetingPoint: async (
-    crewId: string,
-    request: CreateCrewMeetingPointRequest,
-  ) => {
+  createMeetingPoint: async (crewId: string, request: CreateCrewMeetingPointRequest) => {
     set({ error: null });
     try {
       const { meetingPoint } = await api.post<{ meetingPoint: CrewMeetingPoint }>(
@@ -409,19 +421,14 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       set((state) => ({ meetingPoints: [meetingPoint, ...state.meetingPoints] }));
       return meetingPoint;
     } catch (err) {
-      const message =
-        mapErrorToUserMessage(err, 'Failed to add meeting point');
+      const message = mapErrorToUserMessage(err, 'Failed to add meeting point');
       set({ error: message });
       throw err;
     }
   },
 
   // PUT /crews/:crewId/meeting-points/:mpId -> { meetingPoint }.
-  updateMeetingPoint: async (
-    crewId: string,
-    mpId: string,
-    request: UpdateCrewMeetingPointRequest,
-  ) => {
+  updateMeetingPoint: async (crewId: string, mpId: string, request: UpdateCrewMeetingPointRequest) => {
     set({ error: null });
     try {
       const { meetingPoint } = await api.put<{ meetingPoint: CrewMeetingPoint }>(
@@ -429,14 +436,11 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         request,
       );
       set((state) => ({
-        meetingPoints: state.meetingPoints.map((m) =>
-          m.id === mpId ? meetingPoint : m,
-        ),
+        meetingPoints: state.meetingPoints.map((m) => (m.id === mpId ? meetingPoint : m)),
       }));
       return meetingPoint;
     } catch (err) {
-      const message =
-        mapErrorToUserMessage(err, 'Failed to update meeting point');
+      const message = mapErrorToUserMessage(err, 'Failed to update meeting point');
       set({ error: message });
       throw err;
     }
@@ -451,8 +455,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         meetingPoints: state.meetingPoints.filter((m) => m.id !== mpId),
       }));
     } catch (err) {
-      const message =
-        mapErrorToUserMessage(err, 'Failed to remove meeting point');
+      const message = mapErrorToUserMessage(err, 'Failed to remove meeting point');
       set({ error: message });
       throw err;
     }
@@ -465,9 +468,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   loadExpenses: async (crewId: string) => {
     set({ error: null });
     try {
-      const res = await api.get<CrewExpense[] | { expenses: CrewExpense[] }>(
-        `/crews/${crewId}/expenses`,
-      );
+      const res = await api.get<CrewExpense[] | { expenses: CrewExpense[] }>(`/crews/${crewId}/expenses`);
       const expenses = Array.isArray(res) ? res : (res?.expenses ?? []);
       set({ expenses });
       await loadBalances(set, crewId);
@@ -530,9 +531,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         | { items: CrewActivityEntry[]; nextCursor?: string | null }
         | { activity: CrewActivityEntry[] }
       >(`/crews/${crewId}/activity`);
-      const activity = Array.isArray(res)
-        ? res
-        : ('items' in res ? res.items : res.activity) ?? [];
+      const activity = Array.isArray(res) ? res : (('items' in res ? res.items : res.activity) ?? []);
       set({ activity });
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to load activity');
@@ -544,28 +543,16 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   // ── Home base ──────────────────────────────────────────────────
   // PUT /crews/:crewId/home-base -> { crew }. Owner-only server-side. Merge the
   // returned crew so activeCrew/crews reflect the new home base immediately.
-  updateHomeBase: async (
-    crewId: string,
-    payload: { location: string | null; time: string | null },
-  ) => {
+  updateHomeBase: async (crewId: string, payload: { location: string | null; time: string | null }) => {
     set({ error: null });
     try {
-      const { crew } = await api.put<{ crew: Crew }>(
-        `/crews/${crewId}/home-base`,
-        payload,
-      );
+      const { crew } = await api.put<{ crew: Crew }>(`/crews/${crewId}/home-base`, payload);
       set((state) => ({
-        activeCrew:
-          state.activeCrew?.id === crewId
-            ? { ...state.activeCrew, ...crew }
-            : state.activeCrew,
-        crews: state.crews.map((c) =>
-          c.id === crewId ? { ...c, ...crew } : c,
-        ),
+        activeCrew: state.activeCrew?.id === crewId ? { ...state.activeCrew, ...crew } : state.activeCrew,
+        crews: state.crews.map((c) => (c.id === crewId ? { ...c, ...crew } : c)),
       }));
     } catch (err) {
-      const message =
-        mapErrorToUserMessage(err, 'Failed to update home base');
+      const message = mapErrorToUserMessage(err, 'Failed to update home base');
       set({ error: message });
       throw err;
     }
@@ -575,10 +562,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   // Merge a remote home-base change onto the active crew + crews list. The
   // socket payload carries `location` / `time`; map them onto the serialized
   // crew's homeBaseLocation / homeBaseTime fields.
-  applyHomeBaseUpdate: (
-    crewId: string,
-    payload: { location: string | null; time: string | null },
-  ) => {
+  applyHomeBaseUpdate: (crewId: string, payload: { location: string | null; time: string | null }) => {
     set((state) => ({
       activeCrew:
         state.activeCrew?.id === crewId
@@ -589,9 +573,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
             }
           : state.activeCrew,
       crews: state.crews.map((c) =>
-        c.id === crewId
-          ? { ...c, homeBaseLocation: payload.location, homeBaseTime: payload.time }
-          : c,
+        c.id === crewId ? { ...c, homeBaseLocation: payload.location, homeBaseTime: payload.time } : c,
       ),
     }));
   },
@@ -602,9 +584,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       const exists = state.meetingPoints.some((m) => m.id === meetingPoint.id);
       return {
         meetingPoints: exists
-          ? state.meetingPoints.map((m) =>
-              m.id === meetingPoint.id ? meetingPoint : m,
-            )
+          ? state.meetingPoints.map((m) => (m.id === meetingPoint.id ? meetingPoint : m))
           : [meetingPoint, ...state.meetingPoints],
       };
     });
@@ -651,4 +631,33 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   },
 });
 
-export const useCrewStore = create<CrewStore>()(crewStore);
+export const useCrewStore = create<CrewStore>()(
+  persist(crewStore, {
+    name: 'festie-crew',
+    version: 1,
+    storage: createJSONStorage(() => getStorage()),
+    // Persist ONLY the read-cache for the active crew so a cold start with no
+    // signal (the festival condition) renders the crew's members / meeting
+    // points / polls / expenses / activity instantly; selectCrew revalidates
+    // when online. `crews` is the user's crew list (small, lets the picker
+    // render offline). `crewOverlap` and all loading/error flags are NOT
+    // persisted (transient / re-fetched on reconnect). Lists are bounded so the
+    // blob stays small (see MAX_CACHED_* above).
+    partialize: (state) => ({
+      crews: state.crews,
+      activeCrew: state.activeCrew,
+      crewMembers: state.crewMembers,
+      meetingPoints: state.meetingPoints,
+      polls: state.polls.slice(0, MAX_CACHED_POLLS),
+      expenses: state.expenses.slice(0, MAX_CACHED_EXPENSES),
+      expenseBalances: state.expenseBalances,
+      activity: state.activity.slice(0, MAX_CACHED_ACTIVITY),
+      _cachedAt: state._cachedAt,
+      _cachedCrewId: state._cachedCrewId,
+    }),
+    // Stub for forward-compat: when partialize fields change, bump `version`
+    // and reshape the old persisted blob here. v1 is the first persisted shape,
+    // so there is nothing to migrate yet — return state unchanged.
+    migrate: (persistedState) => persistedState as CrewStore,
+  }),
+);

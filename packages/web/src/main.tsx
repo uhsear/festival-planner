@@ -1,8 +1,10 @@
 import React, { Component, type ReactNode, type ErrorInfo } from 'react';
 import ReactDOM from 'react-dom/client';
 import * as Sentry from '@sentry/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { RouterProvider } from '@tanstack/react-router';
+import { buildPersistOptions } from './lib/queryPersist';
 import { LazyMotion, domAnimation } from 'motion/react';
 import { router } from './router';
 import { initWebVitals } from './lib/web-vitals';
@@ -22,9 +24,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     release: import.meta.env.VITE_APP_VERSION || 'dev',
     tracesSampleRate: Number(import.meta.env.VITE_SENTRY_TRACES_RATE ?? 0.05),
     sendDefaultPii: false,
-    integrations: [
-      Sentry.tanstackRouterBrowserTracingIntegration(router),
-    ],
+    integrations: [Sentry.tanstackRouterBrowserTracingIntegration(router)],
   });
 }
 
@@ -32,10 +32,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 // Catches unhandled render errors anywhere in the tree. TanStack Router's
 // per-route `errorComponent` handles most cases, but this is the final
 // safety net so the user never sees a white screen.
-class GlobalErrorBoundary extends Component<
-  { children: ReactNode },
-  { hasError: boolean; error: Error | null }
-> {
+class GlobalErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
   state = { hasError: false, error: null as Error | null };
 
   static getDerivedStateFromError(error: Error) {
@@ -52,14 +49,8 @@ class GlobalErrorBoundary extends Component<
       return (
         <div className="p-8 text-center">
           <h1>Something went wrong</h1>
-          <p className="text-[var(--color-text-secondary)] text-sm my-2 mb-4">
-            {this.state.error?.message}
-          </p>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => window.location.reload()}
-          >
+          <p className="text-[var(--color-text-secondary)] text-sm my-2 mb-4">{this.state.error?.message}</p>
+          <Button variant="primary" size="sm" onClick={() => window.location.reload()}>
             Reload
           </Button>
         </div>
@@ -118,12 +109,12 @@ root.render(
   <React.StrictMode>
     <GlobalErrorBoundary>
       <LazyMotion features={domAnimation} strict>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider client={queryClient} persistOptions={buildPersistOptions()}>
           <ToastProvider>
             <RouterProvider router={router} />
             <Toast />
           </ToastProvider>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </LazyMotion>
     </GlobalErrorBoundary>
   </React.StrictMode>,

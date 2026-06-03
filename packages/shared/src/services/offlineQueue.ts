@@ -1,26 +1,39 @@
-import { api } from './api';
+import { api, ApiClientError } from './api';
 import { getStorage } from '../platform/storage';
-import { useUIStore } from '../stores/uiStore';
+import { useUIStore, type FailedSyncItem } from '../stores/uiStore';
 
 /**
- * Minimal persistent offline mutation queue for React Native (the web uses its
- * own IndexedDB-backed `window.__festieQueue`). Pick/note PUTs made while
- * offline are persisted to storage and replayed on reconnect, so the
- * optimistic UI change isn't silently lost — matching what the OfflineBanner
- * promises. Mutations are keyed by a deterministic clientId so repeated toggles
- * of the same field collapse to one replayed request.
+ * Persistent offline mutation queue for React Native (the web uses its own
+ * IndexedDB-backed `window.__festieQueue`). Any eligible crew/pick mutation made
+ * while offline is persisted to storage and replayed oldest-first on reconnect,
+ * so an optimistic UI change is never silently lost — matching what the
+ * OfflineBanner promises. Mutations are keyed by a deterministic clientId so
+ * repeated writes to the same resource collapse to a single replayed request.
+ *
+ * "No silent drops" contract: on drain, every queued write either (a) succeeds
+ * and is removed, (b) stays queued because we're still offline / hit a transient
+ * 5xx, or (c) is removed AND surfaced via uiStore.failedSync on a permanent 4xx
+ * (incl. 409) so the user can retry or dismiss it.
  */
 
 const QUEUE_KEY = 'festie-offline-queue';
 
+/** Drop queued mutations older than this on read (mirrors the web queue policy). */
+const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export type QueuedMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
 export interface QueuedMutation {
   clientId: string;
   url: string;
-  method: 'PUT';
-  body: unknown;
+  method: QueuedMethod;
+  body?: unknown;
+  /** Human-readable label surfaced in failedSync if this write can't be replayed. */
+  label?: string;
+  createdAt: number;
 }
 
-async function readQueue(): Promise<QueuedMutation[]> {
+async function readQueueRaw(): Promise<QueuedMutation[]> {
   try {
     const raw = await Promise.resolve(getStorage().getItem(QUEUE_KEY));
     if (!raw) return [];
@@ -29,6 +42,21 @@ async function readQueue(): Promise<QueuedMutation[]> {
   } catch {
     return [];
   }
+}
+
+/**
+ * Read the queue, pruning entries older than MAX_QUEUE_AGE_MS. If anything was
+ * pruned the trimmed queue is written back so the prune is idempotent and the
+ * pending count reflects reality.
+ */
+async function readQueue(): Promise<QueuedMutation[]> {
+  const all = await readQueueRaw();
+  const now = Date.now();
+  const fresh = all.filter((m) => now - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
+  if (fresh.length !== all.length) {
+    await writeQueue(fresh);
+  }
+  return fresh;
 }
 
 async function writeQueue(queue: QueuedMutation[]): Promise<void> {
@@ -59,40 +87,134 @@ export function isOffline(): boolean {
   }
 }
 
-/** Upsert a mutation by clientId (latest write for a field wins on replay). */
-export async function enqueueMutation(mutation: QueuedMutation): Promise<void> {
+/** Add a failed item to uiStore.failedSync (no silent drops). */
+function recordFailed(m: QueuedMutation, error: string): void {
+  try {
+    useUIStore.getState().addFailedSync({
+      clientId: m.clientId,
+      label: m.label ?? `${m.method} ${m.url}`,
+      method: m.method,
+      url: m.url,
+      body: m.body,
+      error,
+      at: Date.now(),
+    });
+  } catch {
+    /* store not ready */
+  }
+}
+
+/** Upsert a mutation by clientId (latest write for a resource wins on replay). */
+export async function enqueueMutation(
+  mutation: Omit<QueuedMutation, 'createdAt'> & { createdAt?: number },
+): Promise<void> {
   const queue = await readQueue();
-  const idx = queue.findIndex((m) => m.clientId === mutation.clientId);
-  if (idx >= 0) queue[idx] = mutation;
-  else queue.push(mutation);
+  const entry: QueuedMutation = {
+    ...mutation,
+    createdAt: mutation.createdAt ?? Date.now(),
+  };
+  const idx = queue.findIndex((m) => m.clientId === entry.clientId);
+  if (idx >= 0) queue[idx] = entry;
+  else queue.push(entry);
   await writeQueue(queue);
+}
+
+/** True for an ApiClientError-shaped permanent client failure (4xx incl. 409). */
+function isPermanentFailure(err: unknown): boolean {
+  const status = (err as { status?: number } | null)?.status;
+  return typeof status === 'number' && status >= 400 && status < 500;
+}
+
+/** Short user-facing reason from a thrown error. */
+function shortError(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  const status = (err as { status?: number } | null)?.status;
+  return status ? `Request failed (${status})` : 'Request failed';
+}
+
+/** Replay one queued mutation via the matching api verb (delete takes no body). */
+async function replay(m: QueuedMutation): Promise<void> {
+  switch (m.method) {
+    case 'POST':
+      await api.post(m.url, m.body);
+      return;
+    case 'PUT':
+      await api.put(m.url, m.body);
+      return;
+    case 'PATCH':
+      await api.patch(m.url, m.body);
+      return;
+    case 'DELETE':
+      await api.delete(m.url);
+      return;
+  }
 }
 
 let _draining = false;
 
 /**
- * Replay queued mutations oldest-first. Stops on the first failure that looks
- * like we're offline again (keeping the rest for a later drain); drops a
- * mutation that fails for a non-offline reason (e.g. a 4xx) so one poison entry
- * can't wedge the queue. Re-entrancy-guarded.
+ * Replay queued mutations oldest-first. Re-entrancy-guarded and bounded to one
+ * pass per call (each entry is attempted at most once) so a transient 5xx can
+ * never spin the loop — transient failures are simply left in place and retried
+ * on the next reconnect-triggered drain.
+ *
+ *  - success            → remove from queue
+ *  - offline again      → stop; keep the rest for the next reconnect
+ *  - permanent 4xx/409  → remove AND push to uiStore.failedSync (no silent drop)
+ *  - transient 0/5xx    → leave in queue, skip to the next entry
  */
 export async function drainQueue(): Promise<void> {
   if (_draining || isOffline()) return;
   _draining = true;
   try {
-    let queue = await readQueue();
-    while (queue.length > 0) {
-      const next = queue[0]!;
+    // Snapshot oldest-first; attempt each entry at most once this pass.
+    const snapshot = (await readQueue()).sort((a, b) => a.createdAt - b.createdAt);
+    for (const m of snapshot) {
       try {
-        await api.put(next.url, next.body);
-      } catch {
-        if (isOffline()) break; // back offline — retry on next reconnect
-        // else: non-offline failure, drop it below to avoid a poison loop
+        await replay(m);
+        // Success — drop just this entry (re-read so a concurrent enqueue of a
+        // different clientId isn't clobbered).
+        const queue = (await readQueue()).filter((q) => q.clientId !== m.clientId);
+        await writeQueue(queue);
+      } catch (err) {
+        if (isOffline()) break; // back offline — keep the rest, retry next time
+        if (isPermanentFailure(err)) {
+          // Permanent: remove from queue AND surface so it's never silently lost.
+          const queue = (await readQueue()).filter((q) => q.clientId !== m.clientId);
+          await writeQueue(queue);
+          recordFailed(m, shortError(err));
+        }
+        // else transient (status 0 / >=500): leave it queued, skip to next.
       }
-      queue = (await readQueue()).filter((m) => m.clientId !== next.clientId);
-      await writeQueue(queue);
     }
   } finally {
-    _draining = false;
+    _draining = false; // eslint-disable-line require-atomic-updates -- module-level flag, not a real race
   }
 }
+
+/**
+ * Re-enqueue a previously-failed item (the UI's "retry" button) and clear it
+ * from failedSync. The next drain (or reconnect) will replay it.
+ */
+export async function retryFailed(item: FailedSyncItem): Promise<void> {
+  const method = String(item.method).toUpperCase() as QueuedMethod;
+  await enqueueMutation({
+    clientId: item.clientId,
+    url: item.url,
+    method,
+    body: item.body,
+    label: item.label,
+  });
+  try {
+    useUIStore.getState().dismissFailedSync(item.clientId);
+  } catch {
+    /* store not ready */
+  }
+  // Best-effort immediate drain if we're back online.
+  if (!isOffline()) {
+    await drainQueue();
+  }
+}
+
+// Re-export so consumers can detect the permanent-failure shape uniformly.
+export { ApiClientError };
