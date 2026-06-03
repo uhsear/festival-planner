@@ -11,6 +11,7 @@ import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import RefreshableView from '../components/layout/RefreshableView';
+import PickBulkActions from '../components/PickBulkActions';
 import { useToast } from '../lib/toastContext';
 import { Star, CalendarX, UserPlus, CalendarPlus, Share2 } from 'lucide-react';
 
@@ -217,6 +218,7 @@ function PicksViewInner() {
       <RefreshableView queryKeys={[['picks'], ['profiles']]} className="pb-5 h-full">
         <div role="region" aria-label="My picks">
           {actionButtons && <div className="flex justify-end gap-2 mb-3">{actionButtons}</div>}
+          <PickBulkActions />
           <EmptyState
             icon={<Star className="w-9 h-9" aria-hidden="true" />}
             title={`No picks yet${days[selectedDay]?.label ? ` for ${days[selectedDay].label}` : ''}`}
@@ -232,6 +234,7 @@ function PicksViewInner() {
     <RefreshableView queryKeys={[['picks'], ['profiles']]} className="pb-5 h-full">
       <div role="region" aria-label="My picks">
         {actionButtons && <div className="flex justify-end gap-2 mb-3">{actionButtons}</div>}
+        <PickBulkActions />
         {/* Priority sections */}
         {PRIORITY_SECTIONS.map(({ value: pri, label, accent, badge }) => {
           const items = picksGrouped[pri];

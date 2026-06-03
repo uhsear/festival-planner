@@ -1,9 +1,20 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useCrewStore } from '@festie/shared/stores';
-import type { CrewPoll } from '@festie/shared/types';
+import { useCrewStore, useFestivalStore, useFestivalDataStore } from '@festie/shared/stores';
+import type { CrewPoll, FestivalSet, PollSetRef } from '@festie/shared/types';
+import { artistDisplayName, formatTime, getSetTimeBounds } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+
+// Lead time (minutes) for the reminder seeded when a schedule poll closes.
+const SCHEDULE_POLL_REMINDER_LEAD = 15;
+const MAX_OPTIONS = 4;
+
+interface Slot {
+  startTime: string;
+  dayIndex: number;
+  sets: FestivalSet[];
+}
 
 interface CrewPollsProps {
   crewId: string;
@@ -31,11 +42,7 @@ function tally(poll: CrewPoll, userId: string) {
  * a poll (2–4 options, matching the server schema), and close one (creator or
  * owner). Hits the shared crewStore actions; the screen owns loading.
  */
-export default function CrewPolls({
-  crewId,
-  currentUserId,
-  isOwner,
-}: CrewPollsProps) {
+export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsProps) {
   const t = useTokens();
   const styles = useStyles();
 
@@ -44,26 +51,109 @@ export default function CrewPolls({
   const votePoll = useCrewStore((s) => s.votePoll);
   const closePoll = useCrewStore((s) => s.closePoll);
 
+  // Festival lineup (from the persisted festival cache — works offline) powers
+  // the schedule-aware composer + the close-time meeting point / reminder.
+  const sets = useFestivalStore((s) => s.sets);
+  const days = useFestivalStore((s) => s.days);
+  const stages = useFestivalStore((s) => s.stages);
+  const currentFestival = useFestivalStore((s) => s.currentFestival);
+  const festivalId = currentFestival?.id ?? null;
+
+  const stageName = (stageId: string): string | null => stages.find((st) => st.id === stageId)?.name ?? null;
+
   const [showForm, setShowForm] = useState(false);
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
   const [createBusy, setCreateBusy] = useState(false);
   const [voteBusy, setVoteBusy] = useState(false);
 
+  // ── Schedule-aware composer state ──────────────────────────────────────
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [slotKey, setSlotKey] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Record<string, boolean>>({});
+
+  // Group the lineup into start-time slots that have a clash (≥2 sets) so the
+  // crew can vote "which set at 9pm?". Sorted by day then time.
+  const slots = useMemo<Slot[]>(() => {
+    const byKey = new Map<string, Slot>();
+    for (const set of sets) {
+      if (!set.startTime || typeof set.dayIndex !== 'number') continue;
+      const key = `${set.dayIndex}|${set.startTime}`;
+      const slot = byKey.get(key);
+      if (slot) slot.sets.push(set);
+      else byKey.set(key, { startTime: set.startTime, dayIndex: set.dayIndex, sets: [set] });
+    }
+    return Array.from(byKey.values())
+      .filter((s) => s.sets.length >= 2)
+      .sort((a, b) => a.dayIndex - b.dayIndex || a.startTime.localeCompare(b.startTime));
+  }, [sets]);
+
+  const selectedSlot = useMemo(
+    () => slots.find((s) => `${s.dayIndex}|${s.startTime}` === slotKey) ?? null,
+    [slots, slotKey],
+  );
+
+  const dayLabel = (dayIndex: number) => days[dayIndex]?.label || days[dayIndex]?.date || `Day ${dayIndex + 1}`;
+
+  const selectSlot = (slot: Slot) => {
+    const key = `${slot.dayIndex}|${slot.startTime}`;
+    setSlotKey(key);
+    const next: Record<string, boolean> = {};
+    slot.sets.forEach((set, i) => {
+      next[set.id] = i < MAX_OPTIONS;
+    });
+    setPicked(next);
+    if (!question.trim()) setQuestion(`Which set at ${formatTime(slot.startTime)}?`);
+  };
+
+  const toggleSet = (setId: string) =>
+    setPicked((prev) => {
+      const wouldSelect = !prev[setId];
+      const count = Object.values(prev).filter(Boolean).length;
+      if (wouldSelect && count >= MAX_OPTIONS) return prev;
+      return { ...prev, [setId]: wouldSelect };
+    });
+
+  const chosenSets = selectedSlot ? selectedSlot.sets.filter((s) => picked[s.id]) : [];
+  const canCreateSchedule = !!question.trim() && chosenSets.length >= 2 && chosenSets.length <= MAX_OPTIONS;
+
   const reset = () => {
     setQuestion('');
     setOptions(['', '']);
     setShowForm(false);
+    setShowSchedule(false);
+    setSlotKey(null);
+    setPicked({});
+  };
+
+  const handleCreateSchedule = async () => {
+    if (!canCreateSchedule || createBusy) return;
+    setCreateBusy(true);
+    try {
+      const opts = chosenSets.map((set) => artistDisplayName(set));
+      const setRefs: (PollSetRef | null)[] = chosenSets.map((set) => {
+        const bounds = getSetTimeBounds(set, days);
+        return {
+          setId: set.id,
+          label: artistDisplayName(set),
+          stageReference: stageName(set.stageId) ?? set.stageName ?? null,
+          meetAt: bounds ? new Date(bounds.startMs).toISOString() : null,
+        };
+      });
+      await createPoll(crewId, { question: question.trim(), options: opts }, setRefs);
+      reset();
+    } catch {
+      // Error surfaced via the crew store.
+    } finally {
+      setCreateBusy(false);
+    }
   };
 
   const updateOption = (i: number, value: string) =>
     setOptions((prev) => prev.map((o, idx) => (idx === i ? value : o)));
-  const addOption = () =>
-    setOptions((prev) => (prev.length < 4 ? [...prev, ''] : prev));
+  const addOption = () => setOptions((prev) => (prev.length < 4 ? [...prev, ''] : prev));
   const removeOption = (i: number) =>
-    setOptions((prev) =>
-      prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev,
-    );
+    setOptions((prev) => (prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev));
 
   const handleCreate = async () => {
     const q = question.trim();
@@ -93,24 +183,131 @@ export default function CrewPolls({
   };
 
   const handleClose = (poll: CrewPoll) => {
-    Alert.alert('Close poll', `Close "${poll.question}"? This can't be undone.`, [
+    // A schedule poll (carries `_setRefs`) spawns the winning set's meeting point
+    // + a seeded reminder on close; surface that in the confirm copy.
+    const isSchedule = !!poll._setRefs?.some((r) => r != null);
+    const message = isSchedule
+      ? `Close "${poll.question}"? The winning set becomes a crew meeting point with a reminder.`
+      : `Close "${poll.question}"? This can't be undone.`;
+    Alert.alert('Close poll', message, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Close',
         style: 'destructive',
         onPress: () => {
-          closePoll(crewId, poll.id).catch(() => {});
+          closePoll(crewId, poll.id, {
+            festivalId: festivalId ?? undefined,
+            seedReminder: (setId, fId) =>
+              useFestivalDataStore.getState().saveReminder({
+                festivalId: fId,
+                setId,
+                minutes: SCHEDULE_POLL_REMINDER_LEAD,
+              }),
+          }).catch(() => {});
         },
       },
     ]);
   };
 
-  const canCreate = !!question.trim() &&
-    options.map((o) => o.trim()).filter(Boolean).length >= 2;
+  const canCreate = !!question.trim() && options.map((o) => o.trim()).filter(Boolean).length >= 2;
 
   return (
     <View style={styles.container}>
-      {showForm ? (
+      {showSchedule ? (
+        <View style={styles.formBox}>
+          <View style={styles.formHeader}>
+            <Text style={styles.formTitle}>Schedule poll</Text>
+            <TouchableOpacity
+              onPress={reset}
+              style={styles.iconButton}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel schedule poll"
+            >
+              <Ionicons name="close" size={18} color={t.colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
+          {slots.length === 0 ? (
+            <Text style={styles.empty}>
+              No clashing timeslots in this lineup yet — schedule polls need two sets at the same time.
+            </Text>
+          ) : !selectedSlot ? (
+            <>
+              <Text style={styles.optionsLabel}>Pick a timeslot</Text>
+              {slots.map((slot) => {
+                const key = `${slot.dayIndex}|${slot.startTime}`;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={styles.slotRow}
+                    onPress={() => selectSlot(slot)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Timeslot ${dayLabel(slot.dayIndex)} ${formatTime(slot.startTime)}, ${slot.sets.length} sets`}
+                  >
+                    <Ionicons name="time-outline" size={16} color={t.colors.accent.aqua} />
+                    <Text style={styles.slotText}>
+                      {dayLabel(slot.dayIndex)} · {formatTime(slot.startTime)}
+                    </Text>
+                    <Text style={styles.slotMeta}>{slot.sets.length} sets</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Which set should we catch?"
+                placeholderTextColor={t.colors.text.placeholder}
+                value={question}
+                onChangeText={setQuestion}
+                maxLength={500}
+                accessibilityLabel="Schedule poll question"
+              />
+              <Text style={styles.optionsLabel}>Options (pick 2–{MAX_OPTIONS})</Text>
+              {selectedSlot.sets.map((set) => {
+                const checked = !!picked[set.id];
+                const stage = stageName(set.stageId) ?? set.stageName;
+                return (
+                  <TouchableOpacity
+                    key={set.id}
+                    style={[styles.optionPickRow, checked && styles.optionPickRowOn]}
+                    onPress={() => toggleSet(set.id)}
+                    activeOpacity={0.8}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked }}
+                    accessibilityLabel={`Include ${artistDisplayName(set)}`}
+                  >
+                    <Ionicons
+                      name={checked ? 'checkbox' : 'square-outline'}
+                      size={18}
+                      color={checked ? t.colors.accent.aqua : t.colors.text.secondary}
+                    />
+                    <Text style={styles.optionPickText} numberOfLines={1}>
+                      {artistDisplayName(set)}
+                    </Text>
+                    {stage ? <Text style={styles.slotMeta}>{stage}</Text> : null}
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity
+                style={[styles.primaryButton, (createBusy || !canCreateSchedule) && styles.buttonDisabled]}
+                onPress={handleCreateSchedule}
+                disabled={createBusy || !canCreateSchedule}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Create schedule poll"
+              >
+                <Text style={styles.primaryButtonText}>{createBusy ? 'Creating…' : 'Create schedule poll'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.helperText}>
+                The winning set becomes a crew meeting point with a {SCHEDULE_POLL_REMINDER_LEAD}-minute reminder.
+              </Text>
+            </>
+          )}
+        </View>
+      ) : showForm ? (
         <View style={styles.formBox}>
           <View style={styles.formHeader}>
             <Text style={styles.formTitle}>New poll</Text>
@@ -153,11 +350,7 @@ export default function CrewPolls({
                   accessibilityRole="button"
                   accessibilityLabel={`Remove option ${i + 1}`}
                 >
-                  <Ionicons
-                    name="close-circle-outline"
-                    size={20}
-                    color={t.colors.text.danger}
-                  />
+                  <Ionicons name="close-circle-outline" size={20} color={t.colors.text.danger} />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -175,39 +368,45 @@ export default function CrewPolls({
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              (createBusy || !canCreate) && styles.buttonDisabled,
-            ]}
+            style={[styles.primaryButton, (createBusy || !canCreate) && styles.buttonDisabled]}
             onPress={handleCreate}
             disabled={createBusy || !canCreate}
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Create poll"
           >
-            <Text style={styles.primaryButtonText}>
-              {createBusy ? 'Creating…' : 'Create'}
-            </Text>
+            <Text style={styles.primaryButtonText}>{createBusy ? 'Creating…' : 'Create'}</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <TouchableOpacity
-          style={styles.toggle}
-          onPress={() => setShowForm(true)}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Create a poll"
-        >
-          <Ionicons name="bar-chart-outline" size={16} color={t.colors.accent.aqua} />
-          <Text style={styles.toggleText}>Create poll</Text>
-          <Ionicons name="add" size={16} color={t.colors.accent.aqua} />
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            style={styles.toggle}
+            onPress={() => setShowForm(true)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Create a poll"
+          >
+            <Ionicons name="bar-chart-outline" size={16} color={t.colors.accent.aqua} />
+            <Text style={styles.toggleText}>Create poll</Text>
+            <Ionicons name="add" size={16} color={t.colors.accent.aqua} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.toggle}
+            onPress={() => setShowSchedule(true)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Create a schedule poll"
+          >
+            <Ionicons name="calendar-outline" size={16} color={t.colors.accent.aqua} />
+            <Text style={styles.toggleText}>Schedule poll (which set?)</Text>
+            <Ionicons name="add" size={16} color={t.colors.accent.aqua} />
+          </TouchableOpacity>
+        </>
       )}
 
       {polls.length === 0 ? (
-        <Text style={styles.empty}>
-          No polls yet — create one to help your crew decide.
-        </Text>
+        <Text style={styles.empty}>No polls yet — create one to help your crew decide.</Text>
       ) : (
         polls.map((poll) => {
           const { counts, myVote, total, maxCount } = tally(poll, currentUserId);
@@ -235,22 +434,10 @@ export default function CrewPolls({
                     accessibilityRole="button"
                     accessibilityLabel={`Vote for ${text}, ${pct} percent`}
                   >
-                    <View
-                      style={[
-                        styles.optionFill,
-                        { width: `${pct}%` },
-                        isWinning && styles.optionFillWinning,
-                      ]}
-                    />
+                    <View style={[styles.optionFill, { width: `${pct}%` }, isWinning && styles.optionFillWinning]} />
                     <View style={styles.optionContent}>
                       <View style={styles.optionTextRow}>
-                        {isMine ? (
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={15}
-                            color={t.colors.accent.aqua}
-                          />
-                        ) : null}
+                        {isMine ? <Ionicons name="checkmark-circle" size={15} color={t.colors.accent.aqua} /> : null}
                         <Text style={styles.optionText} numberOfLines={1}>
                           {text}
                         </Text>
@@ -268,11 +455,7 @@ export default function CrewPolls({
                   accessibilityRole="button"
                   accessibilityLabel="Close poll"
                 >
-                  <Ionicons
-                    name="trash-outline"
-                    size={14}
-                    color={t.colors.accent.coral}
-                  />
+                  <Ionicons name="trash-outline" size={14} color={t.colors.accent.coral} />
                   <Text style={styles.closeText}>Close poll</Text>
                 </TouchableOpacity>
               ) : null}
@@ -348,6 +531,49 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     gap: t.spacing[1],
     paddingVertical: t.spacing[1],
+  },
+  slotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.input,
+  },
+  slotText: {
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+    flex: 1,
+  },
+  slotMeta: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  optionPickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.input,
+  },
+  optionPickRowOn: {
+    borderColor: t.colors.accent.aqua,
+  },
+  optionPickText: {
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+    flex: 1,
+  },
+  helperText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
   },
   addOptionText: {
     ...typeStyle('caption'),

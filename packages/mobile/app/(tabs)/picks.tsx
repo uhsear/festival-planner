@@ -6,7 +6,7 @@ import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { usePicks, useFestival } from '@festie/shared/hooks';
-import type { FestivalSet, Priority } from '@festie/shared/types';
+import type { FestivalSet, Priority, Stage } from '@festie/shared/types';
 import { artistDisplayName, getConflictingSetIds, buildPicksIcs } from '@festie/shared/utils';
 import { mapErrorToUserMessage } from '@festie/shared/services';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
@@ -56,8 +56,12 @@ export default function PicksScreen() {
   const isLoading = useFestivalDataStore((s) => s.isLoading);
   const error = useFestivalDataStore((s) => s.error);
   const selectFestival = useFestivalDataStore((s) => s.selectFestival);
+  const bulkSavePicks = useFestivalDataStore((s) => s.bulkSavePicks);
 
   const [exportBusy, setExportBusy] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkPriority, setBulkPriority] = useState<Priority>('must');
+  const [bulkBusyKey, setBulkBusyKey] = useState<string | null>(null);
 
   const { getMyPick, savePick, removePick, getMyNote } = usePicks();
   const { getDays, getStageColor, getStageName } = useFestival();
@@ -134,6 +138,69 @@ export default function PicksScreen() {
       }
     },
     [currentFestival, savePick, removePick],
+  );
+
+  // ── M2 bulk pick helpers ────────────────────────────────────────────────
+  // Group the cached sets by stage and by artist genre so the user can add a
+  // whole group ("all on Main Stage", "all techno") in ONE coalesced write via
+  // festivalDataStore.bulkSavePicks (single PUT, offline-native + queued).
+  // Computed purely from cached store data — no network reads.
+  const stageGroups = useMemo(() => {
+    const byStage = new Map<string, string[]>();
+    for (const s of sets) {
+      const arr = byStage.get(s.stageId);
+      if (arr) arr.push(s.id);
+      else byStage.set(s.stageId, [s.id]);
+    }
+    const order = new Map<string, number>();
+    stages.forEach((st: Stage, i) => order.set(st.id, i));
+    return [...byStage.entries()]
+      .map(([stageId, setIds]) => ({ key: `stage-${stageId}`, label: getStageName(stageId) || 'Stage', setIds }))
+      .sort((a, b) => (order.get(a.key.slice(6)) ?? 0) - (order.get(b.key.slice(6)) ?? 0));
+  }, [sets, stages, getStageName]);
+
+  const genreGroups = useMemo(() => {
+    const byGenre = new Map<string, string[]>();
+    for (const s of sets) {
+      const seen = new Set<string>();
+      for (const a of s.artists ?? []) {
+        for (const g of a.genres ?? []) {
+          const key = g.trim().toLowerCase();
+          if (!key || seen.has(key)) continue;
+          seen.add(key);
+          const arr = byGenre.get(key);
+          if (arr) arr.push(s.id);
+          else byGenre.set(key, [s.id]);
+        }
+      }
+    }
+    return [...byGenre.entries()]
+      .map(([key, setIds]) => ({ key: `genre-${key}`, label: key, setIds }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [sets]);
+
+  const hasBulkGroups = stageGroups.length > 0 || genreGroups.length > 0;
+
+  const handleBulkApply = useCallback(
+    (key: string, label: string, setIds: string[]) => {
+      if (setIds.length === 0 || bulkBusyKey) return;
+      setBulkBusyKey(key);
+      bulkSavePicks(setIds, bulkPriority)
+        .then(() => {
+          const pLabel =
+            bulkPriority === 'must' ? 'Must See' : bulkPriority === 'want-to-see' ? 'Want to See' : 'Maybe';
+          Alert.alert(
+            'Picks added',
+            `Added ${setIds.length} set${setIds.length === 1 ? '' : 's'} from ${label} to ${pLabel}.`,
+          );
+        })
+        .catch((e) => {
+          // bulkSavePicks already rolled back + set the store error.
+          Alert.alert('Could not add picks', mapErrorToUserMessage(e, 'Please try again.'));
+        })
+        .finally(() => setBulkBusyKey(null));
+    },
+    [bulkSavePicks, bulkPriority, bulkBusyKey],
   );
 
   const renderItem = useCallback(
@@ -245,19 +312,109 @@ export default function PicksScreen() {
     Share.share({ message: `My ${currentFestival.name} picks on Festie: ${url}`, url }).catch(() => {});
   }, [currentProfile, currentFestival]);
 
-  const picksHeader = (
-    <View style={styles.headerActions}>
-      {calendarButton}
+  const PRIORITY_CHOICES: readonly { value: Priority; label: string }[] = [
+    { value: 'must', label: 'Must' },
+    { value: 'want-to-see', label: 'Want' },
+    { value: 'maybe', label: 'Maybe' },
+  ];
+
+  const bulkPanel = hasBulkGroups ? (
+    <View style={styles.bulkPanel}>
       <TouchableOpacity
-        style={styles.calendarButton}
-        onPress={handleSharePicks}
+        style={styles.bulkHeader}
+        onPress={() => setBulkOpen((v) => !v)}
         activeOpacity={0.8}
         accessibilityRole="button"
-        accessibilityLabel="Share my picks"
+        accessibilityState={{ expanded: bulkOpen }}
+        accessibilityLabel="Bulk add picks"
       >
-        <Ionicons name="share-outline" size={16} color={t.colors.accent.aqua} />
-        <Text style={styles.calendarButtonText}>Share picks</Text>
+        <Ionicons name="sparkles-outline" size={16} color={t.colors.accent.aqua} />
+        <Text style={styles.bulkHeaderText}>Bulk add picks</Text>
+        <Ionicons
+          name={bulkOpen ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={t.colors.text.muted}
+          style={styles.bulkChevron}
+        />
       </TouchableOpacity>
+
+      {bulkOpen && (
+        <View style={styles.bulkBody}>
+          <View style={styles.bulkPriorityRow}>
+            <Text style={styles.bulkSubLabel}>Add as</Text>
+            {PRIORITY_CHOICES.map((p) => {
+              const active = bulkPriority === p.value;
+              return (
+                <TouchableOpacity
+                  key={p.value}
+                  onPress={() => setBulkPriority(p.value)}
+                  activeOpacity={0.8}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: active }}
+                  style={[styles.bulkChip, active && styles.bulkChipActive]}
+                >
+                  <Text style={[styles.bulkChipText, active && styles.bulkChipTextActive]}>{p.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {stageGroups.length > 0 && (
+            <View style={styles.bulkGroup}>
+              <Text style={styles.bulkSubLabel}>By stage</Text>
+              <View style={styles.bulkPillRow}>
+                {stageGroups.map((g) => (
+                  <BulkPill
+                    key={g.key}
+                    label={g.label}
+                    count={g.setIds.length}
+                    busy={bulkBusyKey === g.key}
+                    disabled={!!bulkBusyKey}
+                    onPress={() => handleBulkApply(g.key, g.label, g.setIds)}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+
+          {genreGroups.length > 0 && (
+            <View style={styles.bulkGroup}>
+              <Text style={styles.bulkSubLabel}>By genre</Text>
+              <View style={styles.bulkPillRow}>
+                {genreGroups.map((g) => (
+                  <BulkPill
+                    key={g.key}
+                    label={g.label}
+                    count={g.setIds.length}
+                    busy={bulkBusyKey === g.key}
+                    disabled={!!bulkBusyKey}
+                    onPress={() => handleBulkApply(g.key, g.label, g.setIds)}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  ) : null;
+
+  const picksHeader = (
+    <View>
+      <View style={styles.headerActions}>
+        {calendarButton}
+        <TouchableOpacity
+          style={styles.calendarButton}
+          onPress={handleSharePicks}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Share my picks"
+        >
+          <Ionicons name="share-outline" size={16} color={t.colors.accent.aqua} />
+          <Text style={styles.calendarButtonText}>Share picks</Text>
+        </TouchableOpacity>
+      </View>
+      {bulkPanel}
     </View>
   );
 
@@ -300,11 +457,23 @@ export default function PicksScreen() {
       />
     );
   } else if (rows.length === 0) {
+    // Zero picks is exactly when bulk-add helps most — surface the panel above
+    // the empty state so a user can seed a whole stage/genre in one tap.
     body = (
-      <EmptyState
-        icon="star-outline"
-        title="No picks yet"
-        message="Browse artists and tap Must, Want, or Maybe to build your plan."
+      <FlatList
+        data={[] as Row[]}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={picksHeader}
+        ListEmptyComponent={
+          <EmptyState
+            icon="star-outline"
+            title="No picks yet"
+            message="Browse artists and tap Must, Want, or Maybe — or use Bulk add above."
+          />
+        }
+        refreshControl={refreshControl}
       />
     );
   } else {
@@ -332,6 +501,47 @@ export default function PicksScreen() {
 function Separator() {
   const styles = useStyles();
   return <View style={styles.separator} />;
+}
+
+/** A tappable bulk-add pill ("Main Stage · 8") used in the bulk panel. */
+function BulkPill({
+  label,
+  count,
+  busy,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  count: number;
+  busy: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const t = useTokens();
+  const styles = useStyles();
+  return (
+    <TouchableOpacity
+      style={[styles.bulkActionPill, disabled && !busy && styles.bulkActionPillDisabled]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={`Add all ${count} ${label} sets`}
+    >
+      {busy ? (
+        <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+      ) : (
+        <>
+          <Text style={styles.bulkActionPillText} numberOfLines={1}>
+            {label}
+          </Text>
+          <View style={styles.bulkActionCount}>
+            <Text style={styles.bulkActionCountText}>{count}</Text>
+          </View>
+        </>
+      )}
+    </TouchableOpacity>
+  );
 }
 
 const useStyles = makeStyles((t) => ({
@@ -369,6 +579,100 @@ const useStyles = makeStyles((t) => ({
   },
   separator: {
     height: t.spacing[2],
+  },
+  // ── Bulk add panel ──────────────────────────────────────────────────────
+  bulkPanel: {
+    marginBottom: t.spacing[2],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.card,
+    overflow: 'hidden',
+  },
+  bulkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+  },
+  bulkHeaderText: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+  },
+  bulkChevron: {
+    marginLeft: 'auto',
+  },
+  bulkBody: {
+    paddingHorizontal: t.spacing[4],
+    paddingBottom: t.spacing[4],
+    gap: t.spacing[3],
+  },
+  bulkPriorityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+  },
+  bulkGroup: {
+    gap: t.spacing[2],
+  },
+  bulkSubLabel: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+  },
+  bulkChip: {
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[1],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+  },
+  bulkChipActive: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  bulkChipText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  bulkChipTextActive: {
+    color: t.colors.accent.aqua,
+  },
+  bulkPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+  },
+  bulkActionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.bg.secondary,
+    minHeight: 34,
+  },
+  bulkActionPillDisabled: {
+    opacity: 0.5,
+  },
+  bulkActionPillText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.primary,
+    textTransform: 'capitalize',
+  },
+  bulkActionCount: {
+    paddingHorizontal: t.spacing[2],
+    paddingVertical: 1,
+    borderRadius: t.radii.default,
+    backgroundColor: t.colors.bg.card,
+  },
+  bulkActionCountText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
   },
   dayHeader: {
     flexDirection: 'row',

@@ -69,6 +69,9 @@ vi.mock('lucide-react', () => ({
   UserPlus: () => <span data-testid="user-plus-icon" />,
   CalendarPlus: () => <span data-testid="calendar-plus-icon" />,
   Share2: () => <span data-testid="share-icon" />,
+  Sparkles: () => <span data-testid="sparkles-icon" />,
+  Layers: () => <span data-testid="layers-icon" />,
+  ChevronDown: () => <span data-testid="chevron-down-icon" />,
 }));
 
 const mockToast = vi.fn();

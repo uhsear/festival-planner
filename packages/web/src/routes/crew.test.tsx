@@ -105,6 +105,7 @@ vi.mock('../components/layout/RouteErrorBoundary', () => ({
 vi.mock('lucide-react', () => ({
   Users: () => <span data-testid="users-icon" />,
   Columns3: () => <span data-testid="columns-icon" />,
+  CalendarClock: () => <span data-testid="calendar-clock-icon" />,
   Trash2: () => <span data-testid="trash-icon" />,
   LogOut: () => <span data-testid="logout-icon" />,
 }));

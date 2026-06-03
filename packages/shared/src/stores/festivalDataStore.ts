@@ -92,6 +92,16 @@ export interface FestivalDataActions {
    */
   applyProfilePatch: (patch: { profileId: string; picks?: Record<string, Priority> }) => boolean;
   savePick: (request: SavePickRequest) => Promise<void>;
+  /**
+   * Bulk-apply ONE priority to many sets in a single coalesced write (M2 bulk
+   * pick helpers). Merges every `setId` into the current profile's picks map and
+   * issues exactly ONE `offlinePut` to `/profiles/:id` — never N writes. Reuses
+   * the deterministic-clientId coalescing (`bulk-<profileId>`) so repeated bulk
+   * applies offline collapse to one replayed PUT whose body is the latest map.
+   * Offline-native + queued, mirroring savePick's optimistic-then-PUT path.
+   * A no-op (no write) when `setIds` is empty or every set already has `priority`.
+   */
+  bulkSavePicks: (setIds: string[], priority: Priority) => Promise<void>;
   removePick: (festivalId: string, setId: string) => Promise<void>;
   saveNote: (request: SaveNoteRequest) => Promise<void>;
   saveReminder: (request: SaveReminderRequest) => Promise<void>;
@@ -308,6 +318,53 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       const message = mapErrorToUserMessage(err, 'Failed to save pick');
       // Roll back the optimistic update so the UI never shows a pick as saved
       // when the write actually failed (e.g. offline with no queue on mobile).
+      set({ currentProfile: prev, error: message });
+      throw err;
+    }
+  },
+
+  // Bulk pick helper (M2): merge MANY setIds at one priority into the picks map
+  // and issue exactly ONE coalesced PUT. Idempotent — if nothing actually
+  // changes (all sets already at this priority, or no setIds), we skip the write
+  // entirely rather than queue a redundant replay.
+  bulkSavePicks: async (setIds: string[], priority: Priority) => {
+    const prev = get().currentProfile;
+    set({ error: null });
+    try {
+      const { currentProfile } = get();
+      if (!currentProfile) {
+        throw new Error('No active profile -- select a festival first');
+      }
+
+      const basePicks = currentProfile.picks || {};
+      const mergedPicks: Record<string, Priority> = { ...basePicks };
+      let changed = false;
+      for (const setId of setIds) {
+        if (mergedPicks[setId] !== priority) {
+          mergedPicks[setId] = priority;
+          changed = true;
+        }
+      }
+
+      // Idempotent: nothing to write (empty list or all already at this
+      // priority). Avoids a redundant queued PUT on repeated bulk applies.
+      if (!changed) return;
+
+      // Optimistic: reflect all merged picks locally BEFORE the network call so
+      // every star fills immediately even offline (the PUT is then queued).
+      set({
+        currentProfile: {
+          ...currentProfile,
+          picks: mergedPicks,
+        },
+      });
+
+      // ONE coalesced write. Deterministic clientId keyed only by profile (not
+      // per-set) so repeated bulk applies collapse to a single replayed PUT
+      // whose body is the latest full map — never N writes.
+      await offlinePut(`/profiles/${currentProfile.id}`, { picks: mergedPicks }, `bulk-${currentProfile.id}`);
+    } catch (err) {
+      const message = mapErrorToUserMessage(err, 'Failed to save picks');
       set({ currentProfile: prev, error: message });
       throw err;
     }

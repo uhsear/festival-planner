@@ -496,6 +496,19 @@ export default function CrewScreen() {
               </ScrollView>
             ) : null}
 
+            {/* One-screen offline-native "what's my crew's plan" digest. */}
+            <TouchableOpacity
+              style={styles.overlapToggle}
+              onPress={() => router.push('/crew-plan')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="View your crew's plan"
+            >
+              <Ionicons name="calendar-outline" size={16} color={t.colors.accent.coral} />
+              <Text style={styles.overlapToggleText}>Crew plan</Text>
+              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+            </TouchableOpacity>
+
             {/* Schedule compare / overlap toggle. */}
             <TouchableOpacity
               style={styles.overlapToggle}
