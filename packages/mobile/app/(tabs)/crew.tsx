@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/stores';
+import { useAuthStore, useCrewStore, useFestivalStore, useUIStore } from '@festie/shared/stores';
 import { useCrew } from '@festie/shared/hooks';
 import { mapErrorToUserMessage } from '@festie/shared/services';
 import type { Crew, CrewMember, CrewOverlap, FestivalSet } from '@festie/shared/types';
@@ -28,6 +28,19 @@ import CrewPolls from '../../components/CrewPolls';
 import CrewMeetingPoints from '../../components/CrewMeetingPoints';
 import CrewExpenses from '../../components/CrewExpenses';
 import CrewActivity from '../../components/CrewActivity';
+
+/** Compact "synced N ago" label from an epoch-ms timestamp (inlined, no shared dep). */
+function timeAgo(ms: number): string {
+  const diff = Date.now() - ms;
+  if (diff < 0 || !Number.isFinite(diff)) return 'just now';
+  const s = Math.floor(diff / 1000);
+  if (s < 45) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 
 /** Two-letter initials derived from a member's display name (fallback "?"). */
 function initialsFor(name: string | undefined): string {
@@ -58,6 +71,8 @@ export default function CrewScreen() {
   const polls = useCrewStore((s) => s.polls);
   const expenseBalances = useCrewStore((s) => s.expenseBalances);
   const crewLoading = useCrewStore((s) => s.crewLoading);
+  const cachedAt = useCrewStore((s) => s._cachedAt);
+  const offlineMode = useUIStore((s) => s.offlineMode);
   const error = useCrewStore((s) => s.error);
   const loadCrews = useCrewStore((s) => s.loadCrews);
   const selectCrew = useCrewStore((s) => s.selectCrew);
@@ -434,6 +449,12 @@ export default function CrewScreen() {
           <View style={styles.headerBlock}>
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
+            {cachedAt ? (
+              <Text style={styles.syncedLine}>
+                {offlineMode ? `Showing offline data · synced ${timeAgo(cachedAt)}` : `Synced ${timeAgo(cachedAt)}`}
+              </Text>
+            ) : null}
+
             {crew.inviteCode ? (
               <View style={styles.inviteBar}>
                 <Ionicons name="key-outline" size={16} color={t.colors.accent.aqua} />
@@ -769,6 +790,10 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.danger,
     textAlign: 'center',
+  },
+  syncedLine: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
   },
   formGroup: {
     gap: t.spacing[2],

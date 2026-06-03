@@ -2,33 +2,19 @@ import { create, StateCreator } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { api } from '../services/api';
 import { mapErrorToUserMessage } from '../services/errors';
-import { isOffline, enqueueMutation } from '../services/offlineQueue';
+import { isOffline } from '../services/offlineQueue';
 import { getStorage } from '../platform/storage';
 import { useAuthStore } from './authStore';
 
-// Offline helper -- when `window.__festieQueue` is present AND the browser
-// reports offline, queue the mutation via the bridge instead of calling the
-// API. clientId is deterministic so multiple offline toggles of the same
-// field collapse to one replayed PUT (useOfflineQueue.queueMutation upserts
-// by clientId). Falls back to direct API call if the bridge is missing or
-// we're online.
+// Offline helper -- api.put now owns offline interception: when offline AND the
+// path is replay-eligible (`/profiles/...` is), api routes the PUT into the
+// platform queue (web's IndexedDB bridge or the RN queue) and returns a
+// synthetic optimistic result, so the optimistic pick/note survives instead of
+// failing. clientId stays deterministic so multiple offline toggles of the same
+// field collapse to one replayed PUT (the queue upserts by clientId). When
+// online it's a plain PUT. No double-queue: api is the single queue gateway.
 async function offlinePut(url: string, body: unknown, clientId: string): Promise<void> {
-  // Web PWA: IndexedDB-backed bridge.
-  if (typeof window !== 'undefined' && !navigator.onLine) {
-    const bridge = window.__festieQueue;
-    if (bridge?.queueMutation) {
-      await bridge.queueMutation({ type: 'api', clientId, url, method: 'PUT', body });
-      return;
-    }
-  }
-  // Native: NetInfo-driven offline queue (replayed on reconnect). Lets the
-  // optimistic pick/note survive instead of failing — the OfflineBanner's
-  // "syncs when you reconnect" promise now holds on mobile.
-  if (isOffline()) {
-    await enqueueMutation({ clientId, url, method: 'PUT', body });
-    return;
-  }
-  await api.put(url, body);
+  await api.put(url, body, { clientId, offlineLabel: 'Update picks' });
 }
 
 /**

@@ -16,6 +16,27 @@ export interface ToastOptions {
   durationMs?: number;
 }
 
+/**
+ * A mutation the offline queue could not replay (a permanent 4xx/409, or one
+ * that exhausted retries). Surfaced to the user instead of being silently
+ * dropped — this is the "no silent drops" contract: every offline write either
+ * syncs, stays pending, or shows up here for the user to retry/dismiss.
+ */
+export interface FailedSyncItem {
+  /** Deterministic id used to coalesce/dedup queue entries. */
+  clientId: string;
+  /** Human-readable label, e.g. "Add meeting point". */
+  label: string;
+  method: string;
+  url: string;
+  /** Original request body, kept so the user can retry the exact mutation. */
+  body?: unknown;
+  /** Short, user-facing failure reason. */
+  error: string;
+  /** When it failed (ms epoch). */
+  at: number;
+}
+
 let _toastSeq = 0;
 
 export interface UIState {
@@ -29,6 +50,8 @@ export interface UIState {
   connected: boolean;
   offlineMode: boolean;
   pendingSync: number;
+  /** Offline writes that failed to sync permanently — never silently dropped. */
+  failedSync: FailedSyncItem[];
   onlineUsers: OnlineUser[];
   toasts: Toast[];
 }
@@ -39,6 +62,12 @@ export interface UIActions {
   setConnected: (connected: boolean) => void;
   setOfflineMode: (offline: boolean) => void;
   setPendingSync: (count: number) => void;
+  /** Record an offline write that failed to sync; coalesces by clientId. */
+  addFailedSync: (item: FailedSyncItem) => void;
+  /** Drop a failed item (user dismissed it or it was successfully retried). */
+  dismissFailedSync: (clientId: string) => void;
+  /** Clear every failed item (e.g. after a successful full drain). */
+  clearFailedSync: () => void;
   setOnlineUsers: (users: OnlineUser[]) => void;
   addOnlineUser: (user: OnlineUser) => void;
   removeOnlineUser: (userId: string) => void;
@@ -55,6 +84,7 @@ const uiStore: StateCreator<UIStore> = (set) => ({
   connected: false,
   offlineMode: false,
   pendingSync: 0,
+  failedSync: [],
   onlineUsers: [],
   toasts: [],
 
@@ -76,6 +106,22 @@ const uiStore: StateCreator<UIStore> = (set) => ({
 
   setPendingSync: (count: number) => {
     set({ pendingSync: count });
+  },
+
+  addFailedSync: (item: FailedSyncItem) => {
+    set((state) => ({
+      failedSync: [...state.failedSync.filter((f) => f.clientId !== item.clientId), item],
+    }));
+  },
+
+  dismissFailedSync: (clientId: string) => {
+    set((state) => ({
+      failedSync: state.failedSync.filter((f) => f.clientId !== clientId),
+    }));
+  },
+
+  clearFailedSync: () => {
+    set({ failedSync: [] });
   },
 
   setOnlineUsers: (users: OnlineUser[]) => {

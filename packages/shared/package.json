@@ -10,6 +10,7 @@
     "./types/socket-events": "./src/types/socket-events.ts",
     "./stores": "./src/stores/index.ts",
     "./services": "./src/services/index.ts",
+    "./services/offlineQueue": "./src/services/offlineQueue.ts",
     "./hooks": "./src/hooks/index.ts",
     "./utils": "./src/utils/index.ts",
     "./constants": "./src/constants/index.ts",

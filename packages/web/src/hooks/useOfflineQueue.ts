@@ -27,7 +27,11 @@ export interface UseOfflineQueueReturn {
   pendingCount: number;
   processQueue: (
     apiFn: (url: string, opts: { method: string; body?: Record<string, unknown> }) => Promise<unknown>,
-    socketEmitFn?: (event: string, data: Record<string, unknown>, ack: (response: { ok: boolean; error?: string }) => void) => void,
+    socketEmitFn?: (
+      event: string,
+      data: Record<string, unknown>,
+      ack: (response: { ok: boolean; error?: string }) => void,
+    ) => void,
   ) => Promise<void>;
   clearQueue: () => Promise<void>;
 }
@@ -85,6 +89,39 @@ function generateClientId(): string {
   return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * Best-effort, human-readable label for a failed mutation, derived from its
+ * HTTP method + URL so the PendingSyncSheet can show something friendlier than
+ * "POST /crews/abc/polls". Falls back to "{METHOD} {path}".
+ */
+function deriveFailedLabel(method: string | undefined, url: string | undefined): string {
+  const m = (method || 'POST').toUpperCase();
+  const path = (url || '').split('?')[0] || '';
+  const verb = m === 'POST' ? 'Add' : m === 'PUT' || m === 'PATCH' ? 'Update' : m === 'DELETE' ? 'Remove' : m;
+
+  // Map the trailing resource segment to a noun. Trailing dynamic ids (the last
+  // segment when it isn't a known collection word) are ignored so e.g.
+  // POST /crews/x/polls and DELETE /crews/x/polls/y both read "… poll".
+  const segments = path.split('/').filter(Boolean);
+  const nouns: Record<string, string> = {
+    polls: 'poll',
+    'meeting-points': 'meeting point',
+    expenses: 'expense',
+    members: 'member',
+    picks: 'pick',
+    notes: 'note',
+    crews: 'crew',
+    vote: 'vote',
+    settle: 'settlement',
+    'home-base': 'home base',
+  };
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const noun = nouns[segments[i]!];
+    if (noun) return `${verb} ${noun}`;
+  }
+  return `${m} ${path || '(unknown)'}`;
+}
+
 async function getPendingCount(): Promise<number> {
   try {
     await openDB();
@@ -93,7 +130,11 @@ async function getPendingCount(): Promise<number> {
       const index = store.index('status');
       return await idbRequest(index.count(IDBKeyRange.only('pending')));
     } catch (err) {
-      try { tx.abort(); } catch { /* tx may already be finished */ }
+      try {
+        tx.abort();
+      } catch {
+        /* tx may already be finished */
+      }
       throw err;
     }
   } catch {
@@ -112,7 +153,11 @@ async function getAll(): Promise<QueuedMutation[]> {
       // Filter out stale mutations (older than 24h)
       return all.filter((m) => Date.now() - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
     } catch (err) {
-      try { tx.abort(); } catch { /* tx may already be finished */ }
+      try {
+        tx.abort();
+      } catch {
+        /* tx may already be finished */
+      }
       throw err;
     }
   } catch {
@@ -127,7 +172,11 @@ async function removeMutation(id: number): Promise<void> {
     try {
       await idbRequest(store.delete(id));
     } catch (err) {
-      try { tx.abort(); } catch { /* tx may already be finished */ }
+      try {
+        tx.abort();
+      } catch {
+        /* tx may already be finished */
+      }
       throw err;
     }
   } catch {
@@ -145,7 +194,11 @@ async function updateMutation(id: number, updates: Partial<QueuedMutation>): Pro
         await idbRequest(store.put(existing));
       }
     } catch (err) {
-      try { tx.abort(); } catch { /* tx may already be finished */ }
+      try {
+        tx.abort();
+      } catch {
+        /* tx may already be finished */
+      }
       throw err;
     }
   } catch {
@@ -164,7 +217,11 @@ async function pruneStaleEntries(): Promise<void> {
     try {
       all = await idbRequest<QueuedMutation[]>(readHandle.store.getAll());
     } catch (err) {
-      try { readHandle.tx.abort(); } catch { /* tx may already be finished */ }
+      try {
+        readHandle.tx.abort();
+      } catch {
+        /* tx may already be finished */
+      }
       throw err;
     }
 
@@ -178,7 +235,11 @@ async function pruneStaleEntries(): Promise<void> {
         }
       }
     } catch (err) {
-      try { writeHandle.tx.abort(); } catch { /* tx may already be finished */ }
+      try {
+        writeHandle.tx.abort();
+      } catch {
+        /* tx may already be finished */
+      }
       throw err;
     }
   } catch {
@@ -235,7 +296,11 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
         try {
           await idbRequest(store.add(entry));
         } catch (err) {
-          try { tx.abort(); } catch { /* tx may already be finished */ }
+          try {
+            tx.abort();
+          } catch {
+            /* tx may already be finished */
+          }
           throw err;
         }
         await updatePendingCount();
@@ -266,16 +331,18 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
   const processQueue = useCallback(
     async (
       apiFn: (url: string, opts: { method: string; body?: Record<string, unknown> }) => Promise<unknown>,
-      socketEmitFn?: (event: string, data: Record<string, unknown>, ack: (response: { ok: boolean; error?: string }) => void) => void,
+      socketEmitFn?: (
+        event: string,
+        data: Record<string, unknown>,
+        ack: (response: { ok: boolean; error?: string }) => void,
+      ) => void,
     ): Promise<void> => {
       if (_processing) return;
       _processing = true;
 
       try {
         const mutations = await getAll();
-        const pending = mutations
-          .filter((m) => m.status === 'pending')
-          .sort((a, b) => a.createdAt - b.createdAt);
+        const pending = mutations.filter((m) => m.status === 'pending').sort((a, b) => a.createdAt - b.createdAt);
 
         for (const mutation of pending) {
           try {
@@ -299,11 +366,15 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
               await new Promise<void>((resolve, reject) => {
                 const timeout = setTimeout(() => reject(new Error('Socket ack timeout')), 10000);
                 try {
-                  socketEmitFn(mutation.event!, { ...mutation.data, clientId: mutation.clientId }, (response: { ok: boolean; error?: string }) => {
-                    clearTimeout(timeout);
-                    if (response?.ok) resolve();
-                    else reject(new Error(response?.error || 'Socket ack failed'));
-                  });
+                  socketEmitFn(
+                    mutation.event!,
+                    { ...mutation.data, clientId: mutation.clientId },
+                    (response: { ok: boolean; error?: string }) => {
+                      clearTimeout(timeout);
+                      if (response?.ok) resolve();
+                      else reject(new Error(response?.error || 'Socket ack failed'));
+                    },
+                  );
                 } catch (err) {
                   clearTimeout(timeout);
                   reject(err);
@@ -317,17 +388,35 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
             }
           } catch (err: unknown) {
             const retries = (mutation.retries || 0) + 1;
-            const status = err instanceof Error && 'status' in err ? (err as Error & { status: number }).status : undefined;
+            const status =
+              err instanceof Error && 'status' in err ? (err as Error & { status: number }).status : undefined;
             const isClientError = status !== undefined && status >= 400 && status < 500;
             const isConflict = status === 409;
 
-            if (isConflict) {
-              // Conflict: mark for manual review (remove from queue)
-              if (mutation.id) {
-                await removeMutation(mutation.id);
+            if (isConflict || retries >= MAX_RETRIES || isClientError) {
+              // Permanent failure (conflict, other 4xx, or retries exhausted):
+              // surface it to the user as a FailedSyncItem BEFORE removing it
+              // from IndexedDB, so an offline write is never silently dropped —
+              // the "no silent drops" contract. The user can retry or dismiss
+              // it from the PendingSyncSheet.
+              const reason = isConflict
+                ? 'Conflict'
+                : err instanceof Error && err.message
+                  ? err.message
+                  : 'Sync failed';
+              try {
+                useUIStore.getState().addFailedSync({
+                  clientId: mutation.clientId,
+                  label: deriveFailedLabel(mutation.method, mutation.url),
+                  method: mutation.method ?? 'POST',
+                  url: mutation.url ?? '',
+                  body: mutation.body,
+                  error: reason,
+                  at: Date.now(),
+                });
+              } catch {
+                /* store unavailable (e.g. SSR) — fall through to removal */
               }
-            } else if (retries >= MAX_RETRIES || isClientError) {
-              // Permanent failure: remove from queue
               if (mutation.id) {
                 await removeMutation(mutation.id);
               }
@@ -358,7 +447,11 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
       try {
         await idbRequest(store.clear());
       } catch (err) {
-        try { tx.abort(); } catch { /* tx may already be finished */ }
+        try {
+          tx.abort();
+        } catch {
+          /* tx may already be finished */
+        }
         throw err;
       }
     } catch {
