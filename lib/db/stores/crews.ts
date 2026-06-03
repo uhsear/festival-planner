@@ -660,5 +660,147 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
     },
   };
 
-  return { crews, topicSubscriptions, meetingPoints };
+  // M2 logistics: Crew packing board store. Mirrors the meetingPoints sub-store
+  // factory return — a flat per-crew checklist of items ("who's bringing what").
+  const crewPacking = {
+    async create(data: any) {
+      await pool.query(
+        `
+        INSERT INTO
+          crew_packing_items (
+            id,
+            crew_id,
+            created_by,
+            label,
+            brought_by,
+            claimed,
+            created_at
+          )
+        VALUES
+          ($1, $2, $3, $4, $5, $6, NOW())
+      `,
+        [data.id, data.crewId, data.createdBy, data.label, data.broughtBy || null, data.claimed === true],
+      );
+      const result = await pool.query(
+        `
+        SELECT
+          id,
+          crew_id,
+          created_by,
+          label,
+          brought_by,
+          claimed,
+          created_at
+        FROM
+          crew_packing_items
+        WHERE
+          id = $1
+      `,
+        [data.id],
+      );
+      return result.rows[0] || null;
+    },
+
+    async listByCrew(crewId: string) {
+      const result = await pool.query(
+        `
+        SELECT
+          pi.id,
+          pi.crew_id,
+          pi.created_by,
+          pi.label,
+          pi.brought_by,
+          pi.claimed,
+          pi.created_at,
+          u.username AS creator_name
+        FROM
+          crew_packing_items pi
+          JOIN users u ON u.id = pi.created_by
+          AND u.deleted_at IS NULL
+        WHERE
+          pi.crew_id = $1
+        ORDER BY
+          pi.claimed ASC,
+          pi.created_at ASC
+      `,
+        [crewId],
+      );
+      return result.rows;
+    },
+
+    async update(id: string, fields: Record<string, any>) {
+      const sets: string[] = [];
+      const vals: any[] = [];
+      let idx = 1;
+      for (const [key, val] of Object.entries(fields)) {
+        const col = (
+          {
+            label: 'label',
+            broughtBy: 'brought_by',
+            claimed: 'claimed',
+          } as Record<string, string>
+        )[key];
+        if (col) {
+          sets.push(col + ' = $' + idx);
+          vals.push(val);
+          idx++;
+        }
+      }
+      if (sets.length === 0) return null;
+      vals.push(id);
+      await pool.query('UPDATE crew_packing_items SET ' + sets.join(', ') + ' WHERE id = $' + idx, vals);
+      const result = await pool.query(
+        `
+        SELECT
+          id,
+          crew_id,
+          created_by,
+          label,
+          brought_by,
+          claimed,
+          created_at
+        FROM
+          crew_packing_items
+        WHERE
+          id = $1
+      `,
+        [id],
+      );
+      return result.rows[0] || null;
+    },
+
+    async delete(id: string) {
+      await pool.query('DELETE FROM crew_packing_items WHERE id = $1', [id]);
+    },
+
+    async getById(id: string) {
+      const result = await pool.query(
+        `
+        SELECT
+          id,
+          crew_id,
+          created_by,
+          label,
+          brought_by,
+          claimed,
+          created_at
+        FROM
+          crew_packing_items
+        WHERE
+          id = $1
+      `,
+        [id],
+      );
+      return result.rows[0] || null;
+    },
+
+    async countByCrew(crewId: string) {
+      const result = await pool.query('SELECT COUNT(*)::int AS count FROM crew_packing_items WHERE crew_id = $1', [
+        crewId,
+      ]);
+      return result.rows[0].count;
+    },
+  };
+
+  return { crews, topicSubscriptions, meetingPoints, crewPacking };
 }

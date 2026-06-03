@@ -1,0 +1,16 @@
+-- 045: Planned-expense flag for "budget = planned expenses".
+--
+-- M2 logistics: a crew budget is just a forecast made of `planned` expense rows
+-- — NOT a separate table. A planned row records an anticipated cost (tickets,
+-- hotel, gas) so a crew can see "what this trip will run us" before the money is
+-- actually spent. Defaults false so every existing row is a real (actual)
+-- expense, exactly as today.
+--
+-- CRITICAL ledger invariant: planned rows are forecast-only and MUST be excluded
+-- from the who-owes-whom balance computation (getBalances filters planned=false).
+-- They never affect settle-up; flipping a row to planned=false (or creating it
+-- as actual) is what enters it into the ledger.
+--
+-- Additive, mirrors the style of 042_payment_handles.sql / 043_crew_lineage.sql.
+-- No backfill — existing expenses stay actual (planned=false).
+ALTER TABLE crew_expenses ADD COLUMN IF NOT EXISTS planned BOOLEAN DEFAULT false;

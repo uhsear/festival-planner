@@ -18,6 +18,9 @@ import {
   CrewMeetingPoint,
   CreateCrewMeetingPointRequest,
   UpdateCrewMeetingPointRequest,
+  CrewPackingItem,
+  CreateCrewPackingItemRequest,
+  UpdateCrewPackingItemRequest,
   CrewExpense,
   CrewExpenseBalance,
   CreateCrewExpenseRequest,
@@ -36,6 +39,7 @@ export interface CrewState {
   // reloads these on crew switch). Additive — existing consumers ignore them.
   polls: CrewPoll[];
   meetingPoints: CrewMeetingPoint[];
+  packingItems: CrewPackingItem[];
   expenses: CrewExpense[];
   expenseBalances: CrewExpenseBalance[];
   // Netted who-pays-whom plan (greedy min-cash-flow) + payee handles. Loaded
@@ -93,6 +97,15 @@ export interface CrewActions {
     request: UpdateCrewMeetingPointRequest,
   ) => Promise<CrewMeetingPoint>;
   deleteMeetingPoint: (crewId: string, mpId: string) => Promise<void>;
+  // Packing board (routes/crew-packing.ts). Offline-native like polls.
+  loadPacking: (crewId: string) => Promise<void>;
+  createPackingItem: (crewId: string, request: CreateCrewPackingItemRequest) => Promise<CrewPackingItem>;
+  updatePackingItem: (
+    crewId: string,
+    itemId: string,
+    request: UpdateCrewPackingItemRequest,
+  ) => Promise<CrewPackingItem>;
+  deletePackingItem: (crewId: string, itemId: string) => Promise<void>;
   // Expenses (routes/crew-expenses.ts).
   loadExpenses: (crewId: string) => Promise<void>;
   addExpense: (crewId: string, request: CreateCrewExpenseRequest) => Promise<void>;
@@ -138,6 +151,7 @@ async function loadBalances(set: CrewSet, crewId: string): Promise<void> {
 // slicing the head keeps the most-recent items.
 const MAX_CACHED_ACTIVITY = 50;
 const MAX_CACHED_POLLS = 100;
+const MAX_CACHED_PACKING = 200;
 const MAX_CACHED_EXPENSES = 100;
 
 // ── Offline optimistic-create helpers (Phase 2) ────────────────────────────
@@ -182,6 +196,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   crewOverlap: {},
   polls: [],
   meetingPoints: [],
+  packingItems: [],
   expenses: [],
   expenseBalances: [],
   settlements: [],
@@ -221,6 +236,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         crewMembers: sameCrew ? state.crewMembers : [],
         polls: sameCrew ? state.polls : [],
         meetingPoints: sameCrew ? state.meetingPoints : [],
+        packingItems: sameCrew ? state.packingItems : [],
         expenses: sameCrew ? state.expenses : [],
         expenseBalances: sameCrew ? state.expenseBalances : [],
         settlements: sameCrew ? state.settlements : [],
@@ -704,6 +720,133 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     }
   },
 
+  // ── Packing board (M2 logistics) ───────────────────────────────
+  // GET /crews/:crewId/packing -> { items }. Drop any lingering optimistic
+  // placeholders so a refetch can't duplicate an offline-created item.
+  loadPacking: async (crewId: string) => {
+    set({ error: null });
+    try {
+      const res = await api.get<{ items: CrewPackingItem[] } | CrewPackingItem[]>(`/crews/${crewId}/packing`);
+      const items = Array.isArray(res) ? res : (res?.items ?? []);
+      set({ packingItems: dropOptimistic(items) });
+    } catch (err) {
+      const message = mapErrorToUserMessage(err, 'Failed to load packing list');
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // POST /crews/:crewId/packing -> { item }. Offline: queue + insert an optimistic
+  // placeholder so it renders immediately; the reconciler swaps it for the real
+  // item once the queued POST replays. Mirrors createPoll / createMeetingPoint.
+  createPackingItem: async (crewId: string, request: CreateCrewPackingItemRequest) => {
+    set({ error: null });
+    try {
+      let optimisticItem: CrewPackingItem | null = null;
+      const res = await api.post<
+        { item: CrewPackingItem } | (CreateCrewPackingItemRequest & { id: string; _optimistic: true })
+      >(`/crews/${crewId}/packing`, request, {
+        onOptimisticCreate: (result) => {
+          const r = result as { id: string };
+          optimisticItem = {
+            id: r.id,
+            crew_id: crewId,
+            created_by: '',
+            label: request.label,
+            brought_by: request.broughtBy ?? null,
+            claimed: request.claimed === true,
+            created_at: new Date().toISOString(),
+            _optimistic: true,
+          };
+          set((state) => ({ packingItems: [optimisticItem as CrewPackingItem, ...state.packingItems] }));
+        },
+      });
+      // Offline: placeholder already inserted; return it (don't re-insert).
+      if (optimisticItem) return optimisticItem;
+      const { item } = res as { item: CrewPackingItem };
+      set((state) => ({ packingItems: [item, ...state.packingItems] }));
+      return item;
+    } catch (err) {
+      const message = mapErrorToUserMessage(err, 'Failed to add packing item');
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // PUT /crews/:crewId/packing/:itemId -> { item }. Offline, api.put queues the
+  // write and returns the SYNTHETIC optimistic shape `{ ...request, _optimistic }`
+  // — NOT the server's { item } envelope — so detect it and MERGE the request
+  // fields onto the existing item (camelCase request → snake_case stored fields),
+  // mirroring updateMeetingPoint, so the claim/edit shows immediately and
+  // reconciles cleanly when the PUT replays.
+  updatePackingItem: async (crewId: string, itemId: string, request: UpdateCrewPackingItemRequest) => {
+    set({ error: null });
+    try {
+      const res = await api.put<{ item: CrewPackingItem } | (UpdateCrewPackingItemRequest & { _optimistic: true })>(
+        `/crews/${crewId}/packing/${itemId}`,
+        request,
+      );
+
+      // Offline: synthetic optimistic result — merge the request fields onto the
+      // current entity (only the keys actually present in the request).
+      if (res && (res as { _optimistic?: boolean })._optimistic) {
+        let merged: CrewPackingItem | null = null;
+        set((state) => ({
+          packingItems: state.packingItems.map((it) => {
+            if (it.id !== itemId) return it;
+            merged = {
+              ...it,
+              ...(request.label !== undefined ? { label: request.label } : {}),
+              ...(request.broughtBy !== undefined ? { brought_by: request.broughtBy } : {}),
+              ...(request.claimed !== undefined ? { claimed: request.claimed } : {}),
+            };
+            return merged;
+          }),
+        }));
+        return (
+          merged ?? {
+            id: itemId,
+            crew_id: crewId,
+            created_by: '',
+            label: request.label ?? '',
+            brought_by: request.broughtBy ?? null,
+            claimed: request.claimed === true,
+            created_at: new Date().toISOString(),
+            _optimistic: true,
+          }
+        );
+      }
+
+      // Online: authoritative { item } envelope.
+      const { item } = res as { item: CrewPackingItem };
+      set((state) => ({
+        packingItems: state.packingItems.map((it) => (it.id === itemId ? item : it)),
+      }));
+      return item;
+    } catch (err) {
+      const message = mapErrorToUserMessage(err, 'Failed to update packing item');
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // DELETE /crews/:crewId/packing/:itemId. Offline, api.delete queues the write
+  // and resolves with a synthetic success rather than throwing, so the optimistic
+  // removal runs in both paths and the queued DELETE replays on reconnect.
+  deletePackingItem: async (crewId: string, itemId: string) => {
+    set({ error: null });
+    try {
+      await api.delete(`/crews/${crewId}/packing/${itemId}`);
+      set((state) => ({
+        packingItems: state.packingItems.filter((it) => it.id !== itemId),
+      }));
+    } catch (err) {
+      const message = mapErrorToUserMessage(err, 'Failed to remove packing item');
+      set({ error: message });
+      throw err;
+    }
+  },
+
   // ── Expenses ───────────────────────────────────────────────────
   // GET /crews/:crewId/expenses -> array (api unwraps the data envelope).
   // Fetches the expense list AND the balance ledger together so one call
@@ -748,6 +891,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
             amount: request.amount,
             split_with: request.splitWith,
             category: request.category,
+            planned: request.planned === true,
             created_at: new Date().toISOString(),
             _optimistic: true,
           };
@@ -920,6 +1064,7 @@ export const useCrewStore = create<CrewStore>()(
       crewMembers: state.crewMembers,
       meetingPoints: state.meetingPoints,
       polls: state.polls.slice(0, MAX_CACHED_POLLS),
+      packingItems: state.packingItems.slice(0, MAX_CACHED_PACKING),
       expenses: state.expenses.slice(0, MAX_CACHED_EXPENSES),
       expenseBalances: state.expenseBalances,
       settlements: state.settlements,
@@ -985,6 +1130,19 @@ registerCreateReconciler((clientId, serverResponse) => {
       const withoutTemp = state.meetingPoints.filter((m) => m.id !== clientId);
       const realAlreadyPresent = real ? withoutTemp.some((m) => m.id === real.id) : false;
       return { meetingPoints: real && !realAlreadyPresent ? [real, ...withoutTemp] : withoutTemp };
+    });
+    return;
+  }
+
+  if (clientId.includes('/packing')) {
+    const item = (res?.item ?? res) as CrewPackingItem | undefined;
+    useCrewStore.setState((state) => {
+      const hasTemp = state.packingItems.some((it) => it.id === clientId);
+      if (!hasTemp) return {};
+      const real: CrewPackingItem | null = item && typeof item.id === 'string' ? { ...item, _optimistic: false } : null;
+      const withoutTemp = state.packingItems.filter((it) => it.id !== clientId);
+      const realAlreadyPresent = real ? withoutTemp.some((it) => it.id === real.id) : false;
+      return { packingItems: real && !realAlreadyPresent ? [real, ...withoutTemp] : withoutTemp };
     });
     return;
   }

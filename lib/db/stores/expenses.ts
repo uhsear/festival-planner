@@ -78,14 +78,14 @@ export function simplifyDebts(balances: BalanceCents[]): Settlement[] {
 
 export function createExpensesStore(pool: Pool) {
   return {
-    async create({ crewId, paidBy, description, amount, splitWith, category = 'other' }: any) {
+    async create({ crewId, paidBy, description, amount, splitWith, category = 'other', planned = false }: any) {
       const id = randomUUID();
       const splitJson = JSON.stringify(splitWith || []);
       const { rows } = await pool.query(
-        `INSERT INTO crew_expenses (id, crew_id, paid_by, description, amount, split_with, category, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-         RETURNING id, crew_id, paid_by, description, amount, split_with, category, created_at`,
-        [id, crewId, paidBy, description, amount, splitJson, category],
+        `INSERT INTO crew_expenses (id, crew_id, paid_by, description, amount, split_with, category, planned, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+         RETURNING id, crew_id, paid_by, description, amount, split_with, category, planned, created_at`,
+        [id, crewId, paidBy, description, amount, splitJson, category, planned],
       );
       return rows[0];
     },
@@ -101,6 +101,7 @@ export function createExpensesStore(pool: Pool) {
     e.amount,
     e.split_with,
     e.category,
+    e.planned,
     e.created_at,
     u.username as paid_by_name
   FROM
@@ -138,6 +139,7 @@ export function createExpensesStore(pool: Pool) {
     amount,
     split_with,
     category,
+    planned,
     created_at
   FROM
     crew_expenses
@@ -157,7 +159,10 @@ export function createExpensesStore(pool: Pool) {
     // single source of truth for the ledger; getBalances (dollars) and
     // getBalancesCents (raw cents, for simplifyDebts) both derive from it.
     async computeBalanceCents(crewId: string): Promise<BalanceCents[]> {
-      // Get all expenses for the crew
+      // Get all ACTUAL expenses for the crew. CRITICAL: planned (forecast/budget)
+      // rows are excluded — they are not real money owed and must never corrupt
+      // the who-owes-whom ledger (and therefore settle-up, which derives from it).
+      // `planned IS NOT TRUE` also catches legacy NULLs as actual.
       const { rows: expenses } = await pool.query(
         `
   SELECT
@@ -168,11 +173,13 @@ export function createExpensesStore(pool: Pool) {
     amount,
     split_with,
     category,
+    planned,
     created_at
   FROM
     crew_expenses
   WHERE
     crew_id = $1
+    AND planned IS NOT TRUE
 `,
         [crewId],
       );

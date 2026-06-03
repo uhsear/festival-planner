@@ -588,6 +588,25 @@ export const pollVoteSchema = z.object({
 });
 export type PollVoteInput = z.infer<typeof pollVoteSchema>;
 
+// ── Crew packing-board schemas (M2 logistics) ───────────────────────
+export const packingCreateSchema = z.object({
+  label: z.string().trim().min(1, 'Label required').max(200),
+  broughtBy: z.string().trim().max(100).optional().nullable(),
+  claimed: z.boolean().optional(),
+});
+export type PackingCreateInput = z.infer<typeof packingCreateSchema>;
+
+export const packingUpdateSchema = z
+  .object({
+    label: z.string().trim().min(1).max(200).optional(),
+    broughtBy: z.string().trim().max(100).optional().nullable(),
+    claimed: z.boolean().optional(),
+  })
+  .refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), {
+    message: 'At least one field required',
+  });
+export type PackingUpdateInput = z.infer<typeof packingUpdateSchema>;
+
 // ── Refresh Token schema ────────────────────────────────────────
 export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1),
@@ -609,6 +628,9 @@ export const expenseCreateSchema = z.object({
   // Typing these as numbers 400'd every real expense create/settle.
   splitWith: z.array(z.string().min(1)).min(1),
   category: z.string().max(50).optional(),
+  // Budget = planned expenses. A planned row is a forecast and is EXCLUDED from
+  // the balance ledger / settle-up (see getBalances). Defaults to actual (false).
+  planned: z.boolean().optional(),
 });
 export type ExpenseCreateInput = z.infer<typeof expenseCreateSchema>;
 
@@ -710,6 +732,12 @@ export const crewIdMpIdParams = z.object({
 });
 export type CrewIdMpIdParams = z.infer<typeof crewIdMpIdParams>;
 
+export const crewIdItemIdParams = z.object({
+  crewId: z.string().min(1, 'Crew ID required').max(100),
+  itemId: z.string().min(1, 'Item ID required').max(100),
+});
+export type CrewIdItemIdParams = z.infer<typeof crewIdItemIdParams>;
+
 export const setIdParams = z.object({
   setId: z.string().min(1, 'Set ID required').max(100),
 });
@@ -772,6 +800,8 @@ export const schemas = {
   meetingPointUpdate: meetingPointUpdateSchema,
   pollCreate: pollCreateSchema,
   pollVote: pollVoteSchema,
+  packingCreate: packingCreateSchema,
+  packingUpdate: packingUpdateSchema,
   forgotPassword: forgotPasswordSchema,
   updateEmail: updateEmailSchema,
   refreshToken: refreshTokenSchema,
@@ -792,6 +822,7 @@ export const schemas = {
   crewIdExpenseIdParams,
   crewIdPollIdParams,
   crewIdMpIdParams,
+  crewIdItemIdParams,
   setIdParams,
   crewIdFestivalIdParams,
   festivalIdParams,

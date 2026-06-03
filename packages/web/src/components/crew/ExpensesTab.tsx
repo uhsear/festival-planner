@@ -23,6 +23,7 @@ interface RawExpense {
   amount: string | number;
   split_with: string[];
   category: string;
+  planned?: boolean;
   created_at: string;
 }
 
@@ -73,7 +74,11 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState<string>('other');
+  const [planned, setPlanned] = useState(false);
   const [splitWith, setSplitWith] = useState<string[]>(() => members.map((m) => m.userId));
+  // Planned-vs-actual filter for the list. 'actual' = the real ledger (what
+  // feeds settle-up); 'planned' = the budget/forecast view; 'all' = both.
+  const [view, setView] = useState<'all' | 'actual' | 'planned'>('actual');
 
   const {
     data: expenses = [],
@@ -104,8 +109,13 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   const settlements: CrewSettlement[] = plan?.settlements ?? [];
 
   const addExpense = useMutation({
-    mutationFn: (payload: { description: string; amount: number; splitWith: string[]; category: string }) =>
-      api.post(`/crews/${crewId}/expenses`, payload),
+    mutationFn: (payload: {
+      description: string;
+      amount: number;
+      splitWith: string[];
+      category: string;
+      planned: boolean;
+    }) => api.post(`/crews/${crewId}/expenses`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses', crewId] });
       qc.invalidateQueries({ queryKey: ['settlement-plan', crewId] });
@@ -139,6 +149,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
     setDescription('');
     setAmount('');
     setCategory('other');
+    setPlanned(false);
     setSplitWith(members.map((m) => m.userId));
     setShowForm(false);
   }
@@ -159,11 +170,17 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
     e.preventDefault();
     const amt = Number(amount);
     if (!description.trim() || !Number.isFinite(amt) || amt <= 0) return;
-    addExpense.mutate({ description: description.trim(), amount: amt, splitWith, category });
+    addExpense.mutate({ description: description.trim(), amount: amt, splitWith, category, planned });
   }
 
   const myBalance = balances.find((b) => b.userId === currentUserId)?.balance ?? 0;
-  const totalSpent = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  // Actual spend feeds the ledger; planned is the forecast/budget total. Keep
+  // them separate so a budget row never inflates "total spent".
+  const actualExpenses = expenses.filter((e) => !e.planned);
+  const plannedExpenses = expenses.filter((e) => e.planned);
+  const totalSpent = actualExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalPlanned = plannedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  const visibleExpenses = view === 'actual' ? actualExpenses : view === 'planned' ? plannedExpenses : expenses;
   const nonZeroBalances = balances.filter((b) => Math.abs(b.balance) > 0.01);
 
   if (isLoading)
@@ -198,6 +215,38 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
             <div className="text-xs text-text-muted uppercase tracking-wide">Your balance</div>
             <div className={cn('text-lg font-bold', balanceColor(myBalance))}>{formatBalance(myBalance)}</div>
           </div>
+          {totalPlanned > 0 && (
+            <div className="p-3 rounded-lg bg-bg-card border border-border col-span-2">
+              <div className="text-xs text-text-muted uppercase tracking-wide">Planned (budget)</div>
+              <div className="text-lg font-bold text-accent-aqua">${totalPlanned.toFixed(2)}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Planned-vs-actual filter. 'Actual' is the real ledger (settle-up); */}
+      {/* 'Planned' is the budget/forecast view. */}
+      {expenses.length > 0 && (
+        <div
+          role="tablist"
+          aria-label="Filter expenses"
+          className="flex gap-1 p-1 rounded-lg bg-bg-card border border-border"
+        >
+          {(['actual', 'planned', 'all'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={view === v}
+              onClick={() => setView(v)}
+              className={cn(
+                'flex-1 min-h-11 rounded-md text-xs font-medium capitalize',
+                view === v ? 'bg-accent-aqua/15 text-accent-aqua' : 'text-text-secondary hover:text-text-primary',
+              )}
+            >
+              {v}
+            </button>
+          ))}
         </div>
       )}
 
@@ -367,6 +416,18 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
               </div>
             )}
           </div>
+          {/* Planned = budget/forecast row. Excluded from balances + settle-up. */}
+          <label className="flex items-start gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={planned}
+              onChange={(e) => setPlanned(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-accent-aqua"
+            />
+            <span className="text-sm text-text-primary">
+              Planned expense <span className="text-text-muted">(budget only — won't affect who owes what)</span>
+            </span>
+          </label>
           <Button
             type="submit"
             variant="primary"
@@ -379,16 +440,26 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
         </form>
       )}
 
-      {/* Expense list */}
+      {/* Expense list (filtered by the planned-vs-actual view) */}
       {expenses.length === 0 ? (
         <EmptyState
           icon={<DollarSign className="w-12 h-12" aria-hidden="true" />}
           title="No expenses yet"
           description="Track shared costs so everyone knows where they stand."
         />
+      ) : visibleExpenses.length === 0 ? (
+        <EmptyState
+          icon={<DollarSign className="w-12 h-12" aria-hidden="true" />}
+          title={view === 'planned' ? 'No planned expenses' : 'No actual expenses'}
+          description={
+            view === 'planned'
+              ? 'Add a planned expense to start a budget for this trip.'
+              : 'Nothing has been spent yet.'
+          }
+        />
       ) : (
         <div className="space-y-2">
-          {expenses.map((e) => {
+          {visibleExpenses.map((e) => {
             const cat = CATEGORIES.find((c) => c.key === e.category) ?? CATEGORIES[CATEGORIES.length - 1]!;
             return (
               <ExpenseItem
@@ -400,6 +471,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
                 paidByMe={e.paid_by === currentUserId}
                 splitCount={e.split_with.length}
                 category={cat}
+                planned={e.planned}
                 onRemove={(id) => removeExpense.mutate(id)}
                 isRemoving={removeExpense.isPending}
               />
