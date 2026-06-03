@@ -143,6 +143,14 @@ export interface CrewPoll {
   closes_at: string | null;
   closed: boolean;
   created_at: string;
+  /**
+   * Client-only flag (NOT sent by the server). Marks an entity that was created
+   * while offline and is rendering optimistically from the offline write-queue's
+   * synthetic result, before its queued POST has replayed. Cleared/replaced when
+   * the queued create replays (reconciliation) or on the next authoritative
+   * server reload. Strict server consumers ignore it (optional).
+   */
+  _optimistic?: boolean;
 }
 
 export interface CreateCrewPollRequest {
@@ -166,6 +174,8 @@ export interface CrewMeetingPoint {
   stage_reference: string | null;
   active: boolean;
   created_at: string;
+  /** Client-only optimistic-offline flag (see CrewPoll._optimistic). */
+  _optimistic?: boolean;
 }
 
 export interface CreateCrewMeetingPointRequest {
@@ -199,6 +209,8 @@ export interface CrewExpense {
   split_with: string[];
   category: string;
   created_at: string;
+  /** Client-only optimistic-offline flag (see CrewPoll._optimistic). */
+  _optimistic?: boolean;
 }
 
 export interface CrewExpenseBalance {

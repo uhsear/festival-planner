@@ -1,6 +1,7 @@
 import { create, StateCreator } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { api } from '../services/api';
+import { registerCreateReconciler } from '../services/offlineQueue';
 import { mapErrorToUserMessage } from '../services/errors';
 import { getStorage } from '../platform/storage';
 import {
@@ -115,6 +116,15 @@ async function loadBalances(set: CrewSet, crewId: string): Promise<void> {
 const MAX_CACHED_ACTIVITY = 50;
 const MAX_CACHED_POLLS = 100;
 const MAX_CACHED_EXPENSES = 100;
+
+// ── Offline optimistic-create helpers (Phase 2) ────────────────────────────
+// Drop any lingering client-only optimistic placeholders from a list. Called
+// whenever an authoritative server list replaces local state (load*/selectCrew)
+// so a refetch can never leave a temp entity duplicated alongside the real one
+// — the reload-dedup safety net behind the queue reconciler.
+function dropOptimistic<T extends { _optimistic?: boolean }>(list: T[]): T[] {
+  return list.filter((item) => item._optimistic !== true);
+}
 
 const crewStore: StateCreator<CrewStore> = (set) => ({
   crews: [],
@@ -343,7 +353,9 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         ...p,
         votes: (p.votes || []).filter((v) => v && v.user_id && typeof v.option === 'number'),
       }));
-      set({ polls });
+      // Authoritative server list — drop any lingering optimistic placeholders
+      // so a refetch can't duplicate an offline-created poll (reload-dedup).
+      set({ polls: dropOptimistic(polls) });
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to load polls');
       set({ error: message });
@@ -351,11 +363,42 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     }
   },
 
-  // POST /crews/:crewId/polls -> { poll }.
+  // POST /crews/:crewId/polls -> { poll }. When offline the post is queued and
+  // returns a synthetic optimistic poll (id = clientId, _optimistic: true);
+  // onOptimisticCreate inserts it so it renders immediately. The reconciler
+  // (registered below) swaps it for the real poll once the queued POST replays.
   createPoll: async (crewId: string, request: CreateCrewPollRequest) => {
     set({ error: null });
     try {
-      const { poll } = await api.post<{ poll: CrewPoll }>(`/crews/${crewId}/polls`, request);
+      let optimisticPoll: CrewPoll | null = null;
+      // The offline synthetic result is the BODY shape ({ ...request, id, _optimistic }),
+      // NOT the server's { poll } envelope — so build + return the placeholder here
+      // and skip the envelope unwrap below for that case.
+      const res = await api.post<{ poll: CrewPoll } | (CreateCrewPollRequest & { id: string; _optimistic: true })>(
+        `/crews/${crewId}/polls`,
+        request,
+        {
+          onOptimisticCreate: (result) => {
+            const r = result as { id: string };
+            optimisticPoll = {
+              id: r.id,
+              crew_id: crewId,
+              created_by: '',
+              question: request.question,
+              options: request.options,
+              votes: [],
+              closes_at: request.closesAt ?? null,
+              closed: false,
+              created_at: new Date().toISOString(),
+              _optimistic: true,
+            };
+            set((state) => ({ polls: [optimisticPoll as CrewPoll, ...state.polls] }));
+          },
+        },
+      );
+      // Offline: the placeholder is already inserted; return it (don't re-insert).
+      if (optimisticPoll) return optimisticPoll;
+      const { poll } = res as { poll: CrewPoll };
       const normalized: CrewPoll = { ...poll, votes: poll.votes ?? [] };
       set((state) => ({ polls: [normalized, ...state.polls] }));
       return normalized;
@@ -402,7 +445,8 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         `/crews/${crewId}/meeting-points`,
       );
       const meetingPoints = Array.isArray(res) ? res : (res?.meetingPoints ?? []);
-      set({ meetingPoints });
+      // Reload-dedup: discard lingering optimistic placeholders.
+      set({ meetingPoints: dropOptimistic(meetingPoints) });
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to load meeting points');
       set({ error: message });
@@ -410,14 +454,37 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     }
   },
 
-  // POST /crews/:crewId/meeting-points -> { meetingPoint } (201).
+  // POST /crews/:crewId/meeting-points -> { meetingPoint } (201). Offline: queue
+  // + insert an optimistic placeholder so it renders immediately; the reconciler
+  // swaps it for the real meeting point once the queued POST replays.
   createMeetingPoint: async (crewId: string, request: CreateCrewMeetingPointRequest) => {
     set({ error: null });
     try {
-      const { meetingPoint } = await api.post<{ meetingPoint: CrewMeetingPoint }>(
-        `/crews/${crewId}/meeting-points`,
-        request,
-      );
+      let optimisticMp: CrewMeetingPoint | null = null;
+      const res = await api.post<
+        { meetingPoint: CrewMeetingPoint } | (CreateCrewMeetingPointRequest & { id: string; _optimistic: true })
+      >(`/crews/${crewId}/meeting-points`, request, {
+        onOptimisticCreate: (result) => {
+          const r = result as { id: string };
+          optimisticMp = {
+            id: r.id,
+            crew_id: crewId,
+            created_by: '',
+            label: request.label,
+            location: request.location,
+            type: request.type ?? 'custom',
+            meet_at: request.meetAt ?? null,
+            stage_reference: request.stageReference ?? null,
+            active: true,
+            created_at: new Date().toISOString(),
+            _optimistic: true,
+          };
+          set((state) => ({ meetingPoints: [optimisticMp as CrewMeetingPoint, ...state.meetingPoints] }));
+        },
+      });
+      // Offline: placeholder already inserted; return it (don't re-insert).
+      if (optimisticMp) return optimisticMp;
+      const { meetingPoint } = res as { meetingPoint: CrewMeetingPoint };
       set((state) => ({ meetingPoints: [meetingPoint, ...state.meetingPoints] }));
       return meetingPoint;
     } catch (err) {
@@ -470,7 +537,9 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     try {
       const res = await api.get<CrewExpense[] | { expenses: CrewExpense[] }>(`/crews/${crewId}/expenses`);
       const expenses = Array.isArray(res) ? res : (res?.expenses ?? []);
-      set({ expenses });
+      // Reload-dedup: discard lingering optimistic placeholders so an
+      // offline-created expense isn't duplicated once the server list arrives.
+      set({ expenses: dropOptimistic(expenses) });
       await loadBalances(set, crewId);
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to load expenses');
@@ -481,10 +550,36 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
 
   // POST /crews/:crewId/expenses, then refetch so the server-resolved split +
   // balances stay authoritative (mirrors the web ExpensesTab invalidation).
+  // Offline: queue + insert an optimistic expense so it renders immediately, and
+  // SKIP the refetch (a GET would fail offline). We deliberately do NOT fake the
+  // balance ledger — balances reconcile on the next online loadExpenses, which
+  // also drops the optimistic placeholder (dropOptimistic). The reconciler
+  // removes the placeholder when the queued POST replays.
   addExpense: async (crewId: string, request: CreateCrewExpenseRequest) => {
     set({ error: null });
     try {
-      await api.post(`/crews/${crewId}/expenses`, request);
+      let wasOptimistic = false;
+      await api.post(`/crews/${crewId}/expenses`, request, {
+        onOptimisticCreate: (result) => {
+          wasOptimistic = true;
+          const r = result as { id: string };
+          const optimisticExpense: CrewExpense = {
+            id: r.id,
+            crew_id: crewId,
+            paid_by: '',
+            paid_by_name: '',
+            description: request.description,
+            amount: request.amount,
+            split_with: request.splitWith,
+            category: request.category,
+            created_at: new Date().toISOString(),
+            _optimistic: true,
+          };
+          set((state) => ({ expenses: [optimisticExpense, ...state.expenses] }));
+        },
+      });
+      // Offline: placeholder inserted; balances reconcile on the next online sync.
+      if (wasOptimistic) return;
       await useCrewStore.getState().loadExpenses(crewId);
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to add expense');
@@ -661,3 +756,60 @@ export const useCrewStore = create<CrewStore>()(
     migrate: (persistedState) => persistedState as CrewStore,
   }),
 );
+
+// ── Offline create reconciliation (Phase 2) ────────────────────────────────
+// When a queued offline POST replays successfully on reconnect, the offline
+// queue calls this with the temp clientId (which is the optimistic entity's id)
+// and the authoritative server response. We REPLACE the optimistic placeholder
+// (matched by id === clientId) with the real entity so exactly one entity
+// remains — no duplicate, no lingering _optimistic. The route is inferred from
+// the clientId (format: `POST:/crews/:id/<resource>...:uuid`).
+//
+// Idempotent + safe by construction: the match is keyed on the temp clientId,
+// which the server never reuses, so this can only ever touch OUR placeholder.
+// If the response shape is unexpected (or the placeholder is already gone, e.g.
+// a prior reload-dedup ran), we simply drop the placeholder by id; the next
+// authoritative load* then carries the real entity. This never double-inserts.
+registerCreateReconciler((clientId, serverResponse) => {
+  const res = serverResponse as Record<string, unknown> | null | undefined;
+
+  if (clientId.includes('/polls')) {
+    const poll = (res?.poll ?? res) as CrewPoll | undefined;
+    useCrewStore.setState((state) => {
+      const hasTemp = state.polls.some((p) => p.id === clientId);
+      if (!hasTemp) return {};
+      const real: CrewPoll | null =
+        poll && typeof poll.id === 'string' ? { ...poll, votes: poll.votes ?? [], _optimistic: false } : null;
+      const withoutTemp = state.polls.filter((p) => p.id !== clientId);
+      // Guard against a real entity that somehow already arrived (e.g. via a
+      // socket applyPollCreated) so we never end up with two copies.
+      const realAlreadyPresent = real ? withoutTemp.some((p) => p.id === real.id) : false;
+      return { polls: real && !realAlreadyPresent ? [real, ...withoutTemp] : withoutTemp };
+    });
+    return;
+  }
+
+  if (clientId.includes('/meeting-points')) {
+    const mp = (res?.meetingPoint ?? res) as CrewMeetingPoint | undefined;
+    useCrewStore.setState((state) => {
+      const hasTemp = state.meetingPoints.some((m) => m.id === clientId);
+      if (!hasTemp) return {};
+      const real: CrewMeetingPoint | null = mp && typeof mp.id === 'string' ? { ...mp, _optimistic: false } : null;
+      const withoutTemp = state.meetingPoints.filter((m) => m.id !== clientId);
+      const realAlreadyPresent = real ? withoutTemp.some((m) => m.id === real.id) : false;
+      return { meetingPoints: real && !realAlreadyPresent ? [real, ...withoutTemp] : withoutTemp };
+    });
+    return;
+  }
+
+  if (clientId.includes('/expenses')) {
+    // Expenses: the POST response shape isn't relied upon (server resolves the
+    // split + balance ledger). Just remove the placeholder; the next online
+    // loadExpenses brings the real expense AND the authoritative balances.
+    useCrewStore.setState((state) => {
+      const hasTemp = state.expenses.some((e) => e.id === clientId);
+      return hasTemp ? { expenses: state.expenses.filter((e) => e.id !== clientId) } : {};
+    });
+    return;
+  }
+});

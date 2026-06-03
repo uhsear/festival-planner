@@ -20,6 +20,16 @@ interface ApiOptions {
   clientId?: string;
   /** Human-readable label surfaced in failedSync if an offline write can't replay. */
   offlineLabel?: string;
+  /**
+   * Optimistic-create hook (offline POST only). When an offline POST is routed
+   * into the write-queue, this is invoked AFTER the mutation is queued with the
+   * synthetic optimistic result (`{ ...body, id: clientId, _optimistic: true }`)
+   * so the caller can insert a placeholder into its store and render the new
+   * entity immediately. Never called for online requests or for
+   * PUT/PATCH/DELETE — those paths are unchanged. Optional; existing callers
+   * are unaffected.
+   */
+  onOptimisticCreate?: (result: unknown) => void;
 }
 
 let _apiBase = API_BASE;
@@ -130,7 +140,17 @@ async function enqueueOfflineMutation<T>(path: string, method: string, options: 
   }
 
   if (method === 'POST') {
-    return { ...(body as object), id: clientId, _optimistic: true } as T;
+    const optimistic = { ...(body as object), id: clientId, _optimistic: true } as T;
+    // Let the caller render the new entity immediately (offline POST only).
+    // Wrapped so a buggy callback can never break the queue/return contract.
+    if (options.onOptimisticCreate) {
+      try {
+        options.onOptimisticCreate(optimistic);
+      } catch {
+        /* optimistic UI insert is best-effort; the write is already queued */
+      }
+    }
+    return optimistic;
   }
   if (method === 'PUT' || method === 'PATCH') {
     return { ...(body as object), _optimistic: true } as T;

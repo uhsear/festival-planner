@@ -413,12 +413,20 @@ describe('crewStore', () => {
   describe('loadExpenses', () => {
     it('loads expenses and balances together', async () => {
       const expenses = [
-        { id: 'e1', crew_id: 'crew-1', paid_by: 'user-1', paid_by_name: 'Alice', description: 'Dinner', amount: '40.00', split_with: ['user-1', 'user-2'], category: 'food', created_at: '2026-01-01T00:00:00Z' },
+        {
+          id: 'e1',
+          crew_id: 'crew-1',
+          paid_by: 'user-1',
+          paid_by_name: 'Alice',
+          description: 'Dinner',
+          amount: '40.00',
+          split_with: ['user-1', 'user-2'],
+          category: 'food',
+          created_at: '2026-01-01T00:00:00Z',
+        },
       ];
       const balances = [{ userId: 'user-1', username: 'Alice', balance: 20 }];
-      vi.mocked(api.get)
-        .mockResolvedValueOnce(expenses)
-        .mockResolvedValueOnce(balances);
+      vi.mocked(api.get).mockResolvedValueOnce(expenses).mockResolvedValueOnce(balances);
       await useCrewStore.getState().loadExpenses('crew-1');
       expect(useCrewStore.getState().expenses).toEqual(expenses);
       expect(useCrewStore.getState().expenseBalances).toEqual(balances);
@@ -448,11 +456,18 @@ describe('crewStore', () => {
         .mockResolvedValueOnce([{ id: 'e1' }])
         .mockResolvedValueOnce([]);
       await useCrewStore.getState().addExpense('crew-1', {
-        description: 'Beer', amount: 12, splitWith: ['user-1'], category: 'drinks',
+        description: 'Beer',
+        amount: 12,
+        splitWith: ['user-1'],
+        category: 'drinks',
       });
-      expect(api.post).toHaveBeenCalledWith('/crews/crew-1/expenses', {
-        description: 'Beer', amount: 12, splitWith: ['user-1'], category: 'drinks',
-      });
+      // Phase-2 offline optimism passes an onOptimisticCreate option (only
+      // invoked on the offline-queue path); the body is unchanged.
+      expect(api.post).toHaveBeenCalledWith(
+        '/crews/crew-1/expenses',
+        { description: 'Beer', amount: 12, splitWith: ['user-1'], category: 'drinks' },
+        expect.objectContaining({ onOptimisticCreate: expect.any(Function) }),
+      );
       expect(useCrewStore.getState().expenses).toEqual([{ id: 'e1' }]);
     });
   });
@@ -472,7 +487,8 @@ describe('crewStore', () => {
       vi.mocked(api.get).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
       await useCrewStore.getState().settleExpense('crew-1', { toUserId: 'user-2', amount: 10 });
       expect(api.post).toHaveBeenCalledWith('/crews/crew-1/expenses/settle', {
-        toUserId: 'user-2', amount: 10,
+        toUserId: 'user-2',
+        amount: 10,
       });
     });
   });
@@ -480,7 +496,15 @@ describe('crewStore', () => {
   describe('loadActivity', () => {
     it('reads the { items } pagination envelope', async () => {
       const items = [
-        { id: 'a1', crew_id: 'crew-1', user_id: 'user-1', username: 'Alice', type: 'expense-added', detail: 'Dinner $40', created_at: '2026-01-01T00:00:00Z' },
+        {
+          id: 'a1',
+          crew_id: 'crew-1',
+          user_id: 'user-1',
+          username: 'Alice',
+          type: 'expense-added',
+          detail: 'Dinner $40',
+          created_at: '2026-01-01T00:00:00Z',
+        },
       ];
       vi.mocked(api.get).mockResolvedValueOnce({ items, nextCursor: null });
       await useCrewStore.getState().loadActivity('crew-1');
