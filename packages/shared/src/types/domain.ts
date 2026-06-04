@@ -118,6 +118,12 @@ export interface Crew {
   homeBaseLocation?: string | null;
   homeBaseTime?: string | null;
   homeBaseUpdatedAt?: string | null;
+  // M6 Crew Photo Wall (Phase 1, link-out only): a single shared-album URL
+  // (e.g. Google Photos / Apple shared album) any member can set; members open
+  // it to view/add photos off-platform. Festie does not host photos yet (the R2
+  // upload pipeline is deferred). Optional/nullable so it never breaks existing
+  // crew consumers; set via PUT /crews/:id/photo-album.
+  photoAlbumUrl?: string | null;
   // Lineage (M3 "Reform crew for next festival"): the id of the crew this one
   // was reformed from, or null/absent for a normally-created crew. Surfaced by
   // routes/crews.ts so the UI can show "your crew last year". Additive/optional.

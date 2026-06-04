@@ -135,12 +135,17 @@ export interface CrewActions {
   loadActivity: (crewId: string) => Promise<void>;
   // Home base (owner-only PUT /crews/:id/home-base).
   updateHomeBase: (crewId: string, payload: { location: string | null; time: string | null }) => Promise<void>;
+  // M6 Crew Photo Wall (Phase 1, link-out): set/clear the crew shared-album URL
+  // (member-gated PUT /crews/:id/photo-album). Pass null to clear.
+  updatePhotoAlbum: (crewId: string, payload: { photoAlbumUrl: string | null }) => Promise<void>;
   // ── Socket-driven setters (additive) ────────────────────────────
   // Applied by the realtime sync hook when crew:* events arrive for the
   // active crew. They mutate the in-memory polls / meetingPoints / activeCrew
   // home base so the open crew screen reflects remote changes live, without an
   // API round-trip. All are guarded by the caller against crew mismatch.
   applyHomeBaseUpdate: (crewId: string, payload: { location: string | null; time: string | null }) => void;
+  // M6: merge a remote photo-album change onto the active crew + crews list.
+  applyPhotoAlbumUpdate: (crewId: string, payload: { photoAlbumUrl: string | null }) => void;
   applyMeetingPointUpsert: (meetingPoint: CrewMeetingPoint) => void;
   applyMeetingPointRemoval: (mpId: string) => void;
   applyPollCreated: (poll: CrewPoll) => void;
@@ -1221,6 +1226,35 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       set({ error: message });
       throw err;
     }
+  },
+
+  // ── Photo album (M6 Crew Photo Wall, Phase 1 link-out) ─────────
+  // PUT /crews/:crewId/photo-album -> { crew }. Member-gated server-side. Merge
+  // the returned crew so activeCrew/crews reflect the new album URL immediately.
+  updatePhotoAlbum: async (crewId: string, payload: { photoAlbumUrl: string | null }) => {
+    set({ error: null });
+    try {
+      const { crew } = await api.put<{ crew: Crew }>(`/crews/${crewId}/photo-album`, payload);
+      set((state) => ({
+        activeCrew: state.activeCrew?.id === crewId ? { ...state.activeCrew, ...crew } : state.activeCrew,
+        crews: state.crews.map((c) => (c.id === crewId ? { ...c, ...crew } : c)),
+      }));
+    } catch (err) {
+      const message = mapErrorToUserMessage(err, 'Failed to update photo album');
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // M6: merge a remote photo-album change onto the active crew + crews list.
+  applyPhotoAlbumUpdate: (crewId: string, payload: { photoAlbumUrl: string | null }) => {
+    set((state) => ({
+      activeCrew:
+        state.activeCrew?.id === crewId
+          ? { ...state.activeCrew, photoAlbumUrl: payload.photoAlbumUrl }
+          : state.activeCrew,
+      crews: state.crews.map((c) => (c.id === crewId ? { ...c, photoAlbumUrl: payload.photoAlbumUrl } : c)),
+    }));
   },
 
   // ── Socket-driven setters (additive) ──────────────────────────

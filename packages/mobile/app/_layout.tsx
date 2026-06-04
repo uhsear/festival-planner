@@ -15,6 +15,7 @@ import { UIProvider } from '../contexts/UIContext';
 import OfflineBanner from '../components/OfflineBanner';
 import FirstRunIntro from '../components/FirstRunIntro';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { useLocalReminders } from '../hooks/useLocalReminders';
 
 // First-run intro flag — mirrors the web key for parity.
 const INTRO_KEY = 'festie_onboarding_completed';
@@ -64,6 +65,12 @@ function AuthGate() {
   const [hydrated, setHydrated] = useState(false);
   // null = still reading the flag; false = show intro; true = already seen.
   const [introSeen, setIntroSeen] = useState<boolean | null>(null);
+
+  // M1: pre-computed on-device set reminders. Reconciles local notifications
+  // whenever picks/reminders change (fires even in airplane mode); FCM stays the
+  // at-home backstop. Mounted at the root so it tracks the active profile across
+  // every screen.
+  useLocalReminders();
 
   useEffect(() => {
     AsyncStorage.getItem(INTRO_KEY)

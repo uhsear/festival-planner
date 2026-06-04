@@ -18,7 +18,9 @@
       "bundleIdentifier": "us.festie.app",
       "associatedDomains": ["applinks:festie.us", "webcredentials:festie.us"],
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Festie uses your location to drop a meeting point and point you toward where your crew is. Only used while the app is open.",
+        "NSCameraUsageDescription": "Festie uses the camera to scan a friend's plan QR code so they can join your festival plan offline."
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,
@@ -105,7 +107,19 @@
           "project": "festie"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Festie uses your location to drop a meeting point and point you toward where your crew is. Only used while the app is open."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Festie uses the camera to scan a friend's plan QR code so they can join your festival plan offline."
+        }
+      ]
     ],
     "extra": {
       "router": {},

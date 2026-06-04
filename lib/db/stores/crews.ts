@@ -73,7 +73,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
   };
 
   const CREW_COLUMNS =
-    'id, festival_id AS "festivalId", name, created_by AS "createdBy", invite_code AS "inviteCode", invite_expires_at AS "inviteExpiresAt", max_members AS "maxMembers", reformed_from AS "reformedFrom", home_base_location AS "homeBaseLocation", home_base_time AS "homeBaseTime", home_base_updated_at AS "homeBaseUpdatedAt", created_at AS "createdAt", updated_at AS "updatedAt"';
+    'id, festival_id AS "festivalId", name, created_by AS "createdBy", invite_code AS "inviteCode", invite_expires_at AS "inviteExpiresAt", max_members AS "maxMembers", reformed_from AS "reformedFrom", home_base_location AS "homeBaseLocation", home_base_time AS "homeBaseTime", home_base_updated_at AS "homeBaseUpdatedAt", photo_album_url AS "photoAlbumUrl", created_at AS "createdAt", updated_at AS "updatedAt"';
 
   // Phase 7: Crew system store
   const crews: any = {
@@ -442,6 +442,19 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
         'UPDATE crews SET home_base_location = $1, home_base_time = $2, home_base_updated_at = NOW(), updated_at = NOW() WHERE id = $3',
         [location || null, time || null, crewId],
       );
+      const result = await pool.query(`SELECT ${CREW_COLUMNS} FROM crews WHERE id = $1`, [crewId]);
+      return result.rows[0] || null;
+    },
+
+    // M6 Crew Photo Wall (Phase 1): set/clear the crew's shared-album URL. Pass
+    // null (or a falsy url) to clear it. Cloned from updateHomeBase — a single
+    // crew-field write that returns the refreshed crew. Member-gated at the
+    // route (any member can set the album link, not owner-only).
+    async updatePhotoAlbum(crewId: string, { photoAlbumUrl }: { photoAlbumUrl?: string | null }) {
+      await pool.query('UPDATE crews SET photo_album_url = $1, updated_at = NOW() WHERE id = $2', [
+        photoAlbumUrl || null,
+        crewId,
+      ]);
       const result = await pool.query(`SELECT ${CREW_COLUMNS} FROM crews WHERE id = $1`, [crewId]);
       return result.rows[0] || null;
     },

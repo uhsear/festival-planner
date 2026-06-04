@@ -7,6 +7,7 @@ import type {
   crewIdParams,
   crewIdMpIdParams,
   crewHomeBaseSchema,
+  crewPhotoAlbumSchema,
   meetingPointCreateSchema,
   meetingPointUpdateSchema,
 } from '../lib/schemas';
@@ -58,6 +59,38 @@ export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
       } catch (err) {
         log.error('set home base failed', { error: (err as Error).message });
         return sendError(res, 500, 'Failed to update home base', ErrorCodes.INTERNAL_ERROR);
+      }
+    },
+  );
+
+  // ── PUT /:crewId/photo-album — set/clear crew shared-album URL ───
+  // M6 Crew Photo Wall (Phase 1, link-out only). Member-gated (NOT owner-only):
+  // any crew member can set or clear the shared album link. Pass an empty/null
+  // photoAlbumUrl to clear it. Festie hosts no photos yet; this is a link-out.
+  router.put(
+    '/:crewId/photo-album',
+    userAuth,
+    rateLimit(10, 'crew-photo-album'),
+    validateParams(schemas.crewIdParams),
+    validate(schemas.crewPhotoAlbum),
+    async (req: Request, res: Response) => {
+      try {
+        const params = req.validatedParams as z.infer<typeof crewIdParams>;
+        const body = req.validatedBody as z.infer<typeof crewPhotoAlbumSchema>;
+        const crewId = sanitizeIdentifier(params.crewId);
+        const member = await stores.crews.getMember(crewId, req.user.userId);
+        if (!member) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
+
+        const photoAlbumUrl = body.photoAlbumUrl || null;
+        const updated = await stores.crews.updatePhotoAlbum(crewId, { photoAlbumUrl });
+        io.to('crew:' + crewId).emit('crew:photo-album-updated', { crewId, photoAlbumUrl });
+        await stores.activity
+          .log({ crewId, userId: req.user.userId, type: 'photo-album-updated', detail: photoAlbumUrl })
+          .catch(() => {});
+        return sendSuccess(res, { crew: updated });
+      } catch (err) {
+        log.error('set photo album failed', { error: (err as Error).message });
+        return sendError(res, 500, 'Failed to update photo album', ErrorCodes.INTERNAL_ERROR);
       }
     },
   );

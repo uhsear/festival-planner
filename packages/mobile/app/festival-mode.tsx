@@ -7,6 +7,7 @@ import { useFestival } from '@festie/shared/hooks';
 import { artistDisplayName, getSetTimeBounds } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useOngoingNotification } from '../hooks/useOngoingNotification';
 import EmptyState from '../components/EmptyState';
 import LiveDot from '../components/LiveDot';
 
@@ -53,6 +54,12 @@ export default function FestivalModeScreen() {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // M6: present the Android ongoing (sticky) notification with the current/next
+  // set + active meeting point while this festival is active. Android-only;
+  // on-device/offline; no-op on iOS (TODO iOS Live Activity). Its own 'ongoing'
+  // channel + stable id keep it isolated from set-reminder notifications.
+  useOngoingNotification();
 
   const picks = currentProfile?.picks;
 

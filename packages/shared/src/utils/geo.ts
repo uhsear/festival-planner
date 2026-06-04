@@ -95,6 +95,38 @@ export function etaMinutes(from: Coord | null | undefined, to: Coord | null | un
 }
 
 /**
+ * Arrow rotation (degrees, clockwise) for a proximity compass: how far to spin
+ * an UP-pointing arrow so it points at the target, given the target's true
+ * bearing from the viewer and the device's current heading (both degrees CW
+ * from true north). When deviceHeading is 0 (north-up / no compass), the arrow
+ * just shows the absolute bearing. Result is normalized to [0, 360); returns
+ * NaN if the bearing is not finite so callers can show a "no fix" state.
+ *
+ * This is pure presentation math — the M5 compass is on-device + offline; it
+ * derives direction from a SAVED coord, never a live remote position.
+ */
+export function relativeArrowAngle(bearingDeg: number, deviceHeadingDeg: number): number {
+  if (!Number.isFinite(bearingDeg)) return NaN;
+  const heading = Number.isFinite(deviceHeadingDeg) ? deviceHeadingDeg : 0;
+  return (((bearingDeg - heading) % 360) + 360) % 360;
+}
+
+/**
+ * Human-readable distance label from metres. Sub-1 km reads in metres rounded
+ * to the nearest 10 (e.g. "120 m"); ≥1 km reads in kilometres to one decimal
+ * (e.g. "1.4 km"). Returns "—" for NaN/invalid so the compass never prints a
+ * bogus "0 m" when coords are missing.
+ */
+export function formatDistance(meters: number): string {
+  if (!Number.isFinite(meters) || meters < 0) return '—';
+  if (meters < 1000) {
+    const rounded = Math.max(0, Math.round(meters / 10) * 10);
+    return `${rounded} m`;
+  }
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
+/**
  * Honest "as of N ago" staleness label for a last-synced status. Accepts an
  * epoch-ms number OR an ISO/parseable date string (the backend serializes
  * `updated_at` as a timestamp string). This is the M5 cardinal-rule copy: it

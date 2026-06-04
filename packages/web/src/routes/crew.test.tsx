@@ -113,6 +113,10 @@ vi.mock('lucide-react', () => ({
   CalendarClock: () => <span data-testid="calendar-clock-icon" />,
   Trash2: () => <span data-testid="trash-icon" />,
   LogOut: () => <span data-testid="logout-icon" />,
+  // CrewPhotosCard (M6 crew photo wall) icons.
+  Images: () => <span data-testid="images-icon" />,
+  X: () => <span data-testid="x-icon" />,
+  ExternalLink: () => <span data-testid="external-link-icon" />,
 }));
 
 import CrewView from './crew';
