@@ -106,7 +106,7 @@ function GridStageColumn({
                 &#9829;
               </span>
             )}
-            <span className="text-[0.7rem] font-semibold text-text-primary leading-[1.25] overflow-hidden [-webkit-line-clamp:2] [-webkit-box-orient:vertical] [display:-webkit-box]">
+            <span className="text-[0.7rem] font-semibold text-text-primary leading-[1.25] overflow-hidden break-words [overflow-wrap:anywhere] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] [display:-webkit-box]">
               {dn}
             </span>
             {height >= 48 && (

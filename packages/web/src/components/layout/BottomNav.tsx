@@ -17,13 +17,13 @@ interface NavTab {
 // happens with the chunk already loaded — no chunk-load pause that made the
 // first scroll after tab switch feel laggy.
 const prefetchers: Record<string, () => Promise<unknown>> = {
-  '/cards':    () => import('../../routes/cards'),
+  '/cards': () => import('../../routes/cards'),
   '/timeline': () => import('../../routes/timeline'),
-  '/grid':     () => import('../../routes/grid'),
-  '/picks':    () => import('../../routes/picks'),
-  '/crew':     () => import('../../routes/crew'),
-  '/wrap':     () => import('../../routes/wrap'),
-  '/account':  () => import('../../routes/account'),
+  '/grid': () => import('../../routes/grid'),
+  '/picks': () => import('../../routes/picks'),
+  '/crew': () => import('../../routes/crew'),
+  '/wrap': () => import('../../routes/wrap'),
+  '/account': () => import('../../routes/account'),
 };
 
 /** Schedule icon — matches legacy createSvgIcon('cards') */
@@ -133,8 +133,10 @@ export default function BottomNav() {
   return (
     <footer
       className={cn(
-        'hidden max-md:block flex-shrink-0',
-        'bg-[var(--color-bg-chrome)] backdrop-saturate-[180%] backdrop-blur-[20px]',
+        // Shown on mobile AND tablet (<lg). Desktop (lg+) uses the header tabs
+        // instead. Clean single handoff at lg — see Header's nav comment.
+        'hidden max-lg:block flex-shrink-0',
+        'bg-[var(--color-bg-chrome)] backdrop-saturate-[180%] backdrop-blur-[var(--glass-blur-strong)]',
         'border-t border-border',
         '[padding:6px_0_max(8px,env(safe-area-inset-bottom))]',
         '[padding-left:env(safe-area-inset-left)]',
@@ -144,10 +146,7 @@ export default function BottomNav() {
       )}
       data-bottom-nav
     >
-      <nav
-        className="flex justify-around w-full max-md:gap-0.5"
-        aria-label="Primary"
-      >
+      <nav className="flex justify-around w-full max-md:gap-0.5" aria-label="Primary">
         {tabs.map((tab) => {
           const active = isActive(tab.href);
           return (
@@ -167,20 +166,14 @@ export default function BottomNav() {
                 'max-[480px]:[&_svg]:w-5 max-[480px]:[&_svg]:h-5',
                 'max-[375px]:min-h-11 max-[375px]:px-1 max-[375px]:py-[5px]',
                 'max-[359px]:justify-center max-[359px]:px-0 max-[359px]:py-1.5',
-                active && [
-                  'text-accent-aqua',
-                  '[&_svg]:drop-shadow-[0_0_6px_rgba(0,232,208,0.4)]',
-                ],
+                active && ['text-accent-aqua', '[&_svg]:drop-shadow-[0_0_6px_rgba(0,232,208,0.4)]'],
               )}
               onPointerEnter={() => prefetchers[tab.href]?.().catch(() => {})}
               onPointerDown={() => prefetchers[tab.href]?.().catch(() => {})}
               onClick={() => navigate({ to: tab.href })}
             >
               {tab.icon}
-              <span className={cn(
-                'max-w-full overflow-hidden text-ellipsis whitespace-nowrap',
-                'max-[359px]:hidden',
-              )}>
+              <span className={cn('max-w-full overflow-hidden text-ellipsis whitespace-nowrap', 'max-[359px]:hidden')}>
                 {tab.label}
               </span>
             </button>

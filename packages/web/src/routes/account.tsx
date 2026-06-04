@@ -40,7 +40,7 @@ function AccountPageInner() {
 
   return (
     <div className="bg-bg-primary pb-6">
-      <div className="max-w-lg mx-auto px-4 pt-3 pb-6 space-y-4">
+      <div className="max-w-[600px] mx-auto px-4 pt-3 pb-6 space-y-4">
         <h1 className="text-xl font-display font-bold text-text-primary">Account Settings</h1>
 
         {/* Identity */}

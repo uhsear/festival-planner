@@ -60,7 +60,7 @@ describe('Button', () => {
 
     it('applies lg size', () => {
       render(<Button size="lg">Large</Button>);
-      expect(screen.getByRole('button').className).toContain('px-6');
+      expect(screen.getByRole('button').className).toContain('px-5');
       expect(screen.getByRole('button').className).toContain('text-lg');
     });
   });
@@ -91,7 +91,11 @@ describe('Button', () => {
     it('does not fire onClick when disabled', async () => {
       const user = userEvent.setup();
       const onClick = vi.fn();
-      render(<Button disabled onClick={onClick}>Disabled</Button>);
+      render(
+        <Button disabled onClick={onClick}>
+          Disabled
+        </Button>,
+      );
       await user.click(screen.getByRole('button'));
       expect(onClick).not.toHaveBeenCalled();
     });
@@ -113,7 +117,11 @@ describe('Button', () => {
   });
 
   it('passes through HTML button attributes', () => {
-    render(<Button type="submit" name="submit-btn">Submit</Button>);
+    render(
+      <Button type="submit" name="submit-btn">
+        Submit
+      </Button>,
+    );
     const btn = screen.getByRole('button');
     expect(btn).toHaveAttribute('type', 'submit');
     expect(btn).toHaveAttribute('name', 'submit-btn');

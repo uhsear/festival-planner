@@ -84,7 +84,7 @@ function SetCard({
   onPreview,
   showPicks = true,
   stageName = set.stageName || 'Unknown',
-  stageColor = '#ff3366',
+  stageColor = 'var(--color-accent-coral)',
   friendProfiles = [],
   conflicts = [],
   b2bSeparator,

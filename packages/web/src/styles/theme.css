@@ -1,5 +1,5 @@
-@import "tailwindcss/theme.css";
-@import "tailwindcss/utilities.css";
+@import 'tailwindcss/theme.css';
+@import 'tailwindcss/utilities.css';
 
 @source "../**/*.{ts,tsx,js,jsx}";
 
@@ -11,11 +11,11 @@
 }
 
 @utility glass {
-  backdrop-filter: saturate(180%) blur(16px);
+  backdrop-filter: saturate(180%) blur(var(--glass-blur-strong));
 }
 
 @utility glass-sm {
-  backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(var(--glass-blur));
 }
 
 @utility glass-xs {
@@ -35,8 +35,7 @@
     top: 48px;
     bottom: -8px;
     width: 1px;
-    background: linear-gradient(to bottom,
-      color-mix(in srgb, var(--color-accent-aqua) 30%, transparent), transparent);
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--color-accent-aqua) 30%, transparent), transparent);
     pointer-events: none;
   }
   &:last-child::before {
@@ -74,8 +73,14 @@
 }
 
 @keyframes fm-live-pulse {
-  0%   { transform: scale(1);   opacity: 0.55; }
-  100% { transform: scale(2.6); opacity: 0; }
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
 }
 
 @utility fm-card-enter {
@@ -83,13 +88,25 @@
 }
 
 @keyframes fm-card-enter {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fm-day-banner-slide {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @utility day-tab-underline {
@@ -122,19 +139,25 @@
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 1px;
-    color: var(--color-accent-coral);
-    background: var(--color-bg-primary);
+    color: var(--timeline-now-color);
+    background: var(--timeline-now-bg);
     padding: 1px 4px;
     border-radius: var(--radius-xs, 4px);
   }
   @media (max-width: 640px) {
-    &::before { left: -44px; }
+    &::before {
+      left: -44px;
+    }
   }
   @media (min-width: 1024px) {
-    &::before { left: -56px; }
+    &::before {
+      left: -56px;
+    }
   }
   @media (min-width: 1440px) {
-    &::before { left: -60px; }
+    &::before {
+      left: -60px;
+    }
   }
 }
 
@@ -321,14 +344,14 @@
   --z-top: 9999;
 
   /* ── Glow shadows ───────────────────────────────────────────────────── */
-  --shadow-glow-coral: 0 0 24px rgba(255, 51, 102, .35);
-  --shadow-glow-aqua: 0 0 24px rgba(0, 232, 208, .3);
-  --shadow-glow-amber: 0 0 20px rgba(255, 176, 32, .3);
-  --shadow-glow-green: 0 0 20px rgba(57, 255, 20, .3);
+  --shadow-glow-coral: 0 0 24px rgba(255, 51, 102, 0.35);
+  --shadow-glow-aqua: 0 0 24px rgba(0, 232, 208, 0.3);
+  --shadow-glow-amber: 0 0 20px rgba(255, 176, 32, 0.3);
+  --shadow-glow-green: 0 0 20px rgba(57, 255, 20, 0.3);
 
   /* ── Additional colors ──────────────────────────────────────────────── */
-  --color-bg-hover: rgba(32, 32, 58, .8);
-  --color-bg-elevated: rgba(24, 24, 44, .9);
+  --color-bg-hover: rgba(32, 32, 58, 0.8);
+  --color-bg-elevated: rgba(24, 24, 44, 0.9);
   --color-text-danger: #f87171;
   --color-text-disabled: #a8a8c0;
   --color-text-placeholder: #a8a8c0;
@@ -336,45 +359,45 @@
   --color-text-on-dark: #000;
   --color-status-verified: #22c55e;
   --color-status-unverified: #fbbf24;
-  --color-status-verified-bg: rgba(34, 197, 94, .15);
-  --color-status-unverified-bg: rgba(251, 191, 36, .15);
+  --color-status-verified-bg: rgba(34, 197, 94, 0.15);
+  --color-status-unverified-bg: rgba(251, 191, 36, 0.15);
   --color-status-warning: #f0a030;
   --color-status-error: #ff6b6b;
-  --color-spotify: #1DB954;
+  --color-spotify: #1db954;
 
   /* Overlay scale (white at increasing opacity) */
-  --color-overlay-1: rgba(255, 255, 255, .03);
-  --color-overlay-2: rgba(255, 255, 255, .04);
-  --color-overlay-3: rgba(255, 255, 255, .06);
-  --color-overlay-4: rgba(255, 255, 255, .08);
-  --color-overlay-5: rgba(255, 255, 255, .1);
+  --color-overlay-1: rgba(255, 255, 255, 0.03);
+  --color-overlay-2: rgba(255, 255, 255, 0.04);
+  --color-overlay-3: rgba(255, 255, 255, 0.06);
+  --color-overlay-4: rgba(255, 255, 255, 0.08);
+  --color-overlay-5: rgba(255, 255, 255, 0.1);
 
   /* Shade scale (black at increasing opacity) */
-  --color-shade-1: rgba(0, 0, 0, .04);
-  --color-shade-2: rgba(0, 0, 0, .06);
-  --color-shade-3: rgba(0, 0, 0, .08);
-  --color-shade-4: rgba(0, 0, 0, .1);
-  --color-shade-5: rgba(0, 0, 0, .12);
-  --color-shade-6: rgba(0, 0, 0, .15);
-  --color-shade-7: rgba(0, 0, 0, .2);
-  --color-shade-8: rgba(0, 0, 0, .4);
-  --color-shade-9: rgba(0, 0, 0, .45);
-  --color-shade-10: rgba(0, 0, 0, .75);
+  --color-shade-1: rgba(0, 0, 0, 0.04);
+  --color-shade-2: rgba(0, 0, 0, 0.06);
+  --color-shade-3: rgba(0, 0, 0, 0.08);
+  --color-shade-4: rgba(0, 0, 0, 0.1);
+  --color-shade-5: rgba(0, 0, 0, 0.12);
+  --color-shade-6: rgba(0, 0, 0, 0.15);
+  --color-shade-7: rgba(0, 0, 0, 0.2);
+  --color-shade-8: rgba(0, 0, 0, 0.4);
+  --color-shade-9: rgba(0, 0, 0, 0.45);
+  --color-shade-10: rgba(0, 0, 0, 0.75);
 
   /* Aqua alpha scale */
-  --color-aqua-a06: rgba(0, 232, 208, .06);
-  --color-aqua-a08: rgba(0, 232, 208, .08);
-  --color-aqua-a1: rgba(0, 232, 208, .1);
-  --color-aqua-a12: rgba(0, 232, 208, .12);
-  --color-aqua-a15: rgba(0, 232, 208, .15);
-  --color-aqua-a2: rgba(0, 232, 208, .2);
-  --color-aqua-a3: rgba(0, 232, 208, .3);
+  --color-aqua-a06: rgba(0, 232, 208, 0.06);
+  --color-aqua-a08: rgba(0, 232, 208, 0.08);
+  --color-aqua-a1: rgba(0, 232, 208, 0.1);
+  --color-aqua-a12: rgba(0, 232, 208, 0.12);
+  --color-aqua-a15: rgba(0, 232, 208, 0.15);
+  --color-aqua-a2: rgba(0, 232, 208, 0.2);
+  --color-aqua-a3: rgba(0, 232, 208, 0.3);
 
   /* Amber alpha scale */
-  --color-amber-a08: rgba(255, 176, 32, .08);
-  --color-amber-a12: rgba(255, 176, 32, .12);
-  --color-amber-a2: rgba(255, 176, 32, .2);
-  --color-amber-a3: rgba(255, 176, 32, .3);
+  --color-amber-a08: rgba(255, 176, 32, 0.08);
+  --color-amber-a12: rgba(255, 176, 32, 0.12);
+  --color-amber-a2: rgba(255, 176, 32, 0.2);
+  --color-amber-a3: rgba(255, 176, 32, 0.3);
 
   /* ── Stagelight P0 promoted tokens (2026-05-28) ─────────────────────────
      Values previously hardcoded in component source; promoted here so they
@@ -382,8 +405,8 @@
      ─────────────────────────────────────────────────────────────────────── */
   /* Focus rings — NEVER the sole focus affordance; always paired with a
      border/outline change (a .15 alpha ring alone fails the 3:1 floor). */
-  --color-coral-ring: rgba(255, 51, 102, .15);
-  --color-aqua-ring: rgba(0, 232, 208, .15);
+  --color-coral-ring: rgba(255, 51, 102, 0.15);
+  --color-aqua-ring: rgba(0, 232, 208, 0.15);
   /* StageBadge fallback for pure-black stage colors (= text-muted, AA ~5.6:1). */
   --color-stage-fallback: #8787a8;
   /* Elevated sticky band (lighter than the canvas + --shadow-sticky). */
@@ -396,7 +419,40 @@
   --color-day-tab-active: #c01d3a;
 
   /* Elevation for the raised sticky band. */
-  --shadow-sticky: 0 1px 0 rgba(255, 255, 255, .04), 0 4px 12px rgba(0, 0, 0, .35);
+  --shadow-sticky: 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 12px rgba(0, 0, 0, 0.35);
+
+  /* ── Focus ring tokens (2026-06-04) ─────────────────────────────────────
+     Single source of truth for the accent-aqua focus affordance. base.css
+     :focus-visible, components.css inputs/buttons, and component-level
+     focus-visible:* utilities all reference these so a tuning pass touches
+     one place. Never the sole affordance — always paired with a ring shadow
+     for the 3:1 non-text-contrast floor (see :focus-visible rules). */
+  --focus-ring-width: 2px;
+  --focus-ring-color: var(--color-accent-aqua);
+  --focus-ring-offset: 2px;
+
+  /* ── Glass blur tokens (2026-06-04) ─────────────────────────────────────
+     Two canonical backdrop-blur radii. Chrome (header/bottom-nav) uses the
+     strong value; cards/dropdowns use the standard value. Replaces the
+     drift between 12px (components.css) and 16/20px (Header inline). */
+  --glass-blur: 12px;
+  --glass-blur-strong: 20px;
+
+  /* ── Discrete accent hover tones (2026-06-04) ───────────────────────────
+     Explicit darker accents for solid-fill button hover, replacing the
+     non-themeable brightness-110 filter. Toned ~10% so the hover reads as a
+     deliberate state change rather than a brightness bump. */
+  --color-accent-aqua-hover: #00cfba;
+  --color-accent-coral-hover: #e62e5c;
+
+  /* ── Timeline NOW label tokens (2026-06-04) ─────────────────────────────
+     The "NOW" marker color/background, promoted so the coral marker can be
+     retuned without editing the timeline-now-label utility inline. */
+  --timeline-now-color: var(--color-accent-coral);
+  --timeline-now-bg: var(--color-bg-primary);
+
+  /* Disabled control surface — paired with --color-text-disabled. */
+  --color-bg-disabled: rgba(255, 255, 255, 0.04);
 }
 
 /* Values that cannot live in @theme: var() references, rgb channels,

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { X, Music, Users, Sparkles, ChevronRight } from 'lucide-react';
 import Button from '../ui/Button';
@@ -40,7 +40,7 @@ const STEPS: StepConfig[] = [
     icon: <Music className="w-10 h-10 text-accent-coral" />,
     title: 'Choose Your Festival',
     description:
-      'Browse available festivals and select the one you\'re attending. You\'ll get the full lineup, schedule, and stage map.',
+      "Browse available festivals and select the one you're attending. You'll get the full lineup, schedule, and stage map.",
   },
   {
     icon: <Users className="w-10 h-10 text-accent-amber" />,
@@ -59,6 +59,17 @@ export default function Onboarding() {
     markOnboardingCompleted();
     setVisible(false);
   }, []);
+
+  // Escape-key dismissal (WCAG 2.1.2 / dialog convention). Mirrors the
+  // backdrop click and the close button so keyboard users can bail out.
+  useEffect(() => {
+    if (!visible) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dismiss();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [visible, dismiss]);
 
   const handleNext = useCallback(() => {
     if (step < STEPS.length - 1) {
@@ -84,11 +95,7 @@ export default function Onboarding() {
       aria-label="Welcome to Festie"
     >
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={dismiss}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={dismiss} aria-hidden="true" />
 
       {/* Card */}
       <div
@@ -99,11 +106,7 @@ export default function Onboarding() {
       >
         {/* Close button */}
         <div className="absolute top-2 right-2">
-          <IconButton
-            icon={<X className="w-5 h-5" />}
-            label="Dismiss onboarding"
-            onClick={dismiss}
-          />
+          <IconButton icon={<X className="w-5 h-5" />} label="Dismiss onboarding" onClick={dismiss} />
         </div>
 
         {/* Step icon */}
@@ -112,12 +115,8 @@ export default function Onboarding() {
         </div>
 
         {/* Step content */}
-        <h2 className="text-xl font-display font-bold text-text-primary mb-2">
-          {current.title}
-        </h2>
-        <p className="text-sm text-text-secondary leading-relaxed max-w-xs mb-6">
-          {current.description}
-        </p>
+        <h2 className="text-xl font-display font-bold text-text-primary mb-2">{current.title}</h2>
+        <p className="text-sm text-text-secondary leading-relaxed max-w-xs mb-6">{current.description}</p>
 
         {/* Step indicators */}
         <div className="flex items-center gap-2 mb-6" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
@@ -126,9 +125,7 @@ export default function Onboarding() {
               key={i}
               className={cn(
                 'h-1.5 rounded-full transition-all duration-300',
-                i === step
-                  ? 'w-6 bg-accent-aqua'
-                  : 'w-1.5 bg-text-muted/30',
+                i === step ? 'w-6 bg-accent-aqua' : 'w-1.5 bg-text-muted/30',
               )}
             />
           ))}
@@ -137,21 +134,11 @@ export default function Onboarding() {
         {/* Actions */}
         <div className="flex w-full gap-3">
           {!isLastStep && (
-            <Button
-              variant="ghost"
-              size="md"
-              className="flex-1"
-              onClick={dismiss}
-            >
+            <Button variant="ghost" size="md" className="flex-1" onClick={dismiss}>
               Skip
             </Button>
           )}
-          <Button
-            variant="primary"
-            size="md"
-            className="flex-1"
-            onClick={handleNext}
-          >
+          <Button variant="primary" size="md" className="flex-1" onClick={handleNext}>
             <span className="flex items-center gap-1">
               {isLastStep ? 'Get Started' : 'Next'}
               <ChevronRight className="w-4 h-4" />

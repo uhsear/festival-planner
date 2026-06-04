@@ -19,6 +19,33 @@ interface Props {
 const EMOJI: Record<number, string> = { 5: '🔥', 4: '😊', 3: '👍', 2: '🤔', 1: '👎' };
 
 /**
+ * Poster palette — mirrors the theme tokens in styles/theme.css. These posters
+ * are rendered off-screen and captured to a PNG via html-to-image, where CSS
+ * custom properties don't resolve reliably, so we keep literal hex values here
+ * rather than var() refs. Centralising them in one object (instead of scattering
+ * the magic hex inline) gives a single place to re-sync if the theme shifts.
+ *   bg        ← --color-bg-primary       (#080810)
+ *   coral     ← --color-accent-coral     (#ff3366)
+ *   aqua      ← --color-accent-aqua      (#00e8d0)
+ *   text      ← --color-text-primary     (#eaeaf2)
+ *   textMuted ← --color-text-secondary   (#9999bb)
+ * glowAlpha: ambient corner glows. Bumped 0.22 → 0.30 so the coral/aqua wash
+ * reads in bright sunlight / on phone screens; this is an off-screen render, so
+ * it is unaffected by system accessibility/contrast settings.
+ */
+const POSTER_COLORS = {
+  bg: '#080810',
+  coral: '#ff3366',
+  aqua: '#00e8d0',
+  text: '#eaeaf2',
+  textMuted: '#9999bb',
+} as const;
+const GLOW_ALPHA = 0.3;
+const POSTER_BG_IMAGE =
+  `radial-gradient(60% 45% at 50% 0%, rgba(255, 51, 102, ${GLOW_ALPHA}), transparent 60%), ` +
+  `radial-gradient(60% 45% at 50% 100%, rgba(0, 232, 208, ${GLOW_ALPHA}), transparent 60%)`;
+
+/**
  * Fixed-dimension 1080×1920 poster (9:16 — Instagram story / TikTok) rendered
  * off-screen and captured via html-to-image for sharing. All styles are inline
  * + numeric pixel values so it looks identical whether the user is on an iPad
@@ -30,11 +57,9 @@ export default function WrapPoster({ festivalName, topSets, stats }: Props) {
       style={{
         width: 1080,
         height: 1920,
-        background: '#080810',
-        backgroundImage:
-          'radial-gradient(60% 45% at 50% 0%, rgba(255, 51, 102, 0.22), transparent 60%), ' +
-          'radial-gradient(60% 45% at 50% 100%, rgba(0, 232, 208, 0.22), transparent 60%)',
-        color: '#eaeaf2',
+        background: POSTER_COLORS.bg,
+        backgroundImage: POSTER_BG_IMAGE,
+        color: POSTER_COLORS.text,
         fontFamily: 'Space Grotesk, system-ui, -apple-system, sans-serif',
         padding: 80,
         display: 'flex',
@@ -50,7 +75,7 @@ export default function WrapPoster({ festivalName, topSets, stats }: Props) {
             fontSize: 96,
             fontWeight: 900,
             letterSpacing: 8,
-            background: 'linear-gradient(90deg, #ff3366, #00e8d0)',
+            background: `linear-gradient(90deg, ${POSTER_COLORS.coral}, ${POSTER_COLORS.aqua})`,
             WebkitBackgroundClip: 'text',
             backgroundClip: 'text',
             color: 'transparent',
@@ -72,7 +97,7 @@ export default function WrapPoster({ festivalName, topSets, stats }: Props) {
             fontSize: 28,
             letterSpacing: 4,
             textTransform: 'uppercase',
-            color: '#9999bb',
+            color: POSTER_COLORS.textMuted,
             marginBottom: 24,
           }}
         >
@@ -89,9 +114,7 @@ export default function WrapPoster({ festivalName, topSets, stats }: Props) {
               borderBottom: '1px solid rgba(255,255,255,0.08)',
             }}
           >
-            <div style={{ fontSize: 64, width: 80, flexShrink: 0, textAlign: 'center' }}>
-              {EMOJI[s.rating] || '⭐'}
-            </div>
+            <div style={{ fontSize: 64, width: 80, flexShrink: 0, textAlign: 'center' }}>{EMOJI[s.rating] || '⭐'}</div>
             <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
               <div
                 style={{
@@ -104,15 +127,13 @@ export default function WrapPoster({ festivalName, topSets, stats }: Props) {
               >
                 {s.artist}
               </div>
-              {s.stageName && (
-                <div style={{ fontSize: 24, opacity: 0.55, marginTop: 4 }}>{s.stageName}</div>
-              )}
+              {s.stageName && <div style={{ fontSize: 24, opacity: 0.55, marginTop: 4 }}>{s.stageName}</div>}
             </div>
             <div
               style={{
                 fontSize: 32,
                 fontWeight: 800,
-                color: '#00e8d0',
+                color: POSTER_COLORS.aqua,
                 width: 100,
                 textAlign: 'right',
                 flexShrink: 0,
@@ -149,7 +170,7 @@ export default function WrapPoster({ festivalName, topSets, stats }: Props) {
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: 56, fontWeight: 800, color: '#ff3366', lineHeight: 1 }}>{t.value}</div>
+            <div style={{ fontSize: 56, fontWeight: 800, color: POSTER_COLORS.coral, lineHeight: 1 }}>{t.value}</div>
             <div
               style={{
                 fontSize: 20,

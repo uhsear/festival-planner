@@ -15,7 +15,11 @@ const RATINGS = [
   { n: 1, emoji: '👎', label: 'Skip' },
 ] as const;
 
-interface Rating { setId: string; rating: number; note?: string | null }
+interface Rating {
+  setId: string;
+  rating: number;
+  note?: string | null;
+}
 
 interface Props {
   setId: string;
@@ -34,7 +38,7 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
     queryKey: ['ratings', festivalId],
     queryFn: async () => {
       const res = await api.get<{ ratings: Rating[] }>(`/ratings/festival/${festivalId}`);
-      return Array.isArray(res) ? res : (res?.ratings || []);
+      return Array.isArray(res) ? res : res?.ratings || [];
     },
     enabled: !!festivalId,
     staleTime: 60_000,
@@ -53,7 +57,11 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
       const bridge = window.__festieQueue;
       if (!navigator.onLine && bridge?.queueMutation) {
         return bridge.queueMutation({
-          type: 'api', clientId: `rate-${setId}`, url: `/ratings/${setId}`, method: 'POST', body,
+          type: 'api',
+          clientId: `rate-${setId}`,
+          url: `/ratings/${setId}`,
+          method: 'POST',
+          body,
         });
       }
       return api.post(`/ratings/${setId}`, body);
@@ -78,7 +86,10 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
       const bridge = window.__festieQueue;
       if (!navigator.onLine && bridge?.queueMutation) {
         return bridge.queueMutation({
-          type: 'api', clientId: `rate-${setId}`, url: `/ratings/${setId}`, method: 'DELETE',
+          type: 'api',
+          clientId: `rate-${setId}`,
+          url: `/ratings/${setId}`,
+          method: 'DELETE',
         });
       }
       return api.delete(`/ratings/${setId}`);
@@ -86,7 +97,10 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: ['ratings', festivalId] });
       const prev = qc.getQueryData<Rating[]>(['ratings', festivalId]) || [];
-      qc.setQueryData(['ratings', festivalId], prev.filter((r) => r.setId !== setId));
+      qc.setQueryData(
+        ['ratings', festivalId],
+        prev.filter((r) => r.setId !== setId),
+      );
       return { prev };
     },
     onError: (e, _vars, ctx) => {
@@ -114,8 +128,11 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
   const size = compact ? 'w-11 h-11 text-base' : 'w-11 h-11 text-xl';
 
   return (
-    <div className={cn('flex items-center justify-center gap-1', compact && 'scale-90 origin-left')}
-         role="radiogroup" aria-label="Rate this set">
+    <div
+      className={cn('flex items-center justify-center gap-1', compact && 'scale-90 origin-left')}
+      role="radiogroup"
+      aria-label="Rate this set"
+    >
       {RATINGS.map((r) => {
         const active = current === r.n;
         return (
@@ -132,7 +149,7 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
               'rounded-full flex items-center justify-center transition-all',
               size,
               active
-                ? 'bg-accent-amber/25 scale-110 shadow-[0_0_12px_theme(colors.accent-amber/40)]'
+                ? 'bg-accent-amber/25 scale-110 shadow-[0_0_12px_theme(colors.accent-amber/40)] ring-2 ring-accent-amber/60'
                 : 'bg-bg-card/60 border border-border hover:border-border-light',
             )}
           >

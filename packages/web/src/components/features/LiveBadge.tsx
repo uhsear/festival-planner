@@ -33,7 +33,7 @@ export default function LiveBadge({ status, label, className }: LiveBadgeProps) 
             transition={{ duration: 2, repeat: Infinity }}
           />
         )}
-        <span className="text-xs font-extrabold uppercase tracking-[0.06em] text-white">{label}</span>
+        <span className="text-xs font-extrabold uppercase tracking-[0.06em] text-text-on-accent">{label}</span>
       </div>
     );
   }
@@ -41,7 +41,10 @@ export default function LiveBadge({ status, label, className }: LiveBadgeProps) 
   // Soon: Amber animated dot + "In Xm" text
   if (status === 'soon') {
     return (
-      <div className={cn('inline-flex items-center gap-2 px-3 py-1 rounded-full', 'bg-accent-amber/20', className)} aria-label="Starting soon">
+      <div
+        className={cn('inline-flex items-center gap-2 px-3 py-1 rounded-full', 'bg-accent-amber/20', className)}
+        aria-label="Starting soon"
+      >
         {prefersReducedMotion ? (
           <div className="w-2 h-2 rounded-full bg-accent-amber" aria-hidden="true" />
         ) : (
@@ -69,13 +72,7 @@ export default function LiveBadge({ status, label, className }: LiveBadgeProps) 
   // Past: Muted text "Ended", slightly dimmed
   if (status === 'past') {
     return (
-      <div
-        className={cn(
-          'inline-flex items-center px-3 py-1 rounded-full',
-          'bg-text-muted/10 opacity-60',
-          className
-        )}
-      >
+      <div className={cn('inline-flex items-center px-3 py-1 rounded-full', 'bg-text-muted/10 opacity-60', className)}>
         <span className="text-xs font-medium text-text-muted">{label}</span>
       </div>
     );

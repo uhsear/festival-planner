@@ -60,26 +60,45 @@ export function ensureWhiteContrast(hex: string): string {
   if (1.05 / (lum + 0.05) >= 4.6) return hex;
   const target = 1.05 / 4.6 - 0.05;
   const k = target / lum;
-  return toHex(
-    linearToSrgb(srgbToLinear(r) * k),
-    linearToSrgb(srgbToLinear(g) * k),
-    linearToSrgb(srgbToLinear(b) * k),
-  );
+  return toHex(linearToSrgb(srgbToLinear(r) * k), linearToSrgb(srgbToLinear(g) * k), linearToSrgb(srgbToLinear(b) * k));
 }
 
 // Ensures the inactive chip text color has at least 4.5:1 contrast against
-// the dark app background (~#0d0d1a, luminance ~0.008). Light stage colors
-// (yellow, lime, etc.) are brightened just enough to pass WCAG AA.
-const DARK_BG_LUMINANCE = 0.008;
+// the dark app background. The background luminance is read live from the
+// --color-bg-primary token (computed once, memoized) so a theme retune of the
+// canvas keeps the contrast math correct instead of drifting from a hardcoded
+// magic number. Falls back to the historical constant (~0.008, the old
+// ~#0d0d1a canvas luminance) in non-DOM contexts (SSR / tests).
+const FALLBACK_BG_LUMINANCE = 0.008;
+let _darkBgLuminance: number | null = null;
+function getDarkBgLuminance(): number {
+  if (_darkBgLuminance !== null) return _darkBgLuminance;
+  if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') {
+    return FALLBACK_BG_LUMINANCE;
+  }
+  try {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--color-bg-primary').trim();
+    const rgb = parseHex(raw);
+    if (rgb) {
+      _darkBgLuminance = relativeLuminance(rgb[0], rgb[1], rgb[2]);
+      return _darkBgLuminance;
+    }
+  } catch {
+    /* getComputedStyle can throw in detached documents — fall through */
+  }
+  _darkBgLuminance = FALLBACK_BG_LUMINANCE;
+  return _darkBgLuminance;
+}
 function ensureDarkBgContrast(hex: string): string {
   const rgb = parseHex(hex);
   if (!rgb) return hex;
   const [r, g, b] = rgb;
+  const bgLum = getDarkBgLuminance();
   const lum = relativeLuminance(r, g, b);
-  const ratio = (lum + 0.05) / (DARK_BG_LUMINANCE + 0.05);
+  const ratio = (lum + 0.05) / (bgLum + 0.05);
   if (ratio >= 4.5) return hex;
-  // Target luminance for 4.5:1 against DARK_BG_LUMINANCE
-  const targetLum = 4.5 * (DARK_BG_LUMINANCE + 0.05) - 0.05;
+  // Target luminance for 4.5:1 against the live canvas luminance.
+  const targetLum = 4.5 * (bgLum + 0.05) - 0.05;
   if (lum === 0) return 'var(--color-stage-fallback)'; // fallback for pure black
   const k = targetLum / lum;
   return toHex(
@@ -105,7 +124,7 @@ export function getStageBadgeStyle(
   const bg = ensureWhiteContrast(stageColor);
   return {
     background: bg,
-    color: '#fff',
+    color: 'var(--color-text-on-accent)',
     fontWeight: 700,
     textShadow: '0 1px 2px rgba(0, 0, 0, 0.35)',
     borderColor: bg,
@@ -125,10 +144,7 @@ export default function StageBadge({
   const activeClass = variant === 'chip' && active ? 'border-current' : '';
 
   return (
-    <span
-      className={cn(variantClass, activeClass, className)}
-      style={{ ...baseStyle, ...style }}
-    >
+    <span className={cn(variantClass, activeClass, className)} style={{ ...baseStyle, ...style }}>
       {stageName}
     </span>
   );

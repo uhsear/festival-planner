@@ -22,10 +22,7 @@ export default function Header() {
       { label: 'Grid', href: '/grid' },
     ];
     if (user) {
-      base.push(
-        { label: 'My Picks', href: '/picks' },
-        { label: 'Crew', href: '/crew' },
-      );
+      base.push({ label: 'My Picks', href: '/picks' }, { label: 'Crew', href: '/crew' });
     }
     return base;
   }, [user]);
@@ -46,9 +43,7 @@ export default function Header() {
     } catch {
       /* storage may be unavailable in some sandboxes */
     }
-    document
-      .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', '#080810');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#080810');
   }, []);
 
   // Connection status — simplified for React rewrite
@@ -70,7 +65,7 @@ export default function Header() {
     <header
       className={cn(
         'flex items-center justify-between shrink-0',
-        'bg-[var(--color-bg-chrome)] backdrop-saturate-[180%] backdrop-blur-[20px]',
+        'bg-[var(--color-bg-chrome)] backdrop-saturate-[180%] backdrop-blur-[var(--glass-blur-strong)]',
         'border-b border-border',
         'shadow-[0_1px_0_var(--color-overlay-1),0_4px_16px_var(--color-shade-7)]',
         'z-dropdown',
@@ -90,12 +85,7 @@ export default function Header() {
       )}
     >
       {/* Left section: connection dot + brand + util strip */}
-      <div
-        className={cn(
-          'flex items-center gap-3',
-          'max-md:min-w-0 max-md:overflow-hidden',
-        )}
-      >
+      <div className={cn('flex items-center gap-3', 'max-md:min-w-0 max-md:overflow-hidden')}>
         <div
           className={cn(
             'w-2 h-2 rounded-full mr-1 shrink-0',
@@ -106,12 +96,7 @@ export default function Header() {
           role="status"
           aria-label={connected ? 'Connected' : 'Disconnected'}
         />
-        <div
-          className={cn(
-            'flex flex-col gap-2',
-            'max-md:gap-0',
-          )}
-        >
+        <div className={cn('flex flex-col gap-2', 'max-md:gap-0')}>
           <h1
             className={cn(
               'font-display text-base font-bold tracking-[3px] uppercase text-accent-coral whitespace-nowrap',
@@ -181,9 +166,11 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Desktop navigation tabs — hidden on mobile, flex on desktop */}
+        {/* Primary nav tabs — desktop only (lg+). Tablet and mobile use the
+            bottom nav (BottomNav is `max-lg:block`), so the handoff is a clean
+            single switch at the lg breakpoint: no double-nav, no gap. */}
         <nav aria-label="Main navigation">
-          <div className="hidden md:flex gap-1 ml-6">
+          <div className="hidden lg:flex gap-1 ml-6">
             {desktopTabs.map((tab) => {
               const active = isTabActive(tab.href);
               return (
