@@ -99,6 +99,10 @@ const OFFLINE_ELIGIBLE_PATTERNS: RegExp[] = [
   /^\/crews\/[^/]+\/expenses(\/|$)/,
   /^\/crews\/[^/]+\/home-base(\/|$)/,
   /^\/crews\/[^/]+\/reminders(\/|$)/,
+  // M5: last-synced on-my-way / ETA. PUT with a deterministic clientId
+  // (status-<crewId>-<userId>) collapses repeated offline toggles into the
+  // latest, replay-safe write — captured offline, delivered on a signal blip.
+  /^\/crews\/[^/]+\/status(\/|$)/,
 ];
 
 export function isOfflineEligible(path: string): boolean {

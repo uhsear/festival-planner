@@ -108,7 +108,7 @@ export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
           );
         }
 
-        const { label, location, type, meetAt, stageReference } = body;
+        const { label, location, type, meetAt, stageReference, latitude, longitude } = body;
         const id = createOpaqueId('mp');
         let expiresAt = null;
         if (meetAt) {
@@ -125,6 +125,8 @@ export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
           meetAt,
           stageReference,
           expiresAt,
+          latitude: latitude ?? null,
+          longitude: longitude ?? null,
         });
 
         io.to('crew:' + crewId).emit('crew:meeting-point-created', point);

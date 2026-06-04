@@ -5,9 +5,10 @@ import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
 import Skeleton from '../ui/Skeleton';
-import { MapPin, Plus, Trash2, X, Navigation, Pencil } from 'lucide-react';
+import { MapPin, Plus, Trash2, X, Navigation, Pencil, LocateFixed, Check } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import { inputBase } from '../../lib/styles';
+import CrewStatus from './CrewStatus';
 
 // Server enum (lib/constants.js MEETING_POINT_TYPES) + user-facing metadata.
 const TYPES = [
@@ -30,6 +31,9 @@ interface MeetingPoint {
   type: TypeKey;
   meet_at: string | null;
   stage_reference: string | null;
+  // F4: captured GPS coords; null for legacy free-text points.
+  latitude?: number | null;
+  longitude?: number | null;
   active: boolean;
   created_at: string;
 }
@@ -40,6 +44,8 @@ interface MeetingPointPayload {
   type: TypeKey;
   meetAt?: string | null;
   stageReference?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 interface Props {
@@ -57,6 +63,9 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   const [stageRef, setStageRef] = useState('');
   const [type, setType] = useState<TypeKey>('during');
   const [meetAt, setMeetAt] = useState('');
+  // F4: optional captured GPS coords. null = no coord (free-text only).
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
 
   const {
     data: points = [],
@@ -108,6 +117,8 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
     setStageRef('');
     setType('during');
     setMeetAt('');
+    setCoords(null);
+    setLocating(false);
     setEditingId(null);
     setShowForm(false);
   }
@@ -120,7 +131,38 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
     setType(p.type);
     // datetime-local wants "YYYY-MM-DDTHH:mm" in local time.
     setMeetAt(p.meet_at ? toLocalInput(p.meet_at) : '');
+    setCoords(
+      typeof p.latitude === 'number' && typeof p.longitude === 'number' ? { lat: p.latitude, lng: p.longitude } : null,
+    );
     setShowForm(true);
+  }
+
+  // F4: capture the device's current position via the browser Geolocation API.
+  // Map-pick is deferred to the offline-map slice; denial gracefully falls back
+  // to the existing free-text location field (coords stay null).
+  function captureLocation() {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      toast('Location is not available on this device', 'error');
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocating(false);
+        toast('Location captured', 'success');
+      },
+      (err) => {
+        setLocating(false);
+        toast(
+          err.code === err.PERMISSION_DENIED
+            ? 'Location permission denied — using the typed location instead'
+            : "Couldn't get your location — using the typed location instead",
+          'error',
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
   }
 
   function openDirections(loc: string) {
@@ -136,6 +178,9 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
       type,
       meetAt: meetAt ? new Date(meetAt).toISOString() : null,
       stageReference: stageRef.trim() || null,
+      // F4: send captured coords, or null to clear them on edit.
+      latitude: coords ? coords.lat : null,
+      longitude: coords ? coords.lng : null,
     };
     if (editingId) {
       updatePoint.mutate({ id: editingId, payload });
@@ -169,6 +214,12 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
 
   return (
     <div className="space-y-3 px-4">
+      {/* M5: last-synced "on my way / ETA to [point]" — honest staleness, never
+          live. ETA targets are the meeting points below; coord-bearing points
+          enable a geo-computed ETA. */}
+      <CrewStatus crewId={crewId} currentUserId={currentUserId} meetingPoints={points} />
+      <div className="h-px bg-border" />
+
       {!showForm ? (
         <Button variant="primary" onClick={() => setShowForm(true)} className="w-full min-h-11">
           <Plus className="w-4 h-4" aria-hidden="true" /> Add Meeting Point
@@ -238,6 +289,36 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
             value={meetAt}
             onChange={(e) => setMeetAt(e.target.value)}
           />
+
+          {/* F4: optional GPS capture. Falls back to free-text on denial. */}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={captureLocation}
+              isLoading={locating}
+              className="min-h-11"
+            >
+              <LocateFixed className="w-4 h-4" aria-hidden="true" /> Use my location
+            </Button>
+            {coords && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-accent-aqua/15 text-accent-aqua text-xs font-medium"
+                title={`${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`}
+              >
+                <Check className="w-3 h-3" aria-hidden="true" />
+                {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+                <button
+                  type="button"
+                  aria-label="Clear captured location"
+                  onClick={() => setCoords(null)}
+                  className="ml-0.5 hover:text-accent-coral"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+          </div>
 
           <Button
             type="submit"

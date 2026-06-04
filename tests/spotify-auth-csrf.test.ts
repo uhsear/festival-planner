@@ -38,10 +38,16 @@ function buildApp() {
   return app;
 }
 
+function locationOf(res: request.Response): string {
+  const location = res.headers.location;
+  assert.equal(typeof location, 'string', 'expected a redirect Location header');
+  return location as string;
+}
+
 test('callback rejects (status=invalid) when no state cookie is present', async () => {
   const res = await request(buildApp()).get('/api/v1/spotify/auth/callback?code=abc&state=xyz');
   assert.equal(res.status, 302);
-  assert.match(res.headers.location, /status=invalid/);
+  assert.match(locationOf(res), /status=invalid/);
 });
 
 test('callback rejects (status=invalid) when the cookie state mismatches the query state', async () => {
@@ -49,7 +55,7 @@ test('callback rejects (status=invalid) when the cookie state mismatches the que
     .get('/api/v1/spotify/auth/callback?code=abc&state=xyz')
     .set('Cookie', 'fp_spotify_oauth_state=DIFFERENT');
   assert.equal(res.status, 302);
-  assert.match(res.headers.location, /status=invalid/);
+  assert.match(locationOf(res), /status=invalid/);
 });
 
 test('callback passes the CSRF check when the cookie matches (then expired at takeState)', async () => {
@@ -58,5 +64,5 @@ test('callback passes the CSRF check when the cookie matches (then expired at ta
     .set('Cookie', 'fp_spotify_oauth_state=xyz');
   assert.equal(res.status, 302);
   // CSRF passed → proceeds to the (empty) state store → 'expired', NOT 'invalid'.
-  assert.match(res.headers.location, /status=expired/);
+  assert.match(locationOf(res), /status=expired/);
 });

@@ -7,6 +7,7 @@ import createMeetingPointRoutes from './crew-meeting-points.js';
 import createPollRoutes from './crew-polls.js';
 import createPackingRoutes from './crew-packing.js';
 import createRidesRoutes from './crew-rides.js';
+import createStatusRoutes from './crew-status.js';
 import createCrewMemberRoutes from './crew-members.js';
 
 /**
@@ -143,6 +144,7 @@ export default function createCrewRoutes(deps: any) {
   const pollRoutes = createPollRoutes(subDeps);
   const packingRoutes = createPackingRoutes(subDeps);
   const ridesRoutes = createRidesRoutes(subDeps);
+  const statusRoutes = createStatusRoutes(subDeps);
   const memberRoutes = createCrewMemberRoutes(subDeps);
 
   router.use('/', inviteRoutes);
@@ -150,6 +152,7 @@ export default function createCrewRoutes(deps: any) {
   router.use('/', pollRoutes);
   router.use('/', packingRoutes);
   router.use('/', ridesRoutes);
+  router.use('/', statusRoutes);
   router.use('/', memberRoutes);
 
   // ── Crew creation helpers ────────────────────────────────────────

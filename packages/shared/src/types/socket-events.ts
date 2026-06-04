@@ -1,4 +1,4 @@
-import type { OnlineUser, Priority } from './domain';
+import type { OnlineUser, Priority, CrewMemberStatus } from './domain';
 
 // ════════════════════════════════════════════════════════════════════════════════
 // Socket.IO Event Payload Types
@@ -138,6 +138,16 @@ export interface CrewActivityPayload extends VersionedPayload {
   item: Record<string, unknown>;
 }
 
+/**
+ * M5: a member's last-synced status changed. The payload carries the upserted
+ * row (snake_case). NOT live GPS — the client renders `updated_at` as honest
+ * staleness. The crew room scopes it, so (like poll events) it carries no
+ * top-level crewId; the row's `crew_id` is authoritative.
+ */
+export interface CrewStatusUpdatedPayload extends VersionedPayload {
+  status: CrewMemberStatus;
+}
+
 // ════════════════════════════════════════════════════════════════════════════════
 // Server → Client event map
 // ════════════════════════════════════════════════════════════════════════════════
@@ -194,6 +204,7 @@ export interface ServerToClientEvents {
   'crew:expense-added': (data: CrewExpensePayload) => void;
   'crew:expense-deleted': (data: CrewExpenseDeletedPayload) => void;
   'crew:activity': (data: CrewActivityPayload) => void;
+  'crew:status-updated': (data: CrewStatusUpdatedPayload) => void;
 
   // Identity
   'profile:identity': (data: { festivalId: string; profileId: string; username: string; avatarUrl?: string }) => void;
@@ -201,9 +212,9 @@ export interface ServerToClientEvents {
   // System
   'session:revoked': (data: { reason: string }) => void;
   'server:draining': (data: { message: string }) => void;
-  'error': (error: { message: string; code?: string }) => void;
-  'connect': () => void;
-  'disconnect': (reason: string) => void;
+  error: (error: { message: string; code?: string }) => void;
+  connect: () => void;
+  disconnect: (reason: string) => void;
 }
 
 // ════════════════════════════════════════════════════════════════════════════════

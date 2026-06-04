@@ -89,6 +89,39 @@ export default defineConfig({
             },
           },
           {
+            // F5: cache the PUBLIC weather GET (/api/v1/weather/:festivalId) so a
+            // downloaded festival shows its forecast offline. Weather is NOT
+            // per-user (it keys off the festival's coords), so URL-keyed SW
+            // caching is safe here — unlike /profiles or /crews, which stay in
+            // zustand-persist. NetworkFirst with a short timeout: prefer fresh
+            // data when online, fall back to the cached forecast when offline.
+            urlPattern: ({ url, request }: { url: URL; request: Request }) =>
+              request.method === 'GET' && /^\/api\/v1\/weather\/[^/]+$/.test(url.pathname),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'weather-cache',
+              networkTimeoutSeconds: 4,
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 6 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // F5: CacheFirst for artist/album art (Spotify CDNs + our app art
+            // host). These are immutable, content-addressed PUBLIC images — once
+            // cached they render offline on set cards / detail panels. Bounded to
+            // ~300 entries so the cache can't grow unbounded on a big lineup.
+            urlPattern: ({ url }: { url: URL }) =>
+              /(^|\.)scdn\.co$/.test(url.hostname) ||
+              /(^|\.)spotifycdn\.com$/.test(url.hostname) ||
+              url.hostname === 'art.festie.us',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'art-cache',
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
             handler: 'CacheFirst',
             options: {
