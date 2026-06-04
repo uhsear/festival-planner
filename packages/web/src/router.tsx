@@ -49,6 +49,7 @@ const loadForgot = () => import('./routes/forgot-password');
 const loadAccount = () => import('./routes/account');
 const loadCompare = () => import('./routes/compare');
 const loadSet = () => import('./routes/set');
+const loadSpotifyCallback = () => import('./routes/spotify-callback');
 
 // Generic minimal fallback for auth/admin routes — these chunks are tiny and
 // a layout-matched skeleton isn't worth the bytes. Main-tab routes below get
@@ -74,6 +75,7 @@ const WrapView = withSkeleton(lazy(loadWrap), WrapSkeleton);
 const AccountPage = withSkeleton(lazy(loadAccount), AccountSkeleton);
 const CompareView = withSkeleton(lazy(loadCompare), MinimalFallback);
 const SetDeepLinkView = withSkeleton(lazy(loadSet), CardsSkeleton);
+const SpotifyCallbackView = withSkeleton(lazy(loadSpotifyCallback), MinimalFallback);
 const AdminPanel = withSkeleton(lazy(loadAdmin), MinimalFallback);
 const LoginPage = withSkeleton(lazy(loadLogin), MinimalFallback);
 const RegisterPage = withSkeleton(lazy(loadRegister), MinimalFallback);
@@ -230,6 +232,18 @@ const setRoute = new Route({
   component: SetDeepLinkView,
 });
 
+// /spotify/connected — OAuth callback landing. The backend redirects here after
+// exchanging the code (?status=connected|denied|expired|...). Requires auth: the
+// connect flow is only reachable from a logged-in /picks surface.
+const spotifyCallbackRoute = new Route({
+  getParentRoute: () => rootRoute,
+  path: '/spotify/connected',
+  component: SpotifyCallbackView,
+  beforeLoad: async () => {
+    if (!isAuthenticated()) throw redirect({ to: '/login' });
+  },
+});
+
 const adminRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/admin',
@@ -258,6 +272,7 @@ const routeTree = rootRoute.addChildren([
   meRoute,
   compareRoute,
   setRoute,
+  spotifyCallbackRoute,
   adminRoute,
 ]);
 
