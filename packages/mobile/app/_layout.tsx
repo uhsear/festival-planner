@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { configureApi, setAuthToken } from '@festie/shared/services';
 import { useAuthStore } from '@festie/shared/stores';
+import { colors, fontSize } from '@festie/shared/tokens';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -154,14 +155,42 @@ function AuthGate() {
 
   return (
     <View style={styles.appShell}>
+      {/* Light status bar is intentional: the whole app sits on a dark bg and
+          every header is dark (enforced by design), so dark icons would clash. */}
       <StatusBar style="light" />
       {!loading && <OfflineBanner />}
       <View style={styles.appShell}>
         <ErrorBoundary>
-          <Stack screenOptions={{ headerShown: false }}>
+          {/*
+            Default headerShown:false — tabs/auth manage their own chrome. But
+            several pushed routes (map, compass, plan-share, crew-plan,
+            crew-compare, festival-mode, wrap) flip headerShown:true with just a
+            title; these dark header defaults ensure that WHEN a header shows it
+            matches the app's dark background instead of the native white bar.
+            contentStyle keeps the screen body dark so there's no white flash
+            between transitions. The StatusBar is intentionally light-content
+            because every header in the app is dark (enforced by design).
+          */}
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              headerStyle: { backgroundColor: colors.bg.secondary },
+              headerTintColor: colors.text.primary,
+              headerTitleStyle: {
+                color: colors.text.primary,
+                fontWeight: '600',
+                fontSize: fontSize[18],
+              },
+              headerShadowVisible: false,
+              contentStyle: { backgroundColor: colors.bg.primary },
+            }}
+          >
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="(auth)" />
-            <Stack.Screen name="set/[setId]" options={{ presentation: 'modal' }} />
+            <Stack.Screen
+              name="set/[setId]"
+              options={{ presentation: 'modal', headerTintColor: colors.text.primary }}
+            />
             <Stack.Screen name="privacy" options={{ presentation: 'card', headerShown: false }} />
             <Stack.Screen name="reset-password" options={{ presentation: 'card', headerShown: false }} />
           </Stack>
@@ -169,7 +198,7 @@ function AuthGate() {
       </View>
       {loading && (
         <View style={[StyleSheet.absoluteFill, styles.splash]} pointerEvents="auto">
-          <ActivityIndicator size="large" color="#FF6B6B" />
+          <ActivityIndicator size="large" color={colors.accent.aqua} />
         </View>
       )}
       {!loading && introSeen === false && <FirstRunIntro onDone={dismissIntro} />}
@@ -182,7 +211,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0A0E1A',
+    backgroundColor: colors.bg.primary,
   },
   appShell: {
     flex: 1,

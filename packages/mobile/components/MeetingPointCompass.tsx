@@ -262,11 +262,12 @@ const useStyles = makeStyles((t) => ({
     textAlign: 'center',
   },
   stateCard: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: t.spacing[3],
-    paddingVertical: t.spacing[8],
-    paddingHorizontal: t.spacing[6],
+    paddingVertical: t.spacing[6],
+    paddingHorizontal: t.spacing[5],
   },
   stateTitle: {
     ...typeStyle('title'),

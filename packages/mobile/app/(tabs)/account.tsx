@@ -249,6 +249,12 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.bg.primary,
   },
   scroll: {
+    // Centered, capped content width so cards don't span edge-to-edge on
+    // tablets / large screens. On phones (< 600pt) this is a no-op and the
+    // content simply fills the available width.
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
     paddingHorizontal: t.spacing[4],
     paddingBottom: t.spacing[6],
     gap: t.spacing[4],

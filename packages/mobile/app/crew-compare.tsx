@@ -241,10 +241,19 @@ export default function CrewCompareScreen() {
 }
 
 function Wrapper({ children }: { children: React.ReactNode }) {
+  const t = useTokens();
   const styles = useStyles();
   return (
     <View style={styles.screen}>
-      <Stack.Screen options={{ title: 'Compare schedules', presentation: 'modal', headerShown: true }} />
+      <Stack.Screen
+        options={{
+          title: 'Compare schedules',
+          presentation: 'modal',
+          headerShown: true,
+          headerStyle: { backgroundColor: t.colors.bg.secondary },
+          headerTintColor: t.colors.text.primary,
+        }}
+      />
       {children}
     </View>
   );

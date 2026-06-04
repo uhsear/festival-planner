@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   RefreshControl,
+  useWindowDimensions,
   type ListRenderItem,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,6 +59,21 @@ export default function TimelineScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { viewMode, setViewMode } = useUI();
+  const { width } = useWindowDimensions();
+
+  // Responsive horizontal gutter. Phones keep the standard spacing[4] (16px)
+  // edge padding. On tablet-class widths a flat 16px gutter leaves the chrome
+  // (search bar, day/filter chips, view switcher) stranded against huge empty
+  // sidebars, so we widen the gutter and cap the content column — when the
+  // window is wider than maxContentWidth the extra space is split evenly,
+  // centering the content instead of stretching it edge-to-edge.
+  const isTablet = width >= 700;
+  const maxContentWidth = 760;
+  const hPad = useMemo(() => {
+    if (!isTablet) return t.spacing[4];
+    const centered = (width - maxContentWidth) / 2;
+    return Math.max(t.spacing[8], centered);
+  }, [isTablet, width, t.spacing]);
 
   const festivals = useFestivalDataStore((s) => s.festivals);
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
@@ -367,7 +383,7 @@ export default function TimelineScreen() {
   if (!currentFestival) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingHorizontal: hPad }]}>
           <Ionicons name="musical-notes" size={24} color={t.colors.accent.aqua} />
           <Text style={styles.headerTitle}>Select a Festival</Text>
         </View>
@@ -389,7 +405,7 @@ export default function TimelineScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.viewSwitcher}>
+      <View style={[styles.viewSwitcher, { paddingHorizontal: hPad }]}>
         <View style={styles.liveRow}>
           <LiveDot />
           <TouchableOpacity
@@ -422,7 +438,7 @@ export default function TimelineScreen() {
       </View>
 
       {/* Search */}
-      <View style={styles.searchRow}>
+      <View style={[styles.searchRow, { marginHorizontal: hPad }]}>
         <Ionicons name="search" size={16} color={t.colors.text.placeholder} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
@@ -450,7 +466,11 @@ export default function TimelineScreen() {
       {/* Day selector */}
       {days.length > 1 ? (
         <View style={styles.daysWrap}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysContent}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.daysContent, { paddingHorizontal: hPad }]}
+          >
             {days.map((day) => {
               const active = day.index === selectedDay;
               const isToday = day.date === todayStr;
@@ -478,7 +498,11 @@ export default function TimelineScreen() {
       {/* Stage + my-picks filters */}
       {currentProfile || stages.length > 1 ? (
         <View style={styles.filterRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.filterContent, { paddingHorizontal: hPad }]}
+          >
             {currentProfile ? (
               <TouchableOpacity
                 style={[styles.filterChip, onlyMine && styles.filterChipActive]}
@@ -523,7 +547,7 @@ export default function TimelineScreen() {
           data={rows}
           renderItem={renderRow}
           keyExtractor={keyExtractor}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingHorizontal: hPad }]}
           refreshControl={refreshControl}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={

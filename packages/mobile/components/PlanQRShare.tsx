@@ -125,7 +125,7 @@ export default function PlanQRShare() {
           value={encoded}
           size={240}
           // High-contrast on a light tile so cameras lock fast in low festival light.
-          color="#0A0E1A"
+          color="#080810"
           backgroundColor="#FFFFFF"
           // L error correction keeps the code small/dense-free for our bounded payload.
           ecl="M"

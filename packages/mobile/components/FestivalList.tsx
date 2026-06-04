@@ -45,7 +45,7 @@ function FestivalCard({ festival, onPress, isSelecting }: FestivalCardProps) {
     >
       <View style={styles.cardContent}>
         <View style={styles.titleRow}>
-          <Text style={styles.festivalName} numberOfLines={1}>
+          <Text style={styles.festivalName} numberOfLines={1} ellipsizeMode="tail">
             {festival.name}
           </Text>
           {badge ? (
@@ -243,6 +243,9 @@ const styles = StyleSheet.create({
   festivalName: {
     flex: 1,
     fontSize: fontSize[18],
+    // Reserve vertical headroom so the 700-weight glyphs (descenders/diacritics)
+    // are not clipped when the OS bumps font scale on tablets/large-text settings.
+    lineHeight: fontSize[24],
     fontWeight: '700',
     color: colors.text.primary,
   },

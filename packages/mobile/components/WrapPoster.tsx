@@ -1,4 +1,19 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { colors } from '@festie/shared/tokens';
+
+/**
+ * Poster palette. Hardcoded to match the token palette for offline poster
+ * rendering: the off-screen capture must produce identical pixels on every
+ * device, but the values are sourced from `@festie/shared/tokens` (pure data,
+ * zero runtime deps) so web and poster stay in sync if the palette evolves.
+ */
+const POSTER = {
+  bg: colors.bg.primary, // #080810
+  wordmark: colors.accent.coral, // #ff3366
+  text: colors.text.primary, // #eaeaf2
+  textMuted: colors.text.secondary, // #9999bb
+  rank: colors.accent.aqua, // #00e8d0
+} as const;
 
 interface PosterSet {
   rating: number;
@@ -40,7 +55,9 @@ export default function WrapPoster({ festivalName, topSets, stats }: Props) {
       <View style={s.header}>
         <Text style={s.wordmark}>FESTIE</Text>
         <Text style={s.kicker}>YOUR FESTIVAL WRAP</Text>
-        <Text style={s.festival} numberOfLines={2}>{festivalName}</Text>
+        <Text style={s.festival} numberOfLines={2}>
+          {festivalName}
+        </Text>
       </View>
 
       {/* Top sets */}
@@ -50,8 +67,14 @@ export default function WrapPoster({ festivalName, topSets, stats }: Props) {
           <View key={set.artist || i} style={s.topRow}>
             <Text style={s.topEmoji}>{EMOJI[set.rating] || '⭐'}</Text>
             <View style={s.topInfo}>
-              <Text style={s.topArtist} numberOfLines={1}>{set.artist}</Text>
-              {set.stageName ? <Text style={s.topStage} numberOfLines={1}>{set.stageName}</Text> : null}
+              <Text style={s.topArtist} numberOfLines={1}>
+                {set.artist}
+              </Text>
+              {set.stageName ? (
+                <Text style={s.topStage} numberOfLines={1}>
+                  {set.stageName}
+                </Text>
+              ) : null}
             </View>
             <Text style={s.topRank}>#{i + 1}</Text>
           </View>
@@ -77,7 +100,7 @@ const s = StyleSheet.create({
   poster: {
     width: 1080,
     height: 1920,
-    backgroundColor: '#080810',
+    backgroundColor: POSTER.bg,
     padding: 80,
     flexDirection: 'column',
   },
@@ -86,12 +109,12 @@ const s = StyleSheet.create({
     fontSize: 96,
     fontWeight: '900',
     letterSpacing: 8,
-    color: '#ff3366',
+    color: POSTER.wordmark,
     lineHeight: 104,
   },
   kicker: {
     fontSize: 32,
-    color: '#eaeaf2',
+    color: POSTER.text,
     opacity: 0.7,
     marginTop: 16,
     letterSpacing: 3,
@@ -99,7 +122,7 @@ const s = StyleSheet.create({
   festival: {
     fontSize: 56,
     fontWeight: '700',
-    color: '#eaeaf2',
+    color: POSTER.text,
     marginTop: 18,
     textAlign: 'center',
   },
@@ -107,7 +130,7 @@ const s = StyleSheet.create({
   topHeading: {
     fontSize: 28,
     letterSpacing: 4,
-    color: '#9999bb',
+    color: POSTER.textMuted,
     marginBottom: 24,
   },
   topRow: {
@@ -119,9 +142,9 @@ const s = StyleSheet.create({
   },
   topEmoji: { fontSize: 64, width: 96, textAlign: 'center' },
   topInfo: { flex: 1, paddingHorizontal: 24 },
-  topArtist: { fontSize: 40, fontWeight: '700', color: '#eaeaf2' },
-  topStage: { fontSize: 24, color: '#eaeaf2', opacity: 0.55, marginTop: 4 },
-  topRank: { fontSize: 32, fontWeight: '800', color: '#00e8d0', width: 100, textAlign: 'right' },
+  topArtist: { fontSize: 40, fontWeight: '700', color: POSTER.text },
+  topStage: { fontSize: 24, color: POSTER.text, opacity: 0.55, marginTop: 4 },
+  topRank: { fontSize: 32, fontWeight: '800', color: POSTER.rank, width: 100, textAlign: 'right' },
   statsGrid: {
     marginTop: 60,
     flexDirection: 'row',
@@ -136,13 +159,13 @@ const s = StyleSheet.create({
     paddingVertical: 28,
     alignItems: 'center',
   },
-  statValue: { fontSize: 56, fontWeight: '800', color: '#ff3366', lineHeight: 60 },
-  statLabel: { fontSize: 20, color: '#eaeaf2', opacity: 0.65, marginTop: 8, letterSpacing: 3 },
+  statValue: { fontSize: 56, fontWeight: '800', color: POSTER.wordmark, lineHeight: 60 },
+  statLabel: { fontSize: 20, color: POSTER.text, opacity: 0.65, marginTop: 8, letterSpacing: 3 },
   footer: {
     textAlign: 'center',
     marginTop: 60,
     fontSize: 28,
-    color: '#eaeaf2',
+    color: POSTER.text,
     opacity: 0.45,
     letterSpacing: 6,
   },
