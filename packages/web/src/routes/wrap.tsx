@@ -7,6 +7,7 @@ import { useFestivalStore, useAuthStore, useCrewStore } from '@festie/shared/sto
 import { useFestival } from '@festie/shared/hooks';
 import GuestTeaser from '../components/features/GuestTeaser';
 import EmptyState from '../components/ui/EmptyState';
+import { Card } from '../components/ui/Card';
 import Skeleton from '../components/ui/Skeleton';
 import Button from '../components/ui/Button';
 import WrapPoster from '../components/features/WrapPoster';
@@ -141,24 +142,28 @@ function WrapPageInner() {
 
   if (!currentFestival) {
     return (
-      <div className="px-4 py-8">
-        <EmptyState
-          icon={<Sparkles className="w-12 h-12" aria-hidden="true" />}
-          title="Select a festival first"
-          description="Your wrap appears here once a festival ends."
-        />
+      <div className="px-4 py-8 max-w-lg mx-auto">
+        <Card padding="lg">
+          <EmptyState
+            icon={<Sparkles className="w-12 h-12" aria-hidden="true" />}
+            title="Select a festival first"
+            description="Your wrap appears here once a festival ends."
+          />
+        </Card>
       </div>
     );
   }
 
   if (!over) {
     return (
-      <div className="px-4 py-8">
-        <EmptyState
-          icon={<Sparkles className="w-12 h-12" aria-hidden="true" />}
-          title="Festival wrap coming soon"
-          description="We'll put together your highlights the day after the festival ends."
-        />
+      <div className="px-4 py-8 max-w-lg mx-auto">
+        <Card padding="lg">
+          <EmptyState
+            icon={<Sparkles className="w-12 h-12" aria-hidden="true" />}
+            title="Festival wrap coming soon"
+            description="We'll put together your highlights the day after the festival ends."
+          />
+        </Card>
       </div>
     );
   }
@@ -222,13 +227,15 @@ function WrapPageInner() {
   }
   if (isError) {
     return (
-      <div className="px-4 py-8">
-        <EmptyState
-          icon={<Sparkles className="w-12 h-12" aria-hidden="true" />}
-          title="Couldn't load your wrap"
-          description="Something went wrong loading your festival wrap."
-          cta={{ label: 'Retry', onClick: () => refetch() }}
-        />
+      <div className="px-4 py-8 max-w-lg mx-auto">
+        <Card padding="lg">
+          <EmptyState
+            icon={<Sparkles className="w-12 h-12" aria-hidden="true" />}
+            title="Couldn't load your wrap"
+            description="Something went wrong loading your festival wrap."
+            cta={{ label: 'Retry', onClick: () => refetch() }}
+          />
+        </Card>
       </div>
     );
   }
@@ -304,11 +311,13 @@ function WrapPageInner() {
             </div>
           </section>
         ) : (
-          <EmptyState
-            icon={<Trophy className="w-12 h-12" aria-hidden="true" />}
-            title="No 4/5 or 5/5 ratings yet"
-            description="Rate sets from the set detail panel to build your wrap."
-          />
+          <Card padding="lg">
+            <EmptyState
+              icon={<Trophy className="w-12 h-12" aria-hidden="true" />}
+              title="No 4/5 or 5/5 ratings yet"
+              description="Rate sets from the set detail panel to build your wrap."
+            />
+          </Card>
         )}
 
         {/* Full list */}
@@ -441,12 +450,14 @@ function CrewWrapTab({
 
   if (!crewId) {
     return (
-      <div className="px-4 py-8">
-        <EmptyState
-          icon={<Users className="w-12 h-12" aria-hidden="true" />}
-          title="No active crew"
-          description="Join or select a crew to see your shared festival recap."
-        />
+      <div className="px-4 py-8 max-w-lg mx-auto">
+        <Card padding="lg">
+          <EmptyState
+            icon={<Users className="w-12 h-12" aria-hidden="true" />}
+            title="No active crew"
+            description="Join or select a crew to see your shared festival recap."
+          />
+        </Card>
       </div>
     );
   }
@@ -460,13 +471,15 @@ function CrewWrapTab({
   }
   if (isError || !wrap) {
     return (
-      <div className="px-4 py-8">
-        <EmptyState
-          icon={<Users className="w-12 h-12" aria-hidden="true" />}
-          title="Couldn't load your crew wrap"
-          description="Something went wrong loading the shared recap."
-          cta={{ label: 'Retry', onClick: () => refetch() }}
-        />
+      <div className="px-4 py-8 max-w-lg mx-auto">
+        <Card padding="lg">
+          <EmptyState
+            icon={<Users className="w-12 h-12" aria-hidden="true" />}
+            title="Couldn't load your crew wrap"
+            description="Something went wrong loading the shared recap."
+            cta={{ label: 'Retry', onClick: () => refetch() }}
+          />
+        </Card>
       </div>
     );
   }

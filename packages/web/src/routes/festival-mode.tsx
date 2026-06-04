@@ -84,7 +84,7 @@ function FestivalModeViewInner() {
 
   if (!currentFestival) {
     return (
-      <div className="px-4 max-w-[500px] mx-auto pb-[calc(20px+env(safe-area-inset-bottom,0px))]">
+      <div className="max-w-[500px] mx-auto pb-[calc(20px+env(safe-area-inset-bottom,0px))]">
         <EmptyState
           icon={<CalendarX className="w-12 h-12" aria-hidden="true" />}
           title="No festival loaded"
@@ -96,7 +96,7 @@ function FestivalModeViewInner() {
 
   return (
     <div
-      className="px-4 max-w-[500px] mx-auto pb-[calc(20px+env(safe-area-inset-bottom,0px))]"
+      className="max-w-[500px] mx-auto pb-[calc(20px+env(safe-area-inset-bottom,0px))]"
       data-testid="festival-mode-view"
     >
       <div className="flex justify-between items-baseline mb-5">

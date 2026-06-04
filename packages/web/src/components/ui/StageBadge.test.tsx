@@ -36,42 +36,25 @@ describe('StageBadge', () => {
   });
 
   it('adds active styling for active chip variant', () => {
-    render(
-      <StageBadge stageName="Main" stageColor="#ff0000" variant="chip" active />,
-    );
+    render(<StageBadge stageName="Main" stageColor="#ff0000" variant="chip" active />);
     const badge = screen.getByText('Main');
     expect(badge.className).toContain('border-current');
   });
 
   it('does not add active styling for inactive chip', () => {
-    render(
-      <StageBadge
-        stageName="Main"
-        stageColor="#ff0000"
-        variant="chip"
-        active={false}
-      />,
-    );
+    render(<StageBadge stageName="Main" stageColor="#ff0000" variant="chip" active={false} />);
     const badge = screen.getByText('Main');
     expect(badge.className).not.toContain('border-current');
   });
 
   it('applies custom className', () => {
-    render(
-      <StageBadge stageName="Test" stageColor="#000" className="my-custom" />,
-    );
+    render(<StageBadge stageName="Test" stageColor="#000" className="my-custom" />);
     const badge = screen.getByText('Test');
     expect(badge.className).toContain('my-custom');
   });
 
   it('applies custom style', () => {
-    render(
-      <StageBadge
-        stageName="Test"
-        stageColor="#000"
-        style={{ marginLeft: '4px' }}
-      />,
-    );
+    render(<StageBadge stageName="Test" stageColor="#000" style={{ marginLeft: '4px' }} />);
     const badge = screen.getByText('Test');
     expect(badge).toHaveStyle({ marginLeft: '4px' });
   });
@@ -85,7 +68,7 @@ describe('StageBadge', () => {
 describe('getStageBadgeStyle', () => {
   it('returns white text for default variant', () => {
     const style = getStageBadgeStyle('#ff3366');
-    expect(style.color).toBe('#fff');
+    expect(style.color).toBe('var(--color-text-on-accent)');
     expect(style.fontWeight).toBe(700);
   });
 
@@ -99,7 +82,7 @@ describe('getStageBadgeStyle', () => {
 
   it('returns solid style for active chip', () => {
     const style = getStageBadgeStyle('#ff3366', 'chip', true);
-    expect(style.color).toBe('#fff');
+    expect(style.color).toBe('var(--color-text-on-accent)');
     expect(style.fontWeight).toBe(700);
   });
 
@@ -107,25 +90,25 @@ describe('getStageBadgeStyle', () => {
     // Pure white would need significant darkening
     const style = getStageBadgeStyle('#ffffff');
     expect(style.background).not.toBe('#ffffff');
-    expect(style.color).toBe('#fff');
+    expect(style.color).toBe('var(--color-text-on-accent)');
   });
 
   it('preserves already-dark colors', () => {
     const style = getStageBadgeStyle('#000000');
     expect(style.background).toBe('#000000');
-    expect(style.color).toBe('#fff');
+    expect(style.color).toBe('var(--color-text-on-accent)');
   });
 
   it('handles 3-digit hex', () => {
     const style = getStageBadgeStyle('#f36');
-    expect(style.color).toBe('#fff');
+    expect(style.color).toBe('var(--color-text-on-accent)');
     expect(style.background).toBeTruthy();
   });
 
   it('handles invalid hex gracefully', () => {
     const style = getStageBadgeStyle('not-a-color');
     expect(style.background).toBe('not-a-color');
-    expect(style.color).toBe('#fff');
+    expect(style.color).toBe('var(--color-text-on-accent)');
   });
 
   it('returns text-shadow for accessibility', () => {

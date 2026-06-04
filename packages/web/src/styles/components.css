@@ -1,91 +1,298 @@
 /* Glassmorphism */
 .glass {
   background-color: var(--color-glass);
-  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--color-glass-border);
 }
-@media (hover: hover) { .glass:hover { background-color: color-mix(in oklch, var(--color-glass) 85%, white); border-color: rgba(255, 255, 255, 0.12); } }
+@media (hover: hover) {
+  .glass:hover {
+    background-color: color-mix(in oklch, var(--color-glass) 85%, white);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
 
 /* Layout utilities */
-.flex-center { display: flex; align-items: center; justify-content: center; }
-.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 
 /* Password toggle 44x44 touch target (WCAG 2.5.8) */
-.relative > button[aria-label="Show password"],
-.relative > button[aria-label="Hide password"] { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.relative > button[aria-label='Show password'],
+.relative > button[aria-label='Hide password'] {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 
 /* Coral danger button AA contrast */
-.bg-accent-coral\/20.text-accent-coral { color: #ff7a8c; }
-.bg-accent-coral\/30.text-accent-coral, .bg-accent-coral\/20.text-accent-coral:hover { color: #ff8fa0; }
+.bg-accent-coral\/20.text-accent-coral {
+  color: #ff7a8c;
+}
+.bg-accent-coral\/30.text-accent-coral,
+.bg-accent-coral\/20.text-accent-coral:hover {
+  color: #ff8fa0;
+}
 
 /* Container queries — set-card typography + crew grids */
-.card-grid > .card-enter { container-type: inline-size; }
-@container (max-width: 319px) {
-  .set-card .card-artist { font-size: 15px !important; letter-spacing: -0.2px; }
-  .set-card .card-stage  { font-size: 10px; padding: 2px 8px; margin-bottom: 6px; }
-  .set-card .card-footer { flex-wrap: wrap; gap: 8px; }
+.card-grid > .card-enter {
+  container-type: inline-size;
 }
-@container (min-width: 320px) and (max-width: 419px) { .set-card .card-artist { font-size: 17px !important; } }
+@container (max-width: 319px) {
+  .set-card .card-artist {
+    font-size: 15px !important;
+    letter-spacing: -0.2px;
+  }
+  .set-card .card-stage {
+    font-size: 10px;
+    padding: 2px 8px;
+    margin-bottom: 6px;
+  }
+  .set-card .card-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+@container (min-width: 320px) and (max-width: 419px) {
+  .set-card .card-artist {
+    font-size: 17px !important;
+  }
+}
 @container (min-width: 420px) {
-  .set-card .card-artist { font-size: 20px !important; letter-spacing: -0.4px; }
+  .set-card .card-artist {
+    font-size: 20px !important;
+    letter-spacing: -0.4px;
+  }
 }
 @media (max-width: 319px) {
-  .crew-category-grid, .crew-type-grid { grid-template-columns: repeat(2, 1fr) !important; }
-  .crew-stats-grid { grid-template-columns: 1fr !important; }
+  .crew-category-grid,
+  .crew-type-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .crew-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* Auth breathing circle */
 .auth-screen::before {
-  content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: min(500px, 80vw); height: min(500px, 80vw); border-radius: 50%;
-  background: radial-gradient(circle, rgba(var(--accent-coral-rgb), .06) 0%, rgba(0, 232, 208, .03) 50%, transparent 70%);
-  pointer-events: none; animation: breathe 6s ease-in-out infinite;
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(500px, 80vw);
+  height: min(500px, 80vw);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(var(--accent-coral-rgb), 0.06) 0%,
+    rgba(0, 232, 208, 0.03) 50%,
+    transparent 70%
+  );
+  pointer-events: none;
+  animation: breathe 6s ease-in-out infinite;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; margin: var(--space-2); }
-::-webkit-scrollbar-thumb { background: var(--color-overlay-5); border-radius: 6px; border: 1px solid transparent; background-clip: padding-box; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .2); }
-::-webkit-scrollbar-thumb:active { background: var(--color-aqua-a3); }
-* { scrollbar-width: thin; scrollbar-color: var(--color-overlay-5) transparent; }
+/* Scrollbar — single global definition (8px, matching base.css). This block
+   loads after base.css and is authoritative: refined transparent track +
+   overlay thumb + aqua active. Narrower 6px bars are scoped per-context via
+   .scrollbar-thin below (e.g. stage-filter rows) rather than overriding the
+   global width here, which previously fought base.css's 8px. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+  margin: var(--space-2);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-overlay-5);
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+::-webkit-scrollbar-thumb:active {
+  background: var(--color-aqua-a3);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-overlay-5) transparent;
+}
+/* Opt-in narrow scrollbar for dense horizontal contexts (e.g. filter rows). */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
 
 /* Input focus glow */
-input:focus, select:focus, textarea:focus { border-color: var(--color-accent-aqua); box-shadow: 0 0 0 3px var(--color-aqua-a12), 0 0 16px var(--color-aqua-a06); transition: border-color .2s ease, box-shadow .25s var(--ease-out); }
-input:focus-visible, select:focus-visible, textarea:focus-visible { box-shadow: 0 0 0 3px var(--color-aqua-a15), 0 0 20px var(--color-aqua-a08); outline: 2px solid var(--color-accent-aqua); outline-offset: 2px; }
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-accent-aqua);
+  box-shadow:
+    0 0 0 3px var(--color-aqua-a12),
+    0 0 16px var(--color-aqua-a06);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.25s var(--ease-out);
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  box-shadow:
+    0 0 0 3px var(--color-aqua-a15),
+    0 0 20px var(--color-aqua-a08);
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
 
 /* Reduced motion */
-@media (prefers-reduced-motion: reduce) { .set-card, .set-card:hover { transform: none !important; transition: none !important; } .day-tab-underline:active { transform: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  .set-card,
+  .set-card:hover {
+    transform: none !important;
+    transition: none !important;
+  }
+  .day-tab-underline:active {
+    transform: none !important;
+  }
+}
 
 /* Focus-visible + touch targets */
-button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--color-accent-aqua); outline-offset: 2px; box-shadow: 0 0 0 4px var(--color-aqua-a2); }
-.card-priority-btn:focus-visible { outline-offset: 0; }
-.card-priority-btn { min-width: 44px; min-height: 44px; }
-@media (forced-colors: active) {
-  .card-priority-btn { border: 2px solid ButtonText; }
-  .card-priority-btn[aria-pressed="true"] { border-color: Highlight; background: Highlight; color: HighlightText; }
-  .set-card { border: 1px solid ButtonText; }
-  .day-tab-underline.active { border-bottom: 3px solid Highlight; }
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  box-shadow: 0 0 0 4px var(--color-aqua-a2);
 }
-@media (pointer: fine) and (hover: hover) { .day-tab-underline { padding: 6px 12px; min-height: 32px; } }
-@media (pointer: coarse) { .card-priority-btn { min-height: 48px; min-width: 48px; } .day-tab-underline { min-height: 44px; } }
-@media (hover: none) { .set-card:hover { border-color: var(--color-border-light); background: var(--color-bg-card); } }
+.card-priority-btn:focus-visible {
+  outline-offset: 0;
+}
+.card-priority-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+@media (forced-colors: active) {
+  .card-priority-btn {
+    border: 2px solid ButtonText;
+  }
+  .card-priority-btn[aria-pressed='true'] {
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .set-card {
+    border: 1px solid ButtonText;
+  }
+  .day-tab-underline.active {
+    border-bottom: 3px solid Highlight;
+  }
+}
+@media (pointer: fine) and (hover: hover) {
+  .day-tab-underline {
+    padding: 6px 12px;
+    min-height: 32px;
+  }
+}
+@media (pointer: coarse) {
+  .card-priority-btn {
+    min-height: 48px;
+    min-width: 48px;
+  }
+  .day-tab-underline {
+    min-height: 44px;
+  }
+}
+@media (hover: none) {
+  .set-card:hover {
+    border-color: var(--color-border-light);
+    background: var(--color-bg-card);
+  }
+}
 
 /* Dialog */
-[role="dialog"] { z-index: 10100; outline: none; }
-[role="dialog"]:focus-visible { outline: 2px solid var(--color-accent-aqua); outline-offset: -2px; }
+[role='dialog'] {
+  z-index: 10100;
+  outline: none;
+}
+[role='dialog']:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: -2px;
+}
 
-/* Disabled + placeholder contrast */
-button:disabled, button[disabled] { opacity: 1 !important; color: var(--color-text-disabled) !important; cursor: not-allowed; }
-input::placeholder, textarea::placeholder, select::placeholder { opacity: 1; color: var(--color-text-placeholder) !important; }
-input::-webkit-input-placeholder, textarea::-webkit-input-placeholder { opacity: 1; color: var(--color-text-placeholder) !important; }
-input::-moz-placeholder, textarea::-moz-placeholder { opacity: 1; color: var(--color-text-placeholder) !important; }
+/* Disabled + placeholder contrast. Pairs the muted text with an explicit
+   disabled surface tone so a disabled control reads as inert rather than
+   just low-contrast text on the live button color. */
+button:disabled,
+button[disabled] {
+  opacity: 1 !important;
+  color: var(--color-text-disabled) !important;
+  background-color: var(--color-bg-disabled) !important;
+  cursor: not-allowed;
+}
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  opacity: 1;
+  color: var(--color-text-placeholder) !important;
+}
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder {
+  opacity: 1;
+  color: var(--color-text-placeholder) !important;
+}
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+  opacity: 1;
+  color: var(--color-text-placeholder) !important;
+}
 
 /* Admin panel */
-.admin-desktop-sidebar { display: none; }
-.admin-mobile-only { display: block; }
-@media (min-width: 768px) { .admin-desktop-sidebar { display: flex; flex-direction: column; width: 12rem; padding: 0; } .admin-mobile-only { display: none !important; } }
-.admin-mobile-only button, .admin-mobile-only a[role="button"], .admin-mobile-only .flex button { min-block-size: 44px; }
-button[aria-label="Back to app"] { min-inline-size: 44px; min-block-size: 44px; display: inline-flex; align-items: center; justify-content: center; }
-.admin-desktop-sidebar + main button[class*="px-6"][class*="py-2"],
-.admin-desktop-sidebar ~ main button[class*="px-6"][class*="py-2"] { min-block-size: 44px; }
+.admin-desktop-sidebar {
+  display: none;
+}
+.admin-mobile-only {
+  display: block;
+}
+@media (min-width: 768px) {
+  .admin-desktop-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 12rem;
+    padding: 0;
+  }
+  .admin-mobile-only {
+    display: none !important;
+  }
+}
+.admin-mobile-only button,
+.admin-mobile-only a[role='button'],
+.admin-mobile-only .flex button {
+  min-block-size: 44px;
+}
+button[aria-label='Back to app'] {
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-desktop-sidebar + main button[class*='px-6'][class*='py-2'],
+.admin-desktop-sidebar ~ main button[class*='px-6'][class*='py-2'] {
+  min-block-size: 44px;
+}

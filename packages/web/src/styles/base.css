@@ -15,167 +15,181 @@
 }
 
 html {
-    scroll-behavior: smooth;
-    color-scheme: dark;
-    height: 100%;
-    -webkit-text-size-adjust: 100%;
-  }
+  scroll-behavior: smooth;
+  color-scheme: dark;
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
 
-  body {
-    background-color: var(--color-bg-primary);
-    color: var(--color-text-primary);
-    font-family: var(--font-family-body);
-    height: 100%;
-    overflow: hidden;
-    overscroll-behavior: none;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    /* Body rhythm: Space Grotesk benefits from slight negative tracking and
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-body);
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Body rhythm: Space Grotesk benefits from slight negative tracking and
        1.5 leading for paragraph readability. Headings override below. */
-    line-height: var(--line-height-normal);
-    letter-spacing: var(--letter-spacing-body);
-    text-rendering: optimizeLegibility;
-  }
+  line-height: var(--line-height-normal);
+  letter-spacing: var(--letter-spacing-body);
+  text-rendering: optimizeLegibility;
+}
 
-  /* Ambient gradient overlay */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(ellipse 60% 40% at 20% 80%, rgba(var(--accent-coral-rgb), .04) 0%, transparent 70%),
-      radial-gradient(ellipse 50% 50% at 80% 20%, rgba(0, 232, 208, .03) 0%, transparent 70%);
-  }
+/* Ambient gradient overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 80%, rgba(var(--accent-coral-rgb), 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 80% 20%, rgba(0, 232, 208, 0.03) 0%, transparent 70%);
+}
 
-  /* Noise texture overlay */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    opacity: .035;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 128px 128px;
-  }
+/* Noise texture overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
 
-  /* Link reset */
-  a {
-    color: var(--color-accent-aqua);
-    text-decoration: none;
-  }
+/* Link reset */
+a {
+  color: var(--color-accent-aqua);
+  text-decoration: none;
+}
 
-  /* Form element base styles — visual styling now lives in components
+/* Form element base styles — visual styling now lives in components
      (lib/styles.ts `inputBase`) or component-specific CSS rules.
      Only reset font inheritance and appearance here. */
-  input,
-  select,
-  textarea {
-    font: inherit;
-    -webkit-appearance: none;
-    appearance: none;
-  }
+input,
+select,
+textarea {
+  font: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
 
-  /* Custom select arrow */
-  select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238888a8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    padding-right: 30px;
-  }
+/* Custom select arrow. Stroke is the URL-encoded --color-text-muted token
+     (%23 = "#"), so a theme retune of the muted gray updates the chevron. */
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238787a8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+/* Native <select> hover/focus parity with input focus glow (components.css).
+     Gives the festival selector + any native select a visible open/focus
+     affordance instead of the bare UA outline. */
+select:hover {
+  border-color: var(--color-border-light);
+}
+select:focus {
+  border-color: var(--color-accent-aqua);
+  box-shadow:
+    0 0 0 3px var(--color-aqua-a12),
+    0 0 16px var(--color-aqua-a06);
+}
 
-  /* App root layout */
-  #app {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    height: 100dvh;
-    position: relative;
-    z-index: 1;
-    overflow-x: hidden;
-  }
+/* App root layout */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  position: relative;
+  z-index: 1;
+  overflow-x: hidden;
+}
 
-  /* Heading hierarchy — display font + tight leading + caps tracking.
+/* Heading hierarchy — display font + tight leading + caps tracking.
      Individual pages override font-size via Tailwind utilities. */
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-family-display);
-    line-height: var(--line-height-tight);
-    letter-spacing: var(--letter-spacing-display);
-    text-wrap: balance;
-  }
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-family-display);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-display);
+  text-wrap: balance;
+}
 
-  /* Prevent orphaned words on the last line of prose elements. */
-  p, li, dd, blockquote {
-    text-wrap: pretty;
-  }
+/* Prevent orphaned words on the last line of prose elements. */
+p,
+li,
+dd,
+blockquote {
+  text-wrap: pretty;
+}
 
-  /* Reading measure cap for long-form copy. Opt-in via `.prose` (vs. forcing
+/* Reading measure cap for long-form copy. Opt-in via `.prose` (vs. forcing
      on every <p>, which would break flexed row layouts). */
-  .prose, .prose p {
-    max-width: var(--measure-prose);
-    line-height: var(--line-height-relaxed);
-  }
+.prose,
+.prose p {
+  max-width: var(--measure-prose);
+  line-height: var(--line-height-relaxed);
+}
 
-  /* Digits in times/counters/prices shouldn't jitter when they tick. */
-  .tabular, time,
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum" 1, "lnum" 1;
-  }
+/* Digits in times/counters/prices shouldn't jitter when they tick. */
+.tabular,
+time,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings:
+    'tnum' 1,
+    'lnum' 1;
+}
 
-  /* Global tap-highlight suppression (2026-04-18). iOS/Android draw a
+/* Global tap-highlight suppression (2026-04-18). iOS/Android draw a
      translucent gray box on any tapped element with no explicit override;
      our active-scale + focus-visible ring already provide feedback, so
      the UA box just looks laggy. `button, a, [role="button"], label,
      summary, input[type="button"], input[type="submit"]` covers every
      tappable surface in the app. */
-  html {
-    -webkit-tap-highlight-color: transparent;
-  }
-  button, a, [role="button"], label, summary,
-  input[type="button"], input[type="submit"], input[type="reset"] {
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-  }
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+a,
+[role='button'],
+label,
+summary,
+input[type='button'],
+input[type='submit'],
+input[type='reset'] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
 
-  /* Scrollbar styling */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
+/* Scrollbar styling lives in components.css (single global definition, 8px) —
+   it loads after base.css and is authoritative, so the duplicate webkit/
+   Firefox rules that used to live here were removed to end the 6px↔8px drift. */
 
-  ::-webkit-scrollbar-track {
-    background-color: var(--color-bg-secondary);
-  }
+/* Selection */
+::selection {
+  background-color: rgba(0, 232, 208, 0.25);
+  color: var(--color-text-primary);
+}
 
-  ::-webkit-scrollbar-thumb {
-    background-color: var(--color-text-muted);
-    border-radius: 4px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background-color: var(--color-text-secondary);
-  }
-
-  /* Standard scrollbar styling (Firefox + future browsers) */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-text-muted) transparent;
-  }
-
-  /* Selection */
-  ::selection {
-    background-color: rgba(0, 232, 208, 0.25);
-    color: var(--color-text-primary);
-  }
-
-  /* Focus ring */
-  :focus-visible {
-    outline: 2px solid var(--color-accent-aqua);
-    outline-offset: 2px;
-  }
+/* Focus ring — single token-driven definition (see --focus-ring-* in
+   theme.css). Authoritative for the whole app; components.css layers a
+   ring-shadow on buttons/inputs for the 3:1 non-text floor, and bare
+   `focus-visible:outline-*` utilities inherit this color/offset. */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: inherit;
+}
 
 /* (b) Button reset — preflight is disabled, so <button> inherits the UA
    `ButtonFace` system color as an opaque gray on non-Mac renderers. Force
@@ -208,16 +222,8 @@ button {
   transition: transform 0.15s ease-out;
 }
 .skip-link:focus,
-.skip-link:focus-visible { transform: translateY(0); outline: 2px solid var(--color-accent-coral, #ff6b6b); outline-offset: 2px; }
-
-/* ── Unified focus ring (2026-04-18) ──────────────────────────────────────
-   Normalise the five focus variants currently in the codebase to one
-   accent-aqua 2px ring with 2px offset. Keeps the :focus-visible rule at
-   the top of the file authoritative; this just ensures utility-class
-   outlines inherit the same color when devs write `focus-visible:outline-2`
-   without a color. */
-:focus-visible {
-  outline-color: var(--color-accent-aqua);
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--color-accent-coral, #ff6b6b);
   outline-offset: 2px;
-  border-radius: inherit;
 }

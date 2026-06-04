@@ -118,6 +118,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
             'py-2 px-3.5 bg-bg-card border border-border-light rounded-sm',
             'text-text-primary text-sm font-semibold cursor-pointer max-w-[220px]',
             'backdrop-blur-[8px]',
+            'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2',
           )}
           data-testid="festival-select"
           value={currentFestival?.id || ''}

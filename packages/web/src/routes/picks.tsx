@@ -217,7 +217,7 @@ function PicksViewInner() {
     // route. EmptyState matches /crew + /wrap + /timeline empty surfaces.
     return (
       <RefreshableView queryKeys={[['picks'], ['profiles']]} className="pb-5 h-full">
-        <div role="region" aria-label="My picks">
+        <div role="region" aria-label="My picks" className="max-w-[600px] mx-auto w-full">
           {actionButtons && <div className="flex justify-end gap-2 mb-3">{actionButtons}</div>}
           <OfflineReadinessCard festivalId={currentFestival.id} className="mb-3" />
           <PickBulkActions />
@@ -234,7 +234,7 @@ function PicksViewInner() {
 
   return (
     <RefreshableView queryKeys={[['picks'], ['profiles']]} className="pb-5 h-full">
-      <div role="region" aria-label="My picks">
+      <div role="region" aria-label="My picks" className="max-w-[600px] mx-auto w-full">
         {actionButtons && <div className="flex justify-end gap-2 mb-3">{actionButtons}</div>}
         <OfflineReadinessCard festivalId={currentFestival.id} className="mb-3" />
         <PickBulkActions />
@@ -245,7 +245,7 @@ function PicksViewInner() {
             <div key={pri} className="mb-4">
               {/* Mobile section-header pattern: round accent dot + label role text +
                 tint-ring count pill, separated from the rows by a hairline divider. */}
-              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border">
+              <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-border">
                 <div className="w-2.5 h-2.5 rounded-full" style={{ background: accent }} />
                 <span className="text-sm font-medium text-text-secondary">{label}</span>
                 <Badge variant={badge} className="ml-auto">

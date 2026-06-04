@@ -116,15 +116,20 @@ export default function TimelineGrid({
               'sticky top-0 z-10 text-center',
               'bg-bg-sticky',
               'border-b-2 border-b-[var(--color-border)]',
-              'font-bold uppercase tracking-[1.5px]',
+              'font-bold uppercase',
               '[backdrop-filter:saturate(140%)_blur(4px)]',
-              // Mobile: smaller text, tight padding, allow wrapping
-              'text-[0.6rem] leading-[1.2] px-0.5 py-1 whitespace-normal break-words overflow-hidden',
-              // Desktop: restore full sizing
-              'md:text-[11px] md:leading-normal md:px-2 md:py-2.5',
+              // Mobile: smaller text, tighter letter-spacing so wide tracking
+              // doesn't eat the narrow column, clamp to 2 lines with ellipsis
+              // instead of clipping mid-word.
+              'text-[0.6rem] leading-[1.15] tracking-[0.3px] px-1 py-1',
+              'break-words [overflow-wrap:anywhere] line-clamp-2 overflow-hidden',
+              // Desktop: restore full sizing + roomier tracking.
+              'md:text-[11px] md:leading-normal md:tracking-[1.5px] md:px-2 md:py-2.5',
+              'md:line-clamp-none md:whitespace-normal',
             )}
             style={{ borderBottom: `3px solid ${color}`, color }}
             role="columnheader"
+            title={st.name}
           >
             {st.name}
           </div>

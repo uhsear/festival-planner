@@ -40,6 +40,34 @@ const money = (n: number) =>
   n.toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 0 });
 
 /**
+ * Poster palette — mirrors the theme tokens in styles/theme.css. Kept in sync
+ * with WrapPoster. These posters are rendered off-screen and captured to a PNG
+ * via html-to-image, where CSS custom properties don't resolve reliably, so we
+ * keep literal hex values here rather than var() refs. Centralising them in one
+ * object (instead of scattering the magic hex inline) gives a single place to
+ * re-sync if the theme shifts.
+ *   bg        ← --color-bg-primary       (#080810)
+ *   coral     ← --color-accent-coral     (#ff3366)
+ *   aqua      ← --color-accent-aqua      (#00e8d0)
+ *   text      ← --color-text-primary     (#eaeaf2)
+ *   textMuted ← --color-text-secondary   (#9999bb)
+ * glowAlpha: ambient corner glows. Bumped 0.22 → 0.30 so the coral/aqua wash
+ * reads in bright sunlight / on phone screens; this is an off-screen render, so
+ * it is unaffected by system accessibility/contrast settings.
+ */
+const POSTER_COLORS = {
+  bg: '#080810',
+  coral: '#ff3366',
+  aqua: '#00e8d0',
+  text: '#eaeaf2',
+  textMuted: '#9999bb',
+} as const;
+const GLOW_ALPHA = 0.3;
+const POSTER_BG_IMAGE =
+  `radial-gradient(60% 45% at 50% 0%, rgba(255, 51, 102, ${GLOW_ALPHA}), transparent 60%), ` +
+  `radial-gradient(60% 45% at 50% 100%, rgba(0, 232, 208, ${GLOW_ALPHA}), transparent 60%)`;
+
+/**
  * Fixed-dimension 1080×1920 crew recap poster (9:16 — IG story / TikTok),
  * rendered off-screen and captured via html-to-image for sharing. A crew-scoped
  * sibling of WrapPoster: same gradient, fonts and inline-pixel layout so it
@@ -62,11 +90,9 @@ export default function CrewWrapPoster({ crewName, festivalName, wrap }: Props) 
       style={{
         width: 1080,
         height: 1920,
-        background: '#080810',
-        backgroundImage:
-          'radial-gradient(60% 45% at 50% 0%, rgba(255, 51, 102, 0.22), transparent 60%), ' +
-          'radial-gradient(60% 45% at 50% 100%, rgba(0, 232, 208, 0.22), transparent 60%)',
-        color: '#eaeaf2',
+        background: POSTER_COLORS.bg,
+        backgroundImage: POSTER_BG_IMAGE,
+        color: POSTER_COLORS.text,
         fontFamily: 'Space Grotesk, system-ui, -apple-system, sans-serif',
         padding: 80,
         display: 'flex',
@@ -82,7 +108,7 @@ export default function CrewWrapPoster({ crewName, festivalName, wrap }: Props) 
             fontSize: 96,
             fontWeight: 900,
             letterSpacing: 8,
-            background: 'linear-gradient(90deg, #ff3366, #00e8d0)',
+            background: `linear-gradient(90deg, ${POSTER_COLORS.coral}, ${POSTER_COLORS.aqua})`,
             WebkitBackgroundClip: 'text',
             backgroundClip: 'text',
             color: 'transparent',
@@ -126,7 +152,7 @@ export default function CrewWrapPoster({ crewName, festivalName, wrap }: Props) 
               fontSize: 26,
               letterSpacing: 4,
               textTransform: 'uppercase',
-              color: '#9999bb',
+              color: POSTER_COLORS.textMuted,
               marginBottom: 16,
             }}
           >
@@ -157,7 +183,9 @@ export default function CrewWrapPoster({ crewName, festivalName, wrap }: Props) 
                 >
                   {s.artist || s.setId}
                 </div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: '#00e8d0', flexShrink: 0 }}>{s.count} loved it</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: POSTER_COLORS.aqua, flexShrink: 0 }}>
+                  {s.count} loved it
+                </div>
               </div>
             ))
           ) : (
@@ -186,7 +214,7 @@ export default function CrewWrapPoster({ crewName, festivalName, wrap }: Props) 
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: 48, fontWeight: 800, color: '#ff3366', lineHeight: 1 }}>{t.value}</div>
+            <div style={{ fontSize: 48, fontWeight: 800, color: POSTER_COLORS.coral, lineHeight: 1 }}>{t.value}</div>
             <div
               style={{
                 fontSize: 20,
@@ -218,7 +246,7 @@ function Superlative({ label, value, sub }: { label: string; value: string; sub?
           fontSize: 26,
           letterSpacing: 4,
           textTransform: 'uppercase',
-          color: '#9999bb',
+          color: POSTER_COLORS.textMuted,
           marginBottom: 8,
         }}
       >
