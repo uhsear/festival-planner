@@ -76,3 +76,4 @@ tests/e2e/.auth/
 
 # Local session handoff (operational state; not for the public repo)
 /handoff.md
+/kickoff.md
