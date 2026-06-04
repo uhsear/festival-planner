@@ -73,3 +73,6 @@ tests/e2e/.auth/
 
 # TypeScript incremental build cache (changes every build)
 *.tsbuildinfo
+
+# Local session handoff (operational state; not for the public repo)
+/handoff.md
