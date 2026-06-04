@@ -21,6 +21,7 @@
  * returned to the client or logged. Access tokens are minted on demand.
  */
 
+import crypto from 'crypto';
 import { Router } from 'express';
 import {
   buildAuthorizeUrl,
@@ -92,6 +93,34 @@ export default function createSpotifyAuthRoutes(deps: any) {
     }
   }
 
+  // ── OAuth `state` ⇄ browser-session binding (RFC 6749 §10.12) ──────────
+  // The callback has no userAuth and trusts the server-side state→userId map.
+  // To stop an attacker from completing an OAuth flow in a victim's browser
+  // (account-linking CSRF), `/start` also sets a dedicated cookie carrying the
+  // same `state`, and `/callback` requires it to match the `state` query param
+  // BEFORE consuming the server-side entry. SameSite=Lax so the cookie rides
+  // the top-level cross-site redirect back from accounts.spotify.com; HttpOnly
+  // + Secure (in prod) + scoped path so it's never exposed to JS or other routes.
+  const STATE_COOKIE = 'fp_spotify_oauth_state';
+  const COOKIE_PATH = '/api/v1/spotify/auth';
+  const cookieSecure = String(config.PUBLIC_ORIGIN || '').startsWith('https://');
+
+  function readCookie(req: any, name: string): string | null {
+    const header = req.headers?.cookie;
+    if (typeof header !== 'string') return null;
+    for (const part of header.split(';')) {
+      const eq = part.indexOf('=');
+      if (eq < 0) continue;
+      if (part.slice(0, eq).trim() === name) return decodeURIComponent(part.slice(eq + 1).trim());
+    }
+    return null;
+  }
+  /** Constant-time string compare that won't throw on length mismatch. */
+  function safeEqual(a: string | null, b: string | null): boolean {
+    if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length || a.length === 0) return false;
+    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  }
+
   // ── Suggestions TTL cache (per-user join result) ──────────────────────
   const SUGGEST_TTL_MS = 5 * 60 * 1000;
   const SUGGEST_MAX = 2000;
@@ -147,6 +176,15 @@ export default function createSpotifyAuthRoutes(deps: any) {
       const state = generateState();
       putState(state, verifier, req.user.userId);
 
+      // Bind this state to the initiating browser (verified at the callback).
+      res.cookie(STATE_COOKIE, state, {
+        httpOnly: true,
+        secure: cookieSecure,
+        sameSite: 'lax',
+        maxAge: STATE_TTL_MS,
+        path: COOKIE_PATH,
+      });
+
       const url = buildAuthorizeUrl({
         clientId: config.SPOTIFY_CLIENT_ID,
         redirectUri: config.SPOTIFY_REDIRECT_URI,
@@ -177,6 +215,17 @@ export default function createSpotifyAuthRoutes(deps: any) {
       if (!code || !state || typeof code !== 'string' || typeof state !== 'string') {
         return res.redirect(redirectTo('invalid'));
       }
+
+      // CSRF: the `state` MUST match the cookie set in the initiating browser at
+      // /start (RFC 6749 §10.12). Reject (and consume nothing) on mismatch so an
+      // attacker-generated state can't be completed in a victim's session. Clear
+      // the one-time cookie regardless of outcome.
+      const cookieState = readCookie(req, STATE_COOKIE);
+      res.clearCookie(STATE_COOKIE, { path: COOKIE_PATH });
+      if (!safeEqual(cookieState, state)) {
+        return res.redirect(redirectTo('invalid'));
+      }
+
       const entry = takeState(state);
       if (!entry) return res.redirect(redirectTo('expired'));
 
