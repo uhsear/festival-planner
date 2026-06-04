@@ -28,9 +28,16 @@ env:
     timeout: 30000
 - takeScreenshot: 02-festival-picker
 # ── Log in via the Account tab (by testID — reliable on iOS) ──
+# Tapping Account while signed-out triggers router.replace('/(auth)/login') from a
+# useEffect, so the login form mounts a beat LATER. Wait for the Username field to
+# appear (the redirect to complete) before attempting login — otherwise the
+# `when: visible` guard checks too early and skips login (guest session).
 - tapOn:
     id: "tab-account"
     optional: true
+- extendedWaitUntil:
+    visible: "Username"
+    timeout: 15000
 - runFlow:
     when:
       visible: "Username"
