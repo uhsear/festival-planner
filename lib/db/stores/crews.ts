@@ -802,5 +802,168 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
     },
   };
 
-  return { crews, topicSubscriptions, meetingPoints, crewPacking };
+  // M2 logistics: Crew carpool / ride board store. Mirrors the crewPacking
+  // sub-store factory return — a flat per-crew board of ride OFFERS ("who's
+  // driving"). Cloned from crewPacking exactly.
+  const crewRides = {
+    async create(data: any) {
+      await pool.query(
+        `
+        INSERT INTO
+          crew_ride_offers (
+            id,
+            crew_id,
+            created_by,
+            driver,
+            seats,
+            depart_from,
+            depart_at,
+            note,
+            created_at
+          )
+        VALUES
+          ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      `,
+        [
+          data.id,
+          data.crewId,
+          data.createdBy,
+          data.driver ?? null,
+          data.seats ?? null,
+          data.departFrom ?? null,
+          data.departAt ?? null,
+          data.note ?? null,
+        ],
+      );
+      const result = await pool.query(
+        `
+        SELECT
+          id,
+          crew_id,
+          created_by,
+          driver,
+          seats,
+          depart_from,
+          depart_at,
+          note,
+          created_at
+        FROM
+          crew_ride_offers
+        WHERE
+          id = $1
+      `,
+        [data.id],
+      );
+      return result.rows[0] || null;
+    },
+
+    async listByCrew(crewId: string) {
+      const result = await pool.query(
+        `
+        SELECT
+          ro.id,
+          ro.crew_id,
+          ro.created_by,
+          ro.driver,
+          ro.seats,
+          ro.depart_from,
+          ro.depart_at,
+          ro.note,
+          ro.created_at,
+          u.username AS creator_name
+        FROM
+          crew_ride_offers ro
+          JOIN users u ON u.id = ro.created_by
+          AND u.deleted_at IS NULL
+        WHERE
+          ro.crew_id = $1
+        ORDER BY
+          ro.created_at ASC
+      `,
+        [crewId],
+      );
+      return result.rows;
+    },
+
+    async update(id: string, fields: Record<string, any>) {
+      const sets: string[] = [];
+      const vals: any[] = [];
+      let idx = 1;
+      for (const [key, val] of Object.entries(fields)) {
+        const col = (
+          {
+            driver: 'driver',
+            seats: 'seats',
+            departFrom: 'depart_from',
+            departAt: 'depart_at',
+            note: 'note',
+          } as Record<string, string>
+        )[key];
+        if (col) {
+          sets.push(col + ' = $' + idx);
+          vals.push(val);
+          idx++;
+        }
+      }
+      if (sets.length === 0) return null;
+      vals.push(id);
+      await pool.query('UPDATE crew_ride_offers SET ' + sets.join(', ') + ' WHERE id = $' + idx, vals);
+      const result = await pool.query(
+        `
+        SELECT
+          id,
+          crew_id,
+          created_by,
+          driver,
+          seats,
+          depart_from,
+          depart_at,
+          note,
+          created_at
+        FROM
+          crew_ride_offers
+        WHERE
+          id = $1
+      `,
+        [id],
+      );
+      return result.rows[0] || null;
+    },
+
+    async delete(id: string) {
+      await pool.query('DELETE FROM crew_ride_offers WHERE id = $1', [id]);
+    },
+
+    async getById(id: string) {
+      const result = await pool.query(
+        `
+        SELECT
+          id,
+          crew_id,
+          created_by,
+          driver,
+          seats,
+          depart_from,
+          depart_at,
+          note,
+          created_at
+        FROM
+          crew_ride_offers
+        WHERE
+          id = $1
+      `,
+        [id],
+      );
+      return result.rows[0] || null;
+    },
+
+    async countByCrew(crewId: string) {
+      const result = await pool.query('SELECT COUNT(*)::int AS count FROM crew_ride_offers WHERE crew_id = $1', [
+        crewId,
+      ]);
+      return result.rows[0].count;
+    },
+  };
+
+  return { crews, topicSubscriptions, meetingPoints, crewPacking, crewRides };
 }

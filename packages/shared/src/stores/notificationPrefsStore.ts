@@ -13,6 +13,12 @@ export interface NotificationPreferences {
   crewUpdates: boolean;
   setReminders: boolean;
   scheduleChanges: boolean;
+  /** M3 re-engagement: new lineup published for a festival you attended before. */
+  lineupDrops: boolean;
+  /** M3 re-engagement: a prior crew was reformed for a new festival (you were invited). */
+  crewReformed: boolean;
+  /** M3 re-engagement: your festival wrap-up recap is ready. */
+  wrapReady: boolean;
   dndStart: string | null;
   dndEnd: string | null;
 }
@@ -21,6 +27,9 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   crewUpdates: true,
   setReminders: true,
   scheduleChanges: true,
+  lineupDrops: true,
+  crewReformed: true,
+  wrapReady: true,
   dndStart: null,
   dndEnd: null,
 };
@@ -36,6 +45,9 @@ function normalize(raw: Record<string, unknown> | null | undefined): Notificatio
     crewUpdates: toBool(r.crewUpdates, true),
     setReminders: toBool(r.setReminders, true),
     scheduleChanges: toBool(r.scheduleChanges, true),
+    lineupDrops: toBool(r.lineupDrops, true),
+    crewReformed: toBool(r.crewReformed, true),
+    wrapReady: toBool(r.wrapReady, true),
     dndStart: (r.dndStart as string) ?? null,
     dndEnd: (r.dndEnd as string) ?? null,
   };

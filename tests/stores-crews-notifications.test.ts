@@ -857,6 +857,9 @@ describe('createNotificationsStore — notificationPrefs', () => {
       crewUpdates: true,
       setReminders: false,
       scheduleChanges: true,
+      lineupDrops: true,
+      crewReformed: false,
+      wrapReady: true,
       dndStart: '23:00',
       dndEnd: '07:00',
     });
@@ -866,8 +869,11 @@ describe('createNotificationsStore — notificationPrefs', () => {
     assert.strictEqual(p[1], 1); // crewUpdates true -> 1
     assert.strictEqual(p[2], 0); // setReminders false -> 0
     assert.strictEqual(p[3], 1); // scheduleChanges true -> 1
-    assert.strictEqual(p[4], '23:00');
-    assert.strictEqual(p[5], '07:00');
+    assert.strictEqual(p[4], 1); // lineupDrops true -> 1
+    assert.strictEqual(p[5], 0); // crewReformed false -> 0
+    assert.strictEqual(p[6], 1); // wrapReady true -> 1
+    assert.strictEqual(p[7], '23:00');
+    assert.strictEqual(p[8], '07:00');
   });
 
   it('upsert converts falsy dnd values to null', async () => {
@@ -879,12 +885,16 @@ describe('createNotificationsStore — notificationPrefs', () => {
       crewUpdates: true,
       setReminders: true,
       scheduleChanges: true,
+      lineupDrops: true,
+      crewReformed: true,
+      wrapReady: true,
       dndStart: '',
       dndEnd: null,
     });
 
-    assert.strictEqual(pool.queries[0].params[4], null);
-    assert.strictEqual(pool.queries[0].params[5], null);
+    // dnd params now sit after the three new re-engagement booleans (indexes 7,8).
+    assert.strictEqual(pool.queries[0].params[7], null);
+    assert.strictEqual(pool.queries[0].params[8], null);
   });
 });
 

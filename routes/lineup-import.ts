@@ -48,6 +48,7 @@ export default function createLineupImportRoute(deps: any) {
     stores,
     invalidateFestivalCache,
     getRequestIp,
+    reengagement,
   } = deps;
 
   const router = express.Router();
@@ -305,6 +306,16 @@ export default function createLineupImportRoute(deps: any) {
         warnings: warnings.length,
         ip: getRequestIp(req),
       });
+
+      // M3 re-engagement: a recurring festival just published its lineup → notify
+      // prior-year attendees of the same-named festival (handled in the trigger:
+      // event-gated, per-type opt-out + DND + deduped, capped fan-out with a
+      // queue TODO). Fire-and-forget so a notify failure never fails the import.
+      if (reengagement?.sendLineupDrop) {
+        reengagement
+          .sendLineupDrop(festivalId)
+          .catch((err: any) => log.warn('lineup_drop notify failed', { festivalId, error: err?.message }));
+      }
       return sendSuccess(res, {
         imported: imported.length,
         spotifyMatched,

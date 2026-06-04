@@ -302,6 +302,42 @@ export interface UpdateCrewPackingItemRequest {
 }
 
 /**
+ * Crew carpool / ride-board offer (M2 logistics) as serialized by the backend
+ * (routes/crew-rides.ts). snake_case from Postgres. A shared "who's driving"
+ * board row: an optional `driver` name, `seats` count, `depart_from` origin,
+ * free-text `depart_at` time, and a `note`. Cloned from CrewPackingItem.
+ */
+export interface CrewRideOffer {
+  id: string;
+  crew_id: string;
+  created_by: string;
+  driver: string | null;
+  seats: number | null;
+  depart_from: string | null;
+  depart_at: string | null;
+  note: string | null;
+  created_at: string;
+  /** Client-only optimistic-offline flag (see CrewPoll._optimistic). */
+  _optimistic?: boolean;
+}
+
+export interface CreateCrewRideOfferRequest {
+  driver?: string | null;
+  seats?: number | null;
+  departFrom?: string | null;
+  departAt?: string | null;
+  note?: string | null;
+}
+
+export interface UpdateCrewRideOfferRequest {
+  driver?: string | null;
+  seats?: number | null;
+  departFrom?: string | null;
+  departAt?: string | null;
+  note?: string | null;
+}
+
+/**
  * Crew expense as serialized by the backend (routes/crew-expenses.ts).
  * snake_case from Postgres. `amount` arrives as a numeric string from pg, so
  * consumers must Number() it.

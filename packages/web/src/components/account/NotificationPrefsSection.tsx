@@ -139,6 +139,24 @@ export default function NotificationPrefsSection() {
         onChange={(v) => updatePrefs({ scheduleChanges: v }).catch(() => {})}
       />
       <Toggle
+        label="New lineups"
+        hint="A festival you've been to before posts its lineup"
+        checked={prefs.lineupDrops}
+        onChange={(v) => updatePrefs({ lineupDrops: v }).catch(() => {})}
+      />
+      <Toggle
+        label="Crew re-forms"
+        hint="A past crew reunites for a new festival"
+        checked={prefs.crewReformed}
+        onChange={(v) => updatePrefs({ crewReformed: v }).catch(() => {})}
+      />
+      <Toggle
+        label="Wrap-up ready"
+        hint="Your festival recap is ready to view"
+        checked={prefs.wrapReady}
+        onChange={(v) => updatePrefs({ wrapReady: v }).catch(() => {})}
+      />
+      <Toggle
         label="Quiet hours"
         hint="Mute 11pm–8am"
         checked={quietOn}

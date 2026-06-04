@@ -79,6 +79,7 @@ import { configureMiddleware } from './lib/middleware';
 import { configureSocketIO } from './lib/socket-setup';
 import { createBackgroundTasks, createCloseHandler } from './lib/shutdown';
 import { createReminderScheduler } from './lib/reminder-scheduler';
+import { createReengagementTriggers } from './lib/notifications/reengagement';
 import createPageRoutes from './routes/pages';
 import { createLogger } from './lib/logger';
 import {
@@ -161,6 +162,16 @@ async function createFestieApp(overrides: any = {}) {
   deps.setSocketPresence = ctx.setSocketPresence;
   deps.cacheBus = cacheBus;
   deps.notificationService = notificationService;
+
+  // M3 re-engagement triggers (event-gated push+email): lineup_drop / crew_reformed / wrap_ready.
+  const reengagement = createReengagementTriggers({
+    stores: ctx.stores,
+    config,
+    log,
+    notificationService,
+  });
+  deps.reengagement = reengagement;
+  ctx.reengagement = reengagement; // also exposed to background tasks (wrap_ready sweep)
 
   // Phase 1A: Reminder scheduler for set notifications
   const reminderScheduler = createReminderScheduler({
