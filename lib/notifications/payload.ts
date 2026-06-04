@@ -14,7 +14,16 @@ export const FCM_RETRY_WEBHOOK_URL = config.FCM_RETRY_WEBHOOK_URL;
 export const WEBHOOK_TOKEN_HMAC_KEY = config.WEBHOOK_TOKEN_HMAC_KEY;
 
 // Finding #36: Reminders feature removed (ICS export superior, push notifications unreliable at festivals)
-export const ALLOWED_NOTIFICATION_TYPES = new Set(['crew_update', 'schedule_change', 'set_reminder']);
+// M3 re-engagement triggers (after-festival growth loops): lineup_drop / crew_reformed / wrap_ready.
+// All event-gated (never cron-spam), per-type opt-out, DND-respecting, deduped once-per-event-per-user.
+export const ALLOWED_NOTIFICATION_TYPES = new Set([
+  'crew_update',
+  'schedule_change',
+  'set_reminder',
+  'lineup_drop',
+  'crew_reformed',
+  'wrap_ready',
+]);
 export const MAX_TITLE_LENGTH = 100;
 export const MAX_BODY_LENGTH = 200;
 export const MAX_DATA_KEYS = 10;
@@ -30,17 +39,22 @@ export function postToWebhookRetry(token: any, payload: any, attempt: any) {
   try {
     const url = new URL(FCM_RETRY_WEBHOOK_URL);
     const body = JSON.stringify({ tokenHash: hashDeviceToken(token), payload, attempt: attempt || 0 });
-    const req = https.request({
-      hostname: url.hostname,
-      port: url.port || 443,
-      path: url.pathname,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
-      timeout: config.WEBHOOK_RETRY_TIMEOUT_MS,
-    }, () => {});
+    const req = https.request(
+      {
+        hostname: url.hostname,
+        port: url.port || 443,
+        path: url.pathname,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+        timeout: config.WEBHOOK_RETRY_TIMEOUT_MS,
+      },
+      () => {},
+    );
     req.on('error', () => {}); // fire-and-forget
     req.end(body);
-  } catch { /* ignore webhook errors */ }
+  } catch {
+    /* ignore webhook errors */
+  }
 }
 
 /**

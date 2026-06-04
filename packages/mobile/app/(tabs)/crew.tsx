@@ -27,6 +27,7 @@ import CrewHomeBase from '../../components/CrewHomeBase';
 import CrewPolls from '../../components/CrewPolls';
 import CrewMeetingPoints from '../../components/CrewMeetingPoints';
 import CrewPacking from '../../components/CrewPacking';
+import CrewRides from '../../components/CrewRides';
 import CrewExpenses from '../../components/CrewExpenses';
 import CrewActivity from '../../components/CrewActivity';
 import FreshnessChip from '../../components/FreshnessChip';
@@ -75,6 +76,7 @@ export default function CrewScreen() {
   const loadPolls = useCrewStore((s) => s.loadPolls);
   const loadMeetingPoints = useCrewStore((s) => s.loadMeetingPoints);
   const loadPacking = useCrewStore((s) => s.loadPacking);
+  const loadRides = useCrewStore((s) => s.loadRides);
   const loadExpenses = useCrewStore((s) => s.loadExpenses);
   const setError = useCrewStore((s) => s.setError);
 
@@ -132,8 +134,9 @@ export default function CrewScreen() {
     loadPolls(id).catch(() => {});
     loadMeetingPoints(id).catch(() => {});
     loadPacking(id).catch(() => {});
+    loadRides(id).catch(() => {});
     loadExpenses(id).catch(() => {});
-  }, [activeCrew?.id, loadPolls, loadMeetingPoints, loadPacking, loadExpenses]);
+  }, [activeCrew?.id, loadPolls, loadMeetingPoints, loadPacking, loadRides, loadExpenses]);
 
   // Pull-to-refresh: re-fetch the crew list and the active crew (members,
   // polls, meeting points, expenses all reload off selectCrew + the effect).
@@ -144,9 +147,10 @@ export default function CrewScreen() {
       loadPolls(activeCrew.id).catch(() => {});
       loadMeetingPoints(activeCrew.id).catch(() => {});
       loadPacking(activeCrew.id).catch(() => {});
+      loadRides(activeCrew.id).catch(() => {});
       loadExpenses(activeCrew.id).catch(() => {});
     }
-  }, [loadCrews, activeCrew, selectCrew, loadPolls, loadMeetingPoints, loadPacking, loadExpenses]);
+  }, [loadCrews, activeCrew, selectCrew, loadPolls, loadMeetingPoints, loadPacking, loadRides, loadExpenses]);
 
   // Fast set lookup by id for overlap labels.
   const setsById = useMemo(() => {
@@ -810,6 +814,9 @@ export default function CrewScreen() {
 
             <Text style={styles.sectionLabel}>Packing</Text>
             <CrewPacking crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
+
+            <Text style={styles.sectionLabel}>Rides</Text>
+            <CrewRides crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
 
             <View style={styles.sectionLabelRow}>
               <Text style={styles.sectionLabel}>Expenses</Text>

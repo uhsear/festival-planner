@@ -138,3 +138,76 @@ export async function sendVerificationEmail({ to, username, verifyUrl, config, l
 
   return sendEmail({ to, subject: 'Verify your Festie email', html, text, config, log, _client });
 }
+
+// ── M3 re-engagement emails ─────────────────────────────────────────────
+// All three follow the _wrapTemplate + _buttonHtml pattern and deep-link to the
+// relevant surface. They degrade gracefully when RESEND_API_KEY is unset
+// (sendEmail logs a warning and returns false). Origin defaults to festie.us.
+
+function _origin(config: any) {
+  return (config?.PUBLIC_ORIGIN || 'https://festie.us').replace(/\/+$/, '');
+}
+
+/**
+ * "Your wrap-up is ready" — deep-links to /wrap for the finished festival.
+ */
+export async function sendWrapReadyEmail({ to, username, festivalName, festivalId, config, log, _client }: any) {
+  const origin = _origin(config);
+  const wrapUrl = `${origin}/wrap${festivalId ? `?festival=${encodeURIComponent(festivalId)}` : ''}`;
+  const name = festivalName || 'your festival';
+  const bodyHtml = `
+    <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 16px">Hey <strong style="color:#e4e4e7">${escapeHtml(username || 'there')}</strong>,</p>
+    <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 24px">${escapeHtml(name)} is a wrap! Your recap — top sets, crew superlatives, and the numbers — is ready to relive and share.</p>
+    ${_buttonHtml(wrapUrl, 'See your wrap-up')}
+    ${_urlFallback(wrapUrl)}`;
+  const html = _wrapTemplate('Your Festival Wrap-Up', bodyHtml);
+  const text = `Hey ${username || 'there'},\n\n${name} is a wrap! Your recap is ready.\n\nSee your wrap-up: ${wrapUrl}`;
+  return sendEmail({ to, subject: `Your ${name} wrap-up is ready`, html, text, config, log, _client });
+}
+
+/**
+ * "The lineup just dropped" — deep-links to the festival page.
+ */
+export async function sendLineupDropEmail({ to, username, festivalName, festivalId, config, log, _client }: any) {
+  const origin = _origin(config);
+  const festivalUrl = `${origin}/festival/${encodeURIComponent(festivalId || '')}`;
+  const name = festivalName || 'a festival you love';
+  const bodyHtml = `
+    <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 16px">Hey <strong style="color:#e4e4e7">${escapeHtml(username || 'there')}</strong>,</p>
+    <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 24px">The lineup for <strong style="color:#e4e4e7">${escapeHtml(name)}</strong> just dropped. Start building your picks and rally the crew before tickets move.</p>
+    ${_buttonHtml(festivalUrl, 'See the lineup')}
+    ${_urlFallback(festivalUrl)}`;
+  const html = _wrapTemplate('New Lineup', bodyHtml);
+  const text = `Hey ${username || 'there'},\n\nThe lineup for ${name} just dropped.\n\nSee the lineup: ${festivalUrl}`;
+  return sendEmail({ to, subject: `${name} lineup just dropped`, html, text, config, log, _client });
+}
+
+/**
+ * "Your crew reformed for the next one" — deep-links to the new crew.
+ */
+export async function sendCrewReformEmail({
+  to,
+  username,
+  crewName,
+  festivalName,
+  crewId,
+  inviteUrl,
+  config,
+  log,
+  _client,
+}: any) {
+  const origin = _origin(config);
+  // Prefer an explicit invite link (the invitee may not have a festival profile
+  // yet); otherwise deep-link to the crew page.
+  const url = inviteUrl || `${origin}/crew/${encodeURIComponent(crewId || '')}`;
+  const crew = crewName || 'Your crew';
+  const fest = festivalName ? ` for ${festivalName}` : '';
+  const bodyHtml = `
+    <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 16px">Hey <strong style="color:#e4e4e7">${escapeHtml(username || 'there')}</strong>,</p>
+    <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 24px"><strong style="color:#e4e4e7">${escapeHtml(crew)}</strong> is getting back together${escapeHtml(fest)}. Jump in to plan picks, meeting points, and logistics with the crew.</p>
+    ${_buttonHtml(url, 'Join the crew')}
+    ${_urlFallback(url)}`;
+  const html = _wrapTemplate('Your Crew Reformed', bodyHtml);
+  const text = `Hey ${username || 'there'},\n\n${crew} is getting back together${fest}.\n\nJoin the crew: ${url}`;
+  return sendEmail({ to, subject: `${crew} reformed${fest}`, html, text, config, log, _client });
+}

@@ -4,7 +4,24 @@
 import { parsePageParams } from '../lib/pagination.js';
 
 export default function createNotificationRoutes(deps: any) {
-  const { express, _config, log, stores, userAuth, setNoStore, sanitizeString, sanitizeIdentifier, createOpaqueId, getRequestIp, sendSuccess, sendError, ErrorCodes, schemas, validate, rateLimit } = deps;
+  const {
+    express,
+    _config,
+    log,
+    stores,
+    userAuth,
+    setNoStore,
+    sanitizeString,
+    sanitizeIdentifier,
+    createOpaqueId,
+    getRequestIp,
+    sendSuccess,
+    sendError,
+    ErrorCodes,
+    schemas,
+    validate,
+    rateLimit,
+  } = deps;
   const router = express.Router();
   const noopLimit = (_req: any, _res: any, next: any) => next();
   const rl = (max: any, name: any) => (typeof rateLimit === 'function' ? rateLimit(max, name) : noopLimit);
@@ -55,7 +72,13 @@ export default function createNotificationRoutes(deps: any) {
       }
 
       const id = createOpaqueId('dtoken');
-      await stores.deviceTokens.register({ id, userId: req.user.userId, token, platform: cleanPlatform, deviceName: cleanDeviceName });
+      await stores.deviceTokens.register({
+        id,
+        userId: req.user.userId,
+        token,
+        platform: cleanPlatform,
+        deviceName: cleanDeviceName,
+      });
       log.info('device token registered', { userId: req.user.userId, platform: cleanPlatform, ip: getRequestIp(req) });
       return sendSuccess(res, { success: true, id });
     } catch (error: any) {
@@ -69,21 +92,27 @@ export default function createNotificationRoutes(deps: any) {
   });
 
   // ── DELETE /token — unregister a device push token ──────────────────
-  router.delete('/token', userAuth, rl(10, 'notif-token-del'), validate(schemas.deleteToken), async (req: any, res: any) => {
-    try {
-      const { token } = req.validatedBody;
-      if (!token || typeof token !== 'string') {
-        return sendError(res, 400, 'Token required', ErrorCodes.MISSING_FIELD);
+  router.delete(
+    '/token',
+    userAuth,
+    rl(10, 'notif-token-del'),
+    validate(schemas.deleteToken),
+    async (req: any, res: any) => {
+      try {
+        const { token } = req.validatedBody;
+        if (!token || typeof token !== 'string') {
+          return sendError(res, 400, 'Token required', ErrorCodes.MISSING_FIELD);
+        }
+        // unregister already scopes by userId — only deletes tokens owned by this user
+        await stores.deviceTokens.unregister(token, req.user.userId);
+        log.info('device token unregistered', { userId: req.user.userId, ip: getRequestIp(req) });
+        return sendSuccess(res, { success: true });
+      } catch (error: any) {
+        log.error('unregister device token failed', { error: error.message });
+        return sendError(res, 500, 'Failed to unregister device token', ErrorCodes.INTERNAL_ERROR);
       }
-      // unregister already scopes by userId — only deletes tokens owned by this user
-      await stores.deviceTokens.unregister(token, req.user.userId);
-      log.info('device token unregistered', { userId: req.user.userId, ip: getRequestIp(req) });
-      return sendSuccess(res, { success: true });
-    } catch (error: any) {
-      log.error('unregister device token failed', { error: error.message });
-      return sendError(res, 500, 'Failed to unregister device token', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   // ── GET /prefs — get notification preferences ───────────────────────
   router.get('/prefs', userAuth, rl(120, 'notif-prefs-get'), async (req: any, res: any) => {
@@ -154,16 +183,32 @@ export default function createNotificationRoutes(deps: any) {
     try {
       const body = req.validatedBody;
       // Reject requests with unknown fields to prevent abuse
-      const allowedKeys = new Set(['crewUpdates', 'setReminders', 'scheduleChanges', 'dndStart', 'dndEnd']);
+      const allowedKeys = new Set([
+        'crewUpdates',
+        'setReminders',
+        'scheduleChanges',
+        'lineupDrops',
+        'crewReformed',
+        'wrapReady',
+        'dndStart',
+        'dndEnd',
+      ]);
       const bodyKeys = Object.keys(body);
       if (bodyKeys.some((key) => !allowedKeys.has(key))) {
         return sendError(res, 400, 'Invalid preference fields', ErrorCodes.INVALID_INPUT);
       }
       const update: any = {};
 
-      // Boolean toggles. These 3 categories are core: crew actions, reminders, schedule.
-      // Keep these 3 — removing any creates gaps in user control over notification noise.
-      for (const key of ['crewUpdates', 'setReminders', 'scheduleChanges']) {
+      // Boolean toggles. The 3 core categories (crew/reminders/schedule) plus the
+      // M3 re-engagement opt-outs (lineup_drop / crew_reformed / wrap_ready).
+      for (const key of [
+        'crewUpdates',
+        'setReminders',
+        'scheduleChanges',
+        'lineupDrops',
+        'crewReformed',
+        'wrapReady',
+      ]) {
         if (body[key] !== undefined) {
           update[key] = body[key] ? 1 : 0;
         }
@@ -194,12 +239,16 @@ export default function createNotificationRoutes(deps: any) {
       }
 
       // Merge with existing prefs since upsert does full INSERT OR REPLACE
-      const current = await stores.notificationPrefs.get(req.user.userId) || {};
+      const current = (await stores.notificationPrefs.get(req.user.userId)) || {};
       await stores.notificationPrefs.upsert({
         userId: req.user.userId,
         crewUpdates: update.crewUpdates !== undefined ? update.crewUpdates : (current.crewUpdates ?? true),
         setReminders: update.setReminders !== undefined ? update.setReminders : (current.setReminders ?? true),
-        scheduleChanges: update.scheduleChanges !== undefined ? update.scheduleChanges : (current.scheduleChanges ?? true),
+        scheduleChanges:
+          update.scheduleChanges !== undefined ? update.scheduleChanges : (current.scheduleChanges ?? true),
+        lineupDrops: update.lineupDrops !== undefined ? update.lineupDrops : (current.lineupDrops ?? true),
+        crewReformed: update.crewReformed !== undefined ? update.crewReformed : (current.crewReformed ?? true),
+        wrapReady: update.wrapReady !== undefined ? update.wrapReady : (current.wrapReady ?? true),
         dndStart: update.dndStart !== undefined ? update.dndStart : (current.dndStart ?? null),
         dndEnd: update.dndEnd !== undefined ? update.dndEnd : (current.dndEnd ?? null),
       });
@@ -240,30 +289,36 @@ export default function createNotificationRoutes(deps: any) {
   });
 
   // PUT /topics/:festivalId — update topic subscriptions
-  router.put('/topics/:festivalId', userAuth, rl(30, 'notif-topics'), validate(schemas.topicSubscription), async (req: any, res: any) => {
-    try {
-      const festivalId = sanitizeIdentifier(req.params.festivalId, 100);
-      if (!festivalId) return sendError(res, 400, 'Invalid festival ID', ErrorCodes.INVALID_INPUT);
-      // Verify user is a member of this festival
-      const profile = await stores.profiles.readByUserAndFestival?.(req.user.userId, festivalId);
-      if (!profile) return sendError(res, 403, 'Not a member of this festival', ErrorCodes.FORBIDDEN);
-      const body = req.validatedBody;
-      const updated: any = {};
-      for (const [topic, subscribed] of Object.entries(body)) {
-        if (!ALLOWED_TOPICS.has(topic)) continue;
-        await stores.topicSubscriptions?.setSubscription(req.user.userId, festivalId, topic, subscribed);
-        updated[topic] = subscribed;
+  router.put(
+    '/topics/:festivalId',
+    userAuth,
+    rl(30, 'notif-topics'),
+    validate(schemas.topicSubscription),
+    async (req: any, res: any) => {
+      try {
+        const festivalId = sanitizeIdentifier(req.params.festivalId, 100);
+        if (!festivalId) return sendError(res, 400, 'Invalid festival ID', ErrorCodes.INVALID_INPUT);
+        // Verify user is a member of this festival
+        const profile = await stores.profiles.readByUserAndFestival?.(req.user.userId, festivalId);
+        if (!profile) return sendError(res, 403, 'Not a member of this festival', ErrorCodes.FORBIDDEN);
+        const body = req.validatedBody;
+        const updated: any = {};
+        for (const [topic, subscribed] of Object.entries(body)) {
+          if (!ALLOWED_TOPICS.has(topic)) continue;
+          await stores.topicSubscriptions?.setSubscription(req.user.userId, festivalId, topic, subscribed);
+          updated[topic] = subscribed;
+        }
+        if (Object.keys(updated).length === 0) {
+          return sendError(res, 400, 'No valid topics provided', ErrorCodes.INVALID_INPUT);
+        }
+        log.info('topic subscriptions updated', { userId: req.user.userId, festivalId, changes: Object.keys(updated) });
+        return sendSuccess(res, updated);
+      } catch (error: any) {
+        log.error('update topic subs failed', { error: error.message });
+        return sendError(res, 500, 'Failed to update subscriptions', ErrorCodes.INTERNAL_ERROR);
       }
-      if (Object.keys(updated).length === 0) {
-        return sendError(res, 400, 'No valid topics provided', ErrorCodes.INVALID_INPUT);
-      }
-      log.info('topic subscriptions updated', { userId: req.user.userId, festivalId, changes: Object.keys(updated) });
-      return sendSuccess(res, updated);
-    } catch (error: any) {
-      log.error('update topic subs failed', { error: error.message });
-      return sendError(res, 500, 'Failed to update subscriptions', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   return router;
 }

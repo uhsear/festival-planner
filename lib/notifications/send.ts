@@ -77,6 +77,10 @@ const PREF_MAP: Record<string, string> = {
   crew_update: 'crewUpdates',
   schedule_change: 'scheduleChanges',
   set_reminder: 'setReminders',
+  // M3 re-engagement triggers — each has its own per-type opt-out column.
+  lineup_drop: 'lineupDrops',
+  crew_reformed: 'crewReformed',
+  wrap_ready: 'wrapReady',
 };
 
 /** Check if a stale token error code signals the device is no longer registered */

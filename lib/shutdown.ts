@@ -188,6 +188,46 @@ function createBackgroundTasks(ctx: any, { io }: any) {
   }, config.TOKEN_CLEANUP_INTERVAL_MS);
   _meetingPointExpiryTimer.unref();
   state.timers.push(_meetingPointExpiryTimer);
+
+  // M3 wrap_ready sweep — there is no in-request "festival became over" event, so
+  // a leader-only periodic sweep is the clearest available trigger (see roadmap
+  // M3: "wire it where a festival transitions to over OR expose it for a
+  // post-festival job"). We scan only festivals whose final day ended in a recent
+  // window (cheap) and call sendWrapReady per festival; the trigger's
+  // once-per-event-per-user dedup (notification_log eventKey) makes repeated
+  // sweeps idempotent, so an exact transition moment isn't required.
+  // NOTE: a dedicated scheduler/queue would be better at scale (this is a simple
+  // hourly interval, leader-gated); kept minimal per the additive M3 scope.
+  if (ctx.reengagement?.sendWrapReady) {
+    const WRAP_SWEEP_INTERVAL_MS = 60 * 60 * 1000; // hourly
+    const runWrapSweep = async () => {
+      try {
+        // Festivals whose max day date is in [now-3d, now] — recently over.
+        const { rows } = await stores.pool.query(`
+          SELECT f.id
+          FROM festivals f
+          WHERE f.deleted_at IS NULL
+            AND EXISTS (SELECT 1 FROM festival_days d WHERE d.festival_id = f.id)
+            AND (SELECT MAX(d.date) FROM festival_days d WHERE d.festival_id = f.id)
+                BETWEEN (CURRENT_DATE - INTERVAL '3 days')::text AND CURRENT_DATE::text
+        `);
+        for (const r of rows) {
+          try {
+            await ctx.reengagement.sendWrapReady(r.id);
+          } catch (err: any) {
+            log.debug('wrap_ready sweep: per-festival send failed', { festivalId: r.id, error: err.message });
+          }
+        }
+        if (rows.length > 0) log.debug('wrap_ready sweep complete', { festivals: rows.length });
+      } catch (err: any) {
+        log.warn('wrap_ready sweep failed', { error: err.message });
+      }
+    };
+    const _wrapReadyTimer = setInterval(runWrapSweep, WRAP_SWEEP_INTERVAL_MS);
+    _wrapReadyTimer.unref();
+    state.timers.push(_wrapReadyTimer);
+    log.info('wrap_ready sweep registered (hourly, leader-only)');
+  }
 }
 
 /**

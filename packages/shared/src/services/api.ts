@@ -95,6 +95,7 @@ const OFFLINE_ELIGIBLE_PATTERNS: RegExp[] = [
   /^\/crews\/[^/]+\/meeting-points(\/|$)/,
   /^\/crews\/[^/]+\/polls(\/|$)/, // includes /polls/:id/vote
   /^\/crews\/[^/]+\/packing(\/|$)/, // includes /packing/:id (claim/edit/delete)
+  /^\/crews\/[^/]+\/rides(\/|$)/, // includes /rides/:id (edit/delete)
   /^\/crews\/[^/]+\/expenses(\/|$)/,
   /^\/crews\/[^/]+\/home-base(\/|$)/,
   /^\/crews\/[^/]+\/reminders(\/|$)/,

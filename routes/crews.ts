@@ -6,6 +6,7 @@ import createInviteRoutes from './crew-invites.js';
 import createMeetingPointRoutes from './crew-meeting-points.js';
 import createPollRoutes from './crew-polls.js';
 import createPackingRoutes from './crew-packing.js';
+import createRidesRoutes from './crew-rides.js';
 import createCrewMemberRoutes from './crew-members.js';
 
 /**
@@ -40,6 +41,8 @@ export default function createCrewRoutes(deps: any) {
     express,
     log,
     pool,
+    config,
+    reengagement,
     userAuth,
     setNoStore,
     sanitizeString,
@@ -139,12 +142,14 @@ export default function createCrewRoutes(deps: any) {
   const meetingPointRoutes = createMeetingPointRoutes(subDeps);
   const pollRoutes = createPollRoutes(subDeps);
   const packingRoutes = createPackingRoutes(subDeps);
+  const ridesRoutes = createRidesRoutes(subDeps);
   const memberRoutes = createCrewMemberRoutes(subDeps);
 
   router.use('/', inviteRoutes);
   router.use('/', meetingPointRoutes);
   router.use('/', pollRoutes);
   router.use('/', packingRoutes);
+  router.use('/', ridesRoutes);
   router.use('/', memberRoutes);
 
   // ── Crew creation helpers ────────────────────────────────────────
@@ -362,6 +367,33 @@ export default function createCrewRoutes(deps: any) {
           autoAdded: added.length,
           invited: toInvite.length,
         });
+
+        // M3 re-engagement: notify the INVITED prior members (those without a
+        // target-festival profile). Event-gated, per-type opt-out + DND + deduped
+        // inside the trigger. Best-effort + fire-and-forget so a notify failure
+        // never fails the reform itself.
+        if (reengagement?.sendCrewReformed && toInvite.length > 0) {
+          const origin = config?.PUBLIC_ORIGIN || `${req.protocol}://${req.get('host')}`;
+          const inviteUrl = finalCrew?.inviteCode
+            ? `${origin}/join/${encodeURIComponent(finalCrew.inviteCode)}`
+            : undefined;
+          let festivalName = '';
+          try {
+            const { rows } = await pool.query('SELECT name FROM festivals WHERE id = $1', [targetFestivalId]);
+            festivalName = rows[0]?.name || '';
+          } catch {
+            /* name is optional for the notification */
+          }
+          reengagement
+            .sendCrewReformed({
+              newCrewId: newCrew.id,
+              crewName: finalCrew?.name || sourceCrew.name,
+              festivalName,
+              invitedUserIds: toInvite,
+              inviteUrl,
+            })
+            .catch((err: any) => log.warn('crew_reformed notify failed', { error: err?.message }));
+        }
 
         const serialized = serializeCrewWithMembers(finalCrew, finalMembers, req.user.userId);
         return sendSuccess(res, {

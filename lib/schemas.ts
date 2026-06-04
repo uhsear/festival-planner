@@ -143,6 +143,9 @@ export const notificationPrefsSchema = z
     crewUpdates: z.boolean().optional(),
     setReminders: z.boolean().optional(),
     scheduleChanges: z.boolean().optional(),
+    lineupDrops: z.boolean().optional(),
+    crewReformed: z.boolean().optional(),
+    wrapReady: z.boolean().optional(),
     dndStart: dndTime.optional(),
     dndEnd: dndTime.optional(),
   })
@@ -607,6 +610,29 @@ export const packingUpdateSchema = z
   });
 export type PackingUpdateInput = z.infer<typeof packingUpdateSchema>;
 
+// ── Crew carpool / ride-board schemas (M2 logistics) ────────────────
+export const rideCreateSchema = z.object({
+  driver: z.string().trim().max(100).optional().nullable(),
+  seats: z.number().int().min(0).max(99).optional().nullable(),
+  departFrom: z.string().trim().max(200).optional().nullable(),
+  departAt: z.string().trim().max(100).optional().nullable(),
+  note: z.string().trim().max(500).optional().nullable(),
+});
+export type RideCreateInput = z.infer<typeof rideCreateSchema>;
+
+export const rideUpdateSchema = z
+  .object({
+    driver: z.string().trim().max(100).optional().nullable(),
+    seats: z.number().int().min(0).max(99).optional().nullable(),
+    departFrom: z.string().trim().max(200).optional().nullable(),
+    departAt: z.string().trim().max(100).optional().nullable(),
+    note: z.string().trim().max(500).optional().nullable(),
+  })
+  .refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), {
+    message: 'At least one field required',
+  });
+export type RideUpdateInput = z.infer<typeof rideUpdateSchema>;
+
 // ── Refresh Token schema ────────────────────────────────────────
 export const refreshTokenSchema = z.object({
   refreshToken: z.string().min(1),
@@ -802,6 +828,8 @@ export const schemas = {
   pollVote: pollVoteSchema,
   packingCreate: packingCreateSchema,
   packingUpdate: packingUpdateSchema,
+  rideCreate: rideCreateSchema,
+  rideUpdate: rideUpdateSchema,
   forgotPassword: forgotPasswordSchema,
   updateEmail: updateEmailSchema,
   refreshToken: refreshTokenSchema,

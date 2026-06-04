@@ -118,6 +118,24 @@ export default function AccountNotificationPrefsSection() {
       value: prefs.scheduleChanges,
       onChange: (v) => updatePrefs({ scheduleChanges: v }).catch(() => {}),
     },
+    {
+      key: 'lineupDrops',
+      title: 'New lineups',
+      value: prefs.lineupDrops,
+      onChange: (v) => updatePrefs({ lineupDrops: v }).catch(() => {}),
+    },
+    {
+      key: 'crewReformed',
+      title: 'Crew re-forms',
+      value: prefs.crewReformed,
+      onChange: (v) => updatePrefs({ crewReformed: v }).catch(() => {}),
+    },
+    {
+      key: 'wrapReady',
+      title: 'Wrap-up ready',
+      value: prefs.wrapReady,
+      onChange: (v) => updatePrefs({ wrapReady: v }).catch(() => {}),
+    },
   ];
 
   return (

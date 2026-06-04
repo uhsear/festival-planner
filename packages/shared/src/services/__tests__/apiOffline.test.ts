@@ -40,6 +40,10 @@ describe('api offline interception', () => {
       expect(isOfflineEligible('/crews/c1/meeting-points')).toBe(true);
       expect(isOfflineEligible('/crews/c1/polls')).toBe(true);
       expect(isOfflineEligible('/crews/c1/polls/poll1/vote')).toBe(true);
+      expect(isOfflineEligible('/crews/c1/packing')).toBe(true);
+      expect(isOfflineEligible('/crews/c1/packing/item1')).toBe(true);
+      expect(isOfflineEligible('/crews/c1/rides')).toBe(true);
+      expect(isOfflineEligible('/crews/c1/rides/ride1')).toBe(true);
       expect(isOfflineEligible('/crews/c1/expenses')).toBe(true);
       expect(isOfflineEligible('/crews/c1/home-base')).toBe(true);
       expect(isOfflineEligible('/crews/c1/reminders')).toBe(true);
