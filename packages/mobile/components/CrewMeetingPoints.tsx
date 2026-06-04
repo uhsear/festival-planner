@@ -5,6 +5,14 @@ import { useCrewStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
+// TODO(F4 EAS slice): add a "Use my location" capture button here using
+// expo-location (getCurrentPositionAsync) to fill latitude/longitude on
+// create/edit, mirroring the web MeetingPointsTab. Deferred to the batched
+// EAS/native slice — this slice is backend + web only and must not add an Expo
+// dependency. The shared CrewMeetingPoint type, crewStore optimistic
+// placeholder, schema, and backend already accept latitude/longitude, so only
+// this UI capture + a captured chip remain for mobile.
+
 interface CrewMeetingPointsProps {
   crewId: string;
   currentUserId: string;

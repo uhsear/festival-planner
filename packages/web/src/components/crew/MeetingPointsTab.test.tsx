@@ -12,14 +12,30 @@ vi.mock('lucide-react', () => ({
   Navigation: () => <span data-testid="navigation-icon" />,
   Pencil: () => <span data-testid="pencil-icon" />,
   Loader: () => <span data-testid="loader-icon" />,
+  // CrewStatus (rendered by MeetingPointsTab) pulls these too.
+  LocateFixed: () => <span data-testid="locate-fixed-icon" />,
 }));
 
 // api is unused in assertions (the mutation fns are what we check), but the
 // component imports it at module load — provide a stub. Inlined to avoid the
 // hoisting trap (vi.mock factories run before top-level consts initialize).
-vi.mock('@festie/shared', () => ({
-  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
-}));
+// MeetingPointsTab renders <CrewStatus/> (M5), which reads useCrewStore and
+// calls formatStaleness/etaMinutes from @festie/shared. The store has no rows
+// in these tests (CrewStatus renders only its header/banner), so a minimal
+// selector-backed stub keeps this suite focused on meeting-point behavior.
+vi.mock('@festie/shared', () => {
+  const crewState = {
+    crewStatuses: [] as unknown[],
+    loadStatuses: vi.fn(async () => {}),
+    updateMyStatus: vi.fn(async () => {}),
+  };
+  return {
+    api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+    useCrewStore: (selector: (s: typeof crewState) => unknown) => selector(crewState),
+    formatStaleness: () => 'just now',
+    etaMinutes: () => 0,
+  };
+});
 
 vi.mock('../../lib/toastContext', () => ({
   useToast: () => ({ toast: vi.fn() }),

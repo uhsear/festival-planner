@@ -15,6 +15,7 @@ import type {
   PresenceUpdatePayload,
   CrewUpdatedPayload,
   CrewMemberEventPayload,
+  CrewStatusUpdatedPayload,
 } from '@festie/shared/types/socket-events';
 
 export interface UseRealtimeSyncReturn {
@@ -164,6 +165,19 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     const handleCrewMemberAdded = (data: CrewMemberEventPayload) => reloadCrews(data?.crewId);
     const handleCrewMemberRemoved = (data: CrewMemberEventPayload) => reloadCrews(data?.crewId);
 
+    // M5: a crewmate's last-synced status changed (degraded-sync, NOT live GPS).
+    // Patch the crewStore row in place — only when it targets the open crew so a
+    // background crew's status never mutates the visible list. applyStatusUpdate
+    // is last-write-wins by timestamp, so a delayed echo can't clobber a newer
+    // local row.
+    const handleCrewStatusUpdated = (data: CrewStatusUpdatedPayload) => {
+      const row = data?.status;
+      if (!row) return;
+      const activeCrewId = useCrewStore.getState().activeCrew?.id ?? null;
+      if (!activeCrewId || row.crew_id !== activeCrewId) return;
+      useCrewStore.getState().applyStatusUpdate(row);
+    };
+
     // --- Festival / sets (festivalStore selectFestival reloads everything) ---
     const handleFestivalUpdated = (_data: FestivalIdPayload) => reloadFestival();
     const handleSetAdded = (_data: FestivalIdPayload) => reloadFestival();
@@ -201,6 +215,7 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     socket.on('crew:updated', handleCrewUpdated);
     socket.on('crew:member-joined', handleCrewMemberAdded);
     socket.on('crew:member-left', handleCrewMemberRemoved);
+    socket.on('crew:status-updated', handleCrewStatusUpdated);
 
     socket.on('festival:updated', handleFestivalUpdated);
     socket.on('festival:set-added', handleSetAdded);
@@ -223,6 +238,7 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       socket.off('crew:updated', handleCrewUpdated);
       socket.off('crew:member-joined', handleCrewMemberAdded);
       socket.off('crew:member-left', handleCrewMemberRemoved);
+      socket.off('crew:status-updated', handleCrewStatusUpdated);
 
       socket.off('festival:updated', handleFestivalUpdated);
       socket.off('festival:set-added', handleSetAdded);

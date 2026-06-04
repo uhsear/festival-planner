@@ -24,6 +24,8 @@ import {
   CrewRideOffer,
   CreateCrewRideOfferRequest,
   UpdateCrewRideOfferRequest,
+  CrewMemberStatus,
+  UpdateCrewMemberStatusRequest,
   CrewExpense,
   CrewExpenseBalance,
   CreateCrewExpenseRequest,
@@ -44,6 +46,10 @@ export interface CrewState {
   meetingPoints: CrewMeetingPoint[];
   packingItems: CrewPackingItem[];
   rideOffers: CrewRideOffer[];
+  // M5: last-synced "on my way / ETA to [point]" per crew member. A degraded-
+  // sync snapshot list (NOT live GPS) — render each row's `updated_at` with
+  // formatStaleness ("as of N ago"), never as real-time.
+  crewStatuses: CrewMemberStatus[];
   expenses: CrewExpense[];
   expenseBalances: CrewExpenseBalance[];
   // Netted who-pays-whom plan (greedy min-cash-flow) + payee handles. Loaded
@@ -115,6 +121,11 @@ export interface CrewActions {
   createRideOffer: (crewId: string, request: CreateCrewRideOfferRequest) => Promise<CrewRideOffer>;
   updateRideOffer: (crewId: string, offerId: string, request: UpdateCrewRideOfferRequest) => Promise<CrewRideOffer>;
   deleteRideOffer: (crewId: string, offerId: string) => Promise<void>;
+  // Member status (routes/crew-status.ts). Offline-degraded like the crew
+  // sub-resources: updateMyStatus queues offline (deterministic clientId
+  // collapses toggles) and reconciles on a signal blip. NOT live GPS.
+  loadStatuses: (crewId: string) => Promise<void>;
+  updateMyStatus: (crewId: string, request: UpdateCrewMemberStatusRequest, myUserId: string) => Promise<void>;
   // Expenses (routes/crew-expenses.ts).
   loadExpenses: (crewId: string) => Promise<void>;
   addExpense: (crewId: string, request: CreateCrewExpenseRequest) => Promise<void>;
@@ -135,6 +146,10 @@ export interface CrewActions {
   applyPollCreated: (poll: CrewPoll) => void;
   applyPollVote: (pollId: string, userId: string, optionIndex: number) => void;
   applyPollClosed: (pollId: string) => void;
+  // M5: upsert a crew member's last-synced status from a remote
+  // crew:status-updated event. Replaces any prior row for that user (one row
+  // per member). Honest staleness is rendered from `updated_at` by consumers.
+  applyStatusUpdate: (status: CrewMemberStatus) => void;
   setError: (error: string | null) => void;
 }
 
@@ -162,6 +177,7 @@ const MAX_CACHED_ACTIVITY = 50;
 const MAX_CACHED_POLLS = 100;
 const MAX_CACHED_PACKING = 200;
 const MAX_CACHED_RIDES = 200;
+const MAX_CACHED_STATUSES = 100;
 const MAX_CACHED_EXPENSES = 100;
 
 // ── Offline optimistic-create helpers (Phase 2) ────────────────────────────
@@ -208,6 +224,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   meetingPoints: [],
   packingItems: [],
   rideOffers: [],
+  crewStatuses: [],
   expenses: [],
   expenseBalances: [],
   settlements: [],
@@ -249,6 +266,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         meetingPoints: sameCrew ? state.meetingPoints : [],
         packingItems: sameCrew ? state.packingItems : [],
         rideOffers: sameCrew ? state.rideOffers : [],
+        crewStatuses: sameCrew ? state.crewStatuses : [],
         expenses: sameCrew ? state.expenses : [],
         expenseBalances: sameCrew ? state.expenseBalances : [],
         settlements: sameCrew ? state.settlements : [],
@@ -629,6 +647,10 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
             type: request.type ?? 'custom',
             meet_at: request.meetAt ?? null,
             stage_reference: request.stageReference ?? null,
+            // F4: render offline-captured coords immediately; survives reconcile
+            // since the queued POST replays the same lat/lng (no reconciler change).
+            latitude: request.latitude ?? null,
+            longitude: request.longitude ?? null,
             active: true,
             created_at: new Date().toISOString(),
             _optimistic: true,
@@ -677,6 +699,8 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
               ...(request.type !== undefined ? { type: request.type } : {}),
               ...(request.meetAt !== undefined ? { meet_at: request.meetAt } : {}),
               ...(request.stageReference !== undefined ? { stage_reference: request.stageReference } : {}),
+              ...(request.latitude !== undefined ? { latitude: request.latitude } : {}),
+              ...(request.longitude !== undefined ? { longitude: request.longitude } : {}),
             };
             return merged;
           }),
@@ -693,6 +717,8 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
             type: request.type ?? 'custom',
             meet_at: request.meetAt ?? null,
             stage_reference: request.stageReference ?? null,
+            latitude: request.latitude ?? null,
+            longitude: request.longitude ?? null,
             active: true,
             created_at: new Date().toISOString(),
             _optimistic: true,
@@ -992,6 +1018,85 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     }
   },
 
+  // ── Member status (M5: last-synced on-my-way / ETA) ────────────
+  // GET /crews/:crewId/status -> { statuses }. This is a DEGRADED-SYNC snapshot
+  // list, NOT live GPS — consumers render each row's `updated_at` as honest
+  // staleness ("as of N ago" via formatStaleness), never as real-time.
+  loadStatuses: async (crewId: string) => {
+    set({ error: null });
+    try {
+      const res = await api.get<{ statuses: CrewMemberStatus[] } | CrewMemberStatus[]>(`/crews/${crewId}/status`);
+      const statuses = Array.isArray(res) ? res : (res?.statuses ?? []);
+      // Reload-dedup: drop any lingering optimistic placeholder so an offline
+      // self-update isn't duplicated once the authoritative list arrives.
+      set({ crewStatuses: dropOptimistic(statuses) });
+    } catch (err) {
+      const message = mapErrorToUserMessage(err, 'Failed to load crew status');
+      set({ error: message });
+      throw err;
+    }
+  },
+
+  // PUT /crews/:crewId/status -> { status }. Upserts MY OWN status (one row per
+  // member). Offline-degraded: api.put queues the write with a DETERMINISTIC
+  // clientId (`status-<crewId>-<userId>`) so repeated offline toggles collapse
+  // into the latest, replay-safe value — captured offline, delivered on a
+  // signal blip. Optimistically upserts my row locally (replacing any prior one)
+  // so the change shows immediately; `updated_at` is set to now so my own
+  // staleness reads honestly until the server confirms. Never implies live.
+  updateMyStatus: async (crewId: string, request: UpdateCrewMemberStatusRequest, myUserId: string) => {
+    set({ error: null });
+    // Optimistically upsert my own row up front (covers both online + offline).
+    const nowIso = new Date().toISOString();
+    set((state) => {
+      const mine = state.crewStatuses.find((s) => s.user_id === myUserId);
+      const merged: CrewMemberStatus = {
+        crew_id: crewId,
+        user_id: myUserId,
+        status: request.status ?? null,
+        target_meeting_point_id: request.targetMeetingPointId ?? null,
+        eta_minutes: request.etaMinutes ?? null,
+        note: request.note ?? null,
+        updated_at: nowIso,
+        // Preserve my joined display fields if I already had a row.
+        username: mine?.username,
+        name: mine?.name,
+        avatar_key: mine?.avatar_key,
+        avatar_version: mine?.avatar_version,
+        _optimistic: true,
+      };
+      const others = state.crewStatuses.filter((s) => s.user_id !== myUserId);
+      return { crewStatuses: [merged, ...others] };
+    });
+    try {
+      const res = await api.put<{ status: CrewMemberStatus } | (UpdateCrewMemberStatusRequest & { _optimistic: true })>(
+        `/crews/${crewId}/status`,
+        request,
+        {
+          // Deterministic clientId collapses repeated offline toggles into one
+          // pending write keyed on (crew, user).
+          clientId: `PUT:/crews/${crewId}/status:status-${crewId}-${myUserId}`,
+          offlineLabel: 'Update my crew status',
+        },
+      );
+      // Offline: the synthetic `{ ...request, _optimistic: true }` is already
+      // reflected by the optimistic upsert above — nothing more to do.
+      if (res && (res as { _optimistic?: boolean })._optimistic) return;
+      // Online: replace my optimistic row with the authoritative server row.
+      const { status } = res as { status: CrewMemberStatus };
+      if (status && typeof status.user_id === 'string') {
+        set((state) => {
+          const others = state.crewStatuses.filter((s) => s.user_id !== status.user_id);
+          return { crewStatuses: [{ ...status, _optimistic: false }, ...others] };
+        });
+      }
+    } catch (err) {
+      const message = mapErrorToUserMessage(err, 'Failed to update status');
+      set({ error: message });
+      throw err;
+    }
+  },
+
   // ── Expenses ───────────────────────────────────────────────────
   // GET /crews/:crewId/expenses -> array (api unwraps the data envelope).
   // Fetches the expense list AND the balance ledger together so one call
@@ -1186,6 +1291,28 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     set((state) => ({ polls: state.polls.filter((p) => p.id !== pollId) }));
   },
 
+  // M5: upsert a member's last-synced status from a remote crew:status-updated
+  // event. One row per user — replace any prior row for that user, newest first.
+  // We do NOT overwrite MY OWN locally-newer optimistic row with an older remote
+  // echo: if the incoming row is for me and is not newer than what I have, skip.
+  applyStatusUpdate: (status: CrewMemberStatus) => {
+    if (!status || typeof status.user_id !== 'string') return;
+    set((state) => {
+      const existing = state.crewStatuses.find((s) => s.user_id === status.user_id);
+      // Last-write-wins by timestamp so a delayed echo can't clobber a newer
+      // local update (e.g. my own optimistic row that hasn't synced yet).
+      if (existing) {
+        const incomingMs = new Date(status.updated_at).getTime();
+        const existingMs = new Date(existing.updated_at).getTime();
+        if (Number.isFinite(existingMs) && Number.isFinite(incomingMs) && incomingMs < existingMs) {
+          return {};
+        }
+      }
+      const others = state.crewStatuses.filter((s) => s.user_id !== status.user_id);
+      return { crewStatuses: [{ ...status, _optimistic: false }, ...others] };
+    });
+  },
+
   setError: (error: string | null) => {
     set({ error });
   },
@@ -1194,7 +1321,10 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
 export const useCrewStore = create<CrewStore>()(
   persist(crewStore, {
     name: 'festie-crew',
-    version: 1,
+    // v2 (M5): added the persisted `crewStatuses` read-cache. Old v1 blobs lack
+    // the key; the migrate below backfills it to an empty list so a rehydrate
+    // from v1 never yields `crewStatuses: undefined`.
+    version: 2,
     storage: createJSONStorage(() => getStorage()),
     // Persist ONLY the read-cache for the active crew so a cold start with no
     // signal (the festival condition) renders the crew's members / meeting
@@ -1211,6 +1341,7 @@ export const useCrewStore = create<CrewStore>()(
       polls: state.polls.slice(0, MAX_CACHED_POLLS),
       packingItems: state.packingItems.slice(0, MAX_CACHED_PACKING),
       rideOffers: state.rideOffers.slice(0, MAX_CACHED_RIDES),
+      crewStatuses: state.crewStatuses.slice(0, MAX_CACHED_STATUSES),
       expenses: state.expenses.slice(0, MAX_CACHED_EXPENSES),
       expenseBalances: state.expenseBalances,
       settlements: state.settlements,
@@ -1218,10 +1349,16 @@ export const useCrewStore = create<CrewStore>()(
       _cachedAt: state._cachedAt,
       _cachedCrewId: state._cachedCrewId,
     }),
-    // Stub for forward-compat: when partialize fields change, bump `version`
-    // and reshape the old persisted blob here. v1 is the first persisted shape,
-    // so there is nothing to migrate yet — return state unchanged.
-    migrate: (persistedState) => persistedState as CrewStore,
+    // v1 → v2: backfill the new `crewStatuses` read-cache so a rehydrate from a
+    // v1 blob (which lacks the key) never yields `undefined`. Other fields are
+    // carried through unchanged.
+    migrate: (persistedState, version) => {
+      const s = (persistedState ?? {}) as Partial<CrewStore>;
+      if (version < 2 && !Array.isArray(s.crewStatuses)) {
+        return { ...s, crewStatuses: [] } as CrewStore;
+      }
+      return s as CrewStore;
+    },
   }),
 );
 

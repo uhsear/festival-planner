@@ -350,6 +350,10 @@ export const meetingPointCreateSchema = z.object({
   type: z.enum(MEETING_POINT_TYPES).default('during'),
   meetAt: z.string().datetime().optional().nullable(),
   stageReference: z.string().max(100).optional().nullable(),
+  // F4: optional captured GPS coords (browser/native geolocation). Nullable —
+  // legacy free-text points omit these and keep NULL coords server-side.
+  latitude: z.number().min(-90).max(90).optional().nullable(),
+  longitude: z.number().min(-180).max(180).optional().nullable(),
 });
 export type MeetingPointCreateInput = z.infer<typeof meetingPointCreateSchema>;
 
@@ -360,6 +364,8 @@ export const meetingPointUpdateSchema = z
     type: z.enum(MEETING_POINT_TYPES).optional(),
     meetAt: z.string().datetime().optional().nullable(),
     stageReference: z.string().max(100).optional().nullable(),
+    latitude: z.number().min(-90).max(90).optional().nullable(),
+    longitude: z.number().min(-180).max(180).optional().nullable(),
   })
   .refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), {
     message: 'At least one field required',
@@ -609,6 +615,21 @@ export const packingUpdateSchema = z
     message: 'At least one field required',
   });
 export type PackingUpdateInput = z.infer<typeof packingUpdateSchema>;
+
+// ── Crew member status schema (M5: on-my-way / ETA) ─────────────────
+// A last-synced, degraded-sync snapshot the member set (often offline) — NOT
+// live GPS. All fields optional/nullable so a member can post just a status,
+// just an ETA, or clear it. `status` is a small enum: 'on-my-way' | 'here' |
+// 'delayed' | null (clear). etaMinutes is bounded (0–1440 = up to a day).
+export const crewStatusSchema = z
+  .object({
+    status: z.enum(['on-my-way', 'here', 'delayed']).optional().nullable(),
+    targetMeetingPointId: z.string().trim().max(100).optional().nullable(),
+    etaMinutes: z.number().int().min(0).max(1440).optional().nullable(),
+    note: z.string().trim().max(280).optional().nullable(),
+  })
+  .refine((d) => Object.keys(d).length > 0, { message: 'At least one field required' });
+export type CrewStatusInput = z.infer<typeof crewStatusSchema>;
 
 // ── Crew carpool / ride-board schemas (M2 logistics) ────────────────
 export const rideCreateSchema = z.object({
@@ -861,6 +882,7 @@ export const schemas = {
   pollVote: pollVoteSchema,
   packingCreate: packingCreateSchema,
   packingUpdate: packingUpdateSchema,
+  crewStatus: crewStatusSchema,
   rideCreate: rideCreateSchema,
   rideUpdate: rideUpdateSchema,
   forgotPassword: forgotPasswordSchema,

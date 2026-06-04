@@ -488,6 +488,9 @@ describe('createCrewsStore — meetingPoints', () => {
       '18:00',
       'Main',
       '2026-12-31',
+      // F4: latitude / longitude default to null when not provided.
+      null,
+      null,
     ]);
   });
 
@@ -504,6 +507,54 @@ describe('createCrewsStore — meetingPoints', () => {
     assert.strictEqual(params[6], null);
     assert.strictEqual(params[7], null);
     assert.strictEqual(params[8], null);
+    // F4: latitude ($10) / longitude ($11) default to null when omitted.
+    assert.strictEqual(params[9], null);
+    assert.strictEqual(params[10], null);
+  });
+
+  it('create threads F4 latitude/longitude into the INSERT params', async () => {
+    const mp = {
+      id: 'mp1',
+      crewId: 'c1',
+      createdBy: 'u1',
+      label: 'Gate A',
+      location: 'North',
+      latitude: 41.85,
+      longitude: -87.65,
+    };
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'mp1' }] }]);
+    const { meetingPoints } = createCrewsStore(pool, mockUtils);
+
+    await meetingPoints.create(mp);
+
+    const insert = norm(pool.queries[0].sql);
+    assert.ok(insert.includes('latitude'));
+    assert.ok(insert.includes('longitude'));
+    assert.strictEqual(pool.queries[0].params[9], 41.85);
+    assert.strictEqual(pool.queries[0].params[10], -87.65);
+  });
+
+  it('create preserves latitude=0 / longitude=0 (uses ?? not ||)', async () => {
+    const mp = { id: 'mp1', crewId: 'c1', createdBy: 'u1', label: 'X', location: 'Y', latitude: 0, longitude: 0 };
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'mp1' }] }]);
+    const { meetingPoints } = createCrewsStore(pool, mockUtils);
+
+    await meetingPoints.create(mp);
+
+    assert.strictEqual(pool.queries[0].params[9], 0);
+    assert.strictEqual(pool.queries[0].params[10], 0);
+  });
+
+  it('update maps F4 latitude/longitude to columns', async () => {
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'mp1' }] }]);
+    const { meetingPoints } = createCrewsStore(pool, mockUtils);
+
+    await meetingPoints.update('mp1', { latitude: 40.1, longitude: -74.2 });
+
+    const sql = norm(pool.queries[0].sql);
+    assert.ok(sql.includes('latitude = $1'));
+    assert.ok(sql.includes('longitude = $2'));
+    assert.deepStrictEqual(pool.queries[0].params, [40.1, -74.2, 'mp1']);
   });
 
   it('create returns null when SELECT returns nothing', async () => {

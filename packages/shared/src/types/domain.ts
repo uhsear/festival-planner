@@ -249,6 +249,9 @@ export interface CrewMeetingPoint {
   type: string;
   meet_at: string | null;
   stage_reference: string | null;
+  /** F4: captured GPS coords; null for legacy free-text meeting points. */
+  latitude?: number | null;
+  longitude?: number | null;
   active: boolean;
   created_at: string;
   /** Client-only optimistic-offline flag (see CrewPoll._optimistic). */
@@ -261,6 +264,8 @@ export interface CreateCrewMeetingPointRequest {
   type?: string;
   meetAt?: string | null;
   stageReference?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface UpdateCrewMeetingPointRequest {
@@ -269,6 +274,8 @@ export interface UpdateCrewMeetingPointRequest {
   type?: string;
   meetAt?: string | null;
   stageReference?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 /**
@@ -334,6 +341,49 @@ export interface UpdateCrewRideOfferRequest {
   seats?: number | null;
   departFrom?: string | null;
   departAt?: string | null;
+  note?: string | null;
+}
+
+/**
+ * Crew member status (M5) as serialized by the backend (routes/crew-status.ts).
+ * snake_case from Postgres.
+ *
+ * CARDINAL RULE: this is a LAST-SYNCED degraded-sync snapshot, NOT live GPS. The
+ * member set it (often offline) and it delivered on the next signal blip. ALWAYS
+ * render `updated_at` as honest staleness ("as of N ago" via formatStaleness) —
+ * never imply real-time.
+ *
+ * - `status`: 'on-my-way' | 'here' | 'delayed' | null (null = cleared)
+ * - `target_meeting_point_id`: free TEXT ref to a crew_meeting_points row (the
+ *   ETA target); may dangle if the point was removed → renders without a target.
+ * - `eta_minutes`: the member's own estimate (or geo-computed when the target
+ *   point has coords + the device shared a position), null when unknown.
+ */
+export interface CrewMemberStatus {
+  crew_id: string;
+  user_id: string;
+  status: 'on-my-way' | 'here' | 'delayed' | null;
+  target_meeting_point_id: string | null;
+  eta_minutes: number | null;
+  note: string | null;
+  updated_at: string;
+  // Joined member display fields (from the users table in listByCrew).
+  username?: string;
+  name?: string | null;
+  avatar_key?: string | null;
+  avatar_version?: string | null;
+  /** Client-only optimistic-offline flag (see CrewPoll._optimistic). */
+  _optimistic?: boolean;
+}
+
+/**
+ * The PUT /crews/:id/status body the member sends to set THEIR OWN status. All
+ * fields optional; an empty `status` (null) clears it.
+ */
+export interface UpdateCrewMemberStatusRequest {
+  status?: 'on-my-way' | 'here' | 'delayed' | null;
+  targetMeetingPointId?: string | null;
+  etaMinutes?: number | null;
   note?: string | null;
 }
 

@@ -1,0 +1,126 @@
+// Copyright (c) 2026 Asir Khan. All rights reserved.
+// Licensed under the Business Source License 1.1. See LICENSE file for details.
+
+/**
+ * geo.ts — pure lat/lng math shared by web + mobile (F3 / M5).
+ *
+ * Powers last-synced ETA and (later) the proximity compass. No platform deps —
+ * works identically on web and React Native. The ETA + staleness helpers here
+ * exist to support the M5 "on my way / ETA to [meeting point]" feature, which is
+ * an offline-DEGRADED-SYNCS snapshot, NOT live GPS. `formatStaleness` is the
+ * honest "as of N ago" copy the UI must show — never "live".
+ */
+
+/** A latitude/longitude pair in decimal degrees. */
+export interface Coord {
+  latitude: number;
+  longitude: number;
+}
+
+const EARTH_RADIUS_M = 6_371_000; // mean Earth radius in metres
+
+function toRad(deg: number): number {
+  return (deg * Math.PI) / 180;
+}
+
+function toDeg(rad: number): number {
+  return (rad * 180) / Math.PI;
+}
+
+/** True only when both fields are finite numbers (guards null coords / NaN). */
+function isValidCoord(c: Coord | null | undefined): c is Coord {
+  return (
+    !!c &&
+    typeof c.latitude === 'number' &&
+    typeof c.longitude === 'number' &&
+    Number.isFinite(c.latitude) &&
+    Number.isFinite(c.longitude)
+  );
+}
+
+/**
+ * Great-circle distance between two coords in METRES (haversine). Returns NaN if
+ * either coord is invalid so callers can branch instead of rendering a bogus 0.
+ */
+export function haversineDistance(from: Coord | null | undefined, to: Coord | null | undefined): number {
+  if (!isValidCoord(from) || !isValidCoord(to)) return NaN;
+  const dLat = toRad(to.latitude - from.latitude);
+  const dLng = toRad(to.longitude - from.longitude);
+  const lat1 = toRad(from.latitude);
+  const lat2 = toRad(to.latitude);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_M * c;
+}
+
+/**
+ * Initial bearing FROM → TO in degrees clockwise from true north [0, 360).
+ * Returns NaN for invalid coords. Used by the (later) proximity compass.
+ */
+export function bearing(from: Coord | null | undefined, to: Coord | null | undefined): number {
+  if (!isValidCoord(from) || !isValidCoord(to)) return NaN;
+  const lat1 = toRad(from.latitude);
+  const lat2 = toRad(to.latitude);
+  const dLng = toRad(to.longitude - from.longitude);
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  const brng = toDeg(Math.atan2(y, x));
+  return (brng + 360) % 360;
+}
+
+/**
+ * Average walking speed used to turn distance into an ETA. Festival crowds are
+ * slow + non-direct; 1.25 m/s (~4.5 km/h) is a deliberately conservative
+ * pedestrian pace so the ETA reads as a floor, not an over-promise.
+ */
+const WALK_SPEED_M_PER_S = 1.25;
+
+/**
+ * Rough ETA in whole MINUTES to walk from one coord to another, via straight-line
+ * distance ÷ a conservative walking speed. Returns null when either coord is
+ * missing/invalid (no target coord → no computed ETA; the member's self-reported
+ * etaMinutes is used instead). Always rounds UP and clamps to a minimum of 1
+ * minute when the two points differ, so a non-zero distance never shows "0 min".
+ *
+ * NOTE: this is a coarse estimate for a degraded-sync snapshot — it is NOT a
+ * live routed ETA and must never be presented as real-time.
+ */
+export function etaMinutes(from: Coord | null | undefined, to: Coord | null | undefined): number | null {
+  const meters = haversineDistance(from, to);
+  if (!Number.isFinite(meters)) return null;
+  if (meters <= 0) return 0;
+  const minutes = meters / WALK_SPEED_M_PER_S / 60;
+  return Math.max(1, Math.ceil(minutes));
+}
+
+/**
+ * Honest "as of N ago" staleness label for a last-synced status. Accepts an
+ * epoch-ms number OR an ISO/parseable date string (the backend serializes
+ * `updated_at` as a timestamp string). This is the M5 cardinal-rule copy: it
+ * frames the status as a past snapshot, never as a live position.
+ *
+ * Buckets mirror `timeAgo`: <45s → "as of just now", <60m → "as of Nm ago",
+ * <24h → "as of Nh ago", else "as of Nd ago". A missing/invalid/ future
+ * timestamp collapses to "as of just now" so the UI never shows "-3m ago".
+ */
+export function formatStaleness(updatedAt: number | string | null | undefined): string {
+  let ms: number;
+  if (typeof updatedAt === 'number') {
+    ms = updatedAt;
+  } else if (typeof updatedAt === 'string') {
+    ms = new Date(updatedAt).getTime();
+  } else {
+    ms = NaN;
+  }
+  if (!Number.isFinite(ms)) return 'as of just now';
+  const diff = Date.now() - ms;
+  if (diff < 0 || !Number.isFinite(diff)) return 'as of just now';
+  const s = Math.floor(diff / 1000);
+  if (s < 45) return 'as of just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `as of ${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `as of ${h}h ago`;
+  return `as of ${Math.floor(h / 24)}d ago`;
+}

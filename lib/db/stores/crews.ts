@@ -467,6 +467,8 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
             meet_at,
             stage_reference,
             expires_at,
+            latitude,
+            longitude,
             active,
             created_at,
             updated_at
@@ -482,6 +484,8 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
             $7,
             $8,
             $9,
+            $10,
+            $11,
             TRUE,
             NOW(),
             NOW()
@@ -497,6 +501,8 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           data.meetAt || null,
           data.stageReference || null,
           data.expiresAt || null,
+          data.latitude ?? null,
+          data.longitude ?? null,
         ],
       );
       const result = await pool.query(
@@ -511,6 +517,8 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           meet_at,
           stage_reference,
           expires_at,
+          latitude,
+          longitude,
           active,
           created_at,
           updated_at
@@ -537,6 +545,8 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           mp.meet_at,
           mp.stage_reference,
           mp.expires_at,
+          mp.latitude,
+          mp.longitude,
           mp.active,
           mp.created_at,
           mp.updated_at,
@@ -578,6 +588,8 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
             meetAt: 'meet_at',
             stageReference: 'stage_reference',
             expiresAt: 'expires_at',
+            latitude: 'latitude',
+            longitude: 'longitude',
           } as Record<string, string>
         )[key];
         if (col) {
@@ -602,6 +614,8 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           meet_at,
           stage_reference,
           expires_at,
+          latitude,
+          longitude,
           active,
           created_at,
           updated_at
@@ -632,6 +646,8 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           meet_at,
           stage_reference,
           expires_at,
+          latitude,
+          longitude,
           active,
           created_at,
           updated_at
@@ -965,5 +981,94 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
     },
   };
 
-  return { crews, topicSubscriptions, meetingPoints, crewPacking, crewRides };
+  // M5: Crew member status store — last-synced "on my way / ETA to [point]".
+  // One row per (crew, user); upsert REPLACES the member's prior status (the
+  // latest snapshot wins). This is a degraded-sync snapshot, NOT live GPS — the
+  // UI renders `updated_at` as honest staleness ("as of N ago"), never "live".
+  const crewStatus = {
+    // Upsert the requesting member's own status. ON CONFLICT (crew_id, user_id)
+    // overwrites so an offline toggle that replays simply lands the latest value.
+    async upsert(data: any) {
+      await pool.query(
+        `
+        INSERT INTO
+          crew_member_status (
+            crew_id,
+            user_id,
+            status,
+            target_meeting_point_id,
+            eta_minutes,
+            note,
+            updated_at
+          )
+        VALUES
+          ($1, $2, $3, $4, $5, $6, NOW())
+        ON CONFLICT (crew_id, user_id) DO UPDATE SET
+          status = EXCLUDED.status,
+          target_meeting_point_id = EXCLUDED.target_meeting_point_id,
+          eta_minutes = EXCLUDED.eta_minutes,
+          note = EXCLUDED.note,
+          updated_at = NOW()
+      `,
+        [
+          data.crewId,
+          data.userId,
+          data.status ?? null,
+          data.targetMeetingPointId ?? null,
+          data.etaMinutes ?? null,
+          data.note ?? null,
+        ],
+      );
+      const result = await pool.query(
+        `
+        SELECT
+          crew_id,
+          user_id,
+          status,
+          target_meeting_point_id,
+          eta_minutes,
+          note,
+          updated_at
+        FROM
+          crew_member_status
+        WHERE
+          crew_id = $1
+          AND user_id = $2
+      `,
+        [data.crewId, data.userId],
+      );
+      return result.rows[0] || null;
+    },
+
+    async listByCrew(crewId: string) {
+      const result = await pool.query(
+        `
+        SELECT
+          s.crew_id,
+          s.user_id,
+          s.status,
+          s.target_meeting_point_id,
+          s.eta_minutes,
+          s.note,
+          s.updated_at,
+          u.username,
+          u.display_name AS name,
+          u.avatar_key AS avatar_key,
+          u.avatar_version AS avatar_version
+        FROM
+          crew_member_status s
+          JOIN users u ON u.id = s.user_id
+          AND u.deleted_at IS NULL
+        WHERE
+          s.crew_id = $1
+        ORDER BY
+          s.updated_at DESC
+      `,
+        [crewId],
+      );
+      return result.rows;
+    },
+  };
+
+  return { crews, topicSubscriptions, meetingPoints, crewPacking, crewRides, crewStatus };
 }
