@@ -117,13 +117,31 @@ export default function CrewMap({ meetingPoints }: Props) {
           for (const p of pins) {
             const el = document.createElement('div');
             el.className = 'festie-map-marker';
+            // a11y: each marker is a DOM div MapLibre positions over the canvas.
+            // Without a label/role/tabindex it's invisible to screen readers and
+            // unreachable by keyboard. Expose it as a focusable button announcing
+            // the meeting point (and its sublabel/location when present).
+            el.setAttribute('aria-label', p.label + (p.sublabel ? ' - ' + p.sublabel : ''));
+            el.setAttribute('role', 'button');
+            el.setAttribute('tabindex', '0');
             const popupHtml =
               `<strong>${escapeHtml(p.label)}</strong>` +
               (p.sublabel ? `<br/><span class="festie-map-sub">${escapeHtml(p.sublabel)}</span>` : '');
-            new maplibregl.Marker({ element: el })
+            const marker = new maplibregl.Marker({ element: el })
               .setLngLat([p.longitude, p.latitude])
               .setPopup(new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(popupHtml))
               .addTo(map);
+            // a11y/keyboard: the marker advertises role=button + tabindex, so it
+            // MUST be activatable by keyboard. MapLibre only wires a click handler,
+            // leaving Enter/Space dead for keyboard users. Bridge them to the
+            // popup toggle so focus-then-Enter opens the point, matching the
+            // sr-only help text's promise.
+            el.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                marker.togglePopup();
+              }
+            });
             const lngLat: [number, number] = [p.longitude, p.latitude];
             bounds = bounds ? bounds.extend(lngLat) : new maplibregl.LngLatBounds(lngLat, lngLat);
           }
@@ -165,7 +183,24 @@ export default function CrewMap({ meetingPoints }: Props) {
   return (
     <div className="space-y-2">
       <div className="relative rounded-lg overflow-hidden border border-border bg-bg-secondary">
-        <div ref={containerRef} className="festie-map-canvas h-72 w-full" aria-label="Crew meeting points map" />
+        <div
+          ref={containerRef}
+          className="festie-map-canvas h-72 w-full"
+          role="region"
+          tabIndex={0}
+          aria-label="Crew meeting points map"
+          aria-describedby="festie-map-help"
+        />
+        {/* a11y: MapLibre is canvas-based with no native focusable host. role=region
+            + tabindex make the map area reachable; this sr-only note documents the
+            library's keyboard shortcuts and points users to the list view (which
+            shows every point, including ones without coords) as the accessible
+            surface. */}
+        <p id="festie-map-help" className="sr-only">
+          Interactive map. Use Tab to reach map markers, then Enter or Space to open a point. While the map is focused,
+          use the arrow keys to pan and the plus and minus keys to zoom. The List view below shows every meeting point
+          and is fully keyboard accessible.
+        </p>
         {status === 'pending' && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-text-secondary bg-bg-secondary/80">
             Loading map…

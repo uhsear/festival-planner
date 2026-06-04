@@ -227,7 +227,7 @@ export default function PicksScreen() {
       }
       if (item.kind === 'section') {
         return (
-          <View style={styles.sectionHeader}>
+          <View style={styles.sectionHeader} accessibilityRole="header">
             <View style={[styles.dot, { backgroundColor: item.color }]} />
             <Text style={styles.sectionLabel}>{item.label}</Text>
             <View style={styles.countPill}>
@@ -350,7 +350,11 @@ export default function PicksScreen() {
 
       {bulkOpen && (
         <View style={styles.bulkBody}>
-          <View style={styles.bulkPriorityRow}>
+          <View
+            style={styles.bulkPriorityRow}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Priority for bulk add"
+          >
             <Text style={styles.bulkSubLabel}>Add as</Text>
             {PRIORITY_CHOICES.map((p) => {
               const active = bulkPriority === p.value;
@@ -361,6 +365,7 @@ export default function PicksScreen() {
                   activeOpacity={0.8}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: active }}
+                  accessibilityLabel={`${p.label} priority${active ? ', selected' : ''}`}
                   style={[styles.bulkChip, active && styles.bulkChipActive]}
                 >
                   <Text style={[styles.bulkChipText, active && styles.bulkChipTextActive]}>{p.label}</Text>

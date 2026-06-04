@@ -11,13 +11,20 @@ export default function PasswordSection() {
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
+
+  const passwordsMismatch = confirmPassword.length > 0 && newPassword !== confirmPassword;
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentPassword || !newPassword) return;
+    if (!currentPassword || !newPassword || !confirmPassword) return;
     if (newPassword.length < 8) {
       toast('New password must be at least 8 characters', 'warning');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast('Passwords do not match', 'warning');
       return;
     }
 
@@ -26,6 +33,7 @@ export default function PasswordSection() {
       await changePassword({ currentPassword, newPassword });
       setCurrentPassword('');
       setNewPassword('');
+      setConfirmPassword('');
       toast('Password changed', 'success');
     } catch {
       toast("Couldn't change password. Try again.", 'error');
@@ -66,12 +74,28 @@ export default function PasswordSection() {
             {8 - newPassword.length} more character{8 - newPassword.length === 1 ? '' : 's'} needed
           </p>
         )}
+        <Input
+          label="Confirm new password"
+          type="password"
+          isPassword
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="Confirm new password"
+          autoComplete="new-password"
+          error={passwordsMismatch ? 'Passwords do not match' : undefined}
+        />
         <Button
           type="submit"
           variant="primary"
           fullWidth
           isLoading={savingPassword}
-          disabled={!currentPassword || !newPassword || newPassword.length < 8}
+          disabled={
+            !currentPassword ||
+            !newPassword ||
+            !confirmPassword ||
+            newPassword.length < 8 ||
+            newPassword !== confirmPassword
+          }
           className="min-h-[44px]"
         >
           Update Password

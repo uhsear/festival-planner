@@ -192,7 +192,13 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
           This device has no magnetometer, so the arrow can’t track which way you’re facing. The distance below is still
           accurate.
         </Text>
-        <Text style={styles.distance}>{formatDistance(distanceM)}</Text>
+        <Text
+          style={styles.distance}
+          accessibilityRole="text"
+          accessibilityLabel={`${formatDistance(distanceM)} to ${target.label}, straight-line distance`}
+        >
+          {formatDistance(distanceM)}
+        </Text>
       </View>
     );
   }
@@ -213,13 +219,28 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
         {target.label}
       </Text>
 
-      <View style={styles.dial} accessibilityRole="image" accessibilityLabel={`Arrow pointing toward ${target.label}`}>
+      {/*
+        a11y: The dial is a decorative, animated visual aid — the arrow rotates
+        with the live magnetometer heading, which a static image role/label can
+        neither convey nor keep current. So the dial itself is hidden from the
+        a11y tree (importantForAccessibility/accessibilityElementsHidden) and the
+        meaningful data — direction + distance — is surfaced together as a single
+        live "status" region below, announced on each magnetometer tick.
+      */}
+      <View style={styles.dial} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
         <View style={[styles.arrow, { transform: [{ rotate: `${arrowAngle}deg` }] }]}>
           <Ionicons name="navigate" size={96} color={t.colors.accent.coral} />
         </View>
       </View>
 
-      <Text style={styles.distance}>{formatDistance(distanceM)}</Text>
+      <Text
+        style={styles.distance}
+        accessibilityRole="text"
+        accessibilityLiveRegion="polite"
+        accessibilityLabel={`${formatDistance(distanceM)} to ${target.label}, straight-line direction`}
+      >
+        {formatDistance(distanceM)}
+      </Text>
       <Text style={styles.honest}>Straight-line direction to a point you saved · on-device, no live tracking</Text>
     </View>
   );

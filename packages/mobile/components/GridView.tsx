@@ -149,7 +149,11 @@ export default function GridView({
               {item.stageName}
             </Text>
             {item.isNow ? (
-              <View style={[styles.nowBadge, { backgroundColor: t.colors.accent.coral }]}>
+              <View
+                style={[styles.nowBadge, { backgroundColor: t.colors.accent.coral }]}
+                accessibilityRole="text"
+                accessibilityLabel="This stage is currently playing"
+              >
                 <Text style={styles.nowBadgeText}>NOW</Text>
               </View>
             ) : null}
@@ -158,9 +162,19 @@ export default function GridView({
       }
       if (item.kind === 'nowDivider') {
         return (
-          <View style={styles.nowDividerRow}>
-            <View style={[styles.nowDividerLine, { backgroundColor: t.colors.accent.coral }]} />
-            <Text style={[styles.nowDividerText, { color: t.colors.accent.coral }]}>NOW</Text>
+          <View
+            style={styles.nowDividerRow}
+            accessibilityRole="text"
+            accessibilityLabel="Current time divider"
+            accessibilityHint="Sets before this point have already started or are currently playing"
+          >
+            <View
+              style={[styles.nowDividerLine, { backgroundColor: t.colors.accent.coral }]}
+              importantForAccessibility="no"
+            />
+            <Text style={[styles.nowDividerText, { color: t.colors.accent.coral }]} importantForAccessibility="no">
+              NOW
+            </Text>
           </View>
         );
       }

@@ -35,6 +35,8 @@ function RegisterPageInner() {
   const [tosAccepted, setTosAccepted] = useState(false);
   const [formError, setFormError] = useState('');
 
+  const isValidEmail = (value: string) => /^\S+@\S+\.\w{2,}$/.test(value);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -53,6 +55,10 @@ function RegisterPageInner() {
     }
     if (password !== confirmPassword) {
       setFormError('Passwords do not match');
+      return;
+    }
+    if (email && !isValidEmail(email)) {
+      setFormError('Please enter a valid email address');
       return;
     }
     if (!tosAccepted) {
@@ -223,6 +229,8 @@ function RegisterPageInner() {
             if (e.key === 'Enter') handleSubmit(e);
           }}
           disabled={isLoading}
+          aria-invalid={Boolean(email && !isValidEmail(email))}
+          aria-describedby={formError ? 'authFormError' : undefined}
           className={authInputClasses}
         />
 
@@ -237,11 +245,11 @@ function RegisterPageInner() {
           />
           <span>
             I agree to the{' '}
-            <a href="/terms.html" target="_blank" className="text-[var(--accent)]">
+            <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)]">
               Terms of Service
             </a>{' '}
             and{' '}
-            <a href="/privacy.html" target="_blank" className="text-[var(--accent)]">
+            <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)]">
               Privacy Policy
             </a>
           </span>

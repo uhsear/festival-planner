@@ -50,13 +50,17 @@ export default function CrewRides({ crewId, currentUserId, isOwner }: CrewRidesP
     const from = departFrom.trim();
     const at = departAt.trim();
     const n = note.trim();
-    const seatsNum = seats.trim() ? Number(seats.trim()) : null;
+    const rawSeats = seats.trim() ? Number(seats.trim()) : null;
+    // Clamp to a non-negative integer (mirrors web's min=0/max=99); the input
+    // already strips non-digits, this is defense-in-depth so we never POST a
+    // negative or fractional seat count to the backend.
+    const seatsNum = rawSeats != null && Number.isFinite(rawSeats) ? Math.max(0, Math.floor(rawSeats)) : null;
     if (!d && !from && !at && !n && seatsNum == null) return;
     setCreateBusy(true);
     try {
       await createRideOffer(crewId, {
         driver: d || null,
-        seats: seatsNum != null && Number.isFinite(seatsNum) ? seatsNum : null,
+        seats: seatsNum,
         departFrom: from || null,
         departAt: at || null,
         note: n || null,
@@ -117,7 +121,7 @@ export default function CrewRides({ crewId, currentUserId, isOwner }: CrewRidesP
             placeholder="Open seats"
             placeholderTextColor={t.colors.text.placeholder}
             value={seats}
-            onChangeText={setSeats}
+            onChangeText={(text) => setSeats(text.replace(/[^0-9]/g, ''))}
             keyboardType="number-pad"
             maxLength={2}
             accessibilityLabel="Open seats"

@@ -321,10 +321,44 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     }
   },
 
+  // POST /crews/join -> the joined crew. Offline: queue the join and insert an
+  // optimistic placeholder crew so the user sees "joined" immediately; the
+  // reconciler (registered below) swaps it for the real crew once the queued
+  // POST replays. The clientId is DETERMINISTIC on the invite code
+  // (`join-<inviteCode>`) so repeated offline taps of the same invite collapse
+  // into a single replayed join (replay-safe; the server treats re-joining an
+  // already-joined crew as a no-op/idempotent rather than a duplicate).
+  //
+  // NOTE: this only routes to the offline queue once '/crews/join' is added to
+  // OFFLINE_ELIGIBLE_PATTERNS in services/api.ts (a separate file). Until then
+  // the post() runs online-only and onOptimisticCreate is never invoked — the
+  // online path below is unchanged, so this is safe to land independently.
   joinByCode: async (request: JoinCrewRequest) => {
     set({ crewLoading: true, error: null });
     try {
-      const crew = await api.post<Crew>('/crews/join', request);
+      let optimisticCrew: Crew | null = null;
+      const res = await api.post<Crew | (JoinCrewRequest & { id: string; _optimistic: true })>('/crews/join', request, {
+        // Deterministic clientId collapses repeated offline join taps of the
+        // same invite into one pending write keyed on the invite code.
+        clientId: `POST:/crews/join:join-${request.inviteCode}`,
+        offlineLabel: 'Join crew',
+        onOptimisticCreate: (result) => {
+          const r = result as { id: string };
+          optimisticCrew = {
+            id: r.id,
+            name: 'Joining crew…',
+            owner: '',
+            members: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            _optimistic: true,
+          };
+          set((state) => ({ crews: [...state.crews, optimisticCrew as Crew], crewLoading: false }));
+        },
+      });
+      // Offline: the placeholder is already inserted; nothing more to do.
+      if (optimisticCrew) return;
+      const crew = res as Crew;
       set((state) => ({
         crews: [...state.crews, crew],
         crewLoading: false,
@@ -692,6 +726,19 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
 
       // Offline: synthetic optimistic result — merge the request fields onto the
       // current entity (only the keys actually present in the request).
+      //
+      // PARTIAL-MERGE CONTRACT: the merge is intentionally explicit (per-key)
+      // rather than `{ ...m, ...request }` — that would (a) write camelCase
+      // request keys (meetAt/stageReference) alongside the snake_case stored
+      // ones, and (b) blow away fields the request didn't touch. The cost of
+      // being correct here is that the optimistic entity keeps the OLD values of
+      // any SERVER-computed fields it can't know (e.g. `updated_at`) until the
+      // queued PUT replays. That is by design: `_optimistic: true` stays set, and
+      // when the PUT replays the queue's reload-dedup (loadMeetingPoints →
+      // dropOptimistic) replaces this whole row with the authoritative server
+      // entity. Consumers that show staleness should prefer the server row once
+      // `_optimistic` clears; do NOT trust server-derived fields on an
+      // `_optimistic` meeting point.
       if (res && (res as { _optimistic?: boolean })._optimistic) {
         let merged: CrewMeetingPoint | null = null;
         set((state) => ({
@@ -1411,6 +1458,26 @@ export const useCrewStore = create<CrewStore>()(
 // authoritative load* then carries the real entity. This never double-inserts.
 registerCreateReconciler((clientId, serverResponse) => {
   const res = serverResponse as Record<string, unknown> | null | undefined;
+
+  // Offline crew join: clientId is `POST:/crews/join:join-<inviteCode>`. The
+  // POST /crews/join response is the joined crew itself (no envelope). Swap the
+  // optimistic placeholder crew (matched by id === clientId) for the real crew.
+  // Checked BEFORE the resource branches below since none of them match a bare
+  // `/crews/join` clientId.
+  if (clientId.includes('/crews/join')) {
+    const crew = (res?.crew ?? res) as Crew | undefined;
+    useCrewStore.setState((state) => {
+      const hasTemp = state.crews.some((c) => c.id === clientId);
+      if (!hasTemp) return {};
+      const real: Crew | null = crew && typeof crew.id === 'string' ? { ...crew, _optimistic: false } : null;
+      const withoutTemp = state.crews.filter((c) => c.id !== clientId);
+      // Guard against the real crew already being present (e.g. a concurrent
+      // loadCrews landed it) so we never end up with two copies.
+      const realAlreadyPresent = real ? withoutTemp.some((c) => c.id === real.id) : false;
+      return { crews: real && !realAlreadyPresent ? [...withoutTemp, real] : withoutTemp };
+    });
+    return;
+  }
 
   if (clientId.includes('/polls')) {
     const poll = (res?.poll ?? res) as CrewPoll | undefined;

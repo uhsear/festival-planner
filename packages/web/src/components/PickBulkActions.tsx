@@ -117,6 +117,7 @@ export default function PickBulkActions() {
         type="button"
         className="flex items-center gap-2 w-full px-4 py-3 text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 rounded-xl"
         aria-expanded={open}
+        aria-label={`Bulk add picks${dayLabel ? ` for ${dayLabel}` : ''}, ${open ? 'collapse' : 'expand'}`}
         onClick={() => setOpen((v) => !v)}
       >
         <Sparkles className="w-4 h-4 text-accent-aqua" aria-hidden="true" />
@@ -138,6 +139,9 @@ export default function PickBulkActions() {
                 type="button"
                 role="radio"
                 aria-checked={priority === p.value}
+                aria-label={`${
+                  p.value === 'must' ? 'Must See' : p.value === 'want-to-see' ? 'Want to See' : 'Maybe'
+                }${priority === p.value ? ' (selected)' : ''}`}
                 onClick={() => setPriority(p.value)}
                 className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-colors ${
                   priority === p.value

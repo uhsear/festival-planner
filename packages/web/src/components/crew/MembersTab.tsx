@@ -2,7 +2,7 @@ import React from 'react';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
-import { Users, UserPlus, Crown } from 'lucide-react';
+import { Users, UserPlus, Crown, UserMinus } from 'lucide-react';
 import type { CrewMember } from '@festie/shared/types';
 
 export interface MembersTabProps {
@@ -14,6 +14,8 @@ export interface MembersTabProps {
   isOwner: boolean;
   currentUserId: string;
   onTransferOwnership: (member: CrewMember) => void;
+  /** Owner-only kick. Optional so non-owner views can omit it. */
+  onKick?: (member: CrewMember) => void;
 }
 
 export default function MembersTab({
@@ -25,6 +27,7 @@ export default function MembersTab({
   isOwner,
   currentUserId,
   onTransferOwnership,
+  onKick,
 }: MembersTabProps) {
   return (
     <div className="space-y-1.5">
@@ -43,7 +46,9 @@ export default function MembersTab({
         <div className="space-y-0.5">
           {members.map((m) => {
             const memberIsOwner = m.role === 'owner' || ownerId === m.userId;
-            const canTransfer = isOwner && !memberIsOwner && m.userId !== currentUserId;
+            const canManage = isOwner && !memberIsOwner && m.userId !== currentUserId;
+            const canTransfer = canManage;
+            const canKick = canManage && !!onKick;
             const displayName = m.name || m.username || 'User';
             return (
               <div
@@ -63,6 +68,16 @@ export default function MembersTab({
                     className="!py-1 !px-2.5 text-xs"
                   >
                     <Crown className="w-3.5 h-3.5" aria-hidden="true" /> Make owner
+                  </Button>
+                )}
+                {canKick && (
+                  <Button
+                    variant="danger"
+                    onClick={() => onKick!(m)}
+                    aria-label={`Remove ${displayName} from crew`}
+                    className="!py-1 !px-2.5 text-xs"
+                  >
+                    <UserMinus className="w-3.5 h-3.5" aria-hidden="true" /> Remove
                   </Button>
                 )}
               </div>

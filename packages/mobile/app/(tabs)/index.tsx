@@ -693,7 +693,9 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     gap: t.spacing[1],
     paddingHorizontal: t.spacing[4],
-    paddingVertical: t.spacing[2],
+    paddingVertical: t.spacing[3],
+    // WCAG 2.5.5 / 2.5.8 minimum 44x44px touch target (motor accessibility).
+    minHeight: 44,
     borderRadius: t.radii.pill,
     borderWidth: 1,
     borderColor: t.colors.border.default,
@@ -731,7 +733,9 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     gap: t.spacing[1],
     paddingHorizontal: t.spacing[3],
-    paddingVertical: t.spacing[1],
+    paddingVertical: t.spacing[3],
+    // WCAG 2.5.5 / 2.5.8 minimum 44x44px touch target (motor accessibility).
+    minHeight: 44,
     borderRadius: t.radii.pill,
     borderWidth: 1,
     borderColor: t.colors.border.default,
@@ -741,8 +745,16 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.accent.aqua,
     borderColor: t.colors.accent.aqua,
   },
+  // Inactive (filtered-out) stage chip. A deselected chip is still interactive
+  // (tap to re-enable), so it must NOT read as a disabled control. Instead of
+  // opacity-only — which screen readers can't perceive and which mimics a
+  // disabled button for low-vision users — we signal "off" structurally:
+  // a dimmed background + lighter border, with a modest opacity to keep it
+  // visually recessed without dropping below AA contrast for the text/dot.
   filterChipOff: {
-    opacity: 0.4,
+    opacity: 0.6,
+    backgroundColor: t.colors.bg.primary,
+    borderColor: t.colors.border.light,
   },
   filterChipText: {
     ...typeStyle('label'),

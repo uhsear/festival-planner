@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { X, Music, Users, Sparkles, ChevronRight } from 'lucide-react';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
+import { useKeyboardTrap } from '../../hooks/useKeyboardTrap';
 import { cn } from '../../lib/utils';
 
 const STORAGE_KEY = 'festie_onboarding_completed';
@@ -54,22 +55,32 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const [visible, setVisible] = useState(() => !isOnboardingCompleted());
   const [step, setStep] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const dismiss = useCallback(() => {
     markOnboardingCompleted();
     setVisible(false);
   }, []);
 
-  // Escape-key dismissal (WCAG 2.1.2 / dialog convention). Mirrors the
-  // backdrop click and the close button so keyboard users can bail out.
+  // Focus management + keyboard trap. The shared hook moves initial focus into
+  // the card on mount, wraps Tab / Shift+Tab so focus can't escape to the page
+  // behind the modal, closes on Escape (WCAG 2.1.2), and restores focus to the
+  // previously-focused element on unmount.
+  useKeyboardTrap(cardRef, visible, dismiss);
+
+  // Prevent the page behind the modal from scrolling while onboarding is open.
   useEffect(() => {
     if (!visible) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') dismiss();
+    const { documentElement, body } = document;
+    const prevBody = body.style.overflow;
+    const prevHtml = documentElement.style.overflow;
+    body.style.overflow = 'hidden';
+    documentElement.style.overflow = 'hidden';
+    return () => {
+      body.style.overflow = prevBody;
+      documentElement.style.overflow = prevHtml;
     };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [visible, dismiss]);
+  }, [visible]);
 
   const handleNext = useCallback(() => {
     if (step < STEPS.length - 1) {
@@ -99,6 +110,7 @@ export default function Onboarding() {
 
       {/* Card */}
       <div
+        ref={cardRef}
         className={cn(
           'relative w-full max-w-sm rounded-2xl border border-border-light',
           'bg-bg-primary shadow-2xl p-6 flex flex-col items-center text-center',
@@ -119,10 +131,18 @@ export default function Onboarding() {
         <p className="text-sm text-text-secondary leading-relaxed max-w-xs mb-6">{current.description}</p>
 
         {/* Step indicators */}
-        <div className="flex items-center gap-2 mb-6" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
+        <div
+          className="flex items-center gap-2 mb-6"
+          role="progressbar"
+          aria-label={`Step ${step + 1} of ${STEPS.length}`}
+          aria-valuemin={1}
+          aria-valuemax={STEPS.length}
+          aria-valuenow={step + 1}
+        >
           {STEPS.map((_, i) => (
             <div
               key={i}
+              aria-hidden="true"
               className={cn(
                 'h-1.5 rounded-full transition-all duration-300',
                 i === step ? 'w-6 bg-accent-aqua' : 'w-1.5 bg-text-muted/30',
