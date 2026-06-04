@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useCallback } from 'react';
+import { useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
@@ -13,6 +13,9 @@ import Button from '../components/ui/Button';
 import RefreshableView from '../components/layout/RefreshableView';
 import PickBulkActions from '../components/PickBulkActions';
 import OfflineReadinessCard from '../components/features/OfflineReadinessCard';
+// Lazy-loaded: PlanQRShare pulls in qrcode.react, which has no business in the
+// picks bundle until the user actually opens the share modal.
+const PlanQRShare = lazy(() => import('../components/features/PlanQRShare'));
 import { useToast } from '../lib/toastContext';
 import { Star, CalendarX, UserPlus, CalendarPlus, Share2 } from 'lucide-react';
 
@@ -157,6 +160,11 @@ function PicksViewInner() {
         <Share2 className="w-4 h-4" aria-hidden="true" />
         Share picks
       </Button>
+      {/* Offline-native QR handoff (mirrors mobile PlanQRShare). Suspense fallback
+          is the share-picks button row above, so nothing flashes while it loads. */}
+      <Suspense fallback={null}>
+        <PlanQRShare />
+      </Suspense>
       <Button
         variant="secondary"
         size="sm"

@@ -12,6 +12,10 @@ vi.mock('lucide-react', () => ({
   Navigation: () => <span data-testid="navigation-icon" />,
   Pencil: () => <span data-testid="pencil-icon" />,
   Loader: () => <span data-testid="loader-icon" />,
+  Check: () => <span data-testid="check-icon" />,
+  // List/Map view toggle.
+  Map: () => <span data-testid="map-icon" />,
+  List: () => <span data-testid="list-icon" />,
   // CrewStatus (rendered by MeetingPointsTab) pulls these too.
   LocateFixed: () => <span data-testid="locate-fixed-icon" />,
 }));

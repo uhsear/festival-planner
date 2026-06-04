@@ -296,3 +296,38 @@ button[aria-label='Back to app'] {
 .admin-desktop-sidebar ~ main button[class*='px-6'][class*='py-2'] {
   min-block-size: 44px;
 }
+
+/* CrewMap (MapLibre) — dark-theme marker + popup overrides so the GL defaults
+   (light popup, blue marker) don't clash with the app's dark surface. The
+   maplibre-gl base CSS is dynamically imported by the CrewMap component. */
+.festie-map-marker {
+  inline-size: 18px;
+  block-size: 18px;
+  border-radius: 50%;
+  background: var(--color-accent-coral, #ff3366);
+  border: 2px solid #fff;
+  box-shadow: 0 0 8px rgba(255, 51, 102, 0.6);
+  cursor: pointer;
+}
+.festie-map-canvas .maplibregl-popup-content {
+  background: var(--color-bg-elevated, #18182c);
+  color: var(--color-text-primary, #eaeaf2);
+  border: 1px solid var(--color-border-light, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.festie-map-canvas .festie-map-sub {
+  color: var(--color-text-secondary, #9999bb);
+}
+.festie-map-canvas .maplibregl-popup-tip {
+  border-top-color: var(--color-bg-elevated, #18182c);
+  border-bottom-color: var(--color-bg-elevated, #18182c);
+}
+.festie-map-canvas .maplibregl-ctrl-attrib {
+  background: rgba(8, 8, 16, 0.7);
+  color: var(--color-text-muted, #8787a8);
+}
+.festie-map-canvas .maplibregl-ctrl-attrib a {
+  color: var(--color-text-secondary, #9999bb);
+}

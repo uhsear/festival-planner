@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
 import Skeleton from '../ui/Skeleton';
-import { MapPin, Plus, Trash2, X, Navigation, Pencil, LocateFixed, Check } from 'lucide-react';
+import { MapPin, Plus, Trash2, X, Navigation, Pencil, LocateFixed, Check, Map as MapIcon, List } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import { inputBase } from '../../lib/styles';
 import CrewStatus from './CrewStatus';
+
+// Lazy: CrewMap pulls in maplibre-gl (~200 kB gzip) at runtime. Keeping it behind
+// lazy() puts it in its own chunk so it never lands in the main bundle (mirrors
+// the router's lazy() pattern for heavy views) and only loads when Map is opened.
+const CrewMap = lazy(() => import('./CrewMap'));
 
 // Server enum (lib/constants.js MEETING_POINT_TYPES) + user-facing metadata.
 const TYPES = [
@@ -66,6 +71,8 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   // F4: optional captured GPS coords. null = no coord (free-text only).
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
+  // List vs Map view. Map is lazy + reveals <CrewMap/> only when chosen.
+  const [view, setView] = useState<'list' | 'map'>('list');
 
   const {
     data: points = [],
@@ -220,182 +227,228 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
       <CrewStatus crewId={crewId} currentUserId={currentUserId} meetingPoints={points} />
       <div className="h-px bg-border" />
 
-      {!showForm ? (
-        <Button variant="primary" onClick={() => setShowForm(true)} className="w-full min-h-11">
-          <Plus className="w-4 h-4" aria-hidden="true" /> Add Meeting Point
-        </Button>
-      ) : (
-        <form onSubmit={submit} className="p-3 rounded-lg bg-bg-card border border-border space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-text-primary">
-              {editingId ? 'Edit Meeting Point' : 'New Meeting Point'}
-            </h3>
-            <IconButton label="Cancel" icon={<X className="w-5 h-5" />} onClick={reset} />
-          </div>
+      {/* List/Map toggle. Map lazy-loads MapLibre only when selected. */}
+      <div
+        className="inline-flex rounded-lg border border-border p-0.5 bg-bg-card"
+        role="tablist"
+        aria-label="Meeting points view"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'list'}
+          onClick={() => setView('list')}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium min-h-9 transition-colors ${
+            view === 'list' ? 'bg-accent-aqua/15 text-accent-aqua' : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          <List className="w-4 h-4" aria-hidden="true" /> List
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'map'}
+          onClick={() => setView('map')}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium min-h-9 transition-colors ${
+            view === 'map' ? 'bg-accent-aqua/15 text-accent-aqua' : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          <MapIcon className="w-4 h-4" aria-hidden="true" /> Map
+        </button>
+      </div>
 
-          <div className="crew-type-grid grid grid-cols-3 gap-2" role="radiogroup" aria-label="Meeting point type">
-            {TYPES.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                role="radio"
-                aria-checked={type === t.key}
-                onClick={() => setType(t.key)}
-                className={`px-2 py-2 rounded-lg border text-xs font-medium min-h-11 flex flex-col items-center gap-1 transition-colors ${
-                  type === t.key
-                    ? 'bg-accent-aqua/15 border-accent-aqua text-accent-aqua'
-                    : 'bg-bg-card border-border text-text-secondary hover:border-border-light'
-                }`}
-              >
-                <span className="text-base leading-none" aria-hidden="true">
-                  {t.emoji}
-                </span>
-                <span>{t.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <input
-            className={`${inputBase} min-h-11`}
-            placeholder="Label (e.g. 'Main entrance')"
-            aria-label="Label"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            maxLength={100}
-            required
-          />
-          <input
-            className={`${inputBase} min-h-11`}
-            placeholder="Location (e.g. 'Near the food court')"
-            aria-label="Location"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            maxLength={200}
-            required
-          />
-          <input
-            className={`${inputBase} min-h-11`}
-            placeholder="Near stage (optional, e.g. 'Main Stage')"
-            aria-label="Near stage"
-            value={stageRef}
-            onChange={(e) => setStageRef(e.target.value)}
-            maxLength={100}
-          />
-          <input
-            type="datetime-local"
-            className={`${inputBase} min-h-11`}
-            placeholder="Meet at (optional)"
-            aria-label="Meet at time"
-            value={meetAt}
-            onChange={(e) => setMeetAt(e.target.value)}
-          />
-
-          {/* F4: optional GPS capture. Falls back to free-text on denial. */}
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={captureLocation}
-              isLoading={locating}
-              className="min-h-11"
-            >
-              <LocateFixed className="w-4 h-4" aria-hidden="true" /> Use my location
-            </Button>
-            {coords && (
-              <span
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-accent-aqua/15 text-accent-aqua text-xs font-medium"
-                title={`${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`}
-              >
-                <Check className="w-3 h-3" aria-hidden="true" />
-                {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
-                <button
-                  type="button"
-                  aria-label="Clear captured location"
-                  onClick={() => setCoords(null)}
-                  className="ml-0.5 hover:text-accent-coral"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
-          </div>
-
-          <Button
-            type="submit"
-            variant="primary"
-            isLoading={submitting}
-            className="w-full min-h-11"
-            disabled={!label.trim() || !location.trim()}
-          >
-            {editingId ? 'Save' : 'Add'}
-          </Button>
-        </form>
+      {view === 'map' && (
+        <Suspense
+          fallback={
+            <div className="h-72 rounded-lg border border-border bg-bg-secondary flex items-center justify-center text-sm text-text-secondary">
+              Loading map…
+            </div>
+          }
+        >
+          <CrewMap meetingPoints={points} />
+        </Suspense>
       )}
 
-      {points.length === 0 ? (
-        <EmptyState
-          icon={<MapPin className="w-12 h-12" aria-hidden="true" />}
-          title="No meeting points yet"
-          description="Drop a pin so your crew knows where to meet."
-        />
-      ) : (
-        <div className="space-y-2">
-          {points.map((p) => {
-            const meta = TYPES.find((t) => t.key === p.type) || TYPES[1];
-            const mine = p.created_by === currentUserId;
-            const isEmergency = p.type === 'emergency';
-            return (
-              <div
-                key={p.id}
-                className={`p-3 rounded-lg bg-bg-card border animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none ${isEmergency ? 'border-accent-coral border-l-4' : 'border-border'}`}
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl leading-none" aria-hidden="true">
-                    {meta.emoji}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-text-primary">{p.label}</span>
-                      <span className="text-xs text-text-muted uppercase tracking-wide">{meta.label}</span>
-                    </div>
-                    <div className="text-sm text-text-secondary mt-0.5">{p.location}</div>
-                    {p.stage_reference && (
-                      <div className="text-xs text-accent-aqua mt-0.5">Near {p.stage_reference}</div>
-                    )}
-                    {p.meet_at && (
-                      <div className="text-xs text-accent-aqua mt-1">
-                        ⏰ {new Date(p.meet_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <IconButton
-                      label={`Directions to ${p.label}`}
-                      icon={<Navigation className="w-4 h-4" />}
-                      onClick={() => openDirections(p.location)}
-                    />
-                    {mine && (
-                      <>
-                        <IconButton
-                          label="Edit meeting point"
-                          icon={<Pencil className="w-4 h-4" />}
-                          onClick={() => startEdit(p)}
-                        />
-                        <IconButton
-                          label="Remove meeting point"
-                          variant="danger"
-                          icon={<Trash2 className="w-4 h-4" />}
-                          onClick={() => removePoint.mutate(p.id)}
-                          disabled={removePoint.isPending}
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
+      {view === 'list' && (
+        <>
+          {!showForm ? (
+            <Button variant="primary" onClick={() => setShowForm(true)} className="w-full min-h-11">
+              <Plus className="w-4 h-4" aria-hidden="true" /> Add Meeting Point
+            </Button>
+          ) : (
+            <form onSubmit={submit} className="p-3 rounded-lg bg-bg-card border border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-text-primary">
+                  {editingId ? 'Edit Meeting Point' : 'New Meeting Point'}
+                </h3>
+                <IconButton label="Cancel" icon={<X className="w-5 h-5" />} onClick={reset} />
               </div>
-            );
-          })}
-        </div>
+
+              <div className="crew-type-grid grid grid-cols-3 gap-2" role="radiogroup" aria-label="Meeting point type">
+                {TYPES.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={type === t.key}
+                    onClick={() => setType(t.key)}
+                    className={`px-2 py-2 rounded-lg border text-xs font-medium min-h-11 flex flex-col items-center gap-1 transition-colors ${
+                      type === t.key
+                        ? 'bg-accent-aqua/15 border-accent-aqua text-accent-aqua'
+                        : 'bg-bg-card border-border text-text-secondary hover:border-border-light'
+                    }`}
+                  >
+                    <span className="text-base leading-none" aria-hidden="true">
+                      {t.emoji}
+                    </span>
+                    <span>{t.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <input
+                className={`${inputBase} min-h-11`}
+                placeholder="Label (e.g. 'Main entrance')"
+                aria-label="Label"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                maxLength={100}
+                required
+              />
+              <input
+                className={`${inputBase} min-h-11`}
+                placeholder="Location (e.g. 'Near the food court')"
+                aria-label="Location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                maxLength={200}
+                required
+              />
+              <input
+                className={`${inputBase} min-h-11`}
+                placeholder="Near stage (optional, e.g. 'Main Stage')"
+                aria-label="Near stage"
+                value={stageRef}
+                onChange={(e) => setStageRef(e.target.value)}
+                maxLength={100}
+              />
+              <input
+                type="datetime-local"
+                className={`${inputBase} min-h-11`}
+                placeholder="Meet at (optional)"
+                aria-label="Meet at time"
+                value={meetAt}
+                onChange={(e) => setMeetAt(e.target.value)}
+              />
+
+              {/* F4: optional GPS capture. Falls back to free-text on denial. */}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={captureLocation}
+                  isLoading={locating}
+                  className="min-h-11"
+                >
+                  <LocateFixed className="w-4 h-4" aria-hidden="true" /> Use my location
+                </Button>
+                {coords && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-accent-aqua/15 text-accent-aqua text-xs font-medium"
+                    title={`${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`}
+                  >
+                    <Check className="w-3 h-3" aria-hidden="true" />
+                    {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+                    <button
+                      type="button"
+                      aria-label="Clear captured location"
+                      onClick={() => setCoords(null)}
+                      className="ml-0.5 hover:text-accent-coral"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={submitting}
+                className="w-full min-h-11"
+                disabled={!label.trim() || !location.trim()}
+              >
+                {editingId ? 'Save' : 'Add'}
+              </Button>
+            </form>
+          )}
+
+          {points.length === 0 ? (
+            <EmptyState
+              icon={<MapPin className="w-12 h-12" aria-hidden="true" />}
+              title="No meeting points yet"
+              description="Drop a pin so your crew knows where to meet."
+            />
+          ) : (
+            <div className="space-y-2">
+              {points.map((p) => {
+                const meta = TYPES.find((t) => t.key === p.type) || TYPES[1];
+                const mine = p.created_by === currentUserId;
+                const isEmergency = p.type === 'emergency';
+                return (
+                  <div
+                    key={p.id}
+                    className={`p-3 rounded-lg bg-bg-card border animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none ${isEmergency ? 'border-accent-coral border-l-4' : 'border-border'}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl leading-none" aria-hidden="true">
+                        {meta.emoji}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-text-primary">{p.label}</span>
+                          <span className="text-xs text-text-muted uppercase tracking-wide">{meta.label}</span>
+                        </div>
+                        <div className="text-sm text-text-secondary mt-0.5">{p.location}</div>
+                        {p.stage_reference && (
+                          <div className="text-xs text-accent-aqua mt-0.5">Near {p.stage_reference}</div>
+                        )}
+                        {p.meet_at && (
+                          <div className="text-xs text-accent-aqua mt-1">
+                            ⏰ {new Date(p.meet_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <IconButton
+                          label={`Directions to ${p.label}`}
+                          icon={<Navigation className="w-4 h-4" />}
+                          onClick={() => openDirections(p.location)}
+                        />
+                        {mine && (
+                          <>
+                            <IconButton
+                              label="Edit meeting point"
+                              icon={<Pencil className="w-4 h-4" />}
+                              onClick={() => startEdit(p)}
+                            />
+                            <IconButton
+                              label="Remove meeting point"
+                              variant="danger"
+                              icon={<Trash2 className="w-4 h-4" />}
+                              onClick={() => removePoint.mutate(p.id)}
+                              disabled={removePoint.isPending}
+                            />
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
