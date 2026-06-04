@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/stores';
 import { useCrew, useFestival } from '@festie/shared/hooks';
@@ -35,6 +36,7 @@ export default function CrewCompareScreen() {
   const t = useTokens();
   const styles = useStyles();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const user = useAuthStore((s) => s.user);
   const activeCrew = useCrewStore((s) => s.activeCrew);
@@ -180,6 +182,9 @@ export default function CrewCompareScreen() {
             <FlatList
               data={rows}
               keyExtractor={(s) => s.id}
+              contentContainerStyle={{
+                paddingBottom: Math.max(t.spacing[4], insets.bottom + t.spacing[2]),
+              }}
               renderItem={({ item: set }) => (
                 <View style={styles.gridRow}>
                   <TouchableOpacity
@@ -298,7 +303,6 @@ const useStyles = makeStyles((t) => ({
   },
   gridScroll: {
     paddingHorizontal: t.spacing[4],
-    paddingBottom: t.spacing[6],
   },
   headerRow: {
     flexDirection: 'row',

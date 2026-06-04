@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFestivalDataStore } from '@festie/shared/stores';
@@ -42,6 +43,7 @@ export default function FestivalModeScreen() {
   const t = useTokens();
   const styles = useStyles();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
   const sets = useFestivalDataStore((s) => s.sets) as FestivalSet[];
@@ -96,7 +98,12 @@ export default function FestivalModeScreen() {
           message="Pick a festival to see what's playing now and next."
         />
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: Math.max(t.spacing[4], insets.bottom + t.spacing[2]) },
+          ]}
+        >
           <View style={styles.headerRow}>
             <Text style={styles.festivalName} numberOfLines={1}>
               {currentFestival.name}

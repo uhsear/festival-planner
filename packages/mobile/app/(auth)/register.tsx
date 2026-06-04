@@ -37,6 +37,12 @@ export default function RegisterScreen() {
   const passwordRef = useRef<TextInput>(null);
   const confirmRef = useRef<TextInput>(null);
 
+  // iOS lacks Android's input ripple, so give TextInputs an explicit focus
+  // affordance: accent border + subtle aqua ring (paired per token note).
+  const [focusedField, setFocusedField] = useState<'username' | 'email' | 'password' | 'confirm' | null>(null);
+  const onFocusOf = (field: NonNullable<typeof focusedField>) => () => setFocusedField(field);
+  const onBlurOf = (field: NonNullable<typeof focusedField>) => () => setFocusedField((f) => (f === field ? null : f));
+
   const handleRegister = async () => {
     Keyboard.dismiss();
     if (!username.trim() || !email.trim() || !password.trim()) return;
@@ -79,7 +85,7 @@ export default function RegisterScreen() {
         ) : null}
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, focusedField === 'username' && styles.inputFocused]}
           placeholder="Username"
           placeholderTextColor={colors.text.placeholder}
           accessibilityLabel="Username"
@@ -88,13 +94,15 @@ export default function RegisterScreen() {
           autoCapitalize="none"
           textContentType="username"
           returnKeyType="next"
+          onFocus={onFocusOf('username')}
+          onBlur={onBlurOf('username')}
           onSubmitEditing={() => emailRef.current?.focus()}
           blurOnSubmit={false}
         />
 
         <TextInput
           ref={emailRef}
-          style={styles.input}
+          style={[styles.input, focusedField === 'email' && styles.inputFocused]}
           placeholder="Email"
           placeholderTextColor={colors.text.placeholder}
           accessibilityLabel="Email"
@@ -104,11 +112,13 @@ export default function RegisterScreen() {
           keyboardType="email-address"
           textContentType="emailAddress"
           returnKeyType="next"
+          onFocus={onFocusOf('email')}
+          onBlur={onBlurOf('email')}
           onSubmitEditing={() => passwordRef.current?.focus()}
           blurOnSubmit={false}
         />
 
-        <View style={styles.passwordRow}>
+        <View style={[styles.passwordRow, focusedField === 'password' && styles.inputFocused]}>
           <TextInput
             ref={passwordRef}
             style={styles.passwordInput}
@@ -120,6 +130,8 @@ export default function RegisterScreen() {
             secureTextEntry={!showPw}
             textContentType="newPassword"
             returnKeyType="next"
+            onFocus={onFocusOf('password')}
+            onBlur={onBlurOf('password')}
             onSubmitEditing={() => confirmRef.current?.focus()}
             blurOnSubmit={false}
           />
@@ -136,7 +148,7 @@ export default function RegisterScreen() {
 
         <TextInput
           ref={confirmRef}
-          style={styles.input}
+          style={[styles.input, focusedField === 'confirm' && styles.inputFocused]}
           placeholder="Confirm Password"
           placeholderTextColor={colors.text.placeholder}
           accessibilityLabel="Confirm password"
@@ -145,6 +157,8 @@ export default function RegisterScreen() {
           secureTextEntry={!showPw}
           textContentType="newPassword"
           returnKeyType="go"
+          onFocus={onFocusOf('confirm')}
+          onBlur={onBlurOf('confirm')}
           onSubmitEditing={handleRegister}
         />
 
@@ -253,6 +267,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize[16],
     color: colors.text.primary,
     marginBottom: spacing[3],
+  },
+  inputFocused: {
+    borderColor: colors.accent.aqua,
+    backgroundColor: colors.ring.aqua,
   },
   passwordRow: {
     flexDirection: 'row',

@@ -1,10 +1,12 @@
-# Comprehensive iOS UI smoke for the EAS Workflows `maestro` job (runs on an iOS
-# Simulator on Expo's macOS cloud — no Mac). Logs in with EAS secret env vars
-# (TEST_USERNAME / TEST_PASSWORD, bound via `environment: preview` on the job) and
-# exercises onboarding -> login -> festival -> schedule views -> picks -> crew ->
-# the new map/compass/QR features -> account, screenshotting each step.
-# Login + most taps are optional/guarded so the flow degrades gracefully to the
-# guest surface if creds don't resolve.
+# Comprehensive iOS UI smoke for the EAS Workflows `maestro` job (iOS Simulator on
+# Expo's macOS cloud — no Mac). Logs in via EAS secret env vars (TEST_USERNAME /
+# TEST_PASSWORD, bound through `environment: preview` on the job) and walks the full
+# app: onboarding -> login -> festival -> schedule views -> picks -> crew + the new
+# map/compass/QR features -> account, screenshotting each step.
+#
+# iOS robustness: tabs are tapped by testID (tab-*; iOS doesn't expose the tab title
+# to the a11y tree otherwise), and async content (festival cards) is waited for
+# before tapping so taps land instead of firing before the list hydrates.
 appId: us.festie.app
 env:
   TEST_USERNAME: ${TEST_USERNAME}
@@ -25,9 +27,9 @@ env:
       text: "Select a Festival|North Coast|Timeline"
     timeout: 30000
 - takeScreenshot: 02-festival-picker
-# ── Log in via the Account tab ──
+# ── Log in via the Account tab (by testID — reliable on iOS) ──
 - tapOn:
-    text: "Account"
+    id: "tab-account"
     optional: true
 - runFlow:
     when:
@@ -44,14 +46,17 @@ env:
           text: "Not Now"
           optional: true
       - extendedWaitUntil:
-          visible:
-            text: "Select a Festival|Timeline|Account|North Coast"
+          notVisible: "Username"
           timeout: 25000
 - takeScreenshot: 03-account-authed
-# ── Select a festival ──
+# ── Timeline + select a festival (wait for the card to hydrate first) ──
 - tapOn:
-    text: "Timeline"
+    id: "tab-timeline"
     optional: true
+- extendedWaitUntil:
+    visible:
+      text: "North Coast Festival 2026|Select a Festival|Timeline"
+    timeout: 20000
 - tapOn:
     text: "North Coast Festival 2026"
     optional: true
@@ -67,19 +72,16 @@ env:
     text: "Cards"
     optional: true
 - takeScreenshot: 06-cards
-- tapOn:
-    text: "Timeline"
-    optional: true
 # ── Picks ──
 - tapOn:
-    text: "Picks"
+    id: "tab-picks"
     optional: true
 - waitForAnimationToEnd:
     timeout: 2500
 - takeScreenshot: 07-picks
 # ── Crew + logistics ──
 - tapOn:
-    text: "Crew"
+    id: "tab-crew"
     optional: true
 - waitForAnimationToEnd:
     timeout: 2500
@@ -127,7 +129,7 @@ env:
 - back
 # ── Account ──
 - tapOn:
-    text: "Account"
+    id: "tab-account"
     optional: true
 - waitForAnimationToEnd:
     timeout: 2500

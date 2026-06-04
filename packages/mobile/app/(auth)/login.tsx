@@ -27,6 +27,10 @@ export default function LoginScreen() {
 
   const passwordRef = useRef<TextInput>(null);
 
+  // iOS lacks Android's input ripple, so give TextInputs an explicit focus
+  // affordance: accent border + subtle aqua ring (paired per token note).
+  const [focusedField, setFocusedField] = useState<'username' | 'password' | null>(null);
+
   const handleLogin = async () => {
     Keyboard.dismiss();
     if (!username.trim() || !password.trim()) return;
@@ -51,7 +55,7 @@ export default function LoginScreen() {
         ) : null}
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, focusedField === 'username' && styles.inputFocused]}
           placeholder="Username"
           placeholderTextColor={colors.text.placeholder}
           accessibilityLabel="Username"
@@ -60,11 +64,13 @@ export default function LoginScreen() {
           autoCapitalize="none"
           textContentType="username"
           returnKeyType="next"
+          onFocus={() => setFocusedField('username')}
+          onBlur={() => setFocusedField((f) => (f === 'username' ? null : f))}
           onSubmitEditing={() => passwordRef.current?.focus()}
           blurOnSubmit={false}
         />
 
-        <View style={styles.passwordRow}>
+        <View style={[styles.passwordRow, focusedField === 'password' && styles.inputFocused]}>
           <TextInput
             ref={passwordRef}
             style={styles.passwordInput}
@@ -76,6 +82,8 @@ export default function LoginScreen() {
             secureTextEntry={!showPw}
             textContentType="password"
             returnKeyType="go"
+            onFocus={() => setFocusedField('password')}
+            onBlur={() => setFocusedField((f) => (f === 'password' ? null : f))}
             onSubmitEditing={handleLogin}
           />
           <TouchableOpacity
@@ -174,6 +182,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize[16],
     color: colors.text.primary,
     marginBottom: spacing[3],
+  },
+  inputFocused: {
+    borderColor: colors.accent.aqua,
+    backgroundColor: colors.ring.aqua,
   },
   passwordRow: {
     flexDirection: 'row',

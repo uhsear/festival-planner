@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 interface EmptyStateProps {
@@ -11,22 +12,30 @@ interface EmptyStateProps {
   message?: string;
   /** Optional call-to-action button. */
   action?: { label: string; onPress: () => void };
+  /**
+   * Set when the EmptyState fills a screen that has NO native header / nav bar
+   * of its own (so the top safe-area inset — notch / Dynamic Island on iOS — is
+   * unaccounted for). Adds top + bottom inset padding so the centered content
+   * isn't pushed off-axis under the status bar or home indicator.
+   *
+   * Default (false) preserves the existing behavior: the component assumes the
+   * parent screen already handles insets — e.g. a native Stack header (map.tsx,
+   * compass.tsx) or an inset-aware scroll container — and centers within it.
+   */
+  headerless?: boolean;
 }
 
 /**
  * Centered empty/placeholder state: a large icon, a title, optional message,
  * and an optional action button. Use when a list or screen has no content.
  */
-export default function EmptyState({
-  icon,
-  title,
-  message,
-  action,
-}: EmptyStateProps) {
+export default function EmptyState({ icon, title, message, action, headerless = false }: EmptyStateProps) {
   const t = useTokens();
   const styles = useStyles();
+  const insets = useSafeAreaInsets();
+  const insetStyle = headerless ? { paddingTop: insets.top, paddingBottom: insets.bottom } : null;
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, insetStyle]}>
       <Ionicons name={icon} size={48} color={t.colors.text.muted} />
       <Text style={styles.title}>{title}</Text>
       {message ? <Text style={styles.message}>{message}</Text> : null}

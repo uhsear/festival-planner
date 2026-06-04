@@ -26,6 +26,9 @@ export default function AccountDisplayNameSection() {
   const [value, setValue] = useState(currentName);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // iOS lacks Android's input ripple, so give the field an explicit focus
+  // affordance: accent border + subtle aqua ring (paired per token note).
+  const [focused, setFocused] = useState(false);
 
   const reset = () => {
     setValue(currentName);
@@ -92,7 +95,7 @@ export default function AccountDisplayNameSection() {
       {open ? (
         <View style={styles.form}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, focused && styles.inputFocused]}
             value={value}
             onChangeText={setValue}
             placeholder="How your name appears to your crew"
@@ -101,6 +104,8 @@ export default function AccountDisplayNameSection() {
             autoCorrect={false}
             maxLength={50}
             editable={!submitting}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             accessibilityLabel="New display name"
           />
 
@@ -183,6 +188,10 @@ const useStyles = makeStyles((t) => ({
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[3],
     minHeight: 48,
+  },
+  inputFocused: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
   },
   handleHint: {
     ...typeStyle('caption'),

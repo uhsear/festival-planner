@@ -6,6 +6,7 @@ import { formatTime, artistDisplayName, artistSubtitle } from '@festie/shared/ut
 import { useCrewStore, useFestivalStore } from '@festie/shared/stores';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useSetStatus } from '../hooks/useSetStatus';
+import { useHaptics } from '../hooks/useHaptics';
 import Avatar from './Avatar';
 import LiveBadge from './LiveBadge';
 
@@ -105,11 +106,18 @@ interface PriorityButtonProps {
 function PriorityButton({ option, active, onPress }: PriorityButtonProps) {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
   const accent = priorityColor(t, option.value);
   return (
     <TouchableOpacity
       style={[styles.priorityButton, active && { backgroundColor: accent, borderColor: accent }]}
-      onPress={() => onPress(active ? null : option.value)}
+      onPress={() => {
+        // Taptic feedback on iOS (selectionAsync), tuned Vibration on Android —
+        // additive on the existing handler; the no-op fallback keeps picks
+        // working on devices without a vibrator/Taptic Engine.
+        haptics.select();
+        onPress(active ? null : option.value);
+      }}
       activeOpacity={0.7}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}

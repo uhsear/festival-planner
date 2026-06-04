@@ -183,6 +183,11 @@ function AuthGate() {
               },
               headerShadowVisible: false,
               contentStyle: { backgroundColor: colors.bg.primary },
+              // Enable the iOS left-edge swipe-back gesture on every pushed
+              // route (set detail, map, compass, crew-plan, etc.). It's the
+              // platform-expected way to dismiss a screen on iOS; no-op on
+              // Android (which uses the system back button / predictive back).
+              gestureEnabled: true,
             }}
           >
             <Stack.Screen name="(tabs)" />
