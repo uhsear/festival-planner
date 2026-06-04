@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { colors } from '@festie/shared/tokens';
 
 export interface CrewWrapOverlapPair {
   aUserId: string;
@@ -47,6 +48,13 @@ const money = (n: number) =>
  * regardless of device. RN can't gradient-clip text or do CSS radial gradients,
  * so the FESTIE wordmark is solid coral and the background is flat #080810 (the
  * web poster is the high-fidelity version). Degrades gracefully on empty crews.
+ *
+ * Poster-intent note on colors: the hex literals below (#080810, #ff3366,
+ * #eaeaf2, #9999bb, #00e8d0) are deliberately static to lock the captured PNG to
+ * the brand palette regardless of any runtime/device theme — this surface is
+ * never themed. Only the white-overlay chrome (row dividers, stat-cell fill and
+ * border) is routed through the shared `colors.overlay` scale so those alpha
+ * values stay in one place.
  */
 export default function CrewWrapPoster({ crewName, festivalName, wrap }: Props) {
   const topOverlap = wrap.topOverlap;
@@ -149,7 +157,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: colors.overlay[4],
   },
   seenArtist: { flex: 1, fontSize: 38, fontWeight: '700', color: '#eaeaf2' },
   seenCount: { fontSize: 28, fontWeight: '800', color: '#00e8d0' },
@@ -157,10 +165,10 @@ const s = StyleSheet.create({
   statsGrid: { marginTop: 40, flexDirection: 'row', gap: 18 },
   statCell: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.overlay[1],
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.overlay[4],
     paddingVertical: 28,
     alignItems: 'center',
   },

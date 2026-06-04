@@ -193,7 +193,8 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
   eyeButton: {
-    padding: spacing[2],
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[3],
   },
   guestButton: {
     marginTop: spacing[5],

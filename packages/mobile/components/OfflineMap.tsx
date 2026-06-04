@@ -339,7 +339,10 @@ const useStyles = makeStyles((t) => ({
   },
   bannerText: {
     ...typeStyle('caption'),
-    color: t.colors.accent.amber,
+    // Neutral tone: amber icon + border already signal "offline"; muted text
+    // keeps this informational ("here's what you get offline") rather than
+    // reading as an error/warning.
+    color: t.colors.text.muted,
     flexShrink: 1,
   },
   emptyBlock: {

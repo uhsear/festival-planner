@@ -238,7 +238,7 @@ const useStyles = makeStyles((t) => ({
   modalBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: t.colors.shade[9], // modal scrim (rgba(0,0,0,0.45))
   },
   modalDismissArea: {
     flex: 1,

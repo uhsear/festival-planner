@@ -289,7 +289,7 @@ const useStyles = makeStyles((t) => ({
   hint: {
     ...typeStyle('label'),
     color: '#FFFFFF',
-    backgroundColor: 'rgba(10,14,26,0.6)',
+    backgroundColor: 'rgba(8,8,16,0.8)',
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[2],
     borderRadius: t.radii.pill,

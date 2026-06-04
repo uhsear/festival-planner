@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Share,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -54,6 +55,12 @@ function setLabel(set: FestivalSet | undefined, fallbackId: string): string {
 export default function CrewScreen() {
   const t = useTokens();
   const styles = useStyles();
+
+  // On tablet-width screens, inset the content so menu items and member rows
+  // don't stretch edge-to-edge into an uncomfortably wide single column.
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
+  const tabletInset = isTablet ? { paddingHorizontal: t.spacing[6] } : null;
 
   const user = useAuthStore((s) => s.user);
   const crews = useCrewStore((s) => s.crews);
@@ -398,7 +405,7 @@ export default function CrewScreen() {
     return (
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScreenHeader title="Crew" subtitle="Coordinate with friends" icon="people" />
-        <ScrollView contentContainerStyle={styles.formScroll} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.formScroll, tabletInset]} keyboardShouldPersistTaps="handled">
           <EmptyState
             icon="people-outline"
             title="No crew yet"
@@ -493,7 +500,7 @@ export default function CrewScreen() {
       <FlatList
         data={members}
         keyExtractor={(m) => m.id || m.userId}
-        contentContainerStyle={styles.memberList}
+        contentContainerStyle={[styles.memberList, tabletInset]}
         refreshControl={
           <RefreshControl
             refreshing={crewLoading}
@@ -1110,7 +1117,7 @@ const useStyles = makeStyles((t) => ({
   memberList: {
     paddingHorizontal: t.spacing[4],
     paddingBottom: t.spacing[6],
-    gap: t.spacing[2],
+    gap: t.spacing[3],
   },
   sectionLabel: {
     ...typeStyle('caption'),
@@ -1151,6 +1158,9 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[3],
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[3],
+    // Match AccountScreen's row floor so every member row keeps a >=44pt
+    // touch target even when the name wraps to a single short line.
+    minHeight: 56,
     borderRadius: t.radii.default,
     borderWidth: 1,
     borderColor: t.colors.border.default,
