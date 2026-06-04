@@ -88,7 +88,6 @@ export const DEFAULTS = {
   WEBHOOK_RETRY_TIMEOUT_MS: 5_000,
   SPOTIFY_CLIENT_ID: '',
   SPOTIFY_CLIENT_SECRET: '',
-  SPOTIFY_REDIRECT_URI: '', // REQUIRED for user-OAuth (M4); when unset the connect/suggestion/playlist feature is dormant
   CLUSTER_SIZE: 1, // matches the single PM2 fork worker; ecosystem.config.cjs sets CLUSTER_SIZE=1 to keep the in-memory rate-limit divisor accurate
   REMINDER_TICK_INTERVAL_MS: 60_000,
   REMINDER_FIRE_WINDOW_MS: 65_000,
@@ -260,7 +259,6 @@ export function loadConfig(overrides: Record<string, any> = {}): {
   FCM_RETRY_WEBHOOK_URL: string;
   SPOTIFY_CLIENT_ID: string;
   SPOTIFY_CLIENT_SECRET: string;
-  SPOTIFY_REDIRECT_URI: string;
   CLUSTER_SIZE: number;
   LOG_LEVEL: string;
   SENTRY_DSN: string;
@@ -628,10 +626,6 @@ export function loadConfig(overrides: Record<string, any> = {}): {
     SPOTIFY_CLIENT_ID: overrides.SPOTIFY_CLIENT_ID || process.env.SPOTIFY_CLIENT_ID || DEFAULTS.SPOTIFY_CLIENT_ID,
     SPOTIFY_CLIENT_SECRET:
       overrides.SPOTIFY_CLIENT_SECRET || process.env.SPOTIFY_CLIENT_SECRET || DEFAULTS.SPOTIFY_CLIENT_SECRET,
-    // User-OAuth redirect (Authorization-Code + PKCE). Must EXACTLY match a
-    // Redirect URI registered in the Spotify dashboard. Empty ⇒ feature dormant.
-    SPOTIFY_REDIRECT_URI:
-      overrides.SPOTIFY_REDIRECT_URI || process.env.SPOTIFY_REDIRECT_URI || DEFAULTS.SPOTIFY_REDIRECT_URI,
 
     // Cluster / observability
     CLUSTER_SIZE: Number(readInt(overrides.CLUSTER_SIZE || process.env.CLUSTER_SIZE, DEFAULTS.CLUSTER_SIZE, 1, 64)),
