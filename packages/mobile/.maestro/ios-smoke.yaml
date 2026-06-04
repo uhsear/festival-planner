@@ -1,9 +1,14 @@
-# Credential-free iOS smoke flow for the EAS Workflows `maestro` job.
-# Runs on an iOS Simulator on Expo's macOS cloud workers (no Mac needed locally).
-# Exercises launch -> onboarding -> festival picker -> schedule -> tab navigation,
-# capturing a screenshot at each step. No login required (festival browsing is
-# guest-accessible), so no secrets need to be managed in CI.
+# Comprehensive iOS UI smoke for the EAS Workflows `maestro` job (runs on an iOS
+# Simulator on Expo's macOS cloud — no Mac). Logs in with EAS secret env vars
+# (TEST_USERNAME / TEST_PASSWORD, bound via `environment: preview` on the job) and
+# exercises onboarding -> login -> festival -> schedule views -> picks -> crew ->
+# the new map/compass/QR features -> account, screenshotting each step.
+# Login + most taps are optional/guarded so the flow degrades gracefully to the
+# guest surface if creds don't resolve.
 appId: us.festie.app
+env:
+  TEST_USERNAME: ${TEST_USERNAME}
+***REDACTED-CREDENTIAL***
 ---
 - launchApp:
     clearState: true
@@ -12,7 +17,6 @@ appId: us.festie.app
       text: "Skip|Build your festival|Select a Festival|Festie"
     timeout: 90000
 - takeScreenshot: 01-launch
-# Dismiss the first-run onboarding carousel if present
 - tapOn:
     text: "Skip"
     optional: true
@@ -21,32 +25,113 @@ appId: us.festie.app
       text: "Select a Festival|North Coast|Timeline"
     timeout: 30000
 - takeScreenshot: 02-festival-picker
-# Select a festival (guest-browsable) so the schedule renders
+# ── Log in via the Account tab ──
+- tapOn:
+    text: "Account"
+    optional: true
+- runFlow:
+    when:
+      visible: "Username"
+    commands:
+      - tapOn: "Username"
+      - inputText: "${TEST_USERNAME}"
+      - hideKeyboard
+***REDACTED-CREDENTIAL***
+***REDACTED-CREDENTIAL***
+      - hideKeyboard
+      - tapOn: "Sign In"
+      - tapOn:
+          text: "Not Now"
+          optional: true
+      - extendedWaitUntil:
+          visible:
+            text: "Select a Festival|Timeline|Account|North Coast"
+          timeout: 25000
+- takeScreenshot: 03-account-authed
+# ── Select a festival ──
+- tapOn:
+    text: "Timeline"
+    optional: true
 - tapOn:
     text: "North Coast Festival 2026"
     optional: true
 - waitForAnimationToEnd:
     timeout: 4000
-- takeScreenshot: 03-schedule
-# Tab navigation — these render appropriate states for a guest session
+- takeScreenshot: 04-timeline
+# ── Schedule views ──
+- tapOn:
+    text: "Grid"
+    optional: true
+- takeScreenshot: 05-grid
+- tapOn:
+    text: "Cards"
+    optional: true
+- takeScreenshot: 06-cards
+- tapOn:
+    text: "Timeline"
+    optional: true
+# ── Picks ──
 - tapOn:
     text: "Picks"
     optional: true
 - waitForAnimationToEnd:
     timeout: 2500
-- takeScreenshot: 04-picks
+- takeScreenshot: 07-picks
+# ── Crew + logistics ──
 - tapOn:
     text: "Crew"
     optional: true
 - waitForAnimationToEnd:
     timeout: 2500
-- takeScreenshot: 05-crew
+- takeScreenshot: 08-crew
+- scrollUntilVisible:
+    element:
+      text: "Crew map"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+- takeScreenshot: 09-crew-logistics
+# ── New native features ──
+- tapOn:
+    text: "Crew map"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 10-map
+- back
+- scrollUntilVisible:
+    element:
+      text: "Meeting-point compass"
+    direction: DOWN
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "Meeting-point compass"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 11-compass
+- back
+- scrollUntilVisible:
+    element:
+      text: "Share plan"
+    direction: DOWN
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "Share plan.*"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 12-plan-share
+- back
+# ── Account ──
 - tapOn:
     text: "Account"
     optional: true
 - waitForAnimationToEnd:
     timeout: 2500
-- takeScreenshot: 06-account
-# Sanity assertion: the tab bar / app chrome is present (app didn't crash)
+- takeScreenshot: 13-account
+# Sanity: app chrome present (no crash)
 - assertVisible:
     text: "Timeline|Picks|Crew|Account|Festie"
