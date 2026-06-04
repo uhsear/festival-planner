@@ -1,0 +1,19 @@
+# EAS Workflow: build the iOS app for the Simulator on Expo's macOS cloud workers,
+# then run the Maestro smoke flow against it — automated iOS UI testing with NO Mac.
+# Run manually from Windows:  npx eas-cli@latest workflow:run .eas/workflows/e2e-ios.yml
+# (No `on:` trigger on purpose — manual-only so it doesn't consume an iOS build on
+#  every push. Add a `pull_request`/`push` trigger later if you want it in CI.)
+name: e2e-ios
+
+jobs:
+  build_ios_for_e2e:
+    type: build
+    params:
+      platform: ios
+      profile: e2e-test
+  maestro_test:
+    needs: [build_ios_for_e2e]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_ios_for_e2e.outputs.build_id }}
+      flow_path: ['.maestro/ios-smoke.yaml']
