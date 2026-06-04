@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import type { FestivalSet, Priority, Stage } from '@festie/shared/types';
@@ -48,6 +49,15 @@ export default function PicksScreen() {
   const t = useTokens();
   const styles = useStyles();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  // Respect the iOS home indicator (~34pt on iPhone 12+/13+/14+) so the last
+  // picks scroll clear of the tab bar / indicator with a little breathing room.
+  // The static `listContent` style can't read `insets`, so layer it on inline.
+  const listContentStyle = useMemo(
+    () => [styles.listContent, { paddingBottom: Math.max(t.spacing[6], insets.bottom + t.spacing[2]) }],
+    [styles.listContent, insets.bottom, t.spacing],
+  );
 
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
   const currentProfile = useFestivalDataStore((s) => s.currentProfile);
@@ -464,7 +474,7 @@ export default function PicksScreen() {
         data={[] as Row[]}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={listContentStyle}
         ListHeaderComponent={picksHeader}
         ListEmptyComponent={
           <EmptyState
@@ -482,7 +492,7 @@ export default function PicksScreen() {
         data={rows}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={listContentStyle}
         ListHeaderComponent={picksHeader}
         ItemSeparatorComponent={Separator}
         refreshControl={refreshControl}

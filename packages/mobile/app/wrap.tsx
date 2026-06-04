@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '@festie/shared/services';
@@ -44,6 +45,7 @@ const EMOJI: Record<number, string> = { 5: '🔥', 4: '😊', 3: '👍', 2: '�
 export default function WrapScreen() {
   const t = useTokens();
   const styles = useStyles();
+  const insets = useSafeAreaInsets();
 
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
   const days = useFestivalDataStore((s) => s.days);
@@ -190,7 +192,12 @@ export default function WrapScreen() {
     const totalHours = stats.totalHours ?? 0;
 
     return (
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: Math.max(t.spacing[4], insets.bottom + t.spacing[2]) },
+        ]}
+      >
         <View style={styles.headerBlock}>
           <View style={styles.kicker}>
             <Ionicons name="sparkles" size={14} color={t.colors.accent.aqua} />
@@ -375,6 +382,7 @@ function CrewWrapTab({
 }) {
   const t = useTokens();
   const styles = useStyles();
+  const insets = useSafeAreaInsets();
   const [wrap, setWrap] = useState<CrewWrapData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -464,7 +472,12 @@ function CrewWrapTab({
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: Math.max(t.spacing[4], insets.bottom + t.spacing[2]) },
+        ]}
+      >
         <View style={styles.headerBlock}>
           <View style={styles.kicker}>
             <Ionicons name="people" size={14} color={t.colors.accent.aqua} />

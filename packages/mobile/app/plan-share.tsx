@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import PlanQRShare from '../components/PlanQRShare';
 import PlanQRScan from '../components/PlanQRScan';
@@ -30,20 +32,33 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] 
 export default function PlanShareScreen() {
   const t = useTokens();
   const styles = useStyles();
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('show');
+
+  // Safe-area top padding so the tab bar clears the Dynamic Island / status bar
+  // even if this screen is ever moved to a headerless (headerShown: false) layout.
+  const tabBarStyle = [styles.tabBar, { paddingTop: t.spacing[3] + insets.top }];
+
+  const selectTab = (key: Tab) => {
+    if (key !== tab) {
+      Haptics.selectionAsync().catch(() => {});
+    }
+    setTab(key);
+  };
 
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ title: 'Share plan', headerShown: true }} />
 
-      <View style={styles.tabBar}>
+      <View style={tabBarStyle}>
         {TABS.map((item) => {
           const active = tab === item.key;
           return (
             <TouchableOpacity
               key={item.key}
               style={[styles.tab, active && styles.tabActive]}
-              onPress={() => setTab(item.key)}
+              activeOpacity={0.7}
+              onPress={() => selectTab(item.key)}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               accessibilityLabel={item.label}

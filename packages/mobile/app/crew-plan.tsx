@@ -8,6 +8,7 @@ import type { CrewMeetingPoint, FestivalDay, FestivalSet, Priority, Profile } fr
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import FreshnessChip from '../components/FreshnessChip';
 import EmptyState from '../components/EmptyState';
+import ScreenHeader from '../components/ScreenHeader';
 
 // ── Pure digest assembly (offline-native, zero network) ────────────────────
 // Reads ONLY the persisted stores already in memory: crewStore.meetingPoints /
@@ -114,7 +115,8 @@ export default function CrewPlanScreen() {
   if (!user) {
     return (
       <View style={styles.screen}>
-        <Stack.Screen options={{ title: 'Crew plan', headerShown: true }} />
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScreenHeader title="Crew plan" icon="calendar" />
         <EmptyState icon="lock-closed" title="Sign in required" message="Log in to see your crew's plan." />
       </View>
     );
@@ -123,7 +125,8 @@ export default function CrewPlanScreen() {
   if (!activeCrew) {
     return (
       <View style={styles.screen}>
-        <Stack.Screen options={{ title: 'Crew plan', headerShown: true }} />
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScreenHeader title="Crew plan" icon="calendar" />
         <EmptyState
           icon="people-outline"
           title="No crew selected"
@@ -135,7 +138,8 @@ export default function CrewPlanScreen() {
 
   return (
     <View style={styles.screen}>
-      <Stack.Screen options={{ title: `${activeCrew.name}'s plan`, headerShown: true }} />
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScreenHeader title={`${activeCrew.name}'s plan`} subtitle="Crew plan" icon="calendar" />
       <ScrollView contentContainerStyle={styles.content}>
         <FreshnessChip surface="crew" />
 

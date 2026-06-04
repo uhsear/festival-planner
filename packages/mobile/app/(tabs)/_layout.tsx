@@ -1,4 +1,6 @@
+import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing } from '@festie/shared/tokens';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
@@ -8,11 +10,32 @@ export default function TabLayout() {
   // Events flow into shared Zustand stores automatically.
   useRealtimeSync();
 
+  // The bottom inset is the iPhone home-indicator gap (and Android gesture-nav
+  // bar). expo-router's Tabs does NOT auto-pad the bar for it on iOS, so the
+  // labels would otherwise sit on top of the home indicator. Pad the bar by the
+  // inset and grow its height to match so the tab content stays vertically
+  // centered above the indicator. spacing[1] keeps a minimum cushion when the
+  // device has no inset (older devices / Android with button nav).
+  const insets = useSafeAreaInsets();
+  const tabBarBottomInset = Math.max(insets.bottom, spacing[1]);
+
   return (
     <Tabs
       screenOptions={{
         headerStyle: {
           backgroundColor: colors.bg.secondary,
+          // iOS draws header chrome with shadow* props (Android uses elevation).
+          // A hairline-soft shadow gives the dark header a subtle lift on iOS to
+          // match the Android elevation; transparent elsewhere to avoid a halo.
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.2,
+              shadowRadius: 2,
+            },
+            default: {},
+          }),
         },
         headerTintColor: colors.text.primary,
         headerTitleStyle: {
@@ -24,14 +47,18 @@ export default function TabLayout() {
           borderTopColor: colors.border.default,
           borderTopWidth: 1,
           paddingTop: spacing[1],
-          height: 56 + spacing[2],
+          paddingBottom: tabBarBottomInset,
+          height: 56 + spacing[2] + tabBarBottomInset,
         },
         tabBarActiveTintColor: colors.accent.aqua,
         tabBarInactiveTintColor: colors.text.muted,
         tabBarLabelStyle: {
           fontSize: fontSize[10],
           fontWeight: '600',
-          marginBottom: spacing[1],
+          // iOS renders the label tighter to the icon than Android; nudge it
+          // down a touch (2px, half of spacing[1]) so the icon+label block stays
+          // optically centered.
+          marginBottom: Platform.OS === 'ios' ? 2 : spacing[1],
         },
       }}
     >
@@ -39,36 +66,40 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Timeline',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
-          ),
+          // Explicit a11y labels: iOS doesn't expose the tab title to the
+          // accessibility tree by default, so VoiceOver (and UI automation)
+          // couldn't identify the tabs. Naming them makes each tab announce
+          // clearly and be reliably findable.
+          tabBarAccessibilityLabel: 'Timeline',
+          tabBarButtonTestID: 'tab-timeline',
+          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="picks"
         options={{
           title: 'Picks',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="star-outline" size={size} color={color} />
-          ),
+          tabBarAccessibilityLabel: 'Picks',
+          tabBarButtonTestID: 'tab-picks',
+          tabBarIcon: ({ color, size }) => <Ionicons name="star-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="crew"
         options={{
           title: 'Crew',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
-          ),
+          tabBarAccessibilityLabel: 'Crew',
+          tabBarButtonTestID: 'tab-crew',
+          tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: 'Account',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
-          ),
+          tabBarAccessibilityLabel: 'Account',
+          tabBarButtonTestID: 'tab-account',
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
       />
     </Tabs>

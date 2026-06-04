@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@festie/shared/hooks';
 import { useAuthStore } from '@festie/shared/stores';
@@ -42,6 +43,8 @@ export default function AccountScreen() {
   const t = useTokens();
   const styles = useStyles();
   const router = useRouter();
+  // Bottom inset keeps the Danger Zone clear of the iPhone home indicator.
+  const insets = useSafeAreaInsets();
 
   // Identity comes straight off the auth store (single source of truth).
   const user = useAuthStore((s) => s.user);
@@ -84,7 +87,10 @@ export default function AccountScreen() {
     <View style={styles.container}>
       <ScreenHeader title="Account" subtitle="Settings & preferences" icon="person-circle-outline" />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(t.spacing[6], insets.bottom + t.spacing[2]) }]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Identity */}
         <View style={styles.identity}>
           {avatarUrl ? (

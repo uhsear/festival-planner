@@ -1,6 +1,5 @@
 import { useCallback, useMemo, type ReactElement } from 'react';
-import { View, Text, type ListRenderItem } from 'react-native';
-import { FlatList } from 'react-native';
+import { View, Text, FlatList, type ListRenderItem, type RefreshControlProps } from 'react-native';
 import type { FestivalSet, Priority, Stage } from '@festie/shared/types';
 import { timeToMinutes } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
@@ -48,6 +47,12 @@ export interface GridViewProps {
   onSetPress: (set: FestivalSet) => void;
   /** Optional footer (e.g. the TBA section) rendered below the list. */
   ListFooterComponent?: ReactElement | null;
+  /**
+   * Optional pull-to-refresh control, forwarded to the underlying FlatList so
+   * the Grid view gets the same refresh affordance as the Cards/Crew/Picks
+   * lists. Omit to disable pull-to-refresh.
+   */
+  refreshControl?: ReactElement<RefreshControlProps>;
 }
 
 /**
@@ -70,6 +75,7 @@ export default function GridView({
   onPickChange,
   onSetPress,
   ListFooterComponent,
+  refreshControl,
 }: GridViewProps) {
   const t = useTokens();
   const styles = useStyles();
@@ -195,6 +201,7 @@ export default function GridView({
       renderItem={renderRow}
       keyExtractor={keyExtractor}
       contentContainerStyle={styles.listContent}
+      refreshControl={refreshControl}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       ListFooterComponent={ListFooterComponent}
       keyboardShouldPersistTaps="handled"

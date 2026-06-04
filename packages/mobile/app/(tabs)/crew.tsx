@@ -7,6 +7,7 @@ import {
   FlatList,
   ScrollView,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Alert,
   ActivityIndicator,
@@ -15,6 +16,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/stores';
 import { useCrew } from '@festie/shared/hooks';
@@ -60,7 +62,20 @@ export default function CrewScreen() {
   // don't stretch edge-to-edge into an uncomfortably wide single column.
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
-  const tabletInset = isTablet ? { paddingHorizontal: t.spacing[6] } : null;
+  const tabletInset = useMemo(() => (isTablet ? { paddingHorizontal: t.spacing[6] } : null), [isTablet, t.spacing]);
+
+  // Respect the iOS home indicator (~34pt on iPhone 12+/13+/14+) so the last
+  // member row / footer action clears the home bar instead of sitting under it.
+  // The static list/scroll styles can't read `insets`, so layer it on inline.
+  const insets = useSafeAreaInsets();
+  const memberListStyle = useMemo(
+    () => [styles.memberList, tabletInset, { paddingBottom: Math.max(t.spacing[4], insets.bottom + t.spacing[2]) }],
+    [styles.memberList, tabletInset, insets.bottom, t.spacing],
+  );
+  const formScrollStyle = useMemo(
+    () => [styles.formScroll, tabletInset, { paddingBottom: Math.max(t.spacing[6], insets.bottom + t.spacing[2]) }],
+    [styles.formScroll, tabletInset, insets.bottom, t.spacing],
+  );
 
   const user = useAuthStore((s) => s.user);
   const crews = useCrewStore((s) => s.crews);
@@ -171,6 +186,7 @@ export default function CrewScreen() {
   const handleCreate = async () => {
     const trimmed = name.trim();
     if (!trimmed || createBusy) return;
+    Keyboard.dismiss();
     setError(null);
     setCreateBusy(true);
     try {
@@ -186,6 +202,7 @@ export default function CrewScreen() {
   const handleJoin = async () => {
     const trimmed = inviteCode.trim();
     if (!trimmed || joinBusy) return;
+    Keyboard.dismiss();
     setError(null);
     setJoinBusy(true);
     try {
@@ -338,6 +355,7 @@ export default function CrewScreen() {
   const handleForceAdd = async (crewId: string) => {
     const trimmed = forceAddId.trim();
     if (!trimmed || forceAddBusy) return;
+    Keyboard.dismiss();
     setForceAddBusy(true);
     try {
       await forceAddMember(crewId, trimmed);
@@ -403,9 +421,13 @@ export default function CrewScreen() {
   // No active crew: show create / join forms.
   if (!activeCrew) {
     return (
-      <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScreenHeader title="Crew" subtitle="Coordinate with friends" icon="people" />
-        <ScrollView contentContainerStyle={[styles.formScroll, tabletInset]} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={formScrollStyle}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           <EmptyState
             icon="people-outline"
             title="No crew yet"
@@ -490,7 +512,7 @@ export default function CrewScreen() {
   const hasUnsettledBalance = Math.abs(myBalance) > 0.01;
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScreenHeader
         title={crew.name}
         subtitle={`${members.length} ${members.length === 1 ? 'member' : 'members'}`}
@@ -500,7 +522,9 @@ export default function CrewScreen() {
       <FlatList
         data={members}
         keyExtractor={(m) => m.id || m.userId}
-        contentContainerStyle={[styles.memberList, tabletInset]}
+        contentContainerStyle={memberListStyle}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl
             refreshing={crewLoading}
