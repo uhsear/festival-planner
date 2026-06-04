@@ -109,7 +109,6 @@ import createCalendarSyncRoutes, { createCalendarFeedRoute } from './routes/cale
 import createAnalyticsInstallRoutes from './routes/analytics-install';
 import createClientMetricsRoutes from './routes/client-metrics';
 import createSpotifyRoutes from './routes/spotify';
-import createSpotifyAuthRoutes from './routes/spotify-auth';
 import createHealthRoutes from './routes/health';
 import createSocketHandlers from './routes/socket';
 import createDeepLinkRoutes from './routes/deep-links';
@@ -206,7 +205,6 @@ async function createFestieApp(overrides: any = {}) {
   const clientMetricsRoutes = createClientMetricsRoutes(deps);
   const calendarFeedRoutes = createCalendarFeedRoute(deps);
   const spotifyRoutes = createSpotifyRoutes(deps);
-  const spotifyAuthRoutes = createSpotifyAuthRoutes(deps);
   const healthRoutesModule = createHealthRoutes(deps);
   const healthRoutes = healthRoutesModule.router;
   const setHealthReady = healthRoutesModule.setReady;
@@ -222,7 +220,6 @@ async function createFestieApp(overrides: any = {}) {
   app.use('/api/v1', exportRoutes);
   app.use('/api/v1/notifications', notificationRoutes);
   app.use('/api/v1', spotifyRoutes);
-  app.use('/api/v1', spotifyAuthRoutes);
   app.use('/api/v1/crews', crewRoutes);
   app.use('/s', shareRoutes);
   app.use('/api/v1/ratings', ratingsRoutes);

@@ -63,12 +63,6 @@ vi.mock('../components/layout/RefreshableView', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="refreshable-view">{children}</div>,
 }));
 
-// SpotifyConnect is exercised by its own render test; stub it here so PicksView
-// tests stay focused (and don't need SpotifyConnect's lucide icons in the mock).
-vi.mock('../components/features/SpotifyConnect', () => ({
-  default: () => <div data-testid="spotify-connect" />,
-}));
-
 // OfflineReadinessCard (F5) has its own render test; stub it here so PicksView
 // tests stay focused and don't need its store mocks / lucide icons.
 vi.mock('../components/features/OfflineReadinessCard', () => ({

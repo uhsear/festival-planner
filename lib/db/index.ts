@@ -16,7 +16,6 @@ import { createRatingsStore } from './stores/ratings.js';
 import { createExpensesStore } from './stores/expenses.js';
 import { createActivityStore } from './stores/activity.js';
 import { createCalendarTokensStore } from './stores/calendar-tokens.js';
-import { createSpotifyAccountsStore } from './stores/spotify-accounts.js';
 import { createEmailTokensStore } from './stores/email-tokens.js';
 import { createDbLatencyTracker } from './latency.js';
 import { createLogger } from '../logger.js';
@@ -42,7 +41,7 @@ function isCleanupLeader() {
  * Create data access stores for all database entities
  * Each store provides async CRUD operations for its table(s)
  */
-function createStores(pool: Pool, { nodeEnv, sessionSecret }: { nodeEnv?: string; sessionSecret?: string } = {}) {
+function createStores(pool: Pool, { nodeEnv }: { nodeEnv?: string; sessionSecret?: string } = {}) {
   const utils = createUtils(pool);
 
   const users = createUsersStore(pool, utils);
@@ -78,7 +77,6 @@ function createStores(pool: Pool, { nodeEnv, sessionSecret }: { nodeEnv?: string
   const expenses = createExpensesStore(pool);
   const activity = createActivityStore(pool);
   const calendarTokens = createCalendarTokensStore(pool);
-  const spotifyAccounts = createSpotifyAccountsStore(pool, { sessionSecret });
   const emailTokens = createEmailTokensStore(pool);
 
   return {
@@ -104,7 +102,6 @@ function createStores(pool: Pool, { nodeEnv, sessionSecret }: { nodeEnv?: string
     expenses,
     activity,
     calendarTokens,
-    spotifyAccounts,
     refreshTokens,
     loginFailures,
     metricsRollups,
