@@ -88,14 +88,14 @@ env:
 - takeScreenshot: 08-crew
 - scrollUntilVisible:
     element:
-      text: "Crew map"
+      text: "Open the crew map"
     direction: DOWN
     timeout: 10000
     optional: true
 - takeScreenshot: 09-crew-logistics
 # ── New native features ──
 - tapOn:
-    text: "Crew map"
+    text: "Open the crew map"
     optional: true
 - waitForAnimationToEnd:
     timeout: 4000
@@ -103,12 +103,12 @@ env:
 - back
 - scrollUntilVisible:
     element:
-      text: "Meeting-point compass"
+      text: "Open the meeting-point compass"
     direction: DOWN
     timeout: 8000
     optional: true
 - tapOn:
-    text: "Meeting-point compass"
+    text: "Open the meeting-point compass"
     optional: true
 - waitForAnimationToEnd:
     timeout: 4000
@@ -116,12 +116,12 @@ env:
 - back
 - scrollUntilVisible:
     element:
-      text: "Share plan"
+      text: "Share your plan"
     direction: DOWN
     timeout: 8000
     optional: true
 - tapOn:
-    text: "Share plan.*"
+    text: "Share your plan.*"
     optional: true
 - waitForAnimationToEnd:
     timeout: 4000
