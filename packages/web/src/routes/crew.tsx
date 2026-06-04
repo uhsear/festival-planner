@@ -11,6 +11,7 @@ import EmptyState from '../components/ui/EmptyState';
 import Button from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import HomeBaseCard from '../components/crew/HomeBaseCard';
+import CrewPhotosCard from '../components/crew/CrewPhotosCard';
 import CrewInviteBar from '../components/crew/CrewInviteBar';
 import ReformCrewButton from '../components/crew/ReformCrewButton';
 import CrewTabBar from '../components/crew/CrewTabBar';
@@ -210,6 +211,12 @@ function CrewViewInner() {
             currentLocation={crew?.homeBaseLocation ?? null}
             currentTime={crew?.homeBaseTime ?? null}
             isOwner={isOwner}
+            onSaved={() => selectCrew(activeCrew.id)}
+          />
+
+          <CrewPhotosCard
+            crewId={activeCrew.id}
+            currentUrl={crew?.photoAlbumUrl ?? null}
             onSaved={() => selectCrew(activeCrew.id)}
           />
 

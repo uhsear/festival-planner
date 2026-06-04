@@ -413,6 +413,16 @@ export default function PicksScreen() {
           <Ionicons name="share-outline" size={16} color={t.colors.accent.aqua} />
           <Text style={styles.calendarButtonText}>Share picks</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.calendarButton}
+          onPress={() => router.push('/spotify')}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Open Spotify pick suggestions"
+        >
+          <Ionicons name="musical-notes-outline" size={16} color={t.colors.spotify.brand} />
+          <Text style={styles.calendarButtonText}>Spotify</Text>
+        </TouchableOpacity>
       </View>
       {bulkPanel}
     </View>

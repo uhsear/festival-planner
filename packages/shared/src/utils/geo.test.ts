@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { haversineDistance, bearing, etaMinutes, formatStaleness, type Coord } from './geo';
+import {
+  haversineDistance,
+  bearing,
+  etaMinutes,
+  formatStaleness,
+  relativeArrowAngle,
+  formatDistance,
+  type Coord,
+} from './geo';
 
 // Two reference points ~1.11 km apart (0.01° of latitude at the equator-ish).
 const A: Coord = { latitude: 40.0, longitude: -74.0 };
@@ -65,6 +73,46 @@ describe('geo.etaMinutes', () => {
   it('returns null when a coord is missing (no geo ETA available)', () => {
     expect(etaMinutes(A, null)).toBeNull();
     expect(etaMinutes(undefined, B)).toBeNull();
+  });
+});
+
+describe('geo.relativeArrowAngle', () => {
+  it('returns the bearing unchanged when heading is 0 (north-up)', () => {
+    expect(relativeArrowAngle(90, 0)).toBe(90);
+  });
+
+  it('points the arrow straight up (0°) when facing the target', () => {
+    expect(relativeArrowAngle(90, 90)).toBe(0);
+  });
+
+  it('normalizes a negative result into [0, 360)', () => {
+    // Target due north (0°), device facing east (90°) → arrow at 270° (to the left).
+    expect(relativeArrowAngle(0, 90)).toBe(270);
+  });
+
+  it('treats a non-finite heading as 0', () => {
+    expect(relativeArrowAngle(45, NaN)).toBe(45);
+  });
+
+  it('returns NaN when the bearing is not finite (no fix)', () => {
+    expect(Number.isNaN(relativeArrowAngle(NaN, 10))).toBe(true);
+  });
+});
+
+describe('geo.formatDistance', () => {
+  it('rounds sub-km distances to the nearest 10 metres', () => {
+    expect(formatDistance(123)).toBe('120 m');
+    expect(formatDistance(0)).toBe('0 m');
+  });
+
+  it('reads km to one decimal at or above 1 km', () => {
+    expect(formatDistance(1400)).toBe('1.4 km');
+    expect(formatDistance(1000)).toBe('1.0 km');
+  });
+
+  it('returns an em-dash for NaN / negative (missing coords)', () => {
+    expect(formatDistance(NaN)).toBe('—');
+    expect(formatDistance(-5)).toBe('—');
   });
 });
 

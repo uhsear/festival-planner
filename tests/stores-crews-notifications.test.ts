@@ -444,6 +444,38 @@ describe('createCrewsStore — crews', () => {
     assert.strictEqual(pool.queries[0].params[1], null);
   });
 
+  it('updatePhotoAlbum passes url, returns crew', async () => {
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'c1', photoAlbumUrl: 'https://photos.app.goo.gl/abc' }] }]);
+    const { crews } = createCrewsStore(pool, mockUtils);
+
+    const result = await crews.updatePhotoAlbum('c1', { photoAlbumUrl: 'https://photos.app.goo.gl/abc' });
+
+    assert.strictEqual(result.photoAlbumUrl, 'https://photos.app.goo.gl/abc');
+    assert.ok(norm(pool.queries[0].sql).includes('UPDATE crews SET photo_album_url = $1'));
+    assert.deepStrictEqual(pool.queries[0].params, ['https://photos.app.goo.gl/abc', 'c1']);
+    // The read query must surface the aliased photoAlbumUrl column.
+    assert.ok(norm(pool.queries[1].sql).includes('photo_album_url AS "photoAlbumUrl"'));
+  });
+
+  it('updatePhotoAlbum converts falsy url to null (clears the album)', async () => {
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'c1' }] }]);
+    const { crews } = createCrewsStore(pool, mockUtils);
+
+    await crews.updatePhotoAlbum('c1', { photoAlbumUrl: '' });
+
+    assert.strictEqual(pool.queries[0].params[0], null);
+    assert.strictEqual(pool.queries[0].params[1], 'c1');
+  });
+
+  it('updatePhotoAlbum treats null url as a clear', async () => {
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'c1' }] }]);
+    const { crews } = createCrewsStore(pool, mockUtils);
+
+    await crews.updatePhotoAlbum('c1', { photoAlbumUrl: null });
+
+    assert.strictEqual(pool.queries[0].params[0], null);
+  });
+
   it('deleteByFestival removes all crews for festival', async () => {
     const pool = mockPool([]);
     const { crews } = createCrewsStore(pool, mockUtils);

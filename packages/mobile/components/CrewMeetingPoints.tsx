@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useCrewStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
-// TODO(F4 EAS slice): add a "Use my location" capture button here using
-// expo-location (getCurrentPositionAsync) to fill latitude/longitude on
-// create/edit, mirroring the web MeetingPointsTab. Deferred to the batched
-// EAS/native slice — this slice is backend + web only and must not add an Expo
-// dependency. The shared CrewMeetingPoint type, crewStore optimistic
-// placeholder, schema, and backend already accept latitude/longitude, so only
-// this UI capture + a captured chip remain for mobile.
+// F4: capture the device's current GPS position via expo-location to fill
+// latitude/longitude on create/edit, mirroring the web MeetingPointsTab. Permission
+// denial gracefully falls back to the existing free-text location field (coords
+// stay null). Map-pick is deferred to the offline-map slice. The shared
+// CrewMeetingPoint type, crewStore optimistic placeholder, schema, and backend
+// already accept latitude/longitude.
 
 interface CrewMeetingPointsProps {
   crewId: string;
@@ -54,12 +54,17 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
   const [stageRef, setStageRef] = useState('');
   const [type, setType] = useState<string>('during');
   const [createBusy, setCreateBusy] = useState(false);
+  // F4: optional captured GPS coords. null = no coord (free-text only).
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
 
   const reset = () => {
     setLabel('');
     setLocation('');
     setStageRef('');
     setType('during');
+    setCoords(null);
+    setLocating(false);
     setShowForm(false);
     setEditingId(null);
   };
@@ -70,7 +75,39 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
     setLocation(point.location);
     setStageRef(point.stage_reference ?? '');
     setType(point.type);
+    // F4: pre-fill captured coords on edit (null for legacy free-text points).
+    setCoords(
+      typeof point.latitude === 'number' && typeof point.longitude === 'number'
+        ? { lat: point.latitude, lng: point.longitude }
+        : null,
+    );
     setShowForm(true);
+  };
+
+  // F4: capture the device's current position via expo-location. Requests
+  // foreground permission; graceful denial keeps the typed free-text location
+  // (coords stay null). Mirrors the web MeetingPointsTab captureLocation.
+  const captureLocation = async () => {
+    if (locating) return;
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Location permission denied',
+          'Using the typed location instead. You can enable location access in Settings.',
+        );
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+    } catch {
+      Alert.alert('Location unavailable', "Couldn't get your location — using the typed location instead.");
+    } finally {
+      setLocating(false);
+    }
   };
 
   const openDirections = (loc: string) => {
@@ -84,15 +121,20 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
     setCreateBusy(true);
     try {
       const stageReference = stageRef.trim() || null;
+      // F4: send captured coords, or null to clear them on edit.
+      const latitude = coords ? coords.lat : null;
+      const longitude = coords ? coords.lng : null;
       if (editingId) {
         await updateMeetingPoint(crewId, editingId, {
           label: l,
           location: loc,
           type,
           stageReference,
+          latitude,
+          longitude,
         });
       } else {
-        await createMeetingPoint(crewId, { label: l, location: loc, type, stageReference });
+        await createMeetingPoint(crewId, { label: l, location: loc, type, stageReference, latitude, longitude });
       }
       reset();
     } catch {
@@ -182,6 +224,37 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
             maxLength={100}
             accessibilityLabel="Meeting point stage reference"
           />
+          {/* F4: optional GPS capture. Falls back to free-text on denial. */}
+          <View style={styles.captureRow}>
+            <TouchableOpacity
+              style={[styles.captureButton, locating && styles.buttonDisabled]}
+              onPress={captureLocation}
+              disabled={locating}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Use my location"
+            >
+              <Ionicons name="locate-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.captureButtonText}>{locating ? 'Locating…' : 'Use my location'}</Text>
+            </TouchableOpacity>
+            {coords ? (
+              <View style={styles.coordChip} accessibilityLabel="Captured location">
+                <Ionicons name="checkmark" size={12} color={t.colors.accent.aqua} />
+                <Text style={styles.coordChipText}>
+                  {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setCoords(null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear captured location"
+                >
+                  <Ionicons name="close" size={12} color={t.colors.accent.aqua} />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+
           <TouchableOpacity
             style={[styles.primaryButton, (createBusy || !canCreate) && styles.buttonDisabled]}
             onPress={handleCreate}
@@ -357,6 +430,40 @@ const useStyles = makeStyles((t) => ({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  captureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+  },
+  captureButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.input,
+  },
+  captureButtonText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.primary,
+  },
+  coordChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    paddingHorizontal: t.spacing[2],
+    paddingVertical: t.spacing[1],
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.ring.aqua,
+  },
+  coordChipText: {
+    ...typeStyle('micro'),
+    color: t.colors.accent.aqua,
   },
   iconButton: {
     padding: t.spacing[1],

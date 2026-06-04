@@ -102,6 +102,8 @@ export default function createCrewRoutes(deps: any) {
       homeBaseLocation: crew.homeBaseLocation || crew.home_base_location || null,
       homeBaseTime: crew.homeBaseTime || crew.home_base_time || null,
       homeBaseUpdatedAt: crew.homeBaseUpdatedAt || crew.home_base_updated_at || null,
+      // M6 Crew Photo Wall (Phase 1): shared-album link-out URL.
+      photoAlbumUrl: crew.photoAlbumUrl || crew.photo_album_url || null,
     };
     if (membership) {
       result.role = membership.role || crew.role;

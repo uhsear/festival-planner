@@ -585,6 +585,23 @@ export const crewHomeBaseSchema = z.object({
 });
 export type CrewHomeBaseInput = z.infer<typeof crewHomeBaseSchema>;
 
+// M6 Crew Photo Wall (Phase 1, link-out only). A single shared-album URL per
+// crew (e.g. Google Photos / Apple shared album). https-only and length-bounded
+// to avoid javascript:/data: schemes and oversized values; nullable / empty so
+// a member can clear the link. Festie hosts no photos yet — this is a link-out.
+export const crewPhotoAlbumSchema = z.object({
+  photoAlbumUrl: z
+    .string()
+    .trim()
+    .url('Must be a valid URL')
+    .max(2048)
+    .refine((u) => u.startsWith('https://'), 'Must be an https URL')
+    .nullable()
+    .optional()
+    .or(z.literal('')),
+});
+export type CrewPhotoAlbumInput = z.infer<typeof crewPhotoAlbumSchema>;
+
 export const pollCreateSchema = z.object({
   question: z.string().trim().min(1, 'Question required').max(500),
   options: z.array(z.string().trim().min(1).max(200)).min(2).max(4),
@@ -876,6 +893,7 @@ export const schemas = {
   crewAddMember: crewAddMemberSchema,
   setLink: setLinkSchema,
   crewHomeBase: crewHomeBaseSchema,
+  crewPhotoAlbum: crewPhotoAlbumSchema,
   meetingPointCreate: meetingPointCreateSchema,
   meetingPointUpdate: meetingPointUpdateSchema,
   pollCreate: pollCreateSchema,

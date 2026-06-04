@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 // ── Store state the mocks read from (mutated per test) ─────────────────────
@@ -57,9 +57,17 @@ function timeInMinutes(mins: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-const TODAY = new Date().toLocaleDateString('en-CA');
+// Pin the clock to a fixed mid-afternoon LOCAL instant so the relative set
+// times below (start = now+45m, end = now+105m) can never straddle a midnight
+// rollover at run time. Without this the "next picks" section flakes empty when
+// the suite runs near local midnight — a UTC-only CI machine hides it. Mid-day
+// keeps start/end on the same calendar day in every timezone.
+const FIXED_NOW = new Date('2026-06-15T14:00:00');
+const TODAY = FIXED_NOW.toLocaleDateString('en-CA');
 
 beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(FIXED_NOW);
   authState.user = { id: 'u-me' };
   uiState.offlineMode = false;
   uiState.pendingSync = 0;
@@ -132,6 +140,10 @@ beforeEach(() => {
       updatedAt: '',
     },
   ];
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('CrewPlanView', () => {

@@ -24,8 +24,10 @@ import ScreenHeader from '../../components/ScreenHeader';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
 import CrewHomeBase from '../../components/CrewHomeBase';
+import CrewPhotoLink from '../../components/CrewPhotoLink';
 import CrewPolls from '../../components/CrewPolls';
 import CrewMeetingPoints from '../../components/CrewMeetingPoints';
+import CrewStatus from '../../components/CrewStatus';
 import CrewPacking from '../../components/CrewPacking';
 import CrewRides from '../../components/CrewRides';
 import CrewExpenses from '../../components/CrewExpenses';
@@ -630,6 +632,45 @@ export default function CrewScreen() {
               <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
             </TouchableOpacity>
 
+            {/* M6 offline crew map — meeting-point pins (offline-honest fallback list). */}
+            <TouchableOpacity
+              style={styles.overlapToggle}
+              onPress={() => router.push('/map')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Open the crew map"
+            >
+              <Ionicons name="map-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.overlapToggleText}>Crew map</Text>
+              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+            </TouchableOpacity>
+
+            {/* M5 proximity compass — on-device straight-line direction to a saved point. */}
+            <TouchableOpacity
+              style={styles.overlapToggle}
+              onPress={() => router.push('/compass')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Open the meeting-point compass"
+            >
+              <Ionicons name="navigate-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.overlapToggleText}>Meeting-point compass</Text>
+              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+            </TouchableOpacity>
+
+            {/* M5 P2P plan handoff — QR / scan / SMS when signal is dead. */}
+            <TouchableOpacity
+              style={styles.overlapToggle}
+              onPress={() => router.push('/plan-share')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Share your plan with a friend (QR or text)"
+            >
+              <Ionicons name="qr-code-outline" size={16} color={t.colors.accent.coral} />
+              <Text style={styles.overlapToggleText}>Share plan (QR / text)</Text>
+              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+            </TouchableOpacity>
+
             {overlapError ? (
               <TouchableOpacity
                 style={styles.overlapErrorRow}
@@ -799,7 +840,10 @@ export default function CrewScreen() {
               isOwner={isOwner}
             />
 
+            <CrewPhotoLink crewId={crew.id} photoAlbumUrl={crew.photoAlbumUrl} />
+
             <Text style={styles.sectionLabel}>Meeting points</Text>
+            <CrewStatus crewId={crew.id} currentUserId={user.id} />
             <CrewMeetingPoints crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
 
             <View style={styles.sectionLabelRow}>
