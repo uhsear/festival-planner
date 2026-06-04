@@ -1,0 +1,52 @@
+# Credential-free iOS smoke flow for the EAS Workflows `maestro` job.
+# Runs on an iOS Simulator on Expo's macOS cloud workers (no Mac needed locally).
+# Exercises launch -> onboarding -> festival picker -> schedule -> tab navigation,
+# capturing a screenshot at each step. No login required (festival browsing is
+# guest-accessible), so no secrets need to be managed in CI.
+appId: us.festie.app
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      text: "Skip|Build your festival|Select a Festival|Festie"
+    timeout: 90000
+- takeScreenshot: 01-launch
+# Dismiss the first-run onboarding carousel if present
+- tapOn:
+    text: "Skip"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      text: "Select a Festival|North Coast|Timeline"
+    timeout: 30000
+- takeScreenshot: 02-festival-picker
+# Select a festival (guest-browsable) so the schedule renders
+- tapOn:
+    text: "North Coast Festival 2026"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 03-schedule
+# Tab navigation — these render appropriate states for a guest session
+- tapOn:
+    text: "Picks"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2500
+- takeScreenshot: 04-picks
+- tapOn:
+    text: "Crew"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2500
+- takeScreenshot: 05-crew
+- tapOn:
+    text: "Account"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2500
+- takeScreenshot: 06-account
+# Sanity assertion: the tab bar / app chrome is present (app didn't crash)
+- assertVisible:
+    text: "Timeline|Picks|Crew|Account|Festie"
