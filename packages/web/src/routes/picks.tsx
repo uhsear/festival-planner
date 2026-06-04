@@ -12,6 +12,7 @@ import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import RefreshableView from '../components/layout/RefreshableView';
 import PickBulkActions from '../components/PickBulkActions';
+import SpotifyConnect from '../components/features/SpotifyConnect';
 import { useToast } from '../lib/toastContext';
 import { Star, CalendarX, UserPlus, CalendarPlus, Share2 } from 'lucide-react';
 
@@ -218,6 +219,9 @@ function PicksViewInner() {
       <RefreshableView queryKeys={[['picks'], ['profiles']]} className="pb-5 h-full">
         <div role="region" aria-label="My picks">
           {actionButtons && <div className="flex justify-end gap-2 mb-3">{actionButtons}</div>}
+          <div className="mb-3">
+            <SpotifyConnect festivalId={currentFestival.id} />
+          </div>
           <PickBulkActions />
           <EmptyState
             icon={<Star className="w-9 h-9" aria-hidden="true" />}
@@ -234,6 +238,9 @@ function PicksViewInner() {
     <RefreshableView queryKeys={[['picks'], ['profiles']]} className="pb-5 h-full">
       <div role="region" aria-label="My picks">
         {actionButtons && <div className="flex justify-end gap-2 mb-3">{actionButtons}</div>}
+        <div className="mb-3">
+          <SpotifyConnect festivalId={currentFestival.id} />
+        </div>
         <PickBulkActions />
         {/* Priority sections */}
         {PRIORITY_SECTIONS.map(({ value: pri, label, accent, badge }) => {

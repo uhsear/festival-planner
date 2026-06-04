@@ -124,7 +124,7 @@ async function createAppContext(overrides: any = {}): Promise<AppContext> {
     poolSize: config.PG_POOL_MAX,
     poolMin: config.PG_POOL_MIN,
   });
-  const rawStores = createStores(pool, { nodeEnv: config.NODE_ENV });
+  const rawStores = createStores(pool, { nodeEnv: config.NODE_ENV, sessionSecret: config.SESSION_SECRET });
   const dbLatencyTracker = createDbLatencyTracker(log);
 
   const stores: Record<string, any> = {

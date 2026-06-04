@@ -734,6 +734,39 @@ export const expenseSettleFullSchema = z.object({
 });
 export type ExpenseSettleFullInput = z.infer<typeof expenseSettleFullSchema>;
 
+// ── Spotify user-OAuth (M4) ────────────────────────────────────
+// Mobile PKCE exchange: the app posts the authorization code + the SAME PKCE
+// verifier it generated. redirectUri must match what the app used (and a
+// dashboard-registered URI). codeVerifier is 43–128 chars per RFC 7636.
+export const spotifyExchangeSchema = z.object({
+  code: z.string().min(1, 'code required').max(1024),
+  codeVerifier: z.string().min(43, 'codeVerifier too short').max(128, 'codeVerifier too long'),
+  redirectUri: z.string().url('redirectUri must be a URL').max(512).optional(),
+});
+export type SpotifyExchangeInput = z.infer<typeof spotifyExchangeSchema>;
+
+// Confirm suggestions into picks: a list of { setId, priority } the user
+// accepted from the suggestions response.
+export const spotifySuggestionConfirmSchema = z.object({
+  picks: z
+    .array(
+      z.object({
+        setId: z.string().min(1, 'setId required').max(100),
+        priority: z.enum(['must', 'want', 'maybe']),
+      }),
+    )
+    .min(1, 'At least one pick required')
+    .max(500, 'Too many picks'),
+});
+export type SpotifySuggestionConfirmInput = z.infer<typeof spotifySuggestionConfirmSchema>;
+
+// Create-playlist options (optional name/visibility override).
+export const spotifyPlaylistCreateSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  isPublic: z.boolean().optional(),
+});
+export type SpotifyPlaylistCreateInput = z.infer<typeof spotifyPlaylistCreateSchema>;
+
 // ── Route param schemas ────────────────────────────────────────
 export const crewIdParams = z.object({
   crewId: z.string().min(1, 'Crew ID required').max(100),
@@ -846,6 +879,9 @@ export const schemas = {
   crewUserSearchQuery,
   crewListQuery,
   expenseSettleFull: expenseSettleFullSchema,
+  spotifyExchange: spotifyExchangeSchema,
+  spotifySuggestionConfirm: spotifySuggestionConfirmSchema,
+  spotifyPlaylistCreate: spotifyPlaylistCreateSchema,
   crewIdParams,
   crewIdExpenseIdParams,
   crewIdPollIdParams,
