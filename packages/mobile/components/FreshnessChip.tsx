@@ -49,20 +49,22 @@ export default function FreshnessChip({ surface }: FreshnessChipProps) {
 
   const label = offlineMode ? `Showing offline data · synced ${timeAgo(cachedAt)}` : `Synced ${timeAgo(cachedAt)}`;
 
+  const a11yLabel = pendingSync > 0 ? `${label}, ${pendingSync} change${pendingSync === 1 ? '' : 's'} queued` : label;
+
   return (
-    <View style={styles.row} accessibilityRole="text">
+    <View style={styles.row} accessibilityRole="text" accessibilityLabel={a11yLabel}>
       <View style={[styles.chip, offlineMode ? styles.chipOffline : styles.chipOnline]}>
-        <View style={[styles.dot, { backgroundColor: offlineMode ? t.colors.accent.amber : t.colors.accent.aqua }]} />
+        <View
+          style={[styles.dot, { backgroundColor: offlineMode ? t.colors.accent.amber : t.colors.accent.aqua }]}
+          accessible={false}
+        />
         <Text style={[styles.chipText, offlineMode && styles.chipTextOffline]} numberOfLines={1}>
           {label}
         </Text>
       </View>
 
       {pendingSync > 0 ? (
-        <View
-          style={styles.queuedBadge}
-          accessibilityLabel={`${pendingSync} change${pendingSync === 1 ? '' : 's'} queued`}
-        >
+        <View style={styles.queuedBadge} accessible={false}>
           <Text style={styles.queuedText}>{pendingSync} queued</Text>
         </View>
       ) : null}

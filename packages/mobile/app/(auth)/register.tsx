@@ -162,30 +162,42 @@ export default function RegisterScreen() {
           onSubmitEditing={handleRegister}
         />
 
-        <TouchableOpacity
-          style={styles.tosRow}
-          onPress={() => setTosAccepted((v) => !v)}
-          activeOpacity={0.7}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: tosAccepted }}
-          accessibilityLabel="I agree to the Privacy Policy and Terms"
-        >
-          <Ionicons
-            name={tosAccepted ? 'checkbox' : 'square-outline'}
-            size={20}
-            color={tosAccepted ? colors.accent.aqua : colors.text.secondary}
-          />
-          <Text style={styles.tosText}>
-            I agree to the{' '}
-            <Text style={styles.linkTextAccent} onPress={() => router.push('/privacy')}>
-              Privacy Policy
-            </Text>{' '}
-            &amp;{' '}
-            <Text style={styles.linkTextAccent} onPress={() => void Linking.openURL(TERMS_URL)}>
-              Terms
-            </Text>
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.tosRow}>
+          <TouchableOpacity
+            onPress={() => setTosAccepted((v) => !v)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: tosAccepted }}
+            accessibilityLabel="I agree to the Privacy Policy and Terms"
+            accessibilityHint="Toggles acceptance. The Privacy Policy and Terms links are available separately."
+            style={styles.tosCheckbox}
+          >
+            <Ionicons
+              name={tosAccepted ? 'checkbox' : 'square-outline'}
+              size={20}
+              color={tosAccepted ? colors.accent.aqua : colors.text.secondary}
+            />
+          </TouchableOpacity>
+          <View style={styles.tosTextWrap}>
+            <Text style={styles.tosText}>I agree to the </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/privacy')}
+              accessibilityRole="link"
+              accessibilityLabel="Read the Privacy Policy"
+            >
+              <Text style={[styles.tosText, styles.linkTextAccent]}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.tosText}> &amp; </Text>
+            <TouchableOpacity
+              onPress={() => void Linking.openURL(TERMS_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Read the Terms of Service, opens in browser"
+            >
+              <Text style={[styles.tosText, styles.linkTextAccent]}>Terms</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <TouchableOpacity
           style={[styles.button, isLoading && styles.buttonDisabled]}
@@ -300,12 +312,20 @@ const styles = StyleSheet.create({
   },
   tosRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing[2],
     marginTop: spacing[1],
   },
-  tosText: {
+  tosCheckbox: {
+    paddingTop: spacing[1],
+  },
+  tosTextWrap: {
     flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  tosText: {
     fontSize: fontSize[14],
     color: colors.text.secondary,
   },

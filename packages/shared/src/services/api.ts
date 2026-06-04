@@ -91,6 +91,13 @@ function isMutatingMethod(method: string = 'GET'): boolean {
 const OFFLINE_ELIGIBLE_PATTERNS: RegExp[] = [
   // Profile picks / notes / reminders: PUT /profiles/:id
   /^\/profiles\//,
+  // Join-by-code: POST /crews/join. Crew formation is a first-class offline op
+  // (festivals = no signal); queue + replay it instead of dropping it. Distinct
+  // from the /crews/:id/* sub-resource patterns below, which require a crew id
+  // segment and so never match the bare /join path. Duplicate joins on replay
+  // are rejected server-side, and a deterministic clientId keyed on the invite
+  // code (set at the call site) collapses repeated taps into one queued write.
+  /^\/crews\/join(\/|\?|$)/,
   // Crew sub-resources: /crews/:id/<resource>[/...]
   /^\/crews\/[^/]+\/meeting-points(\/|$)/,
   /^\/crews\/[^/]+\/polls(\/|$)/, // includes /polls/:id/vote

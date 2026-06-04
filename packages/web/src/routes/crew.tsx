@@ -47,6 +47,7 @@ function CrewViewInner() {
   const joinByCode = useCrewStore((state) => state.joinByCode);
   const leaveCrew = useCrewStore((state) => state.leaveCrew);
   const deleteCrew = useCrewStore((state) => state.deleteCrew);
+  const kickMember = useCrewStore((state) => state.kickMember);
   const transferOwnership = useCrewStore((state) => state.transferOwnership);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
   const [tab, setTab] = useState<TabKey>('members');
@@ -167,6 +168,18 @@ function CrewViewInner() {
       });
   };
 
+  const handleKick = (member: CrewMember) => {
+    if (!activeCrew) return;
+    const name = member.name || member.username || 'this member';
+    if (!window.confirm(`Remove ${name} from the crew?`)) return;
+    // kickMember keys off the crew-membership id, not userId (see crewStore).
+    kickMember(activeCrew.id, member.id)
+      .then(() => selectCrew(activeCrew.id))
+      .catch((e: unknown) => {
+        toast(e instanceof Error ? e.message : 'Failed to remove member', 'error');
+      });
+  };
+
   const crew = activeCrew as CrewWithHomeBase | null;
   const members = crew?.members || [];
   const meMember = members.find((m) => m.userId === user.id);
@@ -267,6 +280,7 @@ function CrewViewInner() {
             ownerId={activeCrew.owner}
             onForceAdd={handleForceAdd}
             onTransferOwnership={handleTransferOwnership}
+            onKick={handleKick}
           />
 
           <div className="pt-2">

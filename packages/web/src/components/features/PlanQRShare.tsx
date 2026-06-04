@@ -122,7 +122,12 @@ function PlanQRBody() {
       </p>
 
       {/* High-contrast dark-on-white tile so cameras lock fast in low festival light. */}
-      <div className="rounded-xl bg-white p-4" data-testid="plan-qr-code">
+      <div
+        className="rounded-xl bg-white p-4"
+        data-testid="plan-qr-code"
+        role="img"
+        aria-label="QR code of your festival plan — scan with another Festie app to share your picks and meeting point"
+      >
         <QRCodeSVG value={encoded} size={240} level="M" fgColor="#080810" bgColor="#FFFFFF" marginSize={0} />
       </div>
 

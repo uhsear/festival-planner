@@ -96,6 +96,12 @@ function buildHtml(pins: MapPin[], center: { latitude: number; longitude: number
       pins.forEach(function (p) {
         var el = document.createElement('div');
         el.className = 'festie-marker';
+        // a11y: expose marker label to screen readers + automation (the marker
+        // is otherwise a bare styled div with no accessible name).
+        var aLabel = p.label + (p.sublabel ? ' - ' + p.sublabel : '');
+        el.setAttribute('role', 'button');
+        el.setAttribute('aria-label', aLabel);
+        el.setAttribute('title', aLabel);
         var popupHtml = '<strong>' + escapeHtml(p.label) + '</strong>' +
           (p.sublabel ? '<br/>' + escapeHtml(p.sublabel) : '');
         var marker = new maplibregl.Marker({ element: el })
@@ -244,7 +250,16 @@ export default function OfflineMap({ meetingPoints }: OfflineMapProps) {
         ) : null}
 
         {coorded.map((pin) => (
-          <View key={pin.id} style={styles.row}>
+          <View
+            key={pin.id}
+            style={styles.row}
+            // a11y: announce the whole row as one meeting-point entry so the
+            // coords read as metadata, not a separate flat list item.
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Meeting point: ${pin.label}${pin.sublabel ? ', ' + pin.sublabel : ''}`}
+            accessibilityHint={`${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}`}
+          >
             <Ionicons name="location" size={18} color={t.colors.accent.coral} />
             <View style={styles.rowBody}>
               <Text style={styles.rowLabel}>{pin.label}</Text>
@@ -257,7 +272,14 @@ export default function OfflineMap({ meetingPoints }: OfflineMapProps) {
         ))}
 
         {uncoordedPoints.map((p) => (
-          <View key={p.id} style={styles.row}>
+          <View
+            key={p.id}
+            style={styles.row}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Meeting point: ${p.label}${p.location ? ', ' + p.location : ''}`}
+            accessibilityHint="No coordinates pinned"
+          >
             <Ionicons name="location-outline" size={18} color={t.colors.text.muted} />
             <View style={styles.rowBody}>
               <Text style={styles.rowLabel}>{p.label}</Text>

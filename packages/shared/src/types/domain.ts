@@ -130,6 +130,13 @@ export interface Crew {
   reformedFrom?: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Client-only optimistic-offline flag (see CrewPoll._optimistic). Set on a
+   * synthetic placeholder crew inserted while an offline `joinByCode` is queued;
+   * the queue reconciler swaps it for the real crew on replay, and a fresh
+   * online `loadCrews` (which replaces the whole list) drops any stragglers.
+   */
+  _optimistic?: boolean;
 }
 
 /**

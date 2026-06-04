@@ -364,7 +364,11 @@ export default function TimelineView({
       </View>
 
       {nextPickLabel ? (
-        <View style={styles.countdownRow} accessibilityRole="text">
+        <View
+          style={styles.countdownRow}
+          accessibilityRole="text"
+          accessibilityLabel={`Up next in ${nextPickLabel.eta}: ${nextPickLabel.name}`}
+        >
           <Ionicons name="musical-notes" size={12} color={t.colors.accent.coral} />
           <Text style={styles.countdownText} numberOfLines={1}>
             Up next in <Text style={styles.countdownEta}>{nextPickLabel.eta}</Text> ·{' '}

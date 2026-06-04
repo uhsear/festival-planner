@@ -70,14 +70,20 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
   const handleStageToggle = useCallback(
     (stageId: string) => {
       selectHaptic();
-      const isActive = activeStages.includes(stageId);
-      if (isActive) {
-        setActiveStages(activeStages.filter((id) => id !== stageId));
-      } else {
-        setActiveStages([...activeStages, stageId]);
-      }
+      // Platform parity with mobile (app/(tabs)/index.tsx toggleStage):
+      // empty activeStages means "show all", so toggle against the effective
+      // set (all stages when empty), then normalize empty/all-selected back to
+      // [] = "show all". This prevents the web-only "deselect everything →
+      // empty grid" state that mobile can't reach.
+      const allStageIds = stages.map((s) => s.id);
+      const effective = activeStages.length ? activeStages : allStageIds;
+      const sel = new Set(effective);
+      if (sel.has(stageId)) sel.delete(stageId);
+      else sel.add(stageId);
+      const next = allStageIds.filter((id) => sel.has(id));
+      setActiveStages(next.length === 0 || next.length === allStageIds.length ? [] : next);
     },
-    [activeStages, setActiveStages, selectHaptic],
+    [activeStages, stages, setActiveStages, selectHaptic],
   );
 
   // Matches the default-to-today logic in selectFestival (day.date is en-CA YYYY-MM-DD).
@@ -116,7 +122,11 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           className={cn(
             'festival-select',
             'py-2 px-3.5 bg-bg-card border border-border-light rounded-sm',
-            'text-text-primary text-sm font-semibold cursor-pointer max-w-[220px]',
+            'text-text-primary text-sm font-semibold cursor-pointer',
+            // Responsive cap: reserve room for the label + sibling controls on
+            // narrow phones (down to 320px) instead of a hard 220px that could
+            // clip the dropdown arrow; relax to 220px once there's space.
+            'max-w-[min(220px,calc(100vw-160px))] sm:max-w-[220px]',
             'backdrop-blur-[8px]',
             'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2',
           )}
@@ -224,20 +234,23 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
             >
               {stages.map((stage) => {
                 const color = getStageColor(stage.id);
-                const isActive = activeStages.includes(stage.id);
+                // Parity with mobile: empty activeStages means "show all", so a
+                // stage chip reads as active when activeStages is empty too.
+                const isActive = activeStages.length === 0 || activeStages.includes(stage.id);
                 const style = getStageBadgeStyle(color, 'chip', isActive);
                 return (
                   <button
                     key={stage.id}
                     className={cn(
-                      'inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold',
+                      'inline-flex items-center justify-center rounded-full px-3 py-2 text-xs font-semibold',
+                      'min-h-[44px] min-w-[44px]',
                       'cursor-pointer border-2 border-transparent transition-all duration-200',
                       isActive && 'border-current',
                     )}
                     style={style}
                     type="button"
                     aria-pressed={isActive}
-                    aria-label={stage.name}
+                    aria-label={`${isActive ? 'Hide' : 'Show'} ${stage.name}`}
                     onClick={() => handleStageToggle(stage.id)}
                   >
                     {stage.name}
@@ -253,7 +266,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           <div className="search-box ml-auto" role="search">
             <Input
               variant="search"
-              className="w-[clamp(100px,30vw,180px)] text-[13px]"
+              className="min-h-[44px] w-[clamp(80px,25vw,140px)] text-[13px] sm:w-[clamp(100px,30vw,180px)]"
               placeholder="Search artist..."
               value={searchQuery}
               aria-label="Search festival artists"

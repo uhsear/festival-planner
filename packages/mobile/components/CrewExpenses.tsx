@@ -87,6 +87,19 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
 
   const amt = Number(amount);
   const canAdd = !!description.trim() && Number.isFinite(amt) && amt > 0 && splitWith.length > 0;
+  // Inline-validation flag: amount typed but not a usable positive number.
+  // (decimal-pad can still surface '-', '..', or trailing dots on some devices.)
+  const amountInvalid = amount.trim().length > 0 && !(Number.isFinite(amt) && amt > 0);
+
+  // Reject negatives / non-numeric and cap to a single decimal with 2 places.
+  // Mirrors the web form's <input type="number" min="0.01"> guard so a minus
+  // sign (present on some Android decimal-pads) or pasted text can't enter a
+  // credit-flow amount. Empty string stays allowed so the field can be cleared.
+  const handleAmountChange = (next: string) => {
+    const cleaned = next.replace(/[^0-9.]/g, '');
+    const match = cleaned.match(/^\d*(\.\d{0,2})?/);
+    setAmount(match ? match[0] : '');
+  };
 
   const handleAdd = async () => {
     if (!canAdd || busy) return;
@@ -315,10 +328,15 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
             placeholder="Amount (0.00)"
             placeholderTextColor={t.colors.text.placeholder}
             value={amount}
-            onChangeText={setAmount}
+            onChangeText={handleAmountChange}
             keyboardType="decimal-pad"
             accessibilityLabel="Expense amount"
           />
+          {amountInvalid ? (
+            <Text style={styles.errorText} accessibilityLiveRegion="polite">
+              Enter an amount greater than $0.00
+            </Text>
+          ) : null}
           <View style={styles.chipGrid}>
             {CATEGORIES.map((c) => {
               const active = category === c.key;
@@ -673,6 +691,10 @@ const useStyles = makeStyles((t) => ({
   splitHint: {
     ...typeStyle('micro'),
     color: t.colors.text.muted,
+  },
+  errorText: {
+    ...typeStyle('micro'),
+    color: t.colors.text.danger,
   },
   primaryButton: {
     backgroundColor: t.colors.accent.coral,

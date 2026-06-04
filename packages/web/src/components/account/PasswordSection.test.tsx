@@ -7,8 +7,7 @@ import PasswordSection from './PasswordSection';
 
 const mockChangePassword = vi.fn();
 vi.mock('@festie/shared/stores/authStore', () => ({
-  useAuthStore: (selector: (s: Record<string, unknown>) => unknown) =>
-    selector({ changePassword: mockChangePassword }),
+  useAuthStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ changePassword: mockChangePassword }),
 }));
 
 const mockToast = vi.fn();
@@ -79,12 +78,23 @@ describe('PasswordSection', () => {
     expect(screen.queryByText(/more character/)).not.toBeInTheDocument();
   });
 
-  it('enables submit button when both fields are valid', async () => {
+  it('enables submit button when all fields are valid', async () => {
     const user = userEvent.setup();
     render(<PasswordSection />);
     await user.type(screen.getByPlaceholderText('Current password'), 'oldpass');
     await user.type(screen.getByPlaceholderText(/New password/), 'newpass123');
+    await user.type(screen.getByPlaceholderText('Confirm new password'), 'newpass123');
     expect(screen.getByText('Update Password').closest('button')).not.toBeDisabled();
+  });
+
+  it('disables submit button when confirm password does not match', async () => {
+    const user = userEvent.setup();
+    render(<PasswordSection />);
+    await user.type(screen.getByPlaceholderText('Current password'), 'oldpass');
+    await user.type(screen.getByPlaceholderText(/New password/), 'newpass123');
+    await user.type(screen.getByPlaceholderText('Confirm new password'), 'newpass999');
+    expect(screen.getByText('Update Password').closest('button')).toBeDisabled();
+    expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
   });
 
   it('calls changePassword and shows success toast on valid submit', async () => {
@@ -92,6 +102,7 @@ describe('PasswordSection', () => {
     render(<PasswordSection />);
     await user.type(screen.getByPlaceholderText('Current password'), 'oldpass');
     await user.type(screen.getByPlaceholderText(/New password/), 'newpass123');
+    await user.type(screen.getByPlaceholderText('Confirm new password'), 'newpass123');
     await user.click(screen.getByText('Update Password'));
 
     await waitFor(() => {
@@ -103,17 +114,19 @@ describe('PasswordSection', () => {
     expect(mockToast).toHaveBeenCalledWith('Password changed', 'success');
   });
 
-  it('clears both fields after successful password change', async () => {
+  it('clears all fields after successful password change', async () => {
     const user = userEvent.setup();
     render(<PasswordSection />);
     await user.type(screen.getByPlaceholderText('Current password'), 'oldpass');
     await user.type(screen.getByPlaceholderText(/New password/), 'newpass123');
+    await user.type(screen.getByPlaceholderText('Confirm new password'), 'newpass123');
     await user.click(screen.getByText('Update Password'));
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Current password')).toHaveValue('');
     });
     expect(screen.getByPlaceholderText(/New password/)).toHaveValue('');
+    expect(screen.getByPlaceholderText('Confirm new password')).toHaveValue('');
   });
 
   it('shows error toast when changePassword fails', async () => {
@@ -123,13 +136,11 @@ describe('PasswordSection', () => {
     render(<PasswordSection />);
     await user.type(screen.getByPlaceholderText('Current password'), 'oldpass');
     await user.type(screen.getByPlaceholderText(/New password/), 'newpass123');
+    await user.type(screen.getByPlaceholderText('Confirm new password'), 'newpass123');
     await user.click(screen.getByText('Update Password'));
 
     await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith(
-        "Couldn't change password. Try again.",
-        'error',
-      );
+      expect(mockToast).toHaveBeenCalledWith("Couldn't change password. Try again.", 'error');
     });
   });
 

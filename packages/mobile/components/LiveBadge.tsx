@@ -18,11 +18,7 @@ export default function LiveBadge({ status, label }: LiveBadgeProps) {
 
   if (status === 'live') {
     return (
-      <View
-        style={[styles.pill, styles.livePill]}
-        accessibilityRole="text"
-        accessibilityLabel="Live"
-      >
+      <View style={[styles.pill, styles.livePill]} accessibilityRole="text" accessibilityLabel="Live">
         <View style={styles.liveDot} />
         <Text style={styles.liveText}>{label}</Text>
       </View>
@@ -31,11 +27,7 @@ export default function LiveBadge({ status, label }: LiveBadgeProps) {
 
   if (status === 'soon') {
     return (
-      <View
-        style={[styles.pill, styles.soonPill]}
-        accessibilityRole="text"
-        accessibilityLabel="Starting soon"
-      >
+      <View style={[styles.pill, styles.soonPill]} accessibilityRole="text" accessibilityLabel="Starting soon">
         <View style={styles.soonDot} />
         <Text style={styles.soonText}>{label}</Text>
       </View>
@@ -44,7 +36,7 @@ export default function LiveBadge({ status, label }: LiveBadgeProps) {
 
   if (status === 'upcoming') {
     return (
-      <View style={[styles.pill, styles.upcomingPill]} accessibilityRole="text">
+      <View style={[styles.pill, styles.upcomingPill]} accessibilityRole="text" accessibilityLabel={label}>
         <Text style={styles.upcomingText}>{label}</Text>
       </View>
     );

@@ -589,6 +589,7 @@ export default function CrewScreen() {
                       activeOpacity={0.8}
                       accessibilityRole="button"
                       accessibilityLabel={`Switch to crew ${c.name}`}
+                      accessibilityState={{ selected: active }}
                     >
                       <Text style={[styles.crewChipText, active && styles.crewChipTextActive]} numberOfLines={1}>
                         {c.name}
@@ -850,7 +851,9 @@ export default function CrewScreen() {
                   </TouchableOpacity>
                 </View>
               ) : rowIsOwner ? (
-                <Ionicons name="star" size={16} color={t.colors.accent.amber} />
+                <View accessible accessibilityLabel="Owner">
+                  <Ionicons name="star" size={16} color={t.colors.accent.amber} />
+                </View>
               ) : null}
             </View>
           );
@@ -1000,7 +1003,13 @@ const useStyles = makeStyles((t) => ({
     opacity: 0.6,
   },
   iconButton: {
-    padding: t.spacing[1],
+    padding: t.spacing[2],
+    // Guarantee a >=44pt touch target (WCAG / Apple HIG) for these small
+    // (16-18px) icon-only controls — padding alone can't reach it.
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inviteBar: {
     flexDirection: 'row',

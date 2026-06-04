@@ -83,7 +83,17 @@ async function importSnapshot(data: PlanSnapshot): Promise<ImportSummary> {
   if (data.meetingPoint && crew.activeCrew) {
     const mp = data.meetingPoint;
     // Avoid an obvious duplicate if the same coord+label is already present.
-    const dup = crew.meetingPoints.some((p) => p.label === mp.label && p.latitude === mp.lat && p.longitude === mp.lng);
+    // Epsilon-based coord compare: identical points can serialize with tiny
+    // floating-point drift across devices (e.g. 41.881 vs 41.8810000000001),
+    // so strict equality would wrongly admit a duplicate. ~0.0001° ≈ 11m.
+    const dup = crew.meetingPoints.some(
+      (p) =>
+        p.label === mp.label &&
+        p.latitude != null &&
+        p.longitude != null &&
+        Math.abs(p.latitude - mp.lat) < 0.0001 &&
+        Math.abs(p.longitude - mp.lng) < 0.0001,
+    );
     if (!dup) {
       await crew.createMeetingPoint(crew.activeCrew.id, {
         label: mp.label,
@@ -213,7 +223,12 @@ export default function PlanQRScan() {
           Imported as a snapshot from your friend's phone. Queued changes sync when signal returns.
         </Text>
 
-        <TouchableOpacity style={styles.scanAgain} onPress={reset} accessibilityRole="button">
+        <TouchableOpacity
+          style={styles.scanAgain}
+          onPress={reset}
+          accessibilityRole="button"
+          accessibilityLabel="Scan another plan QR code"
+        >
           <Ionicons name="qr-code-outline" size={18} color={t.colors.text.onLightAccent} />
           <Text style={styles.scanAgainText}>Scan another</Text>
         </TouchableOpacity>
@@ -229,6 +244,8 @@ export default function PlanQRScan() {
         facing="back"
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={handledRef.current ? undefined : (e) => void handleScanned(e)}
+        accessibilityLabel="QR code scanner"
+        accessibilityHint="Point your camera at a Festie plan QR code to scan and import picks"
       />
       <View style={styles.overlay} pointerEvents="none">
         <View style={styles.reticle} />

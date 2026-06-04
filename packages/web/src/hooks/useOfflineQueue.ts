@@ -83,6 +83,19 @@ function idbRequest<T>(req: IDBRequest<T>): Promise<T> {
   });
 }
 
+/**
+ * Abort a transaction, surfacing (rather than silently swallowing) any failure.
+ * A throwing abort() usually means the tx already committed/aborted or the DB
+ * is in a degraded state — worth logging so quota/state bugs are detectable.
+ */
+function abortTx(tx: IDBTransaction): void {
+  try {
+    tx.abort();
+  } catch (abortErr) {
+    console.warn('Transaction abort failed:', abortErr);
+  }
+}
+
 function generateClientId(): string {
   const arr = new Uint8Array(12);
   crypto.getRandomValues(arr);
@@ -130,11 +143,7 @@ async function getPendingCount(): Promise<number> {
       const index = store.index('status');
       return await idbRequest(index.count(IDBKeyRange.only('pending')));
     } catch (err) {
-      try {
-        tx.abort();
-      } catch {
-        /* tx may already be finished */
-      }
+      abortTx(tx);
       throw err;
     }
   } catch {
@@ -153,11 +162,7 @@ async function getAll(): Promise<QueuedMutation[]> {
       // Filter out stale mutations (older than 24h)
       return all.filter((m) => Date.now() - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
     } catch (err) {
-      try {
-        tx.abort();
-      } catch {
-        /* tx may already be finished */
-      }
+      abortTx(tx);
       throw err;
     }
   } catch {
@@ -172,11 +177,7 @@ async function removeMutation(id: number): Promise<void> {
     try {
       await idbRequest(store.delete(id));
     } catch (err) {
-      try {
-        tx.abort();
-      } catch {
-        /* tx may already be finished */
-      }
+      abortTx(tx);
       throw err;
     }
   } catch {
@@ -194,11 +195,7 @@ async function updateMutation(id: number, updates: Partial<QueuedMutation>): Pro
         await idbRequest(store.put(existing));
       }
     } catch (err) {
-      try {
-        tx.abort();
-      } catch {
-        /* tx may already be finished */
-      }
+      abortTx(tx);
       throw err;
     }
   } catch {
@@ -217,11 +214,7 @@ async function pruneStaleEntries(): Promise<void> {
     try {
       all = await idbRequest<QueuedMutation[]>(readHandle.store.getAll());
     } catch (err) {
-      try {
-        readHandle.tx.abort();
-      } catch {
-        /* tx may already be finished */
-      }
+      abortTx(readHandle.tx);
       throw err;
     }
 
@@ -235,11 +228,7 @@ async function pruneStaleEntries(): Promise<void> {
         }
       }
     } catch (err) {
-      try {
-        writeHandle.tx.abort();
-      } catch {
-        /* tx may already be finished */
-      }
+      abortTx(writeHandle.tx);
       throw err;
     }
   } catch {
@@ -288,19 +277,26 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
         // exists, replace it. This is what lets the caller use deterministic
         // client IDs like `pick-${profileId}-${setId}` to collapse N offline
         // toggles of the same set into exactly one replayed mutation.
-        const existing = await getAll();
-        const match = existing.find((m) => m.clientId === clientId && m.status === 'pending' && m.id != null);
-        if (match?.id != null) await removeMutation(match.id);
-
+        //
+        // The read (find existing), delete (remove the match), and add (insert
+        // the new entry) MUST happen in a single readwrite transaction. Doing
+        // them in separate transactions opens two failure modes:
+        //   1. Duplicate race — two concurrent queueMutation calls with the same
+        //      clientId both read a snapshot with no match, then both add,
+        //      leaving two pending entries (breaks the coalesce contract).
+        //   2. Lost write — if the add fails after the delete committed, the old
+        //      entry is gone and the new one never lands, silently dropping the
+        //      mutation (violates "no silent drops").
+        // A single tx makes the whole upsert atomic: if the add rejects, the tx
+        // aborts and the delete is rolled back with it.
         const { tx, store } = openTx('readwrite');
         try {
+          const existing = await idbRequest<QueuedMutation[]>(store.getAll());
+          const match = existing.find((m) => m.clientId === clientId && m.status === 'pending' && m.id != null);
+          if (match?.id != null) await idbRequest(store.delete(match.id));
           await idbRequest(store.add(entry));
         } catch (err) {
-          try {
-            tx.abort();
-          } catch {
-            /* tx may already be finished */
-          }
+          abortTx(tx);
           throw err;
         }
         await updatePendingCount();
@@ -308,7 +304,12 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
       } catch (err) {
         // Fallback to localStorage
         try {
-          const queue = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
+          const queue: QueuedMutation[] = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
+          // Mirror the IDB path's upsert: drop any existing pending entry with
+          // the same clientId before pushing, so repeated offline toggles
+          // coalesce here too instead of accumulating duplicates.
+          const existingIdx = queue.findIndex((m) => m.clientId === clientId && m.status === 'pending');
+          if (existingIdx >= 0) queue.splice(existingIdx, 1);
           queue.push({
             ...mutation,
             clientId,
@@ -447,11 +448,7 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
       try {
         await idbRequest(store.clear());
       } catch (err) {
-        try {
-          tx.abort();
-        } catch {
-          /* tx may already be finished */
-        }
+        abortTx(tx);
         throw err;
       }
     } catch {
