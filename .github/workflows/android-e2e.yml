@@ -28,7 +28,7 @@ env:
 jobs:
   android-e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
 
@@ -62,6 +62,15 @@ jobs:
         working-directory: packages/mobile
         run: pnpm exec expo prebuild --platform android --no-install
 
+      # The New-Arch release build exhausts Expo's default Gradle Metaspace and
+      # dies with OutOfMemoryError: Metaspace. The properties file's last value
+      # wins, so appending overrides it. Runner has ~7GB; leave room for the
+      # native (clang/CMake) compilers that run outside the JVM.
+      - name: Raise Gradle JVM memory
+        working-directory: packages/mobile/android
+        run: |
+          printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8\n' >> gradle.properties
+
       # Release (not debug): a debug APK expects a Metro dev server to serve the
       # JS bundle at runtime, which CI has none of — the app would launch to a
       # blank screen. The release variant embeds the Hermes bundle so it's fully
@@ -71,9 +80,11 @@ jobs:
       # compiles native C++ (reanimated/worklets/svg/...) with optimizations, and
       # doing it for all four ABIs (arm + x86) blew the job timeout — one ABI is
       # ~4x faster and the emulator is x86_64.
+      # -x lintVitalRelease: skip the release fatal-lint pass — it's memory-heavy,
+      # slow, and irrelevant to an E2E smoke (and was failing under the OOM).
       - name: Build self-contained APK (x86_64)
         working-directory: packages/mobile/android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=x86_64
+        run: ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=x86_64 -x lintVitalRelease
 
       - name: Install Maestro
         run: |
