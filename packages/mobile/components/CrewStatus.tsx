@@ -6,6 +6,7 @@ import { useCrewStore } from '@festie/shared/stores';
 import { etaMinutes, formatStaleness } from '@festie/shared/utils';
 import type { CrewMemberStatus } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
 
 interface CrewStatusProps {
   crewId: string;
@@ -46,6 +47,7 @@ function statusMeta(status: string | null): { label: string; icon: keyof typeof 
 export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
 
   const meetingPoints = useCrewStore((s) => s.meetingPoints);
   const statuses = useCrewStore((s) => s.crewStatuses);
@@ -132,6 +134,7 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
         },
         currentUserId,
       );
+      haptics.success();
       reset();
     } catch {
       // Error surfaced via the crew store.

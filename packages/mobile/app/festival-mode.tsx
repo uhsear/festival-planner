@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,7 +54,15 @@ export default function FestivalModeScreen() {
   const [now, setNow] = useState<Date>(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
+    // iOS suspends JS timers while backgrounded, so the now/up-next split goes
+    // stale. Re-sync to the wall clock the moment the app is foregrounded.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setNow(new Date());
+    });
+    return () => {
+      clearInterval(id);
+      sub.remove();
+    };
   }, []);
 
   // M6: present the Android ongoing (sticky) notification with the current/next

@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
+  AppState,
   useWindowDimensions,
   type ListRenderItem,
 } from 'react-native';
@@ -171,6 +172,9 @@ function StageColumn({
               ]}
               onPress={() => onSetPress(s)}
               activeOpacity={0.7}
+              // Short slots render as little as ~18px tall; expand the touch
+              // area so a brief set isn't hard to tap (WCAG 2.5.5).
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               accessibilityRole="button"
               accessibilityLabel={`${name}, ${stage.name}, ${formatTime(s.startTime)} to ${formatTime(s.endTime)}`}
             >
@@ -248,7 +252,16 @@ export default function TimelineView({
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 60_000);
-    return () => clearInterval(id);
+    // iOS suspends JS timers while backgrounded, so the tick stops and the
+    // countdown/auto-scroll go stale. Snap to the real clock the moment the app
+    // returns to the foreground, alongside the interval.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setNowMs(Date.now());
+    });
+    return () => {
+      clearInterval(id);
+      sub.remove();
+    };
   }, []);
 
   // Next picked set across all days, via the SHARED getSetTimeBounds (TZ-safe,

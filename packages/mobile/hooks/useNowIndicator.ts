@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { ScrollView } from 'react-native';
+import { AppState, type ScrollView } from 'react-native';
 
 /** Time bounds for the visible day window (minutes-from-midnight). */
 export interface TimeBounds {
@@ -18,16 +18,20 @@ export interface TimeBounds {
  * scroll math needs the rendered content height, so callers pass `rowHeight`
  * (px per 15-minute slot) — matching the web grid's slot model.
  */
-export function useNowIndicator(
-  timeBounds: TimeBounds | null,
-  selectedDay: number,
-  rowHeight: number,
-) {
+export function useNowIndicator(timeBounds: TimeBounds | null, selectedDay: number, rowHeight: number) {
   const [nowTick, setNowTick] = useState(() => Date.now());
 
   useEffect(() => {
     const id = setInterval(() => setNowTick(Date.now()), 30_000);
-    return () => clearInterval(id);
+    // iOS suspends JS timers while backgrounded, freezing the NOW line. Snap to
+    // the real clock the instant the app returns to the foreground.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setNowTick(Date.now());
+    });
+    return () => {
+      clearInterval(id);
+      sub.remove();
+    };
   }, []);
 
   const nowIndicator = useMemo(() => {
@@ -35,10 +39,7 @@ export function useNowIndicator(
     const now = new Date(nowTick);
     const nowMins = now.getHours() * 60 + now.getMinutes();
     if (nowMins >= timeBounds.minMin && nowMins <= timeBounds.maxMin) {
-      return (
-        ((nowMins - timeBounds.minMin) / (timeBounds.maxMin - timeBounds.minMin)) *
-        100
-      );
+      return ((nowMins - timeBounds.minMin) / (timeBounds.maxMin - timeBounds.minMin)) * 100;
     }
     return null;
   }, [timeBounds, nowTick]);

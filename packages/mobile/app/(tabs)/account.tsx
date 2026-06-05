@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Image,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -84,12 +94,13 @@ export default function AccountScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScreenHeader title="Account" subtitle="Settings & preferences" icon="person-circle-outline" />
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(t.spacing[6], insets.bottom + t.spacing[2]) }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Identity */}
         <View style={styles.identity}>
@@ -245,7 +256,7 @@ export default function AccountScreen() {
         <Text style={styles.sectionLabel}>Danger Zone</Text>
         <AccountDangerSection onDeleted={() => router.replace('/(auth)/login')} />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

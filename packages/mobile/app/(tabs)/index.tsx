@@ -20,6 +20,7 @@ import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { safeStageColor } from '../../lib/stageColor';
 import { useUI, type ViewMode } from '../../contexts/UIContext';
 import { useNowIndicator, type TimeBounds } from '../../hooks/useNowIndicator';
+import { useHaptics } from '../../hooks/useHaptics';
 import SegmentedControl from '../../components/SegmentedControl';
 import LiveDot from '../../components/LiveDot';
 import FestivalList from '../../components/FestivalList';
@@ -56,6 +57,7 @@ export default function TimelineScreen() {
   const t = useTokens();
   const styles = useStyles();
   const router = useRouter();
+  const haptics = useHaptics();
   const { viewMode, setViewMode } = useUI();
   const { width } = useWindowDimensions();
 
@@ -481,7 +483,10 @@ export default function TimelineScreen() {
                 <TouchableOpacity
                   key={day.index}
                   style={[styles.dayChip, active && styles.dayChipActive]}
-                  onPress={() => setSelectedDay(day.index)}
+                  onPress={() => {
+                    haptics.select();
+                    setSelectedDay(day.index);
+                  }}
                   activeOpacity={0.7}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
@@ -565,6 +570,7 @@ export default function TimelineScreen() {
             />
           }
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         />
       ) : viewMode === 'timeline' ? (
         timeBounds && visibleStages.length > 0 ? (
@@ -655,6 +661,10 @@ const useStyles = makeStyles((t) => ({
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[1],
     borderRadius: t.radii.pill,
+    // WCAG 2.5.5 / 2.5.8 minimum 44px touch target — these header chips were
+    // ~24px tall; matches the day/filter chip floor.
+    minHeight: 44,
+    justifyContent: 'center',
   },
   switchText: {
     ...typeStyle('label'),
@@ -747,12 +757,11 @@ const useStyles = makeStyles((t) => ({
   },
   // Inactive (filtered-out) stage chip. A deselected chip is still interactive
   // (tap to re-enable), so it must NOT read as a disabled control. Instead of
-  // opacity-only — which screen readers can't perceive and which mimics a
-  // disabled button for low-vision users — we signal "off" structurally:
-  // a dimmed background + lighter border, with a modest opacity to keep it
-  // visually recessed without dropping below AA contrast for the text/dot.
+  // opacity — which screen readers can't perceive and which dropped the muted
+  // label below AA (~2.7:1) — we signal "off" structurally: a recessed
+  // background + lighter border. The label keeps text.secondary (≥4.5:1) and
+  // the stage dot stays full-opacity (3:1+), so contrast never regresses.
   filterChipOff: {
-    opacity: 0.6,
     backgroundColor: t.colors.bg.primary,
     borderColor: t.colors.border.light,
   },
@@ -764,7 +773,7 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.onLightAccent,
   },
   filterChipTextOff: {
-    color: t.colors.text.muted,
+    color: t.colors.text.secondary,
   },
   stageDotSmall: {
     width: 8,

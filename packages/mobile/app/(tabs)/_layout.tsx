@@ -4,11 +4,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing } from '@festie/shared/tokens';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
+import { useHaptics } from '../../hooks/useHaptics';
 
 export default function TabLayout() {
   // Connect Socket.IO when user is on the main tabs (authenticated).
   // Events flow into shared Zustand stores automatically.
   useRealtimeSync();
+
+  // Light selection haptic on tab switch — same vocabulary as the day/pick
+  // toggles. Wired per-screen via the tabPress listener below.
+  const haptics = useHaptics();
+  const onTabPress = () => haptics.select();
 
   // The bottom inset is the iPhone home-indicator gap (and Android gesture-nav
   // bar). expo-router's Tabs does NOT auto-pad the bar for it on iOS, so the
@@ -74,6 +80,7 @@ export default function TabLayout() {
           tabBarButtonTestID: 'tab-timeline',
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
         }}
+        listeners={{ tabPress: onTabPress }}
       />
       <Tabs.Screen
         name="picks"
@@ -83,6 +90,7 @@ export default function TabLayout() {
           tabBarButtonTestID: 'tab-picks',
           tabBarIcon: ({ color, size }) => <Ionicons name="star-outline" size={size} color={color} />,
         }}
+        listeners={{ tabPress: onTabPress }}
       />
       <Tabs.Screen
         name="crew"
@@ -92,6 +100,7 @@ export default function TabLayout() {
           tabBarButtonTestID: 'tab-crew',
           tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
         }}
+        listeners={{ tabPress: onTabPress }}
       />
       <Tabs.Screen
         name="account"
@@ -101,6 +110,7 @@ export default function TabLayout() {
           tabBarButtonTestID: 'tab-account',
           tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
+        listeners={{ tabPress: onTabPress }}
       />
     </Tabs>
   );
