@@ -86,10 +86,12 @@ jobs:
           profile: pixel_6
           ram-size: 4096M
           disable-animations: true
+          # Each script line runs in its own subshell, so a bare `cd` doesn't
+          # persist — keep `cd` and `maestro` on one line so the flow path
+          # (packages/mobile/.maestro/...) resolves.
           script: |
             adb install -r packages/mobile/android/app/build/outputs/apk/debug/app-debug.apk
-            cd packages/mobile
-            maestro test --format junit --output maestro-report.xml .maestro/android-smoke.yaml
+            cd packages/mobile && MAESTRO_CLI_NO_ANALYTICS=1 maestro test --format junit --output maestro-report.xml .maestro/android-smoke.yaml
 
       - name: Upload Maestro artifacts
         if: always()
