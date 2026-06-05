@@ -289,24 +289,17 @@ function PicksViewInner() {
               })}
 
               {items.length === 0 && (
-                <EmptyState
-                  className="py-3"
-                  icon={<Star className="w-6 h-6" aria-hidden="true" />}
-                  title={
-                    pri === 'must'
-                      ? 'No must-see picks yet'
-                      : pri === 'want-to-see'
-                        ? 'No want-to-see picks yet'
-                        : 'No maybe picks yet'
-                  }
-                  description={
-                    pri === 'must'
-                      ? 'Tap the star on any set to mark it as must-see.'
-                      : pri === 'want-to-see'
-                        ? "Tap the diamond on sets you'd like to catch."
-                        : "Tap the circle on sets you're considering."
-                  }
-                />
+                // Collapsed empty state: a single muted helper line rather than a
+                // full EmptyState per bucket — stacking three of those read as
+                // broken/stuck UI once the user already had picks in another
+                // bucket. The header + 0 badge above already signals "empty".
+                <p className="px-1 py-1 text-xs text-text-muted">
+                  {pri === 'must'
+                    ? 'Tap the star on any set to mark it as must-see.'
+                    : pri === 'want-to-see'
+                      ? "Tap the diamond on sets you'd like to catch."
+                      : "Tap the circle on sets you're considering."}
+                </p>
               )}
             </div>
           );

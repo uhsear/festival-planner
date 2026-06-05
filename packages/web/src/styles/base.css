@@ -211,8 +211,8 @@ button {
   top: 8px;
   left: 8px;
   z-index: 200;
-  background: var(--color-accent-aqua, #00d4aa);
-  color: var(--color-bg-primary, #0d0d1a);
+  background: var(--color-accent-aqua);
+  color: var(--color-bg-primary);
   padding: 10px 14px;
   border-radius: 8px;
   font-weight: 600;
@@ -224,6 +224,6 @@ button {
 .skip-link:focus,
 .skip-link:focus-visible {
   transform: translateY(0);
-  outline: 2px solid var(--color-accent-coral, #ff6b6b);
+  outline: 2px solid var(--color-accent-coral);
   outline-offset: 2px;
 }

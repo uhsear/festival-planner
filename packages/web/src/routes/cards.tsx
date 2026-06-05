@@ -70,9 +70,7 @@ function CardsViewInner() {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        (s) =>
-          (s.artists?.some((a) => a.name.toLowerCase().includes(q))) ||
-          (s.artist || '').toLowerCase().includes(q),
+        (s) => s.artists?.some((a) => a.name.toLowerCase().includes(q)) || (s.artist || '').toLowerCase().includes(q),
       );
     }
 
@@ -110,7 +108,10 @@ function CardsViewInner() {
     const conflictSets = filteredSets.filter((s) => conflictIds.has(s.id));
     const map = new Map<string, typeof conflictSets>();
     for (const s of conflictSets) {
-      map.set(s.id, conflictSets.filter((c) => c.id !== s.id));
+      map.set(
+        s.id,
+        conflictSets.filter((c) => c.id !== s.id),
+      );
     }
     return map;
   }, [filteredSets, conflictIds]);
@@ -127,13 +128,19 @@ function CardsViewInner() {
       {/* Card grid */}
       {filteredSets.length === 0 ? (
         <EmptyState
-          icon={searchQuery
-            ? <SearchX className="w-12 h-12" aria-hidden="true" />
-            : <Music    className="w-12 h-12" aria-hidden="true" />}
+          icon={
+            searchQuery ? (
+              <SearchX className="w-12 h-12" aria-hidden="true" />
+            ) : (
+              <Music className="w-12 h-12" aria-hidden="true" />
+            )
+          }
           title={searchQuery ? 'No artists match your search' : 'No sets for this day'}
-          description={searchQuery
-            ? 'Try a different spelling or clear the search to see the full lineup.'
-            : 'Pick another day from the day selector to browse the schedule.'}
+          description={
+            searchQuery
+              ? 'Try a different spelling or clear the search to see the full lineup.'
+              : 'Pick another day from the day selector to browse the schedule.'
+          }
         />
       ) : (
         <div
@@ -165,6 +172,12 @@ function CardsViewInner() {
             return (
               <div
                 key={set.id}
+                // No windowing lib is a dependency, so the interim quick win:
+                // content-visibility:auto lets the browser skip layout/paint for
+                // off-screen cards, with contain-intrinsic-size reserving an
+                // approximate box so the scrollbar stays stable. Cuts render cost
+                // on long single-day lineups without virtualization machinery.
+                className="[content-visibility:auto] [contain-intrinsic-size:auto_180px]"
                 // Softened stagger entrance on the motion tokens
                 // (duration.med + easing.out). Skipped entirely when the user
                 // prefers reduced motion.

@@ -6,14 +6,12 @@ import { cn } from '@/lib/utils';
  * -------------------------------------------------------------------------*/
 
 const variantStyles = {
-  default:
-    'bg-bg-card border border-border rounded-xl transition-[transform,box-shadow] duration-200',
+  default: 'bg-bg-card border border-border rounded-xl transition-[transform,box-shadow] duration-200',
   elevated:
     'bg-bg-card border border-border rounded-xl glass-xs backdrop-blur-sm shadow-lg transition-[transform,box-shadow] duration-200',
   interactive:
-    'bg-bg-card border border-border rounded-xl cursor-pointer transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 hover:bg-bg-card-hover active:scale-[0.97] motion-reduce:transition-none motion-reduce:transform-none',
-  flush:
-    'bg-bg-card border border-border rounded-xl transition-[transform,box-shadow] duration-200',
+    'bg-bg-card border border-border rounded-xl cursor-pointer transition-[transform,background-color,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:bg-bg-card-hover active:scale-[0.97] motion-reduce:transition-none motion-reduce:transform-none',
+  flush: 'bg-bg-card border border-border rounded-xl transition-[transform,box-shadow] duration-200',
 } as const;
 
 const paddingStyles = {
@@ -34,11 +32,7 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 const CardRoot = forwardRef<HTMLDivElement, CardProps>(
   ({ variant = 'default', padding = 'md', className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(variantStyles[variant], paddingStyles[padding], className)}
-      {...props}
-    />
+    <div ref={ref} className={cn(variantStyles[variant], paddingStyles[padding], className)} {...props} />
   ),
 );
 CardRoot.displayName = 'Card';
@@ -51,39 +45,27 @@ interface CardSectionProps extends HTMLAttributes<HTMLDivElement> {
   children?: ReactNode;
 }
 
-const Header = forwardRef<HTMLDivElement, CardSectionProps>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        'flex items-center gap-3 mb-3 pb-3 border-b border-border-light',
-        className,
-      )}
-      {...props}
-    />
-  ),
-);
+const Header = forwardRef<HTMLDivElement, CardSectionProps>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn('flex items-center gap-3 mb-3 pb-3 border-b border-border-light', className)}
+    {...props}
+  />
+));
 Header.displayName = 'Card.Header';
 
-const Body = forwardRef<HTMLDivElement, CardSectionProps>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex-1', className)} {...props} />
-  ),
-);
+const Body = forwardRef<HTMLDivElement, CardSectionProps>(({ className, ...props }, ref) => (
+  <div ref={ref} className={cn('flex-1', className)} {...props} />
+));
 Body.displayName = 'Card.Body';
 
-const Footer = forwardRef<HTMLDivElement, CardSectionProps>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn(
-        'flex items-center gap-3 mt-3 pt-3 border-t border-border-light',
-        className,
-      )}
-      {...props}
-    />
-  ),
-);
+const Footer = forwardRef<HTMLDivElement, CardSectionProps>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn('flex items-center gap-3 mt-3 pt-3 border-t border-border-light', className)}
+    {...props}
+  />
+));
 Footer.displayName = 'Card.Footer';
 
 /* ---------------------------------------------------------------------------

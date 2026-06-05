@@ -297,7 +297,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
                 setArtist={set.artist}
               />
 
-              <div className="text-[15px] text-text-secondary tabular-nums">
+              <div className="text-base text-text-secondary tabular-nums">
                 {set.startTime && set.endTime ? formatTime(set.startTime) + ' - ' + formatTime(set.endTime) : 'TBA'}
               </div>
             </div>
@@ -344,7 +344,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
               </>
             ) : (
               <div className="p-4 rounded-DEFAULT bg-[var(--color-overlay-2)] border border-border">
-                <p className="text-[13px] text-text-secondary leading-normal mb-3">
+                <p className="text-[length:var(--font-size-13)] text-text-secondary leading-normal mb-3">
                   Join this festival to save picks, keep private notes, and compare crew overlap.
                 </p>
                 <Button
@@ -361,7 +361,9 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
 
             {currentProfile && set && currentFestival && hasSetStarted(set, currentFestival, festivalDays) && (
               <div className="mx-0 text-center">
-                <div className="mb-2 text-[11px] uppercase tracking-wide text-text-muted">Rate this set</div>
+                <div className="mb-2 text-[length:var(--font-size-11)] uppercase tracking-wide text-text-muted">
+                  Rate this set
+                </div>
                 <RatingButtons setId={set.id} festivalId={currentFestival.id} />
               </div>
             )}

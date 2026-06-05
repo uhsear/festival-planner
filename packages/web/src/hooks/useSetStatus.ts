@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import { FestivalSet } from '@festie/shared/types';
 import { getSetStatus } from '@festie/shared/utils';
 import { useFestivalStore } from '@festie/shared/stores/festivalStore';
@@ -9,32 +9,68 @@ export { getSetStatus } from '@festie/shared/utils';
 export type { SetStatus, SetStatusResult } from '@festie/shared/utils';
 import type { SetStatusResult } from '@festie/shared/utils';
 
+// ── Shared 60s clock ────────────────────────────────────────────────────────
+// Previously every SetCard spun up its own 60s setInterval (one per visible
+// card = dozens of timers on the cards/timeline views). They now all subscribe
+// to a single module-level interval via useSyncExternalStore. The interval only
+// runs while at least one consumer is mounted, mirroring the lone nowMs tick in
+// routes/timeline.tsx.
+const TICK_MS = 60_000;
+let _now = Date.now();
+const _listeners = new Set<() => void>();
+let _timer: ReturnType<typeof setInterval> | null = null;
+
+function tick(): void {
+  _now = Date.now();
+  for (const listener of _listeners) listener();
+}
+
+function subscribe(listener: () => void): () => void {
+  _listeners.add(listener);
+  if (_timer === null) {
+    _now = Date.now();
+    _timer = setInterval(tick, TICK_MS);
+  }
+  return () => {
+    _listeners.delete(listener);
+    if (_listeners.size === 0 && _timer !== null) {
+      clearInterval(_timer);
+      _timer = null;
+    }
+  };
+}
+
+function getSnapshot(): number {
+  return _now;
+}
+
+/**
+ * Shared clock hook: returns the current time in ms, advanced once every 60s by
+ * a single module-level interval shared across all consumers. Use this instead
+ * of a per-component setInterval when you only need minute-granularity time.
+ */
+export function useNow(): number {
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
 /**
  * Hook that computes set status relative to current time.
- * Updates on a 60-second interval.
+ * Updates on a shared 60-second clock (see useNow).
  * Memoized to avoid recomputing on every render.
  */
 export function useSetStatus(set: FestivalSet): SetStatusResult;
 export function useSetStatus(sets: FestivalSet[]): SetStatusResult[];
 export function useSetStatus(sets: FestivalSet | FestivalSet[]): SetStatusResult | SetStatusResult[] {
-  const [now, setNow] = useState(() => new Date());
+  const nowMs = useNow();
   const days = useFestivalStore((s) => s.days);
   const isSingleSet = !Array.isArray(sets);
-  const setsArray = useMemo(() => isSingleSet ? [sets] : sets, [isSingleSet, sets]);
-
-  // Update current time on 60-second interval
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(new Date());
-    }, 60000); // Update every 60 seconds
-
-    return () => clearInterval(timer);
-  }, []);
+  const setsArray = useMemo(() => (isSingleSet ? [sets] : sets), [isSingleSet, sets]);
 
   // Memoize the computation
   const results = useMemo(() => {
+    const now = new Date(nowMs);
     return setsArray.map((set) => getSetStatus(set, now, days));
-  }, [setsArray, now, days]);
+  }, [setsArray, nowMs, days]);
 
   return isSingleSet ? results[0]! : results;
 }

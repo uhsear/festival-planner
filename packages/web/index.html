@@ -16,7 +16,19 @@
          the URL) + size-adjust fallback below, FOUT shifts are eliminated on
          first paint. -->
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syncopate:wght@400;700&display=swap" />
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet" />
+    <!-- Load the font CSS non-blocking: media="print" keeps it off the critical
+         render path, then onload swaps it to media="all" once fetched. The
+         size-adjust fallback @font-faces below cover first paint, so this no
+         longer blocks rendering on the Google CDN round-trip. -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syncopate:wght@400;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet" />
+    </noscript>
     <!-- app.css migrated to packages/web/src/styles/legacy.css (bundled by Vite) -->
     <!-- Size-adjust fallback: matches x-height + ascent of Space Grotesk and
          Syncopate so the system-ui fallback that renders during font swap

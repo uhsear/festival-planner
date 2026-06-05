@@ -17,6 +17,77 @@ function fmtHour(hh: number, mm: number): string {
   return mm === 0 ? `${h}${suffix}` : `${h}:${String(mm).padStart(2, '0')}${suffix}`;
 }
 
+interface TimelineStaticLayerProps {
+  visibleStages: Stage[];
+  timeBounds: { minMin: number; maxMin: number; totalSlots: number };
+}
+
+/**
+ * The non-interactive background of the grid: the left-axis time labels and the
+ * per-stage background cells. This is hundreds of static divs that depend ONLY
+ * on the visible stages + time bounds, yet were rebuilt on every parent render
+ * (own-pick toggle, now-line tick, hover state, etc.). Hoisting them into a
+ * React.memo subcomponent keyed on those two props skips the rebuild entirely
+ * unless the day/stage selection or time window actually changes.
+ */
+const TimelineStaticLayer = React.memo(function TimelineStaticLayer({
+  visibleStages,
+  timeBounds,
+}: TimelineStaticLayerProps) {
+  return (
+    <>
+      {/* Time labels on left axis */}
+      {Array.from({ length: timeBounds.totalSlots }, (_, i) => {
+        const mins = timeBounds.minMin + i * SLOT_MINUTES;
+        const hh = Math.floor(mins / 60) % 24;
+        const mm = mins % 60;
+        const show = mm === 0 || mm === 30;
+        return (
+          <div
+            key={`time-${i}`}
+            className={cn(
+              'sticky left-0 z-5',
+              'px-2.5 py-1',
+              'text-[length:var(--font-size-11)] font-semibold text-[var(--color-text-muted)]',
+              'bg-[var(--color-bg-primary)]',
+              'border-r border-r-[var(--color-border)]',
+              'flex items-start justify-end whitespace-nowrap',
+              'tabular-nums [font-feature-settings:"tnum"_1]',
+              'tracking-[0.01em]',
+            )}
+            style={{
+              gridRow: i + 2,
+              gridColumn: 1,
+              borderBottom: mm === 0 ? '1px solid var(--color-border-light)' : '1px solid var(--color-border)',
+            }}
+          >
+            {show ? fmtHour(hh, mm) : ''}
+          </div>
+        );
+      })}
+
+      {/* Background cells for each stage column */}
+      {visibleStages.map((st, ci) =>
+        Array.from({ length: timeBounds.totalSlots }, (_, i) => {
+          const mins = timeBounds.minMin + i * SLOT_MINUTES;
+          const mm = mins % 60;
+          return (
+            <div
+              key={`cell-${st.id}-${i}`}
+              className="border-b border-b-[var(--color-border)] border-r border-r-[var(--color-border)] relative"
+              style={{
+                gridRow: i + 2,
+                gridColumn: ci + 2,
+                borderBottom: mm === 0 ? '1px solid var(--color-border-light)' : '1px solid var(--color-border)',
+              }}
+            />
+          );
+        }),
+      )}
+    </>
+  );
+});
+
 export interface TimelineGridProps {
   visibleStages: Stage[];
   timedSets: FestivalSet[];
@@ -136,54 +207,9 @@ export default function TimelineGrid({
         );
       })}
 
-      {/* Time labels on left axis */}
-      {Array.from({ length: timeBounds.totalSlots }, (_, i) => {
-        const mins = timeBounds.minMin + i * SLOT_MINUTES;
-        const hh = Math.floor(mins / 60) % 24;
-        const mm = mins % 60;
-        const show = mm === 0 || mm === 30;
-        return (
-          <div
-            key={`time-${i}`}
-            className={cn(
-              'sticky left-0 z-5',
-              'px-2.5 py-1',
-              'text-[11px] font-semibold text-[var(--color-text-muted)]',
-              'bg-[var(--color-bg-primary)]',
-              'border-r border-r-[var(--color-border)]',
-              'flex items-start justify-end whitespace-nowrap',
-              'tabular-nums [font-feature-settings:"tnum"_1]',
-              'tracking-[0.01em]',
-            )}
-            style={{
-              gridRow: i + 2,
-              gridColumn: 1,
-              borderBottom: mm === 0 ? '1px solid var(--color-border-light)' : '1px solid var(--color-border)',
-            }}
-          >
-            {show ? fmtHour(hh, mm) : ''}
-          </div>
-        );
-      })}
-
-      {/* Background cells for each stage column */}
-      {visibleStages.map((st, ci) =>
-        Array.from({ length: timeBounds.totalSlots }, (_, i) => {
-          const mins = timeBounds.minMin + i * SLOT_MINUTES;
-          const mm = mins % 60;
-          return (
-            <div
-              key={`cell-${st.id}-${i}`}
-              className="border-b border-b-[var(--color-border)] border-r border-r-[var(--color-border)] relative"
-              style={{
-                gridRow: i + 2,
-                gridColumn: ci + 2,
-                borderBottom: mm === 0 ? '1px solid var(--color-border-light)' : '1px solid var(--color-border)',
-              }}
-            />
-          );
-        }),
-      )}
+      {/* Static background: left-axis time labels + per-stage cells. Memoized
+          so the ~hundreds of static divs don't rebuild on every parent render. */}
+      <TimelineStaticLayer visibleStages={visibleStages} timeBounds={timeBounds} />
 
       {/* Set blocks */}
       {visibleStages.map((st, ci) => {
@@ -229,7 +255,7 @@ export default function TimelineGrid({
             'bg-[var(--color-accent-coral)]',
             'z-[8] pointer-events-none',
             'shadow-[0_0_12px_rgba(var(--accent-coral-rgb),0.75)]',
-            'transition-[top] duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
+            'transition-[top] duration-[900ms] ease-out',
             'motion-reduce:!transition-none',
           )}
           style={{ top: `calc(${nowIndicator}% + 38px)` }}

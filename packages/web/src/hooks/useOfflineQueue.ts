@@ -135,6 +135,38 @@ function deriveFailedLabel(method: string | undefined, url: string | undefined):
   return `${m} ${path || '(unknown)'}`;
 }
 
+/**
+ * Surface a stale offline write that is being discarded (older than 24h) so it
+ * is NEVER silently dropped — the "no silent drops" contract. Routes the entry
+ * to the PendingSyncSheet via addFailedSync (coalesced by clientId, so the
+ * getAll + pruneStaleEntries double-pass is harmless) and logs a warning with
+ * the clientId + url for diagnostics. Only pending entries are surfaced;
+ * completed/failed ones have already been handled.
+ */
+function surfaceStaleDrop(entry: QueuedMutation): void {
+  if (entry.status !== 'pending') return;
+  console.warn('Offline queue: discarding stale mutation (older than 24h)', {
+    clientId: entry.clientId,
+    url: entry.url,
+    method: entry.method,
+    event: entry.event,
+    createdAt: entry.createdAt,
+  });
+  try {
+    useUIStore.getState().addFailedSync({
+      clientId: entry.clientId,
+      label: deriveFailedLabel(entry.method, entry.url),
+      method: entry.method ?? entry.event ?? 'POST',
+      url: entry.url ?? '',
+      body: entry.body ?? entry.data,
+      error: 'Could not sync (older than 24h)',
+      at: Date.now(),
+    });
+  } catch {
+    /* store unavailable (e.g. SSR) — the console.warn above still records it */
+  }
+}
+
 async function getPendingCount(): Promise<number> {
   try {
     await openDB();
@@ -159,15 +191,24 @@ async function getAll(): Promise<QueuedMutation[]> {
     const { tx, store } = openTx('readonly');
     try {
       const all = await idbRequest<QueuedMutation[]>(store.getAll());
-      // Filter out stale mutations (older than 24h)
-      return all.filter((m) => Date.now() - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
+      // Filter out stale mutations (older than 24h), surfacing each dropped
+      // pending write so it isn't silently lost.
+      return all.filter((m) => {
+        if (Date.now() - (m.createdAt || 0) < MAX_QUEUE_AGE_MS) return true;
+        surfaceStaleDrop(m);
+        return false;
+      });
     } catch (err) {
       abortTx(tx);
       throw err;
     }
   } catch {
-    const queue = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
-    return queue.filter((m: QueuedMutation) => Date.now() - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
+    const queue: QueuedMutation[] = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
+    return queue.filter((m) => {
+      if (Date.now() - (m.createdAt || 0) < MAX_QUEUE_AGE_MS) return true;
+      surfaceStaleDrop(m);
+      return false;
+    });
   }
 }
 
@@ -224,6 +265,9 @@ async function pruneStaleEntries(): Promise<void> {
     try {
       for (const entry of all) {
         if (now - (entry.createdAt || 0) > MAX_QUEUE_AGE_MS) {
+          // Surface BEFORE deleting so a stale pending write is never silently
+          // discarded (coalesces with any getAll surfacing by clientId).
+          surfaceStaleDrop(entry);
           await idbRequest(writeHandle.store.delete(entry.id!));
         }
       }
@@ -232,9 +276,13 @@ async function pruneStaleEntries(): Promise<void> {
       throw err;
     }
   } catch {
-    const queue = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
+    const queue: QueuedMutation[] = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
     const now = Date.now();
-    const fresh = queue.filter((m: QueuedMutation) => now - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
+    const fresh = queue.filter((m) => {
+      if (now - (m.createdAt || 0) < MAX_QUEUE_AGE_MS) return true;
+      surfaceStaleDrop(m);
+      return false;
+    });
     localStorage.setItem('festie-offline-queue', JSON.stringify(fresh));
   }
 }

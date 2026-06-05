@@ -22,11 +22,9 @@ const activeStyles: Record<string, string> = {
 };
 
 const baseButtonClass =
-  'flex-1 py-3 rounded-sm text-center bg-bg-card border-2 border-border cursor-pointer transition-all duration-200 ease-[var(--ease-standard)] text-text-primary touch-manipulation appearance-none hover:border-text-muted hover:scale-[1.03] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2';
+  'flex-1 py-3 rounded-sm text-center bg-bg-card border-2 border-border cursor-pointer transition-all duration-200 ease-[var(--ease-standard)] text-text-primary touch-manipulation appearance-none hover:border-text-muted hover:bg-bg-card-hover active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2';
 
-export default function DetailPriorityPicker({
-  myPick, priorityBusy, onPriorityClick,
-}: Props) {
+export default function DetailPriorityPicker({ myPick, priorityBusy, onPriorityClick }: Props) {
   return (
     <div className="flex gap-4 mb-6">
       {priorityOptions.map(([p, icon, label]) => {
@@ -37,10 +35,7 @@ export default function DetailPriorityPicker({
         return (
           <button
             key={label}
-            className={cn(
-              baseButtonClass,
-              active && activeStyles[key],
-            )}
+            className={cn(baseButtonClass, active && activeStyles[key])}
             type="button"
             aria-pressed={active ? 'true' : 'false'}
             aria-label={label + (active ? ' (selected)' : '')}

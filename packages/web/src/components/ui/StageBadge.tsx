@@ -16,7 +16,7 @@ interface StageBadgeProps {
 // `default`/`pick` tighten to the mobile stage-pill density: the `micro` type
 // role (10px / 600 / 0.08em caps) at spacing[2]/spacing[1] padding.
 const VARIANT_CLASS: Record<StageBadgeVariant, string> = {
-  chip: 'inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold cursor-pointer border-2 border-transparent transition-all duration-200',
+  chip: 'inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold cursor-pointer border-2 border-transparent transition-[color,background-color,border-color,box-shadow] duration-200',
   pick: 'inline-block rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em]',
   default: 'inline-block rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em]',
 };
@@ -69,35 +69,37 @@ export function ensureWhiteContrast(hex: string): string {
 // canvas keeps the contrast math correct instead of drifting from a hardcoded
 // magic number. Falls back to the historical constant (~0.008, the old
 // ~#0d0d1a canvas luminance) in non-DOM contexts (SSR / tests).
-const FALLBACK_BG_LUMINANCE = 0.008;
-let _darkBgLuminance: number | null = null;
-function getDarkBgLuminance(): number {
-  if (_darkBgLuminance !== null) return _darkBgLuminance;
+const FALLBACK_BG_RGB: [number, number, number] = [8, 8, 16]; // #080810
+let _darkBgRgb: [number, number, number] | null = null;
+function getDarkBgRgb(): [number, number, number] {
+  if (_darkBgRgb !== null) return _darkBgRgb;
   if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') {
-    return FALLBACK_BG_LUMINANCE;
+    return FALLBACK_BG_RGB;
   }
   try {
     const raw = getComputedStyle(document.documentElement).getPropertyValue('--color-bg-primary').trim();
     const rgb = parseHex(raw);
     if (rgb) {
-      _darkBgLuminance = relativeLuminance(rgb[0], rgb[1], rgb[2]);
-      return _darkBgLuminance;
+      _darkBgRgb = rgb;
+      return _darkBgRgb;
     }
   } catch {
     /* getComputedStyle can throw in detached documents — fall through */
   }
-  _darkBgLuminance = FALLBACK_BG_LUMINANCE;
-  return _darkBgLuminance;
+  _darkBgRgb = FALLBACK_BG_RGB;
+  return _darkBgRgb;
 }
-function ensureDarkBgContrast(hex: string): string {
+
+// Solve a foreground hex up to 4.5:1 against an arbitrary background luminance.
+// Brightens the foreground (k > 1) until the ratio is met; pure black falls
+// back to the recessed stage-fallback token.
+function adjustForBgLuminance(hex: string, bgLum: number): string {
   const rgb = parseHex(hex);
   if (!rgb) return hex;
   const [r, g, b] = rgb;
-  const bgLum = getDarkBgLuminance();
   const lum = relativeLuminance(r, g, b);
   const ratio = (lum + 0.05) / (bgLum + 0.05);
   if (ratio >= 4.5) return hex;
-  // Target luminance for 4.5:1 against the live canvas luminance.
   const targetLum = 4.5 * (bgLum + 0.05) - 0.05;
   if (lum === 0) return 'var(--color-stage-fallback)'; // fallback for pure black
   const k = targetLum / lum;
@@ -106,6 +108,25 @@ function ensureDarkBgContrast(hex: string): string {
     linearToSrgb(Math.min(1, srgbToLinear(g) * k)),
     linearToSrgb(Math.min(1, srgbToLinear(b) * k)),
   );
+}
+
+// The inactive chip paints the stage colour at ~0.125 alpha (the '20' hex
+// suffix) over the canvas, so contrast must be solved against that COMPOSITE,
+// not the bare canvas. Measuring against the (darker) canvas over-reported
+// contrast for dark stage colours, letting them dip below AA on the tinted
+// pill. Blend per-channel in sRGB, then take the luminance of the result.
+const CHIP_TINT_ALPHA = 0x20 / 0xff; // '20' hex alpha ≈ 0.125
+function inactiveChipTextColor(stageColor: string): string {
+  const fg = parseHex(stageColor);
+  if (!fg) return stageColor;
+  const bg = getDarkBgRgb();
+  const composite: [number, number, number] = [
+    Math.round(fg[0] * CHIP_TINT_ALPHA + bg[0] * (1 - CHIP_TINT_ALPHA)),
+    Math.round(fg[1] * CHIP_TINT_ALPHA + bg[1] * (1 - CHIP_TINT_ALPHA)),
+    Math.round(fg[2] * CHIP_TINT_ALPHA + bg[2] * (1 - CHIP_TINT_ALPHA)),
+  ];
+  const chipBgLum = relativeLuminance(composite[0], composite[1], composite[2]);
+  return adjustForBgLuminance(stageColor, chipBgLum);
 }
 
 export function getStageBadgeStyle(
@@ -117,7 +138,7 @@ export function getStageBadgeStyle(
   if (isFadedChip) {
     return {
       background: stageColor + '20',
-      color: ensureDarkBgContrast(stageColor),
+      color: inactiveChipTextColor(stageColor),
       borderColor: 'transparent',
     };
   }

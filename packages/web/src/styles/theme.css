@@ -55,7 +55,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--color-accent-coral, #ff6b6b);
+  background: var(--color-accent-coral);
   vertical-align: middle;
   margin-right: 6px;
   margin-bottom: 2px;
@@ -65,7 +65,7 @@
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: var(--color-accent-coral, #ff6b6b);
+    background: var(--color-accent-coral);
     will-change: transform, opacity;
     animation: fm-live-pulse 2s ease-out infinite;
     pointer-events: none;
@@ -118,7 +118,7 @@
     bottom: 4px;
     width: 0;
     height: 2px;
-    background: var(--color-accent-aqua, #00d4aa);
+    background: var(--color-accent-aqua);
     border-radius: 2px;
     transform: translateX(-50%);
     transition: width var(--duration-med) var(--ease-out);
@@ -295,7 +295,12 @@
      1.5 body / 1.15 display for WCAG-friendly rhythm.
      ─────────────────────────────────────────────────────────────────── */
   --font-size-10: 0.625rem;
+  /* 11/13 are off-ramp steps that recur in dense UI (set cards, timeline
+     cells, detail panel, user menu). Promoted to tokens so the literal
+     text-[11px]/text-[13px] off-ramps route through the scale. */
+  --font-size-11: 0.6875rem;
   --font-size-12: 0.75rem;
+  --font-size-13: 0.8125rem;
   --font-size-14: 0.875rem;
   --font-size-16: 1rem;
   --font-size-18: 1.125rem;
@@ -391,7 +396,11 @@
   --color-aqua-a12: rgba(0, 232, 208, 0.12);
   --color-aqua-a15: rgba(0, 232, 208, 0.15);
   --color-aqua-a2: rgba(0, 232, 208, 0.2);
+  --color-aqua-a25: rgba(0, 232, 208, 0.25);
   --color-aqua-a3: rgba(0, 232, 208, 0.3);
+
+  /* Coral alpha scale (coral-ring at 0.15 lives in the focus-ring block). */
+  --color-coral-a3: rgba(255, 51, 102, 0.3);
 
   /* Amber alpha scale */
   --color-amber-a08: rgba(255, 176, 32, 0.08);

@@ -1,5 +1,6 @@
 import { useEffect, Suspense } from 'react';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
+import { Loader } from 'lucide-react';
 import { useAuthStore } from '@festie/shared';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useOffline } from '@festie/shared/hooks';
@@ -24,6 +25,22 @@ import { prefetchMainRoutes } from '../../router';
 import { cn } from '../../lib/utils';
 
 const authRoutes = ['/login', '/register', '/forgot-password'];
+
+// Centered branded loader for lazy-route chunk loads. Replaces the bare
+// "Loading..." text the Suspense boundaries used to fall back to.
+function RouteFallback() {
+  return (
+    <div
+      className="flex flex-1 items-center justify-center w-full min-h-[40vh] py-10"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <Loader className="w-8 h-8 animate-spin text-accent-aqua motion-reduce:animate-none" aria-hidden="true" />
+      <span className="sr-only">Loading…</span>
+    </div>
+  );
+}
 
 // Routes where the global festival/day/stage sub-header has no purpose.
 const noSubHeaderRoutes = ['/account', '/crew', '/festival-mode'];
@@ -58,7 +75,9 @@ export default function AppShell() {
   const { showDayBanner } = useFestivalMode(location.pathname);
 
   // Prefetch main-tab chunks on idle so switching between tabs is instant.
-  useEffect(() => { prefetchMainRoutes(); }, []);
+  useEffect(() => {
+    prefetchMainRoutes();
+  }, []);
 
   // Auth routes don't use app shell layout
   if (isAuthRoute) {
@@ -71,11 +90,7 @@ export default function AppShell() {
         )}
         aria-label="Authentication"
       >
-        <Suspense fallback={
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--space-8)] px-6 py-4">
-            Loading...
-          </div>
-        }>
+        <Suspense fallback={<RouteFallback />}>
           <Outlet />
         </Suspense>
       </main>
@@ -113,12 +128,7 @@ export default function AppShell() {
       {showDayBanner && <FestivalDayBanner />}
 
       <div className="main-content flex flex-1 overflow-hidden flex-col">
-        {!hideSubHeader && (
-          <SubHeader
-            dayOnly={dayOnlySubHeader}
-            festivalOnly={festivalOnlySubHeader}
-          />
-        )}
+        {!hideSubHeader && <SubHeader dayOnly={dayOnlySubHeader} festivalOnly={festivalOnlySubHeader} />}
 
         <main
           id="main-content"
@@ -128,15 +138,7 @@ export default function AppShell() {
             '[-webkit-overflow-scrolling:touch] [overscroll-behavior-y:contain]',
           )}
         >
-          <Suspense fallback={
-            <div
-              className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-[var(--space-8)] px-6 py-4"
-              aria-busy="true"
-              aria-label="Loading"
-            >
-              Loading...
-            </div>
-          }>
+          <Suspense fallback={<RouteFallback />}>
             <PageTransition>
               <Outlet />
             </PageTransition>
@@ -150,18 +152,13 @@ export default function AppShell() {
           className={cn(
             'guest-banner',
             'flex items-center justify-between gap-[var(--space-6)]',
-            'py-3 px-4 bg-[var(--color-aqua-a08)] border border-[rgba(0,232,208,0.25)]',
+            'py-3 px-4 bg-[var(--color-aqua-a08)] border border-[var(--color-aqua-a25)]',
             'text-text-primary rounded-sm mb-2 font-semibold text-sm',
           )}
           aria-label="Guest notice"
         >
           <span>Browsing as guest.</span>
-          <Button
-            variant="primary"
-            size="sm"
-            type="button"
-            onClick={() => navigate({ to: '/login' })}
-          >
+          <Button variant="primary" size="sm" type="button" onClick={() => navigate({ to: '/login' })}>
             Login / Sign Up
           </Button>
         </aside>
@@ -171,9 +168,13 @@ export default function AppShell() {
 
       {detailSet && (
         <DetailPanel
+          key={detailSet.id}
           set={detailSet}
           autoOpenSpotify={detailAutoSpotify}
-          onClose={() => { setDetailSet(null); setDetailAutoSpotify(false); }}
+          onClose={() => {
+            setDetailSet(null);
+            setDetailAutoSpotify(false);
+          }}
         />
       )}
     </div>
