@@ -48,32 +48,38 @@ const _socketEventBase = z.object({
 });
 
 /** Join a festival room to participate in real-time features */
-const joinFestivalEventSchema = z.object({
-  _v: z.number().int().min(1).default(1),
-  festivalId: z.string().min(1).max(100),
-  userToken: z.string().optional().nullable(),
-}).strip();
+const joinFestivalEventSchema = z
+  .object({
+    _v: z.number().int().min(1).default(1),
+    festivalId: z.string().min(1).max(100),
+    userToken: z.string().optional().nullable(),
+  })
+  .strip();
 
 /** Reconnect and restore presence state */
-const reconnectRestoreEventSchema = z.object({
-  _v: z.number().int().min(1).default(1),
-  festivalId: z.string().min(1).max(100),
-  userToken: z.string().optional().nullable(),
-}).strip();
-
+const reconnectRestoreEventSchema = z
+  .object({
+    _v: z.number().int().min(1).default(1),
+    festivalId: z.string().min(1).max(100),
+    userToken: z.string().optional().nullable(),
+  })
+  .strip();
 
 /** Join a crew room for real-time crew updates */
-const joinCrewEventSchema = z.object({
-  _v: z.number().int().min(1).default(1),
-  crewId: z.string().min(1).max(100),
-}).strip();
+const joinCrewEventSchema = z
+  .object({
+    _v: z.number().int().min(1).default(1),
+    crewId: z.string().min(1).max(100),
+  })
+  .strip();
 
 /** Leave a crew room */
-const leaveCrewEventSchema = z.object({
-  _v: z.number().int().min(1).default(1),
-  crewId: z.string().min(1).max(100),
-}).strip();
-
+const leaveCrewEventSchema = z
+  .object({
+    _v: z.number().int().min(1).default(1),
+    crewId: z.string().min(1).max(100),
+  })
+  .strip();
 
 // ════════════════════════════════════════════════════════════════════════════════
 // Cached memory usage — process.memoryUsage() is expensive on the hot path
@@ -90,18 +96,25 @@ _memoryRefreshTimer.unref();
 // ════════════════════════════════════════════════════════════════════════════════
 
 /**
- * Wrap socket ack callback with timeout to prevent hanging responses (#56)
+ * Wrap socket ack callback with timeout to prevent hanging responses (#56).
+ * On timeout we now (a) surface telemetry via the injected logger — `log` is a
+ * handler-scoped dependency, not a module-level binding, so it must be passed in
+ * — and (b) still deliver a failure ack so a slow join never leaves the client
+ * waiting on a callback that never fires.
  * @param respond - The ack callback from socket event
+ * @param log - Structured logger injected from the handler scope
+ * @param connectionId - Per-connection id for telemetry correlation
  * @param timeoutMs - Timeout in milliseconds (default: 5000)
  * @returns Wrapped function that enforces timeout
  */
-function withAckTimeout(respond: any, timeoutMs = 5000) {
+function withAckTimeout(respond: any, log: any, connectionId: any, timeoutMs = 5000) {
   if (typeof respond !== 'function') return () => {};
   let called = false;
   const timer = setTimeout(() => {
     if (!called) {
+      log?.warn?.('socket ack timeout', { connectionId });
+      respond({ ok: false, error: 'Server timeout', code: 'WS_ACK_TIMEOUT' });
       called = true;
-      // Log but don't call respond — client has already timed out
     }
   }, timeoutMs);
   return (...args: any[]) => {
@@ -120,14 +133,27 @@ function withAckTimeout(respond: any, timeoutMs = 5000) {
  */
 export default function setupSocketHandlers(deps: any) {
   const {
-    config, log, state, io,
-    _sanitizeString, _createOpaqueId,
-    resolveSocketToken, validateUserSession,
-    getFestivalById, getUserFestivalProfile, _getUserById,
+    config,
+    log,
+    state,
+    io,
+    _sanitizeString,
+    _createOpaqueId,
+    resolveSocketToken,
+    validateUserSession,
+    getFestivalById,
+    getUserFestivalProfile,
+    _getUserById,
     _buildAvatarUrl,
-    _emitter, stores,
-    removeSocketPresence, getPresenceList, clearSocketSession,
-    leaveFestivalRealtime, disconnectSocket, consumeSocketRateLimit, emitPresence,
+    _emitter,
+    stores,
+    removeSocketPresence,
+    getPresenceList,
+    clearSocketSession,
+    leaveFestivalRealtime,
+    disconnectSocket,
+    consumeSocketRateLimit,
+    emitPresence,
     setSocketPresence,
   } = deps;
 
@@ -163,7 +189,7 @@ export default function setupSocketHandlers(deps: any) {
     }
 
     // DB lookups
-    if (!await getFestivalById(festivalId)) {
+    if (!(await getFestivalById(festivalId))) {
       return { ok: false, error: 'Festival not found' };
     }
     const profile = await getUserFestivalProfile(session.userId, festivalId);
@@ -189,12 +215,14 @@ export default function setupSocketHandlers(deps: any) {
 
     // Update presence — guard against duplicates on reconnect
     const presenceList = await getPresenceList(festivalId);
-    const existingPresence = presenceList.find(
-      (p: any) => p.userId === session.userId && p.socketId === socket.id
-    );
+    const existingPresence = presenceList.find((p: any) => p.userId === session.userId && p.socketId === socket.id);
     if (!existingPresence) {
-      setSocketPresence(festivalId, session.userId, session.username, socket.id)
-        .catch((err: any) => log.debug('setSocketPresence error', { error: err.message }));
+      setSocketPresence(festivalId, session.userId, session.username, socket.id).catch((err: any) =>
+        // A failed presence write means emitPresence below runs on a stale set
+        // and the user is silently absent from who's-online — warn so it's
+        // visible in prod, not buried at debug.
+        log.warn('setSocketPresence error', { error: err.message, festivalId, userId: session.userId }),
+      );
     }
     emitPresence(festivalId, io);
 
@@ -217,27 +245,31 @@ export default function setupSocketHandlers(deps: any) {
 
     socket.on('join:festival', async (festivalId: any, data: any = {}, ack: any) => {
       // Support both (festivalId, ack) and (festivalId, data, ack) signatures
-      if (typeof data === 'function') { ack = data; data = {}; }
-      const respond = withAckTimeout(typeof ack === 'function' ? ack : () => {});
+      if (typeof data === 'function') {
+        ack = data;
+        data = {};
+      }
+      const respond = withAckTimeout(typeof ack === 'function' ? ack : null, log, connectionId);
       try {
-
-      // Schema validation for join:festival event
-      const eventData = { _v: data._v || 1, festivalId, userToken: data.userToken || null };
-      const validation = joinFestivalEventSchema.safeParse(eventData);
-      if (!validation.success) {
-        log.debug('join:festival schema validation failed', { connectionId, errors: validation.error.issues });
-        return respond({ ok: false, error: 'SCHEMA_MISMATCH', requiredVersion: 1 });
-      }
-
-      const { festivalId: validatedFestivalId } = validation.data;
-      const result = await authenticateAndJoinRoom(socket, validatedFestivalId, validation.data.userToken, { rateLimitScope: 'join' });
-      if (!result.ok) {
-        if (result.error === 'Not a member of this festival') {
-          socket.emit('error', { message: 'Join this festival before using crew realtime' });
+        // Schema validation for join:festival event
+        const eventData = { _v: data._v || 1, festivalId, userToken: data.userToken || null };
+        const validation = joinFestivalEventSchema.safeParse(eventData);
+        if (!validation.success) {
+          log.debug('join:festival schema validation failed', { connectionId, errors: validation.error.issues });
+          return respond({ ok: false, error: 'SCHEMA_MISMATCH', requiredVersion: 1 });
         }
-        return respond({ ok: false, error: result.error, code: result.code });
-      }
-      respond({ ok: true, profileId: result.profile.id });
+
+        const { festivalId: validatedFestivalId } = validation.data;
+        const result = await authenticateAndJoinRoom(socket, validatedFestivalId, validation.data.userToken, {
+          rateLimitScope: 'join',
+        });
+        if (!result.ok) {
+          if (result.error === 'Not a member of this festival') {
+            socket.emit('error', { message: 'Join this festival before using crew realtime' });
+          }
+          return respond({ ok: false, error: result.error, code: result.code });
+        }
+        respond({ ok: true, profileId: result.profile.id });
       } catch (error: any) {
         log.error('join:festival error', { error: error && error.message, socketId: socket.id, connectionId });
         respond({ ok: false, error: 'Server error' });
@@ -264,15 +296,19 @@ export default function setupSocketHandlers(deps: any) {
 
     // ── Crew Room Management ──────────────────────────────────────────
     socket.on('join:crew', async (data: any = {}, ack: any) => {
-      const respond = withAckTimeout(typeof ack === 'function' ? ack : () => {});
+      const respond = withAckTimeout(typeof ack === 'function' ? ack : null, log, connectionId);
       try {
         const validation = joinCrewEventSchema.safeParse({ _v: data._v || 1, crewId: data.crewId || '' });
         if (!validation.success) return respond({ ok: false, error: 'SCHEMA_MISMATCH' });
 
         const { crewId } = validation.data;
-        const sessionToken = socket.data?.userSessionToken || resolveSocketToken(socket, null, config.USER_SESSION_COOKIE);
+        const sessionToken =
+          socket.data?.userSessionToken || resolveSocketToken(socket, null, config.USER_SESSION_COOKIE);
         const session = await validateUserSession(sessionToken);
-        if (!session) { disconnectSocket(socket, io); return respond({ ok: false, error: 'Authentication required' }); }
+        if (!session) {
+          disconnectSocket(socket, io);
+          return respond({ ok: false, error: 'Authentication required' });
+        }
         // eslint-disable-next-line require-atomic-updates -- socket.data is not a shared race target
         socket.data.userSessionToken = sessionToken;
 
@@ -310,9 +346,13 @@ export default function setupSocketHandlers(deps: any) {
 
         const { crewId } = validation.data;
         // Verify session still valid
-        const sessionToken = socket.data?.userSessionToken || resolveSocketToken(socket, null, config.USER_SESSION_COOKIE);
+        const sessionToken =
+          socket.data?.userSessionToken || resolveSocketToken(socket, null, config.USER_SESSION_COOKIE);
         const session = await validateUserSession(sessionToken);
-        if (!session) { disconnectSocket(socket, io); return; }
+        if (!session) {
+          disconnectSocket(socket, io);
+          return;
+        }
         // eslint-disable-next-line require-atomic-updates -- socket.data is not a shared race target
         socket.data.userSessionToken = sessionToken;
 
@@ -328,7 +368,7 @@ export default function setupSocketHandlers(deps: any) {
     // #17: Reconnection recovery — client sends last known state, server gap-fills
     // Security: Always re-validate session on reconnect (not just initial connection)
     socket.on('reconnect:restore', async (data: any = {}, ack: any) => {
-      const respond = withAckTimeout(typeof ack === 'function' ? ack : () => {});
+      const respond = withAckTimeout(typeof ack === 'function' ? ack : null, log, connectionId);
       try {
         // Schema validation for reconnect:restore event
         const eventData = {
@@ -344,7 +384,9 @@ export default function setupSocketHandlers(deps: any) {
         }
 
         const { festivalId } = validation.data;
-        const result = await authenticateAndJoinRoom(socket, festivalId, validation.data.userToken, { rateLimitScope: 'restore' });
+        const result = await authenticateAndJoinRoom(socket, festivalId, validation.data.userToken, {
+          rateLimitScope: 'restore',
+        });
         if (!result.ok) {
           if (result.error === 'Authentication required') {
             log.warn('reconnect:restore session validation failed', { festivalId, socketId: socket.id });
@@ -358,19 +400,25 @@ export default function setupSocketHandlers(deps: any) {
           profileId: result.profile.id,
         });
       } catch (error: any) {
-        log.error('reconnect:restore error', { error: error.message, socketId: socket.id, userId: socket.data?.userId });
+        log.error('reconnect:restore error', {
+          error: error.message,
+          socketId: socket.id,
+          userId: socket.data?.userId,
+        });
         respond({ ok: false, error: 'Server error' });
       }
     });
-
-
 
     socket.on('disconnect', (reason: any) => {
       try {
         if (state.metrics) state.metrics.socketDisconnections += 1;
         if (reason === 'transport error' || reason === 'transport close') {
           if (state.metrics) state.metrics.socketErrors += 1;
-          log.debug('socket transport error', { reason, userId: socket.data?.userId, festivalId: socket.data?.festivalId });
+          log.debug('socket transport error', {
+            reason,
+            userId: socket.data?.userId,
+            festivalId: socket.data?.festivalId,
+          });
         }
         const festivalId = socket.data?.festivalId;
         // Crew room cleanup happens automatically when socket disconnects (Socket.IO removes from all rooms)
@@ -378,7 +426,11 @@ export default function setupSocketHandlers(deps: any) {
         clearSocketSession(socket);
         if (festivalId) emitPresence(festivalId, io);
       } catch (error: any) {
-        log.error('disconnect cleanup error', { error: error.message, socketId: socket.id, userId: socket.data?.userId });
+        log.error('disconnect cleanup error', {
+          error: error.message,
+          socketId: socket.id,
+          userId: socket.data?.userId,
+        });
       }
     });
   });

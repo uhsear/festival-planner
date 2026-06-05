@@ -21,6 +21,9 @@ const QUEUE_KEY = 'festie-offline-queue';
 /** Drop queued mutations older than this on read (mirrors the web queue policy). */
 const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+/** Cap on transient (5xx/network) replay attempts before surfacing (matches web). */
+const MAX_RETRIES = 5;
+
 export type QueuedMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface QueuedMutation {
@@ -31,6 +34,8 @@ export interface QueuedMutation {
   /** Human-readable label surfaced in failedSync if this write can't be replayed. */
   label?: string;
   createdAt: number;
+  /** Transient-failure replay count; at MAX_RETRIES the write is surfaced + dropped. */
+  retries?: number;
 }
 
 async function readQueueRaw(): Promise<QueuedMutation[]> {
@@ -48,12 +53,24 @@ async function readQueueRaw(): Promise<QueuedMutation[]> {
  * Read the queue, pruning entries older than MAX_QUEUE_AGE_MS. If anything was
  * pruned the trimmed queue is written back so the prune is idempotent and the
  * pending count reflects reality.
+ *
+ * No silent drops: an aged-out write isn't just discarded — it's surfaced via
+ * uiStore.failedSync (keyed by clientId, so re-reads are idempotent) so the user
+ * can still see and retry/dismiss it instead of it vanishing.
  */
 async function readQueue(): Promise<QueuedMutation[]> {
   const all = await readQueueRaw();
   const now = Date.now();
-  const fresh = all.filter((m) => now - (m.createdAt || 0) < MAX_QUEUE_AGE_MS);
-  if (fresh.length !== all.length) {
+  const fresh: QueuedMutation[] = [];
+  const stale: QueuedMutation[] = [];
+  for (const m of all) {
+    if (now - (m.createdAt || 0) < MAX_QUEUE_AGE_MS) fresh.push(m);
+    else stale.push(m);
+  }
+  if (stale.length > 0) {
+    for (const m of stale) {
+      recordFailed(m, 'Expired before it could sync (offline more than 24h)');
+    }
     await writeQueue(fresh);
   }
   return fresh;
@@ -215,8 +232,25 @@ export async function drainQueue(): Promise<void> {
           const queue = (await readQueue()).filter((q) => q.clientId !== m.clientId);
           await writeQueue(queue);
           recordFailed(m, shortError(err));
+        } else {
+          // Transient (status 0 / >=500): bump the retry counter so a write that
+          // keeps 5xx-ing can't stay queued forever. At MAX_RETRIES remove it AND
+          // surface it (no silent drop) — matching the web queue's cap.
+          const nextRetries = (m.retries ?? 0) + 1;
+          if (nextRetries >= MAX_RETRIES) {
+            const queue = (await readQueue()).filter((q) => q.clientId !== m.clientId);
+            await writeQueue(queue);
+            recordFailed(m, shortError(err));
+          } else {
+            // Persist the incremented count and leave it queued for the next pass.
+            const queue = await readQueue();
+            const idx = queue.findIndex((q) => q.clientId === m.clientId);
+            if (idx >= 0) {
+              queue[idx] = { ...queue[idx]!, retries: nextRetries };
+              await writeQueue(queue);
+            }
+          }
         }
-        // else transient (status 0 / >=500): leave it queued, skip to next.
       }
     }
   } finally {
