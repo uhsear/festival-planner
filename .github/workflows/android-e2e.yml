@@ -13,11 +13,6 @@ name: Android E2E
 #   gh workflow run android-e2e.yml --ref <branch>
 on:
   workflow_dispatch:
-  # TEMP (validation only): also auto-run on pushes to the CI branch so the job
-  # can be proven green before it reaches main. Remove this push: block before
-  # merging — workflow_dispatch is the intended steady-state trigger.
-  push:
-    branches: [ci/android-e2e]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
