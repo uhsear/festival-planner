@@ -1,0 +1,102 @@
+name: Android E2E
+
+# Free, EAS-credit-free Android end-to-end smoke.
+#
+# GitHub-hosted ubuntu-latest runners now expose /dev/kvm, so a hardware-
+# accelerated Android emulator runs in CI at no cost on a public repo. This job
+# builds a *local Gradle debug APK* (no EAS build) and drives it with Maestro on
+# the emulator — the same harness used locally ([[maestro_verify]]), giving us
+# Android UI validation without spending an EAS build.
+#
+# Manual-only by design (it's a ~25min build+emulator job; we don't want it on
+# every push). Run it from the Actions tab, or:
+#   gh workflow run android-e2e.yml --ref <branch>
+on:
+  workflow_dispatch:
+  # TEMP (validation only): also auto-run on pushes to the CI branch so the job
+  # can be proven green before it reaches main. Remove this push: block before
+  # merging — workflow_dispatch is the intended steady-state trigger.
+  push:
+    branches: [ci/android-e2e]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  EXPO_NO_TELEMETRY: '1'
+  # Debug builds shouldn't upload to Sentry; keep the Gradle plugin from trying.
+  SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+
+jobs:
+  android-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      # RN 0.81 / Expo SDK 54 build with AGP 8 -> JDK 17.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install workspace deps (pnpm)
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
+
+      # Generate the native android/ project (CNG; android/ is gitignored).
+      # --no-install: pnpm already installed node_modules; don't let prebuild
+      # shell out to npm and fight the pnpm layout.
+      - name: Expo prebuild (android)
+        working-directory: packages/mobile
+        run: pnpm exec expo prebuild --platform android --no-install
+
+      - name: Build debug APK
+        working-directory: packages/mobile/android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Install Maestro
+        run: |
+          export MAESTRO_VERSION=2.6.0
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      # GitHub-hosted runners ship KVM but the device node isn't group-writable
+      # by default; this udev rule makes the emulator hardware-accelerated.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Maestro smoke on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          disable-animations: true
+          script: |
+            adb install -r packages/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+            cd packages/mobile
+            maestro test --format junit --output maestro-report.xml .maestro/android-smoke.yaml
+
+      - name: Upload Maestro artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-maestro-results
+          path: |
+            packages/mobile/*.png
+            packages/mobile/maestro-report.xml
+          if-no-files-found: ignore

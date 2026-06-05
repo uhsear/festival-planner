@@ -1,0 +1,75 @@
+# Credential-free Android UI smoke for CI (a local Gradle *debug* APK installed on
+# a KVM-accelerated emulator via reactivecircus/android-emulator-runner — no EAS
+# credit burned). This is a STANDALONE build (appId us.festie.app, not Expo Go)
+# that talks to prod https://festie.us/api/v1 (see app/_layout.tsx), so the guest
+# path below browses REAL public festival data end-to-end.
+#
+# Deliberately secret-free: no login. Walks launch -> onboarding -> festival picker
+# -> schedule views -> every tab, screenshotting each, then asserts the app chrome
+# is present (no crash). Authed Android coverage stays on the local Maestro run
+# (see [[maestro_verify]]); this CI flow exists to prove the APK builds, launches,
+# renders, and navigates against prod without burning an EAS build.
+#
+# Content taps are optional + guarded by waits so the flow stays green even if a
+# label shifts or the network is slow — the final assertVisible is the real gate.
+appId: us.festie.app
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      text: "Skip|Build your festival|Select a Festival|Festie"
+    timeout: 120000
+- takeScreenshot: 01-launch
+- tapOn:
+    text: "Skip"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      text: "Select a Festival|North Coast|Timeline"
+    timeout: 30000
+- takeScreenshot: 02-festival-picker
+# ── Pick a festival and walk the schedule views (guest, no auth needed) ──
+- tapOn:
+    id: "tab-timeline"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      text: "North Coast Festival 2026|Select a Festival|Timeline"
+    timeout: 30000
+- tapOn:
+    text: "North Coast Festival 2026"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: 03-timeline
+- tapOn:
+    text: "Grid"
+    optional: true
+- takeScreenshot: 04-grid
+- tapOn:
+    text: "Cards"
+    optional: true
+- takeScreenshot: 05-cards
+# ── Walk the remaining tabs (render/nav gate) ──
+- tapOn:
+    id: "tab-picks"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2500
+- takeScreenshot: 06-picks
+- tapOn:
+    id: "tab-crew"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2500
+- takeScreenshot: 07-crew
+- tapOn:
+    id: "tab-account"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2500
+- takeScreenshot: 08-account
+# Sanity: app chrome present (proves the build launched and rendered, no crash)
+- assertVisible:
+    text: "Timeline|Picks|Crew|Account|Festie"
