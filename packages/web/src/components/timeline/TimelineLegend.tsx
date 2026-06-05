@@ -37,20 +37,20 @@ export default function TimelineLegend() {
         )}
       >
         <li className="flex items-center gap-2 text-xs leading-tight">
-          <span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-[var(--color-accent-coral,#ff6b6b)]" aria-hidden="true" />
+          <span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-[var(--color-accent-coral)]" aria-hidden="true" />
           Must See (your pick)
         </li>
         <li className="flex items-center gap-2 text-xs leading-tight">
-          <span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-[var(--color-accent-aqua,#00d4aa)]" aria-hidden="true" />
+          <span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-[var(--color-accent-aqua)]" aria-hidden="true" />
           Want to See (your pick)
         </li>
         <li className="flex items-center gap-2 text-xs leading-tight">
-          <span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-[var(--color-accent-amber,#f59e0b)]" aria-hidden="true" />
+          <span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-[var(--color-accent-amber)]" aria-hidden="true" />
           Maybe (your pick)
         </li>
         <li className="flex items-center gap-2 text-xs leading-tight">
           <span
-            className="w-3 h-3 rounded-full shrink-0 bg-[var(--color-accent-aqua,#00d4aa)] border-[1.5px] border-[var(--color-bg-primary,#0d0d1a)]"
+            className="w-3 h-3 rounded-full shrink-0 bg-[var(--color-accent-aqua)] border-[1.5px] border-[var(--color-bg-primary)]"
             aria-hidden="true"
           />
           Crew pick — a friend in your crew also picked this set
@@ -60,10 +60,7 @@ export default function TimelineLegend() {
           Schedule conflict with another of your picks
         </li>
         <li className="flex items-center gap-2 text-xs leading-tight">
-          <span
-            className="w-[18px] h-0.5 shrink-0 bg-[var(--color-accent-coral,#ff6b6b)]"
-            aria-hidden="true"
-          />
+          <span className="w-[18px] h-0.5 shrink-0 bg-[var(--color-accent-coral)]" aria-hidden="true" />
           Current time
         </li>
       </ul>

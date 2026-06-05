@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { X, Music, Users, Sparkles, ChevronRight } from 'lucide-react';
+import { X, Star, Users, ChevronRight } from 'lucide-react';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
 import { useKeyboardTrap } from '../../hooks/useKeyboardTrap';
@@ -30,24 +30,22 @@ interface StepConfig {
   description: string;
 }
 
+// Two concrete steps that name the actual gestures, rather than the generic
+// "Welcome / Choose / Join" macrostructure. TASTE CALL — flagged for human
+// review; leading step 1 with live set cards was considered but skipped since
+// onboarding can render before any festival lineup is loaded.
 const STEPS: StepConfig[] = [
   {
-    icon: <Sparkles className="w-10 h-10 text-accent-aqua" />,
-    title: 'Welcome to Festie!',
+    icon: <Star className="w-10 h-10 text-accent-coral" />,
+    title: 'Mark the sets you want',
     description:
-      'Your crew coordination hub for festivals. Pick your favorite sets, plan with friends, and never miss a must-see act.',
+      'Tap a set to mark it Must-See, Want, or Maybe. Your picks build a personal schedule and flag any time clashes.',
   },
   {
-    icon: <Music className="w-10 h-10 text-accent-coral" />,
-    title: 'Choose Your Festival',
+    icon: <Users className="w-10 h-10 text-accent-aqua" />,
+    title: 'Plan it with your crew',
     description:
-      "Browse available festivals and select the one you're attending. You'll get the full lineup, schedule, and stage map.",
-  },
-  {
-    icon: <Users className="w-10 h-10 text-accent-amber" />,
-    title: 'Join or Create a Crew',
-    description:
-      'Coordinate with your friends in real time. Create a new crew or join an existing one to share picks and chat.',
+      'Create or join a crew to see who else picked each set, share notes, and stay in sync — even with no signal.',
   },
 ];
 

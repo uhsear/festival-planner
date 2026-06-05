@@ -61,19 +61,24 @@ export default function TBASection({
                 'border border-[var(--color-border)]',
                 'cursor-pointer',
                 'transition-[transform,box-shadow] duration-150',
-                'ease-[cubic-bezier(0.16,1,0.3,1)]',
+                'ease-out',
                 'active:scale-[0.98]',
                 'hover:bg-[var(--color-bg-hover)] hover:outline-2 hover:outline-[var(--color-accent-aqua)]',
                 'focus-visible:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent-aqua)]',
                 'motion-reduce:!transition-none',
                 // Priority border-left tint
-                myPick === 'must' && 'border-l-[3px] border-l-[var(--color-priority-must)] shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
-                myPick === 'want-to-see' && 'border-l-[3px] border-l-[var(--color-priority-want)] shadow-[inset_0_0_24px_var(--color-aqua-a12)]',
-                myPick === 'maybe' && 'border-l-[3px] border-l-[var(--color-priority-maybe)] shadow-[inset_0_0_24px_var(--color-amber-a12)]',
+                myPick === 'must' &&
+                  'border-l-[3px] border-l-[var(--color-priority-must)] shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
+                myPick === 'want-to-see' &&
+                  'border-l-[3px] border-l-[var(--color-priority-want)] shadow-[inset_0_0_24px_var(--color-aqua-a12)]',
+                myPick === 'maybe' &&
+                  'border-l-[3px] border-l-[var(--color-priority-maybe)] shadow-[inset_0_0_24px_var(--color-amber-a12)]',
               )}
-              style={stageColor
-                ? { '--i': Math.min(idx, 20), borderLeft: `3px solid ${stageColor}` } as React.CSSProperties
-                : { '--i': Math.min(idx, 20) } as React.CSSProperties}
+              style={
+                stageColor
+                  ? ({ '--i': Math.min(idx, 20), borderLeft: `3px solid ${stageColor}` } as React.CSSProperties)
+                  : ({ '--i': Math.min(idx, 20) } as React.CSSProperties)
+              }
             >
               {/* Positioned click overlay — keeps outer div non-interactive so
                   priority buttons inside don't trigger nested-interactive. */}
@@ -96,50 +101,57 @@ export default function TBASection({
               {/* Priority pick buttons */}
               {currentProfile && (
                 <div className="relative z-[2] flex gap-[var(--space-1)] mt-1.5">
-                  {([['must', '★'], ['want-to-see', '◆'], ['maybe', '●']] as const).map(
-                    ([p, icon]) => {
-                      const active = myPick === p;
-                      return (
-                        <button
-                          key={p}
-                          className={cn(
-                            'relative',
-                            'bg-[var(--color-overlay-2)] border border-[var(--color-border)]',
-                            'rounded-xs',
-                            'text-[var(--color-text-secondary)] cursor-pointer',
-                            'text-[11px] px-1.5 py-[3px] leading-none',
-                            'transition-all duration-[250ms] ease-[var(--ease-standard)]',
-                            'hover:text-[var(--color-text-primary)] hover:border-[var(--color-accent-aqua)] hover:bg-[rgba(255,255,255,0.07)]',
-                            'focus-visible:outline-2 focus-visible:outline-[var(--color-accent-aqua)] focus-visible:outline-offset-1',
-                            // Hit-slop pseudo-element for 44x44 tap target
-                            'after:content-[""] after:absolute after:inset-[-4px]',
-                            'min-[380px]:min-w-10 min-[380px]:min-h-10',
-                            'min-[380px]:after:inset-[-2px]',
-                            // Active priority states
-                            active && p === 'must' && 'bg-[var(--color-priority-must)] text-[var(--color-text-on-accent)] border-[var(--color-priority-must)] opacity-100',
-                            active && p === 'want-to-see' && 'bg-[var(--color-priority-want)] text-[var(--color-text-on-dark)] border-[var(--color-priority-want)] opacity-100',
-                            active && p === 'maybe' && 'bg-[var(--color-priority-maybe)] text-[var(--color-text-on-dark)] border-[var(--color-priority-maybe)] opacity-100',
-                          )}
-                          type="button"
-                          aria-pressed={active ? 'true' : 'false'}
-                          aria-label={
-                            (p === 'must'
-                              ? 'Must See'
-                              : p === 'want-to-see'
-                                ? 'Want to See'
-                                : 'Maybe') + (active ? ' (selected)' : '')
-                          }
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onSavePick(s.id, active ? null : p);
-                          }}
-                        >
-                          {icon}
-                        </button>
-                      );
-                    },
-                  )}
+                  {(
+                    [
+                      ['must', '★'],
+                      ['want-to-see', '◆'],
+                      ['maybe', '●'],
+                    ] as const
+                  ).map(([p, icon]) => {
+                    const active = myPick === p;
+                    return (
+                      <button
+                        key={p}
+                        className={cn(
+                          'relative',
+                          'bg-[var(--color-overlay-2)] border border-[var(--color-border)]',
+                          'rounded-xs',
+                          'text-[var(--color-text-secondary)] cursor-pointer',
+                          'text-[11px] px-1.5 py-[3px] leading-none',
+                          'transition-all duration-[250ms] ease-[var(--ease-standard)]',
+                          'hover:text-[var(--color-text-primary)] hover:border-[var(--color-accent-aqua)] hover:bg-[rgba(255,255,255,0.07)]',
+                          'focus-visible:outline-2 focus-visible:outline-[var(--color-accent-aqua)] focus-visible:outline-offset-1',
+                          // Hit-slop pseudo-element for 44x44 tap target
+                          'after:content-[""] after:absolute after:inset-[-4px]',
+                          'min-[380px]:min-w-10 min-[380px]:min-h-10',
+                          'min-[380px]:after:inset-[-2px]',
+                          // Active priority states
+                          active &&
+                            p === 'must' &&
+                            'bg-[var(--color-priority-must)] text-[var(--color-text-on-accent)] border-[var(--color-priority-must)] opacity-100',
+                          active &&
+                            p === 'want-to-see' &&
+                            'bg-[var(--color-priority-want)] text-[var(--color-text-on-dark)] border-[var(--color-priority-want)] opacity-100',
+                          active &&
+                            p === 'maybe' &&
+                            'bg-[var(--color-priority-maybe)] text-[var(--color-text-on-dark)] border-[var(--color-priority-maybe)] opacity-100',
+                        )}
+                        type="button"
+                        aria-pressed={active ? 'true' : 'false'}
+                        aria-label={
+                          (p === 'must' ? 'Must See' : p === 'want-to-see' ? 'Want to See' : 'Maybe') +
+                          (active ? ' (selected)' : '')
+                        }
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onSavePick(s.id, active ? null : p);
+                        }}
+                      >
+                        {icon}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 

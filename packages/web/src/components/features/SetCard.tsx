@@ -1,4 +1,5 @@
 import React, { memo, useRef, useState, useEffect, useMemo } from 'react';
+import { Star, Diamond, Circle, Play, Square, AlertTriangle, StickyNote } from 'lucide-react';
 import { FestivalSet, Priority } from '@festie/shared/types';
 import { usePicks } from '@festie/shared/hooks';
 import { formatTime, artistDisplayName, artistSubtitle } from '@festie/shared/utils';
@@ -243,7 +244,7 @@ function SetCard({
         'p-4 cursor-pointer overflow-hidden',
         'border-l-4',
         // Transition + will-change — token-eased, reduce-motion safe.
-        'transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform',
+        'transition-all duration-200 ease-out will-change-transform',
         'motion-reduce:transition-none motion-reduce:transform-none',
         // Hover — gentle lift + surface shift + light glow (no heavy drop shadow).
         'hover:bg-bg-card-hover hover:-translate-y-0.5',
@@ -275,7 +276,9 @@ function SetCard({
           'absolute inset-0 z-[1] cursor-pointer border-0 bg-transparent p-0 m-0',
           'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-[-2px] focus-visible:rounded-[inherit]',
         )}
-        aria-label={`${artistName} — ${stageName} ${set.startTime ? formatTime(set.startTime) : 'TBA'}`}
+        aria-label={`${artistName} — ${stageName}, ${
+          set.startTime && set.endTime ? `${formatTime(set.startTime)} to ${formatTime(set.endTime)}` : 'time TBA'
+        }`}
         onClick={() => {
           tap();
           onTap();
@@ -291,8 +294,8 @@ function SetCard({
             'bg-spotify/20 border border-spotify/40 text-spotify',
             'rounded-full w-11 h-11 text-sm cursor-pointer',
             'flex items-center justify-center',
-            'transition-[background,transform] duration-150',
-            'hover:bg-spotify/30 hover:scale-105',
+            'transition-[background-color,border-color] duration-150',
+            'hover:bg-spotify/30',
           )}
           type="button"
           aria-label={previewPlaying ? `Stop preview for ${artistName}` : `Preview ${artistName}`}
@@ -300,10 +303,17 @@ function SetCard({
           disabled={previewLoading}
           onClick={handlePreviewClick}
         >
-          {previewPlaying ? '◼' : '▶'}
+          {previewPlaying ? (
+            <Square className="w-4 h-4" fill="currentColor" aria-hidden="true" />
+          ) : (
+            <Play className="w-4 h-4" fill="currentColor" aria-hidden="true" />
+          )}
         </button>
       )}
 
+      {/* Decorative — the artist/stage/time are already announced via the
+          click-target button's aria-label, so these visible copies are
+          aria-hidden to avoid double-announcing each set to screen readers. */}
       <span
         className={cn(
           'card-stage',
@@ -312,6 +322,7 @@ function SetCard({
           'text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]',
         )}
         style={{ background: ensureWhiteContrast(stageColor) }}
+        aria-hidden="true"
       >
         {stageName}
       </span>
@@ -321,10 +332,9 @@ function SetCard({
         className={cn(
           'card-artist',
           'relative z-[2] pointer-events-none',
-          'type-title font-bold leading-[1.15] mb-1',
-          'bg-gradient-to-br from-text-primary to-[rgba(234,234,242,0.85)]',
-          'bg-clip-text',
+          'type-title font-bold leading-[1.15] mb-1 text-text-primary',
         )}
+        aria-hidden="true"
       >
         {artistName}
       </div>
@@ -333,11 +343,12 @@ function SetCard({
           className={cn(
             'card-artist-sub',
             'relative z-[2] pointer-events-none',
-            'text-[11px] font-medium leading-[1.35] text-text-muted mt-0.5',
+            'text-[length:var(--font-size-11)] font-medium leading-[1.35] text-text-muted mt-0.5',
             'overflow-hidden text-ellipsis',
             '[-webkit-line-clamp:2] [-webkit-box-orient:vertical] [display:-webkit-box]',
             'break-words max-h-[2.7em]',
           )}
+          aria-hidden="true"
         >
           {subtitle}
         </div>
@@ -352,24 +363,25 @@ function SetCard({
           'type-caption text-text-secondary tabular-nums mb-3',
         )}
       >
-        <span>
+        <span aria-hidden="true">
           {set.startTime && set.endTime ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}` : 'TBA'}
         </span>
         {myNote && (
-          <span className="card-note-indicator text-xs opacity-50" aria-label="Has note">
-            📝
+          <span className="card-note-indicator inline-flex opacity-50" aria-label="Has note">
+            <StickyNote className="w-3.5 h-3.5" aria-hidden="true" />
           </span>
         )}
         {hasConflict && (
           <span
             className={cn(
-              'text-[11px] font-bold py-0.5 px-1.5 rounded-sm leading-tight',
-              'bg-[rgba(255,51,102,0.15)] text-accent-coral',
-              'border border-[rgba(255,51,102,0.3)]',
+              'inline-flex items-center gap-1',
+              'text-[length:var(--font-size-11)] font-bold py-0.5 px-1.5 rounded-sm leading-tight',
+              'bg-[var(--color-coral-ring)] text-accent-coral',
+              'border border-[var(--color-coral-a3)]',
               'tracking-[0.5px] uppercase',
             )}
           >
-            ⚠ Conflict
+            <AlertTriangle className="w-3 h-3" aria-hidden="true" /> Conflict
           </span>
         )}
       </div>
@@ -386,11 +398,11 @@ function SetCard({
           <div className="card-priority flex gap-3">
             {(
               [
-                ['must', '★'],
-                ['want-to-see', '◆'],
-                ['maybe', '●'],
+                ['must', Star],
+                ['want-to-see', Diamond],
+                ['maybe', Circle],
               ] as const
-            ).map(([p, icon]) => {
+            ).map(([p, Icon]) => {
               const active = myPick === p;
               const priKey = PRI_MAP[p];
               return (
@@ -402,8 +414,8 @@ function SetCard({
                     'flex items-center justify-center',
                     'bg-white/[0.06] border border-border-light',
                     'text-sm text-text-muted cursor-pointer',
-                    'transition-[transform,box-shadow,background,border-color,color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]',
-                    'hover:border-text-secondary hover:scale-105',
+                    'transition-[transform,box-shadow,background,border-color,color] duration-200 ease-out',
+                    'hover:border-text-secondary hover:bg-white/[0.12]',
                     'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-[-2px]',
                     'active:scale-[0.92] motion-reduce:transform-none',
                     // Active priority states — static glow (mobile keeps these
@@ -412,7 +424,7 @@ function SetCard({
                       priKey === 'must' && [
                         'active-must',
                         'bg-priority-must text-text-on-accent border-priority-must',
-                        'shadow-[var(--shadow-glow-coral),0_0_0_1px_rgba(255,51,102,0.3)]',
+                        'shadow-[var(--shadow-glow-coral),0_0_0_1px_var(--color-coral-a3)]',
                       ],
                     active &&
                       priKey === 'want' && [
@@ -441,7 +453,7 @@ function SetCard({
                     handlePriorityChange(p, active);
                   }}
                 >
-                  {icon}
+                  <Icon className="w-4 h-4" fill={active ? 'currentColor' : 'none'} aria-hidden="true" />
                 </button>
               );
             })}
@@ -496,7 +508,7 @@ function SetCard({
                         className={cn(
                           'flex-center -ml-2 w-6 h-6 rounded-full ring-2 ring-bg-card',
                           'type-micro font-bold text-accent-aqua',
-                          'bg-[rgba(0,232,208,0.15)]',
+                          'bg-[var(--color-aqua-a15)]',
                         )}
                       >
                         +{overflow}
@@ -507,7 +519,7 @@ function SetCard({
                   <span
                     className={cn(
                       'type-micro font-bold text-accent-aqua',
-                      'bg-[rgba(0,232,208,0.15)] py-0.5 px-[7px] rounded-md',
+                      'bg-[var(--color-aqua-a15)] py-0.5 px-[7px] rounded-md',
                       'whitespace-nowrap mr-0.5',
                     )}
                   >

@@ -69,7 +69,7 @@ function TimelineGridCell({
         'z-[2] opacity-[0.88]',
         // Press & hover feedback
         'transition-[transform,box-shadow] duration-150',
-        'ease-[cubic-bezier(0.16,1,0.3,1)]',
+        'ease-out',
         'active:scale-[0.97]',
         'hover:opacity-100 hover:shadow-[0_2px_10px_rgba(0,0,0,0.28)]',
         // Enter animation via data-day attribute on parent grid
@@ -114,10 +114,10 @@ function TimelineGridCell({
             'absolute top-0.5 right-0.5',
             'w-3.5 h-3.5 rounded-full',
             'inline-flex items-center justify-center',
-            'text-[10px] leading-none',
-            'text-[var(--color-bg-primary,#0d0d1a)]',
-            'bg-[var(--color-accent-coral,#ff6b6b)]',
-            'shadow-[0_0_0_1.5px_var(--color-bg-primary,#0d0d1a)]',
+            'text-[length:var(--font-size-10)] leading-none',
+            'text-[var(--color-bg-primary)]',
+            'bg-[var(--color-accent-coral)]',
+            'shadow-[0_0_0_1.5px_var(--color-bg-primary)]',
             'pointer-events-none z-[2]',
           )}
           aria-hidden="true"
@@ -131,10 +131,10 @@ function TimelineGridCell({
       <div
         className={cn(
           'line-clamp-2 break-words [overflow-wrap:anywhere] [hyphens:auto] min-w-0',
-          'text-[12.5px] font-bold leading-[1.15] tracking-[0.1px]',
-          'text-[var(--color-text-primary,#fff)]',
+          'text-[length:var(--font-size-12)] font-bold leading-[1.15] tracking-[0.1px]',
+          'text-[var(--color-text-primary)]',
           '[text-shadow:0_1px_2px_rgba(0,0,0,0.55),0_0_1px_rgba(0,0,0,0.7)]',
-          'min-[380px]:text-[13px]',
+          'min-[380px]:text-[length:var(--font-size-13)]',
           // Short blocks: single line ellipsis
           isShort && 'line-clamp-1 whitespace-nowrap text-ellipsis',
         )}
@@ -145,7 +145,7 @@ function TimelineGridCell({
 
       {/* Time label */}
       {!isShort && (
-        <div className="text-[11px] opacity-65 mt-px tabular-nums">
+        <div className="text-[length:var(--font-size-11)] opacity-65 mt-px tabular-nums">
           {formatTime(set.startTime!)} - {formatTime(set.endTime!)}
         </div>
       )}
@@ -163,7 +163,7 @@ function TimelineGridCell({
                   'bg-[var(--color-overlay-2)] border border-[var(--color-border)]',
                   'rounded-xs',
                   'text-[var(--color-text-secondary)] cursor-pointer',
-                  'text-[11px] px-1.5 py-[3px] leading-none',
+                  'text-[length:var(--font-size-11)] px-1.5 py-[3px] leading-none',
                   'transition-all duration-[250ms] ease-[var(--ease-standard)]',
                   'hover:text-[var(--color-text-primary)] hover:border-[var(--color-accent-aqua)] hover:bg-[rgba(255,255,255,0.07)]',
                   'focus-visible:outline-2 focus-visible:outline-[var(--color-accent-aqua)] focus-visible:outline-offset-1',
