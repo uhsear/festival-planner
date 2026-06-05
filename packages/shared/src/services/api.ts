@@ -199,7 +199,7 @@ function markOnlineAndDrain(path: string): void {
     if (/\/festivals(\/|$|\?)/.test(path)) return;
     useUIStore.getState().setOfflineMode(false);
     if (typeof window !== 'undefined' && window.__festieQueue?.processQueue) {
-      void window.__festieQueue.processQueue();
+      void window.__festieQueue.processQueue()?.catch(() => {});
     } else {
       void import('./offlineQueue').then((m) => m.drainQueue()).catch(() => {});
     }

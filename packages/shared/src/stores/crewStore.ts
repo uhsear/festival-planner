@@ -1098,9 +1098,15 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   // staleness reads honestly until the server confirms. Never implies live.
   updateMyStatus: async (crewId: string, request: UpdateCrewMemberStatusRequest, myUserId: string) => {
     set({ error: null });
+    // Snapshot before the optimistic upsert so an online server rejection can
+    // restore the pre-update list (the offline path returns successfully below
+    // and never reaches the catch, so this only ever rolls back a real reject).
+    // Captured inside the updater since this store creator only exposes `set`.
+    let prevStatuses: CrewMemberStatus[] = [];
     // Optimistically upsert my own row up front (covers both online + offline).
     const nowIso = new Date().toISOString();
     set((state) => {
+      prevStatuses = state.crewStatuses;
       const mine = state.crewStatuses.find((s) => s.user_id === myUserId);
       const merged: CrewMemberStatus = {
         crew_id: crewId,
@@ -1144,7 +1150,10 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       }
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to update status');
-      set({ error: message });
+      // Roll back the optimistic upsert so the user never keeps seeing a status
+      // the server rejected. Only reached on an ONLINE reject (the offline path
+      // returns above without throwing).
+      set({ crewStatuses: prevStatuses, error: message });
       throw err;
     }
   },

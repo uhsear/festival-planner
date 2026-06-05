@@ -302,15 +302,18 @@ export default function createNotificationRoutes(deps: any) {
         const profile = await stores.profiles.readByUserAndFestival?.(req.user.userId, festivalId);
         if (!profile) return sendError(res, 403, 'Not a member of this festival', ErrorCodes.FORBIDDEN);
         const body = req.validatedBody;
-        const updated: any = {};
-        for (const [topic, subscribed] of Object.entries(body)) {
-          if (!ALLOWED_TOPICS.has(topic)) continue;
-          await stores.topicSubscriptions?.setSubscription(req.user.userId, festivalId, topic, subscribed);
-          updated[topic] = subscribed;
-        }
-        if (Object.keys(updated).length === 0) {
+        const changes = Object.entries(body).filter(([topic]) => ALLOWED_TOPICS.has(topic));
+        if (changes.length === 0) {
           return sendError(res, 400, 'No valid topics provided', ErrorCodes.INVALID_INPUT);
         }
+        // Write the per-topic rows concurrently rather than serially awaiting
+        // each (N is tiny — at most the ALLOWED_TOPICS set).
+        await Promise.all(
+          changes.map(([topic, subscribed]) =>
+            stores.topicSubscriptions?.setSubscription(req.user.userId, festivalId, topic, subscribed),
+          ),
+        );
+        const updated: any = Object.fromEntries(changes);
         log.info('topic subscriptions updated', { userId: req.user.userId, festivalId, changes: Object.keys(updated) });
         return sendSuccess(res, updated);
       } catch (error: any) {

@@ -91,18 +91,22 @@ export function usePicks(): UsePicksReturn {
     [currentProfile],
   );
 
+  // Depend on the id only (not the whole currentProfile object): toggling your
+  // own pick flips the object identity but not your id, so this memo stays
+  // stable across self-edits and only recomputes when the roster changes.
+  const currentProfileId = currentProfile?.id;
   const getOtherPicks = useCallback(
     (setId: string): Array<{ profileId: string; priority: Priority; name?: string }> => {
-      if (!currentProfile) return [];
+      if (!currentProfileId) return [];
       return allProfiles
-        .filter((p) => p.id !== currentProfile.id && (p.picks || {})[setId])
+        .filter((p) => p.id !== currentProfileId && (p.picks || {})[setId])
         .map((p) => ({
           profileId: p.id,
           priority: (p.picks || {})[setId] as Priority,
           name: p.name,
         }));
     },
-    [currentProfile, allProfiles],
+    [currentProfileId, allProfiles],
   );
 
   return {
