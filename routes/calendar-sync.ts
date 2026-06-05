@@ -12,7 +12,7 @@ export default function createCalendarSyncRoutes(deps: any) {
   const router = Router();
   const { stores, userAuth, sendSuccess, sendError, ErrorCodes, log, sanitizeIdentifier, config, rateLimit } = deps;
   const noopLimit = (_req: any, _res: any, next: any) => next();
-  const writeLimit = (typeof rateLimit === 'function') ? rateLimit(10, 'calendar-sync') : noopLimit;
+  const writeLimit = typeof rateLimit === 'function' ? rateLimit(10, 'calendar-sync') : noopLimit;
 
   // Generate or retrieve calendar sync token
   router.post('/calendar-sync/:festivalId', userAuth, writeLimit, async (req: any, res: any) => {
@@ -50,23 +50,31 @@ export function createCalendarFeedRoute(deps: any) {
   const { stores, log, config, rateLimit } = deps;
   const feedRouter = Router();
   const noopLimit = (_req: any, _res: any, next: any) => next();
-  const feedLimit = (typeof rateLimit === 'function') ? rateLimit(30, 'calendar-feed') : noopLimit;
+  const feedLimit = typeof rateLimit === 'function' ? rateLimit(30, 'calendar-feed') : noopLimit;
 
+  // NOTE: This feed route intentionally does NOT use the sendError/sendSuccess
+  // JSON-envelope helpers that the /api/v1 POST route above uses. It serves a
+  // public ICS (text/calendar) feed consumed by calendar clients — Google
+  // Calendar, Apple Calendar, etc. — not a JSON API. Both the success body and
+  // the error bodies are therefore plain text: a JSON error envelope would only
+  // confuse a subscribing client and break graceful failure. Error paths are
+  // kept as short plain-text messages with an explicit text/plain content type
+  // so the response shape is consistent and unambiguous across this route.
   feedRouter.get('/cal/:token.ics', feedLimit, async (req: any, res: any) => {
     try {
       const tokenId = req.params.token;
       if (!tokenId || tokenId.length > 50 || !/^[a-zA-Z0-9_-]+$/.test(tokenId)) {
-        return res.status(400).send('Invalid token');
+        return res.status(400).type('text/plain').send('Invalid token');
       }
 
       const token = await stores.calendarTokens.getByToken(tokenId);
-      if (!token) return res.status(404).send('Calendar not found');
+      if (!token) return res.status(404).type('text/plain').send('Calendar not found');
 
       const festival = await stores.festivals.getById(token.festival_id);
-      if (!festival) return res.status(404).send('Festival not found');
+      if (!festival) return res.status(404).type('text/plain').send('Festival not found');
 
       const profile = await stores.profiles.getById(token.profile_id);
-      if (!profile) return res.status(404).send('Profile not found');
+      if (!profile) return res.status(404).type('text/plain').send('Profile not found');
 
       const origin = (config.PUBLIC_ORIGIN || 'localhost').replace(/^https?:\/\//, '');
 
@@ -93,7 +101,7 @@ export function createCalendarFeedRoute(deps: any) {
       return res.send(ics);
     } catch (err: any) {
       log.error('calendar feed failed', { error: err.message });
-      return res.status(500).send('Calendar error');
+      return res.status(500).type('text/plain').send('Calendar error');
     }
   });
 

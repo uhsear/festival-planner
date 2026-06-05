@@ -250,7 +250,7 @@ export default function createUsersStore(pool: Pool, utils: any) {
 
     async count() {
       const { rows } = await pool.query('SELECT COUNT(*) AS count FROM users WHERE deleted_at IS NULL');
-      return parseInt(rows[0].count, 10);
+      return parseInt(rows[0]?.count ?? 0, 10);
     },
 
     countActive: (...args: any[]) => users.count(...args),

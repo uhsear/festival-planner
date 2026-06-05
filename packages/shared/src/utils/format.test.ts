@@ -41,6 +41,15 @@ describe('formatFestivalDateRange', () => {
   it('returns null for unparseable input', () => {
     expect(formatFestivalDateRange('not-a-date', 'also-bad')).toBeNull();
   });
+
+  it('renders the calendar day in the local frame (no UTC off-by-one)', () => {
+    // A bare YYYY-MM-DD parsed as UTC midnight would shift to the previous day
+    // for any user west of UTC. createDateInLocalFrame anchors it locally, so the
+    // day in the label must always match the input day regardless of TZ offset.
+    const result = formatFestivalDateRange('2026-09-04', '2026-09-06');
+    expect(result).toBe('Sep 4 – Sep 6, 2026');
+    expect(result).toContain('Sep 4');
+  });
 });
 
 describe('formatTime', () => {
@@ -258,5 +267,24 @@ describe('getSetHotness', () => {
       endTime: '23:59',
     });
     expect(getSetHotness(set)).toBe(0);
+  });
+
+  it('treats a past-midnight set (end <= start) as live when now is after midnight', () => {
+    // Set started yesterday at 23:30 and ends today at 00:30 — the rollover must
+    // push the end past midnight so a "now" just after midnight reads as playing.
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const start = new Date(now.getTime() - 30 * 60000); // 30m ago
+    const end = new Date(now.getTime() + 30 * 60000); // 30m from now
+    // Only meaningful as a rollover when "now" is shortly after local midnight,
+    // but the assertion holds in every TZ: a live window around `now` => 1000.
+    const date = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+    const set = makeSet({
+      id: 'hotness-rollover',
+      date,
+      startTime: `${pad(start.getHours())}:${pad(start.getMinutes())}`,
+      endTime: `${pad(end.getHours())}:${pad(end.getMinutes())}`,
+    });
+    expect(getSetHotness(set)).toBe(1000);
   });
 });

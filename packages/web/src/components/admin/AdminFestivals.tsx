@@ -12,10 +12,10 @@ interface Festival {
   id: string;
   name: string;
   location: string;
-  stageCount?: number;  // from list endpoint
-  dayCount?: number;    // from list endpoint
-  stages?: Array<{ id: string; name: string; color: string }>;  // from detail endpoint
-  days?: Array<{ id: string; label: string; date: string; sets: SetRow[] }>;  // from detail
+  stageCount?: number; // from list endpoint
+  dayCount?: number; // from list endpoint
+  stages?: Array<{ id: string; name: string; color: string }>; // from detail endpoint
+  days?: Array<{ id: string; label: string; date: string; sets: SetRow[] }>; // from detail
 }
 
 type Tab = 'list' | 'create' | 'import';
@@ -125,9 +125,10 @@ export default function AdminFestivals() {
     setInitialExpandedDays(new Set());
   };
 
-  const filteredFestivals = festivals.filter((f) =>
-    f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    f.location.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredFestivals = festivals.filter(
+    (f) =>
+      f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      f.location.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   if (loading && tab === 'list') {
@@ -167,6 +168,7 @@ export default function AdminFestivals() {
           <div className="mb-4 flex gap-2">
             <input
               type="text"
+              aria-label="Search festivals by name or location"
               placeholder="Search festivals..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -201,7 +203,8 @@ export default function AdminFestivals() {
                   <div className="flex-1">
                     <h2 className="text-base font-semibold text-text-primary">{festival.name}</h2>
                     <p className="text-sm text-text-muted">
-                      {festival.location} · {festival.stageCount ?? festival.stages?.length ?? 0} stages · {festival.dayCount ?? festival.days?.length ?? 0} days
+                      {festival.location} · {festival.stageCount ?? festival.stages?.length ?? 0} stages ·{' '}
+                      {festival.dayCount ?? festival.days?.length ?? 0} days
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -248,9 +251,7 @@ export default function AdminFestivals() {
         />
       )}
       {tab === 'import' && !editingId && (
-        <p className="text-center text-[var(--color-text-muted)] py-8">
-          Select a festival to import a lineup.
-        </p>
+        <p className="text-center text-[var(--color-text-muted)] py-8">Select a festival to import a lineup.</p>
       )}
     </div>
   );

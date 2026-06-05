@@ -1,11 +1,6 @@
 import { useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { duration, easing } from '@festie/shared/tokens';
 import { makeStyles, typeStyle } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -36,12 +31,7 @@ interface SegmentProps<T extends string> {
  * animation. When reduce-motion is on we never touch the shared value, so the
  * segment stays at scale 1 with no motion.
  */
-function Segment<T extends string>({
-  option,
-  active,
-  reduceMotion,
-  onPress,
-}: SegmentProps<T>) {
+function Segment<T extends string>({ option, active, reduceMotion, onPress }: SegmentProps<T>) {
   const s = useStyles();
   const pressed = useSharedValue(0);
 
@@ -67,6 +57,7 @@ function Segment<T extends string>({
 
   return (
     <AnimatedPressable
+      testID={`segment-${option.value}`}
       style={[s.segment, active && s.segmentActive, animatedStyle]}
       onPress={() => onPress(option.value)}
       onPressIn={handlePressIn}
@@ -93,11 +84,7 @@ export default function SegmentedControl<T extends string>({
   const s = useStyles();
   const reduceMotion = useReduceMotion();
   return (
-    <View
-      style={s.track}
-      accessibilityRole="tablist"
-      accessibilityLabel={accessibilityLabel}
-    >
+    <View style={s.track} accessibilityRole="tablist" accessibilityLabel={accessibilityLabel}>
       {options.map((opt) => (
         <Segment
           key={opt.value}

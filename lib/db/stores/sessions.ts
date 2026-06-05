@@ -5,12 +5,15 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
   const sessions: any = {
     async createUserSession({ token, userId, username, createdAt, lastAccess, maxPerUser }: any) {
       return withTransaction(pool, async (client) => {
-        await client.query(`
+        await client.query(
+          `
           INSERT INTO
             user_sessions (token, user_id, username, created_at, last_access)
           VALUES
             ($1, $2, $3, $4, $5)
-        `, [token, userId, username, createdAt, lastAccess]);
+        `,
+          [token, userId, username, createdAt, lastAccess],
+        );
 
         // FOR UPDATE locks rows to prevent concurrent session creation from racing on eviction count
         const sessionsResult = await client.query(
@@ -31,7 +34,8 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
     },
 
     async validateUserSession(token: string, sessionTtlMs: number) {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT
           token,
           user_id AS "userId",
@@ -42,7 +46,9 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
           user_sessions
         WHERE
           token = $1
-      `, [token]);
+      `,
+        [token],
+      );
 
       const session = result.rows[0];
       if (!session) return null;
@@ -65,7 +71,8 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
     },
 
     async listUserSessions(userId: string) {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT
           token,
           user_id AS "userId",
@@ -79,7 +86,9 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
         ORDER BY
           last_access ASC,
           token ASC
-      `, [userId]);
+      `,
+        [userId],
+      );
       return result.rows;
     },
 
@@ -112,21 +121,14 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
 
     async deleteExpiredUserSessions(sessionTtlMs: number) {
       const threshold = new Date(Date.now() - sessionTtlMs);
-      const result = await pool.query(
-        'DELETE FROM user_sessions WHERE created_at <= $1 RETURNING token',
-        [threshold],
-      );
+      const result = await pool.query('DELETE FROM user_sessions WHERE created_at <= $1 RETURNING token', [threshold]);
       return result.rows.map((row: any) => row.token);
     },
-
-
-
-
 
     async counts() {
       const userResult = await pool.query('SELECT COUNT(*) AS count FROM user_sessions');
       return {
-        userSessions: parseInt(userResult.rows[0].count, 10),
+        userSessions: parseInt(userResult.rows[0]?.count ?? 0, 10),
       };
     },
   };
@@ -157,7 +159,10 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
         const old = await client.query('SELECT user_id FROM refresh_tokens WHERE token = $1', [oldToken]);
         if (!old.rows[0]) throw new Error('Old refresh token not found');
         const userId = old.rows[0].user_id;
-        await client.query('UPDATE refresh_tokens SET revoked = TRUE, rotated_at = $1 WHERE token = $2', [new Date(), oldToken]);
+        await client.query('UPDATE refresh_tokens SET revoked = TRUE, rotated_at = $1 WHERE token = $2', [
+          new Date(),
+          oldToken,
+        ]);
         await client.query(
           'INSERT INTO refresh_tokens (token, user_id, session_token, expires_at) VALUES ($1, $2, $3, $4)',
           [newToken, userId, newSessionToken, expiresAt],
@@ -175,13 +180,16 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
   // ── Login Failure Tracking ───────────────────────────────────────
   const loginFailures = {
     async record(userId: string) {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO login_failures (user_id, consecutive_failures, last_failure_at)
         VALUES ($1, 1, $2)
         ON CONFLICT (user_id) DO UPDATE SET
           consecutive_failures = login_failures.consecutive_failures + 1,
           last_failure_at = $2
-      `, [userId, new Date()]);
+      `,
+        [userId, new Date()],
+      );
     },
     async reset(userId: string) {
       await pool.query('DELETE FROM login_failures WHERE user_id = $1', [userId]);
@@ -201,7 +209,8 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
   // ── Metrics Rollups ──────────────────────────────────────────────
   const metricsRollups = {
     async insert(rollup: any) {
-      await pool.query(`
+      await pool.query(
+        `
         INSERT INTO
           metrics_rollups (
             bucket_start,
@@ -217,7 +226,20 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
           )
         VALUES
           ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      `, [rollup.bucketStart, rollup.bucketEnd, rollup.totalRequests, rollup.totalErrors, rollup.avgDurationMs, rollup.status2xx, rollup.status4xx, rollup.status5xx, rollup.peakConnections, rollup.activeUsers]);
+      `,
+        [
+          rollup.bucketStart,
+          rollup.bucketEnd,
+          rollup.totalRequests,
+          rollup.totalErrors,
+          rollup.avgDurationMs,
+          rollup.status2xx,
+          rollup.status4xx,
+          rollup.status5xx,
+          rollup.peakConnections,
+          rollup.activeUsers,
+        ],
+      );
     },
     async query(since: any, until: any, limit: number = 168) {
       const result = await pool.query(

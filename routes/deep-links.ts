@@ -11,7 +11,7 @@
 import { Router } from 'express';
 
 export default function createDeepLinkRoutes(deps: any) {
-  const { config } = deps;
+  const { config, sendError, ErrorCodes } = deps;
   const router = Router();
 
   // Apple App Site Association for universal links (iOS deep linking)
@@ -24,8 +24,9 @@ export default function createDeepLinkRoutes(deps: any) {
   router.get('/apple-app-site-association', (req: any, res: any) => {
     // SECURITY: Validate that APPLE_TEAM_ID is configured (not placeholder/default)
     if (!config.APPLE_TEAM_ID || config.APPLE_TEAM_ID === 'TEAMID' || config.APPLE_TEAM_ID.trim() === '') {
-      res.status(503);
-      return res.json({ error: 'Apple Team ID not configured' });
+      // Use the shared error envelope so the code is machine-readable and
+      // retryable-classified, matching every other route (see lib/response.ts).
+      return sendError(res, 503, 'Apple Team ID not configured', ErrorCodes.SERVICE_UNAVAILABLE);
     }
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -53,8 +54,7 @@ export default function createDeepLinkRoutes(deps: any) {
   // the Play Store. 503 when unconfigured so we never serve an empty allowlist.
   router.get('/assetlinks.json', (req: any, res: any) => {
     if (!config.ANDROID_CERT_FINGERPRINTS || config.ANDROID_CERT_FINGERPRINTS.trim() === '') {
-      res.status(503);
-      return res.json({ error: 'Android certificate fingerprints not configured' });
+      return sendError(res, 503, 'Android certificate fingerprints not configured', ErrorCodes.SERVICE_UNAVAILABLE);
     }
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'public, max-age=86400');

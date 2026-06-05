@@ -1,19 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  TouchableOpacity,
-  useWindowDimensions,
-} from 'react-native';
+import { View, Text, Pressable, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type {
-  FestivalSet,
-  Priority,
-  Stage,
-  Festival,
-  Profile,
-} from '@festie/shared/types';
+import type { FestivalSet, Priority, Stage, Festival, Profile } from '@festie/shared/types';
 import { artistDisplayName } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import Avatar from './Avatar';
@@ -44,10 +32,7 @@ export interface TBASectionProps {
   defaultExpanded?: boolean;
 }
 
-function priorityColor(
-  t: ReturnType<typeof useTokens>,
-  p: Priority,
-): string {
+function priorityColor(t: ReturnType<typeof useTokens>, p: Priority): string {
   if (p === 'must') return t.colors.priority.must;
   if (p === 'want-to-see') return t.colors.priority.want;
   return t.colors.priority.maybe;
@@ -81,9 +66,7 @@ function TBACard({
   const t = useTokens();
   const styles = useStyles();
   const name = artistDisplayName(set, b2bSeparator);
-  const borderLeftColor = myPick
-    ? priorityColor(t, myPick)
-    : (stageColor ?? t.colors.border.default);
+  const borderLeftColor = myPick ? priorityColor(t, myPick) : (stageColor ?? t.colors.border.default);
 
   return (
     <View
@@ -123,19 +106,12 @@ function TBACard({
             return (
               <TouchableOpacity
                 key={option.value}
-                style={[
-                  styles.pickButton,
-                  active && { backgroundColor: accent, borderColor: accent },
-                ]}
-                onPress={() =>
-                  onSavePick(set.id, active ? null : option.value)
-                }
+                style={[styles.pickButton, active && { backgroundColor: accent, borderColor: accent }]}
+                onPress={() => onSavePick(set.id, active ? null : option.value)}
                 activeOpacity={0.7}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={
-                  active ? `${option.label} (selected)` : option.label
-                }
+                accessibilityLabel={active ? `${option.label} (selected)` : option.label}
               >
                 <Ionicons
                   name={option.icon}
@@ -151,16 +127,9 @@ function TBACard({
       {others.length > 0 ? (
         <View style={styles.crewRow}>
           {others.slice(0, 3).map((o) => (
-            <Avatar
-              key={o.profileId}
-              name={o.name}
-              size="xs"
-              borderColor={t.colors.bg.secondary}
-            />
+            <Avatar key={o.profileId} name={o.name} size="xs" borderColor={t.colors.bg.secondary} />
           ))}
-          {others.length > 3 ? (
-            <Text style={styles.crewMore}>+{others.length - 3}</Text>
-          ) : null}
+          {others.length > 3 ? <Text style={styles.crewMore}>+{others.length - 3}</Text> : null}
         </View>
       ) : null}
     </View>
@@ -198,13 +167,13 @@ export default function TBASection({
 
   // 3 columns on wider phones/tablets, 2 otherwise. Account for the section
   // padding (space[4] each side) and inter-card gap (space[2]).
-  const { cols, cardWidth } = useMemo(() => {
+  const { cardWidth } = useMemo(() => {
     const sectionPad = t.spacing[4] * 2;
     const gap = t.spacing[2];
     const n = width >= 500 ? 3 : 2;
     const inner = width - sectionPad;
     const w = Math.floor((inner - gap * (n - 1)) / n);
-    return { cols: n, cardWidth: w };
+    return { cardWidth: w };
   }, [width, t.spacing]);
 
   const toggle = useCallback(() => setExpanded((v) => !v), []);
@@ -221,14 +190,9 @@ export default function TBASection({
         accessibilityLabel={`TBA — Times Not Yet Announced, ${sets.length} sets`}
       >
         <Text style={styles.headerText} numberOfLines={2}>
-          TBA — Times Not Yet Announced ({sets.length}{' '}
-          {sets.length === 1 ? 'set' : 'sets'})
+          TBA — Times Not Yet Announced ({sets.length} {sets.length === 1 ? 'set' : 'sets'})
         </Text>
-        <Ionicons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={t.colors.text.muted}
-        />
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={t.colors.text.muted} />
       </Pressable>
 
       {expanded ? (
