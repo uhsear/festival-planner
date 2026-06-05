@@ -41,6 +41,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
       - uses: pnpm/action-setup@v4
         with:
@@ -63,9 +64,13 @@ jobs:
       # blank screen. The release variant embeds the Hermes bundle so it's fully
       # self-contained, and Expo's prebuild template signs release with the debug
       # keystore by default, so no signing secret is needed (emulator-installable).
-      - name: Build self-contained APK
+      # Limit native compilation to the emulator's ABI (x86_64). Release mode
+      # compiles native C++ (reanimated/worklets/svg/...) with optimizations, and
+      # doing it for all four ABIs (arm + x86) blew the job timeout — one ABI is
+      # ~4x faster and the emulator is x86_64.
+      - name: Build self-contained APK (x86_64)
         working-directory: packages/mobile/android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=x86_64
 
       - name: Install Maestro
         run: |
