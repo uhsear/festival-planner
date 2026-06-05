@@ -5,6 +5,7 @@ import { useCrewStore } from '@festie/shared/stores';
 import type { CrewExpense, CrewMember, CrewSettlement } from '@festie/shared/types';
 import { venmoLink, cashAppLink, payPalLink } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
 
 interface CrewExpensesProps {
   crewId: string;
@@ -41,6 +42,7 @@ function categoryFor(key: string): (typeof CATEGORIES)[number] {
 export default function CrewExpenses({ crewId, members, currentUserId }: CrewExpensesProps) {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
 
   const expenses = useCrewStore((s) => s.expenses);
   const balances = useCrewStore((s) => s.expenseBalances);
@@ -112,6 +114,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
         category,
         planned,
       });
+      haptics.success();
       reset();
     } catch {
       // Error surfaced via the crew store.
@@ -141,7 +144,9 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
       {
         text: 'Settle',
         onPress: () => {
-          settleExpense(crewId, { toUserId: s.toUserId, amount: s.amount }).catch(() => {});
+          settleExpense(crewId, { toUserId: s.toUserId, amount: s.amount })
+            .then(() => haptics.success())
+            .catch(() => {});
         },
       },
     ]);

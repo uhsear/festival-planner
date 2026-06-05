@@ -424,8 +424,10 @@ const useStyles = makeStyles((t) => ({
     overflow: 'hidden',
   },
   priorityButton: {
-    width: 40,
-    height: 40,
+    // WCAG 2.5.5 / 2.5.8 minimum 44x44px touch target — three adjacent,
+    // frequently-tapped controls; matches the dayChip/filterChip 44pt floor.
+    width: 44,
+    height: 44,
     borderRadius: t.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',

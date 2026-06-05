@@ -5,6 +5,7 @@ import { useCrewStore, useFestivalStore, useFestivalDataStore } from '@festie/sh
 import type { CrewPoll, FestivalSet, PollSetRef } from '@festie/shared/types';
 import { artistDisplayName, formatTime, getSetTimeBounds } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
 
 // Lead time (minutes) for the reminder seeded when a schedule poll closes.
 const SCHEDULE_POLL_REMINDER_LEAD = 15;
@@ -45,6 +46,7 @@ function tally(poll: CrewPoll, userId: string) {
 export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsProps) {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
 
   const polls = useCrewStore((s) => s.polls);
   const createPoll = useCrewStore((s) => s.createPoll);
@@ -172,6 +174,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
 
   const handleVote = async (pollId: string, optionIndex: number) => {
     if (voteBusy) return;
+    haptics.select();
     setVoteBusy(true);
     try {
       await votePoll(crewId, pollId, optionIndex);

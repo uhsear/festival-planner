@@ -1,12 +1,5 @@
-import { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@festie/shared/hooks';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
@@ -30,6 +23,10 @@ export default function AccountPasswordSection() {
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Refs to chain the three secure fields: current → new → confirm → submit.
+  const nextRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
 
   const reset = () => {
     setCurrent('');
@@ -90,11 +87,7 @@ export default function AccountPasswordSection() {
           <Text style={styles.rowTitle}>Change Password</Text>
           <Text style={styles.rowHint}>At least 8 characters</Text>
         </View>
-        <Ionicons
-          name={open ? 'chevron-up' : 'chevron-forward'}
-          size={18}
-          color={t.colors.text.placeholder}
-        />
+        <Ionicons name={open ? 'chevron-up' : 'chevron-forward'} size={18} color={t.colors.text.placeholder} />
       </TouchableOpacity>
 
       {open ? (
@@ -111,8 +104,12 @@ export default function AccountPasswordSection() {
             textContentType="password"
             editable={!submitting}
             accessibilityLabel="Current password"
+            returnKeyType="next"
+            onSubmitEditing={() => nextRef.current?.focus()}
+            blurOnSubmit={false}
           />
           <TextInput
+            ref={nextRef}
             style={styles.input}
             value={next}
             onChangeText={setNext}
@@ -124,8 +121,12 @@ export default function AccountPasswordSection() {
             textContentType="newPassword"
             editable={!submitting}
             accessibilityLabel="New password"
+            returnKeyType="next"
+            onSubmitEditing={() => confirmRef.current?.focus()}
+            blurOnSubmit={false}
           />
           <TextInput
+            ref={confirmRef}
             style={styles.input}
             value={confirm}
             onChangeText={setConfirm}
@@ -137,6 +138,8 @@ export default function AccountPasswordSection() {
             textContentType="newPassword"
             editable={!submitting}
             accessibilityLabel="Confirm new password"
+            returnKeyType="go"
+            onSubmitEditing={() => void submit()}
           />
 
           {error ? (
