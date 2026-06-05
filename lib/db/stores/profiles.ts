@@ -384,7 +384,7 @@ export default function createProfilesStore(pool: Pool, utils: any) {
         'SELECT COUNT(*) AS count FROM festival_profiles WHERE festival_id = $1 AND deleted_at IS NULL',
         [festivalId],
       );
-      return parseInt(rows[0].count, 10);
+      return parseInt(rows[0]?.count ?? 0, 10);
     },
 
     async claimOrphanProfiles(userId: string, name: string) {

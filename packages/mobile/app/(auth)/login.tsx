@@ -55,6 +55,7 @@ export default function LoginScreen() {
         ) : null}
 
         <TextInput
+          testID="login-username-input"
           style={[styles.input, focusedField === 'username' && styles.inputFocused]}
           placeholder="Username"
           placeholderTextColor={colors.text.placeholder}
@@ -72,6 +73,7 @@ export default function LoginScreen() {
 
         <View style={[styles.passwordRow, focusedField === 'password' && styles.inputFocused]}>
           <TextInput
+            testID="login-password-input"
             ref={passwordRef}
             style={styles.passwordInput}
             placeholder="Password"
@@ -87,6 +89,7 @@ export default function LoginScreen() {
             onSubmitEditing={handleLogin}
           />
           <TouchableOpacity
+            testID="login-toggle-password"
             onPress={() => setShowPw((v) => !v)}
             style={styles.eyeButton}
             accessibilityRole="button"

@@ -388,7 +388,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
 
     async getMemberCount(crewId: string) {
       const result = await pool.query('SELECT COUNT(*) AS count FROM crew_members WHERE crew_id = $1', [crewId]);
-      return result.rows[0].count;
+      return result.rows[0]?.count ?? 0;
     },
 
     async updateMemberRole(crewId: string, userId: string, role: string) {

@@ -1,4 +1,5 @@
 import { FestivalSet } from '../types/domain';
+import { createDateInLocalFrame, getSetTimeBounds } from './setStatus';
 
 /**
  * Format a festival date range for display, e.g. "Sep 4 – Sep 6, 2026".
@@ -8,8 +9,10 @@ import { FestivalSet } from '../types/domain';
  */
 export function formatFestivalDateRange(startDate?: string | null, endDate?: string | null): string | null {
   if (!startDate || !endDate) return null;
-  const start = new Date(startDate.slice(0, 10) + 'T00:00:00');
-  const end = new Date(endDate.slice(0, 10) + 'T00:00:00');
+  // Build both endpoints in a single consistent local frame (no JS string-parser
+  // UTC/local ambiguity) — same TZ-safe pattern as setStatus.createDateInLocalFrame.
+  const start = createDateInLocalFrame(startDate, 0, 0);
+  const end = createDateInLocalFrame(endDate, 0, 0);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
   const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
   const startStr = start.toLocaleDateString('en-US', opts);
@@ -81,19 +84,22 @@ export function getSetHotness(set: FestivalSet): number {
   if (_hotnessCache.has(cacheKey)) return _hotnessCache.get(cacheKey) || 0;
 
   const now = nowSec * 1000;
-  const [yr = 0, mo = 1, dy = 1] = set.date.split('-').map((x) => parseInt(x, 10));
-  const dayDate = new Date(yr, mo - 1, dy);
-  if (isNaN(dayDate.getTime())) return 0;
 
-  const [hh = 0, mm = 0] = (set.startTime || '00:00').split(':').map((x) => parseInt(x, 10));
-  dayDate.setHours(hh, mm, 0, 0);
-  const setStart = dayDate.getTime();
-
-  const [eh = 0, em = 0] = (set.endTime || set.startTime).split(':').map((x) => parseInt(x, 10));
-  const endDate = new Date(yr, mo - 1, dy);
-  endDate.setHours(eh, em, 0, 0);
-  if (endDate <= dayDate) endDate.setDate(endDate.getDate() + 1);
-  const setEnd = endDate.getTime();
+  // Delegate start/end instant math (incl. post-midnight rollover) to the shared,
+  // idempotent getSetTimeBounds so hotness and getSetStatus agree on the exact
+  // boundaries and the rollover is never double-applied. Returns null for TBA.
+  //
+  // CRITICAL (TZ parity): getSetTimeBounds builds every Date via
+  // createDateInLocalFrame, which seeds calendar fields explicitly so the result
+  // is ALWAYS in the device's local frame (never the JS UTC string-parser). Do not
+  // reintroduce inline `new Date(set.date)` math here — it would parse YYYY-MM-DD as
+  // UTC midnight and skew hotness for non-UTC users while CI (UTC) stays green.
+  const bounds = getSetTimeBounds(set);
+  if (!bounds) {
+    _hotnessCache.set(cacheKey, 0);
+    return 0;
+  }
+  const { startMs: setStart, endMs: setEnd } = bounds;
 
   if (now >= setStart && now < setEnd) {
     _hotnessCache.set(cacheKey, 1000);

@@ -1,4 +1,5 @@
 import type { Festival } from '../types';
+import { createDateInLocalFrame } from './setStatus';
 
 interface DayLike {
   date?: string | null;
@@ -23,7 +24,9 @@ export function isFestivalOver(festival: Festival | null | undefined, days?: Rea
   if (!daysArr.length) return false;
   const last = daysArr[daysArr.length - 1];
   if (!last?.date) return false;
-  const endDt = new Date(last.date + 'T23:59:59');
+  // Anchor 23:59 in the device's local frame (no JS string-parser TZ skew).
+  const endDt = createDateInLocalFrame(last.date, 23, 59);
+  if (Number.isNaN(endDt.getTime())) return false;
   return endDt < new Date();
 }
 
@@ -59,8 +62,9 @@ export function festivalStatus(
   }
   if (!first || !last) return null;
 
-  const startDt = new Date(first.slice(0, 10) + 'T00:00:00');
-  const endDt = new Date(last.slice(0, 10) + 'T23:59:59');
+  // Both bounds anchored in one consistent local frame (no string-parser skew).
+  const startDt = createDateInLocalFrame(first, 0, 0);
+  const endDt = createDateInLocalFrame(last, 23, 59);
   if (Number.isNaN(startDt.getTime()) || Number.isNaN(endDt.getTime())) return null;
 
   if (now > endDt) return 'past';
@@ -84,6 +88,9 @@ export function hasSetStarted(
   if (!set.startTime || set.dayIndex == null) return isFestivalOver(festival, daysArr);
   const day = daysArr[set.dayIndex];
   if (!day?.date) return isFestivalOver(festival, daysArr);
-  const startDt = new Date(day.date + 'T' + set.startTime + ':00');
+  // Anchor the set's start in the device's local frame (no string-parser skew).
+  const [hh = 0, mm = 0] = set.startTime.split(':').map((x) => parseInt(x, 10));
+  const startDt = createDateInLocalFrame(day.date, hh, mm);
+  if (Number.isNaN(startDt.getTime())) return isFestivalOver(festival, daysArr);
   return startDt <= new Date();
 }

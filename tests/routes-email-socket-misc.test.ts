@@ -65,6 +65,7 @@ function baseDeps(overrides: any = {}) {
       RATE_LIMITED: 'RATE_LIMITED',
       VALIDATION_ERROR: 'VALIDATION_ERROR',
       CONFLICT: 'CONFLICT',
+      SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
     },
     userAuth: (req: any, _res: any, next: any) => {
       req.user = { userId: 'user-1' };
@@ -310,6 +311,54 @@ describe('routes/email-auth', () => {
 
     assert.match(res.text, /verified/i);
     assert.ok(deps.invalidateUserCache.mock.calls.length >= 1);
+  });
+
+  test('GET /verify-email — returns JSON for application/json clients', async () => {
+    const deps = buildEmailAuthDeps();
+    deps.stores.emailTokens.findVerificationToken = mock.fn(async () => ({
+      id: 'tok-1',
+      user_id: 'user-1',
+      email: 'verified@test.com',
+    }));
+    createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
+    const router = createEmailAuthRoutes(deps);
+    const app = mountApp(router);
+
+    const validHex = 'b'.repeat(64);
+    const res = await request(app).get(`/verify-email?token=${validHex}`).set('Accept', 'application/json').expect(200);
+
+    assert.ok(res.headers['content-type']?.includes('application/json'));
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.verified, true);
+    assert.equal(res.body.data.email, 'verified@test.com');
+  });
+
+  test('GET /verify-email — returns JSON error for application/json clients with bad token', async () => {
+    const deps = buildEmailAuthDeps();
+    createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
+    const router = createEmailAuthRoutes(deps);
+    const app = mountApp(router);
+
+    const res = await request(app).get('/verify-email?token=short').set('Accept', 'application/json').expect(400);
+
+    assert.ok(res.headers['content-type']?.includes('application/json'));
+    assert.equal(res.body.data, null);
+    assert.match(res.body.error.message, /invalid/i);
+  });
+
+  test('GET /verify-email — serves HTML (with text/html content-type) to browsers', async () => {
+    const deps = buildEmailAuthDeps();
+    createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
+    const router = createEmailAuthRoutes(deps);
+    const app = mountApp(router);
+
+    const res = await request(app)
+      .get('/verify-email?token=short')
+      .set('Accept', 'text/html,application/xhtml+xml')
+      .expect(400);
+
+    assert.ok(res.headers['content-type']?.includes('text/html'));
+    assert.match(res.text, /invalid/i);
   });
 
   test('GET /verify-email — returns 500 on DB error', async () => {
@@ -1739,7 +1788,8 @@ describe('routes/deep-links', () => {
   test('GET /apple-app-site-association — 503 when not configured', async () => {
     const app = await mountDeepLinks({ APPLE_TEAM_ID: '' });
 
-    await request(app).get('/apple-app-site-association').expect(503);
+    const res = await request(app).get('/apple-app-site-association').expect(503);
+    assert.equal(res.body.error.code, 'SERVICE_UNAVAILABLE');
   });
 
   test('GET /apple-app-site-association — 503 for placeholder TEAMID', async () => {
@@ -1759,7 +1809,8 @@ describe('routes/deep-links', () => {
   test('GET /assetlinks.json — 503 when not configured', async () => {
     const app = await mountDeepLinks({ ANDROID_CERT_FINGERPRINTS: '' });
 
-    await request(app).get('/assetlinks.json').expect(503);
+    const res = await request(app).get('/assetlinks.json').expect(503);
+    assert.equal(res.body.error.code, 'SERVICE_UNAVAILABLE');
   });
 });
 

@@ -35,6 +35,7 @@ function FestivalCard({ festival, onPress, isSelecting }: FestivalCardProps) {
   const a11yLabel = [festival.name, badge?.label, dateRange, festival.location].filter(Boolean).join(', ');
   return (
     <TouchableOpacity
+      testID={`festival-card-${festival.id}`}
       style={styles.card}
       onPress={() => onPress(festival.id)}
       activeOpacity={0.7}

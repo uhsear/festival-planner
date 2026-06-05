@@ -29,14 +29,27 @@ import { escapeHtml } from '../lib/helpers/sanitize';
 
 export default function createEmailAuthRoutes(deps: any): Router {
   const {
-    express, config, log,
-    hashPassword, verifyPassword, validatePasswordStrength, checkPasswordPolicy,
-    invalidateUserSessions, disconnectUserSockets,
-    userAuth, getUserById,
-    sendSuccess, sendError, ErrorCodes, rateLimit,
-    schemas, validate,
-    stores, invalidateUserCache,
-    state, createAuditLog, getRequestIp,
+    express,
+    config,
+    log,
+    hashPassword,
+    verifyPassword,
+    checkPasswordPolicy,
+    invalidateUserSessions,
+    disconnectUserSockets,
+    userAuth,
+    getUserById,
+    sendSuccess,
+    sendError,
+    ErrorCodes,
+    rateLimit,
+    schemas,
+    validate,
+    stores,
+    invalidateUserCache,
+    state,
+    createAuditLog,
+    getRequestIp,
     io,
   } = deps;
 
@@ -63,71 +76,99 @@ export default function createEmailAuthRoutes(deps: any): Router {
   const router = express.Router();
 
   // ── POST /forgot-password — request password reset email ─────────────
-  router.post('/forgot-password', rateLimit(3, 'forgot-password'), passwordResetRateLimit, validate(schemas.forgotPassword), async (req: any, res: any) => {
-    try {
-      const { email } = req.validatedBody;
-      const cleanEmail = String(email).trim().toLowerCase();
+  router.post(
+    '/forgot-password',
+    rateLimit(3, 'forgot-password'),
+    passwordResetRateLimit,
+    validate(schemas.forgotPassword),
+    async (req: any, res: any) => {
+      try {
+        const { email } = req.validatedBody;
+        const cleanEmail = String(email).trim().toLowerCase();
 
-      // Always return success to prevent email enumeration
-      const successMsg = 'If an account with that email exists, a reset link has been sent';
+        // Always return success to prevent email enumeration
+        const successMsg = 'If an account with that email exists, a reset link has been sent';
 
-      // Check per-email rate limit (3 requests per 60 seconds)
-      const now = Date.now();
-      const emailKey = cleanEmail.toLowerCase();
-      const entry = _forgotPwLimits.get(emailKey);
-      if (entry && now - entry.resetAt < FORGOT_PW_WINDOW && entry.count >= FORGOT_PW_MAX) {
-        // Still return 200 to not reveal rate limiting
+        // Check per-email rate limit (3 requests per 60 seconds)
+        const now = Date.now();
+        const emailKey = cleanEmail.toLowerCase();
+        const entry = _forgotPwLimits.get(emailKey);
+        if (entry && now - entry.resetAt < FORGOT_PW_WINDOW && entry.count >= FORGOT_PW_MAX) {
+          // Still return 200 to not reveal rate limiting
+          return sendSuccess(res, { message: successMsg });
+        }
+        if (!entry || now - entry.resetAt >= FORGOT_PW_WINDOW) {
+          _forgotPwLimits.set(emailKey, { count: 1, resetAt: now });
+        } else {
+          entry.count += 1;
+        }
+
+        const user = await stores.emailTokens.findUserByEmail(cleanEmail);
+
+        if (!user) {
+          // Timing-safe: add small delay to match the email-send path
+          await new Promise((r) => setTimeout(r, 200 + Math.random() * 300));
+          return sendSuccess(res, { message: successMsg });
+        }
+
+        // Invalidate any existing reset tokens for this user
+        await stores.emailTokens.invalidateResetTokens(user.id);
+
+        // Generate new reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+        await stores.emailTokens.createResetToken(user.id, tokenHash);
+
+        const resetUrl = `${config.PUBLIC_ORIGIN}/reset-password?token=${resetToken}`;
+        const sent = await sendPasswordResetEmail({ to: cleanEmail, username: user.username, resetUrl, config, log });
+        if (!sent) {
+          log.error('forgot-password:email-failed', { userId: user.id });
+        }
+
+        log.info('forgot-password:requested', { userId: user.id, email: cleanEmail });
         return sendSuccess(res, { message: successMsg });
+      } catch (error: any) {
+        log.error('forgot-password failed', { error: error.message });
+        return sendError(res, 500, 'Failed to process request', ErrorCodes.INTERNAL_ERROR);
       }
-      if (!entry || now - entry.resetAt >= FORGOT_PW_WINDOW) {
-        _forgotPwLimits.set(emailKey, { count: 1, resetAt: now });
-      } else {
-        entry.count += 1;
-      }
-
-      const user = await stores.emailTokens.findUserByEmail(cleanEmail);
-
-      if (!user) {
-        // Timing-safe: add small delay to match the email-send path
-        await new Promise((r) => setTimeout(r, 200 + Math.random() * 300));
-        return sendSuccess(res, { message: successMsg });
-      }
-
-      // Invalidate any existing reset tokens for this user
-      await stores.emailTokens.invalidateResetTokens(user.id);
-
-      // Generate new reset token
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-      await stores.emailTokens.createResetToken(user.id, tokenHash);
-
-      const resetUrl = `${config.PUBLIC_ORIGIN}/reset-password?token=${resetToken}`;
-      const sent = await sendPasswordResetEmail({ to: cleanEmail, username: user.username, resetUrl, config, log });
-      if (!sent) {
-        log.error('forgot-password:email-failed', { userId: user.id });
-      }
-
-      log.info('forgot-password:requested', { userId: user.id, email: cleanEmail });
-      return sendSuccess(res, { message: successMsg });
-    } catch (error: any) {
-      log.error('forgot-password failed', { error: error.message });
-      return sendError(res, 500, 'Failed to process request', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   // ── GET /verify-email — verify email address via token link ──────────
+  // This endpoint is dual-purpose: it is the target of the link in a
+  // verification email (clicked from a browser → friendly HTML page) but it
+  // must also honour the JSON `{ data, error }` API contract for clients that
+  // explicitly ask for it. We content-negotiate on the `Accept` header: a
+  // client that prefers `application/json` (and is not asking for HTML) gets
+  // JSON via sendSuccess/sendError; everyone else (browsers, `Accept: */*`)
+  // gets the rendered HTML page. The HTML branch sets an explicit
+  // `Content-Type: text/html; charset=utf-8` so browsers parse it as markup
+  // rather than sniffing/defaulting to plain text.
   router.get('/verify-email', rateLimit(10, 'verify-email'), async (req: any, res: any) => {
+    // True when the caller is an API client that wants JSON, not the HTML page.
+    const accept = String(req.headers?.accept || '');
+    const wantsJson = /application\/json/i.test(accept) && !/text\/html/i.test(accept);
+
+    const sendHtml = (status: number, message: string, success: boolean) => {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(status).send(_verifyEmailPage(message, success));
+    };
+
     try {
       const token = String(req.query.token || '').trim();
       if (!token || !/^[a-f0-9]{64}$/.test(token)) {
-        return res.status(400).send(_verifyEmailPage('Invalid verification link.', false));
+        return wantsJson
+          ? sendError(res, 400, 'Invalid verification link', ErrorCodes.INVALID_INPUT)
+          : sendHtml(400, 'Invalid verification link.', false);
       }
 
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const tokenRow = await stores.emailTokens.findVerificationToken(tokenHash);
 
       if (!tokenRow) {
-        return res.status(400).send(_verifyEmailPage('This verification link has expired or already been used.', false));
+        return wantsJson
+          ? sendError(res, 400, 'This verification link has expired or already been used', ErrorCodes.INVALID_INPUT)
+          : sendHtml(400, 'This verification link has expired or already been used.', false);
       }
 
       const { id: tokenId, user_id: userId, email: verifiedEmail } = tokenRow;
@@ -138,50 +179,65 @@ export default function createEmailAuthRoutes(deps: any): Router {
       invalidateUserCache();
 
       log.info('email:verified', { userId, email: verifiedEmail });
-      return res.send(_verifyEmailPage('Your email has been verified! You can close this page.', true));
+      return wantsJson
+        ? sendSuccess(res, { verified: true, email: verifiedEmail })
+        : sendHtml(200, 'Your email has been verified! You can close this page.', true);
     } catch (error: any) {
       log.error('verify-email failed', { error: error.message });
-      return res.status(500).send(_verifyEmailPage('Something went wrong. Please try again.', false));
+      return wantsJson
+        ? sendError(res, 500, 'Something went wrong', ErrorCodes.INTERNAL_ERROR)
+        : sendHtml(500, 'Something went wrong. Please try again.', false);
     }
   });
 
   // ── POST /update-email — change email address (authenticated) ────────
-  router.post('/update-email', userAuth, rateLimit(3, 'update-email'), validate(schemas.updateEmail), async (req: any, res: any) => {
-    try {
-      const { email, password: confirmPassword } = req.validatedBody;
-      const cleanEmail = String(email).trim().toLowerCase();
+  router.post(
+    '/update-email',
+    userAuth,
+    rateLimit(3, 'update-email'),
+    validate(schemas.updateEmail),
+    async (req: any, res: any) => {
+      try {
+        const { email, password: confirmPassword } = req.validatedBody;
+        const cleanEmail = String(email).trim().toLowerCase();
 
-      // Verify password
-      const user = await getUserById(req.user.userId);
-      if (!user) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
-      if (!await verifyPassword(confirmPassword, user.passwordHash)) {
-        return sendError(res, 400, 'Incorrect password', ErrorCodes.PASSWORD_INCORRECT);
+        // Verify password
+        const user = await getUserById(req.user.userId);
+        if (!user) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
+        if (!(await verifyPassword(confirmPassword, user.passwordHash))) {
+          return sendError(res, 400, 'Incorrect password', ErrorCodes.PASSWORD_INCORRECT);
+        }
+
+        // Check email uniqueness
+        const emailTaken = await stores.emailTokens.checkEmailExists(cleanEmail, req.user.userId);
+        if (emailTaken) {
+          return sendError(res, 400, 'Email address already in use', ErrorCodes.ALREADY_EXISTS);
+        }
+
+        // Update email (unverified until confirmed)
+        await stores.emailTokens.setEmailUnverified(req.user.userId, cleanEmail);
+        invalidateUserCache();
+
+        // Send verification email
+        const verifyToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
+        await stores.emailTokens.createVerificationToken(
+          req.user.userId,
+          tokenHash,
+          cleanEmail,
+          config.EMAIL_VERIFY_TOKEN_TTL_HOURS,
+        );
+        const verifyUrl = `${config.PUBLIC_ORIGIN}/api/v1/auth/verify-email?token=${verifyToken}`;
+        await sendVerificationEmail({ to: cleanEmail, username: user.username, verifyUrl, config, log });
+
+        log.info('email:updated', { userId: req.user.userId, email: cleanEmail });
+        return sendSuccess(res, { message: 'Verification email sent to your new address', email: cleanEmail });
+      } catch (error: any) {
+        log.error('update-email failed', { error: error.message });
+        return sendError(res, 500, 'Failed to update email', ErrorCodes.INTERNAL_ERROR);
       }
-
-      // Check email uniqueness
-      const emailTaken = await stores.emailTokens.checkEmailExists(cleanEmail, req.user.userId);
-      if (emailTaken) {
-        return sendError(res, 400, 'Email address already in use', ErrorCodes.ALREADY_EXISTS);
-      }
-
-      // Update email (unverified until confirmed)
-      await stores.emailTokens.setEmailUnverified(req.user.userId, cleanEmail);
-      invalidateUserCache();
-
-      // Send verification email
-      const verifyToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
-      await stores.emailTokens.createVerificationToken(req.user.userId, tokenHash, cleanEmail, config.EMAIL_VERIFY_TOKEN_TTL_HOURS);
-      const verifyUrl = `${config.PUBLIC_ORIGIN}/api/v1/auth/verify-email?token=${verifyToken}`;
-      await sendVerificationEmail({ to: cleanEmail, username: user.username, verifyUrl, config, log });
-
-      log.info('email:updated', { userId: req.user.userId, email: cleanEmail });
-      return sendSuccess(res, { message: 'Verification email sent to your new address', email: cleanEmail });
-    } catch (error: any) {
-      log.error('update-email failed', { error: error.message });
-      return sendError(res, 500, 'Failed to update email', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   // ── POST /resend-verification — resend email verification (authenticated) ──
   router.post('/resend-verification', userAuth, rateLimit(2, 'resend-verify'), async (req: any, res: any) => {
@@ -197,7 +253,12 @@ export default function createEmailAuthRoutes(deps: any): Router {
       const attempts = _resendVerifyLimits.get(emailKey) || [];
       const recentAttempts = attempts.filter((t: number) => now - t < RESEND_VERIFY_WINDOW);
       if (recentAttempts.length >= RESEND_VERIFY_MAX) {
-        return sendError(res, 429, `Too many verification emails sent to this address. Try again in ${Math.ceil((recentAttempts[0] + RESEND_VERIFY_WINDOW - now) / 1000)}s`, ErrorCodes.RATE_LIMITED);
+        return sendError(
+          res,
+          429,
+          `Too many verification emails sent to this address. Try again in ${Math.ceil((recentAttempts[0] + RESEND_VERIFY_WINDOW - now) / 1000)}s`,
+          ErrorCodes.RATE_LIMITED,
+        );
       }
       if (_resendVerifyLimits.size >= 10_000) {
         _resendVerifyLimits.delete(_resendVerifyLimits.keys().next().value);
@@ -209,7 +270,12 @@ export default function createEmailAuthRoutes(deps: any): Router {
 
       const verifyToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
-      await stores.emailTokens.createVerificationToken(req.user.userId, tokenHash, user.email, config.EMAIL_VERIFY_TOKEN_TTL_HOURS);
+      await stores.emailTokens.createVerificationToken(
+        req.user.userId,
+        tokenHash,
+        user.email,
+        config.EMAIL_VERIFY_TOKEN_TTL_HOURS,
+      );
       const verifyUrl = `${config.PUBLIC_ORIGIN}/api/v1/auth/verify-email?token=${verifyToken}`;
       await sendVerificationEmail({ to: user.email, username: user.username, verifyUrl, config, log });
 
@@ -267,49 +333,55 @@ export default function createEmailAuthRoutes(deps: any): Router {
   }
 
   // POST /reset-password — Validate token and reset password (public, no auth)
-  router.post('/reset-password', rateLimit(5, 'reset-password'), passwordResetRateLimit, validate(schemas.resetPasswordPublic), async (req: any, res: any) => {
-    try {
-      const { token, newPassword, confirmPassword } = req.validatedBody;
-      if (newPassword !== confirmPassword) {
-        return sendError(res, 400, 'Passwords do not match', ErrorCodes.INVALID_INPUT);
-      }
-      const pwError = checkPasswordPolicy(newPassword);
-      if (pwError) {
-        return sendError(res, 400, pwError, ErrorCodes.INVALID_INPUT);
-      }
+  router.post(
+    '/reset-password',
+    rateLimit(5, 'reset-password'),
+    passwordResetRateLimit,
+    validate(schemas.resetPasswordPublic),
+    async (req: any, res: any) => {
+      try {
+        const { token, newPassword, confirmPassword } = req.validatedBody;
+        if (newPassword !== confirmPassword) {
+          return sendError(res, 400, 'Passwords do not match', ErrorCodes.INVALID_INPUT);
+        }
+        const pwError = checkPasswordPolicy(newPassword);
+        if (pwError) {
+          return sendError(res, 400, pwError, ErrorCodes.INVALID_INPUT);
+        }
 
-      const resolved = await resolveResetToken(token);
-      if (resolved.error) {
-        return sendError(res, resolved.error.status, resolved.error.message, resolved.error.code);
-      }
-      const { userId: targetUserId } = resolved;
-      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        const resolved = await resolveResetToken(token);
+        if (resolved.error) {
+          return sendError(res, resolved.error.status, resolved.error.message, resolved.error.code);
+        }
+        const { userId: targetUserId } = resolved;
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-      const user = await getUserById(targetUserId);
-      if (!user) {
+        const user = await getUserById(targetUserId);
+        if (!user) {
+          state._adminResetTokens.delete(tokenHash);
+          return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
+        }
+
+        await stores.users.update(targetUserId, { passwordHash: await hashPassword(newPassword) });
+        invalidateUserCache();
+        await invalidateUserSessions(targetUserId);
+        disconnectUserSockets(targetUserId, io);
         state._adminResetTokens.delete(tokenHash);
-        return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
+
+        const auditLog = createAuditLog('user_reset_password', 'user', {
+          userId: targetUserId,
+          username: user.username,
+          ipAddress: getRequestIp(req),
+        });
+        log.warn('user:reset-password', { ...auditLog });
+
+        return sendSuccess(res, { success: true, message: 'Password reset successfully' });
+      } catch (error: any) {
+        log.error('reset-password failed', { error: error.message });
+        return sendError(res, 500, 'Failed to reset password', ErrorCodes.INTERNAL_ERROR);
       }
-
-      await stores.users.update(targetUserId, { passwordHash: await hashPassword(newPassword) });
-      invalidateUserCache();
-      await invalidateUserSessions(targetUserId);
-      disconnectUserSockets(targetUserId, io);
-      state._adminResetTokens.delete(tokenHash);
-
-      const auditLog = createAuditLog('user_reset_password', 'user', {
-        userId: targetUserId,
-        username: user.username,
-        ipAddress: getRequestIp(req),
-      });
-      log.warn('user:reset-password', { ...auditLog });
-
-      return sendSuccess(res, { success: true, message: 'Password reset successfully' });
-    } catch (error: any) {
-      log.error('reset-password failed', { error: error.message });
-      return sendError(res, 500, 'Failed to reset password', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   return router;
 }

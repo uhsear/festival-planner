@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { api } from '@festie/shared/services';
-import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle } from '../hooks/useTokens';
 
 /**
  * Emoji scale mirrors the web RatingButtons + legacy ratings.js:
@@ -39,7 +39,6 @@ interface RatingButtonsProps {
  * /ratings/:setId.
  */
 export default function RatingButtons({ setId, festivalId }: RatingButtonsProps) {
-  const t = useTokens();
   const styles = useStyles();
   const [current, setCurrent] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -50,9 +49,7 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get<{ ratings: Rating[] } | Rating[]>(
-          `/ratings/festival/${festivalId}`,
-        );
+        const res = await api.get<{ ratings: Rating[] } | Rating[]>(`/ratings/festival/${festivalId}`);
         const ratings = Array.isArray(res) ? res : res?.ratings || [];
         const found = ratings.find((r) => r.setId === setId);
         if (!cancelled) setCurrent(found?.rating ?? null);
@@ -90,11 +87,7 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
   );
 
   return (
-    <View
-      style={styles.row}
-      accessibilityRole="radiogroup"
-      accessibilityLabel="Rate this set"
-    >
+    <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel="Rate this set">
       {RATINGS.map((r) => {
         const active = current === r.n;
         return (
@@ -108,9 +101,7 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
             accessibilityState={{ selected: active, disabled: busy }}
             accessibilityLabel={`${r.label} (${r.n} of 5)`}
           >
-            <Text style={[styles.emoji, active && styles.emojiActive]}>
-              {r.emoji}
-            </Text>
+            <Text style={[styles.emoji, active && styles.emojiActive]}>{r.emoji}</Text>
           </TouchableOpacity>
         );
       })}

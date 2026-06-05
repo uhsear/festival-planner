@@ -134,7 +134,6 @@ export default function createAuthRoutes(deps: any): Router {
     log,
     sanitizeString,
     validateUsername,
-    validatePasswordStrength,
     checkPasswordPolicy,
     hashPassword,
     verifyPassword,

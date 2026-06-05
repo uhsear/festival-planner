@@ -548,6 +548,7 @@ export default function CrewScreen() {
                   {crew.inviteCode}
                 </Text>
                 <TouchableOpacity
+                  testID="crew-action-share-invite"
                   onPress={() => handleShareInvite(crew.inviteCode!, crew.name)}
                   style={styles.iconButton}
                   activeOpacity={0.7}
@@ -558,6 +559,7 @@ export default function CrewScreen() {
                 </TouchableOpacity>
                 {isOwner ? (
                   <TouchableOpacity
+                    testID="crew-action-regenerate-invite"
                     onPress={() => handleRegenerate(crew.id)}
                     disabled={regenBusy}
                     style={styles.iconButton}
@@ -602,6 +604,7 @@ export default function CrewScreen() {
 
             {/* Reform this crew for another festival (M3). */}
             <TouchableOpacity
+              testID="crew-action-reform"
               style={styles.overlapToggle}
               onPress={() => handleReform(crew.id, crew.festivalId)}
               disabled={reformBusy}
@@ -620,6 +623,7 @@ export default function CrewScreen() {
 
             {/* One-screen offline-native "what's my crew's plan" digest. */}
             <TouchableOpacity
+              testID="crew-action-plan"
               style={styles.overlapToggle}
               onPress={() => router.push('/crew-plan')}
               activeOpacity={0.8}
@@ -633,6 +637,7 @@ export default function CrewScreen() {
 
             {/* Schedule compare / overlap toggle. */}
             <TouchableOpacity
+              testID="crew-action-overlap"
               style={styles.overlapToggle}
               onPress={() => handleToggleOverlap(crew.id)}
               disabled={overlapBusy}
@@ -653,6 +658,7 @@ export default function CrewScreen() {
 
             {/* Full side-by-side compare matrix (members × sets). */}
             <TouchableOpacity
+              testID="crew-action-compare-grid"
               style={styles.overlapToggle}
               onPress={() => router.push('/crew-compare')}
               activeOpacity={0.8}
@@ -666,6 +672,7 @@ export default function CrewScreen() {
 
             {/* M6 offline crew map — meeting-point pins (offline-honest fallback list). */}
             <TouchableOpacity
+              testID="crew-action-map"
               style={styles.overlapToggle}
               onPress={() => router.push('/map')}
               activeOpacity={0.8}
@@ -679,6 +686,7 @@ export default function CrewScreen() {
 
             {/* M5 proximity compass — on-device straight-line direction to a saved point. */}
             <TouchableOpacity
+              testID="crew-action-compass"
               style={styles.overlapToggle}
               onPress={() => router.push('/compass')}
               activeOpacity={0.8}
@@ -692,6 +700,7 @@ export default function CrewScreen() {
 
             {/* M5 P2P plan handoff — QR / scan / SMS when signal is dead. */}
             <TouchableOpacity
+              testID="crew-action-share-plan"
               style={styles.overlapToggle}
               onPress={() => router.push('/plan-share')}
               activeOpacity={0.8}
@@ -795,6 +804,7 @@ export default function CrewScreen() {
                 </View>
               ) : (
                 <TouchableOpacity
+                  testID="crew-action-force-add"
                   style={styles.overlapToggle}
                   onPress={() => setForceAddOpen(true)}
                   activeOpacity={0.8}
@@ -910,6 +920,7 @@ export default function CrewScreen() {
             <View style={styles.footerActions}>
               {isOwner ? (
                 <TouchableOpacity
+                  testID="crew-action-delete"
                   style={styles.dangerButton}
                   onPress={() => handleDelete(crew.id)}
                   activeOpacity={0.8}
@@ -921,6 +932,7 @@ export default function CrewScreen() {
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
+                  testID="crew-action-leave"
                   style={styles.dangerButton}
                   onPress={() => handleLeave(crew.id)}
                   activeOpacity={0.8}

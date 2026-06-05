@@ -21,8 +21,9 @@
 //
 // KNOWN LIMIT (lineup_drop): targeting prior-year attendees can exceed
 // MAX_PUSH_BATCH (200) inside sendToOfflineUsers' single capped call. We honor
-// the cap and emit a clear log + TODO for a real fan-out queue. We do NOT build
-// the queue here. Email is best-effort and degrades when RESEND_API_KEY is unset.
+// the cap and emit a clear log. The real fan-out queue is deferred — see #20.
+// We do NOT build the queue here. Email is best-effort and degrades when
+// RESEND_API_KEY is unset.
 
 import crypto from 'crypto';
 import { sendWrapReadyEmail, sendLineupDropEmail, sendCrewReformEmail } from '../email.js';
@@ -136,7 +137,7 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
       if (fresh.length > MAX_PUSH_BATCH) {
         log?.warn?.(
           'sendWrapReady: attendee fan-out exceeds MAX_PUSH_BATCH — capped single call. ' +
-            'TODO: replace with a real fan-out queue for large festivals.',
+            'See #20 for the deferred fan-out queue.',
           { festivalId, total: fresh.length, cap: MAX_PUSH_BATCH },
         );
       }
@@ -214,13 +215,13 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
     // KNOWN LIMIT: prior-year fan-out can exceed MAX_PUSH_BATCH. sendToOfflineUsers
     // targets BY FESTIVAL membership, but these users are NOT in the new festival —
     // so we push to them directly per-user via notify.send (each respects pref+DND),
-    // capped at MAX_PUSH_BATCH with a clear TODO for a real fan-out queue.
+    // capped at MAX_PUSH_BATCH; the real fan-out queue is deferred — see #20.
     let pushSent = 0;
     const capped = fresh.slice(0, MAX_PUSH_BATCH);
     if (fresh.length > MAX_PUSH_BATCH) {
       log?.warn?.(
-        'sendLineupDrop: prior-attendee fan-out exceeds MAX_PUSH_BATCH — capped. ' +
-          'TODO: replace with a real fan-out queue (this single capped call drops the tail).',
+        'sendLineupDrop: prior-attendee fan-out exceeds MAX_PUSH_BATCH — capped ' +
+          '(this single call drops the tail). See #20 for the deferred fan-out queue.',
         { festivalId, total: fresh.length, cap: MAX_PUSH_BATCH },
       );
     }
@@ -268,11 +269,14 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
     let pushSent = 0;
     const capped = fresh.slice(0, MAX_PUSH_BATCH);
     if (fresh.length > MAX_PUSH_BATCH) {
-      log?.warn?.('sendCrewReformed: invitee fan-out exceeds MAX_PUSH_BATCH — capped (TODO: fan-out queue)', {
-        newCrewId,
-        total: fresh.length,
-        cap: MAX_PUSH_BATCH,
-      });
+      log?.warn?.(
+        'sendCrewReformed: invitee fan-out exceeds MAX_PUSH_BATCH — capped. See #20 for the deferred fan-out queue.',
+        {
+          newCrewId,
+          total: fresh.length,
+          cap: MAX_PUSH_BATCH,
+        },
+      );
     }
     if (notify.isConfigured && typeof notify.send === 'function') {
       for (const uid of capped) {

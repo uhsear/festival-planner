@@ -11,9 +11,9 @@ export function createCalendarTokensStore(pool: Pool) {
          VALUES ($1, $2, $3, $4, NOW())
          ON CONFLICT (user_id, festival_id) DO UPDATE SET profile_id = $4
          RETURNING id, user_id, festival_id, profile_id, created_at`,
-        [id, userId, festivalId, profileId]
+        [id, userId, festivalId, profileId],
       );
-      return rows[0];
+      return rows[0] || null;
     },
 
     async getByToken(tokenId: string) {
@@ -30,16 +30,13 @@ export function createCalendarTokensStore(pool: Pool) {
   WHERE
     id = $1
 `,
-        [tokenId]
+        [tokenId],
       );
       return rows[0] || null;
     },
 
     async deleteByUser(userId: string, festivalId: string) {
-      await pool.query(
-        'DELETE FROM calendar_tokens WHERE user_id = $1 AND festival_id = $2',
-        [userId, festivalId]
-      );
+      await pool.query('DELETE FROM calendar_tokens WHERE user_id = $1 AND festival_id = $2', [userId, festivalId]);
     },
   };
 }

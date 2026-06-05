@@ -1,12 +1,5 @@
 import { useState } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@festie/shared/hooks';
 import { useAuthStore } from '@festie/shared/stores';
@@ -24,8 +17,8 @@ import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
  * here we pick via expo-image-picker, then materialize the chosen URI into a
  * Blob (fetch(uri).blob()) so the SAME shared uploadAvatar consumes it.
  *
- * expo-image-picker is loaded lazily via require() so the bundle/typecheck does
- * not hard-depend on it; if the native module isn't present we surface a clear
+ * expo-image-picker is loaded lazily via dynamic import() so the bundle/typecheck
+ * does not hard-depend on it; if the native module isn't present we surface a clear
  * message instead of crashing. Install `expo-image-picker` to enable picking.
  */
 
@@ -51,10 +44,14 @@ interface ImagePickerModule {
   MediaTypeOptions?: { Images?: unknown };
 }
 
-function loadImagePicker(): ImagePickerModule | null {
+async function loadImagePicker(): Promise<ImagePickerModule | null> {
   try {
-     
-    return require('expo-image-picker') as ImagePickerModule;
+    // Dynamic import keeps expo-image-picker optional: the bundle/typecheck does
+    // not hard-depend on it, and a missing native module degrades gracefully.
+    const mod = (await import('expo-image-picker')) as unknown as {
+      default?: ImagePickerModule;
+    } & ImagePickerModule;
+    return mod.default ?? mod;
   } catch {
     return null;
   }
@@ -73,7 +70,7 @@ export default function AccountAvatarSection() {
 
   const pickAndUpload = async () => {
     setError(null);
-    const picker = loadImagePicker();
+    const picker = await loadImagePicker();
     if (!picker) {
       const msg = 'Image picker is unavailable. Install expo-image-picker to change your avatar.';
       setError(msg);

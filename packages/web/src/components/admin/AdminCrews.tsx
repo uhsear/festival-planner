@@ -111,6 +111,7 @@ export default function AdminCrews() {
 
       <input
         type="text"
+        aria-label="Search crews by name or creator"
         placeholder="Search by crew name or creator..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
@@ -130,10 +131,7 @@ export default function AdminCrews() {
             const members = membersByCrew[crew.id];
             const isLoadingMembers = !!membersLoading[crew.id];
             return (
-              <div
-                key={crew.id}
-                className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4"
-              >
+              <div key={crew.id} className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <h2 className="text-base font-semibold text-text-primary">{crew.name}</h2>
@@ -174,10 +172,7 @@ export default function AdminCrews() {
                       ) : (
                         <ul className="space-y-1.5">
                           {members.map((m) => (
-                            <li
-                              key={m.userId}
-                              className="flex items-center gap-2 text-xs text-text-secondary"
-                            >
+                            <li key={m.userId} className="flex items-center gap-2 text-xs text-text-secondary">
                               {m.avatar ? (
                                 <img
                                   src={m.avatar}
