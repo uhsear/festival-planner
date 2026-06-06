@@ -1,18 +1,21 @@
-# Credential-free Android UI smoke for CI (a local Gradle *debug* APK installed on
-# a KVM-accelerated emulator via reactivecircus/android-emulator-runner — no EAS
-# credit burned). This is a STANDALONE build (appId us.festie.app, not Expo Go)
-# that talks to prod https://festie.us/api/v1 (see app/_layout.tsx), so the guest
-# path below browses REAL public festival data end-to-end.
+# Android UI smoke for CI (local Gradle release APK on a KVM emulator via
+# reactivecircus/android-emulator-runner — no EAS credit). Standalone build
+# (appId us.festie.app) hitting prod https://festie.us/api/v1.
 #
-# Deliberately secret-free: no login. Walks launch -> onboarding -> festival picker
-# -> schedule views -> every tab, screenshotting each, then asserts the app chrome
-# is present (no crash). Authed Android coverage stays on the local Maestro run
-# (see [[maestro_verify]]); this CI flow exists to prove the APK builds, launches,
-# renders, and navigates against prod without burning an EAS build.
-#
-# Content taps are optional + guarded by waits so the flow stays green even if a
-# label shifts or the network is slow — the final assertVisible is the real gate.
+# Two phases:
+#  1. GUEST (always runs, secret-free): launch -> onboarding -> picker -> schedule
+#     views -> tabs. Proves the build launches/renders/navigates.
+#  2. AUTHED (guarded — runs only when TEST_USERNAME/TEST_PASSWORD are passed via
+#     -e; CI provides them from repo secrets): login -> crew -> assert the
+#     Live-Location control + SOS button render and the SOS confirm dialog appears
+#     (it CANCELS — never actually sends an SOS/shares, to avoid prod side effects).
+#     Android exposes RN a11y labels reliably, so authed nav works here (unlike the
+#     iOS cloud sim). Content taps are optional + screenshotted; final assertVisible
+#     on app chrome is the hard gate.
 appId: us.festie.app
+env:
+  TEST_USERNAME: ${TEST_USERNAME}
+  TEST_PASSWORD: ${TEST_PASSWORD}
 ---
 - launchApp:
     clearState: true
@@ -29,7 +32,7 @@ appId: us.festie.app
       text: "Select a Festival|North Coast|Timeline"
     timeout: 30000
 - takeScreenshot: 02-festival-picker
-# ── Pick a festival and walk the schedule views (guest, no auth needed) ──
+# ── Schedule views (guest) ──
 - tapOn:
     id: "tab-timeline"
     optional: true
@@ -51,25 +54,74 @@ appId: us.festie.app
     text: "Cards"
     optional: true
 - takeScreenshot: 05-cards
-# ── Walk the remaining tabs (render/nav gate) ──
+# ── Guarded login (runs only when creds are passed) ──
 - tapOn:
-    id: "tab-picks"
+    id: "tab-account"
     optional: true
 - waitForAnimationToEnd:
-    timeout: 2500
-- takeScreenshot: 06-picks
+    timeout: 3000
+- runFlow:
+    when:
+      visible: "Username"
+    commands:
+      - tapOn: "Username"
+      - inputText: "${TEST_USERNAME}"
+      - hideKeyboard
+      - tapOn: "Password"
+      - inputText: "${TEST_PASSWORD}"
+      - hideKeyboard
+      - tapOn: "Sign In"
+      - tapOn:
+          text: "Not Now"
+          optional: true
+      - extendedWaitUntil:
+          notVisible: "Username"
+          timeout: 25000
+- takeScreenshot: 06-account
+# ── Crew + Live Location + SOS (authed; best-effort, needs the account in a crew) ──
 - tapOn:
     id: "tab-crew"
     optional: true
 - waitForAnimationToEnd:
     timeout: 2500
 - takeScreenshot: 07-crew
+- scrollUntilVisible:
+    element:
+      text: "Share my live location"
+    direction: DOWN
+    timeout: 12000
+    optional: true
+- takeScreenshot: 08-live-location
+- scrollUntilVisible:
+    element:
+      text: "Send SOS"
+    direction: DOWN
+    timeout: 8000
+    optional: true
+- takeScreenshot: 09-sos
+# Open the SOS confirm dialog to prove it guards, then CANCEL (never send).
+- tapOn:
+    text: "Send SOS"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 1500
+- takeScreenshot: 10-sos-confirm-dialog
+- tapOn:
+    text: "Cancel"
+    optional: true
+# ── Remaining tabs ──
+- tapOn:
+    id: "tab-picks"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: 11-picks
 - tapOn:
     id: "tab-account"
     optional: true
 - waitForAnimationToEnd:
-    timeout: 2500
-- takeScreenshot: 08-account
-# Sanity: app chrome present (proves the build launched and rendered, no crash)
+    timeout: 2000
+- takeScreenshot: 12-account
+# Hard gate: app chrome present (no crash through the whole walk)
 - assertVisible:
     text: "Timeline|Picks|Crew|Account|Festie"

@@ -101,6 +101,11 @@ jobs:
 
       - name: Run Maestro smoke on emulator
         uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2
+        env:
+          # Passed to Maestro so the authed phase of android-smoke runs; the flow's
+          # login is GUARDED, so it stays green even if these are empty.
+          TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
         with:
           api-level: 33
           target: google_apis
@@ -113,7 +118,7 @@ jobs:
           # (packages/mobile/.maestro/...) resolves.
           script: |
             adb install -r packages/mobile/android/app/build/outputs/apk/release/app-release.apk
-            cd packages/mobile && MAESTRO_CLI_NO_ANALYTICS=1 maestro test --format junit --output maestro-report.xml .maestro/android-smoke.yaml
+            cd packages/mobile && MAESTRO_CLI_NO_ANALYTICS=1 maestro test -e TEST_USERNAME="$TEST_USERNAME" -e TEST_PASSWORD="$TEST_PASSWORD" --format junit --output maestro-report.xml .maestro/android-smoke.yaml
 
       - name: Upload Maestro artifacts
         if: always()
