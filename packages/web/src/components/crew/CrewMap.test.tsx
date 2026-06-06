@@ -50,6 +50,7 @@ vi.mock('@festie/shared/utils', () => ({
   extractStagePins: () => [],
   pinsCentroid: (pins: Array<{ latitude: number; longitude: number }>) =>
     pins.length ? { latitude: pins[0].latitude, longitude: pins[0].longitude } : null,
+  formatStaleness: () => 'as of just now',
 }));
 
 vi.mock('lucide-react', () => ({
@@ -113,5 +114,49 @@ describe('CrewMap', () => {
     extractMeetingPointPins.mockReturnValue([]);
     render(<CrewMap meetingPoints={[POINT_WITH_COORDS, POINT_NO_COORDS]} />);
     expect(extractMeetingPointPins).toHaveBeenCalledWith([POINT_WITH_COORDS, POINT_NO_COORDS]);
+  });
+
+  it('renders the map (not the empty state) when there are live peers but no pins', () => {
+    extractMeetingPointPins.mockReturnValue([]);
+    const peers = [
+      { crewId: 'c1', userId: 'u1', username: 'Dana', lat: 41.88, lng: -87.62, capturedAt: 'x', serverAt: 'x' },
+    ];
+    render(<CrewMap meetingPoints={[]} peers={peers} />);
+    expect(screen.queryByText('No mapped meeting points yet')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Crew map with meeting points and live locations')).toBeInTheDocument();
+    // Honest count copy reflects live crew members.
+    expect(screen.getByText(/1 live crew member/)).toBeInTheDocument();
+  });
+
+  it('pluralizes the live-crew count copy', () => {
+    extractMeetingPointPins.mockReturnValue([]);
+    const peers = [
+      { crewId: 'c1', userId: 'u1', username: 'Dana', lat: 41.88, lng: -87.62, capturedAt: 'x', serverAt: 'x' },
+      { crewId: 'c1', userId: 'u2', username: 'Eli', lat: 41.89, lng: -87.63, capturedAt: 'x', serverAt: 'x' },
+    ];
+    render(<CrewMap meetingPoints={[]} peers={peers} />);
+    expect(screen.getByText(/2 live crew members/)).toBeInTheDocument();
+  });
+
+  it('renders the map when only an SOS with a position is present', () => {
+    extractMeetingPointPins.mockReturnValue([]);
+    const sos = {
+      crewId: 'c1',
+      userId: 'u1',
+      username: 'Dana',
+      raisedAt: 'x',
+      position: { lat: 41.88, lng: -87.62, capturedAt: 'x' },
+    };
+    render(<CrewMap meetingPoints={[]} sos={sos} />);
+    expect(screen.queryByText('No mapped meeting points yet')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Crew map with meeting points and live locations')).toBeInTheDocument();
+  });
+
+  it('stays in the empty state for an SOS that has no position', () => {
+    extractMeetingPointPins.mockReturnValue([]);
+    const sos = { crewId: 'c1', userId: 'u1', username: 'Dana', raisedAt: 'x' };
+    render(<CrewMap meetingPoints={[]} sos={sos} />);
+    expect(screen.getByText('No mapped meeting points yet')).toBeInTheDocument();
+    expect(mapInstances).toHaveLength(0);
   });
 });

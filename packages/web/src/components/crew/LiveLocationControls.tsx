@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Square, Siren, Navigation, ShieldCheck, X, MapPin, Loader } from 'lucide-react';
+import { Square, Siren, Navigation, ShieldCheck, X, MapPin } from 'lucide-react';
 import { api } from '@festie/shared';
 import { useLiveLocationStore } from '@festie/shared/stores/liveLocationStore';
 import { useLiveLocationPublisher, type GeoWatcher } from '@festie/shared/hooks';
@@ -181,6 +181,8 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
       {showSos && (
         <div
           role="alert"
+          aria-atomic="true"
+          data-testid="sos-banner"
           className="rounded-lg border-2 border-accent-coral bg-accent-coral/15 p-3 space-y-2 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none"
         >
           <div className="flex items-start gap-2">
@@ -222,11 +224,21 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
       {isSharingThisCrew && (
         <div
           role="status"
-          className="flex items-center gap-2 rounded-lg border border-accent-aqua bg-accent-aqua/10 p-3"
+          aria-live="polite"
+          data-testid="sharing-indicator"
+          className="flex items-center gap-3 rounded-lg border border-accent-aqua bg-accent-aqua/10 p-3"
         >
           <span className="festie-live-dot" aria-hidden="true" />
-          <p className="flex-1 text-sm font-semibold text-text-primary">You are sharing your live location.</p>
-          <Button variant="outline" size="sm" onClick={() => setSharing(false)}>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-text-primary">You&apos;re sharing your live location</p>
+            <p className="text-xs text-text-muted">Only this crew can see it. Stops automatically when you leave.</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSharing(false)}
+            aria-label="Stop sharing my live location"
+          >
             <Square className="w-4 h-4" aria-hidden="true" /> Stop
           </Button>
         </div>
@@ -237,8 +249,10 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
         <div className="flex items-center gap-3">
           <MapPin className="w-5 h-5 text-text-secondary shrink-0" aria-hidden="true" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-text-primary">Share my live location with this crew</p>
-            <p className="text-xs text-text-muted">
+            <p id="live-share-label" className="text-sm font-semibold text-text-primary">
+              Share my live location with this crew
+            </p>
+            <p id="live-share-desc" className="text-xs text-text-muted">
               Ephemeral and crew-only. Auto-stops on exit and after {SESSION_MINUTES} min.
             </p>
           </div>
@@ -246,7 +260,8 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
             type="button"
             role="switch"
             aria-checked={isSharingThisCrew}
-            aria-label="Share my live location with this crew"
+            aria-labelledby="live-share-label"
+            aria-describedby="live-share-desc"
             onClick={toggleSharing}
             className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua ${
               isSharingThisCrew ? 'bg-accent-aqua' : 'bg-border-light'
@@ -310,13 +325,7 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
                 </Button>
               </Dialog.Close>
               <Button type="button" variant="danger" onClick={raiseSos} isLoading={sosBusy} className="flex-1 min-h-11">
-                {sosBusy ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Sending
-                  </>
-                ) : (
-                  'Send SOS'
-                )}
+                {sosBusy ? 'Sending…' : 'Send SOS'}
               </Button>
             </div>
           </Dialog.Content>
