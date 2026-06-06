@@ -3,34 +3,39 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapPin, AlertTriangle } from 'lucide-react';
-import { extractMeetingPointPins, extractStagePins, pinsCentroid, type MapPin as Pin } from '@festie/shared/utils';
-import type { CrewMeetingPoint } from '@festie/shared/types';
+import {
+  extractMeetingPointPins,
+  extractStagePins,
+  pinsCentroid,
+  formatStaleness,
+  type MapPin as Pin,
+} from '@festie/shared/utils';
+import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/types';
 import EmptyState from '../ui/EmptyState';
 
 /**
- * CrewMap — web meeting-point map (MapLibre GL JS, no API key).
+ * CrewMap — web crew map (MapLibre GL JS, no API key).
  *
- * MapLibre is HEAVY (~200 kB gzip). It MUST NOT land in the main bundle, so:
- *   1. This component is `lazy()`-loaded by its caller (its own chunk), and
- *   2. `maplibre-gl` + its CSS are themselves `import()`-ed at runtime inside an
- *      effect, so even the map chunk only pulls the GL library once it mounts.
- *      That `import()` is also what keeps it out of the vitest/jsdom path —
- *      tests never mount the GL map, so WebGL is never touched.
+ * Renders three marker kinds, all derived from props (never from internal fetch):
+ *   1. meeting-point pins (F4 coords) — the original behaviour,
+ *   2. live peer markers (ephemeral live-location, from the liveLocationStore),
+ *   3. an emphasized SOS marker when a crew member raised one.
  *
- * BASEMAP: a free OpenStreetMap raster style (no key). CDN-hosted tiles, so the
- * interactive basemap only renders with signal. If the GL library or tiles fail
- * we don't show a blank canvas — we surface an honest error state. Pins are
- * derived from F4 coords; meeting points without coords are simply not plotted
- * (the list view still shows them, so they're never lost).
+ * MapLibre is HEAVY (~200 kB gzip) and is dynamically `import()`-ed inside an
+ * effect (and the whole component is `lazy()`-loaded by its caller), so it never
+ * lands in the main bundle and never touches the vitest/jsdom path (tests stub
+ * the GL lib but its `load` callback never fires, so marker code is inert there).
  *
- * STAGES: stages have no coords in the data model today (see mapPins TODO) —
- * `extractStagePins()` returns [] by contract and we show an honest note rather
- * than implying stages are plotted.
+ * The GL map instance is created ONCE and kept across peer updates — peer/SOS
+ * markers are rebuilt on their own effects so a 10-second position tick never
+ * tears down and rebuilds the whole map (which would churn tiles + lose viewport).
+ *
+ * HONESTY: peer freshness is rendered as "Live · N ago" from the server receive
+ * time, and accuracy as a "±N m" radius note — we never imply a pinpoint fix.
  */
 
 // Minimal structural shape this map needs — matches both @festie/shared's
-// CrewMeetingPoint and MeetingPointsTab's local server row (snake_case). We only
-// read the fields extractMeetingPointPins/the renderer use.
+// CrewMeetingPoint and MeetingPointsTab's local server row (snake_case).
 export interface MappableMeetingPoint {
   id: string;
   label: string;
@@ -42,6 +47,10 @@ export interface MappableMeetingPoint {
 
 interface Props {
   meetingPoints: MappableMeetingPoint[];
+  /** Live peer positions (ephemeral). Empty/omitted keeps the original behaviour. */
+  peers?: PeerLocation[];
+  /** Active SOS for this crew, or null. */
+  sos?: SosEntry | null;
 }
 
 // A free OpenStreetMap raster style (no API key). Online-only basemap.
@@ -58,99 +67,104 @@ const RASTER_STYLE = {
   layers: [{ id: 'osm', type: 'raster' as const, source: 'osm' }],
 };
 
+// The subset of the maplibre-gl module we use. We load it via `.default` at
+// runtime (CJS interop — the test mock returns `{ default: {...} }`), but the
+// type-level default member doesn't exist, so model the constructors we touch.
+type MapLibre = {
+  Map: typeof import('maplibre-gl').Map;
+  Marker: typeof import('maplibre-gl').Marker;
+  Popup: typeof import('maplibre-gl').Popup;
+  NavigationControl: typeof import('maplibre-gl').NavigationControl;
+  LngLatBounds: typeof import('maplibre-gl').LngLatBounds;
+};
+
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-export default function CrewMap({ meetingPoints }: Props) {
+// "as of 5m ago" → "5m ago" so we can render the honest "Live · 5m ago" copy.
+function relAge(serverAt: string): string {
+  return formatStaleness(serverAt).replace(/^as of /, '');
+}
+
+export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   // 'pending' until we know whether the GL library mounted; flips to 'error' on
-  // a load/init failure so we never leave a blank canvas behind.
+  // a load/init failure so we never leave a blank canvas behind. 'ready' once the
+  // map's `load` fired — marker effects gate on it.
   const [status, setStatus] = useState<'pending' | 'ready' | 'error'>('pending');
 
-  // Pins are pure business logic (shared util) — only active points with valid
-  // F4 coords. Memoized by identity so the map effect doesn't churn.
-  // extractMeetingPointPins only reads id/active/label/location/lat/lng; our
-  // MappableMeetingPoint is that structural subset (matches both CrewMeetingPoint
-  // and MeetingPointsTab's server row), so the cast is sound at runtime.
+  // Live MapLibre handles, kept across re-renders. Markers are tracked per kind
+  // so each effect only churns its own layer.
+  const mapRef = useRef<import('maplibre-gl').Map | null>(null);
+  const glRef = useRef<MapLibre | null>(null);
+  const mpMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
+  const peerMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
+  const sosMarkerRef = useRef<import('maplibre-gl').Marker | null>(null);
+  const fittedRef = useRef(false);
+
   const pins = useMemo<Pin[]>(
     () => extractMeetingPointPins(meetingPoints as unknown as CrewMeetingPoint[]),
     [meetingPoints],
   );
   const stagePins = useMemo(() => extractStagePins(), []); // [] today — see mapPins TODO
-  const center = useMemo(() => pinsCentroid(pins), [pins]);
   const hasPins = pins.length > 0;
+  const hasPeers = peers.length > 0;
+  const hasSos = !!sos?.position;
+  // Render the map when there's ANYTHING to plot (pins, peers, or an SOS coord).
+  const shouldRenderMap = hasPins || hasPeers || hasSos;
 
-  // Stable key so the effect re-runs only when the actual coords change, not on
-  // every parent render that produces a new array identity.
+  // Initial center: meeting-point centroid, else the first peer, else the SOS.
+  const center = useMemo(() => {
+    const c = pinsCentroid(pins);
+    if (c) return c;
+    if (peers[0]) return { latitude: peers[0].lat, longitude: peers[0].lng };
+    if (sos?.position) return { latitude: sos.position.lat, longitude: sos.position.lng };
+    return null;
+    // Recompute only when the coord sources meaningfully change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pins, peers.length, sos?.position?.lat, sos?.position?.lng]);
+
+  // Stable keys so marker effects re-run only when their own coords change.
   const pinsKey = useMemo(() => pins.map((p) => `${p.id}:${p.latitude},${p.longitude}`).join('|'), [pins]);
+  const peersKey = useMemo(() => peers.map((p) => `${p.userId}:${p.lat},${p.lng}:${p.serverAt}`).join('|'), [peers]);
+  const sosKey = sos ? `${sos.userId}:${sos.position?.lat},${sos.position?.lng}` : '';
 
+  // Keep the latest center for the (peer-driven) lazy map creation without making
+  // it an effect dep (which would recreate the map on every position tick).
+  const centerRef = useRef(center);
+  centerRef.current = center;
+
+  // ── Map lifecycle: create once when there's content; tear down on unmount ──
   useEffect(() => {
-    if (!hasPins || !containerRef.current) return;
-    let map: import('maplibre-gl').Map | null = null;
+    if (!shouldRenderMap || !containerRef.current) return;
+    if (mapRef.current) return; // already created
     let cancelled = false;
 
     (async () => {
       try {
-        // Dynamic import: keeps maplibre-gl out of the main + even this chunk's
-        // synchronous graph, and out of the jsdom test path entirely.
-        const maplibregl = (await import('maplibre-gl')).default;
+        const maplibregl = (await import('maplibre-gl')).default as unknown as MapLibre;
         await import('maplibre-gl/dist/maplibre-gl.css');
-        if (cancelled || !containerRef.current) return;
+        if (cancelled || !containerRef.current || mapRef.current) return;
 
-        map = new maplibregl.Map({
+        const c = centerRef.current;
+        const map = new maplibregl.Map({
           container: containerRef.current,
           style: RASTER_STYLE,
-          center: center ? [center.longitude, center.latitude] : [0, 0],
-          zoom: center ? 14 : 1,
+          center: c ? [c.longitude, c.latitude] : [0, 0],
+          zoom: c ? 14 : 1,
           attributionControl: { compact: true },
         });
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-
         map.on('error', () => {
           if (!cancelled) setStatus('error');
         });
-
         map.on('load', () => {
-          if (cancelled || !map) return;
-          let bounds: import('maplibre-gl').LngLatBounds | null = null;
-          for (const p of pins) {
-            const el = document.createElement('div');
-            el.className = 'festie-map-marker';
-            // a11y: each marker is a DOM div MapLibre positions over the canvas.
-            // Without a label/role/tabindex it's invisible to screen readers and
-            // unreachable by keyboard. Expose it as a focusable button announcing
-            // the meeting point (and its sublabel/location when present).
-            el.setAttribute('aria-label', p.label + (p.sublabel ? ' - ' + p.sublabel : ''));
-            el.setAttribute('role', 'button');
-            el.setAttribute('tabindex', '0');
-            const popupHtml =
-              `<strong>${escapeHtml(p.label)}</strong>` +
-              (p.sublabel ? `<br/><span class="festie-map-sub">${escapeHtml(p.sublabel)}</span>` : '');
-            const marker = new maplibregl.Marker({ element: el })
-              .setLngLat([p.longitude, p.latitude])
-              .setPopup(new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(popupHtml))
-              .addTo(map);
-            // a11y/keyboard: the marker advertises role=button + tabindex, so it
-            // MUST be activatable by keyboard. MapLibre only wires a click handler,
-            // leaving Enter/Space dead for keyboard users. Bridge them to the
-            // popup toggle so focus-then-Enter opens the point, matching the
-            // sr-only help text's promise.
-            el.addEventListener('keydown', (e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                marker.togglePopup();
-              }
-            });
-            const lngLat: [number, number] = [p.longitude, p.latitude];
-            bounds = bounds ? bounds.extend(lngLat) : new maplibregl.LngLatBounds(lngLat, lngLat);
-          }
-          // Fit bounds to the pins. Single pin: keep the centered zoom above.
-          if (bounds && pins.length > 1) {
-            map.fitBounds(bounds, { padding: 56, maxZoom: 16, duration: 0 });
-          }
+          if (cancelled) return;
           setStatus('ready');
         });
+        glRef.current = maplibregl;
+        mapRef.current = map;
       } catch {
         if (!cancelled) setStatus('error');
       }
@@ -158,14 +172,148 @@ export default function CrewMap({ meetingPoints }: Props) {
 
     return () => {
       cancelled = true;
-      map?.remove();
+      mpMarkersRef.current = [];
+      peerMarkersRef.current = [];
+      sosMarkerRef.current = null;
+      fittedRef.current = false;
+      mapRef.current?.remove();
+      mapRef.current = null;
+      glRef.current = null;
     };
-    // pinsKey captures coord changes; center/pins are derived from the same data.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pinsKey, hasPins]);
+    // Only (re)create when content first appears / disappears.
+  }, [shouldRenderMap]);
 
-  // ── Empty state: no coord-bearing meeting points ────────────────────────────
-  if (!hasPins) {
+  // ── Meeting-point markers ──────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    for (const m of mpMarkersRef.current) m.remove();
+    mpMarkersRef.current = [];
+
+    for (const p of pins) {
+      const el = document.createElement('div');
+      el.className = 'festie-map-marker';
+      // a11y: each marker is a div MapLibre positions over the canvas. Expose it
+      // as a focusable button announcing the meeting point.
+      el.setAttribute('aria-label', p.label + (p.sublabel ? ' - ' + p.sublabel : ''));
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      const popupHtml =
+        `<strong>${escapeHtml(p.label)}</strong>` +
+        (p.sublabel ? `<br/><span class="festie-map-sub">${escapeHtml(p.sublabel)}</span>` : '');
+      const marker = new gl.Marker({ element: el })
+        .setLngLat([p.longitude, p.latitude])
+        .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setHTML(popupHtml))
+        .addTo(map);
+      // Bridge Enter/Space → popup toggle (MapLibre only wires click).
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          marker.togglePopup();
+        }
+      });
+      mpMarkersRef.current.push(marker);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, pinsKey]);
+
+  // ── Live peer markers (rebuilt per tick — small N; keeps staleness honest) ──
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    for (const m of peerMarkersRef.current) m.remove();
+    peerMarkersRef.current = [];
+
+    for (const peer of peers) {
+      const rel = relAge(peer.serverAt);
+      const initial = (peer.username?.trim()?.[0] ?? '?').toUpperCase();
+      const el = document.createElement('div');
+      el.className = 'festie-peer-marker';
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', `${peer.username} — live location, ${rel}`);
+      // Pulsing ring (CSS ::before) + initial. textContent keeps it injection-safe.
+      el.textContent = initial;
+      const acc =
+        typeof peer.accuracy === 'number' && peer.accuracy > 0
+          ? `<br/><span class="festie-map-sub">±${Math.round(peer.accuracy)} m</span>`
+          : '';
+      const popupHtml =
+        `<strong>${escapeHtml(peer.username)}</strong>` +
+        `<br/><span class="festie-map-sub">Live · ${escapeHtml(rel)}</span>` +
+        acc;
+      const marker = new gl.Marker({ element: el })
+        .setLngLat([peer.lng, peer.lat])
+        .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setHTML(popupHtml))
+        .addTo(map);
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          marker.togglePopup();
+        }
+      });
+      peerMarkersRef.current.push(marker);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, peersKey]);
+
+  // ── SOS marker (emphasized) ────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    sosMarkerRef.current?.remove();
+    sosMarkerRef.current = null;
+    if (!sos?.position) return;
+
+    const el = document.createElement('div');
+    el.className = 'festie-sos-marker';
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', `SOS from ${sos.username}`);
+    el.textContent = '!';
+    const dir = `https://maps.google.com/?q=${sos.position.lat},${sos.position.lng}`;
+    const popupHtml =
+      `<strong class="festie-sos-title">🆘 ${escapeHtml(sos.username)} needs help</strong>` +
+      (sos.message ? `<br/><span class="festie-map-sub">${escapeHtml(sos.message)}</span>` : '') +
+      `<br/><a class="festie-sos-link" href="${dir}" target="_blank" rel="noopener noreferrer">Get directions</a>`;
+    const marker = new gl.Marker({ element: el })
+      .setLngLat([sos.position.lng, sos.position.lat])
+      .setPopup(new gl.Popup({ offset: 18, closeButton: false }).setHTML(popupHtml))
+      .addTo(map);
+    sosMarkerRef.current = marker;
+    // Open the SOS popup immediately so it's impossible to miss.
+    marker.togglePopup();
+    map.flyTo({ center: [sos.position.lng, sos.position.lat], zoom: 15, duration: 600 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, sosKey]);
+
+  // ── Fit bounds once across everything we have when the map first loads ──────
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl || fittedRef.current) return;
+
+    const coords: [number, number][] = [
+      ...pins.map((p) => [p.longitude, p.latitude] as [number, number]),
+      ...peers.map((p) => [p.lng, p.lat] as [number, number]),
+      ...(sos?.position ? [[sos.position.lng, sos.position.lat] as [number, number]] : []),
+    ];
+    if (coords.length > 1) {
+      let bounds = new gl.LngLatBounds(coords[0], coords[0]);
+      for (const c of coords) bounds = bounds.extend(c);
+      map.fitBounds(bounds, { padding: 56, maxZoom: 16, duration: 0 });
+    }
+    fittedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, pinsKey, peersKey, sosKey]);
+
+  // ── Empty state: nothing to plot ───────────────────────────────────────────
+  if (!shouldRenderMap) {
     return (
       <div className="px-1">
         <EmptyState
@@ -180,6 +328,14 @@ export default function CrewMap({ meetingPoints }: Props) {
     );
   }
 
+  const peerCount = peers.length;
+  const countCopy = [
+    pins.length ? (pins.length === 1 ? '1 mapped point' : `${pins.length} mapped points`) : '',
+    peerCount ? (peerCount === 1 ? '1 live crew member' : `${peerCount} live crew members`) : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <div className="space-y-2">
       <div className="relative rounded-lg overflow-hidden border border-border bg-bg-secondary">
@@ -188,18 +344,13 @@ export default function CrewMap({ meetingPoints }: Props) {
           className="festie-map-canvas h-72 w-full"
           role="region"
           tabIndex={0}
-          aria-label="Crew meeting points map"
+          aria-label="Crew map with meeting points and live locations"
           aria-describedby="festie-map-help"
         />
-        {/* a11y: MapLibre is canvas-based with no native focusable host. role=region
-            + tabindex make the map area reachable; this sr-only note documents the
-            library's keyboard shortcuts and points users to the list view (which
-            shows every point, including ones without coords) as the accessible
-            surface. */}
         <p id="festie-map-help" className="sr-only">
-          Interactive map. Use Tab to reach map markers, then Enter or Space to open a point. While the map is focused,
-          use the arrow keys to pan and the plus and minus keys to zoom. The List view below shows every meeting point
-          and is fully keyboard accessible.
+          Interactive map. Use Tab to reach map markers, then Enter or Space to open one. Live crew-member markers show
+          when they shared their location and how long ago. While the map is focused, use the arrow keys to pan and the
+          plus and minus keys to zoom. The List view below shows every meeting point and is fully keyboard accessible.
         </p>
         {status === 'pending' && (
           <div className="absolute inset-0 flex items-center justify-center text-sm text-text-secondary bg-bg-secondary/80">
@@ -216,8 +367,8 @@ export default function CrewMap({ meetingPoints }: Props) {
         )}
       </div>
       <p className="text-xs text-text-muted text-center">
-        {pins.length === 1 ? '1 mapped point' : `${pins.length} mapped points`}
-        {stagePins.length === 0 ? ' · stages aren’t mapped yet' : ''}
+        {countCopy || 'Live locations'}
+        {stagePins.length === 0 && pins.length > 0 ? ' · stages aren’t mapped yet' : ''}
       </p>
     </div>
   );

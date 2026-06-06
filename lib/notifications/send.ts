@@ -83,6 +83,18 @@ const PREF_MAP: Record<string, string> = {
   wrap_ready: 'wrapReady',
 };
 
+/**
+ * Safety-critical notification types. These BYPASS the DND window and have NO
+ * per-type opt-out (they are intentionally absent from PREF_MAP) — an emergency
+ * must reach people. They also route to a dedicated high-priority push channel.
+ */
+const CRITICAL_TYPES = new Set(['crew_sos']);
+
+/** Per-type push channel/category overrides for critical alerts. */
+const CRITICAL_CHANNEL: Record<string, { channelId: string; category: string }> = {
+  crew_sos: { channelId: 'sos', category: 'CREW_SOS' },
+};
+
 /** Check if a stale token error code signals the device is no longer registered */
 function isStaleTokenError(code: any) {
   return code.includes('not-registered') || code.includes('invalid-registration') || code.includes('invalid-argument');
@@ -166,7 +178,17 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
    * Build a complete FCM message object for a single device.
    * Shared by send() and sendToOfflineUsers() to avoid duplication.
    */
-  function buildFcmMessage({ token, title, body, data, type, badgeCount, threadId }: any) {
+  function buildFcmMessage({
+    token,
+    title,
+    body,
+    data,
+    type,
+    badgeCount,
+    threadId,
+    channelId = 'updates',
+    category = 'CREW_UPDATE',
+  }: any) {
     return {
       token,
       notification: { title, body },
@@ -174,7 +196,7 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
       android: {
         priority: 'high',
         notification: {
-          channelId: 'updates',
+          channelId,
           clickAction: 'OPEN_DEEP_LINK',
           tag: threadId || `update-${data.festivalId || ''}`,
         },
@@ -186,7 +208,7 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
             badge: badgeCount,
             'mutable-content': 1,
             'thread-id': threadId || 'updates',
-            category: 'CREW_UPDATE',
+            category,
           },
         },
         headers: { 'apns-priority': '10', 'apns-push-type': 'alert' },
@@ -207,7 +229,7 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
    * but direct APNs requires them in the aps body. Custom data is sent as
    * sibling keys alongside `aps` (the standard APNs convention).
    */
-  function buildApnsAlertPayload({ title, body, data, type, badgeCount, threadId }: any) {
+  function buildApnsAlertPayload({ title, body, data, type, badgeCount, threadId, category = 'CREW_UPDATE' }: any) {
     return {
       aps: {
         alert: { title, body },
@@ -215,7 +237,7 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
         badge: badgeCount,
         'mutable-content': 1,
         'thread-id': threadId || 'updates',
-        category: 'CREW_UPDATE',
+        category,
       },
       type,
       ...data,
@@ -336,10 +358,17 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
     }
 
     const { safeTitle, safeBody, safeData } = enforcePayloadLimits(title, body, data);
+    const isCritical = CRITICAL_TYPES.has(type);
+    const { channelId = 'updates', category = 'CREW_UPDATE' } = CRITICAL_CHANNEL[type] || {};
     const prefs = await stores.notificationPrefs.get(userId);
     const prefKey = PREF_MAP[type];
-    if (prefs && prefKey && !prefs[prefKey]) return { sent: 0, reason: 'user_disabled' };
-    if (isInDndWindow(prefs)) return { sent: 0, reason: 'dnd_active' };
+    // Safety-critical types (crew_sos) bypass the per-type opt-out and the DND
+    // window — an emergency must reach people. prefKey is undefined for these
+    // (omitted from PREF_MAP), but guard explicitly so intent is unmistakable.
+    if (!isCritical) {
+      if (prefs && prefKey && !prefs[prefKey]) return { sent: 0, reason: 'user_disabled' };
+      if (isInDndWindow(prefs)) return { sent: 0, reason: 'dnd_active' };
+    }
 
     const tokens = await stores.deviceTokens.listByUser(userId);
     if (tokens.length === 0) return { sent: 0, reason: 'no_tokens' };
@@ -369,6 +398,7 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
           type,
           badgeCount,
           threadId,
+          category,
         });
         const result = await sendToIosDevice({
           apns,
@@ -395,6 +425,8 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
         type,
         badgeCount,
         threadId,
+        channelId,
+        category,
       });
       enforcePayloadSize(fcmMessage, log);
 

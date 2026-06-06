@@ -21,6 +21,8 @@ import type {
 export interface UseRealtimeSyncReturn {
   connected: boolean;
   onlineUsers: OnlineUser[];
+  /** The single shared socket, exposed so feature UIs (Live Location) can emit. */
+  socket: Socket | null;
 }
 
 /**
@@ -31,6 +33,14 @@ export interface UseRealtimeSyncReturn {
  * no listeners, joins no room, and produces zero behavior change.
  */
 const CREW_REALTIME = import.meta.env.VITE_CREW_REALTIME === '1';
+
+/**
+ * Opt-in flag for Live Location + SOS (peer markers / SOS banner over `crew:*`
+ * socket events). Default OFF so the feature ships dark. When EITHER this or
+ * VITE_CREW_REALTIME is on we pass the real socket into useCrewRealtime, which
+ * registers the location/SOS listeners that feed the (ephemeral) liveLocationStore.
+ */
+const LIVE_LOCATION = import.meta.env.VITE_LIVE_LOCATION === '1';
 
 /**
  * Bridge Socket.IO events to local state. Each event has ONE source of
@@ -74,7 +84,7 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
   const crewSink = useCrewQuerySink();
   const getActiveCrewId = useCallback(() => useCrewStore.getState().activeCrew?.id ?? null, []);
   useCrewRealtime({
-    socket: CREW_REALTIME ? socket : null,
+    socket: CREW_REALTIME || LIVE_LOCATION ? socket : null,
     getActiveCrewId,
     sink: crewSink,
     joinRoom: true,
@@ -259,5 +269,6 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
   return {
     connected,
     onlineUsers,
+    socket,
   };
 }

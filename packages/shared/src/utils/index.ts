@@ -8,6 +8,7 @@ export * from './timeAgo';
 export * from './ics';
 export * from './paymentLinks';
 export * from './geo';
+export * from './liveLocation';
 export * from './planSnapshot';
 export * from './mapPins';
 export * from './ongoingNotification';

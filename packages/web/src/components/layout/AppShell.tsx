@@ -23,6 +23,7 @@ import { useFestivalLoader } from '../../hooks/useFestivalLoader';
 import { useFestivalMode } from '../../hooks/useFestivalMode';
 import { prefetchMainRoutes } from '../../router';
 import { cn } from '../../lib/utils';
+import { SocketContext } from '../../lib/socketContext';
 
 const authRoutes = ['/login', '/register', '/forgot-password'];
 
@@ -67,7 +68,11 @@ export default function AppShell() {
 
   // --- Side-effect hooks ---
   useScrollReset(location.pathname);
-  useRealtimeSync();
+  // useRealtimeSync owns the single shared socket; expose it via context so the
+  // crew Live Location publisher can emit on it (no second connection). The
+  // optional chaining tolerates the test mock that returns undefined.
+  const realtime = useRealtimeSync() as ReturnType<typeof useRealtimeSync> | undefined;
+  const socket = realtime?.socket ?? null;
   useOffline();
   usePushNotifications();
   useOfflineQueueBridge();
@@ -98,85 +103,87 @@ export default function AppShell() {
   }
 
   return (
-    <div id="app">
-      {/* Skip link -- WCAG 2.4.1 Bypass Blocks */}
-      <a
-        href="#main-content"
-        className={cn(
-          'skip-link',
-          'absolute left-[-9999px] top-0 z-[10000]',
-          'bg-bg-primary text-accent-aqua px-4 py-2 underline font-semibold',
-          'focus:left-[var(--space-4)] focus:top-[var(--space-4)]',
-        )}
-        onClick={() => {
-          const main = document.getElementById('main-content');
-          if (main) {
-            main.setAttribute('tabindex', '-1');
-            main.focus({ preventScroll: false });
-          }
-        }}
-      >
-        Skip to main content
-      </a>
-
-      <OfflineBanner />
-      <UpdatePrompt />
-      <IOSInstallSheet />
-      <Onboarding />
-      <Header />
-
-      {showDayBanner && <FestivalDayBanner />}
-
-      <div className="main-content flex flex-1 overflow-hidden flex-col">
-        {!hideSubHeader && <SubHeader dayOnly={dayOnlySubHeader} festivalOnly={festivalOnlySubHeader} />}
-
-        <main
-          id="main-content"
+    <SocketContext.Provider value={socket}>
+      <div id="app">
+        {/* Skip link -- WCAG 2.4.1 Bypass Blocks */}
+        <a
+          href="#main-content"
           className={cn(
-            'content-area',
-            'flex-1 overflow-auto px-6 py-4',
-            '[-webkit-overflow-scrolling:touch] [overscroll-behavior-y:contain]',
+            'skip-link',
+            'absolute left-[-9999px] top-0 z-[10000]',
+            'bg-bg-primary text-accent-aqua px-4 py-2 underline font-semibold',
+            'focus:left-[var(--space-4)] focus:top-[var(--space-4)]',
           )}
-        >
-          <Suspense fallback={<RouteFallback />}>
-            <PageTransition>
-              <Outlet />
-            </PageTransition>
-          </Suspense>
-        </main>
-      </div>
-
-      {/* Guest banner for unauthenticated users */}
-      {!user && (
-        <aside
-          className={cn(
-            'guest-banner',
-            'flex items-center justify-between gap-[var(--space-6)]',
-            'py-3 px-4 bg-[var(--color-aqua-a08)] border border-[var(--color-aqua-a25)]',
-            'text-text-primary rounded-sm mb-2 font-semibold text-sm',
-          )}
-          aria-label="Guest notice"
-        >
-          <span>Browsing as guest.</span>
-          <Button variant="primary" size="sm" type="button" onClick={() => navigate({ to: '/login' })}>
-            Login / Sign Up
-          </Button>
-        </aside>
-      )}
-
-      <BottomNav />
-
-      {detailSet && (
-        <DetailPanel
-          key={detailSet.id}
-          set={detailSet}
-          autoOpenSpotify={detailAutoSpotify}
-          onClose={() => {
-            setDetailSet(null);
-            setDetailAutoSpotify(false);
+          onClick={() => {
+            const main = document.getElementById('main-content');
+            if (main) {
+              main.setAttribute('tabindex', '-1');
+              main.focus({ preventScroll: false });
+            }
           }}
-        />
-      )}
-    </div>
+        >
+          Skip to main content
+        </a>
+
+        <OfflineBanner />
+        <UpdatePrompt />
+        <IOSInstallSheet />
+        <Onboarding />
+        <Header />
+
+        {showDayBanner && <FestivalDayBanner />}
+
+        <div className="main-content flex flex-1 overflow-hidden flex-col">
+          {!hideSubHeader && <SubHeader dayOnly={dayOnlySubHeader} festivalOnly={festivalOnlySubHeader} />}
+
+          <main
+            id="main-content"
+            className={cn(
+              'content-area',
+              'flex-1 overflow-auto px-6 py-4',
+              '[-webkit-overflow-scrolling:touch] [overscroll-behavior-y:contain]',
+            )}
+          >
+            <Suspense fallback={<RouteFallback />}>
+              <PageTransition>
+                <Outlet />
+              </PageTransition>
+            </Suspense>
+          </main>
+        </div>
+
+        {/* Guest banner for unauthenticated users */}
+        {!user && (
+          <aside
+            className={cn(
+              'guest-banner',
+              'flex items-center justify-between gap-[var(--space-6)]',
+              'py-3 px-4 bg-[var(--color-aqua-a08)] border border-[var(--color-aqua-a25)]',
+              'text-text-primary rounded-sm mb-2 font-semibold text-sm',
+            )}
+            aria-label="Guest notice"
+          >
+            <span>Browsing as guest.</span>
+            <Button variant="primary" size="sm" type="button" onClick={() => navigate({ to: '/login' })}>
+              Login / Sign Up
+            </Button>
+          </aside>
+        )}
+
+        <BottomNav />
+
+        {detailSet && (
+          <DetailPanel
+            key={detailSet.id}
+            set={detailSet}
+            autoOpenSpotify={detailAutoSpotify}
+            onClose={() => {
+              setDetailSet(null);
+              setDetailAutoSpotify(false);
+            }}
+          />
+        )}
+      </div>
+    </SocketContext.Provider>
   );
 }

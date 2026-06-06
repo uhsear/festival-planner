@@ -35,6 +35,8 @@ import CrewPacking from '../../components/CrewPacking';
 import CrewRides from '../../components/CrewRides';
 import CrewExpenses from '../../components/CrewExpenses';
 import CrewActivity from '../../components/CrewActivity';
+import CrewLiveLocation from '../../components/CrewLiveLocation';
+import CrewSos from '../../components/CrewSos';
 import FreshnessChip from '../../components/FreshnessChip';
 
 /** Two-letter initials derived from a member's display name (fallback "?"). */
@@ -886,6 +888,12 @@ export default function CrewScreen() {
 
             <CrewPhotoLink crewId={crew.id} photoAlbumUrl={crew.photoAlbumUrl} />
 
+            <Text style={styles.sectionLabel}>Live location & SOS</Text>
+            <View style={styles.liveSafetyBlock}>
+              <CrewLiveLocation crewId={crew.id} />
+              <CrewSos crewId={crew.id} currentUserId={user.id} />
+            </View>
+
             <Text style={styles.sectionLabel}>Meeting points</Text>
             <CrewStatus crewId={crew.id} currentUserId={user.id} />
             <CrewMeetingPoints crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
@@ -1239,6 +1247,10 @@ const useStyles = makeStyles((t) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: t.spacing[2],
+  },
+  liveSafetyBlock: {
+    gap: t.spacing[3],
+    marginBottom: t.spacing[2],
   },
   footerActions: {
     marginTop: t.spacing[4],

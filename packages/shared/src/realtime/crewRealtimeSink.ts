@@ -14,7 +14,7 @@
  * shared path later without behavior change).
  */
 
-import type { CrewMeetingPoint, CrewPoll } from '../types/domain';
+import type { CrewMeetingPoint, CrewPoll, PeerLocation, SosEntry } from '../types/domain';
 
 /**
  * The minimal crewStore surface the store-sink adapter depends on. Declared
@@ -33,6 +33,21 @@ export interface CrewStoreSinkApi {
     loadPolls: (crewId: string) => Promise<void>;
     loadExpenses: (crewId: string) => Promise<void>;
     loadActivity: (crewId: string) => Promise<void>;
+  };
+}
+
+/**
+ * The minimal liveLocationStore surface the store-sink adapter depends on for
+ * Live Location + SOS. Declared structurally so it stays decoupled and accepts
+ * test doubles. Optional in createStoreSink — when absent, the location/SOS sink
+ * methods are no-ops (a consumer that doesn't render live location).
+ */
+export interface LiveLocationStoreSinkApi {
+  getState: () => {
+    applyPeerUpdate: (peer: PeerLocation) => void;
+    removePeer: (userId: string) => void;
+    applySos: (entry: SosEntry) => void;
+    clearSos: () => void;
   };
 }
 
@@ -58,6 +73,11 @@ export interface CrewRealtimeSink {
   onPollClosed: (crewId: string, pollId: string) => void;
   onExpensesChanged: (crewId: string) => void;
   onActivityLogged: (crewId: string) => void;
+  // ── Live Location + SOS (full payloads; applied immediately, no debounce) ──
+  onLocationPeerUpdate: (crewId: string, peer: PeerLocation) => void;
+  onLocationPeerStopped: (crewId: string, userId: string, reason: 'stop' | 'disconnect' | 'expired') => void;
+  onSosRaised: (crewId: string, sos: SosEntry) => void;
+  onSosCleared: (crewId: string, userId: string, clearedBy: string) => void;
 }
 
 /**
@@ -72,7 +92,10 @@ export interface CrewRealtimeSink {
  * Reload methods re-read the *current* active crew id before firing so a crew
  * switch between event and (debounced) flush can't write the wrong crew's data.
  */
-export function createStoreSink(crewStoreApi: CrewStoreSinkApi): CrewRealtimeSink {
+export function createStoreSink(
+  crewStoreApi: CrewStoreSinkApi,
+  liveLocationApi?: LiveLocationStoreSinkApi,
+): CrewRealtimeSink {
   const stillActive = (crewId: string): boolean => crewStoreApi.getState().activeCrew?.id === crewId;
 
   return {
@@ -112,6 +135,19 @@ export function createStoreSink(crewStoreApi: CrewStoreSinkApi): CrewRealtimeSin
         .getState()
         .loadActivity(crewId)
         .catch(() => {});
+    },
+    // ── Live Location + SOS → liveLocationStore (no-op if not wired) ─────────
+    onLocationPeerUpdate: (_crewId, peer) => {
+      liveLocationApi?.getState().applyPeerUpdate(peer);
+    },
+    onLocationPeerStopped: (_crewId, userId) => {
+      liveLocationApi?.getState().removePeer(userId);
+    },
+    onSosRaised: (_crewId, sos) => {
+      liveLocationApi?.getState().applySos(sos);
+    },
+    onSosCleared: () => {
+      liveLocationApi?.getState().clearSos();
     },
   };
 }

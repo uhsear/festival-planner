@@ -27,6 +27,10 @@ import {
   routePollClosed,
   routeExpensesChanged,
   routeActivityLogged,
+  routeLocationPeerUpdate,
+  routeLocationPeerStopped,
+  routeSosRaised,
+  routeSosCleared,
 } from '../realtime/crewEventRouter';
 import type { CrewRealtimeSink } from '../realtime/crewRealtimeSink';
 import type {
@@ -39,6 +43,10 @@ import type {
   CrewExpensePayload,
   CrewExpenseDeletedPayload,
   CrewActivityPayload,
+  LocationPeerUpdatePayload,
+  LocationPeerStoppedPayload,
+  SosRaisedPayload,
+  SosClearedPayload,
 } from '../types/socket-events';
 
 export interface UseCrewRealtimeOptions {
@@ -143,6 +151,28 @@ export function useCrewRealtime({ socket, getActiveCrewId, sink, joinRoom = true
       });
     };
 
+    // ── Live Location + SOS handlers (applied IMMEDIATELY — full payloads, no
+    // debounce; the 300ms debounce is only for reload-style intents above). ───
+    const handleLocationPeerUpdate = (data: LocationPeerUpdatePayload) => {
+      const intent = routeLocationPeerUpdate(data, getActiveCrewId());
+      if (intent) sink.onLocationPeerUpdate(intent.crewId, intent.peer);
+    };
+
+    const handleLocationPeerStopped = (data: LocationPeerStoppedPayload) => {
+      const intent = routeLocationPeerStopped(data, getActiveCrewId());
+      if (intent) sink.onLocationPeerStopped(intent.crewId, intent.userId, intent.reason);
+    };
+
+    const handleSosRaised = (data: SosRaisedPayload) => {
+      const intent = routeSosRaised(data, getActiveCrewId());
+      if (intent) sink.onSosRaised(intent.crewId, intent.sos);
+    };
+
+    const handleSosCleared = (data: SosClearedPayload) => {
+      const intent = routeSosCleared(data, getActiveCrewId());
+      if (intent) sink.onSosCleared(intent.crewId, intent.userId, intent.clearedBy);
+    };
+
     // ── Register listeners ──────────────────────────────────────────────────
     socket.on('crew:home-base-updated', handleHomeBaseUpdated);
     socket.on('crew:meeting-point-created', handleMeetingPointUpsert);
@@ -154,6 +184,10 @@ export function useCrewRealtime({ socket, getActiveCrewId, sink, joinRoom = true
     socket.on('crew:expense-added', handleExpensesChanged);
     socket.on('crew:expense-deleted', handleExpensesChanged);
     socket.on('crew:activity', handleActivityLogged);
+    socket.on('location:peer-update', handleLocationPeerUpdate);
+    socket.on('location:peer-stopped', handleLocationPeerStopped);
+    socket.on('sos:raised', handleSosRaised);
+    socket.on('sos:cleared', handleSosCleared);
 
     // ── Crew room lifecycle ─────────────────────────────────────────────────
     // Join on connect AND immediately (the socket may already be connected when
@@ -181,6 +215,10 @@ export function useCrewRealtime({ socket, getActiveCrewId, sink, joinRoom = true
       socket.off('crew:expense-added', handleExpensesChanged);
       socket.off('crew:expense-deleted', handleExpensesChanged);
       socket.off('crew:activity', handleActivityLogged);
+      socket.off('location:peer-update', handleLocationPeerUpdate);
+      socket.off('location:peer-stopped', handleLocationPeerStopped);
+      socket.off('sos:raised', handleSosRaised);
+      socket.off('sos:cleared', handleSosCleared);
       socket.off('connect', handleConnect);
 
       // Cancel pending debounced reloads.

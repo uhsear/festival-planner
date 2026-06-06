@@ -104,7 +104,7 @@ describe('CrewMap', () => {
     ]);
     render(<CrewMap meetingPoints={[POINT_WITH_COORDS]} />);
     expect(screen.queryByText('No mapped meeting points yet')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Crew meeting points map')).toBeInTheDocument();
+    expect(screen.getByLabelText('Crew map with meeting points and live locations')).toBeInTheDocument();
     // Single-pin count copy.
     expect(screen.getByText(/1 mapped point/)).toBeInTheDocument();
   });

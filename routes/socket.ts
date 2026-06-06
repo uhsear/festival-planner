@@ -37,6 +37,8 @@
 import crypto from 'crypto';
 import { z } from 'zod';
 import { generateTraceId, propagateTraceId } from '../lib/tracing.js';
+import { schemas } from '../lib/schemas.js';
+import { LOCATION_UPDATE_LIMIT } from '../lib/rate-limiting.js';
 
 // ════════════════════════════════════════════════════════════════════════════════
 // Socket Event Validation Schemas
@@ -365,6 +367,140 @@ export default function setupSocketHandlers(deps: any) {
       }
     });
 
+    // ── Live Location (EPHEMERAL — socket-only, NEVER persisted) ───────
+    // Opt-in, single-crew-scoped, auto-expiring GPS relay. Positions travel
+    // ONLY over Socket.IO to the crew:${crewId} room (the same room join:crew
+    // gates). No Postgres writes anywhere in these handlers. Sharing is more
+    // sensitive than viewing, so location:share re-verifies crew membership.
+
+    socket.on('location:share', async (data: any = {}, ack: any) => {
+      const respond = withAckTimeout(typeof ack === 'function' ? ack : null, log, connectionId);
+      try {
+        if (config.LIVE_LOCATION_ENABLED === false) {
+          return respond({ ok: false, code: 'FEATURE_DISABLED' });
+        }
+        const validation = schemas.locationShare.safeParse(data);
+        if (!validation.success) return respond({ ok: false, code: 'SCHEMA_MISMATCH' });
+        const { crewId, position } = validation.data;
+
+        // The socket must already be joined to this crew room (join:crew set it).
+        if (socket.data?.crewId !== crewId) return respond({ ok: false, code: 'NOT_IN_CREW_ROOM' });
+
+        // Re-validate session + membership: sharing live GPS is more sensitive
+        // than viewing, and a user who left the crew must not be able to share.
+        const sessionToken =
+          socket.data?.userSessionToken || resolveSocketToken(socket, null, config.USER_SESSION_COOKIE);
+        const session = await validateUserSession(sessionToken);
+        if (!session) {
+          disconnectSocket(socket, io);
+          return respond({ ok: false, code: 'AUTH_REQUIRED' });
+        }
+        const membership = await stores.crews.getMember(crewId, session.userId);
+        if (!membership) return respond({ ok: false, code: 'NOT_A_MEMBER' });
+
+        /* eslint-disable require-atomic-updates -- socket.data is per-connection, not a shared race target */
+        socket.data.userSessionToken = sessionToken;
+        socket.data.userId = session.userId;
+        socket.data.username = session.username;
+        socket.data.sharingCrewId = crewId;
+        socket.data.sharingSince = Date.now();
+        /* eslint-enable require-atomic-updates */
+
+        // If a first fix is included, broadcast it immediately so peers see the
+        // sharer without waiting for the first periodic update tick.
+        if (position) {
+          socket.to('crew:' + crewId).emit('location:peer-update', {
+            _v: 1,
+            crewId,
+            userId: session.userId,
+            username: session.username,
+            lat: position.lat,
+            lng: position.lng,
+            accuracy: position.accuracy,
+            heading: position.heading,
+            capturedAt: position.capturedAt,
+            serverAt: new Date().toISOString(),
+          });
+        }
+
+        log.debug('location:share', { userId: session.userId, crewId });
+        respond({ ok: true });
+      } catch (error: any) {
+        log.error('location:share error', { error: error.message, socketId: socket.id, userId: socket.data?.userId });
+        respond({ ok: false, code: 'SERVER_ERROR' });
+      }
+    });
+
+    socket.on('location:update', (data: any = {}) => {
+      // High-frequency fire-rate path: no ack, no session re-validation (share
+      // already validated membership and stamped socket.data). Drop silently +
+      // emit a structured error if the sender isn't actively sharing this crew.
+      try {
+        if (config.LIVE_LOCATION_ENABLED === false) return;
+        const validation = schemas.locationUpdate.safeParse(data);
+        if (!validation.success) {
+          socket.emit('error', { message: 'Invalid location payload', code: 'SCHEMA_MISMATCH' });
+          return;
+        }
+        const { crewId, lat, lng, accuracy, heading, speed, capturedAt } = validation.data;
+
+        if (socket.data?.sharingCrewId !== crewId) {
+          socket.emit('error', { message: 'Not sharing location to this crew', code: 'NOT_SHARING' });
+          return;
+        }
+
+        const userId = socket.data.userId;
+        const check = LOCATION_UPDATE_LIMIT.consume(userId);
+        if (!check.allowed) {
+          socket.emit('error', { message: 'Location update rate limit exceeded', code: 'RATE_LIMITED' });
+          return;
+        }
+
+        // Broadcast to the crew room EXCLUDING the sender.
+        socket.to('crew:' + crewId).emit('location:peer-update', {
+          _v: 1,
+          crewId,
+          userId,
+          username: socket.data.username,
+          lat,
+          lng,
+          accuracy,
+          heading,
+          speed,
+          capturedAt,
+          serverAt: new Date().toISOString(),
+        });
+      } catch (error: any) {
+        log.error('location:update error', { error: error.message, socketId: socket.id, userId: socket.data?.userId });
+      }
+    });
+
+    socket.on('location:stop', (data: any = {}, ack: any) => {
+      const respond = withAckTimeout(typeof ack === 'function' ? ack : null, log, connectionId);
+      try {
+        const validation = schemas.locationStop.safeParse(data);
+        if (!validation.success) return respond({ ok: false });
+        const { crewId } = validation.data;
+        const userId = socket.data?.userId;
+
+        if (socket.data?.sharingCrewId === crewId) delete socket.data.sharingCrewId;
+
+        if (userId) {
+          socket.to('crew:' + crewId).emit('location:peer-stopped', {
+            _v: 1,
+            crewId,
+            userId,
+            reason: 'stop',
+          });
+        }
+        log.debug('location:stop', { userId, crewId });
+        respond({ ok: true });
+      } catch (error: any) {
+        log.error('location:stop error', { error: error.message, socketId: socket.id, userId: socket.data?.userId });
+        respond({ ok: false });
+      }
+    });
+
     // #17: Reconnection recovery — client sends last known state, server gap-fills
     // Security: Always re-validate session on reconnect (not just initial connection)
     socket.on('reconnect:restore', async (data: any = {}, ack: any) => {
@@ -421,6 +557,19 @@ export default function setupSocketHandlers(deps: any) {
           });
         }
         const festivalId = socket.data?.festivalId;
+        // Live-location auto-expire on disconnect: if this socket was sharing,
+        // tell the crew room so no ghost marker lingers (enforces foreground-only
+        // + auto-stop-on-disconnect). Broadcast BEFORE the socket leaves rooms.
+        const sharingCrewId = socket.data?.sharingCrewId;
+        const sharingUserId = socket.data?.userId;
+        if (sharingCrewId && sharingUserId) {
+          socket.to('crew:' + sharingCrewId).emit('location:peer-stopped', {
+            _v: 1,
+            crewId: sharingCrewId,
+            userId: sharingUserId,
+            reason: 'disconnect',
+          });
+        }
         // Crew room cleanup happens automatically when socket disconnects (Socket.IO removes from all rooms)
         removeSocketPresence(socket);
         clearSocketSession(socket);

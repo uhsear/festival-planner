@@ -31,7 +31,14 @@
  * resolution, so poll intents only require a non-null active crew.
  */
 
-import type { CrewMeetingPoint, CrewPoll, CrewExpense, CrewActivityEntry } from '../types/domain';
+import type {
+  CrewMeetingPoint,
+  CrewPoll,
+  CrewExpense,
+  CrewActivityEntry,
+  PeerLocation,
+  SosEntry,
+} from '../types/domain';
 import type {
   CrewHomeBaseUpdatedPayload,
   CrewMeetingPointPayload,
@@ -42,6 +49,10 @@ import type {
   CrewExpensePayload,
   CrewExpenseDeletedPayload,
   CrewActivityPayload,
+  LocationPeerUpdatePayload,
+  LocationPeerStoppedPayload,
+  SosRaisedPayload,
+  SosClearedPayload,
 } from '../types/socket-events';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -106,6 +117,37 @@ export interface ActivityLoggedIntent {
   crewId: string;
 }
 
+// ── Live Location + SOS intents ─────────────────────────────────────────────
+// All four payloads carry an explicit crewId, so the guard is exact (no reliance
+// on room-scoping like the poll events). Unlike the reload-style intents above,
+// these carry full payloads and are applied IMMEDIATELY (no debounce).
+
+export interface LocationPeerUpdateIntent {
+  kind: 'location-peer-update';
+  crewId: string;
+  peer: PeerLocation;
+}
+
+export interface LocationPeerStoppedIntent {
+  kind: 'location-peer-stopped';
+  crewId: string;
+  userId: string;
+  reason: 'stop' | 'disconnect' | 'expired';
+}
+
+export interface SosRaisedIntent {
+  kind: 'sos-raised';
+  crewId: string;
+  sos: SosEntry;
+}
+
+export interface SosClearedIntent {
+  kind: 'sos-cleared';
+  crewId: string;
+  userId: string;
+  clearedBy: string;
+}
+
 export type CrewRealtimeIntent =
   | HomeBaseUpdatedIntent
   | MeetingPointUpsertIntent
@@ -114,7 +156,11 @@ export type CrewRealtimeIntent =
   | PollVotedIntent
   | PollClosedIntent
   | ExpensesChangedIntent
-  | ActivityLoggedIntent;
+  | ActivityLoggedIntent
+  | LocationPeerUpdateIntent
+  | LocationPeerStoppedIntent
+  | SosRaisedIntent
+  | SosClearedIntent;
 
 // ════════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -230,6 +276,69 @@ export function routeActivityLogged(
   return { kind: 'activity-logged', crewId: payload.crewId };
 }
 
+export function routeLocationPeerUpdate(
+  payload: LocationPeerUpdatePayload,
+  activeCrewId: string | null,
+): LocationPeerUpdateIntent | null {
+  if (!matchesActiveCrew(payload?.crewId, activeCrewId)) return null;
+  return {
+    kind: 'location-peer-update',
+    crewId: payload.crewId,
+    peer: {
+      crewId: payload.crewId,
+      userId: payload.userId,
+      username: payload.username,
+      lat: payload.lat,
+      lng: payload.lng,
+      accuracy: payload.accuracy,
+      heading: payload.heading,
+      speed: payload.speed,
+      capturedAt: payload.capturedAt,
+      serverAt: payload.serverAt,
+    },
+  };
+}
+
+export function routeLocationPeerStopped(
+  payload: LocationPeerStoppedPayload,
+  activeCrewId: string | null,
+): LocationPeerStoppedIntent | null {
+  if (!matchesActiveCrew(payload?.crewId, activeCrewId)) return null;
+  return {
+    kind: 'location-peer-stopped',
+    crewId: payload.crewId,
+    userId: payload.userId,
+    reason: payload.reason,
+  };
+}
+
+export function routeSosRaised(payload: SosRaisedPayload, activeCrewId: string | null): SosRaisedIntent | null {
+  if (!matchesActiveCrew(payload?.crewId, activeCrewId)) return null;
+  return {
+    kind: 'sos-raised',
+    crewId: payload.crewId,
+    sos: {
+      crewId: payload.crewId,
+      userId: payload.userId,
+      username: payload.username,
+      message: payload.message,
+      position: payload.position,
+      activityId: payload.activityId,
+      raisedAt: payload.raisedAt,
+    },
+  };
+}
+
+export function routeSosCleared(payload: SosClearedPayload, activeCrewId: string | null): SosClearedIntent | null {
+  if (!matchesActiveCrew(payload?.crewId, activeCrewId)) return null;
+  return {
+    kind: 'sos-cleared',
+    crewId: payload.crewId,
+    userId: payload.userId,
+    clearedBy: payload.clearedBy,
+  };
+}
+
 // Re-export the domain types the intents reference so consumers building a sink
 // have a single import surface.
-export type { CrewMeetingPoint, CrewPoll, CrewExpense, CrewActivityEntry };
+export type { CrewMeetingPoint, CrewPoll, CrewExpense, CrewActivityEntry, PeerLocation, SosEntry };
