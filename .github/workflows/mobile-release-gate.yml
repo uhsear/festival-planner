@@ -14,11 +14,6 @@ name: Mobile release gate (build vs OTA)
 # typecheck / lint fail, we stop before spending anything.
 on:
   workflow_dispatch:
-  # TEMPORARY: lets this gate be validated on the setup branch before merge.
-  # Remove this push trigger once merged — the gate is meant to be dispatch-driven
-  # (or wired into the mobile release flow), not run on every push.
-  push:
-    branches: [ci/eas-cost-setup]
 
 env:
   EXPO_NO_TELEMETRY: '1'
