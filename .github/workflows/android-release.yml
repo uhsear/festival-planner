@@ -58,6 +58,9 @@ env:
   # (last EAS versionCode + 100). E.g. last EAS code 42 -> set 142 here.
   VERSION_CODE_OFFSET: '100'
 
+permissions:
+  contents: read
+
 jobs:
   android-release:
     runs-on: ubuntu-latest
