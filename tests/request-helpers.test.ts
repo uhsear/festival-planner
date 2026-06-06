@@ -272,6 +272,40 @@ describe('request-helpers: enforceAllowedOrigin', () => {
     });
   });
 
+  it('blocks POST with session cookie + Bearer header but no origin (L8/H4 hardening)', () => {
+    let errorCode: string | null = null;
+    const helpers = createRequestHelpers({
+      config: baseConfig,
+      log: noopLog,
+      sendError: (_res: any, _status: any, _msg: any, code: any) => {
+        errorCode = code;
+      },
+      ErrorCodes,
+    });
+    const req = mockReq({
+      method: 'POST',
+      headers: { cookie: 'festie_session=abc', authorization: 'Bearer tok123' },
+    });
+    helpers.enforceAllowedOrigin(req, {}, () => {});
+    assert.equal(errorCode, 'FORBIDDEN');
+  });
+
+  it('passes through POST with session cookie + Bearer header + valid origin', (t, done) => {
+    const helpers = makeHelpers();
+    const req = mockReq({
+      method: 'POST',
+      headers: {
+        cookie: 'festie_session=abc',
+        authorization: 'Bearer tok123',
+        origin: 'https://festie.us',
+        host: 'festie.us',
+      },
+    });
+    helpers.enforceAllowedOrigin(req, {}, () => {
+      done();
+    });
+  });
+
   it('blocks POST with session cookie but no origin or auth header', () => {
     let errorCode: string | null = null;
     const helpers = createRequestHelpers({

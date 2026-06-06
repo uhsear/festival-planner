@@ -1,5 +1,20 @@
 import type { Pool } from 'pg';
 import { withTransaction } from '../connection';
+import { sanitizeString } from '../../helpers/sanitize.js';
+
+/**
+ * H3 (defense-in-depth, audit 2026-06-06): meeting-point label/location are user
+ * free-text that the mobile map WebView interpolates into an inline <script>.
+ * The WebView itself is being hardened separately, but neutralize the stored
+ * value too: run it through sanitizeString (NFC + strip control/bidi/zero-width
+ * + cap) AND strip angle brackets so a `</script>` breakout cannot be persisted.
+ * Returns the cleaned string (or the original non-string value untouched, so
+ * NULLs / undefined pass through to the existing `|| null` handling).
+ */
+function sanitizeMeetingPointText(value: any, maxLen: number) {
+  if (typeof value !== 'string') return value;
+  return sanitizeString(value, maxLen).replace(/[<>]/g, '');
+}
 
 export default function createCrewsStore(pool: Pool, _utils: any) {
   // #29: Topic subscription store
@@ -508,8 +523,8 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           data.id,
           data.crewId,
           data.createdBy,
-          data.label,
-          data.location,
+          sanitizeMeetingPointText(data.label, 100),
+          sanitizeMeetingPointText(data.location, 200),
           data.type || 'during',
           data.meetAt || null,
           data.stageReference || null,
@@ -606,8 +621,12 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           } as Record<string, string>
         )[key];
         if (col) {
+          // H3: sanitize free-text label/location on update too (see create).
+          let outVal = val;
+          if (key === 'label') outVal = sanitizeMeetingPointText(val, 100);
+          else if (key === 'location') outVal = sanitizeMeetingPointText(val, 200);
           sets.push(col + ' = $' + idx);
-          vals.push(val);
+          vals.push(outVal);
           idx++;
         }
       }

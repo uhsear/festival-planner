@@ -70,6 +70,7 @@ export default function createAdminRoutes(deps: any): Router {
     role_grant: 'Grant Role',
     role_revoke: 'Revoke Role',
     bulk_deactivate: 'Bulk Deactivate',
+    force_logout: 'Force Logout',
     bulk_archive: 'Bulk Archive Festivals',
     'create:token': 'Create Token',
     'create:verify': 'Verify Email',

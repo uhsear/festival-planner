@@ -103,15 +103,29 @@ export function createRequestHelpers({
 
   function enforceAllowedOrigin(req: any, res: any, next: any) {
     if (!MUTATING_METHODS.has(req.method)) return next();
-    if (hasBearerToken(req)) return next();
+    // L8/H4 (server defense): only exempt *true* Bearer-only clients (mobile,
+    // which never sends a session cookie). A request that carries BOTH a Bearer
+    // header and a session cookie is a browser — keep enforcing Origin so a
+    // hijacked/leaked Bearer header can't be used to bypass CSRF protection on
+    // cookie-authenticated browser requests.
+    if (hasBearerToken(req) && !hasSessionCookie(req)) return next();
     const origin = req.headers.origin;
     if (origin) {
       if (isAllowedOrigin(origin, req.get('host'))) return next();
       log.warn('csrf:origin-blocked', { origin, host: req.get('host'), method: req.method, path: req.path });
       return sendError(res, 403, 'Invalid origin', ErrorCodes.FORBIDDEN);
     }
-    if (hasDirectAuthHeader(req) || hasTrustedMutationHeader(req)) return next();
-    if (!hasSessionCookie(req)) return next();
+    // No Origin header below this point.
+    const hasCookie = hasSessionCookie(req);
+    // L8/H4: a direct auth header (incl. Bearer) only grants the Origin-less
+    // exemption when the client is NOT also presenting a session cookie. With a
+    // cookie present the request is browser-originated, so a forged/leaked
+    // header must not be allowed to bypass Origin enforcement; only the SPA's
+    // own trusted-mutation header (which a cross-site attacker cannot set on a
+    // simple request) is honored in that case.
+    if (!hasCookie && hasDirectAuthHeader(req)) return next();
+    if (hasTrustedMutationHeader(req)) return next();
+    if (!hasCookie) return next();
     log.warn('csrf:missing-origin', { method: req.method, path: req.path, ip: getRequestIp(req) });
     return sendError(res, 403, 'Missing trusted origin', ErrorCodes.FORBIDDEN);
   }

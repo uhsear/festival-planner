@@ -231,6 +231,13 @@ export default function createAuthRoutes(deps: any): Router {
         const { serializePublicUser } = deps;
         const _roles = await stores.roles.getUserRoles(user.id);
         res.status(201);
+        // TODO (H4): token/refreshToken are returned in the body for the mobile
+        // (bearer-mode) client; the web (cookie-mode) client must NOT persist
+        // them. There is no clean server-side signal to distinguish the two at
+        // register time (no auth header exists yet on the request), so omitting
+        // them here would break mobile. The primary mitigation is the WEB
+        // client dropping client-side persistence; revisit if an explicit
+        // client-mode flag (e.g. header/query param) is introduced.
         return sendSuccess(res, {
           user: serializePublicUser(user),
           token,
@@ -313,6 +320,12 @@ export default function createAuthRoutes(deps: any): Router {
 
       const { serializePublicUser } = deps;
       const roles = await stores.roles.getUserRoles(user.id);
+      // TODO (H4): token/refreshToken are returned in the body for the mobile
+      // (bearer-mode) client; the web (cookie-mode) client must NOT persist
+      // them. No clean server-side signal distinguishes the two at login time
+      // (no auth header on the request yet), so omitting them would break
+      // mobile. Primary mitigation is the WEB client dropping client-side
+      // persistence; revisit if an explicit client-mode flag is introduced.
       return sendSuccess(res, { user: serializePublicUser(user), token, refreshToken, roles });
     } catch (error: any) {
       log.error('login failed', { error: error.message });
@@ -572,6 +585,9 @@ export default function createAuthRoutes(deps: any): Router {
         // Invalidate all existing sessions immediately after password change
         // to close the window where old sessions remain valid
         await invalidateUserSessions(req.user.userId);
+        // Also revoke long-lived refresh tokens so a held token chain cannot
+        // mint new sessions after the credential change (H2).
+        if (stores.refreshTokens) await stores.refreshTokens.revokeAll(req.user.userId);
         disconnectUserSockets(req.user.userId, io);
         const token = await createUserSession(req.user.userId, req.user.username);
         setNoStore(res);

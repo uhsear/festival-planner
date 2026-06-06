@@ -10,70 +10,111 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
   const {
     log,
     setNoStore,
-    sendSuccess, sendError, ErrorCodes,
-    adminAuth, getRequestIp,
+    sendSuccess,
+    sendError,
+    ErrorCodes,
+    adminAuth,
+    getRequestIp,
     stores,
-    schemas, validate, validateParams,
+    schemas,
+    validate,
+    validateParams,
   } = deps;
   const { adminWriteLimit } = ctx;
 
-  // ── POST /bulk/deactivate — deactivate multiple users ────────────
-  router.post('/bulk/deactivate', adminAuth, adminWriteLimit, validate(schemas.adminBulkDeactivate), async (req: any, res: any) => {
-    try {
-      const { userIds } = req.validatedBody;
-      if (userIds.length > 50) {
-        return sendError(res, 400, 'Provide 1-50 user IDs', ErrorCodes.INVALID_INPUT);
-      }
-      const settled = await Promise.allSettled(
-        userIds.map((userId: string) => stores.sessions.deleteUserSessions(userId).then(() => userId)),
-      );
-      const results = settled.map((r: any, i: number) =>
-        r.status === 'fulfilled'
-          ? { userId: userIds[i], status: 'deactivated' }
-          : { userId: userIds[i], status: 'error', message: r.reason?.message || 'unknown' },
-      );
-      for (const r of results) {
-        if (r.status === 'deactivated') {
-          log.info('admin:bulk-deactivate', { userId: r.userId, actor: 'admin' });
+  // ── POST /bulk/deactivate — force-logout multiple users ──────────
+  // NOTE (M1, security-review-2026-06-06): this endpoint's only effect is
+  // clearing the targeted users' sessions (a force-logout). It does NOT
+  // deactivate/disable the account — there is no is_active/deactivated_at
+  // column and login has no disabled-account gate, so a "deactivated" user
+  // can log straight back in with unchanged credentials. A real deactivation
+  // would require a DB migration (new column + login + session-validation
+  // gates), which is intentionally out of scope here (migration-free deploy).
+  // We therefore rename the semantics to `force_logout` so the response/audit
+  // match the actual behavior; the route path is kept for API compatibility.
+  router.post(
+    '/bulk/deactivate',
+    adminAuth,
+    adminWriteLimit,
+    validate(schemas.adminBulkDeactivate),
+    async (req: any, res: any) => {
+      try {
+        const { userIds } = req.validatedBody;
+        if (userIds.length > 50) {
+          return sendError(res, 400, 'Provide 1-50 user IDs', ErrorCodes.INVALID_INPUT);
         }
+        const settled = await Promise.allSettled(
+          userIds.map((userId: string) => stores.sessions.deleteUserSessions(userId).then(() => userId)),
+        );
+        const results = settled.map((r: any, i: number) =>
+          r.status === 'fulfilled'
+            ? { userId: userIds[i], status: 'logged_out' }
+            : { userId: userIds[i], status: 'error', message: r.reason?.message || 'unknown' },
+        );
+        for (const r of results) {
+          if (r.status === 'logged_out') {
+            log.info('admin:force-logout', { userId: r.userId, actor: 'admin' });
+          }
+        }
+        if (stores.auditLog) {
+          await stores.auditLog.insert({
+            actorType: 'admin',
+            actorId: req.user?.userId || 'admin',
+            action: 'force_logout',
+            targetType: 'users',
+            targetId: userIds.join(','),
+            detailsJson: JSON.stringify({ count: userIds.length }),
+            ip: getRequestIp(req),
+          });
+        }
+        return sendSuccess(res, { results });
+      } catch (error: any) {
+        log.error('bulk force-logout failed', { error: error.message });
+        return sendError(res, 500, 'Bulk force-logout failed', ErrorCodes.INTERNAL_ERROR);
       }
-      if (stores.auditLog) {
-        await stores.auditLog.insert({ actorType: 'admin', actorId: req.user?.userId || 'admin', action: 'bulk_deactivate', targetType: 'users', targetId: userIds.join(','), detailsJson: JSON.stringify({ count: userIds.length }), ip: getRequestIp(req) });
-      }
-      return sendSuccess(res, { results });
-    } catch (error: any) {
-      log.error('bulk deactivate failed', { error: error.message });
-      return sendError(res, 500, 'Bulk deactivate failed', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   // ── POST /bulk/archive-festivals — archive old festivals ─────────
-  router.post('/bulk/archive-festivals', adminAuth, adminWriteLimit, validate(schemas.adminBulkArchive), async (req: any, res: any) => {
-    try {
-      const { festivalIds } = req.validatedBody;
-      if (festivalIds.length > 50) {
-        return sendError(res, 400, 'Provide 1-50 festival IDs', ErrorCodes.INVALID_INPUT);
-      }
-      const results: any[] = [];
-      for (const festivalId of festivalIds) {
-        try {
-          await stores.festivals.softDelete(festivalId);
-          results.push({ festivalId, status: 'archived' });
-        } catch (err: any) {
-          results.push({ festivalId, status: 'error', message: err.message });
+  router.post(
+    '/bulk/archive-festivals',
+    adminAuth,
+    adminWriteLimit,
+    validate(schemas.adminBulkArchive),
+    async (req: any, res: any) => {
+      try {
+        const { festivalIds } = req.validatedBody;
+        if (festivalIds.length > 50) {
+          return sendError(res, 400, 'Provide 1-50 festival IDs', ErrorCodes.INVALID_INPUT);
         }
+        const results: any[] = [];
+        for (const festivalId of festivalIds) {
+          try {
+            await stores.festivals.softDelete(festivalId);
+            results.push({ festivalId, status: 'archived' });
+          } catch (err: any) {
+            results.push({ festivalId, status: 'error', message: err.message });
+          }
+        }
+        if (deps.invalidateFestivalListCache) deps.invalidateFestivalListCache();
+        if (stores.auditLog) {
+          await stores.auditLog.insert({
+            actorType: 'admin',
+            actorId: req.user?.userId || 'admin',
+            action: 'bulk_archive',
+            targetType: 'festivals',
+            targetId: festivalIds.join(','),
+            detailsJson: JSON.stringify({ count: festivalIds.length }),
+            ip: getRequestIp(req),
+          });
+        }
+        return sendSuccess(res, { results });
+      } catch (error: any) {
+        log.error('bulk archive failed', { error: error.message });
+        return sendError(res, 500, 'Bulk archive failed', ErrorCodes.INTERNAL_ERROR);
       }
-      if (deps.invalidateFestivalListCache) deps.invalidateFestivalListCache();
-      if (stores.auditLog) {
-        await stores.auditLog.insert({ actorType: 'admin', actorId: req.user?.userId || 'admin', action: 'bulk_archive', targetType: 'festivals', targetId: festivalIds.join(','), detailsJson: JSON.stringify({ count: festivalIds.length }), ip: getRequestIp(req) });
-      }
-      return sendSuccess(res, { results });
-    } catch (error: any) {
-      log.error('bulk archive failed', { error: error.message });
-      return sendError(res, 500, 'Bulk archive failed', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
-
+    },
+  );
 
   // ── GET /crews — list all crews with members for admin ────────────
   router.get('/crews', adminAuth, async (req: any, res: any) => {
@@ -142,61 +183,77 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
   });
 
   // ── DELETE /crews/:id/members/:userId — remove a member from a crew ────────────
-  router.delete('/crews/:id/members/:userId', adminAuth, adminWriteLimit, validateParams(schemas.genericIdParams), async (req: any, res: any) => {
-    try {
-      const crewId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
-      const targetUserId = deps.sanitizeIdentifier(req.params.userId, 100);
-      if (!crewId || !targetUserId) return sendError(res, 400, 'Invalid IDs', ErrorCodes.INVALID_INPUT);
+  router.delete(
+    '/crews/:id/members/:userId',
+    adminAuth,
+    adminWriteLimit,
+    validateParams(schemas.genericIdParams),
+    async (req: any, res: any) => {
+      try {
+        const crewId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
+        const targetUserId = deps.sanitizeIdentifier(req.params.userId, 100);
+        if (!crewId || !targetUserId) return sendError(res, 400, 'Invalid IDs', ErrorCodes.INVALID_INPUT);
 
-      const member = await stores.crews.getMember(crewId, targetUserId);
-      if (!member) return sendError(res, 404, 'Member not found', ErrorCodes.NOT_FOUND);
+        const member = await stores.crews.getMember(crewId, targetUserId);
+        if (!member) return sendError(res, 404, 'Member not found', ErrorCodes.NOT_FOUND);
 
-      await stores.crews.removeMember(crewId, targetUserId);
+        await stores.crews.removeMember(crewId, targetUserId);
 
-      if (stores.auditLog) {
-        await stores.auditLog.insert({
-          actorType: 'admin', actorId: req.user?.userId || 'admin',
-          action: 'crew_remove_member', targetType: 'crew_member',
-          targetId: `${crewId}:${targetUserId}`,
-          detailsJson: JSON.stringify({ crewId, userId: targetUserId }),
-          ip: getRequestIp(req),
-        });
+        if (stores.auditLog) {
+          await stores.auditLog.insert({
+            actorType: 'admin',
+            actorId: req.user?.userId || 'admin',
+            action: 'crew_remove_member',
+            targetType: 'crew_member',
+            targetId: `${crewId}:${targetUserId}`,
+            detailsJson: JSON.stringify({ crewId, userId: targetUserId }),
+            ip: getRequestIp(req),
+          });
+        }
+
+        log.info('admin:crew-remove-member', { crewId, userId: targetUserId });
+        return sendSuccess(res, { success: true });
+      } catch (error: any) {
+        log.error('admin crew remove member failed', { error: error.message });
+        return sendError(res, 500, 'Failed to remove member', ErrorCodes.INTERNAL_ERROR);
       }
-
-      log.info('admin:crew-remove-member', { crewId, userId: targetUserId });
-      return sendSuccess(res, { success: true });
-    } catch (error: any) {
-      log.error('admin crew remove member failed', { error: error.message });
-      return sendError(res, 500, 'Failed to remove member', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 
   // ── DELETE /crews/:id — delete a crew entirely ────────────
-  router.delete('/crews/:id', adminAuth, adminWriteLimit, validateParams(schemas.genericIdParams), async (req: any, res: any) => {
-    try {
-      const crewId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
-      if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
+  router.delete(
+    '/crews/:id',
+    adminAuth,
+    adminWriteLimit,
+    validateParams(schemas.genericIdParams),
+    async (req: any, res: any) => {
+      try {
+        const crewId = deps.sanitizeIdentifier(req.validatedParams.id, 100);
+        if (!crewId) return sendError(res, 400, 'Invalid crew ID', ErrorCodes.INVALID_INPUT);
 
-      const crew = await stores.crews.getById(crewId);
-      if (!crew) return sendError(res, 404, 'Crew not found', ErrorCodes.NOT_FOUND);
+        const crew = await stores.crews.getById(crewId);
+        if (!crew) return sendError(res, 404, 'Crew not found', ErrorCodes.NOT_FOUND);
 
-      await stores.crews.delete(crewId);
+        await stores.crews.delete(crewId);
 
-      if (stores.auditLog) {
-        await stores.auditLog.insert({
-          actorType: 'admin', actorId: req.user?.userId || 'admin',
-          action: 'crew_delete', targetType: 'crew',
-          targetId: crewId,
-          detailsJson: JSON.stringify({ crewName: crew.name, festivalId: crew.festivalId }),
-          ip: getRequestIp(req),
-        });
+        if (stores.auditLog) {
+          await stores.auditLog.insert({
+            actorType: 'admin',
+            actorId: req.user?.userId || 'admin',
+            action: 'crew_delete',
+            targetType: 'crew',
+            targetId: crewId,
+            detailsJson: JSON.stringify({ crewName: crew.name, festivalId: crew.festivalId }),
+            ip: getRequestIp(req),
+          });
+        }
+
+        log.warn('admin:crew-delete', { crewId, crewName: crew.name });
+        return sendSuccess(res, { success: true });
+      } catch (error: any) {
+        log.error('admin crew delete failed', { error: error.message });
+        return sendError(res, 500, 'Failed to delete crew', ErrorCodes.INTERNAL_ERROR);
       }
-
-      log.warn('admin:crew-delete', { crewId, crewName: crew.name });
-      return sendSuccess(res, { success: true });
-    } catch (error: any) {
-      log.error('admin crew delete failed', { error: error.message });
-      return sendError(res, 500, 'Failed to delete crew', ErrorCodes.INTERNAL_ERROR);
-    }
-  });
+    },
+  );
 }

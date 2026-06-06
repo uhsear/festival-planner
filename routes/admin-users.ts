@@ -269,6 +269,9 @@ export default function mountAdminUserRoutes({ router, deps, ctx }: any): void {
         invalidateUserCache();
         const username = user.username;
         await invalidateUserSessions(targetUserId);
+        // Revoke long-lived refresh tokens so a held token chain cannot
+        // mint new sessions after the admin password reset (H2).
+        if (stores.refreshTokens) await stores.refreshTokens.revokeAll(targetUserId);
         disconnectUserSockets(targetUserId, io);
         const auditLog = createAuditLog('admin_reset_password', 'admin', {
           targetUserId,
@@ -324,6 +327,9 @@ export default function mountAdminUserRoutes({ router, deps, ctx }: any): void {
           io.to(profile.festivalId).emit('profile:deleted', { festivalId: profile.festivalId, profileId: profile.id });
         }
         await invalidateUserSessions(targetUserId);
+        // Revoke long-lived refresh tokens so a held token chain cannot
+        // mint new sessions after the account is deleted (H2).
+        if (stores.refreshTokens) await stores.refreshTokens.revokeAll(targetUserId);
         disconnectUserSockets(targetUserId, io);
         return sendSuccess(res, { success: true });
       } catch (error: any) {

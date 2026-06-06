@@ -291,7 +291,7 @@ describe('createUsersStore', () => {
     it('sets fields and returns updated user', async () => {
       const updatedRow = fakeUserRow({ username: 'alice2' });
       const pool = mockPool([
-        { rows: [], rowCount: 1 },   // UPDATE
+        { rows: [], rowCount: 1 }, // UPDATE
         { rows: [updatedRow], rowCount: 1 }, // SELECT
       ]);
       const users = createUsersStore(pool, mockUtils);
@@ -317,10 +317,7 @@ describe('createUsersStore', () => {
       const pool = mockPool([]);
       const users = createUsersStore(pool, mockUtils);
 
-      await assert.rejects(
-        () => users.update('u1', { hackerField: 'bad' }),
-        { message: /Invalid column key/ },
-      );
+      await assert.rejects(() => users.update('u1', { hackerField: 'bad' }), { message: /Invalid column key/ });
     });
 
     it('returns null when user not found after update', async () => {
@@ -373,8 +370,8 @@ describe('createUsersStore', () => {
     it('returns user before soft-deleting', async () => {
       const row = fakeUserRow();
       const pool = mockPool([
-        { rows: [row], rowCount: 1 },  // getById
-        { rows: [], rowCount: 1 },     // UPDATE
+        { rows: [row], rowCount: 1 }, // getById
+        { rows: [], rowCount: 1 }, // UPDATE
       ]);
       const users = createUsersStore(pool, mockUtils);
 
@@ -485,9 +482,7 @@ describe('createUsersStore', () => {
     });
 
     it('soft-deletes missing users and upserts provided ones', async () => {
-      const nextUsers = [
-        { id: 'u1', username: 'alice', passwordHash: 'h1', createdAt: '2026-01-01T00:00:00.000Z' },
-      ];
+      const nextUsers = [{ id: 'u1', username: 'alice', passwordHash: 'h1', createdAt: '2026-01-01T00:00:00.000Z' }];
       // BEGIN, UPDATE (soft-delete NOT IN), INSERT/UPSERT, COMMIT
       const pool = mockPool([
         { rows: [] }, // BEGIN
@@ -510,13 +505,7 @@ describe('createUsersStore', () => {
         { id: 'u2', username: 'bob', passwordHash: 'h2' },
       ];
       // BEGIN, UPDATE, UPSERT u1, UPSERT u2, COMMIT
-      const pool = mockPool([
-        { rows: [] },
-        { rows: [] },
-        { rows: [] },
-        { rows: [] },
-        { rows: [] },
-      ]);
+      const pool = mockPool([{ rows: [] }, { rows: [] }, { rows: [] }, { rows: [] }, { rows: [] }]);
       const users = createUsersStore(pool, mockUtils);
 
       await users.replaceAll(nextUsers);
@@ -524,15 +513,8 @@ describe('createUsersStore', () => {
     });
 
     it('defaults updatedAt to createdAt when not provided', async () => {
-      const nextUsers = [
-        { id: 'u1', username: 'alice', passwordHash: 'h1', createdAt: '2026-03-01T00:00:00.000Z' },
-      ];
-      const pool = mockPool([
-        { rows: [] },
-        { rows: [] },
-        { rows: [] },
-        { rows: [] },
-      ]);
+      const nextUsers = [{ id: 'u1', username: 'alice', passwordHash: 'h1', createdAt: '2026-03-01T00:00:00.000Z' }];
+      const pool = mockPool([{ rows: [] }, { rows: [] }, { rows: [] }, { rows: [] }]);
       const users = createUsersStore(pool, mockUtils);
 
       await users.replaceAll(nextUsers);
@@ -586,7 +568,10 @@ describe('createUsersStore', () => {
         return {
           query: async (sql: any, params: any) => {
             clientCallIdx++;
-            if (sql === 'ROLLBACK') { rollbackCalled = true; return { rows: [] }; }
+            if (sql === 'ROLLBACK') {
+              rollbackCalled = true;
+              return { rows: [] };
+            }
             if (sql === 'BEGIN' || sql === 'COMMIT') return { rows: [] };
             if (clientCallIdx === 3) throw new Error('FK violation');
             return { rows: [] };
@@ -596,10 +581,7 @@ describe('createUsersStore', () => {
       };
       const users = createUsersStore(pool, mockUtils);
 
-      await assert.rejects(
-        () => users.hardDelete('u1'),
-        { message: 'FK violation' },
-      );
+      await assert.rejects(() => users.hardDelete('u1'), { message: 'FK violation' });
       assert.ok(rollbackCalled);
     });
   });
@@ -638,11 +620,11 @@ describe('createSessionsStore', () => {
       // BEGIN, INSERT, SELECT FOR UPDATE (6 sessions, limit 5), DELETE evicted, COMMIT
       const sixSessions = Array.from({ length: 6 }, (_, i) => ({ token: `tok${i}` }));
       const pool = mockPool([
-        { rows: [] },               // BEGIN
-        { rows: [] },               // INSERT
-        { rows: sixSessions },       // SELECT (6 sessions)
-        { rows: [] },               // DELETE evicted
-        { rows: [] },               // COMMIT
+        { rows: [] }, // BEGIN
+        { rows: [] }, // INSERT
+        { rows: sixSessions }, // SELECT (6 sessions)
+        { rows: [] }, // DELETE evicted
+        { rows: [] }, // COMMIT
       ]);
       const sessions = createSessionsStore(pool, mockUtils);
 
@@ -660,13 +642,7 @@ describe('createSessionsStore', () => {
 
     it('evicts multiple tokens when far over limit', async () => {
       const eightSessions = Array.from({ length: 8 }, (_, i) => ({ token: `tok${i}` }));
-      const pool = mockPool([
-        { rows: [] },
-        { rows: [] },
-        { rows: eightSessions },
-        { rows: [] },
-        { rows: [] },
-      ]);
+      const pool = mockPool([{ rows: [] }, { rows: [] }, { rows: eightSessions }, { rows: [] }, { rows: [] }]);
       const sessions = createSessionsStore(pool, mockUtils);
 
       const evicted = await sessions.createUserSession({
@@ -715,7 +691,7 @@ describe('createSessionsStore', () => {
       };
       const pool = mockPool([
         { rows: [session], rowCount: 1 }, // SELECT
-        { rows: [], rowCount: 1 },        // DELETE expired
+        { rows: [], rowCount: 1 }, // DELETE expired
       ]);
       const sessions = createSessionsStore(pool, mockUtils);
 
@@ -745,7 +721,7 @@ describe('createSessionsStore', () => {
       };
       const pool = mockPool([
         { rows: [session], rowCount: 1 }, // SELECT
-        { rows: [], rowCount: 1 },        // UPDATE lastAccess
+        { rows: [], rowCount: 1 }, // UPDATE lastAccess
       ]);
       const sessions = createSessionsStore(pool, mockUtils);
 
@@ -836,7 +812,7 @@ describe('createSessionsStore', () => {
     it('excludes specified token from deletion', async () => {
       const pool = mockPool([
         { rows: [{ token: 'tok1' }], rowCount: 1 }, // SELECT with exceptToken
-        { rows: [], rowCount: 1 },                   // DELETE
+        { rows: [], rowCount: 1 }, // DELETE
       ]);
       const sessions = createSessionsStore(pool, mockUtils);
 
@@ -860,10 +836,12 @@ describe('createSessionsStore', () => {
 
   describe('deleteExpiredUserSessions', () => {
     it('deletes expired sessions and returns tokens', async () => {
-      const pool = mockPool([{
-        rows: [{ token: 'tok1' }, { token: 'tok2' }],
-        rowCount: 2,
-      }]);
+      const pool = mockPool([
+        {
+          rows: [{ token: 'tok1' }, { token: 'tok2' }],
+          rowCount: 2,
+        },
+      ]);
       const sessions = createSessionsStore(pool, mockUtils);
 
       const result = await sessions.deleteExpiredUserSessions(86400000);
@@ -952,7 +930,12 @@ describe('createSessionsStore', () => {
       it('does not return a value', async () => {
         const pool = mockPool([{ rows: [], rowCount: 1 }]);
         const sessions = createSessionsStore(pool, mockUtils);
-        const result = await sessions.refreshTokens.create({ token: 'rt1', userId: 'u1', sessionToken: 'st1', expiresAt: new Date() });
+        const result = await sessions.refreshTokens.create({
+          token: 'rt1',
+          userId: 'u1',
+          sessionToken: 'st1',
+          expiresAt: new Date(),
+        });
         assert.equal(result, undefined);
       });
     });
@@ -967,12 +950,36 @@ describe('createSessionsStore', () => {
           expiresAt: new Date(Date.now() + 86400000).toISOString(),
           revoked: false,
         };
-        const pool = mockPool([{ rows: [row], rowCount: 1 }]);
+        const pool = mockPool([
+          { rows: [row], rowCount: 1 }, // SELECT refresh token
+          { rows: [{ '?column?': 1 }], rowCount: 1 }, // SELECT 1 FROM user_sessions (linked session exists)
+        ]);
         const sessions = createSessionsStore(pool, mockUtils);
 
         const result = await sessions.refreshTokens.validate('rt1');
         assert.equal(result.token, 'rt1');
         assert.equal(result.userId, 'u1');
+      });
+
+      it('returns null and deletes when linked session no longer exists (H2 defense-in-depth)', async () => {
+        const row = {
+          token: 'rt1',
+          userId: 'u1',
+          sessionToken: 'st1',
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 86400000).toISOString(),
+          revoked: false,
+        };
+        const pool = mockPool([
+          { rows: [row], rowCount: 1 }, // SELECT refresh token
+          { rows: [], rowCount: 0 }, // SELECT 1 FROM user_sessions (session gone)
+          { rows: [], rowCount: 1 }, // DELETE refresh token
+        ]);
+        const sessions = createSessionsStore(pool, mockUtils);
+
+        const result = await sessions.refreshTokens.validate('rt1');
+        assert.equal(result, null);
+        assert.ok(pool.calls[2].sql.includes('DELETE'));
       });
 
       it('returns null and deletes when token is revoked', async () => {
@@ -985,8 +992,8 @@ describe('createSessionsStore', () => {
           revoked: true,
         };
         const pool = mockPool([
-          { rows: [row], rowCount: 1 },  // SELECT
-          { rows: [], rowCount: 1 },     // DELETE
+          { rows: [row], rowCount: 1 }, // SELECT
+          { rows: [], rowCount: 1 }, // DELETE
         ]);
         const sessions = createSessionsStore(pool, mockUtils);
 
@@ -1028,11 +1035,11 @@ describe('createSessionsStore', () => {
     describe('rotate', () => {
       it('revokes old token and inserts new within transaction', async () => {
         const pool = mockPool([
-          { rows: [] },                           // BEGIN
-          { rows: [{ user_id: 'u1' }] },          // SELECT old token
-          { rows: [] },                           // UPDATE revoke
-          { rows: [] },                           // INSERT new token
-          { rows: [] },                           // COMMIT
+          { rows: [] }, // BEGIN
+          { rows: [{ user_id: 'u1' }] }, // SELECT old token
+          { rows: [] }, // UPDATE revoke
+          { rows: [] }, // INSERT new token
+          { rows: [] }, // COMMIT
         ]);
         const sessions = createSessionsStore(pool, mockUtils);
 
@@ -1051,20 +1058,13 @@ describe('createSessionsStore', () => {
         ]);
         const sessions = createSessionsStore(pool, mockUtils);
 
-        await assert.rejects(
-          () => sessions.refreshTokens.rotate('missing', 'new-rt', 'new-st', new Date()),
-          { message: 'Old refresh token not found' },
-        );
+        await assert.rejects(() => sessions.refreshTokens.rotate('missing', 'new-rt', 'new-st', new Date()), {
+          message: 'Old refresh token not found',
+        });
       });
 
       it('uses transaction (BEGIN/COMMIT)', async () => {
-        const pool = mockPool([
-          { rows: [] },
-          { rows: [{ user_id: 'u1' }] },
-          { rows: [] },
-          { rows: [] },
-          { rows: [] },
-        ]);
+        const pool = mockPool([{ rows: [] }, { rows: [{ user_id: 'u1' }] }, { rows: [] }, { rows: [] }, { rows: [] }]);
         const sessions = createSessionsStore(pool, mockUtils);
 
         await sessions.refreshTokens.rotate('old', 'new', 'st', new Date());
@@ -1268,10 +1268,16 @@ describe('createSessionsStore', () => {
         const pool = mockPool([{ rows: [] }]);
         const sessions = createSessionsStore(pool, mockUtils);
         await sessions.metricsRollups.insert({
-          bucketStart: new Date(), bucketEnd: new Date(),
-          totalRequests: 0, totalErrors: 0, avgDurationMs: 0,
-          status2xx: 0, status4xx: 0, status5xx: 0,
-          peakConnections: 0, activeUsers: 0,
+          bucketStart: new Date(),
+          bucketEnd: new Date(),
+          totalRequests: 0,
+          totalErrors: 0,
+          avgDurationMs: 0,
+          status2xx: 0,
+          status4xx: 0,
+          status5xx: 0,
+          peakConnections: 0,
+          activeUsers: 0,
         });
         assert.equal(pool.calls.length, 1);
       });
@@ -1280,10 +1286,16 @@ describe('createSessionsStore', () => {
         const pool = mockPool([{ rows: [] }]);
         const sessions = createSessionsStore(pool, mockUtils);
         const result = await sessions.metricsRollups.insert({
-          bucketStart: new Date(), bucketEnd: new Date(),
-          totalRequests: 0, totalErrors: 0, avgDurationMs: 0,
-          status2xx: 0, status4xx: 0, status5xx: 0,
-          peakConnections: 0, activeUsers: 0,
+          bucketStart: new Date(),
+          bucketEnd: new Date(),
+          totalRequests: 0,
+          totalErrors: 0,
+          avgDurationMs: 0,
+          status2xx: 0,
+          status4xx: 0,
+          status5xx: 0,
+          peakConnections: 0,
+          activeUsers: 0,
         });
         assert.equal(result, undefined);
       });

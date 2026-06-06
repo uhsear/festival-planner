@@ -78,8 +78,39 @@ type MapLibre = {
   LngLatBounds: typeof import('maplibre-gl').LngLatBounds;
 };
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// Popups are built with DOM APIs (createElement + textContent) and handed to
+// MapLibre via `setDOMContent`, so user/server text is never parsed as HTML —
+// the browser escapes it for us. This mirrors the already-safe peer-marker
+// element render and closes the latent DOM-XSS fragility of the old string-HTML
+// `setHTML` path (security review L5).
+
+/** A <strong> title element with text set safely via textContent. */
+function titleEl(text: string, className?: string): HTMLElement {
+  const strong = document.createElement('strong');
+  if (className) strong.className = className;
+  strong.textContent = text;
+  return strong;
+}
+
+/** A subtitle line: <span class="festie-map-sub">text</span> preceded by a <br/>. */
+function subEl(text: string): HTMLElement {
+  const span = document.createElement('span');
+  span.className = 'festie-map-sub';
+  span.textContent = text;
+  return span;
+}
+
+/** Assemble popup children into a container fragment-equivalent <div>. */
+function popupContent(nodes: (Node | null)[]): HTMLElement {
+  const root = document.createElement('div');
+  let first = true;
+  for (const n of nodes) {
+    if (!n) continue;
+    if (!first) root.appendChild(document.createElement('br'));
+    root.appendChild(n);
+    first = false;
+  }
+  return root;
 }
 
 // "as of 5m ago" → "5m ago" so we can render the honest "Live · 5m ago" copy.
@@ -200,12 +231,10 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
       el.setAttribute('aria-label', p.label + (p.sublabel ? ' - ' + p.sublabel : ''));
       el.setAttribute('role', 'button');
       el.setAttribute('tabindex', '0');
-      const popupHtml =
-        `<strong>${escapeHtml(p.label)}</strong>` +
-        (p.sublabel ? `<br/><span class="festie-map-sub">${escapeHtml(p.sublabel)}</span>` : '');
+      const popupEl = popupContent([titleEl(p.label), p.sublabel ? subEl(p.sublabel) : null]);
       const marker = new gl.Marker({ element: el })
         .setLngLat([p.longitude, p.latitude])
-        .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setHTML(popupHtml))
+        .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setDOMContent(popupEl))
         .addTo(map);
       // Bridge Enter/Space → popup toggle (MapLibre only wires click).
       el.addEventListener('keydown', (e) => {
@@ -239,16 +268,11 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
       // Pulsing ring (CSS ::before) + initial. textContent keeps it injection-safe.
       el.textContent = initial;
       const acc =
-        typeof peer.accuracy === 'number' && peer.accuracy > 0
-          ? `<br/><span class="festie-map-sub">±${Math.round(peer.accuracy)} m</span>`
-          : '';
-      const popupHtml =
-        `<strong>${escapeHtml(peer.username)}</strong>` +
-        `<br/><span class="festie-map-sub">Live · ${escapeHtml(rel)}</span>` +
-        acc;
+        typeof peer.accuracy === 'number' && peer.accuracy > 0 ? subEl(`±${Math.round(peer.accuracy)} m`) : null;
+      const popupEl = popupContent([titleEl(peer.username), subEl(`Live · ${rel}`), acc]);
       const marker = new gl.Marker({ element: el })
         .setLngLat([peer.lng, peer.lat])
-        .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setHTML(popupHtml))
+        .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setDOMContent(popupEl))
         .addTo(map);
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -276,14 +300,23 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
     el.setAttribute('role', 'img');
     el.setAttribute('aria-label', `SOS from ${sos.username}`);
     el.textContent = '!';
+    // Coords are numeric (range-checked server-side), so this URL is structurally
+    // safe; build it via the URL API and assert the https scheme as belt-and-braces.
     const dir = `https://maps.google.com/?q=${sos.position.lat},${sos.position.lng}`;
-    const popupHtml =
-      `<strong class="festie-sos-title">🆘 ${escapeHtml(sos.username)} needs help</strong>` +
-      (sos.message ? `<br/><span class="festie-map-sub">${escapeHtml(sos.message)}</span>` : '') +
-      `<br/><a class="festie-sos-link" href="${dir}" target="_blank" rel="noopener noreferrer">Get directions</a>`;
+    const link = document.createElement('a');
+    if (/^https:/i.test(dir)) link.setAttribute('href', dir);
+    link.className = 'festie-sos-link';
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
+    link.textContent = 'Get directions';
+    const popupEl = popupContent([
+      titleEl(`🆘 ${sos.username} needs help`, 'festie-sos-title'),
+      sos.message ? subEl(sos.message) : null,
+      link,
+    ]);
     const marker = new gl.Marker({ element: el })
       .setLngLat([sos.position.lng, sos.position.lat])
-      .setPopup(new gl.Popup({ offset: 18, closeButton: false }).setHTML(popupHtml))
+      .setPopup(new gl.Popup({ offset: 18, closeButton: false }).setDOMContent(popupEl))
       .addTo(map);
     sosMarkerRef.current = marker;
     // Open the SOS popup immediately so it's impossible to miss.

@@ -23,6 +23,55 @@ export default function createCrewMemberRoutes(deps: any) {
 
   const router = Router({ mergeParams: true });
 
+  /**
+   * H1: evict a removed user's live socket(s) from the crew room server-side.
+   *
+   * Socket.IO only drops a socket from a room on disconnect — never on an
+   * application-level authz change. So when a member leaves or is kicked, their
+   * still-connected socket keeps receiving every location:peer-update and
+   * sos:raised broadcast (a cross-tenant privacy leak), and keeps a stamped
+   * sharingCrewId it could inject from. Force the socket out of the room, clear
+   * its crew/sharing stamps, tell peers to drop its live marker (it may have
+   * been sharing), and tell the evicted client to tear down its crew + SOS UI.
+   *
+   * Best-effort: a failure here must never fail the HTTP removal (the DB row is
+   * already gone). io may be absent in some test/CLI contexts.
+   * @param crewId - the crew the user was removed from
+   * @param removedUserId - the user whose sockets must leave the room
+   */
+  async function evictUserFromCrewRoom(crewId: string, removedUserId: string) {
+    if (!io || typeof io.in !== 'function') return;
+    const room = `crew:${crewId}`;
+    try {
+      const sockets = await io.in(room).fetchSockets();
+      for (const s of sockets) {
+        if (s.data?.userId !== removedUserId) continue;
+        // If this socket was sharing live GPS, tell peers its marker is gone.
+        if (s.data?.sharingCrewId === crewId) {
+          s.to(room).emit('location:peer-stopped', {
+            _v: 1,
+            crewId,
+            userId: removedUserId,
+            reason: 'revoked',
+          });
+        }
+        // Tell the evicted client to tear down crew + SOS state.
+        s.emit('crew:access-revoked', { crewId });
+        // Clear the sharing stamp so the socket can no longer inject location
+        // updates. We deliberately KEEP s.data.crewId so a stray location:share
+        // still reaches the membership re-check and is rejected NOT_A_MEMBER
+        // (matching the documented contract) rather than the coarser
+        // NOT_IN_CREW_ROOM; the room eviction below is what stops broadcasts.
+        delete s.data.sharingCrewId;
+        delete s.data.crewMembershipCheckedAt;
+        delete s.data.crewMembershipUpdateCount;
+        s.leave(room);
+      }
+    } catch (error: any) {
+      log.warn('crew room eviction failed', { error: error?.message, crewId, removedUserId });
+    }
+  }
+
   // ── GET /search-users — Admin: search users for crew add ──────
   router.get(
     '/search-users',
@@ -85,6 +134,9 @@ export default function createCrewMemberRoutes(deps: any) {
             username: req.user.username,
           });
         }
+        // H1: force the leaver's still-connected socket(s) out of the crew room
+        // so they stop receiving live location/SOS and can't keep injecting.
+        await evictUserFromCrewRoom(crewId, req.user.userId);
 
         log.info('crew:left', { crewId, userId: req.user.userId });
         return sendSuccess(res, { success: true });
@@ -125,6 +177,9 @@ export default function createCrewMemberRoutes(deps: any) {
             userId: targetUserId,
           });
         }
+        // H1: force the kicked member's still-connected socket(s) out of the
+        // crew room so they stop receiving live location/SOS and can't inject.
+        await evictUserFromCrewRoom(crewId, targetUserId);
 
         log.info('crew:member-kicked', { crewId, targetUserId, byUserId: req.user.userId });
         return sendSuccess(res, { success: true });
