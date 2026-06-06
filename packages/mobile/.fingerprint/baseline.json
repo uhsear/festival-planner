@@ -1,0 +1,5 @@
+{
+  "hash": "PLACEHOLDER-REFRESH-AFTER-FIRST-BUILD",
+  "generatedAt": null,
+  "note": "PLACEHOLDER baseline. The real last-BUILT native fingerprint could not be computed in this dev environment (the @expo/fingerprint config sources fail to load on Windows: 'spawn node ENOENT', producing an incomplete hash). The mobile-release-gate workflow self-seeds this file with the correct hash on its first green run on Linux CI (native_changed=false, baseline_seeded=true) — commit the seeded result. Thereafter, refresh this hash after every EAS build. See README.md in this folder."
+}

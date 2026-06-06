@@ -6,12 +6,20 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EAS_USE_CACHE": "1",
+        "EXPO_USE_PRECOMPILED_MODULES": "1"
+      }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
       "environment": "preview",
+      "env": {
+        "EAS_USE_CACHE": "1",
+        "EXPO_USE_PRECOMPILED_MODULES": "1"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -22,7 +30,11 @@
     "production": {
       "channel": "production",
       "environment": "production",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EAS_USE_CACHE": "1",
+        "EXPO_USE_PRECOMPILED_MODULES": "1"
+      }
     },
     "e2e-test": {
       "withoutCredentials": true,
