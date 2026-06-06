@@ -1,19 +1,18 @@
 name: Mobile OTA update (eas update)
 
-# Publish a JS/asset-only OTA update via EAS Update — FROM LINUX CI ONLY.
+# Publish a JS/asset-only OTA update via EAS Update.
 #
-# WHY CI-only: app.json uses runtimeVersion.policy=fingerprint, and the fingerprint
-# is computed by the machine running `eas update`. @expo/fingerprint is NOT
-# deterministic across OSes (Windows produces a different/INCOMPLETE hash — the
-# @expo/config-plugins sources fail to hash on Windows, expo/expo#34199). EAS
-# *builds* compute the fingerprint on EAS's Linux infra. So an `eas update` run
-# from the Windows dev box would tag the update with a runtime version that no
-# Linux-built binary has -> devices SILENTLY ignore it (no error, never delivered).
-# Running the publish here on ubuntu-latest matches the EAS build environment, so
-# the runtime versions line up and the update actually reaches devices.
+# app.json uses runtimeVersion.policy=appVersion, so the runtime is the fixed app
+# version string (e.g. "1.1.0") — OS-independent and identical between `eas build`
+# and `eas update`, so OTAs reliably reach builds on the same app version. (We
+# tried policy=fingerprint to auto-detect native changes, but EAS builds errored
+# at the Configure-expo-updates phase AND eas build vs eas update computed
+# inconsistent fingerprints in this project — see SESSION.md. appVersion is the
+# reliable choice and even restores OTA to the shipped TestFlight build #14.)
 #
-# Use this for JS-only changes (the mobile-release-gate says "no native change").
-# For native changes, cut an EAS build instead (and refresh the fingerprint baseline).
+# Linux CI is just a clean, consistent place to publish (uses EXPO_TOKEN); under
+# appVersion the publish OS no longer affects delivery. Use for JS-only changes to
+# the CURRENT app version; for native changes or a new app version, cut a build.
 on:
   workflow_dispatch:
     inputs:
