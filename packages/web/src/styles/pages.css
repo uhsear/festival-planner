@@ -142,6 +142,11 @@
 
 /* ── Viewport-fill routes (mobile) ───────────────────────────────────── */
 @media (max-width: 768px) {
+  /* Viewport-fill routes need to override the shell's overflow/height so the
+     inner surface is the scroller — but they must NOT zero the shell's top/side
+     inset (that caused content to butt against the chrome with no breathing
+     room). Keep the shell's `px-6 py-4` top inset; only neutralize the side pad
+     so the full-bleed timeline/grid can use the full width. */
   #main-content:has(.timeline-view),
   #main-content:has(.fk-grid) {
     position: relative;
@@ -149,7 +154,8 @@
     overflow: hidden !important;
     display: flex;
     flex-direction: column;
-    padding: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
   #main-content:has(.timeline-view) .timeline-view {
     flex: 1;
@@ -188,10 +194,13 @@
     z-index: 20;
     background: linear-gradient(to right, transparent, var(--color-bg-primary, #0d0d1a));
   }
+  /* Crew is a normal scrolling page — keep the shell's `px-6 py-4` inset so the
+     crew selector/name sits below the chrome with the same top/side breathing
+     room as every other route. Only relax overflow (the page no longer carries
+     its own px-/pt- pad). */
   #main-content:has(.crew-page) {
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    padding: 0 !important;
   }
   #main-content:has(.crew-page) .crew-page {
     contain: none;

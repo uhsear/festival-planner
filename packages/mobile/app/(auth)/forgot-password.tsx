@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@festie/shared/stores';
 import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
 
@@ -24,6 +25,7 @@ const EMAIL_RE = /^\S+@\S+\.[a-zA-Z]{2,}$/;
  * emailed link (the backend handles the reset); this screen only requests it.
  */
 export default function ForgotPasswordScreen() {
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -56,7 +58,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.inner}>
@@ -66,11 +68,7 @@ export default function ForgotPasswordScreen() {
         {!submitted ? (
           <>
             {error ? (
-              <Text
-                style={styles.error}
-                accessibilityRole="alert"
-                accessibilityLiveRegion="assertive"
-              >
+              <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
                 {error}
               </Text>
             ) : null}
@@ -93,17 +91,11 @@ export default function ForgotPasswordScreen() {
               onSubmitEditing={handleSubmit}
             />
             {emailError ? (
-              <Text
-                style={styles.error}
-                accessibilityRole="alert"
-                accessibilityLiveRegion="assertive"
-              >
+              <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
                 {emailError}
               </Text>
             ) : null}
-            <Text style={styles.helper}>
-              We'll send you a link to reset your password.
-            </Text>
+            <Text style={styles.helper}>We'll send you a link to reset your password.</Text>
 
             <TouchableOpacity
               style={[styles.button, isLoading && styles.buttonDisabled]}
@@ -123,18 +115,11 @@ export default function ForgotPasswordScreen() {
           </>
         ) : (
           <View style={styles.successBox} accessibilityLiveRegion="polite">
-            <Ionicons
-              name="checkmark-circle"
-              size={48}
-              color={colors.accent.aqua}
-            />
+            <Ionicons name="checkmark-circle" size={48} color={colors.accent.aqua} />
             <Text style={styles.successTitle}>Check your email</Text>
-            <Text style={styles.successBody}>
-              We've sent a password reset link to {email.trim()}.
-            </Text>
+            <Text style={styles.successBody}>We've sent a password reset link to {email.trim()}.</Text>
             <Text style={styles.successHint}>
-              The link expires in 1 hour. If you don't see it, check your spam
-              folder.
+              The link expires in 1 hour. If you don't see it, check your spam folder.
             </Text>
             <TouchableOpacity
               style={styles.secondaryButton}

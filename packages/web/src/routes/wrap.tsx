@@ -142,7 +142,7 @@ function WrapPageInner() {
 
   if (!currentFestival) {
     return (
-      <div className="px-4 py-8 max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto">
         <Card padding="lg">
           <EmptyState
             icon={<Sparkles className="w-12 h-12" aria-hidden="true" />}
@@ -156,7 +156,7 @@ function WrapPageInner() {
 
   if (!over) {
     return (
-      <div className="px-4 py-8 max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto">
         <Card padding="lg">
           <EmptyState
             icon={<Sparkles className="w-12 h-12" aria-hidden="true" />}
@@ -172,7 +172,7 @@ function WrapPageInner() {
   // loading/error branches so the crew view is reachable regardless of the
   // personal wrap's fetch state.
   const tabBar = (
-    <div className="max-w-lg mx-auto px-4 pt-4">
+    <div className="max-w-lg mx-auto">
       <div
         role="tablist"
         aria-label="Wrap view"
@@ -218,7 +218,7 @@ function WrapPageInner() {
 
   if (isLoading) {
     return (
-      <div className="px-4 py-6 space-y-3">
+      <div className="max-w-lg mx-auto space-y-3">
         <Skeleton variant="card" />
         <Skeleton variant="card" />
         <Skeleton variant="card" />
@@ -227,7 +227,7 @@ function WrapPageInner() {
   }
   if (isError) {
     return (
-      <div className="px-4 py-8 max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto">
         <Card padding="lg">
           <EmptyState
             icon={<Sparkles className="w-12 h-12" aria-hidden="true" />}
@@ -249,8 +249,10 @@ function WrapPageInner() {
       {tabBar}
       {/* max-w-lg + centered mirrors /account so the wrap doesn't stretch
           1400px wide on desktop (stats grid went 2-col × ~650px each before,
-          reading as sparse placeholder chrome rather than a dense highlight page). */}
-      <div className="max-w-lg mx-auto space-y-4 px-4 pt-4 pb-6">
+          reading as sparse placeholder chrome rather than a dense highlight page).
+          No own top/side pad — the shell `px-6 py-4` owns it; the tab bar above
+          already added the top band, so the body keeps just inter-section rhythm. */}
+      <div className="max-w-lg mx-auto space-y-4 pt-4 pb-6">
         <header className="text-center space-y-1">
           <div className="inline-flex items-center gap-2 text-accent-aqua text-xs uppercase tracking-widest">
             <Sparkles className="w-4 h-4" aria-hidden="true" />
@@ -450,7 +452,7 @@ function CrewWrapTab({
 
   if (!crewId) {
     return (
-      <div className="px-4 py-8 max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto pt-4">
         <Card padding="lg">
           <EmptyState
             icon={<Users className="w-12 h-12" aria-hidden="true" />}
@@ -463,7 +465,7 @@ function CrewWrapTab({
   }
   if (isLoading) {
     return (
-      <div className="px-4 py-6 space-y-3">
+      <div className="max-w-lg mx-auto pt-4 space-y-3">
         <Skeleton variant="card" />
         <Skeleton variant="card" />
       </div>
@@ -471,7 +473,7 @@ function CrewWrapTab({
   }
   if (isError || !wrap) {
     return (
-      <div className="px-4 py-8 max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto pt-4">
         <Card padding="lg">
           <EmptyState
             icon={<Users className="w-12 h-12" aria-hidden="true" />}
@@ -488,7 +490,7 @@ function CrewWrapTab({
     wrap.memberCount > 0 && (wrap.topOverlap !== null || wrap.setsSeenTogether.length > 0 || wrap.totalSplit > 0);
 
   return (
-    <div className="max-w-lg mx-auto space-y-4 px-4 pt-4 pb-6">
+    <div className="max-w-lg mx-auto space-y-4 pt-4 pb-6">
       <header className="text-center space-y-1">
         <div className="inline-flex items-center gap-2 text-accent-aqua text-xs uppercase tracking-widest">
           <Users className="w-4 h-4" aria-hidden="true" />

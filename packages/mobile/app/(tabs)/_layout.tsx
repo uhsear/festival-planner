@@ -28,26 +28,13 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: {
-          backgroundColor: colors.bg.secondary,
-          // iOS draws header chrome with shadow* props (Android uses elevation).
-          // A hairline-soft shadow gives the dark header a subtle lift on iOS to
-          // match the Android elevation; transparent elsewhere to avoid a halo.
-          ...Platform.select({
-            ios: {
-              shadowColor: '#000000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.2,
-              shadowRadius: 2,
-            },
-            default: {},
-          }),
-        },
-        headerTintColor: colors.text.primary,
-        headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: fontSize[18],
-        },
+        // Hide the native Tabs nav header app-wide. Each tab screen owns its top
+        // safe-area inset exactly once via a custom <ScreenHeader> (or an
+        // explicit top inset). Showing the native header on top of those headers
+        // double-counted the status-bar inset (empty band above titles); hiding
+        // it makes ScreenHeader the single header. Bottom tabBar inset logic
+        // below is unaffected.
+        headerShown: false,
         tabBarStyle: {
           backgroundColor: colors.bg.secondary,
           borderTopColor: colors.border.default,

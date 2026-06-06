@@ -27,6 +27,7 @@ import FestivalList from '../../components/FestivalList';
 import SetCardMobile from '../../components/SetCardMobile';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
+import ScreenHeader from '../../components/ScreenHeader';
 import TimelineView from '../../components/TimelineView';
 import GridView from '../../components/GridView';
 import TBASection from '../../components/TBASection';
@@ -382,14 +383,11 @@ export default function TimelineScreen() {
   // when the festival list itself couldn't be fetched.
   if (!currentFestival) {
     return (
-      // No paddingTop: insets.top here — the native tab header above already
-      // consumes the top safe-area inset, so padding again would double the gap
-      // (notch overlap on Android, an oversized void under the header on iOS).
+      // ScreenHeader owns the top safe-area inset (insets.top + spacing[4]) — the
+      // native Tabs nav header is hidden (see (tabs)/_layout.tsx), so this is the
+      // single top of the screen.
       <View style={styles.container}>
-        <View style={[styles.header, { paddingHorizontal: hPad }]}>
-          <Ionicons name="musical-notes" size={24} color={t.colors.accent.aqua} />
-          <Text style={styles.headerTitle}>Select a Festival</Text>
-        </View>
+        <ScreenHeader title="Select a Festival" icon="musical-notes" />
         {festivals.length === 0 && isLoading ? (
           <LoadingState label="Loading festivals…" />
         ) : festivals.length === 0 && error ? (
@@ -407,9 +405,11 @@ export default function TimelineScreen() {
   }
 
   return (
-    // No paddingTop: insets.top — the native tab header already handles the top
-    // safe-area inset; re-padding here doubled the gap above the NOW row.
+    // ScreenHeader owns the top safe-area inset (insets.top + spacing[4]) — the
+    // native Tabs nav header is hidden (see (tabs)/_layout.tsx), so this is the
+    // single top of the screen, sitting above the live/view-switcher row.
     <View style={styles.container}>
+      <ScreenHeader title={currentFestival.name} icon="calendar-outline" />
       <View style={[styles.viewSwitcher, { paddingHorizontal: hPad }]}>
         <View style={styles.liveRow}>
           <LiveDot />
@@ -628,19 +628,6 @@ const useStyles = makeStyles((t) => ({
   container: {
     flex: 1,
     backgroundColor: t.colors.bg.primary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: t.spacing[3],
-    paddingHorizontal: t.spacing[4],
-    paddingVertical: t.spacing[4],
-    borderBottomWidth: 1,
-    borderBottomColor: t.colors.border.default,
-  },
-  headerTitle: {
-    ...typeStyle('title'),
-    color: t.colors.text.primary,
   },
   viewSwitcher: {
     paddingHorizontal: t.spacing[4],
