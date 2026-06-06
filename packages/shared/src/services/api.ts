@@ -110,6 +110,13 @@ const OFFLINE_ELIGIBLE_PATTERNS: RegExp[] = [
   // (status-<crewId>-<userId>) collapses repeated offline toggles into the
   // latest, replay-safe write — captured offline, delivered on a signal blip.
   /^\/crews\/[^/]+\/status(\/|$)/,
+  // DELIBERATELY ABSENT: /crews/:id/sos and /sos/clear. An SOS must be
+  // ONLINE-ONLY. Queuing it would let a "rescue" replay hours later when signal
+  // returns — dangerous and misleading. The safe failure here is to TELL the
+  // user ("No signal — SOS not sent, use phone/radio"), not to silently queue.
+  // These paths match none of the patterns above, so they already fall through
+  // to a normal fetch that fails fast offline; this note guards against a future
+  // dev "helpfully" adding them.
 ];
 
 export function isOfflineEligible(path: string): boolean {

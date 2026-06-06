@@ -486,6 +486,50 @@ export interface CrewActivityEntry {
   created_at: string;
 }
 
+/**
+ * Live Location + SOS (EPHEMERAL — never persisted client- or server-side).
+ *
+ * A peer's last-known position as held in the non-persisted liveLocationStore.
+ * `serverAt` is the server's receive timestamp — the UI renders honest
+ * "live · N ago" staleness from it (via formatStaleness) and NEVER implies a
+ * pinpoint real-time fix. GPS in festival crowds can be tens of metres off, so
+ * `accuracy` (metres) should surface as a radius, not a dot.
+ */
+export interface PeerLocation {
+  crewId: string;
+  userId: string;
+  username: string;
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  heading?: number;
+  speed?: number;
+  /** ISO timestamp the client stamped at GPS fix time. */
+  capturedAt: string;
+  /** ISO timestamp the server received/relayed the fix (authoritative for staleness). */
+  serverAt: string;
+}
+
+/**
+ * An active SOS for the current crew, held in the liveLocationStore. The single
+ * coordinate is the one intentional durable location datum (see crew_activity);
+ * everything else about live location is ephemeral.
+ */
+export interface SosEntry {
+  crewId: string;
+  userId: string;
+  username: string;
+  message?: string;
+  position?: {
+    lat: number;
+    lng: number;
+    accuracy?: number;
+    capturedAt: string;
+  };
+  activityId?: string;
+  raisedAt: string;
+}
+
 export interface NotificationPrefs {
   userId: string;
   emailNotifications: boolean;

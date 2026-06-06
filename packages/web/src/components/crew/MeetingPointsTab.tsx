@@ -1,6 +1,7 @@
-import React, { lazy, Suspense, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
+import { useLiveLocationStore } from '@festie/shared/stores/liveLocationStore';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
@@ -9,11 +10,20 @@ import { MapPin, Plus, Trash2, X, Navigation, Pencil, LocateFixed, Check, Map as
 import IconButton from '../ui/IconButton';
 import { inputBase } from '../../lib/styles';
 import CrewStatus from './CrewStatus';
+import LiveLocationControls from './LiveLocationControls';
 
 // Lazy: CrewMap pulls in maplibre-gl (~200 kB gzip) at runtime. Keeping it behind
 // lazy() puts it in its own chunk so it never lands in the main bundle (mirrors
 // the router's lazy() pattern for heavy views) and only loads when Map is opened.
 const CrewMap = lazy(() => import('./CrewMap'));
+
+// Opt-in flag mirrors VITE_CREW_REALTIME so Live Location + SOS ships dark.
+// Default OFF: the toggle/SOS UI and peer markers only appear when set to '1'.
+const LIVE_LOCATION_ENABLED = import.meta.env.VITE_LIVE_LOCATION === '1';
+
+// How often we sweep stale peers off the map while it's mounted (defense in
+// depth alongside the server's 120s Redis TTL + peer-stopped broadcasts).
+const SWEEP_INTERVAL_MS = 15_000;
 
 // Server enum (lib/constants.js MEETING_POINT_TYPES) + user-facing metadata.
 const TYPES = [
@@ -73,6 +83,30 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   const [locating, setLocating] = useState(false);
   // List vs Map view. Map is lazy + reveals <CrewMap/> only when chosen.
   const [view, setView] = useState<'list' | 'map'>('list');
+
+  // ── Live Location + SOS (ephemeral, flag-gated) ─────────────────────────────
+  // Scope the (non-persisted) liveLocationStore to this crew so peer markers and
+  // SOS never bleed across crews. Subscribe to the peers RECORD (stable ref) and
+  // derive the array via useMemo — returning a fresh array from the selector
+  // would loop useSyncExternalStore.
+  const peersMap = useLiveLocationStore((s) => s.peers);
+  const sos = useLiveLocationStore((s) => s.sos);
+  const peers = useMemo(() => Object.values(peersMap), [peersMap]);
+
+  useEffect(() => {
+    if (!LIVE_LOCATION_ENABLED) return;
+    useLiveLocationStore.getState().setActiveCrew(crewId);
+    return () => {
+      // Leaving the tab/crew clears peers + SOS + any local sharing bookkeeping.
+      useLiveLocationStore.getState().setActiveCrew(null);
+    };
+  }, [crewId]);
+
+  useEffect(() => {
+    if (!LIVE_LOCATION_ENABLED) return;
+    const id = setInterval(() => useLiveLocationStore.getState().sweepStale(Date.now()), SWEEP_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
 
   const {
     data: points = [],
@@ -227,6 +261,10 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
       <CrewStatus crewId={crewId} currentUserId={currentUserId} meetingPoints={points} />
       <div className="h-px bg-border" />
 
+      {/* Live Location + SOS (opt-in, ephemeral). Always visible so the share
+          toggle / SOS / active-SOS banner are reachable in both list & map views. */}
+      {LIVE_LOCATION_ENABLED && <LiveLocationControls crewId={crewId} currentUserId={currentUserId} />}
+
       {/* List/Map toggle. Map lazy-loads MapLibre only when selected. */}
       <div
         className="inline-flex rounded-lg border border-border p-0.5 bg-bg-card"
@@ -265,7 +303,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
             </div>
           }
         >
-          <CrewMap meetingPoints={points} />
+          <CrewMap meetingPoints={points} peers={peers} sos={sos} />
         </Suspense>
       )}
 

@@ -1,11 +1,34 @@
-import { useMemo, useRef, useState, useCallback } from 'react';
+import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
-import { extractMeetingPointPins, extractStagePins, pinsCentroid, type MapPin } from '@festie/shared/utils';
-import type { CrewMeetingPoint } from '@festie/shared/types';
+import {
+  extractMeetingPointPins,
+  extractStagePins,
+  pinsCentroid,
+  formatStaleness,
+  type MapPin,
+} from '@festie/shared/utils';
+import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+
+/** A peer/SOS marker pushed into the WebView via window.__festieSetPeers. */
+interface LivePin {
+  id: string;
+  label: string;
+  sublabel?: string;
+  initial: string;
+  latitude: number;
+  longitude: number;
+  kind: 'peer' | 'sos';
+}
+
+/** Two-letter-ish initial for a peer dot (fallback "?"). */
+function initialFor(name: string | undefined): string {
+  const c = (name ?? '').trim().charAt(0);
+  return c ? c.toUpperCase() : '?';
+}
 
 /**
  * OfflineMap — M6 offline map via WebView (lowest native risk: react-native-webview
@@ -50,6 +73,10 @@ const LOAD_TIMEOUT_MS = 8000;
 
 interface OfflineMapProps {
   meetingPoints: CrewMeetingPoint[];
+  /** Live crew peers currently sharing (ephemeral; from liveLocationStore). */
+  peers?: PeerLocation[];
+  /** Active crew SOS, if any (ephemeral; from liveLocationStore). */
+  sos?: SosEntry | null;
 }
 
 /**
@@ -75,6 +102,29 @@ function buildHtml(pins: MapPin[], center: { latitude: number; longitude: number
       background: #ff3366; border: 2px solid #fff;
       box-shadow: 0 0 8px rgba(255,51,102,0.6);
     }
+    /* Live peer: aqua dot with the member's initial + a pulsing ring, visually
+       distinct from the coral meeting-point pins. */
+    .festie-peer {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: #00e8d0; color: #080810; border: 2px solid #fff;
+      font: 700 12px -apple-system, system-ui, sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 4px rgba(0,232,208,0.25);
+      animation: festiePulse 2s ease-out infinite;
+    }
+    /* SOS: emphasized, larger coral marker with a stronger pulse. */
+    .festie-sos {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: #ff3366; color: #fff; border: 3px solid #fff;
+      font: 700 16px -apple-system, system-ui, sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 6px rgba(255,51,102,0.35);
+      animation: festiePulse 1.2s ease-out infinite;
+    }
+    @keyframes festiePulse {
+      0% { box-shadow: 0 0 0 0 rgba(0,232,208,0.45); }
+      100% { box-shadow: 0 0 0 14px rgba(0,232,208,0); }
+    }
     .maplibregl-popup-content { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; }
   </style>
 </head>
@@ -84,6 +134,7 @@ function buildHtml(pins: MapPin[], center: { latitude: number; longitude: number
     var PINS = ${pinsJson};
     var CENTER = ${centerJson};
     var HAS_CENTER = ${hasCenter};
+    var HAD_PINS = PINS.length > 0;
 
     function post(msg) {
       if (window.ReactNativeWebView) {
@@ -119,6 +170,43 @@ function buildHtml(pins: MapPin[], center: { latitude: number; longitude: number
       }
     }
 
+    // Live peer + SOS markers are pushed separately from meeting points and are
+    // fully re-rendered on every update (peers move), so we track + remove the
+    // previous batch instead of stacking duplicates.
+    var LIVE_MARKERS = [];
+    function renderLive(map, live) {
+      LIVE_MARKERS.forEach(function (m) { try { m.remove(); } catch (e) {} });
+      LIVE_MARKERS = [];
+      var items = (live && live.items) || [];
+      var bounds = null;
+      items.forEach(function (p) {
+        var el = document.createElement('div');
+        el.className = p.kind === 'sos' ? 'festie-sos' : 'festie-peer';
+        el.textContent = p.kind === 'sos' ? '!' : (p.initial || '?');
+        var aLabel = p.label + (p.sublabel ? ' - ' + p.sublabel : '');
+        el.setAttribute('role', 'button');
+        el.setAttribute('aria-label', aLabel);
+        el.setAttribute('title', aLabel);
+        var popupHtml = '<strong>' + escapeHtml(p.label) + '</strong>' +
+          (p.sublabel ? '<br/>' + escapeHtml(p.sublabel) : '');
+        var marker = new maplibregl.Marker({ element: el })
+          .setLngLat([p.longitude, p.latitude])
+          .setPopup(new maplibregl.Popup({ offset: 16 }).setHTML(popupHtml))
+          .addTo(map);
+        LIVE_MARKERS.push(marker);
+        if (!bounds) {
+          bounds = new maplibregl.LngLatBounds([p.longitude, p.latitude], [p.longitude, p.latitude]);
+        } else {
+          bounds.extend([p.longitude, p.latitude]);
+        }
+      });
+      // Only auto-frame live markers when there were no meeting-point pins to
+      // anchor the view; otherwise respect the meeting-point framing.
+      if (bounds && !HAD_PINS && items.length > 0) {
+        map.fitBounds(bounds, { padding: 64, maxZoom: 16, duration: 300 });
+      }
+    }
+
     function escapeHtml(s) {
       return String(s == null ? '' : s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -148,6 +236,14 @@ function buildHtml(pins: MapPin[], center: { latitude: number; longitude: number
             post({ type: 'pins-updated', pins: (next || []).length });
           } catch (err) { post({ type: 'error', reason: 'pin-update' }); }
         };
+
+        // Push live peers + SOS markers (re-rendered each call).
+        window.__festieSetPeers = function (live) {
+          try {
+            renderLive(map, live || { items: [] });
+            post({ type: 'peers-updated', peers: ((live && live.items) || []).length });
+          } catch (err) { post({ type: 'error', reason: 'peer-update' }); }
+        };
       } catch (err) {
         post({ type: 'error', reason: 'init-throw' });
       }
@@ -163,7 +259,7 @@ function buildHtml(pins: MapPin[], center: { latitude: number; longitude: number
 </html>`;
 }
 
-export default function OfflineMap({ meetingPoints }: OfflineMapProps) {
+export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProps) {
   const t = useTokens();
   const styles = useStyles();
   const webRef = useRef<WebView>(null);
@@ -171,6 +267,37 @@ export default function OfflineMap({ meetingPoints }: OfflineMapProps) {
   const pins = useMemo(() => extractMeetingPointPins(meetingPoints), [meetingPoints]);
   const stagePins = useMemo(() => extractStagePins(), []); // [] today — see mapPins TODO
   const center = useMemo(() => pinsCentroid(pins), [pins]);
+
+  const hasLive = (peers?.length ?? 0) > 0 || !!sos;
+
+  // Live peer + SOS markers pushed into the WebView (and listed in the fallback).
+  const livePins = useMemo<LivePin[]>(() => {
+    const items: LivePin[] = [];
+    for (const p of peers ?? []) {
+      if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
+      items.push({
+        id: `peer:${p.userId}`,
+        label: p.username || 'Crew member',
+        sublabel: `live · ${formatStaleness(p.serverAt).replace(/^as of /, '')}`,
+        initial: initialFor(p.username),
+        latitude: p.lat,
+        longitude: p.lng,
+        kind: 'peer',
+      });
+    }
+    if (sos?.position && Number.isFinite(sos.position.lat) && Number.isFinite(sos.position.lng)) {
+      items.push({
+        id: `sos:${sos.userId}`,
+        label: `${sos.username} — SOS`,
+        sublabel: sos.message || 'Needs help',
+        initial: '!',
+        latitude: sos.position.lat,
+        longitude: sos.position.lng,
+        kind: 'sos',
+      });
+    }
+    return items;
+  }, [peers, sos]);
 
   // Meeting points present but without coords — listed so they're never lost,
   // even though they can't be plotted.
@@ -185,8 +312,11 @@ export default function OfflineMap({ meetingPoints }: OfflineMapProps) {
   const html = useMemo(() => buildHtml(pins, center), [pins, center]);
 
   // 'loading' → WebView mounted, waiting for MapLibre; 'map' → interactive map up;
-  // 'fallback' → CDN/offline failure, render the honest list instead.
-  const [phase, setPhase] = useState<'loading' | 'map' | 'fallback'>(pins.length === 0 ? 'fallback' : 'loading');
+  // 'fallback' → CDN/offline failure, render the honest list instead. Start in
+  // loading whenever there's anything to plot (meeting points OR live markers).
+  const [phase, setPhase] = useState<'loading' | 'map' | 'fallback'>(
+    pins.length === 0 && !hasLive ? 'fallback' : 'loading',
+  );
 
   const fellBackRef = useRef(false);
   const fallBack = useCallback(() => {
@@ -197,7 +327,7 @@ export default function OfflineMap({ meetingPoints }: OfflineMapProps) {
 
   const onMessage = useCallback(
     (e: WebViewMessageEvent) => {
-      let msg: { type?: string } = {};
+      let msg: { type?: string; reason?: string } = {};
       try {
         msg = JSON.parse(e.nativeEvent.data);
       } catch {
@@ -206,7 +336,9 @@ export default function OfflineMap({ meetingPoints }: OfflineMapProps) {
       if (msg.type === 'ready') {
         if (!fellBackRef.current) setPhase('map');
       } else if (msg.type === 'error') {
-        fallBack();
+        // Only a load/init failure means "no map" → fall back. A transient
+        // pin/peer re-render glitch must NOT tear the whole map down.
+        if (msg.reason !== 'pin-update' && msg.reason !== 'peer-update') fallBack();
       }
     },
     [fallBack],
@@ -226,10 +358,28 @@ export default function OfflineMap({ meetingPoints }: OfflineMapProps) {
     }, LOAD_TIMEOUT_MS);
   }, []);
 
+  // If we fell back only because there was nothing to plot (NOT a CDN/offline
+  // error — fellBackRef tracks real failures), try the map once live markers or
+  // meeting points show up.
+  useEffect(() => {
+    if (phase === 'fallback' && !fellBackRef.current && (pins.length > 0 || hasLive)) {
+      setPhase('loading');
+    }
+  }, [phase, pins.length, hasLive]);
+
+  // Push live peer + SOS markers into the WebView whenever they change and the
+  // map is up. injectJavaScript re-renders the live layer (peers move).
+  const liveJson = useMemo(() => JSON.stringify({ items: livePins }), [livePins]);
+  useEffect(() => {
+    if (phase !== 'map' || !webRef.current) return;
+    webRef.current.injectJavaScript(`window.__festieSetPeers && window.__festieSetPeers(${liveJson}); true;`);
+  }, [phase, liveJson]);
+
   // ── Fallback list (offline-honest) ─────────────────────────────────────────
   if (phase === 'fallback') {
     const coorded = pins;
-    const hasAny = coorded.length > 0 || uncoordedPoints.length > 0;
+    const livePeerPins = livePins.filter((p) => p.kind === 'peer');
+    const hasAny = coorded.length > 0 || uncoordedPoints.length > 0 || livePins.length > 0;
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.fallbackContent}>
         <View style={styles.banner}>
@@ -238,6 +388,50 @@ export default function OfflineMap({ meetingPoints }: OfflineMapProps) {
             Map needs the festival downloaded for offline. Showing your saved meeting points.
           </Text>
         </View>
+
+        {/* SOS first — safety-critical, even with no map. */}
+        {sos ? (
+          <View
+            style={styles.sosRow}
+            accessible
+            accessibilityRole="alert"
+            accessibilityLabel={`SOS from ${sos.username}${sos.message ? ', ' + sos.message : ''}`}
+          >
+            <Ionicons name="warning" size={20} color={t.colors.accent.coral} />
+            <View style={styles.rowBody}>
+              <Text style={styles.rowLabel}>{sos.username} — SOS</Text>
+              <Text style={styles.rowSub}>
+                {sos.message || (sos.position ? 'Shared their location' : 'No location — reach them directly')}
+              </Text>
+              {sos.position ? (
+                <Text style={styles.rowCoord}>
+                  {sos.position.lat.toFixed(5)}, {sos.position.lng.toFixed(5)}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Live peers — honest "last seen N ago" with no map. */}
+        {livePeerPins.map((p) => (
+          <View
+            key={p.id}
+            style={styles.row}
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={`${p.label}, ${p.sublabel}`}
+            accessibilityHint={`${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}`}
+          >
+            <Ionicons name="navigate-circle" size={18} color={t.colors.accent.aqua} />
+            <View style={styles.rowBody}>
+              <Text style={styles.rowLabel}>{p.label}</Text>
+              <Text style={styles.rowSub}>{p.sublabel}</Text>
+              <Text style={styles.rowCoord}>
+                {p.latitude.toFixed(5)}, {p.longitude.toFixed(5)}
+              </Text>
+            </View>
+          </View>
+        ))}
 
         {!hasAny ? (
           <View style={styles.emptyBlock}>
@@ -390,6 +584,16 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.border.default,
     backgroundColor: t.colors.bg.secondary,
+  },
+  sosRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: t.spacing[3],
+    padding: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.accent.coral,
+    backgroundColor: t.colors.ring.coral,
   },
   rowBody: {
     flex: 1,

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { useCrewStore } from '@festie/shared/stores/crewStore';
+import { useLiveLocationStore } from '@festie/shared/stores/liveLocationStore';
 import type { CrewRealtimeSink } from '@festie/shared/realtime/crewRealtimeSink';
 
 /**
@@ -51,6 +52,24 @@ export function buildCrewQuerySink(queryClient: QueryClient): CrewRealtimeSink {
     },
     onActivityLogged: () => {
       // Web has no activity feed query/view — nothing to invalidate.
+    },
+    // ── Live Location + SOS → the ephemeral, non-persisted liveLocationStore ──
+    // Unlike the crew sub-features above, live location is NOT TanStack-Query
+    // backed: coordinates are deliberately never written to disk or to the query
+    // cache. They flow straight into useLiveLocationStore (in-memory only), which
+    // the CrewMap + LiveLocationControls subscribe to. The shared router has
+    // already guarded each payload to the active crew before calling these.
+    onLocationPeerUpdate: (_crewId, peer) => {
+      useLiveLocationStore.getState().applyPeerUpdate(peer);
+    },
+    onLocationPeerStopped: (_crewId, userId) => {
+      useLiveLocationStore.getState().removePeer(userId);
+    },
+    onSosRaised: (_crewId, sos) => {
+      useLiveLocationStore.getState().applySos(sos);
+    },
+    onSosCleared: () => {
+      useLiveLocationStore.getState().clearSos();
     },
   };
 }

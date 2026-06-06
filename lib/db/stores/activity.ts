@@ -12,8 +12,11 @@ export function createActivityStore(pool: Pool) {
   VALUES
     ($1, $2, $3, $4, $5, NOW())
 `,
-        [id, crewId, userId, type, detail || null]
+        [id, crewId, userId, type, detail || null],
       );
+      // Return the generated id so callers (e.g. SOS) can reference the durable
+      // row in their broadcast payload. Existing callers ignore the return.
+      return id;
     },
 
     async getByCrew(crewId: string, { cursor, limit = 50 }: any = {}) {
@@ -31,7 +34,7 @@ export function createActivityStore(pool: Pool) {
          ${cursorClause}
          ORDER BY a.created_at DESC, a.id DESC
          LIMIT $2`,
-        params
+        params,
       );
       const hasMore = rows.length > limit;
       if (hasMore) rows.pop();

@@ -148,6 +148,87 @@ export interface CrewStatusUpdatedPayload extends VersionedPayload {
   status: CrewMemberStatus;
 }
 
+// ── Live Location + SOS events (ephemeral; routes/socket.ts + crew-sos.ts) ────
+
+/** client→server: declare intent to START sharing to the active crew. */
+export interface LocationSharePayload extends VersionedPayload {
+  crewId: string;
+  position?: {
+    lat: number;
+    lng: number;
+    accuracy?: number;
+    heading?: number;
+    capturedAt: string;
+  };
+}
+
+/** client→server: a periodic high-frequency GPS fix while sharing. */
+export interface LocationUpdatePayload extends VersionedPayload {
+  crewId: string;
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  heading?: number;
+  speed?: number;
+  capturedAt: string;
+}
+
+/** client→server: explicit opt-out of sharing. */
+export interface LocationStopPayload extends VersionedPayload {
+  crewId: string;
+}
+
+/** client→server (OPTIONAL, Phase 1.5): late-joiner snapshot request. */
+export interface LocationSyncPayload extends VersionedPayload {
+  crewId: string;
+}
+
+/** server→client: a peer's new position. UI renders staleness from serverAt. */
+export interface LocationPeerUpdatePayload extends VersionedPayload {
+  crewId: string;
+  userId: string;
+  username: string;
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  heading?: number;
+  speed?: number;
+  capturedAt: string;
+  serverAt: string;
+}
+
+/** server→client: a peer stopped / disconnected / TTL-expired. */
+export interface LocationPeerStoppedPayload extends VersionedPayload {
+  crewId: string;
+  userId: string;
+  reason: 'stop' | 'disconnect' | 'expired';
+}
+
+/** server→client: emitted by POST /crews/:crewId/sos (never a client emit). */
+export interface SosRaisedPayload extends VersionedPayload {
+  crewId: string;
+  userId: string;
+  username: string;
+  message?: string;
+  position?: {
+    lat: number;
+    lng: number;
+    accuracy?: number;
+    capturedAt: string;
+  };
+  activityId: string;
+  raisedAt: string;
+}
+
+/** server→client: emitted by POST /crews/:crewId/sos/clear. */
+export interface SosClearedPayload extends VersionedPayload {
+  crewId: string;
+  userId: string;
+  clearedBy: string;
+  activityId?: string;
+  clearedAt: string;
+}
+
 // ════════════════════════════════════════════════════════════════════════════════
 // Server → Client event map
 // ════════════════════════════════════════════════════════════════════════════════
@@ -206,6 +287,12 @@ export interface ServerToClientEvents {
   'crew:activity': (data: CrewActivityPayload) => void;
   'crew:status-updated': (data: CrewStatusUpdatedPayload) => void;
 
+  // Live Location + SOS (ephemeral live location; safety-critical SOS)
+  'location:peer-update': (data: LocationPeerUpdatePayload) => void;
+  'location:peer-stopped': (data: LocationPeerStoppedPayload) => void;
+  'sos:raised': (data: SosRaisedPayload) => void;
+  'sos:cleared': (data: SosClearedPayload) => void;
+
   // Identity
   'profile:identity': (data: { festivalId: string; profileId: string; username: string; avatarUrl?: string }) => void;
 
@@ -236,5 +323,16 @@ export interface ClientToServerEvents {
   'reconnect:restore': (
     data: { _v?: number; festivalId: string; userToken?: string | null },
     ack: (response: { ok: boolean; profileId?: string; error?: string }) => void,
+  ) => void;
+
+  // Live Location (ephemeral). SOS raise/clear are HTTP POSTs, not socket emits.
+  'location:share': (data: LocationSharePayload, ack: (response: { ok: boolean; code?: string }) => void) => void;
+  'location:update': (data: LocationUpdatePayload) => void;
+  'location:stop': (data: LocationStopPayload, ack: (response: { ok: boolean }) => void) => void;
+  // OPTIONAL (Phase 1.5, Redis-backed). Phase 1 has no server handler; the type
+  // exists so the late-joiner snapshot contract is ready for the UI to adopt.
+  'location:sync': (
+    data: LocationSyncPayload,
+    ack: (response: { ok: boolean; peers: LocationPeerUpdatePayload[] }) => void,
   ) => void;
 }

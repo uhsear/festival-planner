@@ -19,7 +19,7 @@
       "associatedDomains": ["applinks:festie.us", "webcredentials:festie.us"],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSLocationWhenInUseUsageDescription": "Festie uses your location to drop a meeting point and point you toward where your crew is. Only used while the app is open.",
+        "NSLocationWhenInUseUsageDescription": "Festie uses your location to drop a meeting point, point you toward your crew, and—only when you turn it on—share your live location with your crew or send an SOS. Only used while the app is open.",
         "NSCameraUsageDescription": "Festie uses the camera to scan a friend's plan QR code so they can join your festival plan offline."
       },
       "privacyManifests": {
@@ -111,7 +111,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Festie uses your location to drop a meeting point and point you toward where your crew is. Only used while the app is open."
+          "locationWhenInUsePermission": "Festie uses your location to drop a meeting point, point you toward your crew, and—only when you turn it on—share your live location with your crew or send an SOS. Only used while the app is open."
         }
       ],
       [

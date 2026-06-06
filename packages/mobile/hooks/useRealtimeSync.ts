@@ -7,11 +7,14 @@ import { createSocket } from '@festie/shared/services';
 // (hoisted) but fails the CI mobile typecheck (TS2307) where mobile deps aren't
 // installed.
 import type { Socket } from '@festie/shared/services';
-import { useAuthStore , useUIStore , useFestivalDataStore , useCrewStore } from '@festie/shared/stores';
-
-
-
-import type { OnlineUser , CrewMeetingPoint } from '@festie/shared/types';
+import {
+  useAuthStore,
+  useUIStore,
+  useFestivalDataStore,
+  useCrewStore,
+  useLiveLocationStore,
+} from '@festie/shared/stores';
+import type { OnlineUser, CrewMeetingPoint } from '@festie/shared/types';
 import type {
   ProfileUpdatedPayload,
   ProfileDeletedPayload,
@@ -29,8 +32,12 @@ import type {
   CrewExpensePayload,
   CrewExpenseDeletedPayload,
   CrewActivityPayload,
+  LocationPeerUpdatePayload,
+  LocationPeerStoppedPayload,
+  SosRaisedPayload,
+  SosClearedPayload,
 } from '@festie/shared/types/socket-events';
-
+import { setLiveSocket } from '../lib/liveSocket';
 
 export interface UseRealtimeSyncReturn {
   connected: boolean;
@@ -68,6 +75,11 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
 
   // ── Socket connection lifecycle ─────────────────────────────────────────
   useEffect(() => {
+    // Keep the ephemeral live-location store scoped to the active crew so peer/
+    // SOS guards (and the publisher) target the right crew. A crew change resets
+    // peers + SOS + any in-flight sharing (no silent cross-crew bleed).
+    useLiveLocationStore.getState().setActiveCrew(useCrewStore.getState().activeCrew?.id ?? null);
+
     // Don't connect without auth or a selected festival.
     if (!userToken || !currentFestivalId) {
       // Tear down any existing socket from a previous render.
@@ -76,6 +88,7 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
         socketRef.current = null;
         setConnected(false);
       }
+      setLiveSocket(null);
       return;
     }
 
@@ -95,6 +108,9 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
         .catch(() => {});
     });
     socketRef.current = socket;
+    // Expose this socket to the Live Location publisher (crew screen) which emits
+    // location:* on it. Cleared on teardown so a torn-down socket isn't reused.
+    setLiveSocket(socket);
 
     const timersSnapshot = debouncersRef.current;
 
@@ -112,7 +128,10 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       const festivalId = useFestivalDataStore.getState().currentFestivalId;
       if (!festivalId) return;
       schedule(`profiles:${festivalId}`, () => {
-        useFestivalDataStore.getState().loadProfiles(festivalId).catch(() => {});
+        useFestivalDataStore
+          .getState()
+          .loadProfiles(festivalId)
+          .catch(() => {});
       });
     };
 
@@ -120,17 +139,26 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       const festivalId = useFestivalDataStore.getState().currentFestivalId;
       if (!festivalId) return;
       schedule(`festival:${festivalId}`, () => {
-        useFestivalDataStore.getState().selectFestival(festivalId).catch(() => {});
+        useFestivalDataStore
+          .getState()
+          .selectFestival(festivalId)
+          .catch(() => {});
       });
     };
 
     const reloadCrews = (crewId?: string) => {
       schedule('crews', () => {
-        useCrewStore.getState().loadCrews().catch(() => {});
+        useCrewStore
+          .getState()
+          .loadCrews()
+          .catch(() => {});
         const activeId = useCrewStore.getState().activeCrew?.id;
         const targetId = crewId || activeId;
         if (targetId && targetId === activeId) {
-          useCrewStore.getState().selectCrew(targetId).catch(() => {});
+          useCrewStore
+            .getState()
+            .selectCrew(targetId)
+            .catch(() => {});
         }
       });
     };
@@ -165,12 +193,9 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     const handleProfileLeft = (_data: ProfileDeletedPayload) => reloadProfiles();
 
     // Crews -> crewStore
-    const handleCrewUpdated = (data: CrewUpdatedPayload) =>
-      reloadCrews(data?.crewId ?? data?.id);
-    const handleCrewMemberAdded = (data: CrewMemberEventPayload) =>
-      reloadCrews(data?.crewId);
-    const handleCrewMemberRemoved = (data: CrewMemberEventPayload) =>
-      reloadCrews(data?.crewId);
+    const handleCrewUpdated = (data: CrewUpdatedPayload) => reloadCrews(data?.crewId ?? data?.id);
+    const handleCrewMemberAdded = (data: CrewMemberEventPayload) => reloadCrews(data?.crewId);
+    const handleCrewMemberRemoved = (data: CrewMemberEventPayload) => reloadCrews(data?.crewId);
 
     // Crew sub-features (home base / meeting points / polls). These mutate the
     // crewStore in place via additive socket-driven setters so the open crew
@@ -179,12 +204,10 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     const handleCrewHomeBaseUpdated = (data: CrewHomeBaseUpdatedPayload) => {
       const activeId = getActiveCrewId();
       if (!activeId || data?.crewId !== activeId) return;
-      useCrewStore
-        .getState()
-        .applyHomeBaseUpdate(data.crewId, {
-          location: data.location,
-          time: data.time,
-        });
+      useCrewStore.getState().applyHomeBaseUpdate(data.crewId, {
+        location: data.location,
+        time: data.time,
+      });
     };
 
     const handleMeetingPointUpserted = (data: CrewMeetingPointPayload) => {
@@ -192,12 +215,9 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       // The created/updated payload is the raw serialized row, whose crew id is
       // snake_case (`crew_id`); only fall back to camelCase for safety.
       const mpCrewId =
-        (data as { crew_id?: string; crewId?: string })?.crew_id ??
-        (data as { crewId?: string })?.crewId;
+        (data as { crew_id?: string; crewId?: string })?.crew_id ?? (data as { crewId?: string })?.crewId;
       if (!activeId || mpCrewId !== activeId) return;
-      useCrewStore
-        .getState()
-        .applyMeetingPointUpsert(data as unknown as CrewMeetingPoint);
+      useCrewStore.getState().applyMeetingPointUpsert(data as unknown as CrewMeetingPoint);
     };
 
     const handleMeetingPointRemoved = (data: CrewMeetingPointRemovedPayload) => {
@@ -215,16 +235,17 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       schedule(`crew-polls:${activeId}`, () => {
         const id = useCrewStore.getState().activeCrew?.id;
         if (!id) return;
-        useCrewStore.getState().loadPolls(id).catch(() => {});
+        useCrewStore
+          .getState()
+          .loadPolls(id)
+          .catch(() => {});
       });
     };
 
     const handlePollVoted = (data: CrewPollVotedPayload) => {
       const activeId = getActiveCrewId();
       if (!activeId) return;
-      useCrewStore
-        .getState()
-        .applyPollVote(data.pollId, data.userId, data.optionIndex);
+      useCrewStore.getState().applyPollVote(data.pollId, data.userId, data.optionIndex);
     };
 
     const handlePollClosed = (data: CrewPollClosedPayload) => {
@@ -236,14 +257,16 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     // Expenses + activity (added with the Phase 2 crew features). These carry an
     // explicit camelCase crewId. Reload the authoritative lists (debounced) so
     // balances/feed stay consistent without trusting partial payloads.
-    const handleExpenseChanged = (
-      data: CrewExpensePayload | CrewExpenseDeletedPayload,
-    ) => {
+    const handleExpenseChanged = (data: CrewExpensePayload | CrewExpenseDeletedPayload) => {
       const activeId = getActiveCrewId();
       if (!activeId || data?.crewId !== activeId) return;
       schedule(`crew-expenses:${activeId}`, () => {
         const id = useCrewStore.getState().activeCrew?.id;
-        if (id) useCrewStore.getState().loadExpenses(id).catch(() => {});
+        if (id)
+          useCrewStore
+            .getState()
+            .loadExpenses(id)
+            .catch(() => {});
       });
     };
 
@@ -252,8 +275,59 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       if (!activeId || data?.crewId !== activeId) return;
       schedule(`crew-activity:${activeId}`, () => {
         const id = useCrewStore.getState().activeCrew?.id;
-        if (id) useCrewStore.getState().loadActivity(id).catch(() => {});
+        if (id)
+          useCrewStore
+            .getState()
+            .loadActivity(id)
+            .catch(() => {});
       });
+    };
+
+    // Live Location + SOS -> liveLocationStore. These carry FULL payloads with an
+    // explicit crewId, so they apply IMMEDIATELY (no debounce — debounce is only
+    // for reload-style intents above). The store actions are themselves
+    // crew-guarded; the inline guard here is defense in depth.
+    const handleLocationPeerUpdate = (data: LocationPeerUpdatePayload) => {
+      const activeId = getActiveCrewId();
+      if (!activeId || data?.crewId !== activeId) return;
+      useLiveLocationStore.getState().applyPeerUpdate({
+        crewId: data.crewId,
+        userId: data.userId,
+        username: data.username,
+        lat: data.lat,
+        lng: data.lng,
+        accuracy: data.accuracy,
+        heading: data.heading,
+        speed: data.speed,
+        capturedAt: data.capturedAt,
+        serverAt: data.serverAt,
+      });
+    };
+
+    const handleLocationPeerStopped = (data: LocationPeerStoppedPayload) => {
+      const activeId = getActiveCrewId();
+      if (!activeId || data?.crewId !== activeId) return;
+      useLiveLocationStore.getState().removePeer(data.userId);
+    };
+
+    const handleSosRaised = (data: SosRaisedPayload) => {
+      const activeId = getActiveCrewId();
+      if (!activeId || data?.crewId !== activeId) return;
+      useLiveLocationStore.getState().applySos({
+        crewId: data.crewId,
+        userId: data.userId,
+        username: data.username,
+        message: data.message,
+        position: data.position,
+        activityId: data.activityId,
+        raisedAt: data.raisedAt,
+      });
+    };
+
+    const handleSosCleared = (data: SosClearedPayload) => {
+      const activeId = getActiveCrewId();
+      if (!activeId || data?.crewId !== activeId) return;
+      useLiveLocationStore.getState().clearSos();
     };
 
     // Festival / sets -> festivalDataStore full reload
@@ -318,6 +392,11 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     socket.on('crew:expense-deleted', handleExpenseChanged);
     socket.on('crew:activity', handleActivityLogged);
 
+    socket.on('location:peer-update', handleLocationPeerUpdate);
+    socket.on('location:peer-stopped', handleLocationPeerStopped);
+    socket.on('sos:raised', handleSosRaised);
+    socket.on('sos:cleared', handleSosCleared);
+
     socket.on('festival:updated', handleFestivalUpdated);
     socket.on('festival:set-added', handleSetAdded);
     socket.on('festival:set-updated', handleSetUpdated);
@@ -339,6 +418,15 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       } else if (nextAppState.match(/inactive|background/) && prev === 'active') {
         // Going to background — disconnect to save battery / bandwidth.
         if (socket.connected) {
+          // Foreground-only live location: stop sharing the moment we background.
+          // The server also force-stops on the disconnect below; this explicit
+          // stop is immediate + clears local sharing state so there's no ghost
+          // marker and no silent re-share when we return (user must re-opt-in).
+          const sharingCrewId = useLiveLocationStore.getState().sharingCrewId;
+          if (sharingCrewId) {
+            socket.emit('location:stop', { _v: 1, crewId: sharingCrewId });
+            useLiveLocationStore.getState().stopSharing();
+          }
           const festivalId = useFestivalDataStore.getState().currentFestivalId;
           if (festivalId) {
             socket.emit('leave:festival');
@@ -382,6 +470,11 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
       socket.off('crew:expense-deleted', handleExpenseChanged);
       socket.off('crew:activity', handleActivityLogged);
 
+      socket.off('location:peer-update', handleLocationPeerUpdate);
+      socket.off('location:peer-stopped', handleLocationPeerStopped);
+      socket.off('sos:raised', handleSosRaised);
+      socket.off('sos:cleared', handleSosCleared);
+
       socket.off('festival:updated', handleFestivalUpdated);
       socket.off('festival:set-added', handleSetAdded);
       socket.off('festival:set-updated', handleSetUpdated);
@@ -396,6 +489,14 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
         delete timersSnapshot[k];
       }
 
+      // Stop any in-flight live-location sharing before tearing down the socket
+      // (no ghost markers; server also auto-stops on disconnect).
+      const sharingCrewId = useLiveLocationStore.getState().sharingCrewId;
+      if (socket.connected && sharingCrewId) {
+        socket.emit('location:stop', { _v: 1, crewId: sharingCrewId });
+      }
+      useLiveLocationStore.getState().stopSharing();
+
       // Leave the crew room before tearing down (no-op if not joined).
       const leftCrewId = useCrewStore.getState().activeCrew?.id;
       if (socket.connected && leftCrewId) {
@@ -404,6 +505,7 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
 
       socket.disconnect();
       socketRef.current = null;
+      setLiveSocket(null);
     };
   }, [userToken, currentFestivalId, activeCrewId, setConnected, setOnlineUsers]);
 

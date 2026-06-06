@@ -89,6 +89,12 @@ export const DEFAULTS = {
   SPOTIFY_CLIENT_ID: '',
   SPOTIFY_CLIENT_SECRET: '',
   CLUSTER_SIZE: 1, // matches the single PM2 fork worker; ecosystem.config.cjs sets CLUSTER_SIZE=1 to keep the in-memory rate-limit divisor accurate
+  // Live Location + SOS kill switches. Both default ON; flip to false (env
+  // LIVE_LOCATION_ENABLED / SOS_ENABLED) to dark-ship or disable in an incident.
+  // Live location is ephemeral (socket-only, never persisted); SOS writes one
+  // crew_activity row + pushes safety-critical alerts.
+  LIVE_LOCATION_ENABLED: true,
+  SOS_ENABLED: true,
   REMINDER_TICK_INTERVAL_MS: 60_000,
   REMINDER_FIRE_WINDOW_MS: 65_000,
   REMINDER_DEDUP_TTL_MS: 7_200_000,
@@ -260,6 +266,8 @@ export function loadConfig(overrides: Record<string, any> = {}): {
   SPOTIFY_CLIENT_ID: string;
   SPOTIFY_CLIENT_SECRET: string;
   CLUSTER_SIZE: number;
+  LIVE_LOCATION_ENABLED: boolean;
+  SOS_ENABLED: boolean;
   LOG_LEVEL: string;
   SENTRY_DSN: string;
   SENTRY_TRACES_RATE: number;
@@ -494,6 +502,13 @@ export function loadConfig(overrides: Record<string, any> = {}): {
     REDIS_URL: overrides.REDIS_URL || process.env.REDIS_URL || 'redis://127.0.0.1:6379',
     REDIS_ENABLED: readBool(overrides.REDIS_ENABLED || process.env.REDIS_ENABLED, true),
     REDIS_PREFIX: overrides.REDIS_PREFIX || process.env.REDIS_PREFIX || DEFAULTS.REDIS_PREFIX,
+
+    // Live Location + SOS kill switches (default ON; see DEFAULTS).
+    LIVE_LOCATION_ENABLED: readBool(
+      overrides.LIVE_LOCATION_ENABLED ?? process.env.LIVE_LOCATION_ENABLED,
+      DEFAULTS.LIVE_LOCATION_ENABLED,
+    ),
+    SOS_ENABLED: readBool(overrides.SOS_ENABLED ?? process.env.SOS_ENABLED, DEFAULTS.SOS_ENABLED),
 
     // Deep linking — populate when you have your Apple/Android signing credentials
     APPLE_TEAM_ID: overrides.APPLE_TEAM_ID || process.env.APPLE_TEAM_ID || '',

@@ -648,6 +648,91 @@ export const crewStatusSchema = z
   .refine((d) => Object.keys(d).length > 0, { message: 'At least one field required' });
 export type CrewStatusInput = z.infer<typeof crewStatusSchema>;
 
+// ── Live Location + SOS schemas (ephemeral GPS relay + safety SOS) ──
+// Live location is EPHEMERAL: it travels only over Socket.IO to the crew room
+// and is NEVER written to Postgres. These schemas validate the socket payloads
+// (locationShare/locationUpdate) and the durable SOS HTTP bodies (sosRaise/
+// sosClear). Lat/lng are hard-bounded; capturedAt is an ISO timestamp the client
+// stamps at fix time so the UI can render honest "live · N ago" staleness.
+
+// A captured GPS coordinate. `.strip()` drops any unknown keys a client tacks on.
+const liveCoord = z
+  .object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    accuracy: z.number().min(0).max(100000).optional(),
+    heading: z.number().min(0).max(360).optional(),
+    capturedAt: z.string().datetime(),
+  })
+  .strip();
+
+export const locationShareSchema = z
+  .object({
+    _v: z.number().int().min(1).default(1),
+    crewId: z.string().min(1).max(100),
+    // Optional first fix sent alongside the share-intent so peers see the sharer
+    // immediately instead of waiting for the first periodic update tick.
+    position: liveCoord.optional(),
+  })
+  .strip();
+export type LocationShareInput = z.infer<typeof locationShareSchema>;
+
+export const locationUpdateSchema = z
+  .object({
+    _v: z.number().int().min(1).default(1),
+    crewId: z.string().min(1).max(100),
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    accuracy: z.number().min(0).max(100000).optional(),
+    heading: z.number().min(0).max(360).optional(),
+    speed: z.number().min(0).max(1000).optional(),
+    capturedAt: z.string().datetime(),
+  })
+  .strip();
+export type LocationUpdateInput = z.infer<typeof locationUpdateSchema>;
+
+export const locationStopSchema = z
+  .object({
+    _v: z.number().int().min(1).default(1),
+    crewId: z.string().min(1).max(100),
+  })
+  .strip();
+export type LocationStopInput = z.infer<typeof locationStopSchema>;
+
+// OPTIONAL (Phase 1.5, Redis-backed late-joiner snapshot). Phase 1 omits the
+// server handler; the schema is registered so the type contract exists.
+export const locationSyncSchema = z
+  .object({
+    _v: z.number().int().min(1).default(1),
+    crewId: z.string().min(1).max(100),
+  })
+  .strip();
+export type LocationSyncInput = z.infer<typeof locationSyncSchema>;
+
+// SOS raise: a member presses SOS. `message` is a short capped note; `position`
+// is the SINGLE intentional exception to ephemerality — it may be attached to
+// the durable crew_activity row + push so the crew can actually find them.
+export const sosRaiseSchema = z
+  .object({
+    message: z.string().trim().max(280).optional(),
+    position: z
+      .object({
+        lat: z.number().min(-90).max(90),
+        lng: z.number().min(-180).max(180),
+        accuracy: z.number().min(0).max(100000).optional(),
+        capturedAt: z.string().datetime(),
+      })
+      .strip()
+      .optional(),
+  })
+  .strip();
+export type SosRaiseInput = z.infer<typeof sosRaiseSchema>;
+
+// SOS clear: the raiser ("I'm safe") or any crew member dismisses an SOS. Body
+// is empty — the actor is req.user; the crew is the path param.
+export const sosClearSchema = z.object({}).strip();
+export type SosClearInput = z.infer<typeof sosClearSchema>;
+
 // ── Crew carpool / ride-board schemas (M2 logistics) ────────────────
 export const rideCreateSchema = z.object({
   driver: z.string().trim().max(100).optional().nullable(),
@@ -868,6 +953,12 @@ export const schemas = {
   packingCreate: packingCreateSchema,
   packingUpdate: packingUpdateSchema,
   crewStatus: crewStatusSchema,
+  locationShare: locationShareSchema,
+  locationUpdate: locationUpdateSchema,
+  locationStop: locationStopSchema,
+  locationSync: locationSyncSchema,
+  sosRaise: sosRaiseSchema,
+  sosClear: sosClearSchema,
   rideCreate: rideCreateSchema,
   rideUpdate: rideUpdateSchema,
   forgotPassword: forgotPasswordSchema,

@@ -43,11 +43,19 @@ function resolveClusterSize(config: any) {
 }
 
 function createRateLimiters({
-  config, state, log,
-  getRequestIp, sendError, ErrorCodes,
-  hashSessionToken, resolveRequestToken,
-  redisRateLimiter, redisAuthRateLimiter, redisSocketConnectLimiter,
-  redis, redisRateCheck,
+  config,
+  state,
+  log,
+  getRequestIp,
+  sendError,
+  ErrorCodes,
+  hashSessionToken,
+  resolveRequestToken,
+  redisRateLimiter,
+  redisAuthRateLimiter,
+  redisSocketConnectLimiter,
+  redis,
+  redisRateCheck,
   promMetrics = null,
 }: any) {
   const CLUSTER_SIZE = resolveClusterSize(config);
@@ -59,7 +67,11 @@ function createRateLimiters({
   function recordFallback(tier: any, err: any) {
     fallbackStats[tier] = (fallbackStats[tier] || 0) + 1;
     if (promMetrics && promMetrics.rateLimitFallbackCounter) {
-      try { promMetrics.rateLimitFallbackCounter.inc({ tier }); } catch { /* noop */ }
+      try {
+        promMetrics.rateLimitFallbackCounter.inc({ tier });
+      } catch {
+        /* noop */
+      }
     }
     const now = Date.now();
     if (now - fallbackLastWarned[tier] >= FALLBACK_WARN_INTERVAL_MS) {
@@ -69,9 +81,10 @@ function createRateLimiters({
         clusterSize: CLUSTER_SIZE,
         totalFallbacks: fallbackStats[tier],
         error: err && err.message ? err.message : 'redis unavailable',
-        note: CLUSTER_SIZE > 1
-          ? `In-memory fallback divides max by ${CLUSTER_SIZE} to approximate cluster-wide limit.`
-          : 'CLUSTER_SIZE=1; in-memory fallback matches configured max.',
+        note:
+          CLUSTER_SIZE > 1
+            ? `In-memory fallback divides max by ${CLUSTER_SIZE} to approximate cluster-wide limit.`
+            : 'CLUSTER_SIZE=1; in-memory fallback matches configured max.',
       });
     }
   }
@@ -182,7 +195,13 @@ function createRateLimiters({
         res.setHeader('X-RateLimit-Reset', String(result.resetHeader));
         if (result.limited) {
           if (!result.fallback || result.firstExceeded) {
-            log.warn('rate-limit:exceeded', { scope: result.fallback ? rateLimitKey : `${scope}:${rateLimitKey}`, ip: getRequestIp(req), path: req.path, userId: req.user?.userId, ...(result.fallback ? { fallback: true } : {}) });
+            log.warn('rate-limit:exceeded', {
+              scope: result.fallback ? rateLimitKey : `${scope}:${rateLimitKey}`,
+              ip: getRequestIp(req),
+              path: req.path,
+              userId: req.user?.userId,
+              ...(result.fallback ? { fallback: true } : {}),
+            });
           }
           res.setHeader('Retry-After', String(result.retryAfter));
           return sendError(res, 429, 'Too many requests', ErrorCodes.RATE_LIMITED);
@@ -205,7 +224,13 @@ function createRateLimiters({
       res.setHeader('X-RateLimit-Reset', String(result.resetHeader));
       if (result.limited) {
         if (!result.fallback || result.firstExceeded) {
-          log.warn('rate-limit:exceeded', { scope: rateLimitKey, ip: getRequestIp(req), path: req.path, userId: req.user?.userId, ...(result.fallback ? { fallback: true } : {}) });
+          log.warn('rate-limit:exceeded', {
+            scope: rateLimitKey,
+            ip: getRequestIp(req),
+            path: req.path,
+            userId: req.user?.userId,
+            ...(result.fallback ? { fallback: true } : {}),
+          });
         }
         res.setHeader('Retry-After', String(result.retryAfter));
         return sendError(res, 429, 'Too many requests', ErrorCodes.RATE_LIMITED);
@@ -243,7 +268,13 @@ function createRateLimiters({
       }
       entry.count += 1;
       if (entry.count > effectiveMax) {
-        log.warn('rate-limit:exceeded', { scope: `auth:${ip}`, ip, path: req.path, userId: req.user?.userId, fallback: true });
+        log.warn('rate-limit:exceeded', {
+          scope: `auth:${ip}`,
+          ip,
+          path: req.path,
+          userId: req.user?.userId,
+          fallback: true,
+        });
         const retryAfter = Math.ceil((entry.start + config.AUTH_RATE_LIMIT_WINDOW - now) / 1000);
         res.set('Retry-After', String(Math.max(1, retryAfter)));
         return sendError(res, 429, 'Too many attempts. Wait a few minutes.', ErrorCodes.RATE_LIMITED);
@@ -387,9 +418,16 @@ function createPasswordResetRateLimit(config: any, { log, sendError, ErrorCodes,
         }
         res.setHeader('Retry-After', String(Math.max(1, Math.ceil(redisResult.resetMs / 1000))));
         if (sendError && ErrorCodes) {
-          return sendError(res, 429, 'Too many password reset attempts for this email. Try again later.', ErrorCodes.RATE_LIMITED);
+          return sendError(
+            res,
+            429,
+            'Too many password reset attempts for this email. Try again later.',
+            ErrorCodes.RATE_LIMITED,
+          );
         }
-        return res.status(429).json({ error: { message: 'Too many password reset attempts for this email. Try again later.' } });
+        return res
+          .status(429)
+          .json({ error: { message: 'Too many password reset attempts for this email. Try again later.' } });
       }
       return next();
     }
@@ -424,9 +462,16 @@ function createPasswordResetRateLimit(config: any, { log, sendError, ErrorCodes,
       }
       res.setHeader('Retry-After', String(Math.max(1, Math.ceil((resetAt - now) / 1000))));
       if (sendError && ErrorCodes) {
-        return sendError(res, 429, 'Too many password reset attempts for this email. Try again later.', ErrorCodes.RATE_LIMITED);
+        return sendError(
+          res,
+          429,
+          'Too many password reset attempts for this email. Try again later.',
+          ErrorCodes.RATE_LIMITED,
+        );
       }
-      return res.status(429).json({ error: { message: 'Too many password reset attempts for this email. Try again later.' } });
+      return res
+        .status(429)
+        .json({ error: { message: 'Too many password reset attempts for this email. Try again later.' } });
     }
     return next();
   };
@@ -487,7 +532,9 @@ function _createSocketEventLimiter(name: string, max: number, windowMs: number) 
       const remaining = Math.max(0, max - entry.count);
       return { allowed: entry.count <= max, remaining, resetAt };
     },
-    _reset() { buckets.clear(); },
+    _reset() {
+      buckets.clear();
+    },
   };
 }
 
@@ -497,11 +544,26 @@ const NOTE_ADD_LIMIT = _createSocketEventLimiter('note-add', 20, SOCKET_EVENT_WI
 const STATUS_UPDATE_LIMIT = _createSocketEventLimiter('status-update', 30, SOCKET_EVENT_WINDOW_MS);
 const PRESENCE_UPDATE_LIMIT = _createSocketEventLimiter('presence-update', 60, SOCKET_EVENT_WINDOW_MS);
 
+// Live Location: a sharing client publishes a fix roughly every 5s (publisher
+// throttle in @festie/shared). Cap at 12/min/user (~1 per 5s) so a misbehaving
+// or spoofed client can't flood the crew room. Window 60s, keyed by userId.
+const LOCATION_UPDATE_LIMIT = _createSocketEventLimiter('location-update', 12, 60_000);
+
+// SOS raise: a safety action, not a fire-rate path. One raise per 120s/user
+// throttles abuse / notification storms while still allowing a re-raise if the
+// first didn't land. Consumed in-handler in routes/crew-sos.ts. NOTE: this is a
+// per-process in-memory limiter, so under PM2 cluster x4 the effective cap can
+// drift to ~4/120s cluster-wide; a coarse Redis-backed rateLimit() middleware on
+// the route bounds the worst case. Exact precision isn't safety-critical here.
+const SOS_RAISE_LIMIT = _createSocketEventLimiter('sos-raise', 1, 120_000);
+
 const socketEventLimits = {
   PICK_SET_LIMIT,
   NOTE_ADD_LIMIT,
   STATUS_UPDATE_LIMIT,
   PRESENCE_UPDATE_LIMIT,
+  LOCATION_UPDATE_LIMIT,
+  SOS_RAISE_LIMIT,
 };
 
 export {
@@ -513,5 +575,7 @@ export {
   NOTE_ADD_LIMIT,
   STATUS_UPDATE_LIMIT,
   PRESENCE_UPDATE_LIMIT,
+  LOCATION_UPDATE_LIMIT,
+  SOS_RAISE_LIMIT,
   socketEventLimits,
 };
