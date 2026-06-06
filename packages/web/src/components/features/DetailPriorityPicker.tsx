@@ -1,3 +1,5 @@
+import type { LucideIcon } from 'lucide-react';
+import { Star, Diamond, Circle, X } from 'lucide-react';
 import { Priority } from '@festie/shared/types';
 import { cn } from '../../lib/utils';
 
@@ -7,11 +9,14 @@ interface Props {
   onPriorityClick: (priority: Priority | null) => Promise<void>;
 }
 
-const priorityOptions: Array<[Priority | null, string, string]> = [
-  ['must', '★', 'Must See'],
-  ['want-to-see', '◆', 'Want to See'],
-  ['maybe', '●', 'Maybe'],
-  [null, '✕', 'Clear'],
+// Lucide vocabulary, matching SetCard's priority buttons (Star/Diamond/Circle)
+// so the same concept renders identically across the Cards grid and the detail
+// panel. `X` replaces the former Unicode ✕ for the Clear affordance.
+const priorityOptions: Array<{ value: Priority | null; Icon: LucideIcon; label: string }> = [
+  { value: 'must', Icon: Star, label: 'Must See' },
+  { value: 'want-to-see', Icon: Diamond, label: 'Want to See' },
+  { value: 'maybe', Icon: Circle, label: 'Maybe' },
+  { value: null, Icon: X, label: 'Clear' },
 ];
 
 const activeStyles: Record<string, string> = {
@@ -27,7 +32,7 @@ const baseButtonClass =
 export default function DetailPriorityPicker({ myPick, priorityBusy, onPriorityClick }: Props) {
   return (
     <div className="flex gap-4 mb-6">
-      {priorityOptions.map(([p, icon, label]) => {
+      {priorityOptions.map(({ value: p, Icon, label }) => {
         const active = myPick === p;
         const key: Priority | 'clear' = p ?? 'clear';
         const isThisBusy = priorityBusy === key;
@@ -48,7 +53,13 @@ export default function DetailPriorityPicker({ myPick, priorityBusy, onPriorityC
               await onPriorityClick(p);
             }}
           >
-            <div className="text-xl">{icon}</div>
+            {/* Fill the glyph when active (Clear's X stays an outline — it has no
+                meaningful fill area). Mirrors SetCard's fill-on-active treatment. */}
+            <Icon
+              className="w-5 h-5 mx-auto"
+              fill={active && p !== null ? 'currentColor' : 'none'}
+              aria-hidden="true"
+            />
             <div className="text-[11px] font-bold mt-1 uppercase tracking-[0.5px]">{label}</div>
           </button>
         );

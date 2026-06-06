@@ -21,22 +21,14 @@ describe('DetailPriorityPicker', () => {
 
   it('marks active priority as pressed', () => {
     render(<DetailPriorityPicker {...defaultProps} myPick="must" />);
-    expect(screen.getByLabelText('Must See (selected)')).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByLabelText('Want to See')).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    expect(screen.getByLabelText('Must See (selected)')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('Want to See')).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('calls onPriorityClick with priority value on click', async () => {
     const user = userEvent.setup();
     const onPriorityClick = vi.fn().mockResolvedValue(undefined);
-    render(
-      <DetailPriorityPicker {...defaultProps} onPriorityClick={onPriorityClick} />,
-    );
+    render(<DetailPriorityPicker {...defaultProps} onPriorityClick={onPriorityClick} />);
     await user.click(screen.getByLabelText('Must See'));
     expect(onPriorityClick).toHaveBeenCalledWith('must');
   });
@@ -44,39 +36,29 @@ describe('DetailPriorityPicker', () => {
   it('calls onPriorityClick with null for Clear', async () => {
     const user = userEvent.setup();
     const onPriorityClick = vi.fn().mockResolvedValue(undefined);
-    render(
-      <DetailPriorityPicker
-        {...defaultProps}
-        myPick="must"
-        onPriorityClick={onPriorityClick}
-      />,
-    );
+    render(<DetailPriorityPicker {...defaultProps} myPick="must" onPriorityClick={onPriorityClick} />);
     await user.click(screen.getByLabelText('Clear'));
     expect(onPriorityClick).toHaveBeenCalledWith(null);
   });
 
   it('disables all buttons when any priority is busy', () => {
-    render(
-      <DetailPriorityPicker {...defaultProps} priorityBusy="must" />,
-    );
+    render(<DetailPriorityPicker {...defaultProps} priorityBusy="must" />);
     const buttons = screen.getAllByRole('button');
     buttons.forEach((btn) => expect(btn).toBeDisabled());
   });
 
   it('sets aria-busy on the busy option', () => {
-    render(
-      <DetailPriorityPicker {...defaultProps} priorityBusy="must" />,
-    );
+    render(<DetailPriorityPicker {...defaultProps} priorityBusy="must" />);
     expect(screen.getByLabelText('Must See')).toHaveAttribute('aria-busy', 'true');
     expect(screen.getByLabelText('Want to See')).toHaveAttribute('aria-busy', 'false');
   });
 
-  it('shows correct icons for each priority', () => {
+  it('renders a Lucide icon for each priority', () => {
     render(<DetailPriorityPicker {...defaultProps} />);
-    expect(screen.getByLabelText('Must See')).toHaveTextContent('★');
-    expect(screen.getByLabelText('Want to See')).toHaveTextContent('◆');
-    expect(screen.getByLabelText('Maybe')).toHaveTextContent('●');
-    expect(screen.getByLabelText('Clear (selected)')).toHaveTextContent('✕');
+    // Icons are now Lucide SVGs (Star/Diamond/Circle/X), not Unicode glyphs.
+    for (const label of ['Must See', 'Want to See', 'Maybe', 'Clear (selected)']) {
+      expect(screen.getByLabelText(label).querySelector('svg')).toBeInTheDocument();
+    }
   });
 
   it('adds active styling when priority is selected', () => {
