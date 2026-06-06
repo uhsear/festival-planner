@@ -147,9 +147,7 @@ const SECTIONS: PolicySection[] = [
   },
   {
     title: 'Your Data Subject Rights',
-    body: [
-      'Under applicable data protection laws, you have the following rights regarding your personal data:',
-    ],
+    body: ['Under applicable data protection laws, you have the following rights regarding your personal data:'],
     subsections: [
       {
         heading: 'Right of Access',
@@ -197,9 +195,7 @@ const SECTIONS: PolicySection[] = [
   },
   {
     title: 'Cookies & Session Management',
-    body: [
-      'Festie uses HTTP-only session cookies strictly for authentication and session management purposes only.',
-    ],
+    body: ['Festie uses HTTP-only session cookies strictly for authentication and session management purposes only.'],
     subsections: [
       {
         heading: 'Cookie Usage',
@@ -277,9 +273,7 @@ const SECTIONS: PolicySection[] = [
   },
   {
     title: 'Security Measures',
-    body: [
-      'We implement comprehensive technical and organizational security measures to protect your personal data:',
-    ],
+    body: ['We implement comprehensive technical and organizational security measures to protect your personal data:'],
     subsections: [
       {
         heading: 'Data in Transit',
@@ -406,16 +400,9 @@ export default function PrivacyScreen() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader
-        title="Privacy Policy"
-        subtitle="Effective May 31, 2026"
-        icon="shield-checkmark-outline"
-      />
+      <ScreenHeader title="Privacy Policy" subtitle="Effective May 31, 2026" icon="shield-checkmark-outline" />
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {SECTIONS.map((section, index) => (
           <View key={section.title} style={styles.section}>
             <Text style={styles.sectionTitle} accessibilityRole="header">
@@ -454,17 +441,9 @@ export default function PrivacyScreen() {
                 accessibilityRole="link"
                 accessibilityLabel="Open Terms of Service"
               >
-                <Ionicons
-                  name="document-text-outline"
-                  size={18}
-                  color={t.colors.accent.aqua}
-                />
+                <Ionicons name="document-text-outline" size={18} color={t.colors.accent.aqua} />
                 <Text style={styles.linkText}>Terms of Service</Text>
-                <Ionicons
-                  name="open-outline"
-                  size={16}
-                  color={t.colors.accent.aqua}
-                />
+                <Ionicons name="open-outline" size={16} color={t.colors.accent.aqua} />
               </TouchableOpacity>
             ) : null}
 
@@ -515,7 +494,7 @@ const useStyles = makeStyles((t) => ({
     width: 6,
     height: 6,
     borderRadius: 3,
-    marginTop: 8,
+    marginTop: t.spacing[2],
     backgroundColor: t.colors.accent.aqua,
   },
   bulletText: {

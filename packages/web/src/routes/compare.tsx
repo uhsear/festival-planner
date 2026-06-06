@@ -18,20 +18,20 @@ export default function CompareView() {
 }
 
 function CompareViewInner() {
-  const user           = useAuthStore((s) => s.user);
+  const user = useAuthStore((s) => s.user);
   const currentProfile = useFestivalStore((s) => s.currentProfile);
-  const days           = useFestivalStore((s) => s.days);
-  const sets           = useFestivalStore((s) => s.sets);
-  const selectedDay    = useFestivalStore((s) => s.selectedDay);
+  const days = useFestivalStore((s) => s.days);
+  const sets = useFestivalStore((s) => s.sets);
+  const selectedDay = useFestivalStore((s) => s.selectedDay);
   const setSelectedDay = useFestivalStore((s) => s.setSelectedDay);
-  const activeCrew     = useCrewStore((s) => s.activeCrew);
+  const activeCrew = useCrewStore((s) => s.activeCrew);
 
   const { getCrewScopedProfiles, getCrewScopedOtherPicks } = useCrew();
   const { getStageColor, getStageName } = useFestival();
 
   const columns = useMemo(() => {
     const others = getCrewScopedProfiles().filter((p) => p.id !== currentProfile?.id);
-    const me     = currentProfile ? [{ ...currentProfile, isMe: true as const }] : [];
+    const me = currentProfile ? [{ ...currentProfile, isMe: true as const }] : [];
     return [...me, ...others.map((p) => ({ ...p, isMe: false as const }))];
   }, [getCrewScopedProfiles, currentProfile]);
 
@@ -39,7 +39,7 @@ function CompareViewInner() {
     return sets
       .filter((s) => s.dayIndex === selectedDay)
       .map((s) => {
-        const mine   = currentProfile?.picks?.[s.id] as Priority | undefined;
+        const mine = currentProfile?.picks?.[s.id] as Priority | undefined;
         const others = getCrewScopedOtherPicks(s.id);
         const pickers = (mine ? 1 : 0) + others.length;
         return { set: s, mine, others, pickers };
@@ -52,7 +52,7 @@ function CompareViewInner() {
 
   if (!activeCrew) {
     return (
-      <div className="px-4 py-8 max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto">
         <EmptyState
           icon={<Users className="w-12 h-12" aria-hidden="true" />}
           title="No crew selected"
@@ -64,7 +64,7 @@ function CompareViewInner() {
 
   return (
     <div className="compare-page pb-24">
-      <header className="px-4 pt-4 pb-2 max-w-6xl mx-auto">
+      <header className="pb-2 max-w-6xl mx-auto">
         <h1 className="text-xl font-semibold text-text-primary">Compare schedules</h1>
         <p className="text-sm text-text-secondary mt-1">
           {activeCrew.name} {'·'} {columns.length} {columns.length === 1 ? 'member' : 'members'}
@@ -72,7 +72,7 @@ function CompareViewInner() {
       </header>
 
       {days.length > 1 && (
-        <div className="px-4 max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="flex gap-2 overflow-x-auto scrollbar-hide py-2" role="tablist" aria-label="Day">
             {days.map((d, idx) => (
               <button
@@ -96,7 +96,7 @@ function CompareViewInner() {
       )}
 
       {rows.length === 0 ? (
-        <div className="px-4 max-w-2xl mx-auto mt-6">
+        <div className="max-w-2xl mx-auto mt-6">
           <EmptyState
             icon={<Users className="w-12 h-12" aria-hidden="true" />}
             title="No picks on this day yet"
@@ -104,7 +104,7 @@ function CompareViewInner() {
           />
         </div>
       ) : (
-        <div className="px-4 max-w-6xl mx-auto mt-2 overflow-x-auto">
+        <div className="max-w-6xl mx-auto mt-2 overflow-x-auto">
           <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-text-muted">

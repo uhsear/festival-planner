@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFestivalDataStore, useAuthStore } from '@festie/shared/stores';
 import { usePicks, useFestival, useCrew } from '@festie/shared/hooks';
@@ -81,6 +82,11 @@ export default function SetDetailScreen() {
   const t = useTokens();
   const styles = useStyles();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  // Headerless modal: anchor the top affordances to the status-bar inset so the
+  // drag handle / close / share clear the notch on Android and any full-screen
+  // presentation, while staying compact on iOS card modals.
+  const topInset = Math.max(t.spacing[3], insets.top);
   const { setId } = useLocalSearchParams<{ setId: string }>();
 
   const sets = useFestivalDataStore((s) => s.sets);
@@ -333,14 +339,14 @@ export default function SetDetailScreen() {
     if (!resolveFailed) {
       return (
         <View style={[styles.container, styles.loadingContainer]}>
-          <CloseButton onPress={() => router.back()} />
+          <CloseButton onPress={() => router.back()} top={topInset} />
           <ActivityIndicator size="large" color={t.colors.accent.aqua} />
         </View>
       );
     }
     return (
       <View style={styles.container}>
-        <CloseButton onPress={() => router.back()} />
+        <CloseButton onPress={() => router.back()} top={topInset} />
         <EmptyState
           icon="alert-circle-outline"
           title="Set not found"
@@ -353,9 +359,9 @@ export default function SetDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.handle} />
+      <View style={[styles.handle, { marginTop: topInset }]} />
       <TouchableOpacity
-        style={styles.shareButton}
+        style={[styles.shareButton, { top: topInset }]}
         onPress={handleShare}
         activeOpacity={0.7}
         accessibilityRole="button"
@@ -364,7 +370,7 @@ export default function SetDetailScreen() {
       >
         <Ionicons name="share-outline" size={20} color={t.colors.text.secondary} />
       </TouchableOpacity>
-      <CloseButton onPress={() => router.back()} />
+      <CloseButton onPress={() => router.back()} top={topInset} />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -667,12 +673,12 @@ export default function SetDetailScreen() {
 }
 
 /** Close affordance for the modal header. */
-function CloseButton({ onPress }: { onPress: () => void }) {
+function CloseButton({ onPress, top }: { onPress: () => void; top: number }) {
   const t = useTokens();
   const styles = useStyles();
   return (
     <TouchableOpacity
-      style={styles.closeButton}
+      style={[styles.closeButton, { top }]}
       onPress={onPress}
       activeOpacity={0.7}
       accessibilityRole="button"

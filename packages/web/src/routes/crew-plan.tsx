@@ -132,7 +132,7 @@ function CrewPlanInner() {
 
   if (!activeCrew) {
     return (
-      <div className="space-y-4 pb-6 max-w-2xl mx-auto px-3 w-full">
+      <div className="space-y-4 pb-6 max-w-[600px] mx-auto w-full">
         <BackLink />
         <Card padding="lg">
           <EmptyState

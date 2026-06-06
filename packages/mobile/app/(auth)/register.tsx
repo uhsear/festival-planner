@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@festie/shared/stores';
 import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
 
@@ -28,6 +29,7 @@ export default function RegisterScreen() {
   const [tosAccepted, setTosAccepted] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const register = useAuthStore((s) => s.register);
   const isLoading = useAuthStore((s) => s.isLoading);
   const error = useAuthStore((s) => s.error);
@@ -73,7 +75,10 @@ export default function RegisterScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <View style={styles.inner}>
         <Text style={styles.title}>Festie</Text>
         <Text style={styles.subtitle}>Create your account</Text>

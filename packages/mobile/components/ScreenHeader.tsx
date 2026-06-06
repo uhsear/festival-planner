@@ -47,7 +47,10 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     gap: t.spacing[3],
     paddingHorizontal: t.spacing[4],
-    paddingVertical: t.spacing[4],
+    // Top padding is supplied inline as `insets.top + spacing[4]` (the header
+    // owns the screen's top safe-area inset exactly once). Only the bottom is
+    // declared here so the symmetric value doesn't read as a double-applied top.
+    paddingBottom: t.spacing[4],
   },
   titleBlock: {
     flex: 1,

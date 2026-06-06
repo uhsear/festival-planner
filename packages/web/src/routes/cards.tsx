@@ -148,17 +148,17 @@ function CardsViewInner() {
           // detection, focus-visible, priority-button styling) — layout below
           // is driven by tokens to match the mobile FlatList rhythm.
           className="card-grid grid w-full mx-auto max-w-[1440px] md:[--cards-gap:var(--space-4)]"
-          // Auto-fill grid + token gaps/padding set inline so the mobile
-          // single-column → calm multi-col rhythm wins over the legacy
-          // (unlayered) `.card-grid` desktop overrides in pages.css. Gap steps
-          // from spacing[3] (12px, tight mobile-list rhythm) to spacing[4]
-          // (16px) past the md breakpoint; padding mirrors the mobile FlatList
-          // contentContainer (padding spacing[4], paddingTop spacing[2]).
+          // Auto-fill grid + token gap set inline so the mobile single-column →
+          // calm multi-col rhythm wins over the legacy (unlayered) `.card-grid`
+          // desktop overrides in pages.css. Gap steps from spacing[3] (12px,
+          // tight mobile-list rhythm) to spacing[4] (16px) past the md
+          // breakpoint. Top/side padding is intentionally NOT set here — the
+          // shell `#main-content` (`px-6 py-4`) owns the single top/side inset
+          // for every route, so the grid (and the empty-state branch above)
+          // share one origin instead of stacking an extra grid pad on top.
           style={{
             gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))',
             gap: 'var(--cards-gap, var(--space-3))',
-            padding: 'var(--space-4)',
-            paddingTop: 'var(--space-2)',
           }}
           role="region"
           aria-label="Card view"
