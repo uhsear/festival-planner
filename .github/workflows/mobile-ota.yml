@@ -30,6 +30,9 @@ on:
 env:
   EXPO_NO_TELEMETRY: '1'
 
+permissions:
+  contents: read
+
 jobs:
   ota:
     runs-on: ubuntu-latest   # MUST be Linux to match the EAS build fingerprint env
@@ -54,15 +57,20 @@ jobs:
 
       - uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
-          eas-version: latest
+          eas-version: 20.1.0
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Publish OTA update
         working-directory: packages/mobile
+        # Pass dispatch inputs via env (NOT inlined into the run script) so shell
+        # metacharacters can't execute on the runner / exfiltrate EXPO_TOKEN.
+        env:
+          BRANCH: ${{ inputs.branch }}
+          MSG: ${{ inputs.message }}
         run: |
           eas update \
-            --branch "${{ inputs.branch }}" \
-            --message "${{ inputs.message }}" \
+            --branch "$BRANCH" \
+            --message "$MSG" \
             --non-interactive --json | tee ../../eas-update.json
 
       # Surface the published update's runtimeVersion so you can confirm it matches

@@ -18,6 +18,9 @@ on:
 env:
   EXPO_NO_TELEMETRY: '1'
 
+permissions:
+  contents: read
+
 jobs:
   release-gate:
     runs-on: ubuntu-latest

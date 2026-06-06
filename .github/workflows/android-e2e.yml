@@ -20,6 +20,9 @@ env:
   # Debug builds shouldn't upload to Sentry; keep the Gradle plugin from trying.
   SENTRY_DISABLE_AUTO_UPLOAD: 'true'
 
+permissions:
+  contents: read
+
 jobs:
   android-e2e:
     runs-on: ubuntu-latest
