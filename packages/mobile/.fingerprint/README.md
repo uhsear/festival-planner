@@ -1,22 +1,26 @@
-# Mobile native fingerprint — build-vs-OTA baseline
+# Mobile native fingerprint — build-vs-OTA ADVISORY
 
-This folder holds `baseline.json`: the **native fingerprint of the last EAS _build_**.
-It is the anchor the **build-vs-OTA gate** (`.github/workflows/mobile-release-gate.yml`)
-compares against to decide whether a code change can ship for free or needs a new build.
+This folder holds `baseline.json`: a **native fingerprint of the last build**, used
+by the **build-vs-OTA gate** (`.github/workflows/mobile-release-gate.yml`) purely as
+an **advisory** to flag whether a change touched the native layer.
 
-## ⚠️ CRITICAL: never run `eas update` (or compute the baseline) from Windows
+## Note: runtimeVersion policy is `appVersion` (not fingerprint)
 
-`@expo/fingerprint` is **not deterministic across OSes** — on Windows the
-`@expo/config-plugins` sources fail to hash (`spawn node ENOENT` / `hash: null`,
-expo/expo#34199), so Windows produces a **different, incomplete** fingerprint than
-Linux. EAS *builds* compute the fingerprint on EAS's **Linux** infra. So if you run
-`eas update` from the Windows dev box, the update gets a runtimeVersion **no build
-has** → devices **silently ignore it** (no error, never delivered).
+We evaluated `runtimeVersion.policy=fingerprint` (auto-detect native changes) but it
+proved unreliable in this project: EAS builds errored at the Configure-expo-updates
+phase, and `eas build` vs `eas update` computed **inconsistent** fingerprints (worsened
+by `@expo/fingerprint` being non-deterministic across OSes — Windows hashes
+`@expo/config-plugins` to null, expo/expo#34199). See `SESSION.md`.
 
-**Therefore: publish OTA updates and seed/refresh this baseline ONLY from Linux CI.**
-Use **`.github/workflows/mobile-ota.yml`** (Run workflow → branch + message) to push
-an OTA, and let `mobile-release-gate.yml` seed the baseline. Treat any
-locally-computed Windows fingerprint as untrustworthy.
+So the runtime is the **fixed app version string** (`appVersion`), which is
+OS-independent and identical between build and update — OTAs reliably reach builds on
+the same version, and you can publish from anywhere (Windows or CI).
+
+**This gate is now ADVISORY only:** it computes the @expo/fingerprint hash and, if it
+differs from `baseline.json`, flags "native changed → cut a build + bump the app
+version (don't OTA native changes onto the old binary)." If unchanged, JS-only changes
+are safe to ship via `eas update` to the current app version. The fingerprint here is a
+change-detector, NOT the runtimeVersion.
 
 ## Why this exists (cut EAS build spend)
 

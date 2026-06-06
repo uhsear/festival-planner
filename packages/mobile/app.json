@@ -8,7 +8,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "runtimeVersion": {
-      "policy": "fingerprint"
+      "policy": "appVersion"
     },
     "updates": {
       "url": "https://u.expo.dev/ed47ea14-6364-4646-871d-99edbf17613b"
@@ -119,7 +119,8 @@
         {
           "cameraPermission": "Festie uses the camera to scan a friend's plan QR code so they can join your festival plan offline."
         }
-      ]
+      ],
+      "./plugins/withAndroidUploadSigning"
     ],
     "extra": {
       "router": {},
