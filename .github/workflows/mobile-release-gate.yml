@@ -1,0 +1,83 @@
+name: Mobile release gate (build vs OTA)
+
+# Fingerprint-aware build-vs-OTA decision gate.
+#
+# Goal: cut EAS BUILD spend. app.json uses runtimeVersion.policy=fingerprint, so a
+# change only needs a new native *build* when the native fingerprint changes; pure
+# JS/asset changes ship for free via `eas update`. This job computes the current
+# native fingerprint, diffs it against the committed baseline
+# (packages/mobile/.fingerprint/baseline.json = the last-built fingerprint), and
+# DECIDES + REPORTS only — it does NOT trigger a build or an eas update (v1 keeps
+# the gate free and side-effect-free). Wiring the actual build/update is a follow-up.
+#
+# Pre-build gates run FIRST and fail closed: if expo-doctor / expo install --check /
+# typecheck / lint fail, we stop before spending anything.
+on:
+  workflow_dispatch:
+  # TEMPORARY: lets this gate be validated on the setup branch before merge.
+  # Remove this push trigger once merged — the gate is meant to be dispatch-driven
+  # (or wired into the mobile release flow), not run on every push.
+  push:
+    branches: [ci/eas-cost-setup]
+
+env:
+  EXPO_NO_TELEMETRY: '1'
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install workspace deps (pnpm)
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
+
+      # ---- Pre-build gates: fail = stop, so no wasted build ----
+
+      - name: expo-doctor
+        working-directory: packages/mobile
+        run: npx expo-doctor@latest
+
+      - name: expo install --check (native dep version drift)
+        run: pnpm --filter @festie/mobile exec expo install --check
+
+      - name: typecheck
+        run: pnpm --filter @festie/mobile typecheck
+
+      - name: lint
+        run: pnpm --filter @festie/mobile lint
+
+      # ---- Fingerprint diff -> build-vs-OTA decision (report only) ----
+
+      - name: Compute fingerprint & decide
+        id: decide
+        run: node scripts/fingerprint-gate.mjs
+        working-directory: packages/mobile
+
+      # Surface the decision in the job log too (the script also writes the job
+      # summary and step outputs: native_changed / current_hash / baseline_hash /
+      # baseline_seeded).
+      - name: Decision recap
+        run: |
+          echo "native_changed   = ${{ steps.decide.outputs.native_changed }}"
+          echo "baseline_seeded  = ${{ steps.decide.outputs.baseline_seeded }}"
+          echo "current_hash     = ${{ steps.decide.outputs.current_hash }}"
+          echo "baseline_hash    = ${{ steps.decide.outputs.baseline_hash }}"
+          if [ "${{ steps.decide.outputs.baseline_seeded }}" = "true" ]; then
+            echo "NOTE: baseline was just seeded — commit packages/mobile/.fingerprint/baseline.json."
+          elif [ "${{ steps.decide.outputs.native_changed }}" = "true" ]; then
+            echo "DECISION: native changed -> a new EAS BUILD is required"
+          else
+            echo "DECISION: no native change -> ship via 'eas update' (free), NO build needed"
+          fi
