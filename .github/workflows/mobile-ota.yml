@@ -1,0 +1,74 @@
+name: Mobile OTA update (eas update)
+
+# Publish a JS/asset-only OTA update via EAS Update — FROM LINUX CI ONLY.
+#
+# WHY CI-only: app.json uses runtimeVersion.policy=fingerprint, and the fingerprint
+# is computed by the machine running `eas update`. @expo/fingerprint is NOT
+# deterministic across OSes (Windows produces a different/INCOMPLETE hash — the
+# @expo/config-plugins sources fail to hash on Windows, expo/expo#34199). EAS
+# *builds* compute the fingerprint on EAS's Linux infra. So an `eas update` run
+# from the Windows dev box would tag the update with a runtime version that no
+# Linux-built binary has -> devices SILENTLY ignore it (no error, never delivered).
+# Running the publish here on ubuntu-latest matches the EAS build environment, so
+# the runtime versions line up and the update actually reaches devices.
+#
+# Use this for JS-only changes (the mobile-release-gate says "no native change").
+# For native changes, cut an EAS build instead (and refresh the fingerprint baseline).
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'EAS Update branch to publish to (maps to a channel, e.g. preview / production)'
+        type: string
+        required: true
+        default: 'preview'
+      message:
+        description: 'Update message'
+        type: string
+        required: true
+        default: 'OTA update'
+
+env:
+  EXPO_NO_TELEMETRY: '1'
+
+jobs:
+  ota:
+    runs-on: ubuntu-latest   # MUST be Linux to match the EAS build fingerprint env
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # full history; clean checkout = LF (no CRLF fingerprint drift)
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install workspace deps (pnpm)
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish OTA update
+        working-directory: packages/mobile
+        run: |
+          eas update \
+            --branch "${{ inputs.branch }}" \
+            --message "${{ inputs.message }}" \
+            --non-interactive --json | tee ../../eas-update.json
+
+      # Surface the published update's runtimeVersion so you can confirm it matches
+      # the last EAS build's runtime (else the OTA won't reach devices).
+      - name: Show published runtimeVersion
+        run: |
+          node -e "const u=require('./eas-update.json'); const a=Array.isArray(u)?u:(u.updates||[u]); for (const x of a) console.log('platform=%s runtimeVersion=%s id=%s', x.platform, x.runtimeVersion, x.id);" || cat eas-update.json
+          echo "Verify this runtimeVersion matches the last EAS build (eas build:list --json) — they must be EQUAL for the OTA to land." >> "$GITHUB_STEP_SUMMARY"

@@ -4,6 +4,20 @@ This folder holds `baseline.json`: the **native fingerprint of the last EAS _bui
 It is the anchor the **build-vs-OTA gate** (`.github/workflows/mobile-release-gate.yml`)
 compares against to decide whether a code change can ship for free or needs a new build.
 
+## ⚠️ CRITICAL: never run `eas update` (or compute the baseline) from Windows
+
+`@expo/fingerprint` is **not deterministic across OSes** — on Windows the
+`@expo/config-plugins` sources fail to hash (`spawn node ENOENT` / `hash: null`,
+expo/expo#34199), so Windows produces a **different, incomplete** fingerprint than
+Linux. EAS *builds* compute the fingerprint on EAS's **Linux** infra. So if you run
+`eas update` from the Windows dev box, the update gets a runtimeVersion **no build
+has** → devices **silently ignore it** (no error, never delivered).
+
+**Therefore: publish OTA updates and seed/refresh this baseline ONLY from Linux CI.**
+Use **`.github/workflows/mobile-ota.yml`** (Run workflow → branch + message) to push
+an OTA, and let `mobile-release-gate.yml` seed the baseline. Treat any
+locally-computed Windows fingerprint as untrustworthy.
+
 ## Why this exists (cut EAS build spend)
 
 `app.json` uses `"runtimeVersion": { "policy": "fingerprint" }`. The fingerprint is a
