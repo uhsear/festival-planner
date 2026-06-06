@@ -365,6 +365,9 @@ export default function createEmailAuthRoutes(deps: any): Router {
         await stores.users.update(targetUserId, { passwordHash: await hashPassword(newPassword) });
         invalidateUserCache();
         await invalidateUserSessions(targetUserId);
+        // Revoke long-lived refresh tokens so a held token chain cannot
+        // mint new sessions after the password reset (H2).
+        if (stores.refreshTokens) await stores.refreshTokens.revokeAll(targetUserId);
         disconnectUserSockets(targetUserId, io);
         state._adminResetTokens.delete(tokenHash);
 

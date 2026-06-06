@@ -188,13 +188,11 @@ function configureMiddleware(app: Application, ctx: any) {
     setNoStore(res);
     res.sendFile(_reactSwPath, (err: any) => {
       if (err && !res.headersSent) {
-        res
-          .status(404)
-          .json({
-            ok: false,
-            code: 'NOT_FOUND',
-            message: 'Service worker not found — run pnpm build in packages/web/',
-          });
+        res.status(404).json({
+          ok: false,
+          code: 'NOT_FOUND',
+          message: 'Service worker not found — run pnpm build in packages/web/',
+        });
       }
     });
   });
@@ -336,6 +334,11 @@ function configureMiddleware(app: Application, ctx: any) {
   app.use('/api', rateLimit());
   app.use('/api/v1/auth/login', authRateLimit);
   app.use('/api/v1/auth/register', authRateLimit);
+  // L7: extend the strict Redis-backed (cluster-accurate) auth limiter across
+  // the full credential surface, not just login/register.
+  app.use('/api/v1/auth/refresh-token', authRateLimit);
+  app.use('/api/v1/auth/forgot-password', authRateLimit);
+  app.use('/api/v1/auth/reset-password', authRateLimit);
   app.use('/api/v1/profiles', rateLimit(config.PROFILE_RATE_LIMIT_MAX, 'profiles'));
   app.use('/api/v1/crews', rateLimit(config.OVERLAP_RATE_LIMIT_MAX, 'crews'));
 

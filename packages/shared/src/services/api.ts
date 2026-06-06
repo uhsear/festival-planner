@@ -54,10 +54,20 @@ export function setAuthMode(mode: AuthMode): void {
   _authMode = mode;
 }
 
+export function getAuthMode(): AuthMode {
+  return _authMode;
+}
+
 export function setAuthToken(token: string | null): void {
   _bearerToken = token;
+  // The window global is ONLY meaningful for bearer-mode (native/Expo) clients.
+  // On the web we run in cookie mode, where the httpOnly cookie is the session
+  // credential; writing a replayable token onto `window` there is pure attack
+  // surface (it's never even read — Authorization is attached only in bearer
+  // mode). So only mirror to the global in bearer mode, and always proactively
+  // clear any stale global otherwise.
   if (typeof window !== 'undefined') {
-    if (token) {
+    if (token && _authMode === 'bearer') {
       window.__FP_BEARER_TOKEN = token;
     } else {
       delete window.__FP_BEARER_TOKEN;

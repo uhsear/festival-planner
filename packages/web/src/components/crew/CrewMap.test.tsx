@@ -31,6 +31,9 @@ vi.mock('maplibre-gl', () => {
     setHTML() {
       return this;
     }
+    setDOMContent() {
+      return this;
+    }
   }
   class NavigationControl {}
   class LngLatBounds {

@@ -38,7 +38,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { generateTraceId, propagateTraceId } from '../lib/tracing.js';
 import { schemas } from '../lib/schemas.js';
-import { LOCATION_UPDATE_LIMIT } from '../lib/rate-limiting.js';
+import { LOCATION_UPDATE_LIMIT, registerSharingSocket, unregisterSharingSocket } from '../lib/rate-limiting.js';
 
 // ════════════════════════════════════════════════════════════════════════════════
 // Socket Event Validation Schemas
@@ -127,6 +127,35 @@ function withAckTimeout(respond: any, log: any, connectionId: any, timeoutMs = 5
   };
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// Live-location membership re-check cache (M2) + capturedAt clamp (L4)
+// ────────────────────────────────────────────────────────────────────────
+
+/** Re-verify crew membership on the streaming path at most this often per socket. */
+const MEMBERSHIP_RECHECK_INTERVAL_MS = 15_000;
+/** ...or every this-many updates, whichever comes first. */
+const MEMBERSHIP_RECHECK_EVERY_N = 20;
+/** capturedAt may not be more than this far in the past relative to server time. */
+const CAPTURED_AT_MAX_AGE_MS = 60_000;
+/** ...nor more than this far in the future (clock skew tolerance). */
+const CAPTURED_AT_MAX_SKEW_MS = 30_000;
+
+/**
+ * Clamp a client-supplied `capturedAt` to a small window around server time
+ * (L4): a client must not be able to appear perpetually "live · N ago" nor
+ * stamp a future fix. Returns an ISO string clamped to [now-MAXAGE, now+SKEW].
+ * Falls back to `serverNowIso` if the input is unparseable.
+ */
+function clampCapturedAt(capturedAt: any, serverNow: number, serverNowIso: string): string {
+  const t = Date.parse(capturedAt);
+  if (!Number.isFinite(t)) return serverNowIso;
+  const lo = serverNow - CAPTURED_AT_MAX_AGE_MS;
+  const hi = serverNow + CAPTURED_AT_MAX_SKEW_MS;
+  if (t < lo) return new Date(lo).toISOString();
+  if (t > hi) return new Date(hi).toISOString();
+  return new Date(t).toISOString();
+}
+
 /**
  * Setup Socket.IO event handlers
  * Factory function that configures all socket event listeners
@@ -157,6 +186,7 @@ export default function setupSocketHandlers(deps: any) {
     consumeSocketRateLimit,
     emitPresence,
     setSocketPresence,
+    redis,
   } = deps;
 
   // ── Shared auth + room join helper ─────────────────────────────────
@@ -360,8 +390,25 @@ export default function setupSocketHandlers(deps: any) {
 
         if (!consumeSocketRateLimit(`crew-leave:${session.userId}`, config.SOCKET_LEAVE_RATE_LIMIT)) return;
 
+        // If this socket was sharing live GPS to the crew it's leaving, tear that
+        // down too (L2): tell peers the marker is gone, clear the sharing stamp,
+        // and drop the concurrent-sharing registration BEFORE leaving the room.
+        if (socket.data?.sharingCrewId === crewId) {
+          socket.to(`crew:${crewId}`).emit('location:peer-stopped', {
+            _v: 1,
+            crewId,
+            userId: session.userId,
+            reason: 'left',
+          });
+          delete socket.data.sharingCrewId;
+          unregisterSharingSocket(redis, session.userId, socket.id).catch(() => {});
+        }
+
         socket.leave(`crew:${crewId}`);
         if (socket.data?.crewId === crewId) delete socket.data.crewId;
+        // Reset the streaming-path membership cache so a future re-join re-checks.
+        delete socket.data.crewMembershipCheckedAt;
+        delete socket.data.crewMembershipUpdateCount;
       } catch (error: any) {
         log.error('leave:crew error', { error: error.message, socketId: socket.id, userId: socket.data?.userId });
       }
@@ -398,17 +445,31 @@ export default function setupSocketHandlers(deps: any) {
         const membership = await stores.crews.getMember(crewId, session.userId);
         if (!membership) return respond({ ok: false, code: 'NOT_A_MEMBER' });
 
+        // M3: cluster-wide cap on concurrently-sharing sockets per user so one
+        // user can't multiply the crew-room broadcast budget by opening many
+        // sockets. Best-effort (fail-open when Redis is down).
+        const sharingCap = await registerSharingSocket(redis, session.userId, socket.id);
+        if (!sharingCap.allowed) {
+          return respond({ ok: false, code: 'TOO_MANY_SHARING_SOCKETS' });
+        }
+
         /* eslint-disable require-atomic-updates -- socket.data is per-connection, not a shared race target */
         socket.data.userSessionToken = sessionToken;
         socket.data.userId = session.userId;
         socket.data.username = session.username;
         socket.data.sharingCrewId = crewId;
         socket.data.sharingSince = Date.now();
+        // M2: seed the streaming-path membership re-check cache — membership was
+        // just verified above, so the next recheck is N updates / T seconds out.
+        socket.data.crewMembershipCheckedAt = Date.now();
+        socket.data.crewMembershipUpdateCount = 0;
         /* eslint-enable require-atomic-updates */
 
         // If a first fix is included, broadcast it immediately so peers see the
         // sharer without waiting for the first periodic update tick.
         if (position) {
+          const nowMs = Date.now();
+          const serverAt = new Date(nowMs).toISOString();
           socket.to('crew:' + crewId).emit('location:peer-update', {
             _v: 1,
             crewId,
@@ -418,8 +479,9 @@ export default function setupSocketHandlers(deps: any) {
             lng: position.lng,
             accuracy: position.accuracy,
             heading: position.heading,
-            capturedAt: position.capturedAt,
-            serverAt: new Date().toISOString(),
+            // L4: clamp client capturedAt to a small window around server time.
+            capturedAt: clampCapturedAt(position.capturedAt, nowMs, serverAt),
+            serverAt,
           });
         }
 
@@ -431,10 +493,11 @@ export default function setupSocketHandlers(deps: any) {
       }
     });
 
-    socket.on('location:update', (data: any = {}) => {
-      // High-frequency fire-rate path: no ack, no session re-validation (share
-      // already validated membership and stamped socket.data). Drop silently +
-      // emit a structured error if the sender isn't actively sharing this crew.
+    socket.on('location:update', async (data: any = {}) => {
+      // High-frequency fire-rate path: share already validated membership and
+      // stamped socket.data. Drop silently + emit a structured error if the
+      // sender isn't actively sharing this crew. A short-TTL membership re-check
+      // (M2) self-heals if the sharer was removed mid-stream.
       try {
         if (config.LIVE_LOCATION_ENABLED === false) return;
         const validation = schemas.locationUpdate.safeParse(data);
@@ -450,12 +513,45 @@ export default function setupSocketHandlers(deps: any) {
         }
 
         const userId = socket.data.userId;
-        const check = LOCATION_UPDATE_LIMIT.consume(userId);
+
+        // M3: cluster-wide per-user fire-rate cap (Redis-backed, falls back to
+        // the per-process limiter when Redis is unavailable). Caps total
+        // updates/min/user across all workers, not just this socket.
+        const check = await LOCATION_UPDATE_LIMIT.consumeAsync(userId, redis);
         if (!check.allowed) {
           socket.emit('error', { message: 'Location update rate limit exceeded', code: 'RATE_LIMITED' });
           return;
         }
 
+        // M2: defense-in-depth membership re-check on the stream. Primary fix is
+        // H1 room eviction; this self-heals if a sharer kept emitting after being
+        // removed. Re-check at most every N updates / T seconds to stay cheap.
+        const nowMs = Date.now();
+        const updateCount = (socket.data.crewMembershipUpdateCount || 0) + 1;
+        socket.data.crewMembershipUpdateCount = updateCount;
+        const lastChecked = socket.data.crewMembershipCheckedAt || 0;
+        if (updateCount >= MEMBERSHIP_RECHECK_EVERY_N || nowMs - lastChecked >= MEMBERSHIP_RECHECK_INTERVAL_MS) {
+          socket.data.crewMembershipUpdateCount = 0;
+          socket.data.crewMembershipCheckedAt = nowMs;
+          const stillMember = await stores.crews.getMember(crewId, userId);
+          if (!stillMember) {
+            // Tear down: tell peers, clear sharing state, drop registration.
+            socket.to('crew:' + crewId).emit('location:peer-stopped', {
+              _v: 1,
+              crewId,
+              userId,
+              reason: 'revoked',
+            });
+            delete socket.data.sharingCrewId;
+            socket.leave('crew:' + crewId);
+            if (socket.data?.crewId === crewId) delete socket.data.crewId;
+            unregisterSharingSocket(redis, userId, socket.id).catch(() => {});
+            socket.emit('error', { message: 'No longer a member of this crew', code: 'NOT_A_MEMBER' });
+            return;
+          }
+        }
+
+        const serverAt = new Date(nowMs).toISOString();
         // Broadcast to the crew room EXCLUDING the sender.
         socket.to('crew:' + crewId).emit('location:peer-update', {
           _v: 1,
@@ -467,8 +563,9 @@ export default function setupSocketHandlers(deps: any) {
           accuracy,
           heading,
           speed,
-          capturedAt,
-          serverAt: new Date().toISOString(),
+          // L4: clamp client capturedAt to a small window around server time.
+          capturedAt: clampCapturedAt(capturedAt, nowMs, serverAt),
+          serverAt,
         });
       } catch (error: any) {
         log.error('location:update error', { error: error.message, socketId: socket.id, userId: socket.data?.userId });
@@ -483,7 +580,10 @@ export default function setupSocketHandlers(deps: any) {
         const { crewId } = validation.data;
         const userId = socket.data?.userId;
 
-        if (socket.data?.sharingCrewId === crewId) delete socket.data.sharingCrewId;
+        if (socket.data?.sharingCrewId === crewId) {
+          delete socket.data.sharingCrewId;
+          unregisterSharingSocket(redis, userId, socket.id).catch(() => {});
+        }
 
         if (userId) {
           socket.to('crew:' + crewId).emit('location:peer-stopped', {
@@ -569,6 +669,8 @@ export default function setupSocketHandlers(deps: any) {
             userId: sharingUserId,
             reason: 'disconnect',
           });
+          // M3: drop the concurrent-sharing registration for this socket.
+          unregisterSharingSocket(redis, sharingUserId, socket.id).catch(() => {});
         }
         // Crew room cleanup happens automatically when socket disconnects (Socket.IO removes from all rooms)
         removeSocketPresence(socket);

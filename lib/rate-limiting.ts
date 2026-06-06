@@ -532,6 +532,36 @@ function _createSocketEventLimiter(name: string, max: number, windowMs: number) 
       const remaining = Math.max(0, max - entry.count);
       return { allowed: entry.count <= max, remaining, resetAt };
     },
+    /**
+     * Cluster-wide variant: try a Redis INCR/PEXPIRE counter first (shared
+     * across PM2 workers) and only fall back to the per-process in-memory
+     * `consume()` when Redis is unavailable or signals fallback. Keyed by
+     * userId so the cap is per-user cluster-wide. The Redis client already
+     * applies REDIS_PREFIX, so the key is passed unprefixed (matching the
+     * rateLimit() middleware convention).
+     * @param userId - per-user key
+     * @param redis - the shared ioredis client (or null/undefined in tests)
+     */
+    async consumeAsync(userId: any, redis: any) {
+      if (!userId) {
+        return { allowed: true, remaining: max, resetAt: Date.now() + windowMs };
+      }
+      if (redis) {
+        try {
+          const result = await redisRateCheckFn(redis, `rl:sock:${name}:${userId}`, max, windowMs);
+          if (!result.fallback) {
+            return {
+              allowed: !result.limited,
+              remaining: result.remaining,
+              resetAt: Date.now() + result.resetMs,
+            };
+          }
+        } catch {
+          /* fall through to in-memory */
+        }
+      }
+      return this.consume(userId);
+    },
     _reset() {
       buckets.clear();
     },
@@ -566,6 +596,103 @@ const socketEventLimits = {
   SOS_RAISE_LIMIT,
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+// Live-location: cluster-wide concurrent-sharing-socket cap (M3)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// SECURITY (audit 2026-06-06 M3): the per-message LOCATION_UPDATE_LIMIT only
+// bounds a single socket's fire-rate. A user opening K sockets (one share each)
+// could still fan K×12/min into the crew room. Cap the number of *concurrently
+// sharing* sockets per user cluster-wide via a short-TTL Redis set so the abuse
+// ceiling is bounded regardless of how many workers the sockets land on. Best
+// effort: when Redis is unavailable we allow (the H1/M2 membership controls and
+// the per-socket limiter still apply).
+const MAX_CONCURRENT_SHARING_SOCKETS = 3;
+const SHARING_SOCKET_TTL_MS = 5 * 60 * 1000; // refreshed on every share/update tick
+
+/**
+ * Register a sharing socket for a user and report whether the per-user
+ * concurrent-sharing cap is exceeded. Uses a Redis sorted set keyed by userId
+ * (score = expiry) so stale/disconnected sockets age out without explicit
+ * cleanup. Returns `{ allowed: true }` (fail-open) when Redis is unavailable.
+ * @param redis - shared ioredis client (or null)
+ * @param userId - sharer's user id
+ * @param socketId - the sharing socket's id
+ */
+async function registerSharingSocket(redis: any, userId: any, socketId: any) {
+  if (!redis || !userId || !socketId) return { allowed: true, count: 0 };
+  try {
+    const key = `loc:sharing:${userId}`;
+    const now = Date.now();
+    const pipeline = redis.pipeline();
+    pipeline.zremrangebyscore(key, 0, now); // drop expired socket entries
+    pipeline.zadd(key, now + SHARING_SOCKET_TTL_MS, socketId);
+    pipeline.zcard(key);
+    pipeline.pexpire(key, SHARING_SOCKET_TTL_MS);
+    const results = await pipeline.exec();
+    const count = (results?.[2]?.[1] as number) || 0;
+    return { allowed: count <= MAX_CONCURRENT_SHARING_SOCKETS, count };
+  } catch {
+    return { allowed: true, count: 0 };
+  }
+}
+
+/**
+ * Remove a sharing socket from the per-user set (on stop/leave/disconnect).
+ * Best-effort; failures are swallowed (the TTL ages the entry out anyway).
+ */
+async function unregisterSharingSocket(redis: any, userId: any, socketId: any) {
+  if (!redis || !userId || !socketId) return;
+  try {
+    await redis.zrem(`loc:sharing:${userId}`, socketId);
+  } catch {
+    /* TTL will reap it */
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SOS: cluster-wide active-state tracking + raise throttle (L3)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// SECURITY (audit 2026-06-06 L3): /sos/clear had no active-SOS guard, so a
+// member could spam clear → DND-bypassing sos:cleared broadcasts; and the
+// per-process SOS_RAISE_LIMIT drifts under PM2. Track a per-crew active-SOS
+// flag in Redis so (a) clear is a no-op when nothing is active and (b) the raise
+// throttle is cluster-wide. Best-effort: when Redis is unavailable the in-handler
+// SOS_RAISE_LIMIT + coarse rateLimit() middleware remain the bound and clear is
+// allowed (fail-open) so a safety action is never silently blocked.
+const SOS_ACTIVE_TTL_MS = 60 * 60 * 1000; // an SOS auto-expires after 1h if never cleared
+
+/**
+ * Mark a crew's SOS active (raise). Returns `{ active: true }` so callers know
+ * the flag was set; no-op + `{ active: false }` when Redis is unavailable.
+ */
+async function markSosActive(redis: any, crewId: any) {
+  if (!redis || !crewId) return { active: false };
+  try {
+    await redis.set(`sos:active:${crewId}`, '1', 'PX', SOS_ACTIVE_TTL_MS);
+    return { active: true };
+  } catch {
+    return { active: false };
+  }
+}
+
+/**
+ * Atomically clear a crew's active-SOS flag. Returns:
+ *   - `{ wasActive: true }`  → an SOS was active and is now cleared
+ *   - `{ wasActive: false }` → nothing was active (caller should 409 / no-op)
+ *   - `{ unknown: true }`    → Redis unavailable; caller should fail-open
+ */
+async function clearSosActive(redis: any, crewId: any) {
+  if (!redis || !crewId) return { unknown: true };
+  try {
+    const removed = await redis.del(`sos:active:${crewId}`);
+    return { wasActive: removed > 0 };
+  } catch {
+    return { unknown: true };
+  }
+}
+
 export {
   createRateLimiters,
   createPasswordResetRateLimit,
@@ -578,4 +705,9 @@ export {
   LOCATION_UPDATE_LIMIT,
   SOS_RAISE_LIMIT,
   socketEventLimits,
+  // Live-location concurrent-sharing cap (M3) + SOS active-state tracking (L3)
+  registerSharingSocket,
+  unregisterSharingSocket,
+  markSosActive,
+  clearSosActive,
 };

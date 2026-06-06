@@ -152,6 +152,19 @@ export default function createSessionsStore(pool: Pool, _utils: any) {
         await pool.query('DELETE FROM refresh_tokens WHERE token = $1', [token]);
         return null;
       }
+      // Defense-in-depth (H2): a refresh token is only valid while its linked
+      // session still exists. Credential changes call invalidateUserSessions
+      // (deleting user_sessions rows) + revokeAll; this check ensures a stale
+      // token whose session was wiped cannot mint a new session even if the
+      // revoke step was somehow missed. Tokens predating the session_token
+      // link column (null) are left untouched for backward compatibility.
+      if (row.sessionToken) {
+        const sessionResult = await pool.query('SELECT 1 FROM user_sessions WHERE token = $1', [row.sessionToken]);
+        if (sessionResult.rows.length === 0) {
+          await pool.query('DELETE FROM refresh_tokens WHERE token = $1', [token]);
+          return null;
+        }
+      }
       return row;
     },
     async rotate(oldToken: string, newToken: string, newSessionToken: string, expiresAt: any) {

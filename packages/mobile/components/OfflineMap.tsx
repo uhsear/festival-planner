@@ -2,14 +2,9 @@ import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
+import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  extractMeetingPointPins,
-  extractStagePins,
-  pinsCentroid,
-  formatStaleness,
-  type MapPin,
-} from '@festie/shared/utils';
+import { extractMeetingPointPins, extractStagePins, pinsCentroid, formatStaleness } from '@festie/shared/utils';
 import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 
@@ -28,6 +23,28 @@ interface LivePin {
 function initialFor(name: string | undefined): string {
   const c = (name ?? '').trim().charAt(0);
   return c ? c.toUpperCase() : '?';
+}
+
+/**
+ * Context-aware serializer for values pushed INTO the WebView's JS context via
+ * injectJavaScript. `JSON.stringify` alone is NOT safe to splice into a script
+ * context: it does not escape `<` (so a `</script>`-style payload could break
+ * out if the result were ever placed in an inline <script>), nor the JS line
+ * terminators U+2028 / U+2029 (which are literal newlines inside a JS string
+ * and would produce a syntax error / injection seam). We escape all three to
+ * `\uXXXX` so the result is safe in both JS-string and HTML contexts. This is
+ * the single hardened transport for ALL user-controlled pin/peer/SOS data
+ * (security-review-2026-06-06 H3 + L6).
+ */
+// U+2028 / U+2029 are valid whitespace in JSON output but are literal line
+// terminators inside a JS string literal — they must be \u-escaped before the
+// JSON is spliced into the WebView's JS context. Built from char codes so this
+// source file stays plain-ASCII.
+const LS_RE = new RegExp(String.fromCharCode(0x2028), 'g');
+const PS_RE = new RegExp(String.fromCharCode(0x2029), 'g');
+
+function safeJsonForScript(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c').replace(LS_RE, '\\u2028').replace(PS_RE, '\\u2029');
 }
 
 /**
@@ -67,6 +84,44 @@ const RASTER_STYLE_JSON = JSON.stringify({
   layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 });
 
+// Origins the inline map document is allowed to load/navigate to. The page is
+// served as inline HTML (about:blank origin) and only pulls MapLibre from unpkg
+// + raster tiles from OpenStreetMap. Narrowed off the old ['*'] so the WebView
+// can't be navigated to an arbitrary attacker origin (security-review H3 / I4).
+const MAP_ORIGIN_WHITELIST = [
+  'about:',
+  'https://unpkg.com',
+  'https://tile.openstreetmap.org',
+  'https://*.tile.openstreetmap.org',
+];
+
+// Hosts permitted for in-WebView resource/navigation loads. Anything else is
+// blocked (default-deny), mirroring the hardened Spotify embed WebView.
+function isAllowedMapHost(host: string): boolean {
+  return host === 'unpkg.com' || /(^|\.)tile\.openstreetmap\.org$/.test(host);
+}
+
+/**
+ * Default-DENY navigation guard. Allows the inline document's own load
+ * (about:blank / data:) and resource loads from the map's CDN + tile hosts;
+ * blocks every other origin so an injected payload cannot redirect the WebView
+ * off to an attacker host. The map never legitimately navigates elsewhere.
+ */
+function onShouldStartLoadWithRequest(req: ShouldStartLoadRequest): boolean {
+  const url = req.url || '';
+  // The inline HTML document itself (no real origin) + data URIs MapLibre uses.
+  if (url === 'about:blank' || url.startsWith('about:') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return true;
+  }
+  let host = '';
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return false;
+  }
+  return isAllowedMapHost(host);
+}
+
 // If MapLibre's script hasn't signalled "ready" within this window we assume no
 // CDN (offline) and fall back to the list. Generous to tolerate a slow venue link.
 const LOAD_TIMEOUT_MS = 8000;
@@ -80,19 +135,44 @@ interface OfflineMapProps {
 }
 
 /**
- * Build the HTML document hosting MapLibre. Pins are injected up front as a JSON
- * blob (and can also be pushed later via postMessage). The page posts back
- * `{type:'ready'}` once the map style loads and `{type:'error'}` if the script
- * never arrives — RN uses those to decide map vs fallback.
+ * Build the HTML document hosting MapLibre.
+ *
+ * SECURITY (security-review-2026-06-06 H3 + L6): NO user-controlled data is ever
+ * interpolated into this document. The page bootstraps with an EMPTY pin set;
+ * meeting-point pins, live peers and SOS markers are all pushed in AFTER load
+ * via `injectJavaScript` (window.__festieSetPins / __festieSetPeers) using the
+ * `safeJsonForScript` serializer, which escapes for both JS-string and HTML
+ * contexts. Only the numeric map center (non-user-controlled, range-checked
+ * coords) is templated in here. An in-document CSP + the WebView's
+ * `originWhitelist` + `onShouldStartLoadWithRequest` provide defense in depth.
+ *
+ * The page posts back `{type:'ready'}` once the map style loads and
+ * `{type:'error'}` if the script never arrives — RN uses those to decide map vs
+ * fallback.
  */
-function buildHtml(pins: MapPin[], center: { latitude: number; longitude: number } | null): string {
-  const pinsJson = JSON.stringify(pins);
-  const centerJson = JSON.stringify(center ?? { latitude: 0, longitude: 0 });
+function buildHtml(center: { latitude: number; longitude: number } | null): string {
+  // center is numeric, non-user-controlled coords — safe to template. Still run
+  // it through the hardened serializer for uniformity.
+  const centerJson = safeJsonForScript(center ?? { latitude: 0, longitude: 0 });
   const hasCenter = center != null;
+  // CSP confines what the document may load/connect to: MapLibre JS/CSS from
+  // unpkg, raster tiles from OpenStreetMap, inline styles/scripts and blob/data
+  // workers MapLibre needs. No other origins — so an injected payload (defense
+  // in depth behind H3's transport fix) cannot exfiltrate to an attacker host.
+  const csp = [
+    "default-src 'none'",
+    "script-src 'unsafe-inline' https://unpkg.com blob:",
+    "style-src 'unsafe-inline' https://unpkg.com",
+    'img-src data: blob: https://*.tile.openstreetmap.org https://unpkg.com',
+    'connect-src https://unpkg.com https://*.tile.openstreetmap.org',
+    'worker-src blob:',
+    'font-src data:',
+  ].join('; ');
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="${csp}" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <link href="${MAPLIBRE_CSS}" rel="stylesheet" />
   <style>
@@ -131,10 +211,16 @@ function buildHtml(pins: MapPin[], center: { latitude: number; longitude: number
 <body>
   <div id="map"></div>
   <script>
-    var PINS = ${pinsJson};
+    // SECURITY: bootstrap EMPTY. Meeting-point pins are pushed in via
+    // window.__festieSetPins AFTER 'ready' (see RN side) — never templated here,
+    // so user-controlled label/sublabel text can never reach this script context
+    // (security-review-2026-06-06 H3). CENTER is numeric coords only.
+    var PINS = [];
     var CENTER = ${centerJson};
     var HAS_CENTER = ${hasCenter};
-    var HAD_PINS = PINS.length > 0;
+    // Tracks whether meeting-point pins exist, so live peer/SOS auto-framing only
+    // kicks in when there are no pins to anchor the view. Updated by __festieSetPins.
+    var HAD_PINS = false;
 
     function post(msg) {
       if (window.ReactNativeWebView) {
@@ -142,7 +228,13 @@ function buildHtml(pins: MapPin[], center: { latitude: number; longitude: number
       }
     }
 
+    // Meeting-point markers. renderPins is now called repeatedly (pins are pushed
+    // in after load via __festieSetPins), so we track + remove the previous batch
+    // to avoid stacking duplicates on re-push.
+    var PIN_MARKERS = [];
     function renderPins(map, pins) {
+      PIN_MARKERS.forEach(function (m) { try { m.remove(); } catch (e) {} });
+      PIN_MARKERS = [];
       var bounds = null;
       pins.forEach(function (p) {
         var el = document.createElement('div');
@@ -159,6 +251,7 @@ function buildHtml(pins: MapPin[], center: { latitude: number; longitude: number
           .setLngLat([p.longitude, p.latitude])
           .setPopup(new maplibregl.Popup({ offset: 16 }).setHTML(popupHtml))
           .addTo(map);
+        PIN_MARKERS.push(marker);
         if (!bounds) {
           bounds = new maplibregl.LngLatBounds([p.longitude, p.latitude], [p.longitude, p.latitude]);
         } else {
@@ -229,11 +322,14 @@ function buildHtml(pins: MapPin[], center: { latitude: number; longitude: number
         });
         map.on('error', function (e) { post({ type: 'error', reason: 'map-error' }); });
 
-        // Allow RN to push fresh pins later without a reload.
+        // RN pushes meeting-point pins here (after 'ready', and on any change).
+        // This is the ONLY way pin data enters the document — never templated.
         window.__festieSetPins = function (next) {
           try {
-            renderPins(map, next || []);
-            post({ type: 'pins-updated', pins: (next || []).length });
+            var arr = next || [];
+            HAD_PINS = arr.length > 0;
+            renderPins(map, arr);
+            post({ type: 'pins-updated', pins: arr.length });
           } catch (err) { post({ type: 'error', reason: 'pin-update' }); }
         };
 
@@ -309,7 +405,9 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
     [meetingPoints],
   );
 
-  const html = useMemo(() => buildHtml(pins, center), [pins, center]);
+  // The HTML doc carries NO pin data — only the numeric center — so it only
+  // rebuilds when the center changes (pins flow in via injectJavaScript below).
+  const html = useMemo(() => buildHtml(center), [center]);
 
   // 'loading' → WebView mounted, waiting for MapLibre; 'map' → interactive map up;
   // 'fallback' → CDN/offline failure, render the honest list instead. Start in
@@ -367,9 +465,19 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
     }
   }, [phase, pins.length, hasLive]);
 
+  // Push meeting-point pins into the WebView once the map is up and whenever they
+  // change. This is the ONLY path pin data enters the document — serialized with
+  // the hardened context-aware serializer, never templated into the HTML (H3).
+  const pinsJson = useMemo(() => safeJsonForScript(pins), [pins]);
+  useEffect(() => {
+    if (phase !== 'map' || !webRef.current) return;
+    webRef.current.injectJavaScript(`window.__festieSetPins && window.__festieSetPins(${pinsJson}); true;`);
+  }, [phase, pinsJson]);
+
   // Push live peer + SOS markers into the WebView whenever they change and the
-  // map is up. injectJavaScript re-renders the live layer (peers move).
-  const liveJson = useMemo(() => JSON.stringify({ items: livePins }), [livePins]);
+  // map is up. injectJavaScript re-renders the live layer (peers move). Same
+  // hardened serializer — peer username / SOS message are user-controlled (L6).
+  const liveJson = useMemo(() => safeJsonForScript({ items: livePins }), [livePins]);
   useEffect(() => {
     if (phase !== 'map' || !webRef.current) return;
     webRef.current.injectJavaScript(`window.__festieSetPeers && window.__festieSetPeers(${liveJson}); true;`);
@@ -494,7 +602,13 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
     <View style={styles.screen}>
       <WebView
         ref={webRef}
-        originWhitelist={['*']}
+        // Default-deny navigation: the document is an inline (about:blank) page;
+        // only its own load + MapLibre/CSS from unpkg + OSM raster tiles are
+        // expected. Anything else (e.g. an injected redirect) is blocked so a
+        // payload can't navigate the WebView off to an attacker host. Pairs with
+        // the in-document CSP for defense in depth behind the H3 transport fix.
+        originWhitelist={MAP_ORIGIN_WHITELIST}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         source={{ html }}
         style={styles.web}
         onMessage={onMessage}

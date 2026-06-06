@@ -7,7 +7,8 @@ import type { z } from 'zod';
 
 import type { RouteDeps } from '../lib/types';
 import type { crewIdParams, sosRaiseSchema } from '../lib/schemas';
-import { SOS_RAISE_LIMIT } from '../lib/rate-limiting.js';
+import { SOS_RAISE_LIMIT, markSosActive, clearSosActive } from '../lib/rate-limiting.js';
+import { sanitizeString } from '../lib/helpers/sanitize.js';
 
 /**
  * Crew SOS (Live Location + SOS, safety-critical path).
@@ -44,6 +45,7 @@ export default function createCrewSosRoutes(deps: RouteDeps) {
     validateParams,
     io,
     notificationService,
+    redis,
   } = deps as any;
 
   const router = Router({ mergeParams: true });
@@ -82,7 +84,12 @@ export default function createCrewSosRoutes(deps: RouteDeps) {
           return sendError(res, 429, 'SOS already raised — wait before raising again', ErrorCodes.RATE_LIMITED);
         }
 
-        const message = body.message?.trim() || undefined;
+        // L1: run the SOS message through sanitizeString (NFC + strip control/
+        // bidi/zero-width chars + cap) — matching every other crew free-text
+        // field — before it reaches crew_activity.detail, the socket payload, and
+        // the push body. Prevents RTL-override / zero-width spoofing on a
+        // safety-critical surface.
+        const message = sanitizeString(body.message, 280) || undefined;
         const position = body.position
           ? {
               lat: coarse(body.position.lat),
@@ -119,6 +126,11 @@ export default function createCrewSosRoutes(deps: RouteDeps) {
           activityId: activityId || '',
           raisedAt,
         };
+
+        // L3: mark this crew's SOS active (cluster-wide, Redis-backed) so a
+        // subsequent /sos/clear is a real clear and clear-spam on an inactive
+        // crew is a no-op/409. Best-effort; failure never blocks the raise.
+        await markSosActive(redis, crewId);
 
         // Durable side-effect #2: crew-wide socket broadcast (primary delivery).
         if (io) io.to('crew:' + crewId).emit('sos:raised', payload);
@@ -157,6 +169,16 @@ export default function createCrewSosRoutes(deps: RouteDeps) {
 
         const membership = await stores.crews.getMember(crewId, userId);
         if (!membership) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
+
+        // L3: only clear if an SOS is actually active. This blocks clear-spam
+        // (each clear is a DND-adjacent crew-wide broadcast). The check is
+        // atomic (DEL returns whether the key existed). When Redis is
+        // unavailable (`unknown`) we fail-open and proceed — a safety-critical
+        // "I'm safe" must never be silently swallowed by a degraded cache.
+        const cleared = await clearSosActive(redis, crewId);
+        if (cleared.wasActive === false) {
+          return sendError(res, 409, 'No active SOS to clear', ErrorCodes.ALREADY_EXISTS);
+        }
 
         let activityId: string | null = null;
         try {

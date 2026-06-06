@@ -929,7 +929,7 @@ describe('routes/admin-bulk.js', () => {
     assert.equal(res.body.error, null);
     assert.ok(Array.isArray(res.body.data.results));
     assert.equal(res.body.data.results.length, 2);
-    assert.equal(res.body.data.results[0].status, 'deactivated');
+    assert.equal(res.body.data.results[0].status, 'logged_out');
     assert.ok(deps.stores.auditLog.insert.mock.calls.length > 0);
   });
 
@@ -957,7 +957,7 @@ describe('routes/admin-bulk.js', () => {
       .post('/bulk/deactivate')
       .send({ userIds: ['user-1', 'user-2'] })
       .expect(200);
-    assert.equal(res.body.data.results[0].status, 'deactivated');
+    assert.equal(res.body.data.results[0].status, 'logged_out');
     assert.equal(res.body.data.results[1].status, 'error');
   });
 

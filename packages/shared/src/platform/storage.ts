@@ -70,3 +70,18 @@ export function configureSecureStorage(adapter: StorageAdapter): void {
 export function getSecureStorage(): StorageAdapter {
   return _secureStorage ?? _storage;
 }
+
+/**
+ * True only when a real secure adapter has been explicitly injected
+ * (`configureSecureStorage`) — i.e. an OS Keychain/Keystore is available.
+ *
+ * This is the platform gate the authStore uses to decide whether a session
+ * credential may be persisted at all: native/Expo calls `configureSecureStorage`
+ * at bootstrap (token → Keychain), so this is true; the web never does and
+ * `getSecureStorage()` falls back to localStorage, so this is false and the
+ * credential is kept in memory only (re-established from the httpOnly cookie via
+ * /auth/me on reload — security review H4).
+ */
+export function hasSecureStorage(): boolean {
+  return _secureStorage !== null;
+}

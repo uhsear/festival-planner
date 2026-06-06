@@ -2,7 +2,7 @@ import { create, StateCreator } from 'zustand';
 import { persist, PersistStorage, StorageValue } from 'zustand/middleware';
 import { api, setAuthToken, clearAuthToken, getApiBase, getAuthToken } from '../services/api';
 import { TRUSTED_MUTATION_HEADER } from '../constants/config';
-import { getStorage, getSecureStorage } from '../platform/storage';
+import { getStorage, getSecureStorage, hasSecureStorage } from '../platform/storage';
 import { resetAllStores } from './resetStores';
 import {
   User,
@@ -81,15 +81,37 @@ function safeSecure<T>(op: () => Promise<T> | T, fallback: T): Promise<T> {
 }
 
 /**
- * Split PersistStorage: the non-credential state persists to the regular
- * adapter, while userToken/adminToken persist to the secure adapter
- * (getSecureStorage). getItem transparently merges the secure tokens back into
- * the returned state, so the AuthGate's onFinishHydration sees `userToken`
- * unchanged — no change to the (fragile) cold-start hydration path. Migration
- * is automatic: an old blob that still carries a token is read normally, and
- * the next setItem moves it to secure storage + strips it from the blob.
- * On the web (no OS keychain) getSecureStorage falls back to the regular
- * adapter, so the only change there is the storage key.
+ * Whether the client may persist a session credential at all.
+ *
+ * Only clients with a real OS-backed secure store (native/Expo, which call
+ * `configureSecureStorage` at bootstrap) may — the token lands in the
+ * Keychain/Keystore, not plaintext.
+ *
+ * On the WEB no secure adapter is configured, so `getSecureStorage()` falls back
+ * to localStorage and the session credential is the httpOnly cookie. Persisting
+ * `userToken`/`adminToken` to localStorage would write a fully replayable
+ * session token to disk (read via `x-user-token`/Bearer), defeating the httpOnly
+ * cookie (security review H4). So on web we keep the tokens in memory only and
+ * re-establish the session from the cookie via `/auth/me` (checkSession) on
+ * reload. Gating on `hasSecureStorage()` (not the api auth mode) keeps this
+ * decision inside the platform layer and out of the heavily-mocked api module.
+ */
+function mayPersistCredentials(): boolean {
+  return hasSecureStorage();
+}
+
+/**
+ * Split PersistStorage. The non-credential state always persists to the regular
+ * adapter. Credential fields (userToken/adminToken) are persisted to the secure
+ * adapter ONLY in bearer mode (native — Keychain/Keystore). In cookie mode (web)
+ * they are NEVER written to client storage and any stale entry is purged, so the
+ * session is re-established from the httpOnly cookie via /auth/me on reload.
+ *
+ * getItem transparently merges the secure tokens back into the returned state in
+ * bearer mode, so the AuthGate's onFinishHydration sees `userToken` unchanged.
+ * Migration is automatic: an old blob that still carries a token is read
+ * normally; the next setItem strips it from the blob (and, on web, drops it
+ * instead of persisting it).
  */
 const defaultStorage: PersistStorage<AuthState> = {
   getItem: async (name) => {
@@ -103,11 +125,21 @@ const defaultStorage: PersistStorage<AuthState> = {
       }
     }
     if (parsed && parsed.state) {
-      for (const field of SECURE_FIELDS) {
-        const secureVal = await safeSecure(() => getSecureStorage().getItem(SECURE_PREFIX + field), null);
-        // Prefer the secure value; otherwise keep whatever the (old) blob had
-        // so a pre-migration install stays logged in until the next write.
-        if (secureVal != null) parsed.state[field] = secureVal;
+      if (mayPersistCredentials()) {
+        for (const field of SECURE_FIELDS) {
+          const secureVal = await safeSecure(() => getSecureStorage().getItem(SECURE_PREFIX + field), null);
+          // Prefer the secure value; otherwise keep whatever the (old) blob had
+          // so a pre-migration install stays logged in until the next write.
+          if (secureVal != null) parsed.state[field] = secureVal;
+        }
+      } else {
+        // Web/cookie mode: never load a persisted credential. Drop any value
+        // that an old blob carried, and purge any stale secure-store (=local
+        // storage) entry written before this hardening.
+        for (const field of SECURE_FIELDS) {
+          delete parsed.state[field];
+          await safeSecure(() => getSecureStorage().removeItem(SECURE_PREFIX + field), undefined);
+        }
       }
     }
     return parsed as unknown as StorageValue<AuthState> | null;
@@ -122,7 +154,8 @@ const defaultStorage: PersistStorage<AuthState> = {
     await Promise.resolve(getStorage().setItem(name, JSON.stringify({ ...value, state })));
     for (const field of SECURE_FIELDS) {
       const v = tokens[field];
-      if (typeof v === 'string' && v) {
+      // Web/cookie mode: do NOT persist the credential anywhere — always remove.
+      if (mayPersistCredentials() && typeof v === 'string' && v) {
         await safeSecure(() => getSecureStorage().setItem(SECURE_PREFIX + field, v), undefined);
       } else {
         await safeSecure(() => getSecureStorage().removeItem(SECURE_PREFIX + field), undefined);
