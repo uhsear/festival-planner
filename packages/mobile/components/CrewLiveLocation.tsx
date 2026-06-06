@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Switch, TouchableOpacity, AppState, Alert, type AppStateStatus } from 'react-native';
+import { View, Text, Switch, TouchableOpacity, AppState, Alert, Linking, type AppStateStatus } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useLiveLocationPublisher, type GeoWatcher } from '@festie/shared/hooks';
@@ -127,10 +127,24 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert(
-          'Location permission needed',
-          'To share your live location with this crew, allow location access while using the app, then try again.',
-        );
+        // canAskAgain === false means the OS won't re-prompt (permanently denied
+        // / "Don't allow"); a "try again" here is a dead end, so route the user
+        // to Settings instead. Otherwise the next toggle will re-prompt.
+        if (perm.canAskAgain === false) {
+          Alert.alert(
+            'Location permission needed',
+            'Location is turned off for Festie. Open Settings to allow location access while using the app, then turn sharing back on.',
+            [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+            ],
+          );
+        } else {
+          Alert.alert(
+            'Location permission needed',
+            'To share your live location with this crew, allow location access while using the app, then try again.',
+          );
+        }
         return;
       }
       setSharing(true);
