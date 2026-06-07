@@ -54,6 +54,19 @@ env:
     text: "Cards"
     optional: true
 - takeScreenshot: 05-cards
+# ── Tab-bar interactivity gate (NON-optional, always runs) ──
+# Regression guard for the build-#15 bug where the Schedule body's timeline
+# carousel sized to its content, overflowed the frame, and painted/intercepted
+# touches over the bottom tab bar — leaving every tab untappable. These taps are
+# deliberately NOT optional and each asserts the destination rendered, so a dead
+# tab bar fails the flow instead of silently passing the chrome check below.
+- tapOn:
+    id: "tab-picks"
+- assertVisible: "My Picks"
+- tapOn:
+    id: "tab-timeline"
+- assertVisible:
+    text: "North Coast Festival 2026|Select a Festival|Timeline|Cards"
 # ── Guarded login (runs only when creds are passed) ──
 - tapOn:
     id: "tab-account"
