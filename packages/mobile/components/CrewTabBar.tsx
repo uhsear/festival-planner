@@ -35,6 +35,7 @@ export default function CrewTabBar({ activeTab, onTabChange, badges }: CrewTabBa
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={styles.barOuter}
       contentContainerStyle={styles.bar}
       accessibilityRole="tablist"
     >
@@ -69,6 +70,12 @@ export default function CrewTabBar({ activeTab, onTabChange, badges }: CrewTabBa
 }
 
 const useStyles = makeStyles((t) => ({
+  // Pin the bar to its content height. A horizontal ScrollView in a flex column
+  // can otherwise grow on the vertical (main) axis to fill slack, which made the
+  // tab pills look oversized on shorter panes; flexGrow:0 keeps it tab-height.
+  barOuter: {
+    flexGrow: 0,
+  },
   bar: {
     flexDirection: 'row',
     gap: t.spacing[2],

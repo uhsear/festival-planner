@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useListBottomInset } from '../hooks/useListBottomInset';
 import EmptyState from '../components/EmptyState';
 import SectionLabel from '../components/SectionLabel';
 
@@ -35,6 +36,7 @@ function hasCoords(mp: CrewMeetingPoint): mp is CrewMeetingPoint & { latitude: n
 export default function FindScreen() {
   const t = useTokens();
   const styles = useStyles();
+  const bottomPad = useListBottomInset({ base: t.spacing[4] });
 
   const activeCrew = useCrewStore((s) => s.activeCrew);
   const meetingPoints = useCrewStore((s) => s.meetingPoints);
@@ -57,7 +59,7 @@ export default function FindScreen() {
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ title: 'Find each other', headerShown: true }} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}>
         <Text style={styles.intro}>See where your crew is and navigate to your meeting points. Works offline.</Text>
 
         <TouchableOpacity
@@ -121,14 +123,8 @@ export default function FindScreen() {
                   color={navigable ? t.colors.accent.coral : t.colors.text.muted}
                 />
                 <View style={styles.mpBody}>
-                  <Text style={styles.mpLabel} numberOfLines={1}>
-                    {p.label}
-                  </Text>
-                  {p.location ? (
-                    <Text style={styles.mpSub} numberOfLines={1}>
-                      {p.location}
-                    </Text>
-                  ) : null}
+                  <Text style={styles.mpLabel}>{p.label}</Text>
+                  {p.location ? <Text style={styles.mpSub}>{p.location}</Text> : null}
                   {!navigable ? <Text style={styles.mpMuted}>No pinned location</Text> : null}
                 </View>
                 {navigable ? <Ionicons name="navigate-outline" size={16} color={t.colors.accent.aqua} /> : null}

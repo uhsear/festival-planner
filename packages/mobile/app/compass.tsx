@@ -20,7 +20,9 @@ import { View, ScrollView } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useCrewStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
+import { spacing } from '@festie/shared/tokens';
 import { makeStyles } from '../hooks/useTokens';
+import { useListBottomInset } from '../hooks/useListBottomInset';
 import EmptyState from '../components/EmptyState';
 import MeetingPointCompass, { type MeetingPointTarget } from '../components/MeetingPointCompass';
 
@@ -62,6 +64,7 @@ function pickActiveWithCoords(points: CrewMeetingPoint[]): CrewMeetingPoint | nu
 
 export default function CompassScreen() {
   const styles = useStyles();
+  const bottomPad = useListBottomInset({ base: spacing[4] });
   const params = useLocalSearchParams<{
     label?: string;
     latitude?: string;
@@ -98,7 +101,7 @@ export default function CompassScreen() {
     <View style={styles.screen}>
       <Stack.Screen options={{ title: 'Compass', headerShown: true }} />
       {target ? (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}>
           <MeetingPointCompass target={target} />
         </ScrollView>
       ) : (
@@ -123,7 +126,6 @@ const useStyles = makeStyles((t) => ({
   },
   content: {
     flexGrow: 1,
-    justifyContent: 'center',
     padding: t.spacing[4],
   },
 }));

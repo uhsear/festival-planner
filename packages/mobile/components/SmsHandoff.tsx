@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore, useFestivalDataStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useListBottomInset } from '../hooks/useListBottomInset';
 import EmptyState from './EmptyState';
 
 // ── SMS handoff (last-resort P2P) ──────────────────────────────────────────
@@ -62,6 +63,7 @@ function buildMessage(mp: CrewMeetingPoint, festivalId: string | null): string {
 export default function SmsHandoff() {
   const t = useTokens();
   const styles = useStyles();
+  const bottomPad = useListBottomInset();
 
   const meetingPoints = useCrewStore((s) => s.meetingPoints);
   const currentFestivalId = useFestivalDataStore((s) => s.currentFestivalId);
@@ -128,7 +130,7 @@ export default function SmsHandoff() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}>
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Ionicons name="navigate" size={18} color={t.colors.accent.coral} />

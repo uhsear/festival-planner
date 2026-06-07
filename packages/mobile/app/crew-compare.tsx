@@ -162,7 +162,17 @@ export default function CrewCompareScreen() {
           message="Switch days or have your crew add picks to see the overlap."
         />
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.gridScroll}>
+        // flex:1 bounds the horizontal ScrollView's height to the screen so the
+        // nested vertical FlatList below gets a real viewport (its rows scroll)
+        // instead of expanding to full content height with lower rows
+        // unreachable. The inner View stretches to that height by default, so
+        // the column header stays put while rows scroll under it.
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator
+          style={styles.flex1}
+          contentContainerStyle={styles.gridScroll}
+        >
           <View>
             {/* Column headers */}
             <View style={styles.headerRow}>
@@ -180,6 +190,7 @@ export default function CrewCompareScreen() {
             </View>
 
             <FlatList
+              style={styles.flex1}
               data={rows}
               keyExtractor={(s) => s.id}
               contentContainerStyle={{
@@ -268,6 +279,9 @@ const useStyles = makeStyles((t) => ({
   screen: {
     flex: 1,
     backgroundColor: t.colors.bg.primary,
+  },
+  flex1: {
+    flex: 1,
   },
   error: {
     ...typeStyle('caption'),

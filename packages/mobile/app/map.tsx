@@ -7,6 +7,7 @@ import { makeStyles } from '../hooks/useTokens';
 import OfflineMap from '../components/OfflineMap';
 import FreshnessChip from '../components/FreshnessChip';
 import EmptyState from '../components/EmptyState';
+import HeaderTitle from '../components/HeaderTitle';
 
 /** Sweep stale peers off the map on this cadence while the screen is mounted. */
 const SWEEP_INTERVAL_MS = 15_000;
@@ -70,7 +71,10 @@ export default function MapScreen() {
 
   return (
     <View style={styles.screen}>
-      <Stack.Screen options={{ title: `${activeCrew.name} · Map`, headerShown: true }} />
+      {/* Drop the " · Map" suffix and shrink-to-fit: the screen context already
+          makes "Map" obvious, and a long crew name + suffix used to clip in the
+          notch-narrowed native title region. */}
+      <Stack.Screen options={{ headerShown: true, headerTitle: () => <HeaderTitle>{activeCrew.name}</HeaderTitle> }} />
       <View style={styles.chipBar}>
         <FreshnessChip surface="crew" />
       </View>

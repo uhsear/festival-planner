@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native'
 import { Ionicons } from '@expo/vector-icons';
 import ScreenHeader from '../components/ScreenHeader';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useListBottomInset } from '../hooks/useListBottomInset';
 
 /**
  * Privacy Policy screen — a self-contained native mirror of the canonical
@@ -397,12 +398,16 @@ function ContactCard() {
 export default function PrivacyScreen() {
   const t = useTokens();
   const styles = useStyles();
+  const bottomPad = useListBottomInset({ base: t.spacing[10] });
 
   return (
     <View style={styles.container}>
       <ScreenHeader title="Privacy Policy" subtitle="Effective May 31, 2026" icon="shield-checkmark-outline" />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad }]}
+        showsVerticalScrollIndicator={false}
+      >
         {SECTIONS.map((section, index) => (
           <View key={section.title} style={styles.section}>
             <Text style={styles.sectionTitle} accessibilityRole="header">
@@ -463,7 +468,6 @@ const useStyles = makeStyles((t) => ({
   },
   scroll: {
     paddingHorizontal: t.spacing[4],
-    paddingBottom: t.spacing[10],
     gap: t.spacing[5],
   },
   section: {

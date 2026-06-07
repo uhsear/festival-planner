@@ -51,7 +51,7 @@ function FestivalCard({ festival, onPress, isSelecting }: FestivalCardProps) {
     >
       <View style={styles.cardContent}>
         <View style={styles.titleRow}>
-          <Text style={styles.festivalName} numberOfLines={1} ellipsizeMode="tail">
+          <Text style={styles.festivalName} numberOfLines={2} ellipsizeMode="tail">
             {festival.name}
           </Text>
           {badge ? (

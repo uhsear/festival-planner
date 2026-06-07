@@ -13,6 +13,7 @@ import {
 } from '@festie/shared/utils';
 import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useListBottomInset } from '../hooks/useListBottomInset';
 
 /** A peer/SOS marker pushed into the WebView via window.__festieSetPeers. */
 interface LivePin {
@@ -398,6 +399,7 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
 export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProps) {
   const t = useTokens();
   const styles = useStyles();
+  const bottomPad = useListBottomInset();
   const webRef = useRef<WebView>(null);
 
   const pins = useMemo(() => extractMeetingPointPins(meetingPoints), [meetingPoints]);
@@ -534,7 +536,7 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
     const livePeerPins = livePins.filter((p) => p.kind === 'peer');
     const hasAny = coorded.length > 0 || uncoordedPoints.length > 0 || livePins.length > 0;
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.fallbackContent}>
+      <ScrollView style={styles.screen} contentContainerStyle={[styles.fallbackContent, { paddingBottom: bottomPad }]}>
         <View style={styles.banner}>
           <Ionicons name="cloud-offline-outline" size={18} color={t.colors.accent.amber} />
           <Text style={styles.bannerText}>

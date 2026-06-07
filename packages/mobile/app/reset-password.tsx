@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -81,11 +82,15 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.inner}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.inner,
+          { paddingTop: insets.top + spacing[6], paddingBottom: insets.bottom + spacing[6] },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Set a new password</Text>
         <Text style={styles.subtitle}>Choose a new password for your account.</Text>
 
@@ -157,14 +162,14 @@ export default function ResetPasswordScreen() {
         >
           <Text style={styles.linkText}>Need a new link?</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg.primary },
-  inner: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing[6] },
+  inner: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing[6] },
   icon: { alignSelf: 'center', marginBottom: spacing[3] },
   title: {
     fontSize: fontSize[32],

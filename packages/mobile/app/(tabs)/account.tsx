@@ -118,7 +118,7 @@ export default function AccountScreen() {
             </View>
           )}
           <View style={styles.identityText}>
-            <Text style={styles.name} numberOfLines={1}>
+            <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               {displayName}
             </Text>
             {user?.username ? (
@@ -127,7 +127,7 @@ export default function AccountScreen() {
               </Text>
             ) : null}
             {user?.email ? (
-              <Text style={styles.email} numberOfLines={1}>
+              <Text style={styles.email} numberOfLines={1} ellipsizeMode="middle">
                 {user.email}
               </Text>
             ) : null}

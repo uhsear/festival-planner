@@ -714,6 +714,7 @@ const useStyles = makeStyles((t) => ({
     borderColor: t.colors.accent.aqua,
     backgroundColor: t.colors.bg.secondary,
     minHeight: 34,
+    maxWidth: '100%',
   },
   bulkActionPillDisabled: {
     opacity: 0.5,
@@ -722,6 +723,7 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('caption'),
     color: t.colors.text.primary,
     textTransform: 'capitalize',
+    flexShrink: 1,
   },
   bulkActionCount: {
     paddingHorizontal: t.spacing[2],

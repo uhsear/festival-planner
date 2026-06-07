@@ -71,7 +71,7 @@ export default function FestivalModeScreen() {
           ]}
         >
           <View style={styles.headerRow}>
-            <Text style={styles.festivalName} numberOfLines={1}>
+            <Text style={styles.festivalName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
               {currentFestival.name}
             </Text>
             <Text style={styles.clock}>{fmtClock(now)}</Text>
