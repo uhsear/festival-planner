@@ -40,6 +40,14 @@ export interface ReminderPlanEntry {
  */
 export const MAX_LOCAL_REMINDERS = 64;
 
+/**
+ * Default lead time (minutes) for a set reminder — the canonical "remind me 30
+ * minutes before" used as the suggested default across the UI (Woov pattern).
+ * Reminders are stored RELATIVE to the set (lead minutes, not an absolute
+ * timestamp) so fire times can be recomputed whenever the schedule changes.
+ */
+export const DEFAULT_REMINDER_LEAD_MINUTES = 30;
+
 /** Deterministic identifier for a set's reminder. */
 export function reminderIdentifier(setId: string): string {
   return `festie-reminder-${setId}`;
@@ -64,6 +72,13 @@ export interface BuildReminderPlanArgs {
   nowMs?: number;
   /** Override the cap (testing); defaults to the iOS 64 limit. */
   max?: number;
+  /**
+   * Festival IANA time zone (e.g. `America/New_York`). When supplied, fire times
+   * are computed from the set's wall-clock in the FESTIVAL's zone rather than the
+   * device's local frame — so a reminder fires at the right real-world moment for
+   * an attendee whose phone is set to another zone. Omit to keep device-local.
+   */
+  timeZone?: string;
 }
 
 /**
@@ -75,7 +90,7 @@ export interface BuildReminderPlanArgs {
  * no usable start time (TBA) are skipped.
  */
 export function buildReminderPlan(args: BuildReminderPlanArgs): ReminderPlanEntry[] {
-  const { reminders, picks, sets, days } = args;
+  const { reminders, picks, sets, days, timeZone } = args;
   const nowMs = args.nowMs ?? Date.now();
   const max = args.max ?? MAX_LOCAL_REMINDERS;
 
@@ -92,7 +107,7 @@ export function buildReminderPlan(args: BuildReminderPlanArgs): ReminderPlanEntr
     const set = bySetId.get(setId);
     if (!set) continue;
 
-    const bounds = getSetTimeBounds(set, days);
+    const bounds = getSetTimeBounds(set, days, timeZone);
     if (!bounds) continue;
 
     const fireAtMs = bounds.startMs - leadMinutes * 60_000;

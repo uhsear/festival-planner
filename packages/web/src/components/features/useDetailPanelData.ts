@@ -108,5 +108,6 @@ export function useDetailPanelData(set: FestivalSet) {
     saveNote,
     getOtherPicks,
     getStageName,
+    getMyPick,
   };
 }

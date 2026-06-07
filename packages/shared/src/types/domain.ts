@@ -9,6 +9,13 @@ export interface Festival {
   endDate: string;
   location?: string;
   b2bSeparator?: string;
+  /**
+   * Optional IANA time-zone id (e.g. `America/New_York`). When present, set
+   * reminders are anchored in the festival's zone so they fire at the right
+   * real-world instant for attendees whose phones are in another zone. Absent →
+   * time math falls back to the device-local frame (see resolveFestivalTimeZone).
+   */
+  timeZone?: string;
   createdAt: string;
   updatedAt: string;
 }

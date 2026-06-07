@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Sentry from '@sentry/react-native';
 import { useFestivalDataStore, useNotificationPrefsStore } from '@festie/shared/stores';
-import { artistDisplayName, buildReminderPlan, diffReminderPlan } from '@festie/shared/utils';
+import { artistDisplayName, buildReminderPlan, diffReminderPlan, resolveFestivalTimeZone } from '@festie/shared/utils';
 import type { ReminderPlanEntry } from '@festie/shared/utils';
 import type { FestivalSet } from '@festie/shared/types';
 
@@ -41,6 +41,10 @@ export function useLocalReminders(): void {
   const sets = useFestivalDataStore((s) => s.sets) as FestivalSet[];
   const days = useFestivalDataStore((s) => s.days);
   const b2bSeparator = useFestivalDataStore((s) => s.currentFestival?.b2bSeparator);
+  // Anchor fire times in the FESTIVAL's zone when known (falls back to
+  // device-local). Recomputed on every reconcile, so a schedule change or a
+  // device-zone change re-derives the correct fire instants.
+  const festivalTimeZone = useFestivalDataStore((s) => resolveFestivalTimeZone(s.currentFestival));
 
   const setRemindersPref = useNotificationPrefsStore((s) => s.prefs.setReminders);
   const loadPrefs = useNotificationPrefsStore((s) => s.loadPrefs);
@@ -66,7 +70,7 @@ export function useLocalReminders(): void {
         return;
       }
 
-      const plan = buildReminderPlan({ reminders, picks, sets, days });
+      const plan = buildReminderPlan({ reminders, picks, sets, days, timeZone: festivalTimeZone });
 
       // Nothing to schedule and (likely) nothing scheduled — still reconcile so
       // un-reminded sets get cancelled. But avoid prompting for permission when
@@ -116,7 +120,7 @@ export function useLocalReminders(): void {
       sub.remove();
     };
     // permissionRef is a ref (stable); intentionally excluded.
-  }, [reminders, picks, sets, days, b2bSeparator, setRemindersPref]);
+  }, [reminders, picks, sets, days, b2bSeparator, setRemindersPref, festivalTimeZone]);
 
   /** Request notification permission at most once; returns whether granted. */
   async function ensurePermission(): Promise<boolean> {

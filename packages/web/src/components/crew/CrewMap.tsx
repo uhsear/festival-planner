@@ -8,6 +8,7 @@ import {
   extractStagePins,
   pinsCentroid,
   formatStaleness,
+  isPeerStale,
   type MapPin as Pin,
 } from '@festie/shared/utils';
 import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/types';
@@ -116,6 +117,14 @@ function popupContent(nodes: (Node | null)[]): HTMLElement {
 // "as of 5m ago" → "5m ago" so we can render the honest "Live · 5m ago" copy.
 function relAge(serverAt: string): string {
   return formatStaleness(serverAt).replace(/^as of /, '');
+}
+
+/** Up-to-two-letter initials for a peer avatar marker (fallback "?"). */
+function initialsFor(name: string | undefined): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
 export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props) {
@@ -257,19 +266,31 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
     for (const m of peerMarkersRef.current) m.remove();
     peerMarkersRef.current = [];
 
+    const now = Date.now();
     for (const peer of peers) {
       const rel = relAge(peer.serverAt);
-      const initial = (peer.username?.trim()?.[0] ?? '?').toUpperCase();
+      const stale = isPeerStale(peer.serverAt, now);
+      const initials = initialsFor(peer.username);
       const el = document.createElement('div');
-      el.className = 'festie-peer-marker';
+      // Stale (Snap Map-style): desaturated, no pulse, "last seen N ago" chip.
+      el.className = stale ? 'festie-peer-marker festie-peer-marker--stale' : 'festie-peer-marker';
       el.setAttribute('role', 'button');
       el.setAttribute('tabindex', '0');
-      el.setAttribute('aria-label', `${peer.username} — live location, ${rel}`);
-      // Pulsing ring (CSS ::before) + initial. textContent keeps it injection-safe.
-      el.textContent = initial;
+      el.setAttribute('aria-label', `${peer.username} — ${stale ? `last seen ${rel}` : `live location, ${rel}`}`);
+      // Pulsing ring (CSS ::before) + initials, then a chip for stale peers. All
+      // text via textContent keeps it injection-safe.
+      const iniEl = document.createElement('span');
+      iniEl.textContent = initials;
+      el.appendChild(iniEl);
+      if (stale) {
+        const chip = document.createElement('span');
+        chip.className = 'festie-peer-chip';
+        chip.textContent = rel;
+        el.appendChild(chip);
+      }
       const acc =
         typeof peer.accuracy === 'number' && peer.accuracy > 0 ? subEl(`±${Math.round(peer.accuracy)} m`) : null;
-      const popupEl = popupContent([titleEl(peer.username), subEl(`Live · ${rel}`), acc]);
+      const popupEl = popupContent([titleEl(peer.username), subEl(stale ? `Last seen ${rel}` : `Live · ${rel}`), acc]);
       const marker = new gl.Marker({ element: el })
         .setLngLat([peer.lng, peer.lat])
         .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setDOMContent(popupEl))

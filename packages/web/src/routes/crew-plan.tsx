@@ -17,6 +17,14 @@ import { MapPin, Home, CalendarClock, Users, ArrowLeft } from 'lucide-react';
 
 const PRIORITY_RANK: Record<Priority, number> = { must: 3, 'want-to-see': 2, maybe: 1 };
 const PRIORITY_LABEL: Record<Priority, string> = { must: 'Must', 'want-to-see': 'Want', maybe: 'Maybe' };
+// Per-priority badge tint using the priority tokens (must=coral, want=aqua,
+// maybe=amber). Static literal class strings so Tailwind detects them — the
+// badge previously hardcoded coral for EVERY pick regardless of priority.
+const PRIORITY_BADGE: Record<Priority, string> = {
+  must: 'bg-priority-must/15 text-priority-must',
+  'want-to-see': 'bg-priority-want/15 text-priority-want',
+  maybe: 'bg-priority-maybe/15 text-priority-maybe',
+};
 const HOW_MANY_SLOTS = 3;
 
 /** The soonest still-active meeting point with a future-or-now meet time. */
@@ -224,7 +232,7 @@ function CrewPlanInner() {
                   {slot.picks.map((p) => (
                     <li key={p.memberId} className="flex items-center gap-2 text-sm">
                       <span
-                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-accent-coral/15 text-accent-coral flex-shrink-0"
+                        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold flex-shrink-0 ${PRIORITY_BADGE[p.priority]}`}
                         aria-label={PRIORITY_LABEL[p.priority]}
                       >
                         {PRIORITY_LABEL[p.priority]}

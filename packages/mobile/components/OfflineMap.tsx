@@ -4,7 +4,13 @@ import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 import { Ionicons } from '@expo/vector-icons';
-import { extractMeetingPointPins, extractStagePins, pinsCentroid, formatStaleness } from '@festie/shared/utils';
+import {
+  extractMeetingPointPins,
+  extractStagePins,
+  pinsCentroid,
+  formatStaleness,
+  isPeerStale,
+} from '@festie/shared/utils';
 import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 
@@ -17,12 +23,18 @@ interface LivePin {
   latitude: number;
   longitude: number;
   kind: 'peer' | 'sos';
+  /** Peer's last fix has aged past the freshness window (desaturate + chip). */
+  stale?: boolean;
+  /** Short "N ago" age shown on the stale chip (no "as of" prefix). */
+  age?: string;
 }
 
-/** Two-letter-ish initial for a peer dot (fallback "?"). */
-function initialFor(name: string | undefined): string {
-  const c = (name ?? '').trim().charAt(0);
-  return c ? c.toUpperCase() : '?';
+/** Up-to-two-letter initials for an avatar marker (fallback "?"). */
+function initialsFor(name: string | undefined): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
 /**
@@ -182,15 +194,28 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
       background: #ff3366; border: 2px solid #fff;
       box-shadow: 0 0 8px rgba(255,51,102,0.6);
     }
-    /* Live peer: aqua dot with the member's initial + a pulsing ring, visually
-       distinct from the coral meeting-point pins. */
+    /* Live peer: aqua avatar disc with the member's initials + a pulsing ring,
+       visually distinct from the coral meeting-point pins. */
     .festie-peer {
+      position: relative;
       width: 26px; height: 26px; border-radius: 50%;
       background: #00e8d0; color: #080810; border: 2px solid #fff;
-      font: 700 12px -apple-system, system-ui, sans-serif;
+      font: 700 11px -apple-system, system-ui, sans-serif;
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 0 0 4px rgba(0,232,208,0.25);
       animation: festiePulse 2s ease-out infinite;
+    }
+    /* Stale peer (Snap Map-style): desaturated, no pulse, "last seen N ago" chip
+       so an out-of-date dot can't be mistaken for a live one. */
+    .festie-peer-stale {
+      background: #6b6b80; color: #0c0c12; border-color: #cfcfe0;
+      box-shadow: none; animation: none; opacity: 0.9; filter: grayscale(1);
+    }
+    .festie-chip {
+      position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+      white-space: nowrap; background: rgba(8,8,16,0.9); color: #cfcfe0;
+      font: 600 10px -apple-system, system-ui, sans-serif;
+      padding: 1px 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.14);
     }
     /* SOS: emphasized, larger coral marker with a stronger pulse. */
     .festie-sos {
@@ -274,8 +299,23 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
       var bounds = null;
       items.forEach(function (p) {
         var el = document.createElement('div');
-        el.className = p.kind === 'sos' ? 'festie-sos' : 'festie-peer';
-        el.textContent = p.kind === 'sos' ? '!' : (p.initial || '?');
+        if (p.kind === 'sos') {
+          el.className = 'festie-sos';
+          el.textContent = '!';
+        } else {
+          // Avatar disc: greyed + chipped when stale, pulsing aqua when live. All
+          // text via textContent — never parsed as HTML (security-review H3/L6).
+          el.className = p.stale ? 'festie-peer festie-peer-stale' : 'festie-peer';
+          var ini = document.createElement('span');
+          ini.textContent = p.initial || '?';
+          el.appendChild(ini);
+          if (p.stale && p.age) {
+            var chip = document.createElement('span');
+            chip.className = 'festie-chip';
+            chip.textContent = p.age;
+            el.appendChild(chip);
+          }
+        }
         var aLabel = p.label + (p.sublabel ? ' - ' + p.sublabel : '');
         el.setAttribute('role', 'button');
         el.setAttribute('aria-label', aLabel);
@@ -369,16 +409,21 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
   // Live peer + SOS markers pushed into the WebView (and listed in the fallback).
   const livePins = useMemo<LivePin[]>(() => {
     const items: LivePin[] = [];
+    const now = Date.now();
     for (const p of peers ?? []) {
       if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
+      const age = formatStaleness(p.serverAt).replace(/^as of /, '');
+      const stale = isPeerStale(p.serverAt, now);
       items.push({
         id: `peer:${p.userId}`,
         label: p.username || 'Crew member',
-        sublabel: `live · ${formatStaleness(p.serverAt).replace(/^as of /, '')}`,
-        initial: initialFor(p.username),
+        sublabel: stale ? `last seen ${age}` : `live · ${age}`,
+        initial: initialsFor(p.username),
         latitude: p.lat,
         longitude: p.lng,
         kind: 'peer',
+        stale,
+        age,
       });
     }
     if (sos?.position && Number.isFinite(sos.position.lat) && Number.isFinite(sos.position.lng)) {

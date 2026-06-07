@@ -40,16 +40,52 @@ export const MAX_IMPORT_TEXT_LENGTH = 200000;
  * phones have poor signal + limited battery.
  *   UPDATE_INTERVAL_MS — min time between published fixes (~10s).
  *   MIN_MOVE_METERS    — publish early if moved more than this since last send.
+ *   FRESH_MS           — a peer newer than this reads as "live" (pulsing avatar);
+ *                        between FRESH_MS and STALE_MS the marker desaturates and
+ *                        shows a "last seen N ago" chip before it's swept.
  *   STALE_MS           — a peer older than this is swept from the map (matches
  *                        the server's 120s TTL; client sweep is defense in depth).
- *   MAX_SESSION_MS     — hard cap (60 min): forgotten sharing auto-stops.
+ *   MAX_SESSION_MS     — default hard cap (60 min): forgotten sharing auto-stops
+ *                        when no explicit duration was chosen (e.g. web).
  */
 export const LIVE_LOCATION = {
   UPDATE_INTERVAL_MS: 10_000,
   MIN_MOVE_METERS: 15,
+  FRESH_MS: 30_000,
   STALE_MS: 120_000,
   MAX_SESSION_MS: 3_600_000,
 } as const;
+
+/**
+ * Time-boxed live-location sharing (the mobile opt-in sheet). Sharing is already
+ * foreground-only and auto-stops on background; on top of that the user picks an
+ * explicit bound up-front (default ~2h, Find My-style) after which the publisher
+ * auto-expires — no silent indefinite sharing. `ms: null` = "until the festival
+ * ends", which is clamped to LIVE_SHARE_MAX_MS so a forgotten session can never
+ * run unbounded even if the device stays foregrounded.
+ */
+export const LIVE_SHARE_MAX_MS = 12 * 3_600_000;
+
+export interface LiveShareDuration {
+  id: string;
+  label: string;
+  /** Bound in ms, or null for "until the festival ends" (clamped to LIVE_SHARE_MAX_MS). */
+  ms: number | null;
+}
+
+export const LIVE_SHARE_DURATIONS: readonly LiveShareDuration[] = [
+  { id: '1h', label: '1 hour', ms: 3_600_000 },
+  { id: '2h', label: '2 hours', ms: 7_200_000 },
+  { id: '4h', label: '4 hours', ms: 14_400_000 },
+  { id: 'festival', label: 'Until the festival ends', ms: null },
+];
+
+export const LIVE_SHARE_DEFAULT_DURATION_ID = '2h';
+
+/** Resolve a preset's effective bound in ms (null → the festival ceiling). */
+export function resolveLiveShareMs(d: LiveShareDuration): number {
+  return d.ms == null ? LIVE_SHARE_MAX_MS : Math.min(d.ms, LIVE_SHARE_MAX_MS);
+}
 
 export const SOCKET_RECONNECTION_CONFIG = {
   reconnection: true,

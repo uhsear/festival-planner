@@ -5,6 +5,33 @@ interface DayLike {
   date?: string | null;
 }
 
+/**
+ * Validate an IANA time-zone id (e.g. `America/New_York`). Returns false for
+ * empty/garbage so callers can safely fall back to the device-local frame.
+ */
+export function isValidTimeZone(tz: string | null | undefined): tz is string {
+  if (!tz || typeof tz !== 'string') return false;
+  try {
+    // Throws RangeError for an unknown zone.
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve a festival's IANA time zone, when known. Reads the optional
+ * `timeZone` field the backend may attach so reminder fire-times can be anchored
+ * in the festival's zone (not the device's). Returns undefined when absent or
+ * invalid, in which case time math falls back to the device-local frame —
+ * preserving the prior `createDateInLocalFrame` behavior with no regression.
+ */
+export function resolveFestivalTimeZone(festival: { timeZone?: string | null } | null | undefined): string | undefined {
+  const tz = festival?.timeZone;
+  return isValidTimeZone(tz) ? tz : undefined;
+}
+
 /** Festival-like object that may carry inline days (e.g. from the list endpoint). */
 interface FestivalWithDays extends Festival {
   days?: ReadonlyArray<DayLike>;

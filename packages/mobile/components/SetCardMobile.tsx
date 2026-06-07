@@ -49,15 +49,20 @@ interface SetCardMobileProps {
   friendProfiles?: FriendProfile[];
 }
 
-/** Priority button definitions: value, icon, and human label. */
+/**
+ * Priority button definitions: value, icon, full a11y label, and the short
+ * visible label shown on the card control (icon + word — the icon alone was
+ * ambiguous; color + word makes the priority tier legible at a glance).
+ */
 const PRIORITIES: readonly {
   value: Priority;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  short: string;
 }[] = [
-  { value: 'must', icon: 'star', label: 'Must See' },
-  { value: 'want-to-see', icon: 'heart', label: 'Want to See' },
-  { value: 'maybe', icon: 'ellipse', label: 'Maybe' },
+  { value: 'must', icon: 'star', label: 'Must See', short: 'Must' },
+  { value: 'want-to-see', icon: 'heart', label: 'Want to See', short: 'Want' },
+  { value: 'maybe', icon: 'ellipse', label: 'Maybe', short: 'Maybe' },
 ];
 
 // Crew-overlap avatars cluster by priority: must first, then want, then maybe.
@@ -123,7 +128,13 @@ function PriorityButton({ option, active, onPress }: PriorityButtonProps) {
       accessibilityState={{ selected: active }}
       accessibilityLabel={active ? `${option.label} (selected)` : option.label}
     >
-      <Ionicons name={option.icon} size={16} color={active ? t.colors.text.onLightAccent : t.colors.text.muted} />
+      <Ionicons name={option.icon} size={15} color={active ? t.colors.text.onLightAccent : accent} />
+      <Text
+        style={[styles.priorityLabel, { color: active ? t.colors.text.onLightAccent : t.colors.text.secondary }]}
+        numberOfLines={1}
+      >
+        {option.short}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -394,7 +405,8 @@ const useStyles = makeStyles((t) => ({
   priorityGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: t.spacing[3],
+    gap: t.spacing[2],
+    flexShrink: 1,
   },
   crewCluster: {
     flexDirection: 'row',
@@ -429,15 +441,24 @@ const useStyles = makeStyles((t) => ({
     overflow: 'hidden',
   },
   priorityButton: {
-    // WCAG 2.5.5 / 2.5.8 minimum 44x44px touch target — three adjacent,
+    // WCAG 2.5.5 / 2.5.8 minimum 44px touch target — three adjacent,
     // frequently-tapped controls; matches the dayChip/filterChip 44pt floor.
-    width: 44,
-    height: 44,
-    borderRadius: t.radii.pill,
+    // Now icon + short label, so width is content-driven (with a 44px floor).
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: t.spacing[1],
+    minWidth: 44,
+    minHeight: 44,
+    paddingHorizontal: t.spacing[2],
+    borderRadius: t.radii.pill,
     backgroundColor: t.colors.overlay[3],
     borderWidth: 1,
     borderColor: t.colors.border.light,
+    flexShrink: 1,
+  },
+  priorityLabel: {
+    ...typeStyle('micro'),
+    fontWeight: '700',
   },
 }));

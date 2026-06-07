@@ -36,6 +36,61 @@ export function createDateInLocalFrame(dateStr: string, hours: number, minutes: 
   return date;
 }
 
+/** Shift a `YYYY-MM-DD` day-key by `n` calendar days (TZ-agnostic, via UTC math). */
+function addDaysToDateKey(dayKey: string, n: number): string {
+  const [y, m, d] = dayKey.split('-').map((x) => parseInt(x, 10));
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+/** The offset (ms) the given IANA zone is from UTC at a particular instant. */
+function zoneOffsetMsAt(utcMs: number, timeZone: string): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const parts = dtf.formatToParts(new Date(utcMs));
+  const map: Record<string, number> = {};
+  for (const p of parts) if (p.type !== 'literal') map[p.type] = parseInt(p.value, 10);
+  const asUTC = Date.UTC(map.year!, map.month! - 1, map.day!, map.hour!, map.minute!, map.second!);
+  return asUTC - utcMs;
+}
+
+/**
+ * Epoch-ms for a wall-clock (`YYYY-MM-DD` + `HH:MM`) interpreted in a specific
+ * IANA time zone — independent of the device's zone. Used so set reminders fire
+ * at the right real-world instant even when the attendee's phone is set to a
+ * different zone than the festival (the festival-TZ extension of the local-frame
+ * fix in `createDateInLocalFrame`). Returns `NaN` for an unparseable date.
+ *
+ * Uses the standard two-pass offset correction so it stays accurate across DST
+ * boundaries (the offset at the naive instant may differ from the offset at the
+ * resolved instant).
+ */
+export function zonedWallTimeToMs(dateStr: string, hours: number, minutes: number, timeZone: string): number {
+  const [y, m, d] = dateStr
+    .slice(0, 10)
+    .split('-')
+    .map((x) => parseInt(x, 10));
+  if (y == null || m == null || d == null || Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return NaN;
+  const naiveUtc = Date.UTC(y, m - 1, d, hours, minutes, 0);
+  const offset1 = zoneOffsetMsAt(naiveUtc, timeZone);
+  let ms = naiveUtc - offset1;
+  const offset2 = zoneOffsetMsAt(ms, timeZone);
+  if (offset2 !== offset1) ms = naiveUtc - offset2;
+  return ms;
+}
+
 /**
  * Resolve a set's start/end to absolute epoch-ms in the device's local frame —
  * the single source of truth for "when does this set happen". Returns `null`
@@ -50,10 +105,17 @@ export function createDateInLocalFrame(dateStr: string, hours: number, minutes: 
  * copies in web/mobile festival-mode used a divergent 6am-cutoff heuristic).
  *
  * When `endTime` is missing the set is treated as one hour long.
+ *
+ * `timeZone` (optional IANA id, e.g. `America/New_York`): when supplied, the
+ * wall-clock is anchored in the FESTIVAL's zone rather than the device's local
+ * frame, so set reminders fire at the correct real-world instant for an
+ * attendee whose phone is set to another zone. Omit it (the default) to keep
+ * the original device-local behavior — every existing caller is unaffected.
  */
 export function getSetTimeBounds(
   set: Pick<FestivalSet, 'startTime' | 'endTime' | 'date' | 'dayIndex'>,
   days: FestivalDay[] = [],
+  timeZone?: string,
 ): { startMs: number; endMs: number } | null {
   // Look up the date via the festival days array first (the store flattens sets
   // with a dayIndex); fall back to set.date for callers that still attach it.
@@ -67,19 +129,32 @@ export function getSetTimeBounds(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return null;
 
   const [startHh = 0, startMm = 0] = set.startTime.split(':').map((x) => parseInt(x, 10));
-  const startDate = createDateInLocalFrame(dayKey, startHh, startMm);
-  if (isNaN(startDate.getTime())) return null;
-  const startMs = startDate.getTime();
+
+  let startMs: number;
+  if (timeZone) {
+    startMs = zonedWallTimeToMs(dayKey, startHh, startMm, timeZone);
+    if (Number.isNaN(startMs)) return null;
+  } else {
+    const startDate = createDateInLocalFrame(dayKey, startHh, startMm);
+    if (isNaN(startDate.getTime())) return null;
+    startMs = startDate.getTime();
+  }
 
   let endMs: number;
   if (set.endTime) {
     const [endHh = 0, endMm = 0] = set.endTime.split(':').map((x) => parseInt(x, 10));
-    const endDate = createDateInLocalFrame(dayKey, endHh, endMm);
-    // End at/before start means the set runs past midnight — push to next day.
-    if (endDate.getTime() <= startMs) {
-      endDate.setDate(endDate.getDate() + 1);
+    if (timeZone) {
+      endMs = zonedWallTimeToMs(dayKey, endHh, endMm, timeZone);
+      // End at/before start means the set runs past midnight — push to next day.
+      if (endMs <= startMs) endMs = zonedWallTimeToMs(addDaysToDateKey(dayKey, 1), endHh, endMm, timeZone);
+    } else {
+      const endDate = createDateInLocalFrame(dayKey, endHh, endMm);
+      // End at/before start means the set runs past midnight — push to next day.
+      if (endDate.getTime() <= startMs) {
+        endDate.setDate(endDate.getDate() + 1);
+      }
+      endMs = endDate.getTime();
     }
-    endMs = endDate.getTime();
   } else {
     // No end time: assume a one-hour set so "now / up next" stays sensible.
     endMs = startMs + 60 * 60_000;

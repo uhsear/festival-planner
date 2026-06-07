@@ -50,7 +50,13 @@ export interface UseLiveLocationPublisherOptions {
   enabled: boolean;
   /** Injected platform geolocation watcher (navigator / expo-location). */
   watchPosition: GeoWatcher;
-  /** Called when sharing auto-stops (hit the MAX_SESSION_MS cap) so UI can update. */
+  /**
+   * Explicit time-box for this session in ms (the user's chosen duration). When
+   * omitted, falls back to MAX_SESSION_MS. Sharing auto-stops after this elapses
+   * even if the app stays foregrounded — no silent indefinite sharing.
+   */
+  durationMs?: number;
+  /** Called when sharing auto-stops (hit the session time-box) so UI can update. */
   onAutoStop?: () => void;
   /** Called if the geolocation source errors (permission revoked, etc.). */
   onError?: (err: unknown) => void;
@@ -61,6 +67,7 @@ export function useLiveLocationPublisher({
   crewId,
   enabled,
   watchPosition,
+  durationMs,
   onAutoStop,
   onError,
 }: UseLiveLocationPublisherOptions): void {
@@ -100,11 +107,17 @@ export function useLiveLocationPublisher({
       },
     );
 
-    // 4. Hard session cap: auto-stop forgotten sharing.
+    // 4. Hard session cap: auto-stop at the chosen time-box (or the default
+    //    MAX_SESSION_MS when no explicit duration was picked). A non-finite /
+    //    non-positive duration falls back to the default rather than never firing.
+    const cap =
+      typeof durationMs === 'number' && Number.isFinite(durationMs) && durationMs > 0
+        ? durationMs
+        : LIVE_LOCATION.MAX_SESSION_MS;
     const sessionTimer = setTimeout(() => {
       stop();
       onAutoStop?.();
-    }, LIVE_LOCATION.MAX_SESSION_MS);
+    }, cap);
 
     function stop() {
       if (stopped) return;
@@ -121,8 +134,9 @@ export function useLiveLocationPublisher({
     }
 
     return stop;
-    // crewId / enabled / socket identity changes re-run the effect (cleanup stops
-    // the old session). watchPosition is assumed stable by the caller.
+    // crewId / enabled / socket / durationMs identity changes re-run the effect
+    // (cleanup stops the old session). watchPosition is assumed stable by the
+    // caller. onAutoStop / onError are read lazily so they need not be stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket, crewId, enabled]);
+  }, [socket, crewId, enabled, durationMs]);
 }
