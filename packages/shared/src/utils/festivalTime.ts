@@ -100,6 +100,29 @@ export function festivalStatus(
 }
 
 /**
+ * Lifecycle phase of a festival, used to re-prioritize the home/landing surface:
+ *  - 'pre'  — before it starts (lean into picks / lineup / crew invites / Spotify)
+ *  - 'live' — while it's running (lean into Now & Next / live map / SOS / meeting points)
+ *  - 'post' — once it's over    (lean into wrap-up / expenses / settle-up)
+ *
+ * A thin semantic wrapper over {@link festivalStatus} (ongoing → 'live') so web
+ * and mobile derive the same phase from the festival date range vs `now` and can
+ * reorder/emphasize — never hide — content per phase. Returns null when no usable
+ * dates exist so callers fall back to a phase-neutral layout.
+ */
+export type FestivalPhase = 'pre' | 'live' | 'post';
+
+export function festivalPhase(
+  festival: (Festival & { startDate?: string | null; endDate?: string | null }) | null | undefined,
+  days?: ReadonlyArray<DayLike> | null,
+  now: Date = new Date(),
+): FestivalPhase | null {
+  const status = festivalStatus(festival, days, now);
+  if (!status) return null;
+  return status === 'upcoming' ? 'pre' : status === 'ongoing' ? 'live' : 'post';
+}
+
+/**
  * Returns true when a set's start time has arrived (so the user can
  * meaningfully rate it). If the set has no start time, fall back to the
  * festival-over check.

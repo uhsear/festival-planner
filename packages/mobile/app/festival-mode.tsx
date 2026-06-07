@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, AppState } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
-import { artistDisplayName, getSetTimeBounds } from '@festie/shared/utils';
-import type { FestivalSet, Priority } from '@festie/shared/types';
+import { artistDisplayName } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useOngoingNotification } from '../hooks/useOngoingNotification';
+import { useNowNext } from '../hooks/useNowNext';
 import EmptyState from '../components/EmptyState';
 import LiveDot from '../components/LiveDot';
 
@@ -27,17 +26,12 @@ function fmtCountdown(mins: number): string {
   return m ? `in ${h}h ${m}m` : `in ${h}h`;
 }
 
-interface TimedSet {
-  set: FestivalSet;
-  start: number;
-  end: number;
-  priority: Priority;
-}
-
 /**
- * Festival mode — the live "now / up next" view, a mobile mirror of the web
- * /festival-mode route. Filters the user's picked sets by wall-clock time into
- * what's playing now and the next five upcoming, refreshed on a 60s tick.
+ * Now & Next — the live "now / up next" view (a.k.a. festival mode), a mobile
+ * mirror of the web /festival-mode route. Splits the user's picked sets by
+ * wall-clock time into what's playing now and the next five upcoming, refreshed
+ * on a 60s tick (logic shared via useNowNext so the home-screen strip stays in
+ * parity). "Live" is reserved for location; this surface is named "Now & Next".
  */
 export default function FestivalModeScreen() {
   const t = useTokens();
@@ -46,59 +40,22 @@ export default function FestivalModeScreen() {
   const insets = useSafeAreaInsets();
 
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
-  const sets = useFestivalDataStore((s) => s.sets) as FestivalSet[];
-  const days = useFestivalDataStore((s) => s.days);
   const currentProfile = useFestivalDataStore((s) => s.currentProfile);
   const { getStageName } = useFestival();
 
-  const [now, setNow] = useState<Date>(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    // iOS suspends JS timers while backgrounded, so the now/up-next split goes
-    // stale. Re-sync to the wall clock the moment the app is foregrounded.
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') setNow(new Date());
-    });
-    return () => {
-      clearInterval(id);
-      sub.remove();
-    };
-  }, []);
-
   // M6: present the Android ongoing (sticky) notification with the current/next
   // set + active meeting point while this festival is active. Android-only;
-  // on-device/offline; no-op on iOS (TODO iOS Live Activity). Its own 'ongoing'
-  // channel + stable id keep it isolated from set-reminder notifications.
+  // on-device/offline. iOS equivalent (ActivityKit Live Activity) is DEFERRED —
+  // a separate native widget-extension spike; see useOngoingNotification docblock.
+  // Its own 'ongoing' channel + stable id keep it isolated from set reminders.
   useOngoingNotification();
 
   const picks = currentProfile?.picks;
-
-  const { current, upcoming } = useMemo(() => {
-    if (!picks || !sets.length || !days.length) {
-      return { current: [] as TimedSet[], upcoming: [] as TimedSet[] };
-    }
-    const nowMs = now.getTime();
-    const timed: TimedSet[] = [];
-    for (const s of sets) {
-      const priority = picks[s.id];
-      if (!priority) continue;
-      // Shared TZ-safe bounds (incl. post-midnight rollover); null = TBA.
-      const bounds = getSetTimeBounds(s, days);
-      if (!bounds) continue;
-      timed.push({ set: s, start: bounds.startMs, end: bounds.endMs, priority });
-    }
-    return {
-      current: timed.filter((x) => x.start <= nowMs && x.end > nowMs),
-      upcoming: timed
-        .filter((x) => x.start > nowMs)
-        .sort((a, b) => a.start - b.start)
-        .slice(0, 5),
-    };
-  }, [picks, sets, days, now]);
+  const { now, current, upcoming } = useNowNext(5);
 
   return (
     <View style={styles.screen}>
-      <Stack.Screen options={{ title: 'Festival Mode', headerShown: true }} />
+      <Stack.Screen options={{ title: 'Now & Next', headerShown: true }} />
       {!currentFestival ? (
         <EmptyState
           icon="calendar-outline"

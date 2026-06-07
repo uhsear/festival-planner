@@ -24,6 +24,7 @@ import { mapErrorToUserMessage } from '@festie/shared/services';
 import type { Crew, CrewMember, CrewOverlap, FestivalSet } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import ScreenHeader from '../../components/ScreenHeader';
+import CrewTabBar, { type CrewTabKey } from '../../components/CrewTabBar';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
 import CrewHomeBase from '../../components/CrewHomeBase';
@@ -78,6 +79,11 @@ export default function CrewScreen() {
     () => [styles.formScroll, tabletInset, { paddingBottom: Math.max(t.spacing[6], insets.bottom + t.spacing[2]) }],
     [styles.formScroll, tabletInset, insets.bottom, t.spacing],
   );
+  // Per-tab scroll padding for the non-Members tabs (Plan / Logistics / Money).
+  const tabScrollStyle = useMemo(
+    () => [styles.tabScroll, tabletInset, { paddingBottom: Math.max(t.spacing[6], insets.bottom + t.spacing[2]) }],
+    [styles.tabScroll, tabletInset, insets.bottom, t.spacing],
+  );
 
   const user = useAuthStore((s) => s.user);
   const crews = useCrewStore((s) => s.crews);
@@ -130,6 +136,8 @@ export default function CrewScreen() {
   const [forceAddId, setForceAddId] = useState('');
   const [forceAddBusy, setForceAddBusy] = useState(false);
   const [reformBusy, setReformBusy] = useState(false);
+  // P1-2: which crew section tab is showing. Members / Plan / Logistics / Money.
+  const [crewTab, setCrewTab] = useState<CrewTabKey>('members');
 
   // Load the user's crews once on mount.
   useEffect(() => {
@@ -150,6 +158,7 @@ export default function CrewScreen() {
     setShowOverlap(false);
     setForceAddOpen(false);
     setForceAddId('');
+    setCrewTab('members');
   }, [activeCrew?.id]);
 
   // Load polls + meeting points for the active crew (best-effort; errors land
@@ -513,6 +522,17 @@ export default function CrewScreen() {
   const myBalance = expenseBalances.find((b) => b.userId === user.id)?.balance ?? 0;
   const hasUnsettledBalance = Math.abs(myBalance) > 0.01;
 
+  // Shared pull-to-refresh control (only one tab renders at a time).
+  const crewRefreshControl = (
+    <RefreshControl
+      refreshing={crewLoading}
+      onRefresh={handleRefresh}
+      tintColor={t.colors.accent.aqua}
+      colors={[t.colors.accent.aqua]}
+      progressBackgroundColor={t.colors.bg.secondary}
+    />
+  );
+
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScreenHeader
@@ -521,449 +541,458 @@ export default function CrewScreen() {
         icon="people"
       />
 
-      <FlatList
-        data={members}
-        keyExtractor={(m) => m.id || m.userId}
-        contentContainerStyle={memberListStyle}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        refreshControl={
-          <RefreshControl
-            refreshing={crewLoading}
-            onRefresh={handleRefresh}
-            tintColor={t.colors.accent.aqua}
-            colors={[t.colors.accent.aqua]}
-            progressBackgroundColor={t.colors.bg.secondary}
-          />
-        }
-        ListHeaderComponent={
-          <View style={styles.headerBlock}>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+      {/* Persistent crew chrome — identity, invite code and crew switcher stay
+          visible across every tab so switching crews or sharing the code never
+          hides behind a tab. */}
+      <View style={[styles.crewChrome, tabletInset]}>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <FreshnessChip surface="crew" />
+        <FreshnessChip surface="crew" />
 
-            {crew.inviteCode ? (
-              <View style={styles.inviteBar}>
-                <Ionicons name="key-outline" size={16} color={t.colors.accent.aqua} />
-                <Text style={styles.inviteLabel}>Invite code</Text>
-                <Text style={styles.inviteCode} accessibilityLabel={`Invite code ${crew.inviteCode}`}>
-                  {crew.inviteCode}
-                </Text>
-                <TouchableOpacity
-                  testID="crew-action-share-invite"
-                  onPress={() => handleShareInvite(crew.inviteCode!, crew.name)}
-                  style={styles.iconButton}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel="Share invite link"
-                >
-                  <Ionicons name="share-outline" size={16} color={t.colors.accent.aqua} />
-                </TouchableOpacity>
-                {isOwner ? (
-                  <TouchableOpacity
-                    testID="crew-action-regenerate-invite"
-                    onPress={() => handleRegenerate(crew.id)}
-                    disabled={regenBusy}
-                    style={styles.iconButton}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel="Regenerate invite code"
-                  >
-                    {regenBusy ? (
-                      <ActivityIndicator size="small" color={t.colors.accent.aqua} />
-                    ) : (
-                      <Ionicons name="refresh" size={16} color={t.colors.accent.aqua} />
-                    )}
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            ) : null}
-
-            {crews.length > 1 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.crewSwitcher}>
-                {crews.map((c) => {
-                  const active = c.id === crew.id;
-                  return (
-                    <TouchableOpacity
-                      key={c.id}
-                      style={[styles.crewChip, active && styles.crewChipActive]}
-                      onPress={() => {
-                        if (!active) selectCrew(c.id).catch(() => {});
-                      }}
-                      activeOpacity={0.8}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Switch to crew ${c.name}`}
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={[styles.crewChipText, active && styles.crewChipTextActive]} numberOfLines={1}>
-                        {c.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            ) : null}
-
-            {/* The crew toolbox is grouped into three labeled clusters so the
-                ~7 actions don't read as one undifferentiated stack:
-                  • Plan    — decide together (everyday: the crew plan digest)
-                  • On-site — offline navigation while you're at the festival
-                  • Manage  — owner/maintenance actions
-                Coral icons here were demoted to aqua: coral is reserved for
-                danger/SOS, and these are ordinary navigation actions. */}
-
-            <Text style={styles.sectionLabel}>Plan</Text>
-
-            {/* Everyday primary: the offline-native "what's my crew's plan"
-                digest. Emphasized (aqua-tinted fill + border) so the most-used
-                action carries more weight than the rest of the toolbox. */}
+        {crew.inviteCode ? (
+          <View style={styles.inviteBar}>
+            <Ionicons name="key-outline" size={16} color={t.colors.accent.aqua} />
+            <Text style={styles.inviteLabel}>Invite code</Text>
+            <Text style={styles.inviteCode} accessibilityLabel={`Invite code ${crew.inviteCode}`}>
+              {crew.inviteCode}
+            </Text>
             <TouchableOpacity
-              testID="crew-action-plan"
-              style={[styles.overlapToggle, styles.overlapTogglePrimary]}
-              onPress={() => router.push('/crew-plan')}
-              activeOpacity={0.8}
+              testID="crew-action-share-invite"
+              onPress={() => handleShareInvite(crew.inviteCode!, crew.name)}
+              style={styles.iconButton}
+              activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="View your crew's plan"
+              accessibilityLabel="Share invite link"
             >
-              <Ionicons name="calendar-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapTogglePrimaryText}>Crew plan</Text>
-              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+              <Ionicons name="share-outline" size={16} color={t.colors.accent.aqua} />
             </TouchableOpacity>
-
-            {/* Schedule compare / overlap toggle. */}
-            <TouchableOpacity
-              testID="crew-action-overlap"
-              style={styles.overlapToggle}
-              onPress={() => handleToggleOverlap(crew.id)}
-              disabled={overlapBusy}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={showOverlap ? 'Hide schedule overlap' : 'Compare crew schedules'}
-            >
-              <Ionicons name="git-compare-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapToggleText}>
-                {overlapBusy ? 'Loading overlap…' : showOverlap ? 'Hide schedule overlap' : 'Compare schedules'}
-              </Text>
-              {overlapBusy ? (
-                <ActivityIndicator size="small" color={t.colors.accent.aqua} />
-              ) : (
-                <Ionicons name={showOverlap ? 'chevron-up' : 'chevron-down'} size={16} color={t.colors.accent.aqua} />
-              )}
-            </TouchableOpacity>
-
-            {overlapError ? (
+            {isOwner ? (
               <TouchableOpacity
-                style={styles.overlapErrorRow}
-                onPress={() => handleToggleOverlap(crew.id)}
-                activeOpacity={0.8}
+                testID="crew-action-regenerate-invite"
+                onPress={() => handleRegenerate(crew.id)}
+                disabled={regenBusy}
+                style={styles.iconButton}
+                activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel="Retry loading schedule overlap"
+                accessibilityLabel="Regenerate invite code"
               >
-                <Ionicons name="cloud-offline-outline" size={16} color={t.colors.text.danger} />
-                <Text style={styles.overlapErrorText}>{overlapError}</Text>
-                <Text style={styles.overlapRetryText}>Retry</Text>
+                {regenBusy ? (
+                  <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+                ) : (
+                  <Ionicons name="refresh" size={16} color={t.colors.accent.aqua} />
+                )}
               </TouchableOpacity>
             ) : null}
+          </View>
+        ) : null}
 
-            {showOverlap ? (
-              overlapEntries.length === 0 ? (
-                <Text style={styles.overlapEmpty}>No shared picks yet — overlap appears once members add sets.</Text>
-              ) : (
-                <View style={styles.overlapList}>
-                  {overlapEntries.map((o) => {
-                    const picks = getCrewScopedOtherPicks(o.setId);
-                    const mustCount = picks.filter((p) => p.priority === 'must').length;
-                    return (
-                      <View key={o.setId} style={styles.overlapRow}>
-                        <View style={styles.overlapInfo}>
-                          <Text style={styles.overlapSet} numberOfLines={1}>
-                            {setLabel(setsById.get(o.setId), o.setId)}
-                          </Text>
-                          <Text style={styles.overlapMeta}>
-                            {o.memberCount} {o.memberCount === 1 ? 'member' : 'members'}
-                            {mustCount > 0 ? ` · ${mustCount} must-see` : ''}
-                          </Text>
-                        </View>
-                        <View style={styles.overlapBadge}>
-                          <Ionicons name="people" size={13} color={t.colors.accent.aqua} />
-                          <Text style={styles.overlapBadgeText}>{o.memberCount}</Text>
-                        </View>
-                      </View>
-                    );
-                  })}
+        {crews.length > 1 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.crewSwitcher}>
+            {crews.map((c) => {
+              const active = c.id === crew.id;
+              return (
+                <TouchableOpacity
+                  key={c.id}
+                  style={[styles.crewChip, active && styles.crewChipActive]}
+                  onPress={() => {
+                    if (!active) selectCrew(c.id).catch(() => {});
+                  }}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Switch to crew ${c.name}`}
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.crewChipText, active && styles.crewChipTextActive]} numberOfLines={1}>
+                    {c.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+      </View>
+
+      {/* P1-2 — segmented crew tab bar (web parity). The screen's many sections
+          become Members / Plan / Logistics / Money tabs instead of one long
+          scroll; every prior section is still reachable inside a tab. */}
+      <CrewTabBar
+        activeTab={crewTab}
+        onTabChange={setCrewTab}
+        badges={{ plan: openPollCount, money: hasUnsettledBalance }}
+      />
+
+      {crewTab === 'members' ? (
+        <FlatList
+          data={members}
+          keyExtractor={(m) => m.id || m.userId}
+          contentContainerStyle={memberListStyle}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          refreshControl={crewRefreshControl}
+          renderItem={({ item }) => {
+            const rowIsOwner = item.role === 'owner' || item.userId === crew.owner;
+            const displayName = item.name || 'Member';
+            const isSelf = item.userId === user.id;
+            // Owners may manage other members (kick + transfer). Force-add and
+            // these controls hit admin-gated shared store actions.
+            const canManage = isOwner && !rowIsOwner && !isSelf;
+            return (
+              <View style={styles.memberRow}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{initialsFor(item.name)}</Text>
                 </View>
-              )
-            ) : null}
-
-            {/* Full side-by-side compare matrix (members × sets). */}
-            <TouchableOpacity
-              testID="crew-action-compare-grid"
-              style={styles.overlapToggle}
-              onPress={() => router.push('/crew-compare')}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Open full compare grid"
-            >
-              <Ionicons name="grid-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapToggleText}>Full compare grid</Text>
-              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
-            </TouchableOpacity>
-
-            <Text style={styles.sectionLabel}>On-site</Text>
-
-            {/* "Find each other" — ONE destination that co-locates the crew map,
-                the meeting-point compass and saved meeting points (each still its
-                own route underneath) so the finding doors aren't scattered. */}
-            <TouchableOpacity
-              testID="crew-action-find"
-              style={styles.overlapToggle}
-              onPress={() => router.push('/find')}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Find each other — crew map, compass and meeting points"
-            >
-              <Ionicons name="location-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapToggleText}>Find each other</Text>
-              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
-            </TouchableOpacity>
-
-            {/* M5 P2P plan handoff — QR / scan / SMS when signal is dead. */}
-            <TouchableOpacity
-              testID="crew-action-share-plan"
-              style={styles.overlapToggle}
-              onPress={() => router.push('/plan-share')}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Share your plan with a friend (QR or text)"
-            >
-              <Ionicons name="qr-code-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapToggleText}>Share plan (QR / text)</Text>
-              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
-            </TouchableOpacity>
-
-            <Text style={styles.sectionLabel}>Manage</Text>
-
-            {/* Reform this crew for another festival (M3). */}
-            <TouchableOpacity
-              testID="crew-action-reform"
-              style={styles.overlapToggle}
-              onPress={() => handleReform(crew.id, crew.festivalId)}
-              disabled={reformBusy}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Reform this crew for another festival"
-            >
-              <Ionicons name="calendar-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapToggleText}>{reformBusy ? 'Reforming…' : 'Reform for another festival'}</Text>
-              {reformBusy ? (
-                <ActivityIndicator size="small" color={t.colors.accent.aqua} />
-              ) : (
-                <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
-              )}
-            </TouchableOpacity>
-
-            {/* Force-add (admin-gated server-side). Shown to owners. */}
-            {isOwner ? (
-              forceAddOpen ? (
-                <View style={styles.forceAddBox}>
-                  <Text style={styles.formLabel}>Force-add member by user ID</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="user_id"
-                    placeholderTextColor={t.colors.text.placeholder}
-                    value={forceAddId}
-                    onChangeText={setForceAddId}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="done"
-                    onSubmitEditing={() => handleForceAdd(crew.id)}
-                    accessibilityLabel="User ID to force-add"
-                  />
-                  <View style={styles.forceAddRow}>
+                <View style={styles.memberInfo}>
+                  <Text style={styles.memberName} numberOfLines={1}>
+                    {displayName}
+                    {isSelf ? ' (you)' : ''}
+                  </Text>
+                  {rowIsOwner ? <Text style={styles.memberRole}>Owner</Text> : null}
+                </View>
+                {canManage ? (
+                  <View style={styles.memberActions}>
                     <TouchableOpacity
-                      style={[styles.outlineButton, styles.flexButton]}
-                      onPress={() => {
-                        setForceAddOpen(false);
-                        setForceAddId('');
-                      }}
-                      activeOpacity={0.8}
+                      onPress={() => handleTransfer(crew.id, item)}
+                      style={styles.iconButton}
+                      activeOpacity={0.7}
                       accessibilityRole="button"
-                      accessibilityLabel="Cancel force-add"
+                      accessibilityLabel={`Transfer ownership to ${displayName}`}
                     >
-                      <Text style={styles.outlineButtonText}>Cancel</Text>
+                      <Ionicons name="star-outline" size={18} color={t.colors.accent.amber} />
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[
-                        styles.primaryButton,
-                        styles.flexButton,
-                        (forceAddBusy || !forceAddId.trim()) && styles.buttonDisabled,
-                      ]}
-                      onPress={() => handleForceAdd(crew.id)}
-                      disabled={forceAddBusy || !forceAddId.trim()}
-                      activeOpacity={0.8}
+                      onPress={() => handleKick(crew.id, item)}
+                      style={styles.iconButton}
+                      activeOpacity={0.7}
                       accessibilityRole="button"
-                      accessibilityLabel="Confirm force-add"
+                      accessibilityLabel={`Remove ${displayName} from crew`}
                     >
-                      <Text style={styles.primaryButtonText}>{forceAddBusy ? 'Adding…' : 'Add'}</Text>
+                      <Ionicons name="person-remove-outline" size={18} color={t.colors.text.danger} />
                     </TouchableOpacity>
                   </View>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  testID="crew-action-force-add"
-                  style={styles.overlapToggle}
-                  onPress={() => setForceAddOpen(true)}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Force-add a member by user ID"
-                >
-                  <Ionicons name="person-add-outline" size={16} color={t.colors.accent.aqua} />
-                  <Text style={styles.overlapToggleText}>Force-add member</Text>
-                </TouchableOpacity>
-              )
-            ) : null}
-
-            <Text style={styles.sectionLabel}>Members</Text>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const rowIsOwner = item.role === 'owner' || item.userId === crew.owner;
-          const displayName = item.name || 'Member';
-          const isSelf = item.userId === user.id;
-          // Owners may manage other members (kick + transfer). Force-add and
-          // these controls hit admin-gated shared store actions.
-          const canManage = isOwner && !rowIsOwner && !isSelf;
-          return (
-            <View style={styles.memberRow}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initialsFor(item.name)}</Text>
+                ) : rowIsOwner ? (
+                  <View accessible accessibilityLabel="Owner">
+                    <Ionicons name="star" size={16} color={t.colors.accent.amber} />
+                  </View>
+                ) : null}
               </View>
-              <View style={styles.memberInfo}>
-                <Text style={styles.memberName} numberOfLines={1}>
-                  {displayName}
-                  {isSelf ? ' (you)' : ''}
-                </Text>
-                {rowIsOwner ? <Text style={styles.memberRole}>Owner</Text> : null}
-              </View>
-              {canManage ? (
-                <View style={styles.memberActions}>
-                  <TouchableOpacity
-                    onPress={() => handleTransfer(crew.id, item)}
-                    style={styles.iconButton}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Transfer ownership to ${displayName}`}
-                  >
-                    <Ionicons name="star-outline" size={18} color={t.colors.accent.amber} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleKick(crew.id, item)}
-                    style={styles.iconButton}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove ${displayName} from crew`}
-                  >
-                    <Ionicons name="person-remove-outline" size={18} color={t.colors.text.danger} />
-                  </TouchableOpacity>
-                </View>
-              ) : rowIsOwner ? (
-                <View accessible accessibilityLabel="Owner">
-                  <Ionicons name="star" size={16} color={t.colors.accent.amber} />
-                </View>
-              ) : null}
-            </View>
-          );
-        }}
-        ListEmptyComponent={
-          <EmptyState
-            icon="person-outline"
-            title="No members yet"
-            message="Share your invite code to bring friends in."
-            action={
-              crew.inviteCode
-                ? { label: 'Share invite', onPress: () => handleShareInvite(crew.inviteCode!, crew.name) }
-                : undefined
-            }
-          />
-        }
-        ListFooterComponent={
-          <View>
-            <CrewHomeBase
-              crewId={crew.id}
-              location={crew.homeBaseLocation}
-              time={crew.homeBaseTime}
-              isOwner={isOwner}
+            );
+          }}
+          ListEmptyComponent={
+            <EmptyState
+              icon="person-outline"
+              title="No members yet"
+              message="Share your invite code to bring friends in."
+              action={
+                crew.inviteCode
+                  ? { label: 'Share invite', onPress: () => handleShareInvite(crew.inviteCode!, crew.name) }
+                  : undefined
+              }
             />
+          }
+          ListFooterComponent={
+            <View style={styles.tabFooter}>
+              <Text style={styles.sectionLabel}>Manage</Text>
 
-            <CrewPhotoLink crewId={crew.id} photoAlbumUrl={crew.photoAlbumUrl} />
+              {/* Reform this crew for another festival (M3). */}
+              <TouchableOpacity
+                testID="crew-action-reform"
+                style={styles.overlapToggle}
+                onPress={() => handleReform(crew.id, crew.festivalId)}
+                disabled={reformBusy}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Reform this crew for another festival"
+              >
+                <Ionicons name="calendar-outline" size={16} color={t.colors.accent.aqua} />
+                <Text style={styles.overlapToggleText}>
+                  {reformBusy ? 'Reforming…' : 'Reform for another festival'}
+                </Text>
+                {reformBusy ? (
+                  <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+                )}
+              </TouchableOpacity>
 
-            <Text style={styles.sectionLabel}>Live location & SOS</Text>
-            <View style={styles.liveSafetyBlock}>
-              <CrewLiveLocation crewId={crew.id} />
-              <CrewSos crewId={crew.id} currentUserId={user.id} />
-            </View>
-
-            <Text style={styles.sectionLabel}>Meeting points</Text>
-            <CrewStatus crewId={crew.id} currentUserId={user.id} />
-            <CrewMeetingPoints crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
-
-            <View style={styles.sectionLabelRow}>
-              <Text style={styles.sectionLabel}>Polls</Text>
-              {openPollCount > 0 ? (
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>{openPollCount}</Text>
-                </View>
-              ) : null}
-            </View>
-            <CrewPolls crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
-
-            <Text style={styles.sectionLabel}>Packing</Text>
-            <CrewPacking crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
-
-            <Text style={styles.sectionLabel}>Rides</Text>
-            <CrewRides crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
-
-            <View style={styles.sectionLabelRow}>
-              <Text style={styles.sectionLabel}>Expenses</Text>
-              {hasUnsettledBalance ? (
-                <View style={styles.unsettledDot} accessibilityLabel="You have an unsettled balance" />
-              ) : null}
-            </View>
-            <CrewExpenses crewId={crew.id} members={members} currentUserId={user.id} />
-
-            <Text style={styles.sectionLabel}>Activity</Text>
-            <CrewActivity crewId={crew.id} />
-
-            <View style={styles.footerActions}>
+              {/* Force-add (admin-gated server-side). Shown to owners. */}
               {isOwner ? (
-                <TouchableOpacity
-                  testID="crew-action-delete"
-                  style={styles.dangerButton}
-                  onPress={() => handleDelete(crew.id)}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Delete crew"
-                >
-                  <Ionicons name="trash-outline" size={16} color={t.colors.text.danger} />
-                  <Text style={styles.dangerButtonText}>Delete crew</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  testID="crew-action-leave"
-                  style={styles.dangerButton}
-                  onPress={() => handleLeave(crew.id)}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Leave crew"
-                >
-                  <Ionicons name="exit-outline" size={16} color={t.colors.text.danger} />
-                  <Text style={styles.dangerButtonText}>Leave crew</Text>
-                </TouchableOpacity>
-              )}
+                forceAddOpen ? (
+                  <View style={styles.forceAddBox}>
+                    <Text style={styles.formLabel}>Force-add member by user ID</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="user_id"
+                      placeholderTextColor={t.colors.text.placeholder}
+                      value={forceAddId}
+                      onChangeText={setForceAddId}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="done"
+                      onSubmitEditing={() => handleForceAdd(crew.id)}
+                      accessibilityLabel="User ID to force-add"
+                    />
+                    <View style={styles.forceAddRow}>
+                      <TouchableOpacity
+                        style={[styles.outlineButton, styles.flexButton]}
+                        onPress={() => {
+                          setForceAddOpen(false);
+                          setForceAddId('');
+                        }}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Cancel force-add"
+                      >
+                        <Text style={styles.outlineButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.primaryButton,
+                          styles.flexButton,
+                          (forceAddBusy || !forceAddId.trim()) && styles.buttonDisabled,
+                        ]}
+                        onPress={() => handleForceAdd(crew.id)}
+                        disabled={forceAddBusy || !forceAddId.trim()}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Confirm force-add"
+                      >
+                        <Text style={styles.primaryButtonText}>{forceAddBusy ? 'Adding…' : 'Add'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    testID="crew-action-force-add"
+                    style={styles.overlapToggle}
+                    onPress={() => setForceAddOpen(true)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Force-add a member by user ID"
+                  >
+                    <Ionicons name="person-add-outline" size={16} color={t.colors.accent.aqua} />
+                    <Text style={styles.overlapToggleText}>Force-add member</Text>
+                  </TouchableOpacity>
+                )
+              ) : null}
+
+              <View style={styles.footerActions}>
+                {isOwner ? (
+                  <TouchableOpacity
+                    testID="crew-action-delete"
+                    style={styles.dangerButton}
+                    onPress={() => handleDelete(crew.id)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Delete crew"
+                  >
+                    <Ionicons name="trash-outline" size={16} color={t.colors.text.danger} />
+                    <Text style={styles.dangerButtonText}>Delete crew</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    testID="crew-action-leave"
+                    style={styles.dangerButton}
+                    onPress={() => handleLeave(crew.id)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Leave crew"
+                  >
+                    <Ionicons name="exit-outline" size={16} color={t.colors.text.danger} />
+                    <Text style={styles.dangerButtonText}>Leave crew</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
+          }
+        />
+      ) : crewTab === 'plan' ? (
+        <ScrollView
+          contentContainerStyle={tabScrollStyle}
+          refreshControl={crewRefreshControl}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          {/* Everyday primary: the offline-native "what's my crew's plan"
+              digest. Emphasized (aqua-tinted fill + border) so the most-used
+              action carries more weight than the rest of the tab. Coral is
+              reserved for danger/SOS, so these nav actions are aqua. */}
+          <TouchableOpacity
+            testID="crew-action-plan"
+            style={[styles.overlapToggle, styles.overlapTogglePrimary]}
+            onPress={() => router.push('/crew-plan')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="View your crew's plan"
+          >
+            <Ionicons name="calendar-outline" size={16} color={t.colors.accent.aqua} />
+            <Text style={styles.overlapTogglePrimaryText}>Crew plan</Text>
+            <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+          </TouchableOpacity>
+
+          {/* Schedule compare / overlap toggle. */}
+          <TouchableOpacity
+            testID="crew-action-overlap"
+            style={styles.overlapToggle}
+            onPress={() => handleToggleOverlap(crew.id)}
+            disabled={overlapBusy}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={showOverlap ? 'Hide schedule overlap' : 'Compare crew schedules'}
+          >
+            <Ionicons name="git-compare-outline" size={16} color={t.colors.accent.aqua} />
+            <Text style={styles.overlapToggleText}>
+              {overlapBusy ? 'Loading overlap…' : showOverlap ? 'Hide schedule overlap' : 'Compare schedules'}
+            </Text>
+            {overlapBusy ? (
+              <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+            ) : (
+              <Ionicons name={showOverlap ? 'chevron-up' : 'chevron-down'} size={16} color={t.colors.accent.aqua} />
+            )}
+          </TouchableOpacity>
+
+          {overlapError ? (
+            <TouchableOpacity
+              style={styles.overlapErrorRow}
+              onPress={() => handleToggleOverlap(crew.id)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading schedule overlap"
+            >
+              <Ionicons name="cloud-offline-outline" size={16} color={t.colors.text.danger} />
+              <Text style={styles.overlapErrorText}>{overlapError}</Text>
+              <Text style={styles.overlapRetryText}>Retry</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {showOverlap ? (
+            overlapEntries.length === 0 ? (
+              <Text style={styles.overlapEmpty}>No shared picks yet — overlap appears once members add sets.</Text>
+            ) : (
+              <View style={styles.overlapList}>
+                {overlapEntries.map((o) => {
+                  const picks = getCrewScopedOtherPicks(o.setId);
+                  const mustCount = picks.filter((p) => p.priority === 'must').length;
+                  return (
+                    <View key={o.setId} style={styles.overlapRow}>
+                      <View style={styles.overlapInfo}>
+                        <Text style={styles.overlapSet} numberOfLines={1}>
+                          {setLabel(setsById.get(o.setId), o.setId)}
+                        </Text>
+                        <Text style={styles.overlapMeta}>
+                          {o.memberCount} {o.memberCount === 1 ? 'member' : 'members'}
+                          {mustCount > 0 ? ` · ${mustCount} must-see` : ''}
+                        </Text>
+                      </View>
+                      <View style={styles.overlapBadge}>
+                        <Ionicons name="people" size={13} color={t.colors.accent.aqua} />
+                        <Text style={styles.overlapBadgeText}>{o.memberCount}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )
+          ) : null}
+
+          {/* Full side-by-side compare matrix (members × sets). */}
+          <TouchableOpacity
+            testID="crew-action-compare-grid"
+            style={styles.overlapToggle}
+            onPress={() => router.push('/crew-compare')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Open full compare grid"
+          >
+            <Ionicons name="grid-outline" size={16} color={t.colors.accent.aqua} />
+            <Text style={styles.overlapToggleText}>Full compare grid</Text>
+            <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+          </TouchableOpacity>
+
+          <View style={styles.sectionLabelRow}>
+            <Text style={styles.sectionLabel}>Polls</Text>
+            {openPollCount > 0 ? (
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{openPollCount}</Text>
+              </View>
+            ) : null}
           </View>
-        }
-      />
+          <CrewPolls crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
+        </ScrollView>
+      ) : crewTab === 'logistics' ? (
+        <ScrollView
+          contentContainerStyle={tabScrollStyle}
+          refreshControl={crewRefreshControl}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          {/* "Find each other" — ONE destination that co-locates the crew map,
+              the meeting-point compass and saved meeting points. */}
+          <TouchableOpacity
+            testID="crew-action-find"
+            style={styles.overlapToggle}
+            onPress={() => router.push('/find')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Find each other — crew map, compass and meeting points"
+          >
+            <Ionicons name="location-outline" size={16} color={t.colors.accent.aqua} />
+            <Text style={styles.overlapToggleText}>Find each other</Text>
+            <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+          </TouchableOpacity>
+
+          {/* M5 P2P plan handoff — QR / scan / SMS when signal is dead. */}
+          <TouchableOpacity
+            testID="crew-action-share-plan"
+            style={styles.overlapToggle}
+            onPress={() => router.push('/plan-share')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Share your plan with a friend (QR or text)"
+          >
+            <Ionicons name="qr-code-outline" size={16} color={t.colors.accent.aqua} />
+            <Text style={styles.overlapToggleText}>Share plan (QR / text)</Text>
+            <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+          </TouchableOpacity>
+
+          <CrewHomeBase crewId={crew.id} location={crew.homeBaseLocation} time={crew.homeBaseTime} isOwner={isOwner} />
+
+          <CrewPhotoLink crewId={crew.id} photoAlbumUrl={crew.photoAlbumUrl} />
+
+          <Text style={styles.sectionLabel}>Live location & SOS</Text>
+          <View style={styles.liveSafetyBlock}>
+            <CrewLiveLocation crewId={crew.id} />
+            <CrewSos crewId={crew.id} currentUserId={user.id} />
+          </View>
+
+          <Text style={styles.sectionLabel}>Meeting points</Text>
+          <CrewStatus crewId={crew.id} currentUserId={user.id} />
+          <CrewMeetingPoints crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
+
+          <Text style={styles.sectionLabel}>Packing</Text>
+          <CrewPacking crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
+
+          <Text style={styles.sectionLabel}>Rides</Text>
+          <CrewRides crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
+
+          <Text style={styles.sectionLabel}>Activity</Text>
+          <CrewActivity crewId={crew.id} />
+        </ScrollView>
+      ) : (
+        <ScrollView
+          contentContainerStyle={tabScrollStyle}
+          refreshControl={crewRefreshControl}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <View style={styles.sectionLabelRow}>
+            <Text style={styles.sectionLabel}>Expenses</Text>
+            {hasUnsettledBalance ? (
+              <View style={styles.unsettledDot} accessibilityLabel="You have an unsettled balance" />
+            ) : null}
+          </View>
+          <CrewExpenses crewId={crew.id} members={members} currentUserId={user.id} />
+        </ScrollView>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -978,9 +1007,22 @@ const useStyles = makeStyles((t) => ({
     paddingBottom: t.spacing[6],
     gap: t.spacing[4],
   },
-  headerBlock: {
+  // Persistent crew chrome (identity / invite / switcher) above the tab bar.
+  crewChrome: {
+    paddingHorizontal: t.spacing[4],
     gap: t.spacing[3],
-    marginBottom: t.spacing[1],
+    paddingBottom: t.spacing[3],
+  },
+  // Scroll content for the Plan / Logistics / Money tabs.
+  tabScroll: {
+    paddingHorizontal: t.spacing[4],
+    paddingTop: t.spacing[1],
+    gap: t.spacing[3],
+  },
+  // Members-tab footer (Manage cluster + danger actions).
+  tabFooter: {
+    gap: t.spacing[3],
+    marginTop: t.spacing[4],
   },
   error: {
     ...typeStyle('body'),

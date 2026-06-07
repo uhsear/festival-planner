@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   festivalStatus,
+  festivalPhase,
   isFestivalOver,
   hasSetStarted,
   isValidTimeZone,
@@ -94,6 +95,31 @@ describe('festivalStatus', () => {
     lateNight.setFullYear(2026, 8, 6); // 2026-09-06
     lateNight.setHours(23, 30, 0, 0);
     expect(festivalStatus(fest(), undefined, lateNight)).toBe('ongoing');
+  });
+});
+
+describe('festivalPhase', () => {
+  it("maps upcoming → 'pre'", () => {
+    expect(festivalPhase(fest(), undefined, new Date('2026-08-01T00:00:00'))).toBe('pre');
+  });
+
+  it("maps ongoing → 'live'", () => {
+    expect(festivalPhase(fest(), undefined, new Date('2026-09-05T12:00:00'))).toBe('live');
+  });
+
+  it("maps past → 'post'", () => {
+    expect(festivalPhase(fest(), undefined, new Date('2026-09-07T00:00:00'))).toBe('post');
+  });
+
+  it('prefers inline days[] over start/end dates', () => {
+    const f = fest({ startDate: '', endDate: '' });
+    const days = [{ date: '2026-09-04' }, { date: '2026-09-06' }];
+    expect(festivalPhase(f, days, new Date('2026-09-05T12:00:00'))).toBe('live');
+  });
+
+  it('returns null when no dates are available', () => {
+    expect(festivalPhase(fest({ startDate: '', endDate: '' }), undefined, new Date())).toBeNull();
+    expect(festivalPhase(null)).toBeNull();
   });
 });
 

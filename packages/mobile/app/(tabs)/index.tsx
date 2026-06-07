@@ -14,29 +14,38 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFestivalDataStore, useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { usePicks, useFestival } from '@festie/shared/hooks';
-import { artistDisplayName, getSetHotness, getConflictingSetIds, timeToMinutes } from '@festie/shared/utils';
+import {
+  artistDisplayName,
+  getSetHotness,
+  getConflictingSetIds,
+  timeToMinutes,
+  festivalPhase,
+} from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { safeStageColor } from '../../lib/stageColor';
 import { useUI, type ViewMode } from '../../contexts/UIContext';
-import { useNowIndicator, type TimeBounds } from '../../hooks/useNowIndicator';
+import type { TimeBounds } from '../../hooks/useNowIndicator';
 import { useHaptics } from '../../hooks/useHaptics';
 import SegmentedControl from '../../components/SegmentedControl';
 import LiveDot from '../../components/LiveDot';
+import NowNextStrip from '../../components/NowNextStrip';
+import PhaseHomeActions from '../../components/PhaseHomeActions';
 import FestivalList from '../../components/FestivalList';
 import SetCardMobile from '../../components/SetCardMobile';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
 import ScreenHeader from '../../components/ScreenHeader';
 import TimelineView from '../../components/TimelineView';
-import GridView from '../../components/GridView';
 import TBASection from '../../components/TBASection';
 
 const SLOT_MINUTES = 15;
 
+// Mobile schedule views: Timeline (single-axis, time-gutter + now line) and a
+// flat Cards list. The dense 2D stage×time Grid is intentionally web/tablet-only
+// (see UIContext ViewMode + routes/grid.tsx) — it doesn't fit a phone.
 const VIEW_OPTIONS: readonly { value: ViewMode; label: string }[] = [
   { value: 'timeline', label: 'Timeline' },
-  { value: 'grid', label: 'Grid' },
   { value: 'cards', label: 'Cards' },
 ];
 
@@ -191,6 +200,12 @@ export default function TimelineScreen() {
 
   const days = useMemo(() => getDays(), [getDays]);
 
+  // P1-5 — festival lifecycle phase (pre / live / post), derived from the
+  // festival's date range vs now (shared `festivalPhase` → `festivalStatus`).
+  // Drives the phase-aware home action band below; null when the festival has no
+  // usable dates, in which case the band is hidden (phase-neutral fallback).
+  const phase = useMemo(() => festivalPhase(currentFestival, days), [currentFestival, days]);
+
   // Day + active-stage + search filtering lives in the shared hook
   // (getFilteredSets mirrors cards.tsx's filteredSets). We then apply the same
   // hotness → time → name sort the web Cards view uses.
@@ -277,10 +292,6 @@ export default function TimelineScreen() {
     },
     [effectiveStages, allStageIds, setActiveStages],
   );
-
-  // ROW_HEIGHT here matches TimelineView's slot height so scroll-to-now lands
-  // on the right offset.
-  const { nowIndicator } = useNowIndicator(timeBounds, selectedDay, 22);
 
   const handlePickChange = useCallback(
     (setId: string, priority: Priority | null) => {
@@ -433,10 +444,12 @@ export default function TimelineScreen() {
             onPress={() => router.push('/festival-mode')}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Open festival mode"
+            accessibilityLabel="Open Now and Next"
           >
+            {/* Renamed from the ambiguous "Live" (P1-2): "Live" is reserved for
+                location. The pulsing LiveDot above stays as the now indicator. */}
             <Ionicons name="flash" size={14} color={t.colors.accent.aqua} />
-            <Text style={styles.switchText}>Live</Text>
+            <Text style={styles.switchText}>Now &amp; Next</Text>
           </TouchableOpacity>
         </View>
         <SegmentedControl
@@ -446,6 +459,22 @@ export default function TimelineScreen() {
           accessibilityLabel="Schedule view"
         />
       </View>
+
+      {/* Live-day Now & Next surface: shows the picked set playing now / up next
+          inline, tapping through to the full Now & Next screen. Renders nothing
+          when there's no current/upcoming pick. */}
+      <View style={{ paddingHorizontal: hPad }}>
+        <NowNextStrip onPress={() => router.push('/festival-mode')} />
+      </View>
+
+      {/* P1-5 — phase-aware home actions: re-prioritizes the crew's destinations
+          (picks / crew / find / Now & Next / wrap) by festival phase. Hidden when
+          the festival has no usable dates (phase === null). */}
+      {phase ? (
+        <View style={{ paddingHorizontal: hPad }}>
+          <PhaseHomeActions phase={phase} />
+        </View>
+      ) : null}
 
       {/* Search */}
       <View style={[styles.searchRow, { marginHorizontal: hPad }]}>
@@ -582,48 +611,25 @@ export default function TimelineScreen() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         />
-      ) : viewMode === 'timeline' ? (
-        timeBounds && visibleStages.length > 0 ? (
-          <View style={styles.viewBody}>
-            <TimelineView
-              visibleStages={visibleStages}
-              timedSets={timedSets}
-              timeBounds={timeBounds}
-              selectedDay={selectedDay}
-              conflictIds={conflictIds}
-              b2bSeparator={currentFestival.b2bSeparator}
-              getMyPick={getMyPick}
-              getStageColor={resolveStageColor}
-              onPickChange={handlePickChange}
-              onSetPress={handleSetPress}
-              days={days}
-              allSets={allSets}
-              picks={currentProfile?.picks ?? null}
-            />
-            {tbaSection}
-          </View>
-        ) : (
-          <ScrollView contentContainerStyle={styles.fallbackScroll} refreshControl={refreshControl}>
-            {emptyScheduleState}
-            {tbaSection}
-          </ScrollView>
-        )
-      ) : timedSets.length > 0 ? (
-        <GridView
-          visibleStages={visibleStages}
-          timedSets={timedSets}
-          nowIndicator={nowIndicator}
-          conflictIds={conflictIds}
-          getMyPick={getMyPick}
-          getMyNote={getMyNote}
-          getOtherPicks={getOtherPicks}
-          getStageColor={resolveStageColor}
-          getStageName={getStageName}
-          onPickChange={handlePickChange}
-          onSetPress={handleSetPress}
-          refreshControl={refreshControl}
-          ListFooterComponent={tbaSection}
-        />
+      ) : timeBounds && visibleStages.length > 0 ? (
+        <View style={styles.viewBody}>
+          <TimelineView
+            visibleStages={visibleStages}
+            timedSets={timedSets}
+            timeBounds={timeBounds}
+            selectedDay={selectedDay}
+            conflictIds={conflictIds}
+            b2bSeparator={currentFestival.b2bSeparator}
+            getMyPick={getMyPick}
+            getStageColor={resolveStageColor}
+            onPickChange={handlePickChange}
+            onSetPress={handleSetPress}
+            days={days}
+            allSets={allSets}
+            picks={currentProfile?.picks ?? null}
+          />
+          {tbaSection}
+        </View>
       ) : (
         <ScrollView contentContainerStyle={styles.fallbackScroll} refreshControl={refreshControl}>
           {emptyScheduleState}
