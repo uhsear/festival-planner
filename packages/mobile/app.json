@@ -120,7 +120,8 @@
           "cameraPermission": "Festie uses the camera to scan a friend's plan QR code so they can join your festival plan offline."
         }
       ],
-      "./plugins/withAndroidUploadSigning"
+      "./plugins/withAndroidUploadSigning",
+      "expo-web-browser"
     ],
     "extra": {
       "router": {},
