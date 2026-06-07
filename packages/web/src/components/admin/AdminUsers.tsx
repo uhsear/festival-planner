@@ -32,7 +32,7 @@ export default function AdminUsers() {
       const result = await api.get<User[]>('/admin/users');
       setUsers(Array.isArray(result) ? result : []);
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to load users', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't load users. Try again.", 'error');
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ export default function AdminUsers() {
       }
       toast(`User ${!currentlyAdmin ? 'granted' : 'revoked'} admin access`, 'success');
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to update user', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't update user. Try again.", 'error');
     }
   };
 
@@ -69,7 +69,7 @@ export default function AdminUsers() {
       setUsers(users.filter((u) => u.id !== userId));
       toast(`Deleted ${name}`, 'success');
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to delete user', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't delete user. Try again.", 'error');
     }
   };
 
@@ -80,7 +80,7 @@ export default function AdminUsers() {
   );
 
   if (loading) {
-    return <div className="text-center py-12 text-text-muted">Loading users...</div>;
+    return <div className="text-center py-12 text-text-muted">Loading users…</div>;
   }
 
   return (
@@ -91,7 +91,7 @@ export default function AdminUsers() {
 
       <input
         type="text"
-        placeholder="Search by username or email..."
+        placeholder="Search by username or email…"
         aria-label="Search users by username or email"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}

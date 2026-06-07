@@ -76,7 +76,7 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
     },
     onError: (e, _vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(['ratings', festivalId], ctx.prev);
-      toast(e instanceof Error ? e.message : 'Failed to rate', 'error');
+      toast(e instanceof Error ? e.message : "Couldn't save your rating. Try again.", 'error');
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ratings', festivalId] }),
   });
@@ -105,7 +105,7 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
     },
     onError: (e, _vars, ctx) => {
       if (ctx?.prev) qc.setQueryData(['ratings', festivalId], ctx.prev);
-      toast(e instanceof Error ? e.message : 'Failed to remove', 'error');
+      toast(e instanceof Error ? e.message : "Couldn't remove your rating. Try again.", 'error');
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ratings', festivalId] }),
   });

@@ -160,7 +160,7 @@ function CrewPlanInner() {
       <BackLink />
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h1 className="text-xl font-bold text-text-primary">{activeCrew.name}’s plan</h1>
+        <h1 className="text-xl font-display font-bold text-text-primary">{activeCrew.name}’s plan</h1>
         <FreshnessChip surface="crew" />
       </div>
 

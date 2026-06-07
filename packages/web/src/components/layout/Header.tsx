@@ -15,20 +15,19 @@ export default function Header() {
   // their own empty state if the user hasn't joined the festival yet.
   // Gating on user (instead of currentProfile) avoids races where the tabs
   // disappear on reload before profiles have finished loading.
+  // Schedule/Timeline/Grid collapse into one "Schedule" tab; the in-page
+  // ScheduleViewSwitcher (rendered by AppShell) swaps between the three views.
   const desktopTabs = useMemo(() => {
-    const base = [
-      { label: 'Schedule', href: '/cards' },
-      { label: 'Timeline', href: '/timeline' },
-      { label: 'Grid', href: '/grid' },
-    ];
+    const base = [{ label: 'Schedule', href: '/cards' }];
     if (user) {
       base.push({ label: 'My Picks', href: '/picks' }, { label: 'Crew', href: '/crew' });
     }
     return base;
   }, [user]);
 
+  const scheduleHrefs = ['/', '/cards', '/timeline', '/grid'];
   const isTabActive = (href: string) => {
-    if (href === '/cards') return location.pathname === '/' || location.pathname === '/cards';
+    if (href === '/cards') return scheduleHrefs.includes(location.pathname);
     return location.pathname === href;
   };
 
@@ -180,7 +179,7 @@ export default function Header() {
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     'px-4 py-2 bg-transparent text-text-secondary text-[13px] font-semibold rounded-sm',
-                    'transition-all duration-[250ms] ease-standard tracking-[0.3px]',
+                    'transition-colors duration-[250ms] ease-standard tracking-[0.3px]',
                     'hover:text-text-primary',
                     'border border-transparent',
                     active && 'bg-aqua-a12 text-accent-aqua !border-aqua-a2 !rounded-lg',

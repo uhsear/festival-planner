@@ -25,7 +25,15 @@ export default function ScreenHeader({ title, subtitle, right, icon }: ScreenHea
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.row, { paddingTop: insets.top + t.spacing[4] }]}>
-      {icon ? <Ionicons name={icon} size={24} color={t.colors.accent.aqua} /> : null}
+      {icon ? (
+        <Ionicons
+          name={icon}
+          size={24}
+          color={t.colors.accent.aqua}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
+      ) : null}
       <View style={styles.titleBlock}>
         <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
           {title}

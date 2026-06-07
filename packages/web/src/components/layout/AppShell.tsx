@@ -8,6 +8,7 @@ import Header from './Header';
 import BottomNav from './BottomNav';
 import Button from '../ui/Button';
 import SubHeader from './SubHeader';
+import ScheduleViewSwitcher, { isSchedulePath } from './ScheduleViewSwitcher';
 import PageTransition from './PageTransition';
 import DetailPanel from '../features/DetailPanel';
 import OfflineBanner from '../features/OfflineBanner';
@@ -135,6 +136,7 @@ export default function AppShell() {
 
         <div className="main-content flex flex-1 overflow-hidden flex-col">
           {!hideSubHeader && <SubHeader dayOnly={dayOnlySubHeader} festivalOnly={festivalOnlySubHeader} />}
+          {isSchedulePath(location.pathname) && <ScheduleViewSwitcher />}
 
           <main
             id="main-content"
@@ -165,7 +167,7 @@ export default function AppShell() {
           >
             <span>Browsing as guest.</span>
             <Button variant="primary" size="sm" type="button" onClick={() => navigate({ to: '/login' })}>
-              Login / Sign Up
+              Sign in / Sign up
             </Button>
           </aside>
         )}

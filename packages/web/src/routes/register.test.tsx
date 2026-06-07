@@ -7,7 +7,9 @@ const mockNavigate = vi.fn().mockResolvedValue(undefined);
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
   Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode; [k: string]: unknown }) => (
-    <a href={to} {...rest}>{children}</a>
+    <a href={to} {...rest}>
+      {children}
+    </a>
   ),
 }));
 
@@ -59,8 +61,8 @@ describe('RegisterPage', () => {
   it('renders Login and Create Account tabs', () => {
     render(<RegisterPage />);
     expect(screen.getByRole('tab', { name: 'Create Account' })).toBeInTheDocument();
-    // Login is a Link, rendered as an <a>
-    expect(screen.getByText('Login')).toBeInTheDocument();
+    // Sign in is a Link, rendered as an <a>
+    expect(screen.getByText('Sign in')).toBeInTheDocument();
   });
 
   it('renders all form fields', () => {
@@ -141,8 +143,8 @@ describe('RegisterPage', () => {
       error: null,
     });
     render(<RegisterPage />);
-    expect(screen.getByText('Creating account...')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Creating account...' })).toBeDisabled();
+    expect(screen.getByText('Creating account…')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Creating account…' })).toBeDisabled();
   });
 
   it('calls register on valid submit', async () => {

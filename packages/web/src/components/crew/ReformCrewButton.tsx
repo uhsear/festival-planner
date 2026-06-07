@@ -55,7 +55,7 @@ export default function ReformCrewButton({ crewId, sourceFestivalId, crewName }:
       setOpen(false);
       setTarget('');
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Failed to reform crew', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't reform crew. Try again.", 'error');
     } finally {
       setBusy(false);
     }

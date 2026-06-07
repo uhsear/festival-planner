@@ -36,7 +36,13 @@ export default function EmptyState({ icon, title, message, action, headerless = 
   const insetStyle = headerless ? { paddingTop: insets.top, paddingBottom: insets.bottom } : null;
   return (
     <View style={[styles.container, insetStyle]}>
-      <Ionicons name={icon} size={48} color={t.colors.text.muted} />
+      <Ionicons
+        name={icon}
+        size={48}
+        color={t.colors.text.muted}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      />
       <Text style={styles.title}>{title}</Text>
       {message ? <Text style={styles.message}>{message}</Text> : null}
       {action ? (

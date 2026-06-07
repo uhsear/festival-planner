@@ -116,7 +116,7 @@ export default function LoginScreen() {
           {isLoading ? (
             <ActivityIndicator color={colors.text.onAccent} />
           ) : (
-            <Text style={styles.buttonText}>Sign In</Text>
+            <Text style={styles.buttonText}>Sign in</Text>
           )}
         </TouchableOpacity>
 
@@ -142,9 +142,9 @@ export default function LoginScreen() {
           style={styles.guestButton}
           onPress={() => router.replace('/(tabs)')}
           accessibilityRole="button"
-          accessibilityLabel="Browse without signing in"
+          accessibilityLabel="Browse without an account"
         >
-          <Text style={styles.linkText}>Browse without signing in</Text>
+          <Text style={styles.linkText}>Browse without an account</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

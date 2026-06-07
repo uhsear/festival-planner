@@ -81,7 +81,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
       toast('Poll created', 'success');
       reset();
     },
-    onError: (e) => toast(e instanceof Error ? e.message : 'Failed to create', 'error'),
+    onError: (e) => toast(e instanceof Error ? e.message : "Couldn't create poll. Try again.", 'error'),
   });
 
   const vote = useMutation({
@@ -90,7 +90,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['polls', crewId] }),
     onError: (e) => {
       warning();
-      toast(e instanceof Error ? e.message : 'Failed to vote', 'error');
+      toast(e instanceof Error ? e.message : "Couldn't submit your vote. Try again.", 'error');
     },
   });
 
@@ -113,7 +113,7 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
       qc.invalidateQueries({ queryKey: ['polls', crewId] });
       toast('Poll closed', 'success');
     },
-    onError: () => toast("Couldn't close poll", 'error'),
+    onError: () => toast("Couldn't close poll. Try again.", 'error'),
   });
 
   function reset() {

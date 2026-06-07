@@ -51,7 +51,7 @@ env:
 ***REDACTED-CREDENTIAL***
 ***REDACTED-CREDENTIAL***
       - hideKeyboard
-      - tapOn: "Sign In"
+      - tapOn: "Sign in"
       - tapOn:
           text: "Not Now"
           optional: true

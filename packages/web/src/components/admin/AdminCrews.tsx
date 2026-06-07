@@ -43,7 +43,7 @@ export default function AdminCrews() {
       const result = await api.get<Crew[]>('/admin/crews');
       setCrews(Array.isArray(result) ? result : []);
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to load crews', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't load crews. Try again.", 'error');
     } finally {
       setLoading(false);
     }
@@ -57,7 +57,7 @@ export default function AdminCrews() {
       const result = await api.get<CrewMember[]>(`/admin/crews/${crewId}/members`);
       setMembersByCrew((prev) => ({ ...prev, [crewId]: Array.isArray(result) ? result : [] }));
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to load members', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't load members. Try again.", 'error');
     } finally {
       setMembersLoading((prev) => ({ ...prev, [crewId]: false }));
     }
@@ -89,7 +89,7 @@ export default function AdminCrews() {
       setCrews(crews.filter((c) => c.id !== crewId));
       toast(`Deleted ${name}`, 'success');
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to delete crew', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't delete crew. Try again.", 'error');
     }
   };
 
@@ -100,7 +100,7 @@ export default function AdminCrews() {
   );
 
   if (loading) {
-    return <div className="text-center py-12 text-text-muted">Loading crews...</div>;
+    return <div className="text-center py-12 text-text-muted">Loading crews…</div>;
   }
 
   return (
@@ -112,7 +112,7 @@ export default function AdminCrews() {
       <input
         type="text"
         aria-label="Search crews by name or creator"
-        placeholder="Search by crew name or creator..."
+        placeholder="Search by crew name or creator…"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         className="w-full px-4 py-2 rounded-lg bg-bg-card border border-glass-border text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"

@@ -99,7 +99,7 @@ export default function PickBulkActions() {
         toast(`Added ${setIds.length} set${setIds.length === 1 ? '' : 's'} from ${label} to ${pLabel}`, 'success');
       } catch {
         // bulkSavePicks already rolled back + set the store error; surface a toast.
-        toast('Could not add picks', 'error');
+        toast("Couldn't add picks. Try again.", 'error');
       } finally {
         setBusyKey(null);
       }

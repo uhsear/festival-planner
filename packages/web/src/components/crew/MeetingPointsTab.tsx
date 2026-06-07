@@ -129,7 +129,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
       toast('Meeting point added', 'success');
       reset();
     },
-    onError: (e) => toast(e instanceof Error ? e.message : 'Failed to add', 'error'),
+    onError: (e) => toast(e instanceof Error ? e.message : "Couldn't add meeting point. Try again.", 'error'),
   });
 
   const updatePoint = useMutation({
@@ -140,7 +140,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
       toast('Meeting point updated', 'success');
       reset();
     },
-    onError: (e) => toast(e instanceof Error ? e.message : 'Failed to update', 'error'),
+    onError: (e) => toast(e instanceof Error ? e.message : "Couldn't update meeting point. Try again.", 'error'),
   });
 
   const removePoint = useMutation({
@@ -149,7 +149,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
       qc.invalidateQueries({ queryKey: ['meeting-points', crewId] });
       toast('Removed', 'success');
     },
-    onError: () => toast('Failed to remove', 'error'),
+    onError: () => toast("Couldn't remove meeting point. Try again.", 'error'),
   });
 
   function reset() {

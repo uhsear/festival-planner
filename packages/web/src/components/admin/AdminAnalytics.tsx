@@ -1,13 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@festie/shared/services/api';
 import { useToast } from '../../lib/toastContext';
-import {
-  type AnalyticsData,
-  normalize,
-  ANALYTICS_DEFAULTS,
-  formatDate,
-  timeAgo,
-} from './analyticsTypes';
+import { type AnalyticsData, normalize, ANALYTICS_DEFAULTS, formatDate, timeAgo } from './analyticsTypes';
 import PickDistribution from './PickDistribution';
 import EngagementMetrics from './EngagementMetrics';
 import TopSets from './TopSets';
@@ -31,7 +25,7 @@ export default function AdminAnalytics() {
       const raw = await api.get<unknown>('/admin/analytics');
       setData(normalize(raw));
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to load analytics', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't load analytics. Try again.", 'error');
       setData(ANALYTICS_DEFAULTS);
     } finally {
       setLoading(false);
@@ -39,7 +33,7 @@ export default function AdminAnalytics() {
   };
 
   if (loading) {
-    return <div className="text-center py-12 text-text-muted">Loading analytics...</div>;
+    return <div className="text-center py-12 text-text-muted">Loading analytics…</div>;
   }
 
   if (!data) {
@@ -82,7 +76,12 @@ export default function AdminAnalytics() {
       {data.activeUsers.length > 0 && (
         <div>
           <h2 className="type-heading text-text-primary mb-4">Most Active Users</h2>
-          <div role="region" tabIndex={0} aria-label="Most active users table" className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua">
+          <div
+            role="region"
+            tabIndex={0}
+            aria-label="Most active users table"
+            className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua"
+          >
             <table className="w-full text-sm">
               <caption className="sr-only">Most active users</caption>
               <thead>
@@ -112,7 +111,12 @@ export default function AdminAnalytics() {
       {data.crews.length > 0 && (
         <div>
           <h2 className="type-heading text-text-primary mb-4">Crews</h2>
-          <div role="region" tabIndex={0} aria-label="Crews table" className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua">
+          <div
+            role="region"
+            tabIndex={0}
+            aria-label="Crews table"
+            className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua"
+          >
             <table className="w-full text-sm">
               <caption className="sr-only">Crews overview</caption>
               <thead>

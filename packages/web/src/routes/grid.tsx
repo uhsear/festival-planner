@@ -193,7 +193,7 @@ function GridViewInner() {
               style={{ top: nowPx }}
             >
               <span
-                className="text-[0.55rem] font-bold text-accent-coral tracking-[0.08em] px-1 whitespace-nowrap shrink-0 tabular-nums"
+                className="text-[length:var(--font-size-10)] font-bold text-accent-coral tracking-[0.08em] px-1 whitespace-nowrap shrink-0 tabular-nums"
                 aria-hidden="true"
               >
                 &#9654; NOW

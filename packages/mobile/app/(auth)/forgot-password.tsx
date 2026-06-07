@@ -109,7 +109,7 @@ export default function ForgotPasswordScreen() {
               {isLoading ? (
                 <ActivityIndicator color={colors.text.onAccent} />
               ) : (
-                <Text style={styles.buttonText}>Send Reset Link</Text>
+                <Text style={styles.buttonText}>Send reset link</Text>
               )}
             </TouchableOpacity>
           </>

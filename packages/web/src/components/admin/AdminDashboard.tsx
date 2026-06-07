@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@festie/shared/services/api';
+import { Users, Tent, ClipboardList, Music } from 'lucide-react';
 import { useToast } from '../../lib/toastContext';
 import { cn } from '../../lib/utils';
 
@@ -45,7 +46,7 @@ export default function AdminDashboard() {
       const result = await api.get<DashboardData>('/admin/dashboard');
       setData(result);
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to load dashboard', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't load the dashboard. Try again.", 'error');
       setData(null);
     } finally {
       setLoading(false);
@@ -102,16 +103,15 @@ export default function AdminDashboard() {
         <h2 className="type-heading text-text-primary mb-4">Statistics</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'Users', value: stats.users, icon: '👥', color: 'text-accent-aqua' },
-            { label: 'Festivals', value: stats.festivals, icon: '🎪', color: 'text-accent-coral' },
-            { label: 'Profiles', value: stats.profiles, icon: '📋', color: 'text-accent-amber' },
-            { label: 'Total Picks', value: stats.picks, icon: '🎵', color: 'text-accent-green' },
+            { label: 'Users', value: stats.users, icon: <Users />, color: 'text-accent-aqua' },
+            { label: 'Festivals', value: stats.festivals, icon: <Tent />, color: 'text-accent-coral' },
+            { label: 'Profiles', value: stats.profiles, icon: <ClipboardList />, color: 'text-accent-amber' },
+            { label: 'Total Picks', value: stats.picks, icon: <Music />, color: 'text-accent-green' },
           ].map((card) => (
-            <div
-              key={card.label}
-              className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4"
-            >
-              <div className={cn('text-2xl mb-2', card.color)}>{card.icon}</div>
+            <div key={card.label} className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4">
+              <div className={cn('mb-2 [&_svg]:w-6 [&_svg]:h-6', card.color)} aria-hidden="true">
+                {card.icon}
+              </div>
               <div className="text-3xl font-bold text-text-primary">{card.value}</div>
               <div className="text-xs text-text-muted mt-1">{card.label}</div>
             </div>
@@ -174,7 +174,10 @@ export default function AdminDashboard() {
           <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-hidden">
             <div className="divide-y divide-glass-border">
               {recentActivity.slice(0, 15).map((activity, idx) => (
-                <div key={idx} className="px-6 py-4 flex items-center justify-between hover:bg-bg-primary/20 transition-colors">
+                <div
+                  key={idx}
+                  className="px-6 py-4 flex items-center justify-between hover:bg-bg-primary/20 transition-colors"
+                >
                   <div className="flex items-center gap-4">
                     <div className="w-2 h-2 rounded-full bg-accent-aqua" />
                     <div>
@@ -189,9 +192,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-xs text-text-muted whitespace-nowrap">
-                    {formatTimeAgo(activity.createdAt)}
-                  </div>
+                  <div className="text-xs text-text-muted whitespace-nowrap">{formatTimeAgo(activity.createdAt)}</div>
                 </div>
               ))}
             </div>

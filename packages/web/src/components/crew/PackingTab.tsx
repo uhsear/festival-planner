@@ -55,7 +55,7 @@ export default function PackingTab({ crewId, currentUserId, isOwner }: Props) {
       toast('Item added', 'success');
       reset();
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Failed to add', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't add item. Try again.", 'error');
     } finally {
       setCreateBusy(false);
     }
@@ -72,7 +72,7 @@ export default function PackingTab({ crewId, currentUserId, isOwner }: Props) {
       });
     } catch (err) {
       warning();
-      toast(err instanceof Error ? err.message : 'Failed to update', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't update item. Try again.", 'error');
     } finally {
       setBusyId(null);
     }
@@ -83,7 +83,7 @@ export default function PackingTab({ crewId, currentUserId, isOwner }: Props) {
     try {
       await deletePackingItem(crewId, itemId);
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Failed to remove', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't remove item. Try again.", 'error');
     } finally {
       setBusyId(null);
     }

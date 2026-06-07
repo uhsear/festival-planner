@@ -21,7 +21,7 @@ import { useToast } from '../lib/toastContext';
 import PromptDialog from '../components/ui/PromptDialog';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
-import { Users, Columns3, Trash2, LogOut, CalendarClock } from 'lucide-react';
+import { Users, Columns3, Trash2, LogOut, CalendarClock, ChevronRight } from 'lucide-react';
 import type { Crew, CrewMember } from '@festie/shared/types';
 import type { TabKey } from '../components/crew/CrewTabBar';
 
@@ -109,7 +109,7 @@ function CrewViewInner() {
 
   const handleSelectCrew = (crewId: string) => {
     selectCrew(crewId).catch((e: unknown) => {
-      toast(e instanceof Error ? e.message : 'Failed to select crew', 'error');
+      toast(e instanceof Error ? e.message : "Couldn't select crew. Try again.", 'error');
     });
   };
   const handleCreateCrew = () => setCreateOpen(true);
@@ -119,7 +119,7 @@ function CrewViewInner() {
       await createCrew({ name, festivalId: currentFestival?.id });
       setCreateOpen(false);
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Failed to create crew', 'error');
+      toast(e instanceof Error ? e.message : "Couldn't create crew. Try again.", 'error');
     } finally {
       setCreateBusy(false);
     }
@@ -132,7 +132,7 @@ function CrewViewInner() {
       await joinByCode({ inviteCode });
       setJoinOpen(false);
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Failed to join', 'error');
+      toast(e instanceof Error ? e.message : "Couldn't join crew. Try again.", 'error');
     } finally {
       setJoinBusy(false);
     }
@@ -151,7 +151,14 @@ function CrewViewInner() {
       }
       setConfirmOpen(false);
     } catch (e) {
-      toast(e instanceof Error ? e.message : isOwner ? 'Failed to delete crew' : 'Failed to leave crew', 'error');
+      toast(
+        e instanceof Error
+          ? e.message
+          : isOwner
+            ? "Couldn't delete crew. Try again."
+            : "Couldn't leave crew. Try again.",
+        'error',
+      );
     } finally {
       setConfirmBusy(false);
     }
@@ -164,7 +171,7 @@ function CrewViewInner() {
     transferOwnership(activeCrew.id, member.userId)
       .then(() => selectCrew(activeCrew.id))
       .catch((e: unknown) => {
-        toast(e instanceof Error ? e.message : 'Failed to transfer ownership', 'error');
+        toast(e instanceof Error ? e.message : "Couldn't transfer ownership. Try again.", 'error');
       });
   };
 
@@ -176,7 +183,7 @@ function CrewViewInner() {
     kickMember(activeCrew.id, member.id)
       .then(() => selectCrew(activeCrew.id))
       .catch((e: unknown) => {
-        toast(e instanceof Error ? e.message : 'Failed to remove member', 'error');
+        toast(e instanceof Error ? e.message : "Couldn't remove member. Try again.", 'error');
       });
   };
 
@@ -246,21 +253,21 @@ function CrewViewInner() {
           <Link
             to="/crew-plan"
             aria-label="View your crew's plan"
-            className="flex items-center gap-2 py-2 px-4 min-h-11 rounded-full bg-accent-aqua text-[var(--text-on-light-accent)] hover:brightness-110 transition-all duration-200"
+            className="flex items-center gap-2 py-2 px-4 min-h-11 rounded-full bg-accent-aqua text-[var(--text-on-light-accent)] hover:bg-[var(--color-accent-aqua-hover)] transition-colors duration-[var(--duration-med)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
           >
             <CalendarClock className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
             <span className="text-sm font-semibold">Crew plan</span>
-            <span className="text-sm ml-auto">{'→'}</span>
+            <ChevronRight className="w-4 h-4 ml-auto flex-shrink-0" aria-hidden="true" />
           </Link>
 
           <Link
             to="/compare"
             aria-label="Compare crew schedules"
-            className="flex items-center gap-2 py-2 px-4 min-h-11 rounded-full bg-accent-aqua text-[var(--text-on-light-accent)] hover:brightness-110 transition-all duration-200"
+            className="flex items-center gap-2 py-2 px-4 min-h-11 rounded-full bg-accent-aqua text-[var(--text-on-light-accent)] hover:bg-[var(--color-accent-aqua-hover)] transition-colors duration-[var(--duration-med)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
           >
             <Columns3 className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
             <span className="text-sm font-semibold">Compare schedules</span>
-            <span className="text-sm ml-auto">{'→'}</span>
+            <ChevronRight className="w-4 h-4 ml-auto flex-shrink-0" aria-hidden="true" />
           </Link>
 
           <CrewTabBar

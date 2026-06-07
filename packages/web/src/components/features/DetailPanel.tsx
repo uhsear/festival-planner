@@ -356,7 +356,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
                   isLoading={joinBusy}
                   onClick={handleJoinFestival}
                 >
-                  {joinBusy ? 'Joining...' : 'Join Festival'}
+                  {joinBusy ? 'Joining…' : 'Join Festival'}
                 </Button>
               </div>
             )}

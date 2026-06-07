@@ -9,6 +9,7 @@ import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useOngoingNotification } from '../hooks/useOngoingNotification';
 import { useNowNext } from '../hooks/useNowNext';
 import EmptyState from '../components/EmptyState';
+import SectionLabel from '../components/SectionLabel';
 import LiveDot from '../components/LiveDot';
 
 // Countdown flips to coral when a set is <= this many minutes away.
@@ -105,7 +106,7 @@ export default function FestivalModeScreen() {
           {/* UP NEXT */}
           <View style={styles.sectionHead}>
             <Ionicons name="play-skip-forward" size={14} color={t.colors.text.secondary} />
-            <Text style={styles.sectionLabel}>UP NEXT</Text>
+            <SectionLabel style={styles.sectionHeadLabel}>Up next</SectionLabel>
           </View>
           {upcoming.length > 0 ? (
             upcoming.map(({ set: s, start }) => {
@@ -175,11 +176,9 @@ const useStyles = makeStyles((t) => ({
     marginTop: t.spacing[3],
     marginBottom: t.spacing[1],
   },
-  sectionLabel: {
-    ...typeStyle('caption'),
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    color: t.colors.text.secondary,
+  // Clears SectionLabel's default bottom margin so it sits centered in the row.
+  sectionHeadLabel: {
+    marginBottom: 0,
   },
   card: {
     paddingVertical: t.spacing[3],

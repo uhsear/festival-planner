@@ -36,30 +36,6 @@ const ScheduleIcon = () => (
   </svg>
 );
 
-/** Timeline icon — matches legacy createSvgIcon('timeline') */
-const TimelineIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-    <path d="M4 6h16" />
-    <path d="M4 12h10" />
-    <path d="M4 18h14" />
-  </svg>
-);
-
-/** Grid icon — matches legacy createSvgIcon('grid') */
-const GridIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-    <rect x="3" y="3" width="5" height="5" />
-    <rect x="10" y="3" width="5" height="5" />
-    <rect x="17" y="3" width="5" height="5" />
-    <rect x="3" y="10" width="5" height="5" />
-    <rect x="10" y="10" width="5" height="5" />
-    <rect x="17" y="10" width="5" height="5" />
-    <rect x="3" y="17" width="5" height="5" />
-    <rect x="10" y="17" width="5" height="5" />
-    <rect x="17" y="17" width="5" height="5" />
-  </svg>
-);
-
 /** Picks icon — star */
 const PicksIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -95,11 +71,13 @@ const WrapIcon = () => (
   </svg>
 );
 
-const baseTabs: NavTab[] = [
-  { label: 'Schedule', href: '/cards', icon: <ScheduleIcon /> },
-  { label: 'Timeline', href: '/timeline', icon: <TimelineIcon /> },
-  { label: 'Grid', href: '/grid', icon: <GridIcon /> },
-];
+// Schedule/Timeline/Grid were three separate tabs; they now collapse into one
+// "Schedule" destination with an in-page ScheduleViewSwitcher (parity with the
+// mobile SegmentedControl). This drops the nav from up-to-7 to ~5 tabs.
+const baseTabs: NavTab[] = [{ label: 'Schedule', href: '/cards', icon: <ScheduleIcon /> }];
+
+// The single Schedule tab reads as active across all three schedule views.
+const SCHEDULE_HREFS = ['/', '/cards', '/timeline', '/grid'];
 
 const authTabs: NavTab[] = [
   { label: 'My Picks', href: '/picks', icon: <PicksIcon /> },
@@ -126,7 +104,7 @@ export default function BottomNav() {
   }, [user, currentFestival, days]);
 
   const isActive = (href: string) => {
-    if (href === '/cards') return location.pathname === '/' || location.pathname === '/cards';
+    if (href === '/cards') return SCHEDULE_HREFS.includes(location.pathname);
     return location.pathname === href;
   };
 

@@ -267,7 +267,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
             <Input
               variant="search"
               className="min-h-[44px] w-[clamp(80px,25vw,140px)] text-[13px] sm:w-[clamp(100px,30vw,180px)]"
-              placeholder="Search artist..."
+              placeholder="Search artist…"
               value={searchQuery}
               aria-label="Search festival artists"
               onChange={(e) => setSearchQuery(e.target.value)}

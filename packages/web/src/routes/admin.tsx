@@ -3,6 +3,7 @@ import { useAuthStore } from '@festie/shared';
 import { useNavigate } from '@tanstack/react-router';
 import AdminLayout from '../components/admin/AdminLayout';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
+import { LayoutDashboard, Tent, Users, UsersRound, ClipboardList, TrendingUp } from 'lucide-react';
 
 const AdminDashboard = lazy(() => import('../components/admin/AdminDashboard'));
 const AdminFestivals = lazy(() => import('../components/admin/AdminFestivals'));
@@ -42,13 +43,13 @@ function AdminPanelInner() {
   }
 
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'festivals', label: 'Festivals', icon: '🎪' },
-    { id: 'users', label: 'Users', icon: '👥' },
-    { id: 'crews', label: 'Crews', icon: '👫' },
-    { id: 'audit', label: 'Audit Log', icon: '📋' },
-    { id: 'analytics', label: 'Analytics', icon: '📈' },
-  ] as Array<{ id: AdminTab; label: string; icon: string }>;
+    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard /> },
+    { id: 'festivals', label: 'Festivals', icon: <Tent /> },
+    { id: 'users', label: 'Users', icon: <Users /> },
+    { id: 'crews', label: 'Crews', icon: <UsersRound /> },
+    { id: 'audit', label: 'Audit Log', icon: <ClipboardList /> },
+    { id: 'analytics', label: 'Analytics', icon: <TrendingUp /> },
+  ] as Array<{ id: AdminTab; label: string; icon: React.ReactNode }>;
 
   const renderContent = () => {
     switch (activeTab) {
@@ -77,9 +78,7 @@ function AdminPanelInner() {
       onTabChange={(tab) => setActiveTab(tab as AdminTab)}
       tabs={tabs}
     >
-      <Suspense fallback={<div className="flex-center p-8 text-text-muted">Loading…</div>}>
-        {renderContent()}
-      </Suspense>
+      <Suspense fallback={<div className="flex-center p-8 text-text-muted">Loading…</div>}>{renderContent()}</Suspense>
     </AdminLayout>
   );
 }

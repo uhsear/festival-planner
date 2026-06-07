@@ -7,7 +7,9 @@ const mockNavigate = vi.fn().mockResolvedValue(undefined);
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
   Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode; [k: string]: unknown }) => (
-    <a href={to} {...rest}>{children}</a>
+    <a href={to} {...rest}>
+      {children}
+    </a>
   ),
 }));
 
@@ -56,9 +58,9 @@ describe('LoginPage', () => {
     expect(screen.getByText('Plan your sets. Sync with your crew.')).toBeInTheDocument();
   });
 
-  it('renders Login and Create Account tabs', () => {
+  it('renders Sign in and Create Account tabs', () => {
     render(<LoginPage />);
-    expect(screen.getByRole('tab', { name: 'Login' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Sign in' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Create Account' })).toBeInTheDocument();
   });
 
@@ -68,9 +70,9 @@ describe('LoginPage', () => {
     expect(screen.getByPlaceholderText('Password')).toBeInTheDocument();
   });
 
-  it('renders the login button', () => {
+  it('renders the sign in button', () => {
     render(<LoginPage />);
-    expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
   });
 
   it('renders Forgot password link', () => {
@@ -81,7 +83,7 @@ describe('LoginPage', () => {
   it('shows "Username is required" when submitting with empty fields', async () => {
     const user = userEvent.setup();
     render(<LoginPage />);
-    await user.click(screen.getByRole('button', { name: 'Login' }));
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Username is required');
   });
 
@@ -89,7 +91,7 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     render(<LoginPage />);
     await user.type(screen.getByPlaceholderText('Username'), 'testuser');
-    await user.click(screen.getByRole('button', { name: 'Login' }));
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Password is required');
   });
 
@@ -106,8 +108,8 @@ describe('LoginPage', () => {
       error: null,
     });
     render(<LoginPage />);
-    expect(screen.getByText('Logging in...')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Logging in...' })).toBeDisabled();
+    expect(screen.getByText('Signing in…')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Signing in…' })).toBeDisabled();
   });
 
   it('calls login with username and password on valid submit', async () => {
@@ -127,7 +129,7 @@ describe('LoginPage', () => {
     render(<LoginPage />);
     await user.type(screen.getByPlaceholderText('Username'), 'alice');
     await user.type(screen.getByPlaceholderText('Password'), 'secret123');
-    await user.click(screen.getByRole('button', { name: 'Login' }));
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(mockLogin).toHaveBeenCalledWith({ username: 'alice', password: 'secret123' });
   });
 });

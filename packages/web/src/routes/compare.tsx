@@ -65,7 +65,7 @@ function CompareViewInner() {
   return (
     <div className="compare-page pb-24">
       <header className="pb-2 max-w-6xl mx-auto">
-        <h1 className="text-xl font-semibold text-text-primary">Compare schedules</h1>
+        <h1 className="text-xl font-display font-semibold text-text-primary">Compare schedules</h1>
         <p className="text-sm text-text-secondary mt-1">
           {activeCrew.name} {'·'} {columns.length} {columns.length === 1 ? 'member' : 'members'}
         </p>

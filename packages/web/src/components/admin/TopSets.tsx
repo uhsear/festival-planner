@@ -26,8 +26,8 @@ export default function TopSets({ sets, maxPicks }: TopSetsProps) {
               <div className="text-sm text-text-primary mb-1 truncate">{s.artist}</div>
               <div className="h-2 rounded-full bg-bg-primary/30 overflow-hidden">
                 <div
-                  style={{ width: `${(s.pickCount / max) * 100}%` }}
-                  className="h-full bg-gradient-to-r from-accent-aqua to-accent-coral transition-all"
+                  style={{ transform: `scaleX(${max > 0 ? s.pickCount / max : 0})` }}
+                  className="h-full w-full origin-left bg-gradient-to-r from-accent-aqua to-accent-coral transition-transform duration-[var(--duration-med)] ease-[var(--ease-out)] motion-reduce:transition-none"
                 />
               </div>
             </div>

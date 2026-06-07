@@ -26,7 +26,8 @@ import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import ScreenHeader from '../../components/ScreenHeader';
 import CrewTabBar, { type CrewTabKey } from '../../components/CrewTabBar';
 import EmptyState from '../../components/EmptyState';
-import LoadingState from '../../components/LoadingState';
+import SectionLabel from '../../components/SectionLabel';
+import { Skeleton } from '../../components/Skeleton';
 import CrewHomeBase from '../../components/CrewHomeBase';
 import CrewPhotoLink from '../../components/CrewPhotoLink';
 import CrewPolls from '../../components/CrewPolls';
@@ -271,7 +272,7 @@ export default function CrewScreen() {
             `share the invite code with the other ${invited} to bring them across.`,
         );
       } catch (err) {
-        Alert.alert('Reform failed', mapErrorToUserMessage(err, 'Failed to reform crew'));
+        Alert.alert("Couldn't reform crew", mapErrorToUserMessage(err, 'Try again.'));
       } finally {
         setReformBusy(false);
       }
@@ -303,7 +304,7 @@ export default function CrewScreen() {
       if (festivals.length === 0) {
         loadFestivals()
           .then(open)
-          .catch(() => Alert.alert('Reform crew', 'Could not load festivals. Try again.'));
+          .catch(() => Alert.alert("Couldn't load festivals", 'Try again.'));
       } else {
         open();
       }
@@ -419,12 +420,32 @@ export default function CrewScreen() {
     );
   }
 
-  // Initial load — no crews fetched yet.
+  // Initial load — no crews fetched yet. Show a skeleton that matches the crew
+  // chrome + member-row geometry instead of a bare spinner, so the layout
+  // doesn't jump when data lands. (Cached crews render immediately and skip
+  // this branch entirely — this is the cold-start case only.)
   if (crewLoading && crews.length === 0 && !activeCrew) {
     return (
       <View style={styles.screen}>
         <ScreenHeader title="Crew" icon="people" />
-        <LoadingState label="Loading your crews…" />
+        <View
+          style={[styles.crewChrome, tabletInset]}
+          accessibilityRole="progressbar"
+          accessibilityLabel="Loading your crews"
+        >
+          <Skeleton height={44} radius={t.radii.default} />
+          <View style={styles.skeletonList}>
+            {[0, 1, 2, 3].map((i) => (
+              <View key={i} style={styles.skeletonRow}>
+                <Skeleton width={40} height={40} radius={20} />
+                <View style={styles.skeletonRowBody}>
+                  <Skeleton width="55%" height={14} radius={t.radii.xs} />
+                  <Skeleton width="32%" height={10} radius={t.radii.xs} />
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
       </View>
     );
   }
@@ -657,7 +678,10 @@ export default function CrewScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`Transfer ownership to ${displayName}`}
                     >
-                      <Ionicons name="star-outline" size={18} color={t.colors.accent.amber} />
+                      {/* swap-horizontal reads as "hand over / transfer"; the
+                          star glyph is reserved for the Owner badge so the two
+                          aren't visually conflated. */}
+                      <Ionicons name="swap-horizontal" size={18} color={t.colors.accent.amber} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleKick(crew.id, item)}
@@ -691,7 +715,7 @@ export default function CrewScreen() {
           }
           ListFooterComponent={
             <View style={styles.tabFooter}>
-              <Text style={styles.sectionLabel}>Manage</Text>
+              <SectionLabel>Manage</SectionLabel>
 
               {/* Reform this crew for another festival (M3). */}
               <TouchableOpacity
@@ -909,7 +933,7 @@ export default function CrewScreen() {
           </TouchableOpacity>
 
           <View style={styles.sectionLabelRow}>
-            <Text style={styles.sectionLabel}>Polls</Text>
+            <SectionLabel>Polls</SectionLabel>
             {openPollCount > 0 ? (
               <View style={styles.countBadge}>
                 <Text style={styles.countBadgeText}>{openPollCount}</Text>
@@ -958,23 +982,23 @@ export default function CrewScreen() {
 
           <CrewPhotoLink crewId={crew.id} photoAlbumUrl={crew.photoAlbumUrl} />
 
-          <Text style={styles.sectionLabel}>Live location & SOS</Text>
+          <SectionLabel>Live location & SOS</SectionLabel>
           <View style={styles.liveSafetyBlock}>
             <CrewLiveLocation crewId={crew.id} />
             <CrewSos crewId={crew.id} currentUserId={user.id} />
           </View>
 
-          <Text style={styles.sectionLabel}>Meeting points</Text>
+          <SectionLabel>Meeting points</SectionLabel>
           <CrewStatus crewId={crew.id} currentUserId={user.id} />
           <CrewMeetingPoints crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
 
-          <Text style={styles.sectionLabel}>Packing</Text>
+          <SectionLabel>Packing</SectionLabel>
           <CrewPacking crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
 
-          <Text style={styles.sectionLabel}>Rides</Text>
+          <SectionLabel>Rides</SectionLabel>
           <CrewRides crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
 
-          <Text style={styles.sectionLabel}>Activity</Text>
+          <SectionLabel>Activity</SectionLabel>
           <CrewActivity crewId={crew.id} />
         </ScrollView>
       ) : (
@@ -985,7 +1009,7 @@ export default function CrewScreen() {
           keyboardDismissMode="on-drag"
         >
           <View style={styles.sectionLabelRow}>
-            <Text style={styles.sectionLabel}>Expenses</Text>
+            <SectionLabel>Expenses</SectionLabel>
             {hasUnsettledBalance ? (
               <View style={styles.unsettledDot} accessibilityLabel="You have an unsettled balance" />
             ) : null}
@@ -1238,11 +1262,26 @@ const useStyles = makeStyles((t) => ({
     paddingBottom: t.spacing[6],
     gap: t.spacing[3],
   },
-  sectionLabel: {
-    ...typeStyle('caption'),
-    color: t.colors.text.muted,
-    marginBottom: t.spacing[1],
-    textTransform: 'uppercase',
+  // Cold-start skeleton (mirrors the member-row geometry so nothing jumps).
+  skeletonList: {
+    gap: t.spacing[3],
+    marginTop: t.spacing[3],
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[3],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[3],
+    minHeight: 56,
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  skeletonRowBody: {
+    flex: 1,
+    gap: t.spacing[2],
   },
   sectionLabelRow: {
     flexDirection: 'row',

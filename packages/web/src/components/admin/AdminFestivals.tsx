@@ -47,7 +47,7 @@ export default function AdminFestivals() {
       const result = await api.get<Festival[]>('/admin/festivals');
       setFestivals(Array.isArray(result) ? result : []);
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to load festivals', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't load festivals. Try again.", 'error');
     } finally {
       setLoading(false);
     }
@@ -73,7 +73,7 @@ export default function AdminFestivals() {
       setTab('list');
       await loadFestivals();
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to save festival', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't save festival. Try again.", 'error');
     }
   };
 
@@ -93,7 +93,7 @@ export default function AdminFestivals() {
       toast(`Deleted ${name}`, 'success');
       await loadFestivals();
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to delete festival', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't delete festival. Try again.", 'error');
     }
   };
 
@@ -113,7 +113,7 @@ export default function AdminFestivals() {
       // Auto-expand all days so artists are visible immediately
       setInitialExpandedDays(new Set(days.map((d) => d.id)));
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to load festival details', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't load festival details. Try again.", 'error');
       setFormData(festival as Partial<FormFestival>);
     }
   };
@@ -132,7 +132,7 @@ export default function AdminFestivals() {
   );
 
   if (loading && tab === 'list') {
-    return <div className="text-center py-12 text-text-muted">Loading festivals...</div>;
+    return <div className="text-center py-12 text-text-muted">Loading festivals…</div>;
   }
 
   return (
@@ -169,7 +169,7 @@ export default function AdminFestivals() {
             <input
               type="text"
               aria-label="Search festivals by name or location"
-              placeholder="Search festivals..."
+              placeholder="Search festivals…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="flex-1 px-4 py-2 rounded-lg bg-bg-card border border-glass-border text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"

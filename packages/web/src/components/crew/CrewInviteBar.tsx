@@ -55,7 +55,7 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
       await regenerateInvite(crewId);
       toast('Invite code regenerated', 'success');
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Failed to regenerate invite', 'error');
+      toast(e instanceof Error ? e.message : "Couldn't regenerate the invite code. Try again.", 'error');
     } finally {
       setRegenBusy(false);
     }

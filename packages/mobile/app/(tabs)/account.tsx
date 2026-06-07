@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@festie/shared/hooks';
 import { useAuthStore } from '@festie/shared/stores';
 import ScreenHeader from '../../components/ScreenHeader';
+import SectionLabel from '../../components/SectionLabel';
 import AccountAvatarSection from '../../components/AccountAvatarSection';
 import AccountDisplayNameSection from '../../components/AccountDisplayNameSection';
 import AccountPaymentHandlesSection from '../../components/AccountPaymentHandlesSection';
@@ -133,22 +134,22 @@ export default function AccountScreen() {
           </View>
         </View>
 
-        {/* Profile photo */}
-        <Text style={styles.sectionLabel}>Profile Photo</Text>
+        {/* Profile photo — the AccountAvatarSection card carries its own
+            "Profile Photo" title, so no separate section heading here. */}
         <AccountAvatarSection />
 
         {/* Profile */}
-        <Text style={styles.sectionLabel}>Profile</Text>
+        <SectionLabel>Profile</SectionLabel>
         <AccountDisplayNameSection />
         <AccountPaymentHandlesSection />
 
         {/* Security */}
-        <Text style={styles.sectionLabel}>Security</Text>
+        <SectionLabel>Security</SectionLabel>
         <AccountEmailVerifySection />
         <AccountPasswordSection />
 
         {/* Preferences */}
-        <Text style={styles.sectionLabel}>Preferences</Text>
+        <SectionLabel>Preferences</SectionLabel>
         <AccountNotificationsSection />
         <AccountNotificationPrefsSection />
         <View style={styles.card}>
@@ -173,7 +174,7 @@ export default function AccountScreen() {
         </View>
 
         {/* Festival */}
-        <Text style={styles.sectionLabel}>Festival</Text>
+        <SectionLabel>Festival</SectionLabel>
         <View style={styles.card}>
           <TouchableOpacity
             style={styles.row}
@@ -196,15 +197,15 @@ export default function AccountScreen() {
         </View>
 
         {/* History — cross-festival year-over-year (M3) */}
-        <Text style={styles.sectionLabel}>History</Text>
+        <SectionLabel>History</SectionLabel>
         <AccountHistorySection />
 
         {/* Data */}
-        <Text style={styles.sectionLabel}>Data</Text>
+        <SectionLabel>Data</SectionLabel>
         <AccountDataSection />
 
         {/* Legal */}
-        <Text style={styles.sectionLabel}>Legal</Text>
+        <SectionLabel>Legal</SectionLabel>
         <View style={styles.card}>
           <TouchableOpacity
             style={styles.row}
@@ -227,7 +228,7 @@ export default function AccountScreen() {
         </View>
 
         {/* Account actions */}
-        <Text style={styles.sectionLabel}>Account</Text>
+        <SectionLabel>Account</SectionLabel>
         <View style={styles.card}>
           <TouchableOpacity
             style={styles.row}
@@ -253,7 +254,7 @@ export default function AccountScreen() {
         </View>
 
         {/* Danger zone */}
-        <Text style={styles.sectionLabel}>Danger Zone</Text>
+        <SectionLabel>Danger Zone</SectionLabel>
         <AccountDangerSection onDeleted={() => router.replace('/(auth)/login')} />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -317,11 +318,6 @@ const useStyles = makeStyles((t) => ({
   email: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
-  },
-  sectionLabel: {
-    ...typeStyle('label'),
-    color: t.colors.text.secondary,
-    paddingHorizontal: t.spacing[1],
   },
   card: {
     backgroundColor: t.colors.bg.secondary,

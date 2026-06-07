@@ -54,7 +54,7 @@ export default function FestivalDayBanner() {
       </span>
       <button
         type="button"
-        className="shrink-0 bg-accent-aqua text-bg-primary border-none rounded-lg py-2 px-3.5 text-[13px] font-semibold cursor-pointer min-h-11 hover:brightness-110 active:scale-[0.97] transition-[transform,background-color,border-color,color,opacity] duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+        className="shrink-0 bg-accent-aqua text-bg-primary border-none rounded-lg py-2 px-3.5 text-[13px] font-semibold cursor-pointer min-h-11 hover:bg-[var(--color-accent-aqua-hover)] active:scale-[0.97] motion-reduce:active:transform-none transition-[transform,background-color,border-color,color,opacity] duration-[var(--duration-fast)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
         onClick={enter}
         data-testid="festival-day-banner-enter"
       >

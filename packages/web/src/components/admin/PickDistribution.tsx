@@ -38,21 +38,21 @@ export default function PickDistribution({ must, want, maybe }: PickDistribution
           {mustPercent > 0 && (
             <div
               style={{ flex: mustPercent }}
-              className="bg-accent-coral transition-all"
+              className="bg-accent-coral transition-[flex-grow] duration-[var(--duration-med)] ease-[var(--ease-out)] motion-reduce:transition-none"
               title={`Must: ${mustPercent.toFixed(1)}%`}
             />
           )}
           {wantPercent > 0 && (
             <div
               style={{ flex: wantPercent }}
-              className="bg-accent-aqua transition-all"
+              className="bg-accent-aqua transition-[flex-grow] duration-[var(--duration-med)] ease-[var(--ease-out)] motion-reduce:transition-none"
               title={`Want: ${wantPercent.toFixed(1)}%`}
             />
           )}
           {maybePercent > 0 && (
             <div
               style={{ flex: maybePercent }}
-              className="bg-accent-amber transition-all"
+              className="bg-accent-amber transition-[flex-grow] duration-[var(--duration-med)] ease-[var(--ease-out)] motion-reduce:transition-none"
               title={`Maybe: ${maybePercent.toFixed(1)}%`}
             />
           )}
