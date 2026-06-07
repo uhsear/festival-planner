@@ -1,7 +1,13 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
-/** Schedule view modes surfaced by the in-Timeline segmented control. */
-export type ViewMode = 'timeline' | 'grid' | 'cards';
+/**
+ * Schedule view modes surfaced by the in-Schedule segmented control. The dense
+ * 2D stage×time grid is web/tablet-only (festie.us): a multi-stage grid can't
+ * fit a phone, so mobile leads with the single-axis Timeline and degrades to a
+ * flat Cards list — the Clashfinder "structure breaks down to fit the screen"
+ * rule. Timeline is the mobile default.
+ */
+export type ViewMode = 'timeline' | 'cards';
 
 interface UIState {
   viewMode: ViewMode;

@@ -1,9 +1,10 @@
 import React, { useCallback, useMemo, useSyncExternalStore } from 'react';
-import { useFestivalStore } from '@festie/shared/stores';
+import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
-import { artistDisplayName, getSetHotness, getConflictingSetIds } from '@festie/shared/utils';
+import { artistDisplayName, getSetHotness, getConflictingSetIds, festivalPhase } from '@festie/shared/utils';
 import SetCard from '../components/features/SetCard';
+import PhaseHomeActions from '../components/features/PhaseHomeActions';
 import EmptyState from '../components/ui/EmptyState';
 import CardsSkeleton from '../components/ui/skeletons/CardsSkeleton';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
@@ -41,6 +42,8 @@ function usePrefersReducedMotion(): boolean {
 function CardsViewInner() {
   const currentProfile = useFestivalStore((state) => state.currentProfile);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
+  const days = useFestivalStore((state) => state.days);
+  const user = useAuthStore((state) => state.user);
   const sets = useFestivalStore((state) => state.sets);
   const stages = useFestivalStore((state) => state.stages);
   const selectedDay = useFestivalStore((state) => state.selectedDay);
@@ -116,6 +119,11 @@ function CardsViewInner() {
     return map;
   }, [filteredSets, conflictIds]);
 
+  // P1-5 — festival lifecycle phase (pre / live / post), derived from the
+  // festival's date range vs now (shared `festivalPhase`). Drives the
+  // phase-aware home action band; null when the festival has no usable dates.
+  const phase = useMemo(() => festivalPhase(currentFestival, days), [currentFestival, days]);
+
   // Show layout-matched skeleton while festivals are being fetched on boot
   // — same component the router uses for the chunk-load fallback so the
   // visual is continuous across route-transition → data-fetch.
@@ -125,6 +133,10 @@ function CardsViewInner() {
 
   return (
     <>
+      {/* P1-5 — phase-aware home actions (authed only; matches BottomNav hiding
+          crew/picks/wrap from guests). Re-prioritizes destinations by phase. */}
+      {user && phase ? <PhaseHomeActions phase={phase} /> : null}
+
       {/* Card grid */}
       {filteredSets.length === 0 ? (
         <EmptyState
