@@ -295,8 +295,17 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}, _isRetry = 
     headers[TRUSTED_MUTATION_HEADER] = '1';
   }
 
-  if (_authMode === 'bearer' && _bearerToken && !headers['Authorization']) {
-    headers['Authorization'] = `Bearer ${_bearerToken}`;
+  if (_authMode === 'bearer') {
+    if (_bearerToken && !headers['Authorization']) {
+      headers['Authorization'] = `Bearer ${_bearerToken}`;
+    }
+    // Tell the server this is a native bearer-mode client so auth responses
+    // include the session + refresh tokens in the body (the web cookie client
+    // must NOT receive them — H4). Sent on every request including login/
+    // register, which have no Authorization header yet.
+    if (!headers['X-Festie-Client']) {
+      headers['X-Festie-Client'] = 'native';
+    }
   }
 
   if (options.body !== undefined && !headers['Content-Type']) {

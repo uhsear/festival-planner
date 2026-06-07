@@ -231,17 +231,19 @@ export default function createAuthRoutes(deps: any): Router {
         const { serializePublicUser } = deps;
         const _roles = await stores.roles.getUserRoles(user.id);
         res.status(201);
-        // TODO (H4): token/refreshToken are returned in the body for the mobile
-        // (bearer-mode) client; the web (cookie-mode) client must NOT persist
-        // them. There is no clean server-side signal to distinguish the two at
-        // register time (no auth header exists yet on the request), so omitting
-        // them here would break mobile. The primary mitigation is the WEB
-        // client dropping client-side persistence; revisit if an explicit
-        // client-mode flag (e.g. header/query param) is introduced.
+        // H4: only the native (bearer-mode) client receives the session +
+        // refresh tokens in the body — it has no cookie jar and authenticates
+        // with the Authorization header. The web (cookie-mode) client gets the
+        // httpOnly cookie set above and must NOT receive a replayable token in
+        // the body. The mobile shared api-layer flags itself via X-Festie-Client.
+        // Native bearer clients get body tokens; web cookie clients don't. New
+        // mobile builds send X-Festie-Client; for backward-compat, a missing
+        // Origin header also signals native (RN fetch omits Origin; browsers
+        // always send it), so this is safe to deploy before the mobile OTA lands.
+        const wantsBodyTokens = req.get('x-festie-client') === 'native' || !req.get('origin');
         return sendSuccess(res, {
           user: serializePublicUser(user),
-          token,
-          refreshToken,
+          ...(wantsBodyTokens ? { token, refreshToken } : {}),
           emailVerificationSent: !!cleanEmail,
         });
       } catch (error: any) {
@@ -320,13 +322,18 @@ export default function createAuthRoutes(deps: any): Router {
 
       const { serializePublicUser } = deps;
       const roles = await stores.roles.getUserRoles(user.id);
-      // TODO (H4): token/refreshToken are returned in the body for the mobile
-      // (bearer-mode) client; the web (cookie-mode) client must NOT persist
-      // them. No clean server-side signal distinguishes the two at login time
-      // (no auth header on the request yet), so omitting them would break
-      // mobile. Primary mitigation is the WEB client dropping client-side
-      // persistence; revisit if an explicit client-mode flag is introduced.
-      return sendSuccess(res, { user: serializePublicUser(user), token, refreshToken, roles });
+      // H4: body tokens only for the native bearer client (see register note);
+      // the web cookie client relies on the httpOnly cookie set above.
+      // Native bearer clients get body tokens; web cookie clients don't. New
+      // mobile builds send X-Festie-Client; for backward-compat, a missing
+      // Origin header also signals native (RN fetch omits Origin; browsers
+      // always send it), so this is safe to deploy before the mobile OTA lands.
+      const wantsBodyTokens = req.get('x-festie-client') === 'native' || !req.get('origin');
+      return sendSuccess(res, {
+        user: serializePublicUser(user),
+        ...(wantsBodyTokens ? { token, refreshToken } : {}),
+        roles,
+      });
     } catch (error: any) {
       log.error('login failed', { error: error.message });
       return sendError(res, 500, 'Login failed', ErrorCodes.INTERNAL_ERROR);
@@ -407,7 +414,14 @@ export default function createAuthRoutes(deps: any): Router {
       const { serializePublicUser } = deps;
       const user = await getUserById(req.user.userId);
       if (!user) return sendError(res, 401, 'User not found', ErrorCodes.AUTH_REQUIRED);
-      return sendSuccess(res, { user: serializePublicUser(user), token });
+      // H4: native bearer client gets the new token in the body (no cookie jar);
+      // web cookie client relies on the refreshed httpOnly cookie set above.
+      // Native bearer clients get body tokens; web cookie clients don't. New
+      // mobile builds send X-Festie-Client; for backward-compat, a missing
+      // Origin header also signals native (RN fetch omits Origin; browsers
+      // always send it), so this is safe to deploy before the mobile OTA lands.
+      const wantsBodyTokens = req.get('x-festie-client') === 'native' || !req.get('origin');
+      return sendSuccess(res, { user: serializePublicUser(user), ...(wantsBodyTokens ? { token } : {}) });
     } catch (error: any) {
       log.error('token refresh failed', { error: error.message });
       return sendError(res, 500, 'Token refresh failed', ErrorCodes.INTERNAL_ERROR);
@@ -455,10 +469,16 @@ export default function createAuthRoutes(deps: any): Router {
 
         const { serializePublicUser } = deps;
         const _roles = await stores.roles.getUserRoles(user.id);
+        // H4: body tokens only for the native bearer client; the web cookie
+        // client gets the rotated httpOnly cookie set above.
+        // Native bearer clients get body tokens; web cookie clients don't. New
+        // mobile builds send X-Festie-Client; for backward-compat, a missing
+        // Origin header also signals native (RN fetch omits Origin; browsers
+        // always send it), so this is safe to deploy before the mobile OTA lands.
+        const wantsBodyTokens = req.get('x-festie-client') === 'native' || !req.get('origin');
         return sendSuccess(res, {
           user: serializePublicUser(user),
-          token: newSessionToken,
-          refreshToken: newRefreshToken,
+          ...(wantsBodyTokens ? { token: newSessionToken, refreshToken: newRefreshToken } : {}),
         });
       } catch (error: any) {
         log.error('refresh-token failed', { error: error.message });
