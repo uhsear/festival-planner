@@ -644,6 +644,12 @@ const useStyles = makeStyles((t) => ({
   container: {
     flex: 1,
     backgroundColor: t.colors.bg.primary,
+    // Clip to the screen frame. The schedule body's internal scroll views can
+    // size to tall content; without this, on short screens (or large iOS notch
+    // insets) that content overflows the frame's bottom edge and — because RN's
+    // default overflow is 'visible' — paints AND intercepts touches over the
+    // bottom tab bar, making tabs untappable. Clipping confines it to the body.
+    overflow: 'hidden',
   },
   viewSwitcher: {
     paddingHorizontal: t.spacing[4],
@@ -809,6 +815,9 @@ const useStyles = makeStyles((t) => ({
   },
   viewBody: {
     flex: 1,
+    // Bound the timeline to the body so its internal scroll never bleeds over
+    // the tab bar (see container note).
+    overflow: 'hidden',
   },
   fallbackScroll: {
     flexGrow: 1,
