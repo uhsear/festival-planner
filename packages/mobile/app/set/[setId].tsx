@@ -561,14 +561,14 @@ export default function SetDetailScreen() {
             </View>
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Remind me before it starts</Text>
-              <View style={styles.priorityRow}>
+              <View style={styles.reminderRow}>
                 {REMINDER_OPTIONS.map((opt) => {
                   const active = myReminder === opt.value;
                   return (
                     <TouchableOpacity
                       key={opt.value}
                       style={[
-                        styles.priorityButton,
+                        styles.reminderChip,
                         active && {
                           backgroundColor: t.colors.accent.aqua,
                           borderColor: t.colors.accent.aqua,
@@ -890,12 +890,35 @@ const useStyles = makeStyles((t) => ({
     flexDirection: 'row',
     gap: t.spacing[2],
   },
+  // Reminder chips: wrap to a second line instead of cramming all five across
+  // one cramped row. Each chip sizes to its label (no flex:1) and keeps a 44pt
+  // touch target.
+  reminderRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+  },
+  reminderChip: {
+    minWidth: 56,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.default,
+    backgroundColor: t.colors.overlay[3],
+    borderWidth: 1,
+    borderColor: t.colors.border.light,
+  },
   priorityButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: t.spacing[1],
+    // WCAG 2.5.5 / 2.5.8 minimum 44pt touch target.
+    minHeight: 44,
     paddingVertical: t.spacing[3],
     borderRadius: t.radii.default,
     backgroundColor: t.colors.overlay[3],
@@ -903,8 +926,12 @@ const useStyles = makeStyles((t) => ({
     borderColor: t.colors.border.light,
   },
   priorityText: {
-    ...typeStyle('micro'),
+    // Bumped from the 10px micro role to 12px (caption) for legibility — the
+    // 10px picker labels were too small to read comfortably.
+    ...typeStyle('caption'),
+    fontWeight: '500',
     color: t.colors.text.muted,
+    textAlign: 'center',
   },
   joinBox: {
     gap: t.spacing[3],

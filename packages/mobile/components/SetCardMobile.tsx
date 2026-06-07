@@ -2,7 +2,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { FestivalSet, Priority } from '@festie/shared/types';
-import { formatTime, artistDisplayName, artistSubtitle } from '@festie/shared/utils';
+import { formatTime, artistDisplayName, artistSubtitle, ensureWhiteContrast } from '@festie/shared/utils';
 import { useCrewStore, useFestivalStore } from '@festie/shared/stores';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useSetStatus } from '../hooks/useSetStatus';
@@ -153,6 +153,11 @@ function SetCardMobileImpl({
   const subtitle = artistSubtitle(set);
   const timeLabel = set.startTime && set.endTime ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}` : 'TBA';
 
+  // The stage pill renders white (onAccent) text on the stage color, so darken
+  // the fill just enough for that text to clear WCAG AA (see shared
+  // ensureWhiteContrast). The card's left border keeps the true stage color.
+  const pillBg = useMemo(() => ensureWhiteContrast(stageColor), [stageColor]);
+
   const handlePick = useCallback((priority: Priority | null) => onPickChange(priority), [onPickChange]);
 
   // The tappable card body and the priority footer are SIBLINGS inside a plain
@@ -170,7 +175,7 @@ function SetCardMobileImpl({
         accessibilityRole="button"
         accessibilityLabel={`${artistName}, ${stageName}, ${timeLabel}`}
       >
-        <View style={[styles.stagePill, { backgroundColor: stageColor }]}>
+        <View style={[styles.stagePill, { backgroundColor: pillBg }]}>
           <Text style={styles.stageText} numberOfLines={1}>
             {stageName}
           </Text>

@@ -253,6 +253,13 @@
      still reads as a subdued/secondary gray while clearing AA at ~5.6:1. */
   --color-text-muted: #8787a8;
   --color-accent-coral: #ff3366;
+  /* Deepened coral for FILLED danger/SOS buttons behind WHITE label text:
+     white on #c01d3a measures ~6.04:1 (passes AA, and AAA for normal text),
+     whereas white on brand coral #ff3366 is only ~3.55:1 (FAILS AA). Brand
+     coral stays for borders/glows/accents/text-on-dark; coralStrong is the
+     fill. Mirrors `accent.coralStrong` in @festie/shared tokens. Coral is
+     reserved for DANGER/SOS only — primary actions use aqua. */
+  --color-accent-coral-strong: #c01d3a;
   --color-accent-aqua: #00e8d0;
   --color-accent-amber: #ffb020;
   --color-accent-green: #39ff14;
@@ -453,6 +460,9 @@
      deliberate state change rather than a brightness bump. */
   --color-accent-aqua-hover: #00cfba;
   --color-accent-coral-hover: #e62e5c;
+  /* Solid-fill hover for the deepened danger/SOS coral (~10% darker;
+     white text stays well above AA on the darker tone). */
+  --color-accent-coral-strong-hover: #ac1a34;
 
   /* ── Timeline NOW label tokens (2026-06-04) ─────────────────────────────
      The "NOW" marker color/background, promoted so the coral marker can be

@@ -26,8 +26,22 @@ export const colors = {
     disabled: '#a8a8c0',
     placeholder: '#a8a8c0',
   },
+  /**
+   * Accent system rule (user-approved 2026-06-07):
+   *   - `aqua` is the PRIMARY accent. On filled aqua surfaces use dark ink
+   *     (`text.onLightAccent` #080810); that pair already passes WCAG AA.
+   *   - `coral` is RESERVED for DANGER / SOS only — never as a primary CTA.
+   *     `coral` (#ff3366) is for borders/glows/accents/text-on-dark; it only
+   *     reaches ~3.55:1 against white text, which FAILS AA (4.5:1) for filled
+   *     buttons.
+   *   - `coralStrong` (#c01d3a) is the deepened coral for FILLED danger/SOS
+   *     buttons with white text: it reaches ~6.04:1 against #fff (passes AA,
+   *     and AAA for normal text). Use it whenever coral is the fill behind
+   *     white label text; keep `coral` for the lighter accent uses.
+   */
   accent: {
     coral: '#ff3366',
+    coralStrong: '#c01d3a',
     aqua: '#00e8d0',
     amber: '#ffb020',
     green: '#39ff14',

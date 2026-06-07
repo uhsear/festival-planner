@@ -28,7 +28,11 @@ export default function FestivalDayBanner() {
   if (dismissed) return null;
 
   const dismiss = () => {
-    try { sessionStorage.setItem(DISMISS_KEY, 'true'); } catch { /* sessionStorage unavailable */ }
+    try {
+      sessionStorage.setItem(DISMISS_KEY, 'true');
+    } catch {
+      /* sessionStorage unavailable */
+    }
     setDismissed(true);
   };
 
@@ -50,7 +54,7 @@ export default function FestivalDayBanner() {
       </span>
       <button
         type="button"
-        className="shrink-0 bg-accent-coral text-bg-primary border-none rounded-lg py-2 px-3.5 text-[13px] font-semibold cursor-pointer min-h-11 hover:brightness-110 active:scale-[0.97] transition-[transform,background-color,border-color,color,opacity] duration-[var(--duration-fast)] ease-[var(--ease-out)]"
+        className="shrink-0 bg-accent-aqua text-bg-primary border-none rounded-lg py-2 px-3.5 text-[13px] font-semibold cursor-pointer min-h-11 hover:brightness-110 active:scale-[0.97] transition-[transform,background-color,border-color,color,opacity] duration-[var(--duration-fast)] ease-[var(--ease-out)]"
         onClick={enter}
         data-testid="festival-day-banner-enter"
       >

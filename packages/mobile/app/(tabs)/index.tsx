@@ -376,6 +376,11 @@ export default function TimelineScreen() {
             ? 'This day’s set times haven’t been posted. Browse the full lineup in the TBA list below, or switch to Cards.'
             : 'Pick another day from the day selector to browse the schedule.'
       }
+      action={
+        search.length > 0
+          ? { label: 'Clear search', onPress: () => handleSearch('') }
+          : { label: 'Switch festival', onPress: clearSelection }
+      }
     />
   );
 
@@ -566,6 +571,11 @@ export default function TimelineScreen() {
                 search.length > 0
                   ? 'Try a different spelling or clear the search to see the full lineup.'
                   : 'Pick another day from the day selector to browse the schedule.'
+              }
+              action={
+                search.length > 0
+                  ? { label: 'Clear search', onPress: () => handleSearch('') }
+                  : { label: 'Switch festival', onPress: clearSelection }
               }
             />
           }

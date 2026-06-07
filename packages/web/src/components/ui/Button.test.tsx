@@ -25,7 +25,8 @@ describe('Button', () => {
 
     it('applies danger variant', () => {
       render(<Button variant="danger">Delete</Button>);
-      expect(screen.getByRole('button').className).toContain('bg-accent-coral');
+      // Deepened coral so white label text passes WCAG AA (coral=danger only).
+      expect(screen.getByRole('button').className).toContain('bg-accent-coral-strong');
     });
 
     it('applies ghost variant', () => {

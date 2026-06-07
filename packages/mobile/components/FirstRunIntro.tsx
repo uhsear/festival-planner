@@ -136,13 +136,15 @@ const useStyles = makeStyles((t) => ({
     width: 20,
   },
   button: {
-    backgroundColor: t.colors.accent.coral,
+    // PRIMARY action = aqua fill + dark ink (text.onLightAccent), per the
+    // accent rule. Coral is reserved for danger/SOS only.
+    backgroundColor: t.colors.accent.aqua,
     borderRadius: t.radii.default,
     paddingVertical: t.spacing[4],
     alignItems: 'center',
   },
   buttonText: {
     ...typeStyle('label'),
-    color: t.colors.text.onAccent,
+    color: t.colors.text.onLightAccent,
   },
 }));

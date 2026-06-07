@@ -172,7 +172,7 @@ export default function AccountAvatarSection() {
           accessibilityLabel={avatarUrl ? 'Change profile photo' : 'Upload profile photo'}
           accessibilityState={{ disabled: busy !== null }}
         >
-          <Ionicons name="cloud-upload-outline" size={18} color={t.colors.text.onLightAccent} />
+          <Ionicons name="cloud-upload-outline" size={18} color={t.colors.accent.aqua} />
           <Text style={styles.btnPrimaryText}>{avatarUrl ? 'Change' : 'Upload'}</Text>
         </TouchableOpacity>
 
@@ -255,12 +255,16 @@ const useStyles = makeStyles((t) => ({
     borderRadius: t.radii.default,
   },
   btnPrimary: {
+    // The avatar is optional, so this is DEMOTED to a secondary/outline aqua
+    // button — it must not be the loudest element on the Account screen. A
+    // filled aqua fill is reserved for true primary CTAs.
     flex: 1,
-    backgroundColor: t.colors.accent.aqua,
+    borderWidth: 1,
+    borderColor: t.colors.accent.aqua,
   },
   btnPrimaryText: {
     ...typeStyle('label'),
-    color: t.colors.text.onLightAccent,
+    color: t.colors.accent.aqua,
   },
   btnGhost: {
     flex: 1,
