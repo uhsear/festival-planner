@@ -29,8 +29,10 @@ export default function Button({
   const variantStyles: Record<ButtonVariant, string> = {
     primary:
       'bg-accent-aqua text-bg-primary hover:bg-[var(--color-accent-aqua-hover)] focus-visible:outline-accent-aqua',
+    // DANGER/SOS only. Filled with the deepened coral so WHITE label text clears
+    // WCAG AA (white on brand #ff3366 fails). Primary actions use aqua, not coral.
     danger:
-      'bg-accent-coral text-bg-primary hover:bg-[var(--color-accent-coral-hover)] focus-visible:outline-accent-coral',
+      'bg-accent-coral-strong text-text-on-accent hover:bg-[var(--color-accent-coral-strong-hover)] focus-visible:outline-accent-coral',
     ghost:
       'bg-transparent text-text-primary border border-color-border hover:bg-bg-card focus-visible:outline-text-primary',
     secondary: 'bg-bg-card text-text-primary hover:bg-bg-card-hover focus-visible:outline-accent-aqua',

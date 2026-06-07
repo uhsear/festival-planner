@@ -9,6 +9,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { configureApi, setAuthToken } from '@festie/shared/services';
 import { useAuthStore } from '@festie/shared/stores';
 import { colors, fontSize } from '@festie/shared/tokens';
+import { useFonts, Syncopate_400Regular, Syncopate_700Bold } from '@expo-google-fonts/syncopate';
+import {
+  SpaceGrotesk_400Regular,
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -66,6 +73,20 @@ function AuthGate() {
   const [hydrated, setHydrated] = useState(false);
   // null = still reading the flag; false = show intro; true = already seen.
   const [introSeen, setIntroSeen] = useState<boolean | null>(null);
+
+  // Brand typography (Stagelight): Syncopate for display roles, Space Grotesk
+  // for body roles. Registered here so typeStyle()'s fontFamily faces exist
+  // before any screen renders; the splash overlay below stays up until these
+  // load so the app never flashes the system font then reflows into the brand
+  // face. Weight-specific cuts mirror the role→weight map in useTokens.ts.
+  const [fontsLoaded] = useFonts({
+    Syncopate_400Regular,
+    Syncopate_700Bold,
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+  });
 
   // M1: pre-computed on-device set reminders. Reconciles local notifications
   // whenever picks/reminders change (fires even in airplane mode); FCM stays the
@@ -151,7 +172,7 @@ function AuthGate() {
   // whole tree for a bare splash View while hydration + session check run
   // (which leaves no navigator mounted), keep the Stack mounted and lay the
   // splash spinner over it until we're ready.
-  const loading = !hydrated || !sessionChecked;
+  const loading = !hydrated || !sessionChecked || !fontsLoaded;
 
   return (
     <View style={styles.appShell}>

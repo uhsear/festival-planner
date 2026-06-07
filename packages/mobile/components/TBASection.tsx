@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { View, Text, Pressable, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { FestivalSet, Priority, Stage, Festival, Profile } from '@festie/shared/types';
-import { artistDisplayName } from '@festie/shared/utils';
+import { artistDisplayName, ensureWhiteContrast } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import Avatar from './Avatar';
 
@@ -90,7 +90,8 @@ function TBACard({
           {name}
         </Text>
         {stageName && stageColor ? (
-          <View style={[styles.stageBadge, { backgroundColor: stageColor }]}>
+          // Darken the stage fill so the white badge text clears WCAG AA.
+          <View style={[styles.stageBadge, { backgroundColor: ensureWhiteContrast(stageColor) }]}>
             <Text style={styles.stageBadgeText} numberOfLines={1}>
               {stageName}
             </Text>

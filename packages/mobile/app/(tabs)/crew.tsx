@@ -604,36 +604,29 @@ export default function CrewScreen() {
               </ScrollView>
             ) : null}
 
-            {/* Reform this crew for another festival (M3). */}
-            <TouchableOpacity
-              testID="crew-action-reform"
-              style={styles.overlapToggle}
-              onPress={() => handleReform(crew.id, crew.festivalId)}
-              disabled={reformBusy}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Reform this crew for another festival"
-            >
-              <Ionicons name="calendar-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapToggleText}>{reformBusy ? 'Reforming…' : 'Reform for another festival'}</Text>
-              {reformBusy ? (
-                <ActivityIndicator size="small" color={t.colors.accent.aqua} />
-              ) : (
-                <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
-              )}
-            </TouchableOpacity>
+            {/* The crew toolbox is grouped into three labeled clusters so the
+                ~7 actions don't read as one undifferentiated stack:
+                  • Plan    — decide together (everyday: the crew plan digest)
+                  • On-site — offline navigation while you're at the festival
+                  • Manage  — owner/maintenance actions
+                Coral icons here were demoted to aqua: coral is reserved for
+                danger/SOS, and these are ordinary navigation actions. */}
 
-            {/* One-screen offline-native "what's my crew's plan" digest. */}
+            <Text style={styles.sectionLabel}>Plan</Text>
+
+            {/* Everyday primary: the offline-native "what's my crew's plan"
+                digest. Emphasized (aqua-tinted fill + border) so the most-used
+                action carries more weight than the rest of the toolbox. */}
             <TouchableOpacity
               testID="crew-action-plan"
-              style={styles.overlapToggle}
+              style={[styles.overlapToggle, styles.overlapTogglePrimary]}
               onPress={() => router.push('/crew-plan')}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel="View your crew's plan"
             >
-              <Ionicons name="calendar-outline" size={16} color={t.colors.accent.coral} />
-              <Text style={styles.overlapToggleText}>Crew plan</Text>
+              <Ionicons name="calendar-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.overlapTogglePrimaryText}>Crew plan</Text>
               <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
             </TouchableOpacity>
 
@@ -656,62 +649,6 @@ export default function CrewScreen() {
               ) : (
                 <Ionicons name={showOverlap ? 'chevron-up' : 'chevron-down'} size={16} color={t.colors.accent.aqua} />
               )}
-            </TouchableOpacity>
-
-            {/* Full side-by-side compare matrix (members × sets). */}
-            <TouchableOpacity
-              testID="crew-action-compare-grid"
-              style={styles.overlapToggle}
-              onPress={() => router.push('/crew-compare')}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Open full compare grid"
-            >
-              <Ionicons name="grid-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapToggleText}>Full compare grid</Text>
-              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
-            </TouchableOpacity>
-
-            {/* M6 offline crew map — meeting-point pins (offline-honest fallback list). */}
-            <TouchableOpacity
-              testID="crew-action-map"
-              style={styles.overlapToggle}
-              onPress={() => router.push('/map')}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Open the crew map"
-            >
-              <Ionicons name="map-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapToggleText}>Crew map</Text>
-              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
-            </TouchableOpacity>
-
-            {/* M5 proximity compass — on-device straight-line direction to a saved point. */}
-            <TouchableOpacity
-              testID="crew-action-compass"
-              style={styles.overlapToggle}
-              onPress={() => router.push('/compass')}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Open the meeting-point compass"
-            >
-              <Ionicons name="navigate-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapToggleText}>Meeting-point compass</Text>
-              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
-            </TouchableOpacity>
-
-            {/* M5 P2P plan handoff — QR / scan / SMS when signal is dead. */}
-            <TouchableOpacity
-              testID="crew-action-share-plan"
-              style={styles.overlapToggle}
-              onPress={() => router.push('/plan-share')}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Share your plan with a friend (QR or text)"
-            >
-              <Ionicons name="qr-code-outline" size={16} color={t.colors.accent.coral} />
-              <Text style={styles.overlapToggleText}>Share plan (QR / text)</Text>
-              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
             </TouchableOpacity>
 
             {overlapError ? (
@@ -757,6 +694,85 @@ export default function CrewScreen() {
                 </View>
               )
             ) : null}
+
+            {/* Full side-by-side compare matrix (members × sets). */}
+            <TouchableOpacity
+              testID="crew-action-compare-grid"
+              style={styles.overlapToggle}
+              onPress={() => router.push('/crew-compare')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Open full compare grid"
+            >
+              <Ionicons name="grid-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.overlapToggleText}>Full compare grid</Text>
+              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+            </TouchableOpacity>
+
+            <Text style={styles.sectionLabel}>On-site</Text>
+
+            {/* M6 offline crew map — meeting-point pins (offline-honest fallback list). */}
+            <TouchableOpacity
+              testID="crew-action-map"
+              style={styles.overlapToggle}
+              onPress={() => router.push('/map')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Open the crew map"
+            >
+              <Ionicons name="map-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.overlapToggleText}>Crew map</Text>
+              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+            </TouchableOpacity>
+
+            {/* M5 proximity compass — on-device straight-line direction to a saved point. */}
+            <TouchableOpacity
+              testID="crew-action-compass"
+              style={styles.overlapToggle}
+              onPress={() => router.push('/compass')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Open the meeting-point compass"
+            >
+              <Ionicons name="navigate-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.overlapToggleText}>Meeting-point compass</Text>
+              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+            </TouchableOpacity>
+
+            {/* M5 P2P plan handoff — QR / scan / SMS when signal is dead. */}
+            <TouchableOpacity
+              testID="crew-action-share-plan"
+              style={styles.overlapToggle}
+              onPress={() => router.push('/plan-share')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Share your plan with a friend (QR or text)"
+            >
+              <Ionicons name="qr-code-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.overlapToggleText}>Share plan (QR / text)</Text>
+              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+            </TouchableOpacity>
+
+            <Text style={styles.sectionLabel}>Manage</Text>
+
+            {/* Reform this crew for another festival (M3). */}
+            <TouchableOpacity
+              testID="crew-action-reform"
+              style={styles.overlapToggle}
+              onPress={() => handleReform(crew.id, crew.festivalId)}
+              disabled={reformBusy}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Reform this crew for another festival"
+            >
+              <Ionicons name="calendar-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.overlapToggleText}>{reformBusy ? 'Reforming…' : 'Reform for another festival'}</Text>
+              {reformBusy ? (
+                <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+              ) : (
+                <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+              )}
+            </TouchableOpacity>
 
             {/* Force-add (admin-gated server-side). Shown to owners. */}
             {isOwner ? (
@@ -875,6 +891,11 @@ export default function CrewScreen() {
             icon="person-outline"
             title="No members yet"
             message="Share your invite code to bring friends in."
+            action={
+              crew.inviteCode
+                ? { label: 'Share invite', onPress: () => handleShareInvite(crew.inviteCode!, crew.name) }
+                : undefined
+            }
           />
         }
         ListFooterComponent={
@@ -996,14 +1017,16 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.primary,
   },
   primaryButton: {
-    backgroundColor: t.colors.accent.coral,
+    // PRIMARY action = aqua fill + dark ink (text.onLightAccent), per the
+    // accent rule. Coral is reserved for danger/SOS only.
+    backgroundColor: t.colors.accent.aqua,
     borderRadius: t.radii.default,
     paddingVertical: t.spacing[3],
     alignItems: 'center',
   },
   primaryButtonText: {
     ...typeStyle('label'),
-    color: t.colors.text.onAccent,
+    color: t.colors.text.onLightAccent,
   },
   outlineButton: {
     borderWidth: 1,
@@ -1090,6 +1113,19 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('label'),
     color: t.colors.text.primary,
     flex: 1,
+  },
+  // Emphasized variant for the everyday-primary action (Crew plan): aqua-tinted
+  // fill + aqua border so it carries more weight than the plain toolbox rows,
+  // without becoming a loud solid-aqua CTA.
+  overlapTogglePrimary: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.aquaAlpha[10],
+  },
+  overlapTogglePrimaryText: {
+    ...typeStyle('label'),
+    color: t.colors.accent.aqua,
+    flex: 1,
+    fontWeight: '700',
   },
   overlapEmpty: {
     ...typeStyle('caption'),

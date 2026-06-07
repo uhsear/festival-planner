@@ -13,6 +13,8 @@
     "eas-build-post-install": "node scripts/install-sentry-cli.cjs"
   },
   "dependencies": {
+    "@expo-google-fonts/space-grotesk": "^0.4.1",
+    "@expo-google-fonts/syncopate": "^0.4.1",
     "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "^15.1.1",
     "@festie/shared": "workspace:*",

@@ -58,12 +58,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Timeline',
+          title: 'Schedule',
           // Explicit a11y labels: iOS doesn't expose the tab title to the
           // accessibility tree by default, so VoiceOver (and UI automation)
           // couldn't identify the tabs. Naming them makes each tab announce
-          // clearly and be reliably findable.
-          tabBarAccessibilityLabel: 'Timeline',
+          // clearly and be reliably findable. (testID stays `tab-timeline` so
+          // the existing Maestro/e2e selectors keep resolving.)
+          tabBarAccessibilityLabel: 'Schedule',
           tabBarButtonTestID: 'tab-timeline',
           tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
         }}

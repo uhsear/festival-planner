@@ -272,7 +272,10 @@ const useStyles = makeStyles((t) => ({
     borderRadius: t.radii.default,
   },
   bannerButtonPrimary: {
-    backgroundColor: t.colors.accent.coral,
+    // Deepened coral so the white label text clears WCAG AA (4.5:1). Plain
+    // accent.coral behind white only reaches ~3.55:1 and FAILS AA; coralStrong
+    // reaches ~6.04:1. Keeps the urgent red of a safety action while readable.
+    backgroundColor: t.colors.accent.coralStrong,
   },
   bannerButtonPrimaryText: {
     ...typeStyle('label'),
@@ -294,7 +297,9 @@ const useStyles = makeStyles((t) => ({
     minHeight: 52,
     paddingVertical: t.spacing[3],
     borderRadius: t.radii.default,
-    backgroundColor: t.colors.accent.coral,
+    // Safety-critical: deepened coral (coralStrong, ~6.04:1 vs the white label)
+    // passes WCAG AA. Plain coral (#ff3366) only reaches ~3.55:1 and fails AA.
+    backgroundColor: t.colors.accent.coralStrong,
   },
   sosButtonText: {
     ...typeStyle('label'),

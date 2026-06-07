@@ -183,7 +183,7 @@ function WrapPageInner() {
           aria-selected={tab === 'me'}
           onClick={() => setTab('me')}
           className={`min-h-[40px] rounded-lg text-sm font-medium transition-colors ${
-            tab === 'me' ? 'bg-accent-coral text-white' : 'text-text-secondary hover:text-text-primary'
+            tab === 'me' ? 'bg-accent-aqua text-bg-primary' : 'text-text-secondary hover:text-text-primary'
           }`}
         >
           You
@@ -193,7 +193,7 @@ function WrapPageInner() {
           aria-selected={tab === 'crew'}
           onClick={() => setTab('crew')}
           className={`min-h-[40px] rounded-lg text-sm font-medium transition-colors ${
-            tab === 'crew' ? 'bg-accent-coral text-white' : 'text-text-secondary hover:text-text-primary'
+            tab === 'crew' ? 'bg-accent-aqua text-bg-primary' : 'text-text-secondary hover:text-text-primary'
           }`}
         >
           Crew wrap

@@ -246,7 +246,7 @@ function CrewViewInner() {
           <Link
             to="/crew-plan"
             aria-label="View your crew's plan"
-            className="flex items-center gap-2 py-2 px-4 min-h-11 rounded-full bg-accent-coral text-[var(--text-on-light-accent)] hover:brightness-110 transition-all duration-200"
+            className="flex items-center gap-2 py-2 px-4 min-h-11 rounded-full bg-accent-aqua text-[var(--text-on-light-accent)] hover:brightness-110 transition-all duration-200"
           >
             <CalendarClock className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
             <span className="text-sm font-semibold">Crew plan</span>
