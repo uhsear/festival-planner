@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { getSetTimeBounds, getSetStatus } from './setStatus';
+import { getSetTimeBounds, getSetStatus, zonedWallTimeToMs } from './setStatus';
 import type { FestivalSet, FestivalDay } from '../types/domain';
 
 function makeSet(overrides: Partial<FestivalSet> = {}): FestivalSet {
@@ -68,6 +68,40 @@ describe('getSetTimeBounds', () => {
 
   it('returns null when startTime is missing', () => {
     expect(getSetTimeBounds(makeSet({ startTime: '' }))).toBeNull();
+  });
+});
+
+// Festival-timezone-aware bounds (opt-in via the `timeZone` arg). These assert
+// against absolute UTC instants computed from the zone's known offset, so they
+// are host-timezone-independent (Node ships full IANA tz data).
+describe('zonedWallTimeToMs (festival-zone anchoring)', () => {
+  it('interprets a wall-clock in the given IANA zone, not the device zone', () => {
+    // 2026-09-04 is EDT (UTC-4) for America/New_York: 20:00 EDT = 00:00 UTC next day.
+    const ms = zonedWallTimeToMs('2026-09-04', 20, 0, 'America/New_York');
+    expect(ms).toBe(Date.UTC(2026, 8, 5, 0, 0, 0));
+  });
+
+  it('matches plain UTC for the UTC zone', () => {
+    expect(zonedWallTimeToMs('2026-09-04', 20, 0, 'UTC')).toBe(Date.UTC(2026, 8, 4, 20, 0, 0));
+  });
+
+  it('returns NaN for an unparseable date', () => {
+    expect(Number.isNaN(zonedWallTimeToMs('not-a-date', 12, 0, 'UTC'))).toBe(true);
+  });
+});
+
+describe('getSetTimeBounds with a festival timeZone', () => {
+  it('anchors start/end in the festival zone when timeZone is supplied', () => {
+    const bounds = getSetTimeBounds(makeSet({ startTime: '20:00', endTime: '21:30' }), [], 'UTC');
+    expect(bounds!.startMs).toBe(Date.UTC(2026, 8, 4, 20, 0, 0));
+    expect(bounds!.endMs).toBe(Date.UTC(2026, 8, 4, 21, 30, 0));
+  });
+
+  it('rolls a post-midnight end to the next day in the festival zone', () => {
+    const bounds = getSetTimeBounds(makeSet({ startTime: '23:30', endTime: '01:00' }), [], 'UTC');
+    expect(bounds!.startMs).toBe(Date.UTC(2026, 8, 4, 23, 30, 0));
+    expect(bounds!.endMs).toBe(Date.UTC(2026, 8, 5, 1, 0, 0));
+    expect(bounds!.endMs).toBeGreaterThan(bounds!.startMs);
   });
 });
 

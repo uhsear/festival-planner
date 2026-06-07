@@ -79,6 +79,9 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   // Planned-vs-actual filter for the list. 'actual' = the real ledger (what
   // feeds settle-up); 'planned' = the budget/forecast view; 'all' = both.
   const [view, setView] = useState<'all' | 'actual' | 'planned'>('actual');
+  // Settle-up view. 'simplified' = the netted greedy min-cash-flow plan (fewest
+  // transfers, never a stranger-to-pay); 'raw' = every member's gross net balance.
+  const [settleView, setSettleView] = useState<'simplified' | 'raw'>('simplified');
 
   const {
     data: expenses = [],
@@ -163,8 +166,11 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
     settle.mutate({ toUserId: s.toUserId, amount: s.amount });
   }
 
-  // My outgoing transfers from the netted plan: "You pay {toName} ${amt}".
+  // My net position from the netted plan, one actionable line per crew member:
+  //   myPayments — "You owe {toName} ${amt}" (settle-able by me)
+  //   myReceipts — "{fromName} owes you ${amt}" (they settle; read-only here)
   const myPayments = settlements.filter((s) => s.fromUserId === currentUserId);
+  const myReceipts = settlements.filter((s) => s.toUserId === currentUserId);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -209,16 +215,18 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
         <div className="crew-stats-grid grid grid-cols-2 gap-2">
           <div className="p-3 rounded-lg bg-bg-card border border-border">
             <div className="text-xs text-text-muted uppercase tracking-wide">Total spent</div>
-            <div className="text-lg font-bold text-text-primary">${totalSpent.toFixed(2)}</div>
+            <div className="text-lg font-bold text-text-primary tabular-nums">${totalSpent.toFixed(2)}</div>
           </div>
           <div className="p-3 rounded-lg bg-bg-card border border-border">
             <div className="text-xs text-text-muted uppercase tracking-wide">Your balance</div>
-            <div className={cn('text-lg font-bold', balanceColor(myBalance))}>{formatBalance(myBalance)}</div>
+            <div className={cn('text-lg font-bold tabular-nums', balanceColor(myBalance))}>
+              {formatBalance(myBalance)}
+            </div>
           </div>
           {totalPlanned > 0 && (
             <div className="p-3 rounded-lg bg-bg-card border border-border col-span-2">
               <div className="text-xs text-text-muted uppercase tracking-wide">Planned (budget)</div>
-              <div className="text-lg font-bold text-accent-aqua">${totalPlanned.toFixed(2)}</div>
+              <div className="text-lg font-bold text-accent-aqua tabular-nums">${totalPlanned.toFixed(2)}</div>
             </div>
           )}
         </div>
@@ -250,88 +258,133 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
         </div>
       )}
 
-      {/* Your settle-up plan: netted "You pay {name} ${amt}" rows. */}
-      {myPayments.length > 0 && (
+      {/* Settle up — one card, toggle between the netted Simplified plan
+          (fewest transfers, never a stranger-to-pay) and the Raw per-member
+          balances. Simplified surfaces one actionable net line per crew member:
+          "You owe {name}" (settle-able) / "{name} owes you" (read-only). */}
+      {(settlements.length > 0 || nonZeroBalances.length > 0) && (
         <div className="p-3 rounded-lg bg-bg-card border border-border space-y-3">
-          <div className="text-xs text-text-muted uppercase tracking-wide">Settle up</div>
-          {myPayments.map((s) => {
-            const venmo = venmoLink({
-              handle: s.payeeHandles.venmo,
-              amountCents: s.amountCents,
-              note: 'Festie settle-up',
-            });
-            const cashapp = cashAppLink({ handle: s.payeeHandles.cashapp, amountCents: s.amountCents });
-            const paypal = payPalLink({ handle: s.payeeHandles.paypal, amountCents: s.amountCents });
-            return (
-              <div key={s.toUserId} className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-text-primary">
-                    You pay <span className="font-medium">{s.toName}</span>{' '}
-                    <span className="text-accent-coral font-semibold">${s.amount.toFixed(2)}</span>
-                  </span>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleSettle(s)}
-                    disabled={settle.isPending}
-                    className="!py-1 !px-3 text-xs min-h-11"
-                  >
-                    <HandCoins className="w-3.5 h-3.5" aria-hidden="true" /> Settle up
-                  </Button>
-                </div>
-                {(venmo || cashapp || paypal) && (
-                  <div className="flex flex-wrap gap-2">
-                    {venmo && (
-                      <a
-                        href={venmo.web}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-h-11 px-3 py-1 rounded-full border border-border text-xs text-text-secondary hover:border-border-light inline-flex items-center"
-                      >
-                        Pay with Venmo
-                      </a>
-                    )}
-                    {cashapp && (
-                      <a
-                        href={cashapp.web}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-h-11 px-3 py-1 rounded-full border border-border text-xs text-text-secondary hover:border-border-light inline-flex items-center"
-                      >
-                        Pay with Cash App
-                      </a>
-                    )}
-                    {paypal && (
-                      <a
-                        href={paypal.web}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-h-11 px-3 py-1 rounded-full border border-border text-xs text-text-secondary hover:border-border-light inline-flex items-center"
-                      >
-                        Pay with PayPal
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Who owes what — raw balance summary (read-only). */}
-      {nonZeroBalances.length > 0 && (
-        <div className="p-3 rounded-lg bg-bg-card border border-border space-y-2">
-          <div className="text-xs text-text-muted uppercase tracking-wide">Who owes what</div>
-          {nonZeroBalances.map((b) => (
-            <div key={b.userId} className="flex items-center justify-between gap-2">
-              <span className="text-sm text-text-primary">
-                {b.userId === currentUserId ? 'You' : b.username}{' '}
-                <span className={b.balance > 0 ? 'text-accent-aqua' : 'text-accent-coral'}>
-                  {formatBalance(b.balance)}
-                </span>
-              </span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs text-text-muted uppercase tracking-wide">Settle up</div>
+            <div
+              role="tablist"
+              aria-label="Settle-up view"
+              className="flex gap-1 p-0.5 rounded-md bg-bg-secondary border border-border"
+            >
+              {(['simplified', 'raw'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  role="tab"
+                  aria-selected={settleView === v}
+                  onClick={() => setSettleView(v)}
+                  className={cn(
+                    'px-2.5 py-1 rounded text-[11px] font-medium capitalize',
+                    settleView === v
+                      ? 'bg-accent-aqua/15 text-accent-aqua'
+                      : 'text-text-secondary hover:text-text-primary',
+                  )}
+                >
+                  {v}
+                </button>
+              ))}
             </div>
-          ))}
+          </div>
+
+          {settleView === 'simplified' ? (
+            myPayments.length === 0 && myReceipts.length === 0 ? (
+              <div className="text-sm text-text-secondary">You're all settled up.</div>
+            ) : (
+              <div className="space-y-3">
+                {/* You owe {name} — settle-able net transfers. */}
+                {myPayments.map((s) => {
+                  const venmo = venmoLink({
+                    handle: s.payeeHandles.venmo,
+                    amountCents: s.amountCents,
+                    note: 'Festie settle-up',
+                  });
+                  const cashapp = cashAppLink({ handle: s.payeeHandles.cashapp, amountCents: s.amountCents });
+                  const paypal = payPalLink({ handle: s.payeeHandles.paypal, amountCents: s.amountCents });
+                  return (
+                    <div key={`pay-${s.toUserId}`} className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-text-primary">
+                          You owe <span className="font-medium">{s.toName}</span>{' '}
+                          <span className="text-accent-coral font-semibold tabular-nums">${s.amount.toFixed(2)}</span>
+                        </span>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleSettle(s)}
+                          disabled={settle.isPending}
+                          className="!py-1 !px-3 text-xs min-h-11"
+                        >
+                          <HandCoins className="w-3.5 h-3.5" aria-hidden="true" /> Settle up
+                        </Button>
+                      </div>
+                      {(venmo || cashapp || paypal) && (
+                        <div className="flex flex-wrap gap-2">
+                          {venmo && (
+                            <a
+                              href={venmo.web}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="min-h-11 px-3 py-1 rounded-full border border-border text-xs text-text-secondary hover:border-border-light inline-flex items-center"
+                            >
+                              Pay with Venmo
+                            </a>
+                          )}
+                          {cashapp && (
+                            <a
+                              href={cashapp.web}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="min-h-11 px-3 py-1 rounded-full border border-border text-xs text-text-secondary hover:border-border-light inline-flex items-center"
+                            >
+                              Pay with Cash App
+                            </a>
+                          )}
+                          {paypal && (
+                            <a
+                              href={paypal.web}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="min-h-11 px-3 py-1 rounded-full border border-border text-xs text-text-secondary hover:border-border-light inline-flex items-center"
+                            >
+                              Pay with PayPal
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {/* {name} owes you — read-only; the other person settles. */}
+                {myReceipts.map((s) => (
+                  <div key={`get-${s.fromUserId}`} className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-text-primary">
+                      <span className="font-medium">{s.fromName}</span> owes you{' '}
+                      <span className="text-accent-aqua font-semibold tabular-nums">${s.amount.toFixed(2)}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : nonZeroBalances.length > 0 ? (
+            <div className="space-y-2">
+              {nonZeroBalances.map((b) => (
+                <div key={b.userId} className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-text-primary">
+                    {b.userId === currentUserId ? 'You' : b.username}{' '}
+                    <span className={cn('tabular-nums', b.balance > 0 ? 'text-accent-aqua' : 'text-accent-coral')}>
+                      {formatBalance(b.balance)}
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-text-secondary">Everyone's balance is zero.</div>
+          )}
         </div>
       )}
 
@@ -411,7 +464,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
               })}
             </div>
             {splitWith.length > 0 && amount && (
-              <div className="text-xs text-text-muted mt-1">
+              <div className="text-xs text-text-muted mt-1 tabular-nums">
                 ${(Number(amount) / splitWith.length).toFixed(2)}/person {'×'} {splitWith.length}
               </div>
             )}

@@ -711,31 +711,19 @@ export default function CrewScreen() {
 
             <Text style={styles.sectionLabel}>On-site</Text>
 
-            {/* M6 offline crew map — meeting-point pins (offline-honest fallback list). */}
+            {/* "Find each other" — ONE destination that co-locates the crew map,
+                the meeting-point compass and saved meeting points (each still its
+                own route underneath) so the finding doors aren't scattered. */}
             <TouchableOpacity
-              testID="crew-action-map"
+              testID="crew-action-find"
               style={styles.overlapToggle}
-              onPress={() => router.push('/map')}
+              onPress={() => router.push('/find')}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Open the crew map"
+              accessibilityLabel="Find each other — crew map, compass and meeting points"
             >
-              <Ionicons name="map-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapToggleText}>Crew map</Text>
-              <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
-            </TouchableOpacity>
-
-            {/* M5 proximity compass — on-device straight-line direction to a saved point. */}
-            <TouchableOpacity
-              testID="crew-action-compass"
-              style={styles.overlapToggle}
-              onPress={() => router.push('/compass')}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Open the meeting-point compass"
-            >
-              <Ionicons name="navigate-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.overlapToggleText}>Meeting-point compass</Text>
+              <Ionicons name="location-outline" size={16} color={t.colors.accent.aqua} />
+              <Text style={styles.overlapToggleText}>Find each other</Text>
               <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
             </TouchableOpacity>
 

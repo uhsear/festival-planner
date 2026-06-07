@@ -490,7 +490,13 @@ export default function SetDetailScreen() {
         {/* Inline clash prompt — actionable "keep one" nudge (M1). The passive
             conflict box below stays as the ambient marker. */}
         {currentProfile && conflicts.length > 0 ? (
-          <ClashPrompt currentSet={set} conflicts={conflicts} b2bSeparator={b2bSeparator} onClear={handleClashClear} />
+          <ClashPrompt
+            currentSet={set}
+            conflicts={conflicts}
+            b2bSeparator={b2bSeparator}
+            getPriority={getMyPick}
+            onClear={handleClashClear}
+          />
         ) : null}
 
         {/* Conflict warning */}

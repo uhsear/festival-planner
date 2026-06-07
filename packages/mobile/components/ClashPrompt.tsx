@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { FestivalSet } from '@festie/shared/types';
+import type { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName, timeToMinutes } from '@festie/shared/utils';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 
@@ -14,6 +14,13 @@ interface Props {
    */
   conflicts: FestivalSet[];
   b2bSeparator?: string;
+  /**
+   * Resolve the user's pick priority for a set. When both sides of a clash are
+   * `must`, the prompt escalates to an explicit "you have a conflict" — the
+   * unavoidable decision worth surfacing loudly (Clashfinder pattern). Optional:
+   * without it every clash uses the softer "keep one" copy.
+   */
+  getPriority?: (setId: string) => Priority | null | undefined;
   /**
    * Demote/clear one side of a clash. Maps to usePicks().savePick(fid,id,null),
    * which is offline-queued — resolving a clash works on dead signal.
@@ -41,7 +48,7 @@ function overlapStartLabel(a: FestivalSet, b: FestivalSet): string {
  * pair (in-memory for the screen's lifetime); the ambient conflict box in the
  * detail screen carries the lasting signal so we don't double-nag.
  */
-export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, onClear }: Props) {
+export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, getPriority, onClear }: Props) {
   const t = useTokens();
   const styles = useStyles();
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
@@ -69,15 +76,21 @@ export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, onCle
         const key = pairKey(currentSet.id, c.id);
         const otherName = artistDisplayName(c, b2bSeparator);
         const at = overlapStartLabel(currentSet, c);
+        // Both sides a must-see → escalate to an explicit conflict.
+        const hard = getPriority?.(currentSet.id) === 'must' && getPriority?.(c.id) === 'must';
+        const title = hard
+          ? `You have a conflict${at ? ` at ${at}` : ''} — keep one`
+          : `2 acts${at ? ` at ${at}` : ''} — keep one`;
+        const body = hard
+          ? `Both ${currentName} and ${otherName} are must-sees but overlap. Keep one and we'll clear the other.`
+          : `${currentName} and ${otherName} overlap. Keep one and we'll clear the other.`;
         return (
           <View key={c.id} style={styles.card} accessibilityRole="alert">
             <View style={styles.header}>
               <Ionicons name="alert-circle" size={16} color={t.colors.accent.coral} />
-              <Text style={styles.title}>{`2 acts${at ? ` at ${at}` : ''} — keep one`}</Text>
+              <Text style={styles.title}>{title}</Text>
             </View>
-            <Text style={styles.body}>
-              {`${currentName} and ${otherName} overlap. Keep one and we'll clear the other.`}
-            </Text>
+            <Text style={styles.body}>{body}</Text>
             <View style={styles.actions}>
               <TouchableOpacity
                 style={styles.keepButton}

@@ -61,6 +61,9 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
   // Planned-vs-actual filter. 'actual' = the real ledger (feeds settle-up);
   // 'planned' = the budget/forecast view; 'all' = both.
   const [view, setView] = useState<'all' | 'actual' | 'planned'>('actual');
+  // Settle-up view. 'simplified' = the netted greedy min-cash-flow plan (fewest
+  // transfers, never a stranger-to-pay); 'raw' = every member's gross net balance.
+  const [settleView, setSettleView] = useState<'simplified' | 'raw'>('simplified');
 
   const reset = () => {
     setDescription('');
@@ -84,8 +87,11 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
   const totalPlanned = plannedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const visibleExpenses = view === 'actual' ? actualExpenses : view === 'planned' ? plannedExpenses : expenses;
   const nonZeroBalances = balances.filter((b) => Math.abs(b.balance) > 0.01);
-  // My outgoing transfers from the netted settlement plan.
+  // My net position from the netted plan, one actionable line per crew member:
+  //   myPayments — "You owe {toName} ${amt}" (settle-able by me)
+  //   myReceipts — "{fromName} owes you ${amt}" (they settle; read-only here)
   const myPayments = settlements.filter((s) => s.fromUserId === currentUserId);
+  const myReceipts = settlements.filter((s) => s.toUserId === currentUserId);
 
   const amt = Number(amount);
   const canAdd = !!description.trim() && Number.isFinite(amt) && amt > 0 && splitWith.length > 0;
@@ -170,13 +176,14 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
         <View style={styles.statsGrid}>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Total spent</Text>
-            <Text style={styles.statValue}>${totalSpent.toFixed(2)}</Text>
+            <Text style={[styles.statValue, styles.tabularNums]}>${totalSpent.toFixed(2)}</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Your balance</Text>
             <Text
               style={[
                 styles.statValue,
+                styles.tabularNums,
                 myBalance > 0.01 && styles.balancePositive,
                 myBalance < -0.01 && styles.balanceNegative,
               ]}
@@ -190,7 +197,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
       {totalPlanned > 0 ? (
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Planned (budget)</Text>
-          <Text style={[styles.statValue, styles.balancePositive]}>${totalPlanned.toFixed(2)}</Text>
+          <Text style={[styles.statValue, styles.balancePositive, styles.tabularNums]}>${totalPlanned.toFixed(2)}</Text>
         </View>
       ) : null}
 
@@ -217,91 +224,134 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
         </View>
       ) : null}
 
-      {myPayments.length > 0 ? (
+      {/* Settle up — one card, toggle between the netted Simplified plan
+          (fewest transfers, never a stranger-to-pay) and the Raw per-member
+          balances. Simplified surfaces one actionable net line per crew member:
+          "You owe {name}" (settle-able) / "{name} owes you" (read-only). */}
+      {settlements.length > 0 || nonZeroBalances.length > 0 ? (
         <View style={styles.ledger}>
-          <Text style={styles.ledgerLabel}>Settle up</Text>
-          {myPayments.map((s) => {
-            const venmo = venmoLink({
-              handle: s.payeeHandles.venmo,
-              amountCents: s.amountCents,
-              note: 'Festie settle-up',
-            });
-            const cashapp = cashAppLink({ handle: s.payeeHandles.cashapp, amountCents: s.amountCents });
-            const paypal = payPalLink({ handle: s.payeeHandles.paypal, amountCents: s.amountCents });
-            const hasLinks = !!(venmo || cashapp || paypal);
-            return (
-              <View key={s.toUserId} style={styles.settleGroup}>
-                <View style={styles.ledgerRow}>
-                  <Text style={styles.ledgerName}>
-                    You pay {s.toName} <Text style={styles.balanceNegative}>${s.amount.toFixed(2)}</Text>
-                  </Text>
+          <View style={styles.ledgerHeader}>
+            <Text style={styles.ledgerLabel}>Settle up</Text>
+            <View style={styles.settleToggle}>
+              {(['simplified', 'raw'] as const).map((v) => {
+                const active = settleView === v;
+                return (
                   <TouchableOpacity
-                    style={styles.settleButton}
-                    onPress={() => handleSettle(s)}
+                    key={v}
+                    style={[styles.settleToggleTab, active && styles.settleToggleTabActive]}
+                    onPress={() => setSettleView(v)}
                     activeOpacity={0.8}
                     accessibilityRole="button"
-                    accessibilityLabel={`Record settling up with ${s.toName}`}
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={`Show ${v} settle-up`}
                   >
-                    <Ionicons name="cash-outline" size={14} color={t.colors.accent.aqua} />
-                    <Text style={styles.settleButtonText}>Settle up</Text>
+                    <Text style={[styles.settleToggleText, active && styles.settleToggleTextActive]}>
+                      {v.charAt(0).toUpperCase() + v.slice(1)}
+                    </Text>
                   </TouchableOpacity>
-                </View>
-                {hasLinks ? (
-                  <View style={styles.payLinkRow}>
-                    {venmo ? (
-                      <TouchableOpacity
-                        style={styles.payLink}
-                        onPress={() => void openPayLink(venmo)}
-                        activeOpacity={0.8}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Pay ${s.toName} with Venmo`}
-                      >
-                        <Text style={styles.payLinkText}>Venmo</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    {cashapp ? (
-                      <TouchableOpacity
-                        style={styles.payLink}
-                        onPress={() => void openPayLink(cashapp)}
-                        activeOpacity={0.8}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Pay ${s.toName} with Cash App`}
-                      >
-                        <Text style={styles.payLinkText}>Cash App</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    {paypal ? (
-                      <TouchableOpacity
-                        style={styles.payLink}
-                        onPress={() => void openPayLink(paypal)}
-                        activeOpacity={0.8}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Pay ${s.toName} with PayPal`}
-                      >
-                        <Text style={styles.payLinkText}>PayPal</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                ) : null}
-              </View>
-            );
-          })}
-        </View>
-      ) : null}
-
-      {nonZeroBalances.length > 0 ? (
-        <View style={styles.ledger}>
-          <Text style={styles.ledgerLabel}>Who owes what</Text>
-          {nonZeroBalances.map((b) => (
-            <View key={b.userId} style={styles.ledgerRow}>
-              <Text style={styles.ledgerName}>
-                {b.userId === currentUserId ? 'You' : b.username}{' '}
-                <Text style={b.balance > 0 ? styles.balancePositive : styles.balanceNegative}>
-                  {formatBalance(b.balance)}
-                </Text>
-              </Text>
+                );
+              })}
             </View>
-          ))}
+          </View>
+
+          {settleView === 'simplified' ? (
+            myPayments.length === 0 && myReceipts.length === 0 ? (
+              <Text style={styles.ledgerName}>You're all settled up.</Text>
+            ) : (
+              <>
+                {/* You owe {name} — settle-able net transfers. */}
+                {myPayments.map((s) => {
+                  const venmo = venmoLink({
+                    handle: s.payeeHandles.venmo,
+                    amountCents: s.amountCents,
+                    note: 'Festie settle-up',
+                  });
+                  const cashapp = cashAppLink({ handle: s.payeeHandles.cashapp, amountCents: s.amountCents });
+                  const paypal = payPalLink({ handle: s.payeeHandles.paypal, amountCents: s.amountCents });
+                  const hasLinks = !!(venmo || cashapp || paypal);
+                  return (
+                    <View key={`pay-${s.toUserId}`} style={styles.settleGroup}>
+                      <View style={styles.ledgerRow}>
+                        <Text style={styles.ledgerName}>
+                          You owe {s.toName}{' '}
+                          <Text style={[styles.balanceNegative, styles.tabularNums]}>${s.amount.toFixed(2)}</Text>
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.settleButton}
+                          onPress={() => handleSettle(s)}
+                          activeOpacity={0.8}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Record settling up with ${s.toName}`}
+                        >
+                          <Ionicons name="cash-outline" size={14} color={t.colors.accent.aqua} />
+                          <Text style={styles.settleButtonText}>Settle up</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {hasLinks ? (
+                        <View style={styles.payLinkRow}>
+                          {venmo ? (
+                            <TouchableOpacity
+                              style={styles.payLink}
+                              onPress={() => void openPayLink(venmo)}
+                              activeOpacity={0.8}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Pay ${s.toName} with Venmo`}
+                            >
+                              <Text style={styles.payLinkText}>Venmo</Text>
+                            </TouchableOpacity>
+                          ) : null}
+                          {cashapp ? (
+                            <TouchableOpacity
+                              style={styles.payLink}
+                              onPress={() => void openPayLink(cashapp)}
+                              activeOpacity={0.8}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Pay ${s.toName} with Cash App`}
+                            >
+                              <Text style={styles.payLinkText}>Cash App</Text>
+                            </TouchableOpacity>
+                          ) : null}
+                          {paypal ? (
+                            <TouchableOpacity
+                              style={styles.payLink}
+                              onPress={() => void openPayLink(paypal)}
+                              activeOpacity={0.8}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Pay ${s.toName} with PayPal`}
+                            >
+                              <Text style={styles.payLinkText}>PayPal</Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
+                {/* {name} owes you — read-only; the other person settles. */}
+                {myReceipts.map((s) => (
+                  <View key={`get-${s.fromUserId}`} style={styles.ledgerRow}>
+                    <Text style={styles.ledgerName}>
+                      {s.fromName} owes you{' '}
+                      <Text style={[styles.balancePositive, styles.tabularNums]}>${s.amount.toFixed(2)}</Text>
+                    </Text>
+                  </View>
+                ))}
+              </>
+            )
+          ) : nonZeroBalances.length > 0 ? (
+            nonZeroBalances.map((b) => (
+              <View key={b.userId} style={styles.ledgerRow}>
+                <Text style={styles.ledgerName}>
+                  {b.userId === currentUserId ? 'You' : b.username}{' '}
+                  <Text style={[b.balance > 0 ? styles.balancePositive : styles.balanceNegative, styles.tabularNums]}>
+                    {formatBalance(b.balance)}
+                  </Text>
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.ledgerName}>Everyone's balance is zero.</Text>
+          )}
         </View>
       ) : null}
 
@@ -380,7 +430,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
             })}
           </View>
           {splitWith.length > 0 && amt > 0 ? (
-            <Text style={styles.splitHint}>
+            <Text style={[styles.splitHint, styles.tabularNums]}>
               ${(amt / splitWith.length).toFixed(2)}/person × {splitWith.length}
             </Text>
           ) : null}
@@ -458,7 +508,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
                   {e.split_with.length}
                 </Text>
               </View>
-              <Text style={styles.expenseAmount}>${Number(e.amount).toFixed(2)}</Text>
+              <Text style={[styles.expenseAmount, styles.tabularNums]}>${Number(e.amount).toFixed(2)}</Text>
               {canRemove ? (
                 <TouchableOpacity
                   onPress={() => handleRemove(e)}
@@ -576,6 +626,39 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('micro'),
     color: t.colors.text.muted,
     textTransform: 'uppercase',
+  },
+  ledgerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: t.spacing[2],
+  },
+  settleToggle: {
+    flexDirection: 'row',
+    gap: t.spacing[1],
+    padding: 2,
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.input,
+  },
+  settleToggleTab: {
+    paddingHorizontal: t.spacing[2],
+    paddingVertical: t.spacing[1],
+    borderRadius: t.radii.default,
+  },
+  settleToggleTabActive: {
+    backgroundColor: t.colors.ring.aqua,
+  },
+  settleToggleText: {
+    ...typeStyle('micro'),
+    color: t.colors.text.secondary,
+  },
+  settleToggleTextActive: {
+    color: t.colors.accent.aqua,
+  },
+  tabularNums: {
+    fontVariant: ['tabular-nums'],
   },
   ledgerRow: {
     flexDirection: 'row',

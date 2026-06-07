@@ -40,3 +40,25 @@ export function shouldPublishLocation(
   );
   return Number.isFinite(moved) && moved > LIVE_LOCATION.MIN_MOVE_METERS;
 }
+
+/**
+ * Whether a peer's last fix is "stale" — older than the freshness window but not
+ * yet swept (peers are removed entirely past STALE_MS). Drives the Snap Map-style
+ * desaturated avatar + "last seen N ago" chip vs the pulsing "live" treatment.
+ *
+ * `serverAt` is the authoritative server-receive time (epoch ms or ISO string).
+ * An unknown/invalid timestamp is treated as fresh so we never spuriously grey
+ * out a marker we can't age. `now` is epoch ms.
+ */
+export function isPeerStale(
+  serverAt: string | number | null | undefined,
+  now: number,
+  freshMs: number = LIVE_LOCATION.FRESH_MS,
+): boolean {
+  let ms: number;
+  if (typeof serverAt === 'number') ms = serverAt;
+  else if (typeof serverAt === 'string') ms = new Date(serverAt).getTime();
+  else return false;
+  if (!Number.isFinite(ms)) return false;
+  return now - ms > freshMs;
+}

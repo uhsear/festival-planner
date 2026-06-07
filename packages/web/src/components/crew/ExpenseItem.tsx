@@ -49,7 +49,8 @@ export default function ExpenseItem({
           )}
         </div>
         <div className="text-xs text-text-secondary">
-          ${Number(amount).toFixed(2)} {'·'} {planned ? 'planned' : `${paidByMe ? 'You' : paidByName} paid`}
+          <span className="tabular-nums">${Number(amount).toFixed(2)}</span> {'·'}{' '}
+          {planned ? 'planned' : `${paidByMe ? 'You' : paidByName} paid`}
           {splitCount > 0 && ` · split ${splitCount} ways`}
         </div>
       </div>

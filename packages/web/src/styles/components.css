@@ -365,6 +365,36 @@ button[aria-label='Back to app'] {
     animation: none;
   }
 }
+/* Stale peer (Snap Map-style): the avatar desaturates, the live ring is dropped,
+   and a "last seen N ago" chip hangs below so an out-of-date dot can't be read as
+   live. The honesty lives in both the marker treatment and the popup copy. */
+.festie-peer-marker--stale {
+  background: var(--color-text-muted, #8787a8);
+  color: var(--color-bg-primary, #08080f);
+  border-color: var(--color-border-light, rgba(255, 255, 255, 0.4));
+  box-shadow: none;
+  filter: grayscale(1);
+  opacity: 0.9;
+}
+.festie-peer-marker--stale::before {
+  display: none;
+}
+.festie-peer-chip {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(8, 8, 16, 0.9);
+  color: var(--color-text-secondary, #9999bb);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-light, rgba(255, 255, 255, 0.14));
+  pointer-events: none;
+}
 
 /* SOS marker — the loudest thing on the map: a large coral disc with a pulsing
    alarm ring. Bigger than peers/meeting points so it can't be missed. */

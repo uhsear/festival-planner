@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { festivalStatus, isFestivalOver, hasSetStarted } from './festivalTime';
+import {
+  festivalStatus,
+  isFestivalOver,
+  hasSetStarted,
+  isValidTimeZone,
+  resolveFestivalTimeZone,
+} from './festivalTime';
 import type { Festival } from '../types/domain';
 
 function fest(overrides: Partial<Festival> = {}): Festival {
@@ -13,6 +19,32 @@ function fest(overrides: Partial<Festival> = {}): Festival {
     ...overrides,
   };
 }
+
+describe('isValidTimeZone', () => {
+  it('accepts a valid IANA zone', () => {
+    expect(isValidTimeZone('America/New_York')).toBe(true);
+    expect(isValidTimeZone('UTC')).toBe(true);
+  });
+
+  it('rejects empty/garbage zones', () => {
+    expect(isValidTimeZone(undefined)).toBe(false);
+    expect(isValidTimeZone(null)).toBe(false);
+    expect(isValidTimeZone('')).toBe(false);
+    expect(isValidTimeZone('Not/AZone')).toBe(false);
+  });
+});
+
+describe('resolveFestivalTimeZone', () => {
+  it('returns the festival zone when present and valid', () => {
+    expect(resolveFestivalTimeZone(fest({ timeZone: 'America/New_York' }))).toBe('America/New_York');
+  });
+
+  it('returns undefined when absent or invalid (device-local fallback)', () => {
+    expect(resolveFestivalTimeZone(fest())).toBeUndefined();
+    expect(resolveFestivalTimeZone(fest({ timeZone: 'bogus' }))).toBeUndefined();
+    expect(resolveFestivalTimeZone(null)).toBeUndefined();
+  });
+});
 
 describe('festivalStatus', () => {
   it("returns 'past' after the final day's 23:59", () => {

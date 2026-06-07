@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldPublishLocation, type LatLng } from './liveLocation';
+import { shouldPublishLocation, isPeerStale, type LatLng } from './liveLocation';
 import { LIVE_LOCATION } from '../constants/config';
 
 const NOW = 1_000_000;
@@ -43,5 +43,36 @@ describe('liveLocation.shouldPublishLocation', () => {
   it('treats the interval boundary (>=) as elapsed', () => {
     const last = NOW - LIVE_LOCATION.UPDATE_INTERVAL_MS; // exactly the interval
     expect(shouldPublishLocation(A, A, last, NOW)).toBe(true);
+  });
+});
+
+describe('liveLocation.isPeerStale', () => {
+  it('treats a fresh fix (within FRESH_MS) as live', () => {
+    expect(isPeerStale(NOW - (LIVE_LOCATION.FRESH_MS - 1), NOW)).toBe(false);
+    expect(isPeerStale(NOW, NOW)).toBe(false);
+  });
+
+  it('treats a fix older than FRESH_MS as stale', () => {
+    expect(isPeerStale(NOW - (LIVE_LOCATION.FRESH_MS + 1), NOW)).toBe(true);
+  });
+
+  it('treats the exact FRESH_MS boundary as still live (strict >)', () => {
+    expect(isPeerStale(NOW - LIVE_LOCATION.FRESH_MS, NOW)).toBe(false);
+  });
+
+  it('accepts ISO strings as well as epoch ms', () => {
+    const iso = new Date(NOW - (LIVE_LOCATION.FRESH_MS + 5_000)).toISOString();
+    expect(isPeerStale(iso, NOW)).toBe(true);
+  });
+
+  it('never greys out a marker with an unknown/invalid timestamp', () => {
+    expect(isPeerStale(null, NOW)).toBe(false);
+    expect(isPeerStale(undefined, NOW)).toBe(false);
+    expect(isPeerStale('not-a-date', NOW)).toBe(false);
+  });
+
+  it('honours a custom freshness window', () => {
+    expect(isPeerStale(NOW - 5_000, NOW, 1_000)).toBe(true);
+    expect(isPeerStale(NOW - 5_000, NOW, 10_000)).toBe(false);
   });
 });

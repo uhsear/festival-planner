@@ -5,9 +5,23 @@ export interface ConflictDetected {
   setA: FestivalSet;
   setB: FestivalSet;
   overlapMinutes: number;
+  /** The user's pick priority for each side (for hard/soft clash classification). */
+  priorityA: Priority;
+  priorityB: Priority;
+  /**
+   * A "hard" clash: BOTH sides are `must`. These are the unavoidable
+   * decisions worth an explicit "you have a conflict" prompt (Clashfinder
+   * pattern) vs. a softer want/maybe overlap the user may happily double-book.
+   */
+  hard: boolean;
 }
 
 export type GetMyPickFn = (setId: string) => Priority | undefined | null;
+
+/** True when both sides of a detected clash are `must` picks. */
+export function isHardConflict(c: ConflictDetected): boolean {
+  return c.priorityA === 'must' && c.priorityB === 'must';
+}
 
 export function detectConflicts(sets: FestivalSet[], getMyPick: GetMyPickFn): ConflictDetected[] {
   const picked = sets.filter((s) => getMyPick(s.id) && s.startTime && s.endTime);
@@ -38,10 +52,17 @@ export function detectConflicts(sets: FestivalSet[], getMyPick: GetMyPickFn): Co
           seen.add(key);
           const overlapStart = Math.max(aS, bS);
           const overlapEnd = Math.min(aE, bE);
+          // Both sides are picked (filtered above), so getMyPick is non-null;
+          // default to 'maybe' purely as a type-safe fallback.
+          const priorityA = (getMyPick(a.id) as Priority) || 'maybe';
+          const priorityB = (getMyPick(b.id) as Priority) || 'maybe';
           conflicts.push({
             setA: a,
             setB: b,
             overlapMinutes: overlapEnd - overlapStart,
+            priorityA,
+            priorityB,
+            hard: priorityA === 'must' && priorityB === 'must',
           });
         }
       }

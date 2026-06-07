@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildReminderPlan, diffReminderPlan, reminderIdentifier, MAX_LOCAL_REMINDERS } from './reminderSchedule';
+import {
+  buildReminderPlan,
+  diffReminderPlan,
+  reminderIdentifier,
+  MAX_LOCAL_REMINDERS,
+  DEFAULT_REMINDER_LEAD_MINUTES,
+} from './reminderSchedule';
 import type { FestivalSet, FestivalDay, Priority } from '../types/domain';
 
 // A fixed "now" the local-frame helpers anchor against. The planner builds set
@@ -92,6 +98,27 @@ describe('buildReminderPlan', () => {
 
   it('caps to the iOS limit by default', () => {
     expect(MAX_LOCAL_REMINDERS).toBe(64);
+  });
+
+  it('defaults the reminder lead to 30 minutes', () => {
+    expect(DEFAULT_REMINDER_LEAD_MINUTES).toBe(30);
+  });
+
+  it('anchors fire times in the festival zone when timeZone is supplied', () => {
+    // 20:00 UTC start − 30m lead = 19:30 UTC, regardless of the host's zone.
+    const sets = [makeSet('a', '20:00')];
+    const reminders = { a: DEFAULT_REMINDER_LEAD_MINUTES };
+    const plan = buildReminderPlan({
+      reminders,
+      picks: { a: 'must' },
+      sets,
+      days,
+      nowMs: Date.UTC(2026, 7, 15, 8, 0, 0),
+      timeZone: 'UTC',
+    });
+    expect(plan).toHaveLength(1);
+    expect(plan[0]!.startMs).toBe(Date.UTC(2026, 7, 15, 20, 0, 0));
+    expect(plan[0]!.fireAtMs).toBe(Date.UTC(2026, 7, 15, 19, 30, 0));
   });
 
   it('returns empty when reminders is null/undefined', () => {

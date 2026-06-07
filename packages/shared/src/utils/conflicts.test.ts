@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectConflicts, getConflictingSetIds, hasConflict } from './conflicts';
+import { detectConflicts, getConflictingSetIds, hasConflict, isHardConflict } from './conflicts';
 import type { FestivalSet, Priority } from '../types/domain';
 
 function makeSet(overrides: Partial<FestivalSet> & { id: string }): FestivalSet {
@@ -89,6 +89,34 @@ describe('detectConflicts', () => {
     const getMyPick = (id: string) => picks[id];
     const conflicts = detectConflicts(sets, getMyPick);
     expect(conflicts).toHaveLength(2);
+  });
+});
+
+describe('hard conflicts (two must picks)', () => {
+  const overlap: FestivalSet[] = [
+    makeSet({ id: 's1', startTime: '14:00', endTime: '15:30' }),
+    makeSet({ id: 's2', startTime: '15:00', endTime: '16:00' }),
+  ];
+
+  it('flags hard=true and carries priorities when both sides are must', () => {
+    const picks: Record<string, Priority> = { s1: 'must', s2: 'must' };
+    const [c] = detectConflicts(overlap, (id) => picks[id]);
+    expect(c!.hard).toBe(true);
+    expect(c!.priorityA && c!.priorityB).toBeTruthy();
+    expect(isHardConflict(c!)).toBe(true);
+  });
+
+  it('flags hard=false when only one side is must', () => {
+    const picks: Record<string, Priority> = { s1: 'must', s2: 'want-to-see' };
+    const [c] = detectConflicts(overlap, (id) => picks[id]);
+    expect(c!.hard).toBe(false);
+    expect(isHardConflict(c!)).toBe(false);
+  });
+
+  it('flags hard=false for want/maybe overlaps', () => {
+    const picks: Record<string, Priority> = { s1: 'want-to-see', s2: 'maybe' };
+    const [c] = detectConflicts(overlap, (id) => picks[id]);
+    expect(c!.hard).toBe(false);
   });
 });
 

@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
-import { FestivalSet } from '@festie/shared/types';
+import { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName, timeToMinutes } from '@festie/shared/utils';
 import Button from '../ui/Button';
 
@@ -12,6 +12,13 @@ interface Props {
    */
   conflicts: FestivalSet[];
   b2bSeparator?: string;
+  /**
+   * Resolve the user's pick priority for a set. When both sides of a clash are
+   * `must`, the prompt escalates to an explicit "you have a conflict" — the
+   * unavoidable decision worth surfacing loudly (Clashfinder pattern). Optional:
+   * without it every clash uses the softer "keep one" copy.
+   */
+  getPriority?: (setId: string) => Priority | null | undefined;
   /**
    * Demote/clear one side of a clash. Maps to usePicks().savePick(fid,id,null),
    * which is offline-queued — resolving a clash works on dead signal.
@@ -46,7 +53,7 @@ function overlapStartLabel(a: FestivalSet, b: FestivalSet): string {
  * savePick(...,null). Shows once per pair per session; once resolved or
  * dismissed the ambient badge (DetailConflictWarning) carries the signal.
  */
-export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, onClear }: Props) {
+export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, getPriority, onClear }: Props) {
   // Session-dismissed pairs (resolve or "keep both"). Seeded from sessionStorage
   // so a closed/reopened panel doesn't re-nag the same clash.
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
@@ -87,16 +94,22 @@ export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, onCle
         const key = pairKey(currentSet.id, c.id);
         const otherName = artistDisplayName(c, b2bSeparator);
         const at = overlapStartLabel(currentSet, c);
+        // Both sides a must-see → escalate to an explicit conflict.
+        const hard = getPriority?.(currentSet.id) === 'must' && getPriority?.(c.id) === 'must';
+        const title = hard
+          ? `⚠ You have a conflict${at ? ` at ${at}` : ''} — keep one`
+          : `⚠ 2 acts${at ? ` at ${at}` : ''} — keep one`;
+        const body = hard
+          ? `Both ${currentName} and ${otherName} are must-sees but overlap. Keep one and we'll clear the other.`
+          : `${currentName} and ${otherName} overlap. Keep one and we'll clear the other.`;
         return (
           <div
             key={c.id}
             role="alert"
             className="rounded-DEFAULT border border-accent-coral/40 bg-accent-coral/[0.1] p-4"
           >
-            <div className="text-sm font-bold text-accent-coral">{`⚠ 2 acts${at ? ` at ${at}` : ''} — keep one`}</div>
-            <div className="mt-1 text-[13px] text-text-secondary">
-              {`${currentName} and ${otherName} overlap. Keep one and we'll clear the other.`}
-            </div>
+            <div className="text-sm font-bold text-accent-coral">{title}</div>
+            <div className="mt-1 text-[13px] text-text-secondary">{body}</div>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 variant="secondary"

@@ -49,6 +49,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     saveNote,
     getOtherPicks,
     getStageName,
+    getMyPick,
   } = useDetailPanelData(set);
 
   const { select: selectHaptic, success: successHaptic, warning: warningHaptic } = useHaptics();
@@ -315,6 +316,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
                 currentSet={set}
                 conflicts={conflicts}
                 b2bSeparator={b2bSeparator}
+                getPriority={getMyPick}
                 onClear={handleClashClear}
               />
             )}

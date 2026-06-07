@@ -18,18 +18,33 @@
  *    returning requires the user to opt in again (no silent re-share).
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Switch, TouchableOpacity, AppState, Alert, Linking, type AppStateStatus } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useLiveLocationPublisher, type GeoWatcher } from '@festie/shared/hooks';
-import { LIVE_LOCATION } from '@festie/shared/constants';
+import {
+  LIVE_LOCATION,
+  LIVE_SHARE_DURATIONS,
+  LIVE_SHARE_DEFAULT_DURATION_ID,
+  resolveLiveShareMs,
+  type LiveShareDuration,
+} from '@festie/shared/constants';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
 import { useLiveSocket } from '../lib/liveSocket';
 
 interface CrewLiveLocationProps {
   crewId: string;
+}
+
+/** Short local clock label for the auto-expiry, e.g. "3:45 PM". */
+function clockLabel(epochMs: number): string {
+  try {
+    return new Date(epochMs).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  } catch {
+    return '';
+  }
 }
 
 export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
@@ -42,21 +57,34 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
   // the source of truth the publisher's `enabled` reads from.
   const [sharing, setSharing] = useState(false);
   const [busy, setBusy] = useState(false);
+  // The opt-in duration sheet is open (picking a time-box before sharing starts).
+  const [choosing, setChoosing] = useState(false);
+  // The chosen time-box (ms) + the wall-clock instant it auto-expires, for the
+  // banner copy and the publisher's auto-stop. Null while not sharing.
+  const [durationMs, setDurationMs] = useState<number | null>(null);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+
+  const resetShare = useCallback(() => {
+    setSharing(false);
+    setChoosing(false);
+    setDurationMs(null);
+    setExpiresAt(null);
+  }, []);
 
   // Reset sharing whenever the crew changes — you must re-opt-in per crew.
   useEffect(() => {
-    setSharing(false);
-  }, [crewId]);
+    resetShare();
+  }, [crewId, resetShare]);
 
   // Foreground-only: stop sharing the moment the app backgrounds so the toggle
   // is OFF when the user returns (useRealtimeSync emits the server-side stop).
   useEffect(() => {
     const onChange = (next: AppStateStatus) => {
-      if (next.match(/inactive|background/)) setSharing(false);
+      if (next.match(/inactive|background/)) resetShare();
     };
     const sub = AppState.addEventListener('change', onChange);
     return () => sub.remove();
-  }, []);
+  }, [resetShare]);
 
   // expo-location → GeoFix adapter for the shared publisher. watchPositionAsync
   // is async; we hold the subscription and tear it down synchronously.
@@ -93,81 +121,99 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
   }, []);
 
   const handleAutoStop = useCallback(() => {
-    setSharing(false);
+    resetShare();
     Alert.alert(
       'Sharing stopped',
-      'Live location sharing auto-stopped after an hour. Turn it back on if you still want your crew to see you.',
+      'Your live location sharing reached its time limit and stopped. Turn it back on if you still want your crew to see you.',
     );
-  }, []);
+  }, [resetShare]);
 
   // Keep one ref so the error handler can flip the toggle without re-subscribing.
   const sharingRef = useRef(sharing);
   sharingRef.current = sharing;
   const handleError = useCallback(() => {
     if (!sharingRef.current) return;
-    setSharing(false);
+    resetShare();
     Alert.alert(
       'Location unavailable',
       "Couldn't read your location, so sharing stopped. Check that location is enabled and try again.",
     );
-  }, []);
+  }, [resetShare]);
 
   useLiveLocationPublisher({
     socket,
     crewId,
     enabled: sharing,
     watchPosition,
+    durationMs: durationMs ?? undefined,
     onAutoStop: handleAutoStop,
     onError: handleError,
   });
 
-  const enableSharing = useCallback(async () => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const perm = await Location.requestForegroundPermissionsAsync();
-      if (!perm.granted) {
-        // canAskAgain === false means the OS won't re-prompt (permanently denied
-        // / "Don't allow"); a "try again" here is a dead end, so route the user
-        // to Settings instead. Otherwise the next toggle will re-prompt.
-        if (perm.canAskAgain === false) {
-          Alert.alert(
-            'Location permission needed',
-            'Location is turned off for Festie. Open Settings to allow location access while using the app, then turn sharing back on.',
-            [
-              { text: 'Not now', style: 'cancel' },
-              { text: 'Open Settings', onPress: () => void Linking.openSettings() },
-            ],
-          );
-        } else {
-          Alert.alert(
-            'Location permission needed',
-            'To share your live location with this crew, allow location access while using the app, then try again.',
-          );
+  // Pick a time-box → request permission → start sharing for that duration.
+  const startSharing = useCallback(
+    async (duration: LiveShareDuration) => {
+      if (busy) return;
+      setBusy(true);
+      try {
+        const perm = await Location.requestForegroundPermissionsAsync();
+        if (!perm.granted) {
+          // canAskAgain === false means the OS won't re-prompt (permanently
+          // denied / "Don't allow"); a "try again" here is a dead end, so route
+          // the user to Settings instead. Otherwise the next attempt re-prompts.
+          if (perm.canAskAgain === false) {
+            Alert.alert(
+              'Location permission needed',
+              'Location is turned off for Festie. Open Settings to allow location access while using the app, then turn sharing back on.',
+              [
+                { text: 'Not now', style: 'cancel' },
+                { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+              ],
+            );
+          } else {
+            Alert.alert(
+              'Location permission needed',
+              'To share your live location with this crew, allow location access while using the app, then try again.',
+            );
+          }
+          return;
         }
-        return;
+        const ms = resolveLiveShareMs(duration);
+        setDurationMs(ms);
+        setExpiresAt(Date.now() + ms);
+        setChoosing(false);
+        setSharing(true);
+        haptics.select();
+      } catch {
+        Alert.alert('Location unavailable', "Couldn't start location sharing. Try again.");
+      } finally {
+        setBusy(false);
       }
-      setSharing(true);
-      haptics.select();
-    } catch {
-      Alert.alert('Location unavailable', "Couldn't start location sharing. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, haptics]);
+    },
+    [busy, haptics],
+  );
 
   const disableSharing = useCallback(() => {
-    setSharing(false);
+    resetShare();
     haptics.tap();
-  }, [haptics]);
+  }, [resetShare, haptics]);
 
+  // The Switch opens the duration sheet (sharing only starts once a time-box is
+  // picked — value stays OFF until then); switching off cancels/stops.
   const onToggle = useCallback(
     (next: boolean) => {
-      if (next) enableSharing();
-      else disableSharing();
+      if (next) {
+        setChoosing(true);
+        haptics.tap();
+      } else {
+        setChoosing(false);
+        disableSharing();
+      }
     },
-    [enableSharing, disableSharing],
+    [disableSharing, haptics],
   );
+
+  const untilLabel = useMemo(() => (expiresAt ? clockLabel(expiresAt) : ''), [expiresAt]);
 
   return (
     <View style={styles.wrap}>
@@ -182,26 +228,67 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
           </Text>
         </View>
         <Switch
-          value={sharing}
+          value={sharing || choosing}
           onValueChange={onToggle}
           disabled={busy}
           trackColor={{ false: t.colors.border.light, true: t.colors.aquaAlpha[30] }}
-          thumbColor={sharing ? t.colors.accent.aqua : t.colors.text.muted}
+          thumbColor={sharing || choosing ? t.colors.accent.aqua : t.colors.text.muted}
           accessibilityRole="switch"
           accessibilityLabel="Share my live location with this crew"
           accessibilityState={{ checked: sharing, disabled: busy }}
         />
       </View>
 
+      {/* Duration sheet — explicit opt-in time-box before any sharing starts. */}
+      {choosing && !sharing ? (
+        <View style={styles.chooser} accessible accessibilityLabel="Choose how long to share your live location">
+          <Text style={styles.chooserTitle}>Share your location for…</Text>
+          <View style={styles.chooserOptions}>
+            {LIVE_SHARE_DURATIONS.map((d) => {
+              const isDefault = d.id === LIVE_SHARE_DEFAULT_DURATION_ID;
+              return (
+                <TouchableOpacity
+                  key={d.id}
+                  onPress={() => startSharing(d)}
+                  disabled={busy}
+                  style={[styles.durationChip, isDefault && styles.durationChipDefault]}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Share for ${d.label}`}
+                >
+                  <Text style={[styles.durationChipText, isDefault && styles.durationChipTextDefault]}>{d.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <TouchableOpacity
+            onPress={() => setChoosing(false)}
+            style={styles.chooserCancel}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel sharing"
+          >
+            <Text style={styles.chooserCancelText}>Not now</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       {sharing ? (
         <View
           style={styles.banner}
           accessible
           accessibilityRole="alert"
-          accessibilityLabel="You are sharing your live location with this crew"
+          accessibilityLabel={
+            untilLabel
+              ? `You are sharing your live location with this crew until ${untilLabel}`
+              : 'You are sharing your live location with this crew'
+          }
         >
           <View style={styles.bannerDot} />
-          <Text style={styles.bannerText}>You are sharing your live location</Text>
+          <View style={styles.bannerBody}>
+            <Text style={styles.bannerText}>You are sharing your live location</Text>
+            {untilLabel ? <Text style={styles.bannerSub}>Until {untilLabel} · stops if you leave the app</Text> : null}
+          </View>
           <TouchableOpacity
             onPress={disableSharing}
             style={styles.stopButton}
@@ -266,10 +353,66 @@ const useStyles = makeStyles((t) => ({
     borderRadius: 5,
     backgroundColor: t.colors.accent.aqua,
   },
+  bannerBody: {
+    flex: 1,
+    gap: 2,
+  },
   bannerText: {
     ...typeStyle('label'),
     color: t.colors.text.primary,
-    flex: 1,
+  },
+  bannerSub: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  chooser: {
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  chooserTitle: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+  },
+  chooserOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+  },
+  durationChip: {
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.primary,
+  },
+  durationChipDefault: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.aquaAlpha[12],
+  },
+  durationChipText: {
+    ...typeStyle('label'),
+    color: t.colors.text.secondary,
+  },
+  durationChipTextDefault: {
+    color: t.colors.accent.aqua,
+  },
+  chooserCancel: {
+    alignSelf: 'flex-start',
+    paddingVertical: t.spacing[1],
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  chooserCancelText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
   },
   stopButton: {
     paddingHorizontal: t.spacing[3],
