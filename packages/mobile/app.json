@@ -2,7 +2,7 @@
   "expo": {
     "name": "Festie",
     "slug": "festie",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "scheme": "festie",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -121,7 +121,21 @@
         }
       ],
       "./plugins/withAndroidUploadSigning",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "us.festie.app.widgets",
+          "groupIdentifier": "group.us.festie.app",
+          "widgets": [
+            {
+              "name": "NowNextActivity",
+              "displayName": "Now & Next",
+              "description": "Your current and upcoming festival set."
+            }
+          ]
+        }
+      ]
     ],
     "extra": {
       "router": {},
