@@ -4,6 +4,9 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    // TS 6.0 changed the `types` default from auto-loading all @types to [];
+    // declare node explicitly so process/Buffer/__dirname globals keep resolving.
+    "types": ["node"],
     "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -15,15 +18,6 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "include": [
-    "server.ts",
-    "lib/**/*.ts",
-    "routes/**/*.ts",
-    "tests/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "packages"
-  ]
+  "include": ["server.ts", "lib/**/*.ts", "routes/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules", "dist", "packages"]
 }
