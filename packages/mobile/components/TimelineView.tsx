@@ -398,6 +398,11 @@ export default function TimelineView({
         showsHorizontalScrollIndicator={false}
         snapToInterval={columnWidth + 8}
         decelerationRate="fast"
+        // flex:1 binds the carousel (and thus each stage column's flex:1 height)
+        // to the parent's available height. Without it the list sizes to its
+        // tall content and overflows the frame, which both breaks the per-column
+        // vertical scroll and lets content paint over the tab bar.
+        style={styles.carouselList}
         contentContainerStyle={styles.carousel}
       />
 
@@ -452,6 +457,9 @@ const useStyles = makeStyles((t) => ({
   countdownName: {
     color: t.colors.text.primary,
     fontWeight: '600',
+  },
+  carouselList: {
+    flex: 1,
   },
   carousel: {
     paddingHorizontal: t.spacing[3],

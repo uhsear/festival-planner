@@ -79,7 +79,7 @@ function AuthGate() {
   // before any screen renders; the splash overlay below stays up until these
   // load so the app never flashes the system font then reflows into the brand
   // face. Weight-specific cuts mirror the role→weight map in useTokens.ts.
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Syncopate_400Regular,
     Syncopate_700Bold,
     SpaceGrotesk_400Regular,
@@ -87,6 +87,20 @@ function AuthGate() {
     SpaceGrotesk_600SemiBold,
     SpaceGrotesk_700Bold,
   });
+
+  // Boot safety valve. The splash below covers the whole window with
+  // pointerEvents="auto" while `loading` is true — so anything that pins
+  // `loading` (a useFonts() call that never resolves on a prod/OTA build, or a
+  // checkSession() that hangs with no signal at a festival) would leave the app
+  // rendered but completely untappable / unscrollable. Force the splash down
+  // after a hard ceiling so the UI is ALWAYS reachable; fonts swap in and the
+  // session reconciles a frame later if/when they arrive. Normal boot resolves
+  // in well under this, so users never see the timeout.
+  const [bootTimedOut, setBootTimedOut] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setBootTimedOut(true), 4000);
+    return () => clearTimeout(id);
+  }, []);
 
   // M1: pre-computed on-device set reminders. Reconciles local notifications
   // whenever picks/reminders change (fires even in airplane mode); FCM stays the
@@ -172,7 +186,12 @@ function AuthGate() {
   // whole tree for a bare splash View while hydration + session check run
   // (which leaves no navigator mounted), keep the Stack mounted and lay the
   // splash spinner over it until we're ready.
-  const loading = !hydrated || !sessionChecked || !fontsLoaded;
+  // Fonts are cosmetic — never let a font failure hard-block interaction; treat
+  // a useFonts() error as "ready" so it can't pin the splash. The bootTimedOut
+  // ceiling is the final backstop for any other hang (e.g. offline session
+  // check).
+  const fontsReady = fontsLoaded || !!fontError;
+  const loading = (!hydrated || !sessionChecked || !fontsReady) && !bootTimedOut;
 
   return (
     <View style={styles.appShell}>
