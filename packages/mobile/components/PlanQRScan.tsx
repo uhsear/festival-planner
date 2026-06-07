@@ -9,6 +9,7 @@ import { useCrewStore, useFestivalDataStore } from '@festie/shared/stores';
 import { decodePlanSnapshot, fromPickPriority, type PlanSnapshot } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useListBottomInset } from '../hooks/useListBottomInset';
 import EmptyState from './EmptyState';
 
 // ── Untrusted import (offline-native) ──────────────────────────────────────
@@ -119,6 +120,7 @@ export default function PlanQRScan() {
   const t = useTokens();
   const styles = useStyles();
 
+  const bottomPad = useListBottomInset();
   const [permission, requestPermission] = useCameraPermissions();
   const [phase, setPhase] = useState<Phase>('scanning');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -193,7 +195,7 @@ export default function PlanQRScan() {
 
   if (phase === 'done' && summary) {
     return (
-      <ScrollView contentContainerStyle={styles.doneContent}>
+      <ScrollView contentContainerStyle={[styles.doneContent, { paddingBottom: bottomPad }]}>
         <Ionicons name="checkmark-circle" size={56} color={t.colors.accent.aqua} />
         <Text style={styles.doneTitle}>Plan imported</Text>
         <Text style={styles.doneSub}>{summary.festivalName}</Text>

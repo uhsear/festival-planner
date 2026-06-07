@@ -456,6 +456,7 @@ export default function CrewScreen() {
       <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScreenHeader title="Crew" subtitle="Coordinate with friends" icon="people" />
         <ScrollView
+          style={styles.flex1}
           contentContainerStyle={formScrollStyle}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -644,6 +645,7 @@ export default function CrewScreen() {
 
       {crewTab === 'members' ? (
         <FlatList
+          style={styles.flex1}
           data={members}
           keyExtractor={(m) => m.id || m.userId}
           contentContainerStyle={memberListStyle}
@@ -831,6 +833,7 @@ export default function CrewScreen() {
         />
       ) : crewTab === 'plan' ? (
         <ScrollView
+          style={styles.flex1}
           contentContainerStyle={tabScrollStyle}
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
@@ -944,6 +947,7 @@ export default function CrewScreen() {
         </ScrollView>
       ) : crewTab === 'logistics' ? (
         <ScrollView
+          style={styles.flex1}
           contentContainerStyle={tabScrollStyle}
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
@@ -1003,6 +1007,7 @@ export default function CrewScreen() {
         </ScrollView>
       ) : (
         <ScrollView
+          style={styles.flex1}
           contentContainerStyle={tabScrollStyle}
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
@@ -1025,6 +1030,16 @@ const useStyles = makeStyles((t) => ({
   screen: {
     flex: 1,
     backgroundColor: t.colors.bg.primary,
+  },
+  // Bind each scroll body (Members FlatList + the Plan/Logistics/Money
+  // ScrollViews + the no-crew form) to the screen's remaining height. Without
+  // flex:1 they size to content, overflow past the bottom tab bar (member rows
+  // "overlapping" the nav) and let the fixed chrome / CrewTabBar above expand to
+  // fill the slack — which is why a tab's controls looked oversized on the
+  // shorter Plan/Logistics panes. flex:1 makes the body absorb the slack and
+  // scroll internally instead.
+  flex1: {
+    flex: 1,
   },
   formScroll: {
     paddingHorizontal: t.spacing[4],

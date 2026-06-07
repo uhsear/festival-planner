@@ -35,11 +35,22 @@ export default function ScreenHeader({ title, subtitle, right, icon }: ScreenHea
         />
       ) : null}
       <View style={styles.titleBlock}>
-        <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
+        {/* Shrink-to-fit instead of truncating: the brand heading is a wide
+            24px Syncopate display face, so medium/long festival & crew names
+            (e.g. "North Coast Festival 2026") used to clip to "…". Single-line
+            + adjustsFontSizeToFit is the reliable RN path (the title column is
+            width-bounded by titleBlock flex:1). */}
+        <Text
+          style={styles.title}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          accessibilityRole="header"
+        >
           {title}
         </Text>
         {subtitle ? (
-          <Text style={styles.subtitle} numberOfLines={1}>
+          <Text style={styles.subtitle} numberOfLines={2}>
             {subtitle}
           </Text>
         ) : null}
@@ -66,6 +77,10 @@ const useStyles = makeStyles((t) => ({
   },
   title: {
     ...typeStyle('heading'),
+    // Drop the baked lineHeight so that when adjustsFontSizeToFit shrinks the
+    // glyphs they re-center vertically (a fixed lineHeight clips descenders of
+    // the smaller text on Android).
+    lineHeight: undefined,
     color: t.colors.text.primary,
   },
   subtitle: {

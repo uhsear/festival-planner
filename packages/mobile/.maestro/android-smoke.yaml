@@ -54,6 +54,11 @@ env:
     text: "Cards"
     optional: true
 - takeScreenshot: 05-cards
+# Scroll the Cards page — chrome now rides in the list header, so the whole page
+# should scroll as one and reveal more cards (not just a tiny window).
+- scroll
+- scroll
+- takeScreenshot: 05a-cards-scrolled
 # ── Tab-bar interactivity gate (NON-optional, always runs) ──
 # Regression guard for the build-#15 bug where the Schedule body's timeline
 # carousel sized to its content, overflowed the frame, and painted/intercepted
@@ -98,6 +103,28 @@ env:
 - waitForAnimationToEnd:
     timeout: 2500
 - takeScreenshot: 07-crew
+# Crew sub-tabs (Members/Plan/Logistics/Money). Screenshot each to verify the
+# segmented bar + pane controls keep their size (no oversized control on the
+# shorter Plan/Logistics panes) and rows don't overlap the bar.
+- tapOn:
+    id: "crew-tab-plan"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 1500
+- takeScreenshot: 07a-crew-plan
+- tapOn:
+    id: "crew-tab-money"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 1500
+- takeScreenshot: 07b-crew-money
+- tapOn:
+    id: "crew-tab-logistics"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 1500
+- takeScreenshot: 07c-crew-logistics
+# Live location + SOS live in the Logistics tab (now selected above).
 - scrollUntilVisible:
     element:
       text: "Share my live location"

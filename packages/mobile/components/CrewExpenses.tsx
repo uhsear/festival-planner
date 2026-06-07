@@ -215,7 +215,12 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={`Show ${v} expenses`}
               >
-                <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>
+                <Text
+                  style={[styles.filterTabText, active && styles.filterTabTextActive]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
+                >
                   {v.charAt(0).toUpperCase() + v.slice(1)}
                 </Text>
               </TouchableOpacity>
@@ -608,6 +613,7 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.accent.aqua,
     backgroundColor: t.colors.ring.aqua,
+    flexShrink: 0,
   },
   plannedBadgeText: {
     ...typeStyle('micro'),
@@ -662,7 +668,7 @@ const useStyles = makeStyles((t) => ({
   },
   ledgerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: t.spacing[2],
   },
@@ -826,6 +832,8 @@ const useStyles = makeStyles((t) => ({
   expenseDesc: {
     ...typeStyle('label'),
     color: t.colors.text.primary,
+    flexShrink: 1,
+    minWidth: 0,
   },
   expenseMeta: {
     ...typeStyle('caption'),

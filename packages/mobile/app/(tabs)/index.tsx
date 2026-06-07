@@ -23,6 +23,7 @@ import {
 } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
+import { useListBottomInset } from '../../hooks/useListBottomInset';
 import { safeStageColor } from '../../lib/stageColor';
 import { useUI, type ViewMode } from '../../contexts/UIContext';
 import type { TimeBounds } from '../../hooks/useNowIndicator';
@@ -69,7 +70,7 @@ export default function TimelineScreen() {
   const router = useRouter();
   const haptics = useHaptics();
   const { viewMode, setViewMode } = useUI();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
 
   // Responsive horizontal gutter. Phones keep the standard spacing[4] (16px)
   // edge padding. On tablet-class widths a flat 16px gutter leaves the chrome
@@ -77,6 +78,10 @@ export default function TimelineScreen() {
   // sidebars, so we widen the gutter and cap the content column — when the
   // window is wider than maxContentWidth the extra space is split evenly,
   // centering the content instead of stretching it edge-to-edge.
+  // Cards now scroll as one page (chrome rides in the list header), so the list
+  // owns the last-card cushion. This is a tab screen — the opaque tab bar already
+  // absorbs the home-indicator inset, so just a visible cushion (no safe-area).
+  const cardsBottomPad = useListBottomInset({ includeSafeArea: false });
   const isTablet = width >= 700;
   const maxContentWidth = 760;
   const hPad = useMemo(() => {
@@ -420,46 +425,15 @@ export default function TimelineScreen() {
     );
   }
 
-  return (
-    // ScreenHeader owns the top safe-area inset (insets.top + spacing[4]) — the
-    // native Tabs nav header is hidden (see (tabs)/_layout.tsx), so this is the
-    // single top of the screen, sitting above the live/view-switcher row.
-    <View style={styles.container}>
-      <ScreenHeader title={currentFestival.name} icon="calendar-outline" />
-      <View style={[styles.viewSwitcher, { paddingHorizontal: hPad }]}>
-        <View style={styles.liveRow}>
-          <LiveDot />
-          <TouchableOpacity
-            style={styles.switchButton}
-            onPress={clearSelection}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Switch festival"
-          >
-            <Ionicons name="swap-horizontal" size={14} color={t.colors.accent.aqua} />
-            <Text style={styles.switchText}>Switch</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.switchButton}
-            onPress={() => router.push('/festival-mode')}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Open Now and Next"
-          >
-            {/* Renamed from the ambiguous "Live" (P1-2): "Live" is reserved for
-                location. The pulsing LiveDot above stays as the now indicator. */}
-            <Ionicons name="flash" size={14} color={t.colors.accent.aqua} />
-            <Text style={styles.switchText}>Now &amp; Next</Text>
-          </TouchableOpacity>
-        </View>
-        <SegmentedControl
-          options={VIEW_OPTIONS}
-          value={viewMode}
-          onChange={setViewMode}
-          accessibilityLabel="Schedule view"
-        />
-      </View>
-
+  // Schedule controls (Now & Next, phase actions, search, day + stage filters).
+  // In Cards view these ride in the FlatList's ListHeaderComponent so the WHOLE
+  // page scrolls as one — the cards get full height instead of a small window
+  // pinned under a tall fixed chrome stack. In Timeline view they stay fixed
+  // above the bounded 2D timeline (which manages its own internal scroll).
+  // Passed as an element (not an inline component) so the search TextInput keeps
+  // focus across keystroke re-renders.
+  const controls = (
+    <>
       {/* Live-day Now & Next surface: shows the picked set playing now / up next
           inline, tapping through to the full Now & Next screen. Renders nothing
           when there's no current/upcoming pick. */}
@@ -582,14 +556,61 @@ export default function TimelineScreen() {
           </ScrollView>
         </View>
       ) : null}
+    </>
+  );
 
-      {/* Schedule body — view-mode specific. */}
+  return (
+    // ScreenHeader owns the top safe-area inset (insets.top + spacing[4]) — the
+    // native Tabs nav header is hidden (see (tabs)/_layout.tsx), so this is the
+    // single top of the screen, sitting above the live/view-switcher row.
+    <View style={styles.container}>
+      <ScreenHeader title={currentFestival.name} icon="calendar-outline" />
+      <View style={[styles.viewSwitcher, { paddingHorizontal: hPad }]}>
+        <View style={styles.liveRow}>
+          <LiveDot />
+          <TouchableOpacity
+            style={styles.switchButton}
+            onPress={clearSelection}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Switch festival"
+          >
+            <Ionicons name="swap-horizontal" size={14} color={t.colors.accent.aqua} />
+            <Text style={styles.switchText}>Switch</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.switchButton}
+            onPress={() => router.push('/festival-mode')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Open Now and Next"
+          >
+            {/* Renamed from the ambiguous "Live" (P1-2): "Live" is reserved for
+                location. The pulsing LiveDot above stays as the now indicator. */}
+            <Ionicons name="flash" size={14} color={t.colors.accent.aqua} />
+            <Text style={styles.switchText}>Now &amp; Next</Text>
+          </TouchableOpacity>
+        </View>
+        <SegmentedControl
+          options={VIEW_OPTIONS}
+          value={viewMode}
+          onChange={setViewMode}
+          accessibilityLabel="Schedule view"
+        />
+      </View>
+
+      {/* Schedule body — view-mode specific. In Cards view the `controls` ride
+          in the FlatList's ListHeaderComponent so the WHOLE page scrolls as one
+          (cards get full height); in Timeline view they stay fixed above the
+          bounded 2D timeline. */}
       {viewMode === 'cards' ? (
         <FlatList
+          style={styles.scrollBody}
           data={rows}
           renderItem={renderRow}
           keyExtractor={keyExtractor}
-          contentContainerStyle={[styles.listContent, { paddingHorizontal: hPad }]}
+          ListHeaderComponent={controls}
+          contentContainerStyle={[styles.listContent, { paddingHorizontal: hPad, paddingBottom: cardsBottomPad }]}
           refreshControl={refreshControl}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
@@ -612,26 +633,41 @@ export default function TimelineScreen() {
           keyboardDismissMode="on-drag"
         />
       ) : timeBounds && visibleStages.length > 0 ? (
-        <View style={styles.viewBody}>
-          <TimelineView
-            visibleStages={visibleStages}
-            timedSets={timedSets}
-            timeBounds={timeBounds}
-            selectedDay={selectedDay}
-            conflictIds={conflictIds}
-            b2bSeparator={currentFestival.b2bSeparator}
-            getMyPick={getMyPick}
-            getStageColor={resolveStageColor}
-            onPickChange={handlePickChange}
-            onSetPress={handleSetPress}
-            days={days}
-            allSets={allSets}
-            picks={currentProfile?.picks ?? null}
-          />
-          {tbaSection}
-        </View>
+        <>
+          {controls}
+          <View style={styles.viewBody}>
+            <TimelineView
+              visibleStages={visibleStages}
+              timedSets={timedSets}
+              timeBounds={timeBounds}
+              selectedDay={selectedDay}
+              conflictIds={conflictIds}
+              b2bSeparator={currentFestival.b2bSeparator}
+              getMyPick={getMyPick}
+              getStageColor={resolveStageColor}
+              onPickChange={handlePickChange}
+              onSetPress={handleSetPress}
+              days={days}
+              allSets={allSets}
+              picks={currentProfile?.picks ?? null}
+            />
+            {/* Dock the TBA list below the timeline in its own bounded scroll so
+                it's always reachable. A ScrollView with a fixed maxHeight stays
+                content-sized while the section is collapsed (just its header) and,
+                once expanded, caps at ~40% of the screen and scrolls internally —
+                instead of ballooning and pushing itself + the timeline past
+                viewBody's clipped (overflow:hidden) bottom edge, which made the
+                TBA cards unreachable. */}
+            {tbaSection ? <ScrollView style={{ maxHeight: Math.round(height * 0.4) }}>{tbaSection}</ScrollView> : null}
+          </View>
+        </>
       ) : (
-        <ScrollView contentContainerStyle={styles.fallbackScroll} refreshControl={refreshControl}>
+        <ScrollView
+          style={styles.scrollBody}
+          contentContainerStyle={styles.fallbackScroll}
+          refreshControl={refreshControl}
+        >
+          {controls}
           {emptyScheduleState}
           {tbaSection}
         </ScrollView>
@@ -812,6 +848,12 @@ const useStyles = makeStyles((t) => ({
   },
   separator: {
     height: t.spacing[3],
+  },
+  // flex:1 binds the cards FlatList / fallback ScrollView to the (overflow-clipped)
+  // container so they scroll internally up to the tab bar instead of sizing to
+  // content and being clipped.
+  scrollBody: {
+    flex: 1,
   },
   viewBody: {
     flex: 1,

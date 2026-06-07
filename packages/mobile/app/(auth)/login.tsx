@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -45,11 +46,19 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.inner}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      {/* Scroll the form so the top fields stay reachable on small phones and
+          when the keyboard is up; flexGrow:1 keeps it vertically centered when
+          there's room. Insets ride on the content so nothing hides under the
+          status bar / home indicator. */}
+      <ScrollView
+        contentContainerStyle={[
+          styles.inner,
+          { paddingTop: insets.top + spacing[6], paddingBottom: insets.bottom + spacing[6] },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Festie</Text>
         <Text style={styles.subtitle}>Sign in to your account</Text>
 
@@ -146,7 +155,7 @@ export default function LoginScreen() {
         >
           <Text style={styles.linkText}>Browse without an account</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -157,7 +166,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg.primary,
   },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: spacing[6],
   },

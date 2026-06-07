@@ -335,10 +335,12 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
                 <Ionicons name={meta.icon} size={18} color={t.colors.accent.aqua} style={styles.statusRowIcon} />
                 <View style={styles.statusRowBody}>
                   <View style={styles.statusRowTitle}>
-                    <Text style={styles.statusRowName} numberOfLines={1}>
+                    <Text style={styles.statusRowName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
                       {isMe ? 'You' : s.name || s.username || 'Crewmate'}
                     </Text>
-                    <Text style={styles.statusRowState}>{meta.label}</Text>
+                    <Text style={styles.statusRowState} numberOfLines={1}>
+                      {meta.label}
+                    </Text>
                   </View>
                   {targetLabel ? (
                     <Text style={styles.statusRowTarget} numberOfLines={1}>
@@ -588,6 +590,7 @@ const useStyles = makeStyles((t) => ({
   statusRowState: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
+    flexShrink: 1,
   },
   statusRowTarget: {
     ...typeStyle('caption'),

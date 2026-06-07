@@ -171,10 +171,13 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.accent.aqua,
     backgroundColor: t.colors.bg.card,
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   keepText: {
     ...typeStyle('label'),
     color: t.colors.accent.aqua,
+    flexShrink: 1,
   },
   dismissButton: {
     paddingHorizontal: t.spacing[3],

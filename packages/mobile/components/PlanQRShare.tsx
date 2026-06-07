@@ -15,6 +15,7 @@ import {
 } from '@festie/shared/utils';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useListBottomInset } from '../hooks/useListBottomInset';
 import EmptyState from './EmptyState';
 
 // ── Snapshot assembly (offline-native, zero network) ───────────────────────
@@ -47,6 +48,7 @@ function pickShareMeetingPoint(points: CrewMeetingPoint[], nowMs: number): CrewM
 export default function PlanQRShare() {
   const t = useTokens();
   const styles = useStyles();
+  const bottomPad = useListBottomInset();
 
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
   const currentProfile = useFestivalDataStore((s) => s.currentProfile);
@@ -113,7 +115,7 @@ export default function PlanQRShare() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}>
       <Text style={styles.heading}>{currentFestival.name}</Text>
       <Text style={styles.sub}>
         {picksCount} pick{picksCount === 1 ? '' : 's'}

@@ -6,6 +6,7 @@ import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/sto
 import { getSetTimeBounds, artistDisplayName, formatTime } from '@festie/shared/utils';
 import type { CrewMeetingPoint, FestivalDay, FestivalSet, Priority, Profile } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useListBottomInset } from '../hooks/useListBottomInset';
 import FreshnessChip from '../components/FreshnessChip';
 import EmptyState from '../components/EmptyState';
 import ScreenHeader from '../components/ScreenHeader';
@@ -90,6 +91,7 @@ function buildSlots(sets: FestivalSet[], days: FestivalDay[], profiles: Profile[
 export default function CrewPlanScreen() {
   const t = useTokens();
   const styles = useStyles();
+  const bottomPad = useListBottomInset({ base: t.spacing[4] });
 
   const user = useAuthStore((s) => s.user);
   const activeCrew = useCrewStore((s) => s.activeCrew);
@@ -140,7 +142,7 @@ export default function CrewPlanScreen() {
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScreenHeader title={`${activeCrew.name}'s plan`} subtitle="Crew plan" icon="calendar" />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}>
         <FreshnessChip surface="crew" />
 
         {/* Active meeting point */}
