@@ -159,17 +159,19 @@ export default function LineupImport({ festivalId, onSuccess }: LineupImportProp
 
         <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4 mb-4">
           <p className="text-sm text-text-muted mb-3">
-            Required columns: <code className="bg-bg-primary/50 px-1.5 py-0.5 rounded text-xs">dayLabel date artist stage</code>
+            Required columns:{' '}
+            <code className="bg-bg-primary/50 px-1.5 py-0.5 rounded text-xs">dayLabel date artist stage</code>
           </p>
           <p className="text-sm text-text-muted">
-            Optional columns: <code className="bg-bg-primary/50 px-1.5 py-0.5 rounded text-xs">startTime endTime stageColor</code>
+            Optional columns:{' '}
+            <code className="bg-bg-primary/50 px-1.5 py-0.5 rounded text-xs">startTime endTime stageColor</code>
           </p>
         </div>
 
         <textarea
           value={importText}
           onChange={(e) => setImportText(e.target.value)}
-          placeholder="Paste CSV or TSV data here..."
+          placeholder="Paste CSV or TSV data here…"
           rows={8}
           className="w-full px-4 py-3 rounded-lg bg-bg-primary border border-glass-border text-text-primary placeholder-text-muted font-mono text-sm focus:outline-none focus:ring-2 focus:ring-accent-aqua"
         />
@@ -257,7 +259,9 @@ export default function LineupImport({ festivalId, onSuccess }: LineupImportProp
                   className="inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"
                 />
               )}
-              {loading ? `Importing ${preview.length} sets…` : `Import ${preview.length} Set${preview.length === 1 ? '' : 's'}`}
+              {loading
+                ? `Importing ${preview.length} sets…`
+                : `Import ${preview.length} Set${preview.length === 1 ? '' : 's'}`}
             </button>
           </div>
         </div>

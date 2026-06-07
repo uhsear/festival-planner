@@ -75,7 +75,7 @@ export default function RidesTab({ crewId, currentUserId, isOwner }: Props) {
       reset();
     } catch (err) {
       warning();
-      toast(err instanceof Error ? err.message : 'Failed to post', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't post ride. Try again.", 'error');
     } finally {
       setCreateBusy(false);
     }
@@ -86,7 +86,7 @@ export default function RidesTab({ crewId, currentUserId, isOwner }: Props) {
     try {
       await deleteRideOffer(crewId, offerId);
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Failed to remove', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't remove ride. Try again.", 'error');
     } finally {
       setBusyId(null);
     }

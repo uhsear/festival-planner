@@ -111,6 +111,7 @@ vi.mock('lucide-react', () => ({
   Users: () => <span data-testid="users-icon" />,
   Columns3: () => <span data-testid="columns-icon" />,
   CalendarClock: () => <span data-testid="calendar-clock-icon" />,
+  ChevronRight: () => <span data-testid="chevron-right-icon" />,
   Trash2: () => <span data-testid="trash-icon" />,
   LogOut: () => <span data-testid="logout-icon" />,
   // CrewPhotosCard (M6 crew photo wall) icons.

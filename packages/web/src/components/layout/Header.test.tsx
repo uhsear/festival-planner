@@ -17,9 +17,7 @@ vi.mock('@festie/shared', () => ({
 
 // Mock UserMenu to avoid complex child rendering
 vi.mock('./UserMenu', () => ({
-  default: ({ user }: { user: { username: string } }) => (
-    <div data-testid="user-menu">{user.username}</div>
-  ),
+  default: ({ user }: { user: { username: string } }) => <div data-testid="user-menu">{user.username}</div>,
 }));
 
 // Mock FestivalModeToggle
@@ -54,12 +52,13 @@ describe('Header', () => {
   });
 
   describe('desktop tabs for guest users', () => {
-    it('shows Schedule, Timeline, Grid tabs when not logged in', () => {
+    it('shows a single consolidated Schedule tab when not logged in', () => {
       mockAuthStore.mockReturnValue(null);
       render(<Header />);
       expect(screen.getByRole('button', { name: 'Schedule' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Timeline' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Grid' })).toBeInTheDocument();
+      // Timeline/Grid folded into the in-page ScheduleViewSwitcher.
+      expect(screen.queryByRole('button', { name: 'Timeline' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Grid' })).not.toBeInTheDocument();
     });
 
     it('does not show My Picks or Crew tabs when not logged in', () => {
@@ -71,12 +70,10 @@ describe('Header', () => {
   });
 
   describe('desktop tabs for logged-in users', () => {
-    it('shows all 5 tabs when logged in', () => {
+    it('shows Schedule, My Picks, and Crew tabs when logged in', () => {
       mockAuthStore.mockReturnValue({ id: '1', username: 'test' });
       render(<Header />);
       expect(screen.getByRole('button', { name: 'Schedule' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Timeline' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Grid' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'My Picks' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Crew' })).toBeInTheDocument();
     });
@@ -95,20 +92,20 @@ describe('Header', () => {
       expect(screen.getByRole('button', { name: 'Schedule' })).toHaveAttribute('aria-current', 'page');
     });
 
-    it('marks Timeline as active on /timeline', () => {
+    it('keeps Schedule active on the timeline and grid views', () => {
       vi.mocked(useLocation).mockReturnValue({ pathname: '/timeline' } as ReturnType<typeof useLocation>);
       render(<Header />);
-      expect(screen.getByRole('button', { name: 'Timeline' })).toHaveAttribute('aria-current', 'page');
-      expect(screen.getByRole('button', { name: 'Schedule' })).not.toHaveAttribute('aria-current');
+      expect(screen.getByRole('button', { name: 'Schedule' })).toHaveAttribute('aria-current', 'page');
     });
   });
 
   describe('tab navigation', () => {
     it('navigates when a tab is clicked', async () => {
       const user = userEvent.setup();
+      mockAuthStore.mockReturnValue({ id: '1', username: 'test' });
       render(<Header />);
-      await user.click(screen.getByRole('button', { name: 'Timeline' }));
-      expect(mockNavigate).toHaveBeenCalledWith({ to: '/timeline' });
+      await user.click(screen.getByRole('button', { name: 'Crew' }));
+      expect(mockNavigate).toHaveBeenCalledWith({ to: '/crew' });
     });
   });
 

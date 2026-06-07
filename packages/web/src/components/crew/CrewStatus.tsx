@@ -142,7 +142,7 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
       toast('Status shared — sent when signal returns', 'success');
       reset();
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Failed to share status', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't share status. Try again.", 'error');
     } finally {
       setBusy(false);
     }
@@ -158,7 +158,7 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
       );
       toast('Status cleared', 'success');
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Failed to clear', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't clear status. Try again.", 'error');
     } finally {
       setBusy(false);
     }

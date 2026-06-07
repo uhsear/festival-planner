@@ -82,7 +82,7 @@ describe('AppShell', () => {
     mockUser = null;
     render(<AppShell />);
     expect(screen.getByText('Browsing as guest.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Login / Sign Up' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign in / Sign up' })).toBeInTheDocument();
   });
 
   it('hides guest banner when user is logged in', () => {

@@ -98,7 +98,7 @@ export function useMobilePush(): MobilePush {
       await AsyncStorage.setItem(TOKEN_KEY, token);
       setRegistered(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to enable notifications.');
+      setError(err instanceof Error ? err.message : "Couldn't enable notifications. Try again.");
       throw err;
     } finally {
       setBusy(false);
@@ -116,7 +116,7 @@ export function useMobilePush(): MobilePush {
       }
       setRegistered(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to disable notifications.');
+      setError(err instanceof Error ? err.message : "Couldn't disable notifications. Try again.");
       throw err;
     } finally {
       setBusy(false);

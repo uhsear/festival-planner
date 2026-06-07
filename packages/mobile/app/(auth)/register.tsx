@@ -57,7 +57,7 @@ export default function RegisterScreen() {
       return;
     }
     if (!tosAccepted) {
-      setError('Please accept the Privacy Policy & Terms to continue');
+      setError('Please accept the Terms of Service & Privacy Policy to continue');
       return;
     }
     setError(null);
@@ -174,8 +174,8 @@ export default function RegisterScreen() {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: tosAccepted }}
-            accessibilityLabel="I agree to the Privacy Policy and Terms"
-            accessibilityHint="Toggles acceptance. The Privacy Policy and Terms links are available separately."
+            accessibilityLabel="I agree to the Terms of Service and Privacy Policy"
+            accessibilityHint="Toggles acceptance. The Terms of Service and Privacy Policy links are available separately."
             style={styles.tosCheckbox}
           >
             <Ionicons
@@ -187,19 +187,19 @@ export default function RegisterScreen() {
           <View style={styles.tosTextWrap}>
             <Text style={styles.tosText}>I agree to the </Text>
             <TouchableOpacity
+              onPress={() => void Linking.openURL(TERMS_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Read the Terms of Service, opens in browser"
+            >
+              <Text style={[styles.tosText, styles.linkTextAccent]}>Terms of Service</Text>
+            </TouchableOpacity>
+            <Text style={styles.tosText}> &amp; </Text>
+            <TouchableOpacity
               onPress={() => router.push('/privacy')}
               accessibilityRole="link"
               accessibilityLabel="Read the Privacy Policy"
             >
               <Text style={[styles.tosText, styles.linkTextAccent]}>Privacy Policy</Text>
-            </TouchableOpacity>
-            <Text style={styles.tosText}> &amp; </Text>
-            <TouchableOpacity
-              onPress={() => void Linking.openURL(TERMS_URL)}
-              accessibilityRole="link"
-              accessibilityLabel="Read the Terms of Service, opens in browser"
-            >
-              <Text style={[styles.tosText, styles.linkTextAccent]}>Terms</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -216,7 +216,7 @@ export default function RegisterScreen() {
           {isLoading ? (
             <ActivityIndicator color={colors.text.onAccent} />
           ) : (
-            <Text style={styles.buttonText}>Create Account</Text>
+            <Text style={styles.buttonText}>Create account</Text>
           )}
         </TouchableOpacity>
 
@@ -238,7 +238,7 @@ export default function RegisterScreen() {
           accessibilityRole="button"
           accessibilityLabel="Browse without an account"
         >
-          <Text style={styles.linkText}>Maybe later — just browse</Text>
+          <Text style={styles.linkText}>Browse without an account</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

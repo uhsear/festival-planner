@@ -144,7 +144,7 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
         ...(message ? { message } : {}),
         ...(position ? { position } : {}),
       });
-      toast('SOS sent to your crew.', 'success');
+      toast('SOS sent to your crew', 'success');
       setSosOpen(false);
       setSosMessage('');
     } catch {
@@ -163,7 +163,7 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
       // The server broadcasts sos:cleared back to the room (we're in it) which
       // clears the store; clear optimistically too so the banner dismisses now.
       useLiveLocationStore.getState().clearSos();
-      toast('SOS cleared.', 'success');
+      toast('SOS cleared', 'success');
     } catch {
       toast('Couldn’t clear the SOS — check your connection.', 'error');
     } finally {

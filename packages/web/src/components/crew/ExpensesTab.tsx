@@ -125,7 +125,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
       toast('Expense added', 'success');
       reset();
     },
-    onError: (e) => toast(e instanceof Error ? e.message : 'Failed to add', 'error'),
+    onError: (e) => toast(e instanceof Error ? e.message : "Couldn't add expense. Try again.", 'error'),
   });
 
   const removeExpense = useMutation({
@@ -135,7 +135,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
       qc.invalidateQueries({ queryKey: ['settlement-plan', crewId] });
       toast('Removed', 'success');
     },
-    onError: () => toast('Failed to remove', 'error'),
+    onError: () => toast("Couldn't remove expense. Try again.", 'error'),
   });
 
   const settle = useMutation({
@@ -145,7 +145,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
       qc.invalidateQueries({ queryKey: ['settlement-plan', crewId] });
       toast('Settled up', 'success');
     },
-    onError: (e) => toast(e instanceof Error ? e.message : 'Failed to settle', 'error'),
+    onError: (e) => toast(e instanceof Error ? e.message : "Couldn't settle up. Try again.", 'error'),
   });
 
   function reset() {

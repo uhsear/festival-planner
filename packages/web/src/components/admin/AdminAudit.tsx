@@ -52,9 +52,9 @@ export default function AdminAudit() {
       setEntries(list);
       // Server returns nextCursor via meta; infer hasMore from page size
       // since the api wrapper strips meta.
-      setNextCursor(list.length >= 50 ? list[list.length - 1]?.id ?? null : null);
+      setNextCursor(list.length >= 50 ? (list[list.length - 1]?.id ?? null) : null);
     } catch (err: unknown) {
-      toast(err instanceof Error ? err.message : 'Failed to load audit log', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't load the audit log. Try again.", 'error');
     } finally {
       setLoading(false);
       setHasLoadedOnce(true);
@@ -92,7 +92,7 @@ export default function AdminAudit() {
   // changes keep the table visible and dim it via aria-busy so the view
   // doesn't flash to "Loading..." every keystroke.
   if (loading && !hasLoadedOnce) {
-    return <div className="text-center py-12 text-text-muted">Loading audit log...</div>;
+    return <div className="text-center py-12 text-text-muted">Loading audit log…</div>;
   }
 
   return (
@@ -103,7 +103,7 @@ export default function AdminAudit() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <input
             type="text"
-            placeholder="Action type..."
+            placeholder="Action type…"
             aria-label="Filter by action type"
             value={actionFilter}
             onChange={(e) => {
@@ -114,7 +114,7 @@ export default function AdminAudit() {
           />
           <input
             type="text"
-            placeholder="Username..."
+            placeholder="Username…"
             aria-label="Filter by username"
             value={userFilter}
             onChange={(e) => {

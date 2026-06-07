@@ -14,7 +14,7 @@ import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { safeStageColor } from '../../lib/stageColor';
 import ScreenHeader from '../../components/ScreenHeader';
 import EmptyState from '../../components/EmptyState';
-import LoadingState from '../../components/LoadingState';
+import { Skeleton } from '../../components/Skeleton';
 import SetCardMobile from '../../components/SetCardMobile';
 
 /**
@@ -206,7 +206,7 @@ export default function PicksScreen() {
         })
         .catch((e) => {
           // bulkSavePicks already rolled back + set the store error.
-          Alert.alert('Could not add picks', mapErrorToUserMessage(e, 'Please try again.'));
+          Alert.alert("Couldn't add picks", mapErrorToUserMessage(e, 'Try again.'));
         })
         .finally(() => setBulkBusyKey(null));
     },
@@ -291,7 +291,7 @@ export default function PicksScreen() {
         Alert.alert('Sharing unavailable', 'Calendar sharing is not available on this device.');
       }
     } catch (e) {
-      Alert.alert('Export failed', mapErrorToUserMessage(e, 'Could not export your picks.'));
+      Alert.alert("Couldn't export picks", mapErrorToUserMessage(e, 'Try again.'));
     } finally {
       setExportBusy(false);
     }
@@ -461,7 +461,7 @@ export default function PicksScreen() {
       />
     );
   } else if (isLoading && rows.length === 0) {
-    body = <LoadingState label="Loading your picks" />;
+    body = <PicksSkeleton />;
   } else if (error && rows.length === 0) {
     body = (
       <EmptyState
@@ -516,6 +516,29 @@ export default function PicksScreen() {
 function Separator() {
   const styles = useStyles();
   return <View style={styles.separator} />;
+}
+
+/**
+ * Cold-load placeholder for the picks plan — a day header plus a few set-card
+ * shaped rows so the layout matches what's about to render (no spinner, no jump).
+ */
+function PicksSkeleton() {
+  const t = useTokens();
+  const styles = useStyles();
+  return (
+    <View style={styles.listContent} accessibilityRole="progressbar" accessibilityLabel="Loading your picks">
+      <Skeleton width="40%" height={20} radius={t.radii.xs} style={styles.skeletonDay} />
+      {[0, 1, 2, 3].map((i) => (
+        <View key={i} style={styles.skeletonCard}>
+          <View style={styles.skeletonCardMain}>
+            <Skeleton width="62%" height={16} radius={t.radii.xs} />
+            <Skeleton width="38%" height={12} radius={t.radii.xs} />
+          </View>
+          <Skeleton width={72} height={28} radius={t.radii.pill} />
+        </View>
+      ))}
+    </View>
+  );
 }
 
 /** A tappable bulk-add pill ("Main Stage · 8") used in the bulk panel. */
@@ -594,6 +617,27 @@ const useStyles = makeStyles((t) => ({
   },
   separator: {
     height: t.spacing[2],
+  },
+  // ── Cold-load skeleton ────────────────────────────────────────────────────
+  skeletonDay: {
+    marginTop: t.spacing[4],
+    marginBottom: t.spacing[3],
+  },
+  skeletonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[3],
+    padding: t.spacing[4],
+    minHeight: 72,
+    marginBottom: t.spacing[2],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.card,
+  },
+  skeletonCardMain: {
+    flex: 1,
+    gap: t.spacing[2],
   },
   // ── Bulk add panel ──────────────────────────────────────────────────────
   bulkPanel: {

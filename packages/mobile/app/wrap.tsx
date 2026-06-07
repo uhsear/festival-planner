@@ -11,6 +11,8 @@ import { useFestival } from '@festie/shared/hooks';
 import { isFestivalOver } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import EmptyState from '../components/EmptyState';
+import SectionLabel from '../components/SectionLabel';
+import { Skeleton } from '../components/Skeleton';
 import WrapPoster from '../components/WrapPoster';
 import CrewWrapPoster, { type CrewWrapData } from '../components/CrewWrapPoster';
 
@@ -166,11 +168,7 @@ export default function WrapScreen() {
       );
     }
     if (loading) {
-      return (
-        <View style={styles.loading}>
-          <ActivityIndicator color={t.colors.accent.aqua} />
-        </View>
-      );
+      return <WrapSkeleton />;
     }
     if (error) {
       return (
@@ -215,7 +213,7 @@ export default function WrapScreen() {
 
         {topSets.length > 0 ? (
           <View>
-            <Text style={styles.sectionLabel}>Your top picks</Text>
+            <SectionLabel>Your top picks</SectionLabel>
             {topSets.map((s, i) => (
               <View key={s.setId} style={styles.topRow}>
                 <Text style={styles.topEmoji}>{EMOJI[s.rating] ?? '⭐'}</Text>
@@ -245,7 +243,7 @@ export default function WrapScreen() {
 
         {allSorted.length > 0 ? (
           <View>
-            <Text style={styles.sectionLabel}>Everything you rated</Text>
+            <SectionLabel>Everything you rated</SectionLabel>
             {allSorted.map((s) => (
               <View key={s.setId} style={styles.allRow}>
                 <Text style={styles.allEmoji}>{EMOJI[s.rating] ?? '⭐'}</Text>
@@ -343,6 +341,35 @@ export default function WrapScreen() {
           />
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * Cold-load placeholder for the wrap — a header line, the 4-up stat grid, and a
+ * couple of list rows, matching the real layout so it doesn't jump on arrival.
+ */
+function WrapSkeleton() {
+  const t = useTokens();
+  const styles = useStyles();
+  return (
+    <View style={styles.skeletonWrap} accessibilityRole="progressbar" accessibilityLabel="Loading your wrap">
+      <View style={styles.skeletonHeader}>
+        <Skeleton width={140} height={12} radius={t.radii.xs} />
+        <Skeleton width={200} height={24} radius={t.radii.xs} />
+      </View>
+      <View style={styles.statsGrid}>
+        {[0, 1, 2, 3].map((i) => (
+          <View key={i} style={styles.statBox}>
+            <Skeleton width="60%" height={10} radius={t.radii.xs} />
+            <Skeleton width="40%" height={20} radius={t.radii.xs} />
+          </View>
+        ))}
+      </View>
+      <Skeleton width="45%" height={12} radius={t.radii.xs} />
+      {[0, 1, 2].map((i) => (
+        <Skeleton key={i} height={64} radius={t.radii.default} />
+      ))}
     </View>
   );
 }
@@ -454,11 +481,7 @@ function CrewWrapTab({
     );
   }
   if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={t.colors.accent.aqua} />
-      </View>
-    );
+    return <WrapSkeleton />;
   }
   if (error || !wrap) {
     return (
@@ -517,7 +540,7 @@ function CrewWrapTab({
 
         {wrap.setsSeenTogether.length > 0 ? (
           <View>
-            <Text style={styles.sectionLabel}>Sets you saw together</Text>
+            <SectionLabel>Sets you saw together</SectionLabel>
             {wrap.setsSeenTogether.slice(0, 10).map((set) => (
               <View key={set.setId} style={styles.allRow}>
                 <Text style={styles.allArtist} numberOfLines={1}>
@@ -531,7 +554,7 @@ function CrewWrapTab({
 
         {wrap.perMember.some((m) => m.topSets.length > 0) ? (
           <View>
-            <Text style={styles.sectionLabel}>Everyone's top picks</Text>
+            <SectionLabel>Everyone&apos;s top picks</SectionLabel>
             {wrap.perMember.map((m) => (
               <View key={m.userId} style={styles.memberCard}>
                 <Text style={styles.memberName}>{m.name}</Text>
@@ -588,9 +611,14 @@ const useStyles = makeStyles((t) => ({
     flex: 1,
     backgroundColor: t.colors.bg.primary,
   },
-  loading: {
-    paddingVertical: t.spacing[8],
+  skeletonWrap: {
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[4],
+    gap: t.spacing[4],
+  },
+  skeletonHeader: {
     alignItems: 'center',
+    gap: t.spacing[2],
   },
   content: {
     paddingHorizontal: t.spacing[4],
@@ -639,12 +667,6 @@ const useStyles = makeStyles((t) => ({
   statValue: {
     ...typeStyle('title'),
     color: t.colors.text.primary,
-  },
-  sectionLabel: {
-    ...typeStyle('micro'),
-    textTransform: 'uppercase',
-    color: t.colors.text.secondary,
-    marginBottom: t.spacing[2],
   },
   topRow: {
     flexDirection: 'row',

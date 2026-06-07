@@ -54,7 +54,7 @@ export default function ResetPasswordScreen() {
       await api.post('/auth/reset-password', { token, newPassword, confirmPassword });
       setDone(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not reset your password. The link may have expired.');
+      setError(e instanceof Error ? e.message : "Couldn't reset your password. The link may have expired.");
     } finally {
       setBusy(false);
     }
@@ -73,7 +73,7 @@ export default function ResetPasswordScreen() {
             accessibilityRole="button"
             accessibilityLabel="Go to sign in"
           >
-            <Text style={styles.buttonText}>Sign In</Text>
+            <Text style={styles.buttonText}>Sign in</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -145,7 +145,7 @@ export default function ResetPasswordScreen() {
           {busy ? (
             <ActivityIndicator color={colors.text.onAccent} />
           ) : (
-            <Text style={styles.buttonText}>Reset Password</Text>
+            <Text style={styles.buttonText}>Reset password</Text>
           )}
         </TouchableOpacity>
 

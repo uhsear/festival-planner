@@ -150,7 +150,7 @@ function PicksViewInner() {
       await navigator.clipboard.writeText(url);
       toast('Share link copied to clipboard', 'success');
     } catch {
-      toast('Could not share link', 'error');
+      toast("Couldn't share link. Try again.", 'error');
     }
   }, [currentProfile, currentFestival, toast]);
 

@@ -70,7 +70,7 @@ env:
       - tapOn: "Password"
       - inputText: "${TEST_PASSWORD}"
       - hideKeyboard
-      - tapOn: "Sign In"
+      - tapOn: "Sign in"
       - tapOn:
           text: "Not Now"
           optional: true

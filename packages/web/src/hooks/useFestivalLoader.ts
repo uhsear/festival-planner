@@ -61,7 +61,11 @@ export function useFestivalLoader() {
 
     // Unauthenticated: stash and redirect to /register
     if (!user) {
-      try { sessionStorage.setItem('fk.pendingJoinCrew', code); } catch { /* sessionStorage unavailable */ }
+      try {
+        sessionStorage.setItem('fk.pendingJoinCrew', code);
+      } catch {
+        /* sessionStorage unavailable */
+      }
       joinAttemptedRef.current = code;
       navigate({ to: '/register' });
       return;
@@ -77,17 +81,17 @@ export function useFestivalLoader() {
           await loadProfiles(currentFestival.id);
         }
         await joinByCode({ inviteCode: code });
-        toast('Joined crew!', 'success');
+        toast('Joined crew', 'success');
         const url = new URL(window.location.href);
         url.searchParams.delete('joinCrew');
         window.history.replaceState({}, '', url.pathname + url.search + url.hash);
         navigate({ to: '/crew' });
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Could not join crew';
+        const msg = e instanceof Error ? e.message : "Couldn't join crew";
         if (/already/i.test(msg)) {
           toast('You are already in this crew', 'info');
         } else {
-          toast('Could not join crew: ' + msg, 'error');
+          toast("Couldn't join crew: " + msg, 'error');
         }
         const url = new URL(window.location.href);
         url.searchParams.delete('joinCrew');
@@ -100,9 +104,17 @@ export function useFestivalLoader() {
   useEffect(() => {
     if (!user) return;
     let pending: string | null = null;
-    try { pending = sessionStorage.getItem('fk.pendingJoinCrew'); } catch { /* sessionStorage unavailable */ }
+    try {
+      pending = sessionStorage.getItem('fk.pendingJoinCrew');
+    } catch {
+      /* sessionStorage unavailable */
+    }
     if (!pending) return;
-    try { sessionStorage.removeItem('fk.pendingJoinCrew'); } catch { /* sessionStorage unavailable */ }
+    try {
+      sessionStorage.removeItem('fk.pendingJoinCrew');
+    } catch {
+      /* sessionStorage unavailable */
+    }
     const url = new URL(window.location.href);
     url.searchParams.set('joinCrew', pending);
     window.history.replaceState({}, '', url.pathname + url.search + url.hash);

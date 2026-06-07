@@ -20,6 +20,7 @@ import { useCrewStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import EmptyState from '../components/EmptyState';
+import SectionLabel from '../components/SectionLabel';
 
 /** A meeting point is navigable by the compass only if it carries finite coords. */
 function hasCoords(mp: CrewMeetingPoint): mp is CrewMeetingPoint & { latitude: number; longitude: number } {
@@ -95,7 +96,7 @@ export default function FindScreen() {
           <Ionicons name="chevron-forward" size={18} color={t.colors.accent.aqua} />
         </TouchableOpacity>
 
-        <Text style={styles.sectionLabel}>Meeting points</Text>
+        <SectionLabel style={{ marginTop: t.spacing[2] }}>Meeting points</SectionLabel>
 
         {points.length === 0 ? (
           <Text style={styles.note}>
@@ -183,13 +184,6 @@ const useStyles = makeStyles((t) => ({
   cardSub: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
-  },
-  sectionLabel: {
-    ...typeStyle('caption'),
-    color: t.colors.text.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    paddingTop: t.spacing[2],
   },
   note: {
     ...typeStyle('caption'),

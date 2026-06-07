@@ -5,16 +5,14 @@ interface Props {
   onCrewChange: (value: string) => void;
 }
 
-export default function DetailNotesSection({
-  personalNote, crewNote, onPersonalChange, onCrewChange,
-}: Props) {
+export default function DetailNotesSection({ personalNote, crewNote, onPersonalChange, onCrewChange }: Props) {
   return (
     <div>
       <div className="text-xs font-bold text-text-secondary mb-2.5 uppercase tracking-[1px]" id="notes-label">
         Personal Notes
       </div>
       <textarea
-        placeholder='Add notes (e.g., "meet at the rail")...'
+        placeholder='Add notes (e.g., "meet at the rail")…'
         aria-labelledby="notes-label"
         className="w-full min-h-[80px] resize-y text-sm p-3 rounded-sm bg-bg-input border border-border-light text-text-primary"
         value={personalNote}
@@ -22,14 +20,11 @@ export default function DetailNotesSection({
       />
 
       <div className="mt-2">
-        <div
-          className="text-xs font-bold text-accent-aqua mb-2.5 uppercase tracking-[1px]"
-          id="crew-notes-label"
-        >
+        <div className="text-xs font-bold text-accent-aqua mb-2.5 uppercase tracking-[1px]" id="crew-notes-label">
           Crew Note (visible to your crew)
         </div>
         <textarea
-          placeholder="Share a note with your crew..."
+          placeholder="Share a note with your crew…"
           aria-labelledby="crew-notes-label"
           className="w-full min-h-[80px] resize-y text-sm p-3 rounded-sm bg-bg-input border border-accent-aqua text-text-primary"
           value={crewNote}

@@ -111,8 +111,9 @@ export default function OfflineReadinessCard({ festivalId, className }: Props) {
           disabled={isDownloading}
           aria-busy={isDownloading || undefined}
           className={cn(
-            'inline-flex flex-shrink-0 items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-semibold transition-all duration-200 min-h-11',
-            'bg-accent-aqua text-bg-primary hover:brightness-110 active:scale-[0.97] motion-reduce:transform-none',
+            'inline-flex flex-shrink-0 items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-semibold min-h-11',
+            'transition-[background-color,transform] duration-[var(--duration-med)] ease-[var(--ease-out)]',
+            'bg-accent-aqua text-bg-primary hover:bg-[var(--color-accent-aqua-hover)] active:scale-[0.97] motion-reduce:transform-none',
             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua',
             'disabled:opacity-50 disabled:cursor-not-allowed',
           )}

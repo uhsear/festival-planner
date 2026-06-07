@@ -9,24 +9,72 @@ import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
  * launch (gated by an AsyncStorage flag owned by the caller). Gives a cold
  * install context — what Festie does — instead of dropping users on a bare
  * festival picker. `onDone` fires for both Skip and Get started.
+ *
+ * Layout intent (design roadmap P2-1): the slide visual sits in the upper half
+ * and the value-first copy is anchored low (just above the controls) rather than
+ * dead-centered, so the screen doesn't read as a generic empty template. Slide 1
+ * leads with a product visual (a miniature of the picks/schedule surface); the
+ * remaining slides use a single accent glyph. Copy is single-sourced in `SLIDES`.
  */
-const SLIDES: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] = [
+interface Slide {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  body: string;
+  /** Slide 1 renders the product visual instead of the icon glyph. */
+  showProductVisual?: boolean;
+}
+
+const SLIDES: Slide[] = [
   {
     icon: 'calendar-outline',
-    title: 'Build your festival schedule',
-    body: 'Pick the sets you can’t miss across every stage and see your day at a glance.',
+    title: 'Your festival, planned',
+    body: 'Pick the sets you can’t miss across every stage and see your whole weekend at a glance.',
+    showProductVisual: true,
   },
   {
     icon: 'people-outline',
-    title: 'Coordinate with your crew',
-    body: 'Join a crew, compare schedules, and drop meeting points so nobody gets lost.',
+    title: 'Keep your crew together',
+    body: 'Compare schedules, drop meeting points, and find each other when the signal drops.',
   },
   {
     icon: 'notifications-outline',
     title: 'Never miss a set',
-    body: 'Get a reminder before each of your picks starts — even when the signal drops.',
+    body: 'Get a reminder before every pick starts — even when you’re offline.',
   },
 ];
+
+/** A miniature of the picks surface — a "Friday" day card with priority-tiered
+ *  set rows. Pure decoration (hidden from the a11y tree) that signals the
+ *  product instead of a generic centered icon. */
+function ProductVisual() {
+  const t = useTokens();
+  const styles = useStyles();
+  const rows: { color: string; w: number; time: string }[] = [
+    { color: t.colors.priority.must, w: 0.78, time: '8:30' },
+    { color: t.colors.priority.want, w: 0.62, time: '9:45' },
+    { color: t.colors.priority.maybe, w: 0.7, time: '11:00' },
+  ];
+  return (
+    <View style={styles.visualCard} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View style={styles.visualHeader}>
+        <Text style={styles.visualDay}>Friday</Text>
+        <View style={styles.visualPill}>
+          <Text style={styles.visualPillText}>3 picks</Text>
+        </View>
+      </View>
+      {rows.map((r, i) => (
+        <View key={i} style={styles.visualRow}>
+          <View style={[styles.visualDot, { backgroundColor: r.color }]} />
+          <View style={styles.visualBars}>
+            <View style={[styles.visualBar, { width: `${r.w * 100}%` }]} />
+            <View style={[styles.visualBarSub, { width: `${r.w * 64}%` }]} />
+          </View>
+          <Text style={styles.visualTime}>{r.time}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
 
 export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
   const t = useTokens();
@@ -40,16 +88,32 @@ export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
   return (
     <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.skipRow}>
-        <TouchableOpacity onPress={onDone} accessibilityRole="button" accessibilityLabel="Skip intro">
+        <TouchableOpacity
+          onPress={onDone}
+          accessibilityRole="button"
+          accessibilityLabel="Skip intro"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text style={styles.skip}>Skip</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.body}>
-        <View style={styles.iconCircle}>
-          <Ionicons name={slide.icon} size={48} color={t.colors.accent.aqua} />
-        </View>
-        <Text style={styles.title}>{slide.title}</Text>
+      {/* Upper region: the slide visual, centered in the top half. */}
+      <View style={styles.hero}>
+        {slide.showProductVisual ? (
+          <ProductVisual />
+        ) : (
+          <View style={styles.iconCircle} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <Ionicons name={slide.icon} size={56} color={t.colors.accent.aqua} />
+          </View>
+        )}
+      </View>
+
+      {/* Value-first copy, anchored low (just above the controls). */}
+      <View style={styles.copy}>
+        <Text style={styles.title} accessibilityRole="header">
+          {slide.title}
+        </Text>
         <Text style={styles.text}>{slide.body}</Text>
       </View>
 
@@ -89,32 +153,97 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('label'),
     color: t.colors.text.secondary,
   },
-  body: {
+  // Takes the upper space and centers the visual in it; pushing the copy block
+  // below toward the lower third of the screen (anchored, not dead-center).
+  hero: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: t.spacing[4],
+  },
+  copy: {
+    gap: t.spacing[3],
+    paddingBottom: t.spacing[8],
   },
   iconCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: t.colors.bg.secondary,
+    backgroundColor: t.colors.aquaAlpha[10],
     borderWidth: 1,
-    borderColor: t.colors.border.default,
-    marginBottom: t.spacing[2],
+    borderColor: t.colors.aquaAlpha[20],
   },
-  title: {
+  // ── Product visual (slide 1) ───────────────────────────────────────────────
+  visualCard: {
+    width: '100%',
+    maxWidth: 320,
+    padding: t.spacing[4],
+    gap: t.spacing[3],
+    borderRadius: t.radii.lg,
+    borderWidth: 1,
+    borderColor: t.colors.border.light,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  visualHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  visualDay: {
     ...typeStyle('title'),
     color: t.colors.text.primary,
-    textAlign: 'center',
+  },
+  visualPill: {
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[1],
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.aquaAlpha[12],
+  },
+  visualPillText: {
+    ...typeStyle('caption'),
+    color: t.colors.accent.aqua,
+  },
+  visualRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    paddingHorizontal: t.spacing[3],
+    borderRadius: t.radii.default,
+    backgroundColor: t.colors.bg.card,
+  },
+  visualDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  visualBars: {
+    flex: 1,
+    gap: t.spacing[2],
+  },
+  visualBar: {
+    height: 8,
+    borderRadius: t.radii.xs,
+    backgroundColor: t.colors.overlay[5],
+  },
+  visualBarSub: {
+    height: 6,
+    borderRadius: t.radii.xs,
+    backgroundColor: t.colors.overlay[3],
+  },
+  visualTime: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+  },
+  // ───────────────────────────────────────────────────────────────────────────
+  title: {
+    ...typeStyle('heading'),
+    color: t.colors.text.primary,
   },
   text: {
     ...typeStyle('body'),
     color: t.colors.text.secondary,
-    textAlign: 'center',
   },
   footer: {
     gap: t.spacing[4],
@@ -129,7 +258,7 @@ const useStyles = makeStyles((t) => ({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: t.colors.border.default,
+    backgroundColor: t.colors.border.light,
   },
   dotActive: {
     backgroundColor: t.colors.accent.aqua,
@@ -141,7 +270,9 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.accent.aqua,
     borderRadius: t.radii.default,
     paddingVertical: t.spacing[4],
+    minHeight: 44,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonText: {
     ...typeStyle('label'),

@@ -30,19 +30,25 @@ export default function HomeBaseCard({ crewId, currentLocation, currentTime, isO
 
   // Keep form in sync if the parent-supplied values change (e.g. after another
   // user/tab saves a home base via socket).
-  useEffect(() => { setLoc(currentLocation || ''); setTime(currentTime || ''); }, [currentLocation, currentTime]);
+  useEffect(() => {
+    setLoc(currentLocation || '');
+    setTime(currentTime || '');
+  }, [currentLocation, currentTime]);
 
   const save = useMutation({
-    mutationFn: (payload: { location: string; time: string | null }) =>
-      api.put(`/crews/${crewId}/home-base`, payload),
+    mutationFn: (payload: { location: string; time: string | null }) => api.put(`/crews/${crewId}/home-base`, payload),
     onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ['crews'] });
       qc.invalidateQueries({ queryKey: ['crew', crewId] });
       toast('Home base updated', 'success');
       setEditing(false);
-      try { await onSaved?.(); } catch {/* ignore */}
+      try {
+        await onSaved?.();
+      } catch {
+        /* ignore */
+      }
     },
-    onError: (e) => toast(e instanceof Error ? e.message : 'Failed to update', 'error'),
+    onError: (e) => toast(e instanceof Error ? e.message : "Couldn't update home base. Try again.", 'error'),
   });
 
   const hasHomeBase = !!currentLocation;
@@ -62,12 +68,29 @@ export default function HomeBaseCard({ crewId, currentLocation, currentTime, isO
           </h3>
           <IconButton label="Cancel" icon={<X className="w-5 h-5" />} onClick={() => setEditing(false)} />
         </div>
-        <input className={`${inputBase} min-h-11`} placeholder="Where should the crew meet?"
-          aria-label="Location" value={loc} onChange={(e) => setLoc(e.target.value)} maxLength={200} />
-        <input type="time" className={`${inputBase} min-h-11`} placeholder="Time (optional)"
-          aria-label="Meet at time" value={time} onChange={(e) => setTime(e.target.value)} />
-        <Button variant="primary" isLoading={save.isPending} disabled={!loc.trim()}
-          onClick={() => save.mutate({ location: loc.trim(), time: time || null })} className="w-full min-h-11">
+        <input
+          className={`${inputBase} min-h-11`}
+          placeholder="Where should the crew meet?"
+          aria-label="Location"
+          value={loc}
+          onChange={(e) => setLoc(e.target.value)}
+          maxLength={200}
+        />
+        <input
+          type="time"
+          className={`${inputBase} min-h-11`}
+          placeholder="Time (optional)"
+          aria-label="Meet at time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+        />
+        <Button
+          variant="primary"
+          isLoading={save.isPending}
+          disabled={!loc.trim()}
+          onClick={() => save.mutate({ location: loc.trim(), time: time || null })}
+          className="w-full min-h-11"
+        >
           Save
         </Button>
       </div>
@@ -81,9 +104,13 @@ export default function HomeBaseCard({ crewId, currentLocation, currentTime, isO
       disabled={!isOwner}
       className={`w-full py-1.5 px-2 min-h-11 rounded-lg bg-bg-card border text-left transition-colors ${
         hasHomeBase ? 'border-accent-aqua/40' : 'border-dashed border-border hover:border-border-light'
-      } ${isOwner ? 'cursor-pointer' : 'cursor-default'}`}>
+      } ${isOwner ? 'cursor-pointer' : 'cursor-default'}`}
+    >
       <div className="flex items-center gap-2">
-        <MapPin className={`w-4 h-4 flex-shrink-0 ${hasHomeBase ? 'text-accent-aqua' : 'text-text-muted'}`} aria-hidden="true" />
+        <MapPin
+          className={`w-4 h-4 flex-shrink-0 ${hasHomeBase ? 'text-accent-aqua' : 'text-text-muted'}`}
+          aria-hidden="true"
+        />
         <div className="flex-1 min-w-0">
           {hasHomeBase ? (
             <div className="flex items-center gap-2">

@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import SetEditor, { SetRow, Stage } from './SetEditor';
 
 export interface Day {
@@ -44,11 +45,16 @@ export default function DayEditor({
         <button
           type="button"
           onClick={onToggleExpand}
-          className="px-2 py-1 rounded bg-bg-card text-text-secondary hover:text-text-primary text-sm font-mono min-w-[32px]"
+          className="inline-flex items-center justify-center rounded bg-bg-card text-text-secondary hover:text-text-primary transition-colors min-h-11 min-w-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
           aria-label={isExpanded ? 'Collapse day' : 'Expand day'}
+          aria-expanded={isExpanded}
           title={isExpanded ? 'Collapse' : 'Expand'}
         >
-          {isExpanded ? '▼' : '▶'}
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4" aria-hidden="true" />
+          ) : (
+            <ChevronRight className="w-4 h-4" aria-hidden="true" />
+          )}
         </button>
         <input
           type="text"

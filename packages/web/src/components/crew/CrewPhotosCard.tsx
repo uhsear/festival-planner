@@ -44,7 +44,7 @@ export default function CrewPhotosCard({ crewId, currentUrl, onSaved }: Props) {
         /* ignore */
       }
     },
-    onError: (e) => toast(e instanceof Error ? e.message : 'Failed to update', 'error'),
+    onError: (e) => toast(e instanceof Error ? e.message : "Couldn't update the photo album. Try again.", 'error'),
   });
 
   const trimmed = url.trim();

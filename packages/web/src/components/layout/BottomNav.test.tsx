@@ -13,8 +13,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 let mockUser: { id: string; username: string } | null = null;
 vi.mock('@festie/shared', () => ({
-  useAuthStore: (selector: (s: { user: typeof mockUser }) => unknown) =>
-    selector({ user: mockUser }),
+  useAuthStore: (selector: (s: { user: typeof mockUser }) => unknown) => selector({ user: mockUser }),
 }));
 
 vi.mock('@festie/shared/stores', () => ({
@@ -34,11 +33,12 @@ describe('BottomNav', () => {
     mockLocation.pathname = '/cards';
   });
 
-  it('renders base tabs for guest users', () => {
+  it('renders a single consolidated Schedule tab for guest users', () => {
     render(<BottomNav />);
     expect(screen.getByLabelText('View Schedule')).toBeInTheDocument();
-    expect(screen.getByLabelText('View Timeline')).toBeInTheDocument();
-    expect(screen.getByLabelText('View Grid')).toBeInTheDocument();
+    // Timeline/Grid folded into the in-page ScheduleViewSwitcher — no longer tabs.
+    expect(screen.queryByLabelText('View Timeline')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('View Grid')).not.toBeInTheDocument();
   });
 
   it('does not show auth tabs for guest users', () => {
@@ -63,9 +63,10 @@ describe('BottomNav', () => {
   });
 
   it('does not mark inactive items as current', () => {
+    mockUser = { id: 'u1', username: 'alice' };
     render(<BottomNav />);
-    const timelineTab = screen.getByLabelText('View Timeline');
-    expect(timelineTab).not.toHaveAttribute('aria-current');
+    const crewTab = screen.getByLabelText('View Crew');
+    expect(crewTab).not.toHaveAttribute('aria-current');
   });
 
   it('treats "/" as equivalent to "/cards" for active state', () => {
@@ -75,11 +76,21 @@ describe('BottomNav', () => {
     expect(scheduleTab).toHaveAttribute('aria-current', 'page');
   });
 
+  it('keeps the Schedule tab active across the timeline and grid views', () => {
+    mockLocation.pathname = '/timeline';
+    const { unmount } = render(<BottomNav />);
+    expect(screen.getByLabelText('View Schedule')).toHaveAttribute('aria-current', 'page');
+    unmount();
+    mockLocation.pathname = '/grid';
+    render(<BottomNav />);
+    expect(screen.getByLabelText('View Schedule')).toHaveAttribute('aria-current', 'page');
+  });
+
   it('navigates when a tab is clicked', async () => {
     const user = userEvent.setup();
     render(<BottomNav />);
-    await user.click(screen.getByLabelText('View Timeline'));
-    expect(mockNavigate).toHaveBeenCalledWith({ to: '/timeline' });
+    await user.click(screen.getByLabelText('View Schedule'));
+    expect(mockNavigate).toHaveBeenCalledWith({ to: '/cards' });
   });
 
   it('renders a navigation landmark', () => {
@@ -87,31 +98,33 @@ describe('BottomNav', () => {
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
   });
 
-  it('renders a button for each nav item (3 for guests)', () => {
+  it('renders a single nav button for guests (Schedule)', () => {
     render(<BottomNav />);
     const nav = screen.getByRole('navigation', { name: 'Primary' });
-    expect(within(nav).getAllByRole('button').length).toBe(3); // Guest: Schedule, Timeline, Grid
+    expect(within(nav).getAllByRole('button').length).toBe(1); // Guest: Schedule only
   });
 
-  it('renders 6 nav buttons for logged-in user', () => {
+  it('renders 4 nav buttons for logged-in user', () => {
     mockUser = { id: 'u1', username: 'alice' };
     render(<BottomNav />);
     const nav = screen.getByRole('navigation', { name: 'Primary' });
-    expect(within(nav).getAllByRole('button').length).toBe(6);
+    // Schedule + My Picks + Crew + Me
+    expect(within(nav).getAllByRole('button').length).toBe(4);
   });
 
   it('keeps every nav item keyboard-reachable (no roving tabindex)', () => {
+    mockUser = { id: 'u1', username: 'alice' };
     render(<BottomNav />);
     // Regression guard for the old keyboard trap: inactive items must not be
     // removed from the tab order via tabIndex=-1.
     expect(screen.getByLabelText('View Schedule')).not.toHaveAttribute('tabindex', '-1');
-    expect(screen.getByLabelText('View Timeline')).not.toHaveAttribute('tabindex', '-1');
+    expect(screen.getByLabelText('View Crew')).not.toHaveAttribute('tabindex', '-1');
   });
 
-  it('renders label text for each tab', () => {
+  it('renders label text for the Schedule tab', () => {
     render(<BottomNav />);
     expect(screen.getByText('Schedule')).toBeInTheDocument();
-    expect(screen.getByText('Timeline')).toBeInTheDocument();
-    expect(screen.getByText('Grid')).toBeInTheDocument();
+    expect(screen.queryByText('Timeline')).not.toBeInTheDocument();
+    expect(screen.queryByText('Grid')).not.toBeInTheDocument();
   });
 });

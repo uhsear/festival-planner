@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@festie/shared';
 import { useToast } from '../lib/toastContext';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import Button from '../components/ui/Button';
+import IconButton from '../components/ui/IconButton';
+import AuthTabs from '../components/ui/AuthTabs';
 import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -96,42 +98,7 @@ function RegisterPageInner() {
         Plan your sets. Sync with your crew.
       </p>
 
-      <div
-        className={cn(
-          'flex mb-6 border border-border-light rounded-DEFAULT overflow-hidden',
-          'w-full max-w-[360px] relative z-[1]',
-        )}
-        role="tablist"
-        aria-label="Authentication method"
-      >
-        <Link
-          to="/login"
-          className={cn(
-            'flex-1 py-[var(--space-6)] text-sm font-semibold text-center min-h-11 cursor-pointer',
-            'bg-[var(--color-bg-card)] text-text-secondary',
-            'transition-[background,color] duration-200 ease-[var(--ease-out)]',
-            'inline-flex items-center justify-center',
-          )}
-          role="tab"
-          aria-selected={false}
-          tabIndex={-1}
-        >
-          Login
-        </Link>
-        <button
-          className={cn(
-            'flex-1 py-[var(--space-6)] text-sm font-bold text-center min-h-11 cursor-pointer',
-            'bg-accent-aqua text-[var(--text-on-light-accent)]',
-            'transition-[background,color] duration-200 ease-[var(--ease-out)]',
-          )}
-          role="tab"
-          aria-selected={true}
-          tabIndex={0}
-          type="button"
-        >
-          Create Account
-        </button>
-      </div>
+      <AuthTabs active="register" variant="split" />
 
       <form
         className="w-full max-w-[360px] relative z-[1]"
@@ -187,14 +154,12 @@ function RegisterPageInner() {
             aria-describedby={formError ? 'authFormError' : undefined}
             className={cn(authInputClasses, 'pr-11')}
           />
-          <button
-            type="button"
+          <IconButton
             onClick={() => setShowPw((v) => !v)}
-            aria-label={showPw ? 'Hide password' : 'Show password'}
-            className="absolute right-3 top-[22px] -translate-y-1/2 text-text-secondary hover:text-text-primary"
-          >
-            {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-          </button>
+            label={showPw ? 'Hide password' : 'Show password'}
+            icon={showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            className="absolute right-0 top-[22px] -translate-y-1/2"
+          />
         </div>
 
         <label htmlFor="authPassword2" className="sr-only">
@@ -241,22 +206,32 @@ function RegisterPageInner() {
             id="authTos"
             checked={tosAccepted}
             onChange={(e) => setTosAccepted(e.target.checked)}
-            className="mt-0.5 h-[22px] w-[22px] min-w-[22px] p-0 accent-[var(--accent)]"
+            className="mt-0.5 h-[22px] w-[22px] min-w-[22px] p-0 accent-[var(--color-accent-aqua)]"
           />
           <span>
             I agree to the{' '}
-            <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)]">
+            <a
+              href="/terms.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent-aqua underline underline-offset-2 hover:text-[var(--color-accent-aqua-hover)] rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
+            >
               Terms of Service
             </a>{' '}
             and{' '}
-            <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)]">
+            <a
+              href="/privacy.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent-aqua underline underline-offset-2 hover:text-[var(--color-accent-aqua-hover)] rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
+            >
               Privacy Policy
             </a>
           </span>
         </label>
 
         <Button variant="primary" fullWidth type="submit" disabled={isLoading} isLoading={isLoading}>
-          {isLoading ? 'Creating account...' : 'Create Account'}
+          {isLoading ? 'Creating account…' : 'Create Account'}
         </Button>
       </form>
     </>

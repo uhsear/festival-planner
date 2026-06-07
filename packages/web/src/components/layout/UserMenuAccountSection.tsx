@@ -90,7 +90,7 @@ export default function UserMenuAccountSection({
               if (!isLoading) fileInputRef.current?.click();
             }}
           >
-            {isLoading ? 'Uploading...' : 'Upload'}
+            {isLoading ? 'Uploading…' : 'Upload'}
           </Button>
           {user.avatarUrl && (
             <Button
@@ -141,7 +141,7 @@ export default function UserMenuAccountSection({
               data-testid="resend-verification-button"
               onClick={handleResendVerification}
             >
-              {resending ? 'Sending...' : 'Resend verification'}
+              {resending ? 'Sending…' : 'Resend verification'}
             </Button>
           )}
           <Button

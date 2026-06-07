@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { useAuth } from '@festie/shared';
-import { useToast } from '../lib/toastContext';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import Button from '../components/ui/Button';
+import IconButton from '../components/ui/IconButton';
+import AuthTabs from '../components/ui/AuthTabs';
 import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -18,7 +19,6 @@ export default function LoginPage() {
 function LoginPageInner() {
   const navigate = useNavigate();
   const { login, isLoading, error } = useAuth();
-  const { toast } = useToast();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -40,7 +40,6 @@ function LoginPageInner() {
 
     try {
       await login({ username, password });
-      toast('Login successful', 'success');
       await navigate({ to: '/cards' });
     } catch {
       setFormError(error || 'Login failed');
@@ -62,43 +61,7 @@ function LoginPageInner() {
         Plan your sets. Sync with your crew.
       </p>
 
-      <div
-        className={cn('flex gap-1 p-1 mb-6 bg-bg-secondary rounded-full', 'w-full max-w-[360px] relative z-[1]')}
-        role="tablist"
-        aria-label="Authentication method"
-      >
-        <button
-          className={cn(
-            'flex-1 py-2 px-3 min-h-9 rounded-full cursor-pointer',
-            'text-sm font-semibold text-center',
-            'bg-accent-aqua text-[var(--text-on-light-accent)]',
-            'transition-[background,color,transform] duration-200 ease-[var(--ease-out)]',
-            'active:scale-[0.97] motion-reduce:transform-none',
-          )}
-          role="tab"
-          aria-selected={true}
-          tabIndex={0}
-          type="button"
-        >
-          Login
-        </button>
-        <Link
-          to="/register"
-          className={cn(
-            'flex-1 py-2 px-3 min-h-9 rounded-full cursor-pointer',
-            'text-sm font-semibold text-center',
-            'bg-transparent text-text-secondary hover:text-text-primary',
-            'transition-[background,color,transform] duration-200 ease-[var(--ease-out)]',
-            'active:scale-[0.97] motion-reduce:transform-none',
-            'inline-flex items-center justify-center',
-          )}
-          role="tab"
-          aria-selected={false}
-          tabIndex={-1}
-        >
-          Create Account
-        </Link>
-      </div>
+      <AuthTabs active="login" variant="pill" />
 
       <form
         className="w-full max-w-[360px] relative z-[1]"
@@ -170,24 +133,27 @@ function LoginPageInner() {
               'focus:shadow-[0_0_0_4px_var(--color-aqua-a1),0_0_24px_var(--color-aqua-a06)]',
             )}
           />
-          <button
-            type="button"
+          <IconButton
             onClick={() => setShowPw((v) => !v)}
-            aria-label={showPw ? 'Hide password' : 'Show password'}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary"
-          >
-            {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-          </button>
+            label={showPw ? 'Hide password' : 'Show password'}
+            icon={showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            className="absolute right-0 top-1/2 -translate-y-1/2"
+          />
         </div>
 
         <Button variant="primary" fullWidth type="submit" disabled={isLoading} isLoading={isLoading}>
-          {isLoading ? 'Logging in...' : 'Login'}
+          {isLoading ? 'Signing in…' : 'Sign in'}
         </Button>
 
         <div className="mt-3 text-center">
           <Link
             to="/forgot-password"
-            className="text-[13px] text-[var(--accent)] no-underline inline-flex items-center min-h-11 px-0 py-2.5"
+            className={cn(
+              'text-[13px] text-accent-aqua underline underline-offset-2',
+              'hover:text-[var(--color-accent-aqua-hover)]',
+              'inline-flex items-center min-h-11 px-0 py-2.5',
+              'rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua',
+            )}
           >
             Forgot password?
           </Link>

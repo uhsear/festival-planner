@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
+import { useCallback, useMemo } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import type { Festival } from '@festie/shared/types';
 import { formatFestivalDateRange, festivalStatus, type FestivalStatus } from '@festie/shared/utils';
+import { Skeleton } from './Skeleton';
 
 // Status pill styling. The list endpoint now provides startDate/endDate, so a
 // festival classifies as upcoming/ongoing/past. Returns null when undetermined.
@@ -29,14 +30,18 @@ interface FestivalCardProps {
 
 function FestivalCard({ festival, onPress, isSelecting }: FestivalCardProps) {
   const dateRange = formatFestivalDateRange(festival.startDate, festival.endDate);
-  const badge = statusBadge(festivalStatus(festival));
+  const status = festivalStatus(festival);
+  const badge = statusBadge(status);
+  // Past festivals are kept (you can still open last year's), but de-emphasized
+  // so the live/upcoming ones the user almost always wants read first.
+  const isPast = status === 'past';
   // Compose the card's pieces into one accessible name so a screen reader reads
   // "<name>, <status>, <dates>, <location>" as a single button instead of fragments.
   const a11yLabel = [festival.name, badge?.label, dateRange, festival.location].filter(Boolean).join(', ');
   return (
     <TouchableOpacity
       testID={`festival-card-${festival.id}`}
-      style={styles.card}
+      style={[styles.card, isPast && styles.cardPast]}
       onPress={() => onPress(festival.id)}
       activeOpacity={0.7}
       disabled={isSelecting}
@@ -100,6 +105,23 @@ export default function FestivalList() {
   const loadFestivals = useFestivalDataStore((s) => s.loadFestivals);
   const selectFestival = useFestivalDataStore((s) => s.selectFestival);
 
+  // Order: live first, then upcoming (soonest first), then past (most recent
+  // first), so the festivals a user is most likely choosing sit at the top.
+  const sortedFestivals = useMemo(() => {
+    const rank = (f: Festival): number => {
+      const s = festivalStatus(f);
+      return s === 'ongoing' ? 0 : s === 'past' ? 2 : 1;
+    };
+    const startKey = (f: Festival): string => f.startDate || '';
+    return [...festivals].sort((a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra !== rb) return ra - rb;
+      // ISO date strings sort lexicographically. Past = most recent first.
+      return ra === 2 ? startKey(b).localeCompare(startKey(a)) : startKey(a).localeCompare(startKey(b));
+    });
+  }, [festivals]);
+
   const handleRefresh = useCallback(() => {
     loadFestivals().catch(() => {});
   }, [loadFestivals]);
@@ -118,12 +140,20 @@ export default function FestivalList() {
 
   const keyExtractor = useCallback((item: Festival) => item.id, []);
 
-  // Initial loading state (no data yet)
+  // Initial loading state (no data yet) — skeleton cards matching the real list
+  // geometry instead of a bare spinner.
   if (isLoading && festivals.length === 0) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.accent.aqua} />
-        <Text style={styles.loadingText}>Loading festivals...</Text>
+      <View style={styles.listContent} accessibilityRole="progressbar" accessibilityLabel="Loading festivals">
+        {[0, 1, 2, 3].map((i) => (
+          <View key={i} style={styles.skeletonCard}>
+            <View style={styles.skeletonBody}>
+              <Skeleton width="64%" height={18} radius={radii.xs} />
+              <Skeleton width="44%" height={14} radius={radii.xs} />
+              <Skeleton width="52%" height={14} radius={radii.xs} />
+            </View>
+          </View>
+        ))}
       </View>
     );
   }
@@ -155,7 +185,7 @@ export default function FestivalList() {
 
   return (
     <FlatList
-      data={festivals}
+      data={sortedFestivals}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       contentContainerStyle={styles.listContent}
@@ -181,11 +211,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing[3],
     paddingHorizontal: spacing[6],
-  },
-  loadingText: {
-    fontSize: fontSize[16],
-    color: colors.text.secondary,
-    marginTop: spacing[2],
   },
   errorText: {
     fontSize: fontSize[14],
@@ -232,6 +257,20 @@ const styles = StyleSheet.create({
     borderColor: colors.border.default,
     padding: spacing[4],
   },
+  cardPast: {
+    opacity: 0.55,
+  },
+  skeletonCard: {
+    backgroundColor: colors.bg.card,
+    borderRadius: radii.default,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    padding: spacing[4],
+    marginBottom: spacing[3],
+  },
+  skeletonBody: {
+    gap: spacing[2],
+  },
   cardContent: {
     flex: 1,
     gap: spacing[1],
@@ -253,10 +292,10 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: spacing[2],
     paddingVertical: 2,
-    borderRadius: 999,
+    borderRadius: radii.pill,
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: fontSize[12],
     fontWeight: '700',
   },
   metaRow: {

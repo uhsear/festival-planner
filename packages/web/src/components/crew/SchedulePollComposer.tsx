@@ -131,7 +131,7 @@ export default function SchedulePollComposer({ crewId, onCreated, onCancel }: Pr
       toast('Schedule poll created', 'success');
       onCreated();
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Failed to create poll', 'error');
+      toast(err instanceof Error ? err.message : "Couldn't create poll. Try again.", 'error');
     } finally {
       setBusy(false);
     }
