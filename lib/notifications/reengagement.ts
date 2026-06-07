@@ -19,16 +19,13 @@
 //   - deduped once-per-event-per-user via notification_log.existsForEvent on a
 //     stable `eventKey` we stash in the notification data (data_json.eventKey).
 //
-// KNOWN LIMIT (lineup_drop): targeting prior-year attendees can exceed
-// MAX_PUSH_BATCH (200) inside sendToOfflineUsers' single capped call. We honor
-// the cap and emit a clear log. The real fan-out queue is deferred — see #20.
-// We do NOT build the queue here. Email is best-effort and degrades when
-// RESEND_API_KEY is unset.
+// FAN-OUT: all three triggers push to EVERY eligible (deduped, pref/DND-passing)
+// recipient via `pushFanout` — bounded-concurrency chunks (25 at a time) so a
+// large prior-year/attendee fan-out neither drops the tail nor stampedes the
+// push provider. Email is best-effort and degrades when RESEND_API_KEY is unset.
 
 import crypto from 'crypto';
 import { sendWrapReadyEmail, sendLineupDropEmail, sendCrewReformEmail } from '../email.js';
-
-const MAX_PUSH_BATCH = 200;
 
 /**
  * Backend mirror of `@festie/shared` `isFestivalOver` (the SAME logic that gates
@@ -121,27 +118,14 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
       if (!(await alreadyNotified(uid, 'wrap_ready', eventKey))) fresh.push(uid);
     }
 
-    let pushSent = 0;
-    if (notify.isConfigured && typeof notify.sendToOfflineUsers === 'function' && fresh.length > 0) {
-      const allAttendees = new Set(attendeeIds);
-      const excludeUserIds = [...allAttendees].filter((u) => !fresh.includes(u));
-      const r = await notify.sendToOfflineUsers({
-        festivalId,
-        type: 'wrap_ready',
-        title: `${festivalName} — your wrap is ready`,
-        body: 'Relive your top sets, crew superlatives, and the numbers.',
-        data: { festivalId, eventKey, deepLink: `${origin()}/wrap?festival=${encodeURIComponent(festivalId)}` },
-        excludeUserIds,
-      });
-      pushSent = r?.sent || 0;
-      if (fresh.length > MAX_PUSH_BATCH) {
-        log?.warn?.(
-          'sendWrapReady: attendee fan-out exceeds MAX_PUSH_BATCH — capped single call. ' +
-            'See #20 for the deferred fan-out queue.',
-          { festivalId, total: fresh.length, cap: MAX_PUSH_BATCH },
-        );
-      }
-    }
+    // Push to ALL fresh attendees in bounded chunks (no MAX_PUSH_BATCH drop).
+    const deepLink = `${origin()}/wrap?festival=${encodeURIComponent(festivalId)}`;
+    const pushSent = await pushFanout(fresh, () => ({
+      type: 'wrap_ready',
+      title: `${festivalName} — your wrap is ready`,
+      body: 'Relive your top sets, crew superlatives, and the numbers.',
+      data: { festivalId, eventKey, deepLink },
+    }));
 
     // Email (best-effort; degrades when RESEND_API_KEY unset).
     const emailSent = await emailFanout(fresh, 'wrap_ready', eventKey, async (user) =>
@@ -212,37 +196,18 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
     }
     if (fresh.length === 0) return { sent: 0, reason: 'all_deduped' };
 
-    // KNOWN LIMIT: prior-year fan-out can exceed MAX_PUSH_BATCH. sendToOfflineUsers
-    // targets BY FESTIVAL membership, but these users are NOT in the new festival —
-    // so we push to them directly per-user via notify.send (each respects pref+DND),
-    // capped at MAX_PUSH_BATCH; the real fan-out queue is deferred — see #20.
-    let pushSent = 0;
-    const capped = fresh.slice(0, MAX_PUSH_BATCH);
-    if (fresh.length > MAX_PUSH_BATCH) {
-      log?.warn?.(
-        'sendLineupDrop: prior-attendee fan-out exceeds MAX_PUSH_BATCH — capped ' +
-          '(this single call drops the tail). See #20 for the deferred fan-out queue.',
-        { festivalId, total: fresh.length, cap: MAX_PUSH_BATCH },
-      );
-    }
-    if (notify.isConfigured && typeof notify.send === 'function') {
-      for (const uid of capped) {
-        try {
-          const r = await notify.send({
-            userId: uid,
-            type: 'lineup_drop',
-            title: `${festivalName} lineup just dropped`,
-            body: 'Start building your picks and rally the crew.',
-            data: { festivalId, eventKey, deepLink: `${origin()}/festival/${encodeURIComponent(festivalId)}` },
-          });
-          if (r?.sent) pushSent += r.sent;
-        } catch (err: any) {
-          log?.debug?.('sendLineupDrop: push failed', { userId: uid, error: err?.message });
-        }
-      }
-    }
+    // Prior-year attendees are NOT in the new festival, so we push per-user
+    // (each respects pref + DND) — now over ALL of them in bounded chunks
+    // instead of dropping the tail past MAX_PUSH_BATCH.
+    const deepLink = `${origin()}/festival/${encodeURIComponent(festivalId)}`;
+    const pushSent = await pushFanout(fresh, () => ({
+      type: 'lineup_drop',
+      title: `${festivalName} lineup just dropped`,
+      body: 'Start building your picks and rally the crew.',
+      data: { festivalId, eventKey, deepLink },
+    }));
 
-    const emailSent = await emailFanout(capped, 'lineup_drop', eventKey, async (user) =>
+    const emailSent = await emailFanout(fresh, 'lineup_drop', eventKey, async (user) =>
       sendLineupDropEmail({ to: user.email, username: user.username, festivalName, festivalId, config, log }),
     );
 
@@ -266,40 +231,15 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
     }
     if (fresh.length === 0) return { sent: 0, reason: 'all_deduped' };
 
-    let pushSent = 0;
-    const capped = fresh.slice(0, MAX_PUSH_BATCH);
-    if (fresh.length > MAX_PUSH_BATCH) {
-      log?.warn?.(
-        'sendCrewReformed: invitee fan-out exceeds MAX_PUSH_BATCH — capped. See #20 for the deferred fan-out queue.',
-        {
-          newCrewId,
-          total: fresh.length,
-          cap: MAX_PUSH_BATCH,
-        },
-      );
-    }
-    if (notify.isConfigured && typeof notify.send === 'function') {
-      for (const uid of capped) {
-        try {
-          const r = await notify.send({
-            userId: uid,
-            type: 'crew_reformed',
-            title: `${crewName || 'Your crew'} reformed`,
-            body: festivalName ? `Back together for ${festivalName}. Jump in.` : 'Back together. Jump in.',
-            data: {
-              crewId: newCrewId,
-              eventKey,
-              deepLink: inviteUrl || `${origin()}/crew/${encodeURIComponent(newCrewId)}`,
-            },
-          });
-          if (r?.sent) pushSent += r.sent;
-        } catch (err: any) {
-          log?.debug?.('sendCrewReformed: push failed', { userId: uid, error: err?.message });
-        }
-      }
-    }
+    const reformDeepLink = inviteUrl || `${origin()}/crew/${encodeURIComponent(newCrewId)}`;
+    const pushSent = await pushFanout(fresh, () => ({
+      type: 'crew_reformed',
+      title: `${crewName || 'Your crew'} reformed`,
+      body: festivalName ? `Back together for ${festivalName}. Jump in.` : 'Back together. Jump in.',
+      data: { crewId: newCrewId, eventKey, deepLink: reformDeepLink },
+    }));
 
-    const emailSent = await emailFanout(capped, 'crew_reformed', eventKey, async (user) =>
+    const emailSent = await emailFanout(fresh, 'crew_reformed', eventKey, async (user) =>
       sendCrewReformEmail({
         to: user.email,
         username: user.username,
@@ -320,6 +260,34 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
 
   function origin() {
     return String(config?.PUBLIC_ORIGIN || 'https://festie.us').replace(/\/+$/, '');
+  }
+
+  /**
+   * Push to EVERY user in `userIds` via per-user `notify.send` (each respects
+   * pref + DND), in bounded-concurrency chunks so a large fan-out neither drops
+   * the tail (the old MAX_PUSH_BATCH cap) nor stampedes the push provider.
+   * Returns the total number of pushes delivered.
+   */
+  async function pushFanout(userIds: string[], buildPayload: (uid: string) => any): Promise<number> {
+    if (!userIds.length || !notify.isConfigured || typeof notify.send !== 'function') return 0;
+    const CHUNK = 25;
+    let sent = 0;
+    for (let i = 0; i < userIds.length; i += CHUNK) {
+      const batch = userIds.slice(i, i + CHUNK);
+      const results = await Promise.all(
+        batch.map(async (uid) => {
+          try {
+            const r = await notify.send({ userId: uid, ...buildPayload(uid) });
+            return r?.sent || 0;
+          } catch (err: any) {
+            log?.debug?.('pushFanout: send failed', { userId: uid, error: err?.message });
+            return 0;
+          }
+        }),
+      );
+      sent += results.reduce((a: number, b: number) => a + b, 0);
+    }
+    return sent;
   }
 
   /**

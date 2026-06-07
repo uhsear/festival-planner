@@ -219,7 +219,7 @@ export default function RegisterScreen() {
           accessibilityState={{ disabled: isLoading, busy: isLoading }}
         >
           {isLoading ? (
-            <ActivityIndicator color={colors.text.onAccent} />
+            <ActivityIndicator color={colors.text.onLightAccent} />
           ) : (
             <Text style={styles.buttonText}>Create account</Text>
           )}
@@ -344,7 +344,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   button: {
-    backgroundColor: colors.accent.coral,
+    // PRIMARY CTA = aqua fill + dark ink per the accent rule (coral = danger/SOS only).
+    backgroundColor: colors.accent.aqua,
     borderRadius: radii.default,
     paddingVertical: spacing[3],
     alignItems: 'center',
@@ -356,7 +357,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: fontSize[16],
     fontWeight: '600',
-    color: colors.text.onAccent,
+    color: colors.text.onLightAccent,
   },
   linkButton: {
     marginTop: spacing[5],
