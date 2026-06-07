@@ -34,7 +34,8 @@ jobs:
         with:
           node-version: '22'
 
-      # RN 0.81 / Expo SDK 54 build with AGP 8 -> JDK 17.
+      # RN 0.85 / Expo SDK 56 build with AGP 8 -> still JDK 17 (RN docs warn
+      # against higher JDKs; do NOT bump to 21).
       - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
@@ -60,14 +61,24 @@ jobs:
         working-directory: packages/mobile
         run: pnpm exec expo prebuild --platform android --no-install
 
+      # RN 0.85's template targets compileSdk/targetSdk 36 (Android 16) +
+      # build-tools 36.0.0, which the ubuntu-latest image may not preinstall yet.
+      # AGP does not reliably auto-download SDK platforms, so install them
+      # explicitly or gradle fails at configuration time. (|| true: harmless if
+      # the runner already has them.)
+      - name: Ensure Android SDK 36 (RN 0.85 compileSdk)
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" || true
+
       # The New-Arch release build exhausts Expo's default Gradle Metaspace and
       # dies with OutOfMemoryError: Metaspace. The properties file's last value
       # wins, so appending overrides it. Runner has ~7GB; leave room for the
-      # native (clang/CMake) compilers that run outside the JVM.
+      # native (clang/CMake) compilers that run outside the JVM. RN 0.85's
+      # heavier New-Arch/C++20 codegen needs more Metaspace than 0.81 did.
       - name: Raise Gradle JVM memory
         working-directory: packages/mobile/android
         run: |
-          printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1536m -Dfile.encoding=UTF-8\n' >> gradle.properties
+          printf '\norg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=2048m -Dfile.encoding=UTF-8\n' >> gradle.properties
 
       # Release (not debug): a debug APK expects a Metro dev server to serve the
       # JS bundle at runtime, which CI has none of — the app would launch to a
