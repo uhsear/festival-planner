@@ -126,7 +126,6 @@
         "expo-widgets",
         {
           "bundleIdentifier": "us.festie.app.widgets",
-          "groupIdentifier": "group.us.festie.app",
           "widgets": [
             {
               "name": "NowNextActivity",
