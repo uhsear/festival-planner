@@ -464,6 +464,10 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
   );
 
   const fellBackRef = useRef(false);
+  // Holds the in-flight offline-fallback timer so a new onLoadStart (the WebView
+  // can fire it repeatedly) clears the prior one instead of stacking timers, and
+  // so we can clear it on unmount. Behavior is unchanged — only the leak is fixed.
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fallBack = useCallback(() => {
     if (fellBackRef.current) return;
     fellBackRef.current = true;
@@ -492,7 +496,9 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
   // Arm an offline timeout on load start: if MapLibre never signals 'ready'
   // within the window we assume no CDN (truly offline) and fall back to the list.
   const armTimeout = useCallback(() => {
-    setTimeout(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = null;
       setPhase((p) => {
         if (p === 'loading') {
           fellBackRef.current = true;
@@ -501,6 +507,13 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
         return p;
       });
     }, LOAD_TIMEOUT_MS);
+  }, []);
+
+  // Clear any pending fallback timer when the component unmounts.
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, []);
 
   // If we fell back only because there was nothing to plot (NOT a CDN/offline
@@ -573,7 +586,9 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
             key={p.id}
             style={styles.row}
             accessible
-            accessibilityRole="button"
+            // Non-interactive info row (no onPress) — 'text', not 'button', so
+            // screen readers don't announce a phantom actionable control.
+            accessibilityRole="text"
             accessibilityLabel={`${p.label}, ${p.sublabel}`}
             accessibilityHint={`${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}`}
           >
@@ -605,7 +620,8 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
             // a11y: announce the whole row as one meeting-point entry so the
             // coords read as metadata, not a separate flat list item.
             accessible={true}
-            accessibilityRole="button"
+            // Non-interactive info row (no onPress) — 'text', not 'button'.
+            accessibilityRole="text"
             accessibilityLabel={`Meeting point: ${pin.label}${pin.sublabel ? ', ' + pin.sublabel : ''}`}
             accessibilityHint={`${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}`}
           >
@@ -625,7 +641,8 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
             key={p.id}
             style={styles.row}
             accessible={true}
-            accessibilityRole="button"
+            // Non-interactive info row (no onPress) — 'text', not 'button'.
+            accessibilityRole="text"
             accessibilityLabel={`Meeting point: ${p.label}${p.location ? ', ' + p.location : ''}`}
             accessibilityHint="No coordinates pinned"
           >

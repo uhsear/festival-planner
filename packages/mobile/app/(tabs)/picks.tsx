@@ -171,13 +171,19 @@ export default function PicksScreen() {
 
   const genreGroups = useMemo(() => {
     const byGenre = new Map<string, string[]>();
+    // Lowercase only the dedupe KEY; keep the first-seen original casing for the
+    // display label so genres like "drum and bass" / "UK garage" aren't mangled
+    // by a textTransform:'capitalize'.
+    const labelByKey = new Map<string, string>();
     for (const s of sets) {
       const seen = new Set<string>();
       for (const a of s.artists ?? []) {
         for (const g of a.genres ?? []) {
-          const key = g.trim().toLowerCase();
+          const display = g.trim();
+          const key = display.toLowerCase();
           if (!key || seen.has(key)) continue;
           seen.add(key);
+          if (!labelByKey.has(key)) labelByKey.set(key, display);
           const arr = byGenre.get(key);
           if (arr) arr.push(s.id);
           else byGenre.set(key, [s.id]);
@@ -185,7 +191,7 @@ export default function PicksScreen() {
       }
     }
     return [...byGenre.entries()]
-      .map(([key, setIds]) => ({ key: `genre-${key}`, label: key, setIds }))
+      .map(([key, setIds]) => ({ key: `genre-${key}`, label: labelByKey.get(key) ?? key, setIds }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [sets]);
 
@@ -722,7 +728,8 @@ const useStyles = makeStyles((t) => ({
   bulkActionPillText: {
     ...typeStyle('caption'),
     color: t.colors.text.primary,
-    textTransform: 'capitalize',
+    // No capitalize transform — it mangled multi-word/initialism genres
+    // ("drum and bass", "UK garage"). Labels carry their original casing.
     flexShrink: 1,
   },
   bulkActionCount: {

@@ -115,6 +115,9 @@ export default function FindScreen() {
                 onPress={() => router.push({ pathname: '/compass', params: { mpId: p.id } })}
                 activeOpacity={0.8}
                 accessibilityRole="button"
+                // Mirror the disabled prop into a11y so VoiceOver doesn't announce
+                // a non-coord row as an actionable button.
+                accessibilityState={{ disabled: !navigable }}
                 accessibilityLabel={navigable ? `Point the compass to ${p.label}` : `${p.label} — no pinned location`}
               >
                 <Ionicons

@@ -223,7 +223,13 @@ export default function CrewCompareScreen() {
                   {columns.map((col) => {
                     const p = pickFor(col, set.id);
                     return (
-                      <View key={col.id} style={styles.cell}>
+                      <View
+                        key={col.id}
+                        style={styles.cell}
+                        // Preserve the table relation (member × set → pick) for
+                        // screen readers; without a label the cell reads as empty.
+                        accessibilityLabel={`${col.name}: ${p ? PRIORITY_LABEL[p] : 'no pick'} for ${artistDisplayName(set, currentFestival?.b2bSeparator)}`}
+                      >
                         {p ? (
                           <View
                             style={[

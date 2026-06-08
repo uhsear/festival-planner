@@ -229,7 +229,7 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
       */}
       <View style={styles.dial} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
         <View style={[styles.arrow, { transform: [{ rotate: `${arrowAngle}deg` }] }]}>
-          <Ionicons name="navigate" size={96} color={t.colors.accent.coral} />
+          <Ionicons name="navigate" size={96} color={t.colors.accent.aqua} />
         </View>
       </View>
 

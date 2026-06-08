@@ -296,7 +296,10 @@ const useStyles = makeStyles((t) => ({
   },
   priorityText: {
     ...typeStyle('caption'),
-    color: t.colors.accent.coral,
+    // Self-consistent amber badge: dark ink on the amber fill (text.onLightAccent
+    // #080810 passes AA on #ffb020). Was coral text on an amber fill, which both
+    // mixed accents and read poorly.
+    color: t.colors.text.onLightAccent,
     fontWeight: '700',
   },
   pickMember: {
