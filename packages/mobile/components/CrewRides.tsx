@@ -295,6 +295,12 @@ const useStyles = makeStyles((t) => ({
   },
   iconButton: {
     padding: t.spacing[1],
+    // WCAG 2.5.5 / Apple HIG >=44pt touch target for these small (16-18px)
+    // icon-only controls — padding alone can't reach it.
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   empty: {
     ...typeStyle('caption'),

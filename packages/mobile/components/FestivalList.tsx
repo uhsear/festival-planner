@@ -257,8 +257,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border.default,
     padding: spacing[4],
   },
+  // Past festivals are de-emphasized structurally, not with a card-wide opacity.
+  // opacity:0.55 dropped the text below AA and is invisible to screen readers;
+  // a recessed background + lighter border (mirroring filterChipOff in
+  // app/(tabs)/index.tsx) gives the same "recessed" cue while the existing "Past"
+  // badge carries the explicit status.
   cardPast: {
-    opacity: 0.55,
+    backgroundColor: colors.bg.primary,
+    borderColor: colors.border.light,
   },
   skeletonCard: {
     backgroundColor: colors.bg.card,

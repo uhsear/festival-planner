@@ -110,13 +110,15 @@ const useStyles = makeStyles((t) => ({
     paddingHorizontal: t.spacing[1],
     paddingVertical: 1,
     borderRadius: t.radii.pill,
-    backgroundColor: t.colors.ring.coral,
+    // Open-polls count is "attention, not alarm" — aqua per the accent rule
+    // (coral is reserved for danger/SOS only).
+    backgroundColor: t.colors.aquaAlpha[15],
     alignItems: 'center',
     justifyContent: 'center',
   },
   countBadgeText: {
     ...typeStyle('caption'),
-    color: t.colors.accent.coral,
+    color: t.colors.accent.aqua,
     fontWeight: '700',
   },
   dotBadge: {
