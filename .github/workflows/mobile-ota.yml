@@ -26,6 +26,16 @@ on:
         type: string
         required: true
         default: 'OTA update'
+      crash_threshold:
+        description: 'Crash-rate percent that triggers a warning (and a failure if fail_on_crash_threshold is true)'
+        type: string
+        required: false
+        default: '2'
+      fail_on_crash_threshold:
+        description: 'Fail the job if the crash rate exceeds crash_threshold (default: warn only, do not block the OTA)'
+        type: boolean
+        required: false
+        default: false
 
 env:
   EXPO_NO_TELEMETRY: '1'
@@ -76,6 +86,131 @@ jobs:
       # Surface the published update's runtimeVersion so you can confirm it matches
       # the last EAS build's runtime (else the OTA won't reach devices).
       - name: Show published runtimeVersion
+        id: published
         run: |
           node -e "const u=require('./eas-update.json'); const a=Array.isArray(u)?u:(u.updates||[u]); for (const x of a) console.log('platform=%s runtimeVersion=%s id=%s', x.platform, x.runtimeVersion, x.id);" || cat eas-update.json
           echo "Verify this runtimeVersion matches the last EAS build (eas build:list --json) — they must be EQUAL for the OTA to land." >> "$GITHUB_STEP_SUMMARY"
+          # Extract the published update GROUP id + runtimeVersion for the insights gate.
+          # `eas update --json` returns an array of per-platform entries; both platforms
+          # of one publish share the same `group` id and runtimeVersion.
+          node -e '
+            const u = require("./eas-update.json");
+            const a = Array.isArray(u) ? u : (u.updates || [u]);
+            const first = a[0] || {};
+            const group = first.group || first.groupId || "";
+            const rtv = first.runtimeVersion || "";
+            const fs = require("fs");
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `group_id=${group}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `runtime_version=${rtv}\n`);
+            console.log("captured group_id=%s runtime_version=%s", group, rtv);
+          '
+
+      # Non-blocking-by-default health gate. The EAS insights pipeline lags right after
+      # publish, so this retries a few times and treats "no data yet" as a soft pass.
+      # Commands verified against .claude/skills/expo-eas-update-insights/SKILL.md:
+      #   - eas update:insights <groupId> --json --non-interactive  (SKILL.md L80-104 + references/update-insights-schema.md)
+      #   - eas channel:insights --channel <name> --runtime-version <ver> --json --non-interactive
+      #     (SKILL.md L133-157 + references/channel-insights-schema.md)
+      # runtimeVersion is the appVersion STRING (app.json runtimeVersion.policy=appVersion),
+      # which is exactly what channel:insights --runtime-version expects.
+      - name: EAS Update insights gate
+        if: ${{ steps.published.outputs.group_id != '' }}
+        working-directory: packages/mobile
+        env:
+          GROUP_ID: ${{ steps.published.outputs.group_id }}
+          RUNTIME_VERSION: ${{ steps.published.outputs.runtime_version }}
+          # branch maps 1:1 to the EAS channel name in this project.
+          CHANNEL: ${{ inputs.branch }}
+          CRASH_THRESHOLD: ${{ inputs.crash_threshold }}
+          FAIL_ON_THRESHOLD: ${{ inputs.fail_on_crash_threshold }}
+        run: |
+          set -u
+          THRESHOLD="${CRASH_THRESHOLD:-2}"
+          echo "## EAS Update insights" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Group: \`$GROUP_ID\` · channel: \`$CHANNEL\` · runtimeVersion: \`$RUNTIME_VERSION\` · crash-threshold: ${THRESHOLD}%" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          # Give the metrics pipeline a moment to register the fresh publish, then retry.
+          INSIGHTS_JSON=""
+          for attempt in 1 2 3; do
+            echo "update:insights attempt $attempt/3 for group $GROUP_ID …"
+            if INSIGHTS_JSON=$(eas update:insights "$GROUP_ID" --json --non-interactive 2>/tmp/insights.err); then
+              # Got valid JSON with at least one platform entry? then stop retrying.
+              if node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8")); process.exit(Array.isArray(d.platforms)&&d.platforms.length?0:1)' <<<"$INSIGHTS_JSON" 2>/dev/null; then
+                break
+              fi
+              echo "  insights returned but no platform data yet."
+            else
+              echo "  insights query failed (likely lag right after publish):"
+              cat /tmp/insights.err || true
+              INSIGHTS_JSON=""
+            fi
+            [ "$attempt" -lt 3 ] && sleep 30 || true
+          done
+
+          if [ -z "$INSIGHTS_JSON" ]; then
+            echo "::notice::EAS update insights not available yet for $GROUP_ID (metrics pipeline lag). Skipping crash-rate check; this is normal right after a publish."
+            echo "_Insights not available yet (metrics pipeline lag right after publish) — crash-rate check skipped._" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Print + summarize per-platform totals, compute the max crash rate across platforms.
+          MAX_CRASH=$(printf '%s' "$INSIGHTS_JSON" | node -e '
+            const d = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const fs = require("fs");
+            const sum = process.env.GITHUB_STEP_SUMMARY;
+            const rows = (d.platforms || []);
+            let max = 0;
+            fs.appendFileSync(sum, "| Platform | Installs (launches) | Failed | Crash rate | Unique users | Avg payload |\n");
+            fs.appendFileSync(sum, "|---|---|---|---|---|---|\n");
+            for (const p of rows) {
+              const t = p.totals || {};
+              const pay = p.payload || {};
+              const cr = Number(t.crashRatePercent || 0);
+              if (cr > max) max = cr;
+              const kb = pay.averageUpdatePayloadBytes ? (pay.averageUpdatePayloadBytes / 1024).toFixed(0) + " KB" : "—";
+              console.log("[insights] platform=%s installs=%s failed=%s crashRate=%s%% uniqueUsers=%s payload=%s",
+                p.platform, t.installs ?? 0, t.failedInstalls ?? 0, cr, t.uniqueUsers ?? 0, kb);
+              fs.appendFileSync(sum, `| ${p.platform} | ${t.installs ?? 0} | ${t.failedInstalls ?? 0} | ${cr}% | ${t.uniqueUsers ?? 0} | ${kb} |\n`);
+            }
+            process.stdout.write(String(max));
+          ' 2>/dev/null | tail -n1)
+          MAX_CRASH="${MAX_CRASH:-0}"
+          echo "Max crash rate across platforms: ${MAX_CRASH}%"
+
+          # Channel insights: embedded-vs-OTA reach. Needs the project dir (cwd already is
+          # packages/mobile) + the appVersion runtimeVersion string. Soft — never blocks.
+          if [ -n "${RUNTIME_VERSION:-}" ]; then
+            if CH_JSON=$(eas channel:insights --channel "$CHANNEL" --runtime-version "$RUNTIME_VERSION" --json --non-interactive 2>/tmp/channel.err); then
+              printf '%s' "$CH_JSON" | node -e '
+                const d = JSON.parse(require("fs").readFileSync(0, "utf8"));
+                const fs = require("fs");
+                const emb = d.embeddedUpdateTotalUniqueUsers ?? 0;
+                const ota = d.otaTotalUniqueUsers ?? 0;
+                console.log("[channel] channel=%s rtv=%s embeddedUsers=%s otaUsers=%s", d.channel, d.runtimeVersion, emb, ota);
+                fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+                  `\n**Reach (channel \`${d.channel}\` @ \`${d.runtimeVersion}\`):** embedded users: ${emb} · OTA users: ${ota}\n`);
+              ' 2>/dev/null || echo "::notice::Could not parse channel:insights output."
+            else
+              echo "::notice::channel:insights not available yet (no OTA launches recorded for $CHANNEL @ $RUNTIME_VERSION)."
+              cat /tmp/channel.err || true
+            fi
+          fi
+
+          # Threshold check. node compares as floats; awk-free for portability.
+          OVER=$(node -e 'process.stdout.write(String(Number(process.argv[1]) > Number(process.argv[2])))' "$MAX_CRASH" "$THRESHOLD")
+          if [ "$OVER" = "true" ]; then
+            echo "::warning::EAS update crash rate ${MAX_CRASH}% exceeds threshold ${THRESHOLD}% for group $GROUP_ID (channel $CHANNEL)."
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "> ⚠️ **Crash rate ${MAX_CRASH}% exceeds threshold ${THRESHOLD}%.**" >> "$GITHUB_STEP_SUMMARY"
+            if [ "${FAIL_ON_THRESHOLD}" = "true" ]; then
+              echo "fail_on_crash_threshold=true → failing the job."
+              exit 1
+            fi
+            echo "fail_on_crash_threshold=false → warning only, not blocking the OTA."
+          else
+            echo "Crash rate ${MAX_CRASH}% within threshold ${THRESHOLD}%. ✅"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "> ✅ Crash rate ${MAX_CRASH}% within threshold ${THRESHOLD}%." >> "$GITHUB_STEP_SUMMARY"
+          fi
