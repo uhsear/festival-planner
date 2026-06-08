@@ -130,7 +130,10 @@
             {
               "name": "NowNextActivity",
               "displayName": "Now & Next",
-              "description": "Your current and upcoming festival set."
+              "description": "Your current and upcoming festival set.",
+              "ios": {
+                "supportedFamilies": ["systemSmall", "systemMedium"]
+              }
             }
           ]
         }
