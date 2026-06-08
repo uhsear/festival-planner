@@ -234,7 +234,16 @@ function AuthGate() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen
               name="set/[setId]"
-              options={{ presentation: 'modal', headerTintColor: colors.text.primary }}
+              options={{
+                // Native form sheet (SDK 56): real grabber + peek/expand detents,
+                // so the screen's own faux drag handle is removed. Half-height
+                // peek lets users glance a set without losing their lineup scroll.
+                presentation: 'formSheet',
+                sheetAllowedDetents: [0.5, 1.0],
+                sheetGrabberVisible: true,
+                headerShown: false,
+                headerTintColor: colors.text.primary,
+              }}
             />
             <Stack.Screen name="privacy" options={{ presentation: 'card', headerShown: false }} />
             <Stack.Screen name="reset-password" options={{ presentation: 'card', headerShown: false }} />
