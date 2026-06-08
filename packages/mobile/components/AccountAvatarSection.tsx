@@ -36,12 +36,11 @@ interface ImagePickerResult {
 interface ImagePickerModule {
   requestMediaLibraryPermissionsAsync: () => Promise<{ granted: boolean }>;
   launchImageLibraryAsync: (options?: {
-    mediaTypes?: unknown;
+    mediaTypes?: Array<'images' | 'videos' | 'livePhotos'>;
     allowsEditing?: boolean;
     aspect?: [number, number];
     quality?: number;
   }) => Promise<ImagePickerResult>;
-  MediaTypeOptions?: { Images?: unknown };
 }
 
 async function loadImagePicker(): Promise<ImagePickerModule | null> {
@@ -86,7 +85,8 @@ export default function AccountAvatarSection() {
       }
 
       const result = await picker.launchImageLibraryAsync({
-        mediaTypes: picker.MediaTypeOptions?.Images,
+        // SDK 52+ replaced the removed MediaTypeOptions enum with a string array.
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
