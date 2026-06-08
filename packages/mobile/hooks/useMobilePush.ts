@@ -9,13 +9,21 @@ import { api } from '@festie/shared/services';
 const TOKEN_KEY = 'festie-push-token';
 
 // Show a banner for notifications that arrive while the app is foregrounded.
+// Time-critical local set reminders (scheduled with sound:true + data.kind
+// 'local-set-reminder') must still CHIME when foregrounded — the user may be on
+// another screen and the set is about to start. Everything else stays silent
+// in-app to avoid interrupting active use. (R4: the old blanket
+// shouldPlaySound:false muted reminders even when they mattered.)
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    const isSetReminder = notification.request?.content?.data?.kind === 'local-set-reminder';
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: isSetReminder,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 /**

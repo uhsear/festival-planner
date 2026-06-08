@@ -197,7 +197,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing[4],
   },
   button: {
-    backgroundColor: colors.accent.coral,
+    // PRIMARY CTA = aqua + dark ink per the accent rule (coral on white failed
+    // WCAG AA ~3.55:1; coral reserved for danger/SOS). Matches login/register.
+    backgroundColor: colors.accent.aqua,
     borderRadius: radii.default,
     paddingVertical: spacing[3],
     alignItems: 'center',
@@ -208,7 +210,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: fontSize[16],
     fontWeight: '600',
-    color: colors.text.onAccent,
+    color: colors.text.onLightAccent,
   },
   successBox: {
     alignItems: 'center',

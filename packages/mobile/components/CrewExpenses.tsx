@@ -791,14 +791,16 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.danger,
   },
   primaryButton: {
-    backgroundColor: t.colors.accent.coral,
+    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
+    backgroundColor: t.colors.accent.aqua,
     borderRadius: t.radii.default,
     paddingVertical: t.spacing[3],
     alignItems: 'center',
   },
   primaryButtonText: {
     ...typeStyle('label'),
-    color: t.colors.text.onAccent,
+    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
+    color: t.colors.text.onLightAccent,
   },
   buttonDisabled: {
     opacity: 0.6,
