@@ -1,105 +1,45 @@
-import { Platform } from 'react-native';
-import { Tabs } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, spacing } from '@festie/shared/tokens';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { colors } from '@festie/shared/tokens';
 import { useRealtimeSync } from '../../hooks/useRealtimeSync';
-import { useHaptics } from '../../hooks/useHaptics';
 
+/**
+ * Native bottom tabs (expo-router/unstable-native-tabs, SDK 55+). Replaces the
+ * hand-rolled JS <Tabs> bar: gets the iOS 26 liquid-glass / Android Material 3
+ * tab bar, native haptics, and AUTOMATIC bottom safe-area insets — so the
+ * per-screen `tabBarBottomInset` math and the Schedule `overflow:'hidden'`
+ * tab-bar-bleed workaround are no longer load-bearing.
+ *
+ * `tintColor` keeps the brand accent rule (aqua = primary/selection). Tab labels
+ * are the canonical names (Schedule/Picks/Crew/Account). Web falls back to the JS
+ * <Tabs> in _layout.web.tsx (NativeTabs is native-only; eas update still bundles
+ * web for the mobile package).
+ */
 export default function TabLayout() {
-  // Connect Socket.IO when user is on the main tabs (authenticated).
-  // Events flow into shared Zustand stores automatically.
+  // Connect Socket.IO when the user is on the main tabs (authenticated). Events
+  // flow into the shared Zustand stores automatically. Must stay mounted here.
   useRealtimeSync();
 
-  // Light selection haptic on tab switch — same vocabulary as the day/pick
-  // toggles. Wired per-screen via the tabPress listener below.
-  const haptics = useHaptics();
-  const onTabPress = () => haptics.select();
-
-  // The bottom inset is the iPhone home-indicator gap (and Android gesture-nav
-  // bar). expo-router's Tabs does NOT auto-pad the bar for it on iOS, so the
-  // labels would otherwise sit on top of the home indicator. Pad the bar by the
-  // inset and grow its height to match so the tab content stays vertically
-  // centered above the indicator. spacing[1] keeps a minimum cushion when the
-  // device has no inset (older devices / Android with button nav).
-  const insets = useSafeAreaInsets();
-  const tabBarBottomInset = Math.max(insets.bottom, spacing[1]);
-
   return (
-    <Tabs
-      screenOptions={{
-        // Hide the native Tabs nav header app-wide. Each tab screen owns its top
-        // safe-area inset exactly once via a custom <ScreenHeader> (or an
-        // explicit top inset). Showing the native header on top of those headers
-        // double-counted the status-bar inset (empty band above titles); hiding
-        // it makes ScreenHeader the single header. Bottom tabBar inset logic
-        // below is unaffected.
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: colors.bg.secondary,
-          borderTopColor: colors.border.default,
-          borderTopWidth: 1,
-          paddingTop: spacing[1],
-          paddingBottom: tabBarBottomInset,
-          height: 56 + spacing[2] + tabBarBottomInset,
-        },
-        tabBarActiveTintColor: colors.accent.aqua,
-        tabBarInactiveTintColor: colors.text.muted,
-        tabBarLabelStyle: {
-          fontSize: fontSize[10],
-          fontWeight: '600',
-          // iOS renders the label tighter to the icon than Android; nudge it
-          // down a touch (2px, half of spacing[1]) so the icon+label block stays
-          // optically centered.
-          marginBottom: Platform.OS === 'ios' ? 2 : spacing[1],
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Schedule',
-          // Explicit a11y labels: iOS doesn't expose the tab title to the
-          // accessibility tree by default, so VoiceOver (and UI automation)
-          // couldn't identify the tabs. Naming them makes each tab announce
-          // clearly and be reliably findable. (testID stays `tab-timeline` so
-          // the existing Maestro/e2e selectors keep resolving.)
-          tabBarAccessibilityLabel: 'Schedule',
-          tabBarButtonTestID: 'tab-timeline',
-          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
-        }}
-        listeners={{ tabPress: onTabPress }}
-      />
-      <Tabs.Screen
-        name="picks"
-        options={{
-          title: 'Picks',
-          tabBarAccessibilityLabel: 'Picks',
-          tabBarButtonTestID: 'tab-picks',
-          tabBarIcon: ({ color, size }) => <Ionicons name="star-outline" size={size} color={color} />,
-        }}
-        listeners={{ tabPress: onTabPress }}
-      />
-      <Tabs.Screen
-        name="crew"
-        options={{
-          title: 'Crew',
-          tabBarAccessibilityLabel: 'Crew',
-          tabBarButtonTestID: 'tab-crew',
-          tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
-        }}
-        listeners={{ tabPress: onTabPress }}
-      />
-      <Tabs.Screen
-        name="account"
-        options={{
-          title: 'Account',
-          tabBarAccessibilityLabel: 'Account',
-          tabBarButtonTestID: 'tab-account',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
-        }}
-        listeners={{ tabPress: onTabPress }}
-      />
-    </Tabs>
+    <NativeTabs tintColor={colors.accent.aqua} minimizeBehavior="onScrollDown">
+      <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Icon sf={{ default: 'calendar', selected: 'calendar' }} md="event" />
+        <NativeTabs.Trigger.Label>Schedule</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="picks">
+        <NativeTabs.Trigger.Icon sf={{ default: 'star', selected: 'star.fill' }} md="star" />
+        <NativeTabs.Trigger.Label>Picks</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="crew">
+        <NativeTabs.Trigger.Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} md="group" />
+        <NativeTabs.Trigger.Label>Crew</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="account">
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }}
+          md="person"
+        />
+        <NativeTabs.Trigger.Label>Account</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }

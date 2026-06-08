@@ -34,7 +34,7 @@ env:
 - takeScreenshot: 02-festival-picker
 # ── Schedule views (guest) ──
 - tapOn:
-    id: "tab-timeline"
+    text: "Schedule"
     optional: true
 - extendedWaitUntil:
     visible:
@@ -66,15 +66,15 @@ env:
 # deliberately NOT optional and each asserts the destination rendered, so a dead
 # tab bar fails the flow instead of silently passing the chrome check below.
 - tapOn:
-    id: "tab-picks"
+    text: "Picks"
 - assertVisible: "My Picks"
 - tapOn:
-    id: "tab-timeline"
+    text: "Schedule"
 - assertVisible:
     text: "North Coast Festival 2026|Select a Festival|Timeline|Cards"
 # ── Guarded login (runs only when creds are passed) ──
 - tapOn:
-    id: "tab-account"
+    text: "Account"
     optional: true
 - waitForAnimationToEnd:
     timeout: 3000
@@ -98,7 +98,7 @@ env:
 - takeScreenshot: 06-account
 # ── Crew + Live Location + SOS (authed; best-effort, needs the account in a crew) ──
 - tapOn:
-    id: "tab-crew"
+    text: "Crew"
     optional: true
 - waitForAnimationToEnd:
     timeout: 2500
@@ -151,13 +151,13 @@ env:
     optional: true
 # ── Remaining tabs ──
 - tapOn:
-    id: "tab-picks"
+    text: "Picks"
     optional: true
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: 11-picks
 - tapOn:
-    id: "tab-account"
+    text: "Account"
     optional: true
 - waitForAnimationToEnd:
     timeout: 2000

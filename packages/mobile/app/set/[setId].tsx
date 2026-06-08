@@ -359,7 +359,8 @@ export default function SetDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.handle, { marginTop: topInset }]} />
+      {/* Faux drag handle removed — the native formSheet (SDK 56) renders a real
+          grabber (sheetGrabberVisible). */}
       <TouchableOpacity
         style={[styles.shareButton, { top: topInset }]}
         onPress={handleShare}
@@ -704,15 +705,6 @@ const useStyles = makeStyles((t) => ({
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 48,
-    height: 5,
-    borderRadius: t.radii.pill,
-    backgroundColor: t.colors.border.light,
-    marginTop: t.spacing[2],
-    marginBottom: t.spacing[1],
   },
   closeButton: {
     position: 'absolute',
