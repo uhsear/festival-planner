@@ -332,6 +332,11 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}, _isRetry = 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      // [festie-diag] temporary: identify which request 401s for guests (the
+      // store-wipe investigation — onUnauthorized -> logout -> resetAllStores).
+      if (response.status === 401) {
+        console.log('[festie-diag] 401 from', path, 'retry:', _isRetry);
+      }
       if (response.status === 401 && _onUnauthorized && !_isRetry && !path.includes('/auth/')) {
         if (!_refreshPromise) {
           _refreshPromise = _onUnauthorized().finally(() => {
