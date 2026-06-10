@@ -129,7 +129,8 @@ jobs:
           # (packages/mobile/.maestro/...) resolves.
           script: |
             adb install -r packages/mobile/android/app/build/outputs/apk/release/app-release.apk
-            cd packages/mobile && MAESTRO_CLI_NO_ANALYTICS=1 maestro test -e TEST_USERNAME="$TEST_USERNAME" -e TEST_PASSWORD="$TEST_PASSWORD" --format junit --output maestro-report.xml .maestro/android-smoke.yaml
+            adb logcat -c
+            cd packages/mobile && { MAESTRO_CLI_NO_ANALYTICS=1 maestro test -e TEST_USERNAME="$TEST_USERNAME" -e TEST_PASSWORD="$TEST_PASSWORD" --format junit --output maestro-report.xml .maestro/android-smoke.yaml; MAESTRO_RC=$?; adb logcat -d ReactNativeJS:V AndroidRuntime:E ReactNative:W *:S > logcat-rn.txt || true; exit $MAESTRO_RC; }
 
       - name: Upload Maestro artifacts
         if: always()
@@ -139,4 +140,5 @@ jobs:
           path: |
             packages/mobile/*.png
             packages/mobile/maestro-report.xml
+            packages/mobile/logcat-rn.txt
           if-no-files-found: ignore

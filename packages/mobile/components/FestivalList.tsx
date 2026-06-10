@@ -135,7 +135,11 @@ export default function FestivalList() {
 
   const handleSelect = useCallback(
     (id: string) => {
-      selectFestival(id).catch(() => {});
+      // [festie-diag] temporary instrumentation for the guest-selection E2E failure
+      console.log('[festie-diag] festival card tapped', id);
+      selectFestival(id).catch((e: unknown) => {
+        console.log('[festie-diag] selectFestival rejected', e instanceof Error ? e.message : String(e));
+      });
     },
     [selectFestival],
   );
