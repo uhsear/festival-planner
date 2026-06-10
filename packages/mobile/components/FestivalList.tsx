@@ -137,9 +137,19 @@ export default function FestivalList() {
     (id: string) => {
       // [festie-diag] temporary instrumentation for the guest-selection E2E failure
       console.log('[festie-diag] festival card tapped', id);
-      selectFestival(id).catch((e: unknown) => {
-        console.log('[festie-diag] selectFestival rejected', e instanceof Error ? e.message : String(e));
-      });
+      selectFestival(id)
+        .then(() => {
+          // Read back from the writer module's store copy — if this shows the
+          // festival set while the index screen's render log shows null, the
+          // bundle contains two copies of the shared store module.
+          console.log(
+            '[festie-diag] post-select getState',
+            useFestivalDataStore.getState().currentFestival?.id ?? 'null',
+          );
+        })
+        .catch((e: unknown) => {
+          console.log('[festie-diag] selectFestival rejected', e instanceof Error ? e.message : String(e));
+        });
     },
     [selectFestival],
   );
