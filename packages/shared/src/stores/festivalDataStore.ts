@@ -123,6 +123,8 @@ function slimProfileForCache(p: Profile): Pick<Profile, 'id' | 'userId' | 'name'
   return { id: p.id, userId: p.userId, name: p.name, picks: p.picks };
 }
 
+let _lastSelectFestivalId: string | null = null;
+
 const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   festivals: [],
   currentFestivalId: null,
@@ -154,6 +156,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   //      Profiles come from GET /profiles/:festivalId (separate endpoint).
   //      Removed 3 phantom sub-resource fetches (/sets, /stages, /days).
   selectFestival: async (festivalId: string) => {
+    _lastSelectFestivalId = festivalId;
     set({ isLoading: true, error: null, currentFestivalId: festivalId });
     try {
       // Festival detail is public; profiles require auth (401 for guests).
@@ -210,7 +213,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       // a preserved (stale) list keeps its prior timestamp so freshness UI stays honest.
       const profilesAreFresh = !(profilesFetchFailed && profiles.length === 0);
 
-      if (get().currentFestivalId !== festivalId) {
+      if (_lastSelectFestivalId !== festivalId) {
         set({ isLoading: false });
         return;
       }
