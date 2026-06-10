@@ -9,6 +9,7 @@ import {
   pinsCentroid,
   formatStaleness,
   isPeerStale,
+  getInitials,
   type MapPin as Pin,
 } from '@festie/shared/utils';
 import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/types';
@@ -117,14 +118,6 @@ function popupContent(nodes: (Node | null)[]): HTMLElement {
 // "as of 5m ago" → "5m ago" so we can render the honest "Live · 5m ago" copy.
 function relAge(serverAt: string): string {
   return formatStaleness(serverAt).replace(/^as of /, '');
-}
-
-/** Up-to-two-letter initials for a peer avatar marker (fallback "?"). */
-function initialsFor(name: string | undefined): string {
-  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
 export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props) {
@@ -270,7 +263,7 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
     for (const peer of peers) {
       const rel = relAge(peer.serverAt);
       const stale = isPeerStale(peer.serverAt, now);
-      const initials = initialsFor(peer.username);
+      const initials = getInitials(peer.username || 'User') || '?';
       const el = document.createElement('div');
       // Stale (Snap Map-style): desaturated, no pulse, "last seen N ago" chip.
       el.className = stale ? 'festie-peer-marker festie-peer-marker--stale' : 'festie-peer-marker';

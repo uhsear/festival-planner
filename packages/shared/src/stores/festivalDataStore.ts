@@ -210,6 +210,8 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       // a preserved (stale) list keeps its prior timestamp so freshness UI stays honest.
       const profilesAreFresh = !(profilesFetchFailed && profiles.length === 0);
 
+      if (get().currentFestivalId !== festivalId) return;
+
       set({
         currentFestival: festival,
         sets,

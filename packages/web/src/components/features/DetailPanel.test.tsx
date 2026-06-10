@@ -31,6 +31,11 @@ vi.mock('vaul', () => ({
   },
 }));
 
+// Mock useToast
+vi.mock('../../lib/toastContext', () => ({
+  useToast: () => ({ toast: vi.fn() }),
+}));
+
 // Mock useDetailPanelData
 const mockSavePick = vi.fn(async () => {});
 const mockSaveNote = vi.fn(async () => {});

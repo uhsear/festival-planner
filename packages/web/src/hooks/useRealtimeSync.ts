@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { Socket } from 'socket.io-client';
 import { useSocket } from '@festie/shared/hooks/useSocket';
 import { useCrewRealtime } from '@festie/shared/hooks/useCrewRealtime';
@@ -60,7 +59,6 @@ const LIVE_LOCATION = import.meta.env.VITE_LIVE_LOCATION === '1';
  * debounced with a 300ms trailing guard so we issue one reload per burst.
  */
 export function useRealtimeSync(): UseRealtimeSyncReturn {
-  const queryClient = useQueryClient();
   const socketRef = useRef<Socket | null>(null);
   const currentFestivalId = useFestivalStore((state) => state.currentFestivalId);
   const connected = useUIStore((state) => state.connected);
@@ -264,7 +262,7 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
         delete timersSnapshot[k];
       }
     };
-  }, [socket, currentFestivalId, queryClient, setConnected, setOnlineUsers]);
+  }, [socket, currentFestivalId, setConnected, setOnlineUsers]);
 
   return {
     connected,

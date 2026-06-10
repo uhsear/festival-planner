@@ -91,9 +91,20 @@ describe('offlineQueue', () => {
 
       await drainQueue();
 
-      expect(api.put).toHaveBeenCalledWith('/profiles/p1', expect.anything());
-      expect(api.post).toHaveBeenCalledWith('/crews/c1/polls', expect.anything());
-      expect(api.delete).toHaveBeenCalledWith('/crews/c1/polls/x'); // no body
+      expect(api.put).toHaveBeenCalledWith(
+        '/profiles/p1',
+        expect.anything(),
+        expect.objectContaining({ _bypassOfflineQueue: true }),
+      );
+      expect(api.post).toHaveBeenCalledWith(
+        '/crews/c1/polls',
+        expect.anything(),
+        expect.objectContaining({ _bypassOfflineQueue: true }),
+      );
+      expect(api.delete).toHaveBeenCalledWith(
+        '/crews/c1/polls/x',
+        expect.objectContaining({ _bypassOfflineQueue: true }),
+      );
       expect(readPersisted()).toHaveLength(0);
       expect(useUIStore.getState().pendingSync).toBe(0);
     });
@@ -197,7 +208,11 @@ describe('offlineQueue', () => {
 
       // Dismissed from failedSync, replayed (drained) since we're online.
       expect(useUIStore.getState().failedSync).toHaveLength(0);
-      expect(api.put).toHaveBeenCalledWith('/profiles/p1', { picks: {} });
+      expect(api.put).toHaveBeenCalledWith(
+        '/profiles/p1',
+        { picks: {} },
+        expect.objectContaining({ _bypassOfflineQueue: true }),
+      );
       expect(readPersisted()).toHaveLength(0);
     });
 

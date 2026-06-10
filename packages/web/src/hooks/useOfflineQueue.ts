@@ -288,6 +288,26 @@ async function pruneStaleEntries(): Promise<void> {
 }
 
 /**
+ * Module-level helper to clear the entire offline queue (IndexedDB + localStorage
+ * fallback). Called from main.tsx on auth-state changes so a previous user's
+ * queued mutations are never replayed under a different account.
+ */
+export async function clearOfflineQueue(): Promise<void> {
+  try {
+    await openDB();
+    const { tx, store } = openTx('readwrite');
+    try {
+      await idbRequest(store.clear());
+    } catch (err) {
+      abortTx(tx);
+      throw err;
+    }
+  } catch {
+    localStorage.removeItem('festie-offline-queue');
+  }
+}
+
+/**
  * Hook for managing offline mutation queue with IndexedDB persistence
  */
 export function useOfflineQueue(): UseOfflineQueueReturn {

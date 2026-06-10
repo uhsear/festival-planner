@@ -23,8 +23,8 @@ const mockCrew: Crew = {
 };
 
 const mockMembers: CrewMember[] = [
-  { id: 'cm-1', userId: 'user-1', name: 'Alice', role: 'owner' },
-  { id: 'cm-2', userId: 'user-2', name: 'Bob', role: 'member' },
+  { userId: 'user-1', name: 'Alice', role: 'owner' },
+  { userId: 'user-2', name: 'Bob', role: 'member' },
 ];
 
 function resetStore() {
@@ -147,11 +147,15 @@ describe('crewStore', () => {
 
   describe('createCrew', () => {
     it('adds crew to list and sets as active', async () => {
-      vi.mocked(api.post).mockResolvedValueOnce(mockCrew);
+      const crewWithMembers = {
+        ...mockCrew,
+        members: [{ id: 'cm-1', userId: 'user-1', name: 'Alice', role: 'owner' as const }],
+      };
+      vi.mocked(api.post).mockResolvedValueOnce(crewWithMembers);
       const result = await useCrewStore.getState().createCrew({ name: 'Test Crew' });
-      expect(result).toEqual(mockCrew);
+      expect(result).toEqual(crewWithMembers);
       expect(useCrewStore.getState().crews).toHaveLength(1);
-      expect(useCrewStore.getState().activeCrew).toEqual(mockCrew);
+      expect(useCrewStore.getState().activeCrew).toEqual(crewWithMembers);
       expect(useCrewStore.getState().crewMembers[0]!.role).toBe('owner');
     });
 
@@ -232,9 +236,9 @@ describe('crewStore', () => {
     it('removes member from crewMembers list', async () => {
       useCrewStore.setState({ crewMembers: mockMembers });
       vi.mocked(api.delete).mockResolvedValueOnce(undefined);
-      await useCrewStore.getState().kickMember('crew-1', 'cm-2');
+      await useCrewStore.getState().kickMember('crew-1', 'user-2');
       expect(useCrewStore.getState().crewMembers).toHaveLength(1);
-      expect(useCrewStore.getState().crewMembers[0]!.id).toBe('cm-1');
+      expect(useCrewStore.getState().crewMembers[0]!.userId).toBe('user-1');
     });
 
     it('sets error and throws on failure', async () => {
@@ -254,10 +258,10 @@ describe('crewStore', () => {
     it('updates roles after transfer', async () => {
       useCrewStore.setState({ crewMembers: mockMembers });
       vi.mocked(api.put).mockResolvedValueOnce(undefined);
-      await useCrewStore.getState().transferOwnership('crew-1', 'cm-2');
+      await useCrewStore.getState().transferOwnership('crew-1', 'user-2');
       const members = useCrewStore.getState().crewMembers;
-      expect(members.find((m) => m.id === 'cm-2')!.role).toBe('owner');
-      expect(members.find((m) => m.id === 'cm-1')!.role).toBe('member');
+      expect(members.find((m) => m.userId === 'user-2')!.role).toBe('owner');
+      expect(members.find((m) => m.userId === 'user-1')!.role).toBe('member');
     });
 
     it('sets error and throws on failure', async () => {

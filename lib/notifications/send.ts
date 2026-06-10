@@ -197,7 +197,6 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
         priority: 'high',
         notification: {
           channelId,
-          clickAction: 'OPEN_DEEP_LINK',
           tag: threadId || `update-${data.festivalId || ''}`,
         },
       },

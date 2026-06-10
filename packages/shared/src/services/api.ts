@@ -30,6 +30,7 @@ interface ApiOptions {
    * are unaffected.
    */
   onOptimisticCreate?: (result: unknown) => void;
+  _bypassOfflineQueue?: boolean;
 }
 
 let _apiBase = API_BASE;
@@ -280,7 +281,7 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}, _isRetry = 
   // mutation and return a synthetic optimistic result instead of fetching. This
   // is the ONLY new code path — when online or path-ineligible, behavior below
   // is 100% unchanged. (Skipped on the 401-refresh retry to avoid re-queuing.)
-  if (!_isRetry) {
+  if (!_isRetry && !options._bypassOfflineQueue) {
     const queued = await maybeQueueOffline<T>(path, method, options);
     if (queued !== NOT_QUEUED) return queued;
   }
@@ -375,7 +376,7 @@ async function apiRequest<T>(path: string, options: ApiOptions = {}, _isRetry = 
     // navigator.onLine===true but dead/congested. Capture the write into the
     // queue instead of losing it, and flip the store offline so the banner shows
     // and subsequent writes pre-emptively queue.
-    if (!_isRetry && isMutatingMethod(method) && isOfflineEligible(path)) {
+    if (!_isRetry && !options._bypassOfflineQueue && isMutatingMethod(method) && isOfflineEligible(path)) {
       markOffline();
       try {
         return await enqueueOfflineMutation<T>(path, method, options);
@@ -439,8 +440,4 @@ export function configureApi(options: {
   if (options.onUnauthorized !== undefined) {
     _onUnauthorized = options.onUnauthorized;
   }
-}
-
-export function createAdminApi(): typeof api {
-  return api;
 }

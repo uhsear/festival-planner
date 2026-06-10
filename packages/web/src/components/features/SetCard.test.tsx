@@ -279,22 +279,21 @@ describe('SetCard', () => {
         { id: 'p1', userId: 'u1' },
         { id: 'p2', userId: 'u2' },
       ];
-      crewStoreState.crewMembers = [{ id: 'cm1', userId: 'u1', name: 'Alice', avatar: 'https://cdn/alice.png' }];
+      crewStoreState.crewMembers = [{ userId: 'u1', name: 'Alice' }];
       const { container } = render(
         <SetCard
           {...defaultProps}
           friendProfiles={[
-            { profileId: 'p1', priority: 'must' },
+            { profileId: 'p1', avatarUrl: 'https://cdn/alice.png', priority: 'must' },
             { profileId: 'p2', name: 'Bob', priority: 'maybe' },
           ]}
         />,
       );
-      // Alice's avatar image is joined from the crew roster. The cluster is
-      // aria-hidden (the count label carries the a11y info), so the <img> isn't
-      // an accessible "img" role — query it by alt text directly.
+      // Alice's avatar comes from friendProfiles.avatarUrl; name is joined
+      // from the crew roster for the alt text.
       const img = container.querySelector('img[alt="Alice"]');
       expect(img).toHaveAttribute('src', 'https://cdn/alice.png');
-      // Bob has no crew-member match -> initials fallback.
+      // Bob has no crew-member match and no avatarUrl -> initials fallback.
       expect(screen.getByText('B')).toBeInTheDocument();
     });
 

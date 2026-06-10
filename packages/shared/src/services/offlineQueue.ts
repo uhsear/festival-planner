@@ -17,6 +17,7 @@ import { useUIStore, type FailedSyncItem } from '../stores/uiStore';
  */
 
 const QUEUE_KEY = 'festie-offline-queue';
+const FAILED_KEY = 'festie-offline-failed';
 
 /** Drop queued mutations older than this on read (mirrors the web queue policy). */
 const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -90,9 +91,10 @@ function updatePendingCount(count: number): void {
   }
 }
 
-/** Read the persisted queue and publish its count (call on app start). */
+/** Read the persisted queue, publish its count, and hydrate failed items (call on app start). */
 export async function refreshPendingCount(): Promise<void> {
   updatePendingCount((await readQueue()).length);
+  await hydrateFailedSync();
 }
 
 /** NetInfo-driven (uiStore.offlineMode); false if the store isn't ready. */
@@ -104,36 +106,99 @@ export function isOffline(): boolean {
   }
 }
 
-/** Add a failed item to uiStore.failedSync (no silent drops). */
+/** Add a failed item to uiStore.failedSync AND persist it durably. */
 function recordFailed(m: QueuedMutation, error: string): void {
+  const item: FailedSyncItem = {
+    clientId: m.clientId,
+    label: m.label ?? `${m.method} ${m.url}`,
+    method: m.method,
+    url: m.url,
+    body: m.body,
+    error,
+    at: Date.now(),
+  };
   try {
-    useUIStore.getState().addFailedSync({
-      clientId: m.clientId,
-      label: m.label ?? `${m.method} ${m.url}`,
-      method: m.method,
-      url: m.url,
-      body: m.body,
-      error,
-      at: Date.now(),
-    });
+    useUIStore.getState().addFailedSync(item);
+  } catch {
+    /* store not ready */
+  }
+  void persistFailedSync(item);
+}
+
+async function persistFailedSync(item: FailedSyncItem): Promise<void> {
+  try {
+    const storage = getStorage();
+    const raw = await Promise.resolve(storage.getItem(FAILED_KEY));
+    const list: FailedSyncItem[] = raw ? JSON.parse(raw) : [];
+    const idx = list.findIndex((f) => f.clientId === item.clientId);
+    if (idx >= 0) list[idx] = item;
+    else list.push(item);
+    await Promise.resolve(storage.setItem(FAILED_KEY, JSON.stringify(list)));
+  } catch {
+    /* best-effort */
+  }
+}
+
+export async function hydrateFailedSync(): Promise<void> {
+  try {
+    const raw = await Promise.resolve(getStorage().getItem(FAILED_KEY));
+    if (!raw) return;
+    const list: FailedSyncItem[] = JSON.parse(raw);
+    for (const item of list) {
+      useUIStore.getState().addFailedSync(item);
+    }
   } catch {
     /* store not ready */
   }
 }
 
+export async function removePersistedFailed(clientId: string): Promise<void> {
+  try {
+    const storage = getStorage();
+    const raw = await Promise.resolve(storage.getItem(FAILED_KEY));
+    if (!raw) return;
+    const list: FailedSyncItem[] = JSON.parse(raw);
+    const filtered = list.filter((f) => f.clientId !== clientId);
+    await Promise.resolve(storage.setItem(FAILED_KEY, JSON.stringify(filtered)));
+  } catch {
+    /* best-effort */
+  }
+}
+
+export async function clearPersistedFailed(): Promise<void> {
+  try {
+    await Promise.resolve(getStorage().removeItem(FAILED_KEY));
+  } catch {
+    /* best-effort */
+  }
+}
+
+// Simple async mutex to serialize read-modify-write cycles on the queue so
+// a concurrent enqueueMutation during drainQueue cannot be clobbered.
+let _queueMutex: Promise<void> = Promise.resolve();
+
+function withQueueLock<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = _queueMutex;
+  let resolve!: () => void;
+  _queueMutex = new Promise<void>((r) => {
+    resolve = r;
+  });
+  return prev.then(fn).finally(() => resolve());
+}
+
 /** Upsert a mutation by clientId (latest write for a resource wins on replay). */
-export async function enqueueMutation(
-  mutation: Omit<QueuedMutation, 'createdAt'> & { createdAt?: number },
-): Promise<void> {
-  const queue = await readQueue();
-  const entry: QueuedMutation = {
-    ...mutation,
-    createdAt: mutation.createdAt ?? Date.now(),
-  };
-  const idx = queue.findIndex((m) => m.clientId === entry.clientId);
-  if (idx >= 0) queue[idx] = entry;
-  else queue.push(entry);
-  await writeQueue(queue);
+export function enqueueMutation(mutation: Omit<QueuedMutation, 'createdAt'> & { createdAt?: number }): Promise<void> {
+  return withQueueLock(async () => {
+    const queue = await readQueue();
+    const entry: QueuedMutation = {
+      ...mutation,
+      createdAt: mutation.createdAt ?? Date.now(),
+    };
+    const idx = queue.findIndex((m) => m.clientId === entry.clientId);
+    if (idx >= 0) queue[idx] = entry;
+    else queue.push(entry);
+    await writeQueue(queue);
+  });
 }
 
 /** True for an ApiClientError-shaped permanent client failure (4xx incl. 409). */
@@ -173,20 +238,36 @@ export function registerCreateReconciler(fn: CreateReconciler | null): void {
  * Returns the server response for POST so drainQueue can reconcile the temp
  * optimistic entity; other verbs return undefined (nothing to reconcile).
  */
+const BYPASS = { _bypassOfflineQueue: true } as const;
+
 async function replay(m: QueuedMutation): Promise<unknown> {
   switch (m.method) {
     case 'POST':
-      return api.post(m.url, m.body);
+      return api.post(m.url, m.body, BYPASS);
     case 'PUT':
-      await api.put(m.url, m.body);
+      await api.put(m.url, m.body, BYPASS);
       return undefined;
     case 'PATCH':
-      await api.patch(m.url, m.body);
+      await api.patch(m.url, m.body, BYPASS);
       return undefined;
     case 'DELETE':
-      await api.delete(m.url);
+      await api.delete(m.url, BYPASS);
       return undefined;
   }
+}
+
+/** Extract the real server id from a POST replay response (handles envelopes). */
+function extractRealId(serverResponse: unknown): string | null {
+  const res = serverResponse as Record<string, unknown> | null | undefined;
+  if (typeof res?.id === 'string') return res.id;
+  if (res && typeof res === 'object') {
+    for (const v of Object.values(res)) {
+      if (v && typeof v === 'object' && typeof (v as Record<string, unknown>).id === 'string') {
+        return (v as Record<string, unknown>).id as string;
+      }
+    }
+  }
+  return null;
 }
 
 let _draining = false;
@@ -197,58 +278,70 @@ let _draining = false;
  * never spin the loop — transient failures are simply left in place and retried
  * on the next reconnect-triggered drain.
  *
- *  - success            → remove from queue
- *  - offline again      → stop; keep the rest for the next reconnect
- *  - permanent 4xx/409  → remove AND push to uiStore.failedSync (no silent drop)
- *  - transient 0/5xx    → leave in queue, skip to the next entry
+ *  - success            -> remove from queue
+ *  - offline again      -> stop; keep the rest for the next reconnect
+ *  - permanent 4xx/409  -> remove AND push to uiStore.failedSync (no silent drop)
+ *  - transient 0/5xx    -> leave in queue, skip to the next entry
  */
 export async function drainQueue(): Promise<void> {
   if (_draining || isOffline()) return;
   _draining = true;
   try {
-    // Snapshot oldest-first; attempt each entry at most once this pass.
     const snapshot = (await readQueue()).sort((a, b) => a.createdAt - b.createdAt);
     for (const m of snapshot) {
       try {
         const serverResponse = await replay(m);
-        // Success — drop just this entry (re-read so a concurrent enqueue of a
-        // different clientId isn't clobbered).
-        const queue = (await readQueue()).filter((q) => q.clientId !== m.clientId);
-        await writeQueue(queue);
-        // Reconcile the optimistic placeholder (POST only) with the real
-        // server entity so no duplicate lingers. Best-effort: a throwing
-        // reconciler must not abort the drain or strand other entries.
+        await withQueueLock(async () => {
+          const queue = (await readQueue()).filter((q) => q.clientId !== m.clientId);
+          await writeQueue(queue);
+        });
         if (m.method === 'POST' && _createReconciler) {
           try {
             _createReconciler(m.clientId, serverResponse);
           } catch {
             /* reload-dedup safety net still removes stale _optimistic entities */
           }
+          const realId = extractRealId(serverResponse);
+          if (realId && realId !== m.clientId) {
+            await withQueueLock(async () => {
+              const remaining = await readQueue();
+              let rewritten = false;
+              const patched = remaining.map((q) => {
+                if (q.url.includes(m.clientId)) {
+                  rewritten = true;
+                  return { ...q, url: q.url.replace(m.clientId, realId) };
+                }
+                return q;
+              });
+              if (rewritten) await writeQueue(patched);
+            });
+          }
         }
       } catch (err) {
-        if (isOffline()) break; // back offline — keep the rest, retry next time
+        if (isOffline()) break;
         if (isPermanentFailure(err)) {
-          // Permanent: remove from queue AND surface so it's never silently lost.
-          const queue = (await readQueue()).filter((q) => q.clientId !== m.clientId);
-          await writeQueue(queue);
-          recordFailed(m, shortError(err));
-        } else {
-          // Transient (status 0 / >=500): bump the retry counter so a write that
-          // keeps 5xx-ing can't stay queued forever. At MAX_RETRIES remove it AND
-          // surface it (no silent drop) — matching the web queue's cap.
-          const nextRetries = (m.retries ?? 0) + 1;
-          if (nextRetries >= MAX_RETRIES) {
+          await withQueueLock(async () => {
             const queue = (await readQueue()).filter((q) => q.clientId !== m.clientId);
             await writeQueue(queue);
+          });
+          recordFailed(m, shortError(err));
+        } else {
+          const nextRetries = (m.retries ?? 0) + 1;
+          if (nextRetries >= MAX_RETRIES) {
+            await withQueueLock(async () => {
+              const queue = (await readQueue()).filter((q) => q.clientId !== m.clientId);
+              await writeQueue(queue);
+            });
             recordFailed(m, shortError(err));
           } else {
-            // Persist the incremented count and leave it queued for the next pass.
-            const queue = await readQueue();
-            const idx = queue.findIndex((q) => q.clientId === m.clientId);
-            if (idx >= 0) {
-              queue[idx] = { ...queue[idx]!, retries: nextRetries };
-              await writeQueue(queue);
-            }
+            await withQueueLock(async () => {
+              const queue = await readQueue();
+              const idx = queue.findIndex((q) => q.clientId === m.clientId);
+              if (idx >= 0) {
+                queue[idx] = { ...queue[idx]!, retries: nextRetries };
+                await writeQueue(queue);
+              }
+            });
           }
         }
       }
@@ -276,7 +369,6 @@ export async function retryFailed(item: FailedSyncItem): Promise<void> {
   } catch {
     /* store not ready */
   }
-  // Best-effort immediate drain if we're back online.
   if (!isOffline()) {
     await drainQueue();
   }

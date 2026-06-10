@@ -32,7 +32,7 @@ Notifications.setNotificationHandler({
  * or time-critical set reminders arrive silently/low-importance (the old code
  * only created 'default'). Idempotent — safe to call on every mount.
  */
-async function ensureAndroidChannels(): Promise<void> {
+export async function ensureAndroidChannels(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync('default', {
     name: 'General',

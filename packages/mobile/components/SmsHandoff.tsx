@@ -50,7 +50,7 @@ function buildMessage(mp: CrewMeetingPoint, festivalId: string | null): string {
   }
   if (festivalId) {
     // Opens the festival in Festie for crew who have the app installed.
-    lines.push(`Open in Festie: festie://festival/${festivalId}`);
+    lines.push(`Open in Festie: https://festie.us/festival/${festivalId}`);
   }
   lines.push('(Sent via Festie)');
   return lines.join('\n');

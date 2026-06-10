@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
+import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useLiveLocationStore } from '@festie/shared/stores/liveLocationStore';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
@@ -36,22 +37,8 @@ const TYPES = [
 ] as const;
 type TypeKey = (typeof TYPES)[number]['key'];
 
-// Server shape (snake_case from Postgres); crew_features.js returns {meetingPoints} but unwrapping below handles both.
-interface MeetingPoint {
-  id: string;
-  crew_id: string;
-  created_by: string;
-  label: string;
-  location: string;
-  type: TypeKey;
-  meet_at: string | null;
-  stage_reference: string | null;
-  // F4: captured GPS coords; null for legacy free-text points.
-  latitude?: number | null;
-  longitude?: number | null;
-  active: boolean;
-  created_at: string;
-}
+// Narrow shared CrewMeetingPoint so `type` stays checked against the TYPES enum.
+type MeetingPoint = Omit<CrewMeetingPoint, 'type'> & { type: TypeKey };
 
 interface MeetingPointPayload {
   label: string;

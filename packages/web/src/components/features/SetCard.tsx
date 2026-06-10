@@ -153,7 +153,7 @@ function SetCard({
           ...f,
           // Prefer a synced crew avatar; fall back to whatever the caller
           // supplied (which may be undefined → Avatar renders initials).
-          avatarUrl: member?.avatar ?? f.avatarUrl ?? null,
+          avatarUrl: f.avatarUrl ?? null,
           name: f.name ?? member?.name,
         };
       })

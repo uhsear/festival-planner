@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
 import { useCrewStore } from '@festie/shared/stores';
@@ -76,6 +76,10 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   const [category, setCategory] = useState<string>('other');
   const [planned, setPlanned] = useState(false);
   const [splitWith, setSplitWith] = useState<string[]>(() => members.map((m) => m.userId));
+  // Reset splitWith when crew changes (members prop identity changes with crewId).
+  useEffect(() => {
+    setSplitWith(members.map((m) => m.userId));
+  }, [crewId]); // eslint-disable-line react-hooks/exhaustive-deps -- reset on crew switch, members follows crewId
   // Planned-vs-actual filter for the list. 'actual' = the real ledger (what
   // feeds settle-up); 'planned' = the budget/forecast view; 'all' = both.
   const [view, setView] = useState<'all' | 'actual' | 'planned'>('actual');

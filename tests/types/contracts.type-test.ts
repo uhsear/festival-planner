@@ -21,7 +21,6 @@ import type { PublicUser } from '../../lib/types/app-context';
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
 const member: CrewMember = {
-  id: 'm-1',
   userId: 'user-1',
   username: 'alice',
   name: 'Alice',

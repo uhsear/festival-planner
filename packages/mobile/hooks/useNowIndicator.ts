@@ -37,7 +37,14 @@ export function useNowIndicator(timeBounds: TimeBounds | null, selectedDay: numb
   const nowIndicator = useMemo(() => {
     if (!timeBounds) return null;
     const now = new Date(nowTick);
-    const nowMins = now.getHours() * 60 + now.getMinutes();
+    let nowMins = now.getHours() * 60 + now.getMinutes();
+    // Post-midnight rollover: festivals whose schedule extends past midnight
+    // (e.g. 14:00-02:00) have timeBounds.maxMin > 24*60. When the wall clock
+    // reads 00:30 (30 mins) but the grid ends at 26*60 (=02:00 next day), add
+    // 24h so 30 becomes 24*60+30 = 1470, placing the indicator correctly.
+    if (timeBounds.maxMin > 24 * 60 && nowMins < timeBounds.minMin) {
+      nowMins += 24 * 60;
+    }
     if (nowMins >= timeBounds.minMin && nowMins <= timeBounds.maxMin) {
       return ((nowMins - timeBounds.minMin) / (timeBounds.maxMin - timeBounds.minMin)) * 100;
     }

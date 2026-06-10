@@ -3,6 +3,8 @@ import { useUIStore } from './uiStore';
 import { useFestivalDataStore } from './festivalDataStore';
 import { useFestivalUIStore } from './festivalUIStore';
 import { useFestivalModeStore } from './festivalModeStore';
+import { useLiveLocationStore } from './liveLocationStore';
+import { clearPersistedFailed } from '../services/offlineQueue';
 
 export function resetAllStores(): void {
   useFestivalDataStore.setState({
@@ -36,6 +38,7 @@ export function resetAllStores(): void {
     connected: false,
     offlineMode: false,
     pendingSync: 0,
+    failedSync: [],
     onlineUsers: [],
     toasts: [],
   });
@@ -46,4 +49,6 @@ export function resetAllStores(): void {
     autoScrollToNow: false,
     manuallyDisabled: false,
   });
+  useLiveLocationStore.getState().reset();
+  void clearPersistedFailed();
 }

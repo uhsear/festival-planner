@@ -341,7 +341,7 @@ export default function CrewScreen() {
         text: 'Remove',
         style: 'destructive',
         onPress: () => {
-          kickMember(crewId, member.id).catch(() => {});
+          kickMember(crewId, member.userId).catch(() => {});
         },
       },
     ]);
@@ -357,7 +357,7 @@ export default function CrewScreen() {
           text: 'Transfer',
           style: 'destructive',
           onPress: () => {
-            transferOwnership(crewId, member.id).catch(() => {});
+            transferOwnership(crewId, member.userId).catch(() => {});
           },
         },
       ],
@@ -647,7 +647,7 @@ export default function CrewScreen() {
         <FlatList
           style={styles.flex1}
           data={members}
-          keyExtractor={(m) => m.id || m.userId}
+          keyExtractor={(m) => m.userId}
           contentContainerStyle={memberListStyle}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"

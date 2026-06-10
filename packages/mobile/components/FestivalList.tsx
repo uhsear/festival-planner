@@ -98,6 +98,11 @@ function FestivalCard({ festival, onPress, isSelecting }: FestivalCardProps) {
   );
 }
 
+// Stable separator component — avoids recreating on every render.
+function ListSeparator() {
+  return <View style={styles.separator} />;
+}
+
 export default function FestivalList() {
   const festivals = useFestivalDataStore((s) => s.festivals);
   const isLoading = useFestivalDataStore((s) => s.isLoading);
@@ -108,18 +113,20 @@ export default function FestivalList() {
   // Order: live first, then upcoming (soonest first), then past (most recent
   // first), so the festivals a user is most likely choosing sit at the top.
   const sortedFestivals = useMemo(() => {
-    const rank = (f: Festival): number => {
+    // Pre-compute status + sort rank per festival ONCE, then sort by the cached
+    // rank instead of re-deriving festivalStatus on every comparison (O(n) vs
+    // O(n log n) calls).
+    const ranked = festivals.map((f) => {
       const s = festivalStatus(f);
-      return s === 'ongoing' ? 0 : s === 'past' ? 2 : 1;
-    };
-    const startKey = (f: Festival): string => f.startDate || '';
-    return [...festivals].sort((a, b) => {
-      const ra = rank(a);
-      const rb = rank(b);
-      if (ra !== rb) return ra - rb;
-      // ISO date strings sort lexicographically. Past = most recent first.
-      return ra === 2 ? startKey(b).localeCompare(startKey(a)) : startKey(a).localeCompare(startKey(b));
+      const r = s === 'ongoing' ? 0 : s === 'past' ? 2 : 1;
+      return { f, r, start: f.startDate || '' };
     });
+    ranked.sort((a, b) => {
+      if (a.r !== b.r) return a.r - b.r;
+      // ISO date strings sort lexicographically. Past = most recent first.
+      return a.r === 2 ? b.start.localeCompare(a.start) : a.start.localeCompare(b.start);
+    });
+    return ranked.map(({ f }) => f);
   }, [festivals]);
 
   const handleRefresh = useCallback(() => {
@@ -189,7 +196,7 @@ export default function FestivalList() {
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       contentContainerStyle={styles.listContent}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      ItemSeparatorComponent={ListSeparator}
       refreshControl={
         <RefreshControl
           refreshing={isLoading}

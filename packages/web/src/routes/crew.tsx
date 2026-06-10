@@ -179,8 +179,7 @@ function CrewViewInner() {
     if (!activeCrew) return;
     const name = member.name || member.username || 'this member';
     if (!window.confirm(`Remove ${name} from the crew?`)) return;
-    // kickMember keys off the crew-membership id, not userId (see crewStore).
-    kickMember(activeCrew.id, member.id)
+    kickMember(activeCrew.id, member.userId)
       .then(() => selectCrew(activeCrew.id))
       .catch((e: unknown) => {
         toast(e instanceof Error ? e.message : "Couldn't remove member. Try again.", 'error');
