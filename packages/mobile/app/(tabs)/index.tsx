@@ -406,6 +406,12 @@ export default function TimelineScreen() {
     />
   );
 
+  // [festie-diag] temporary instrumentation for the guest-selection E2E failure
+  console.log(
+    '[festie-diag] index render',
+    JSON.stringify({ hasFestival: !!currentFestival, festivalId: currentFestivalId, isLoading, error: error ?? null }),
+  );
+
   // No festival selected — show the festival selector, or a load/error state
   // when the festival list itself couldn't be fetched.
   if (!currentFestival) {
