@@ -62,6 +62,8 @@ configureApi({
   baseUrl: 'https://festie.us/api/v1',
   authMode: 'bearer',
   onUnauthorized: async () => {
+    // [festie-diag] temporary: store-wipe investigation.
+    console.log('[festie-diag] onUnauthorized fired');
     try {
       await useAuthStore.getState().refreshToken();
       return true;

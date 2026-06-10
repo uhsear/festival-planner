@@ -7,6 +7,8 @@ import { useLiveLocationStore } from './liveLocationStore';
 import { clearPersistedFailed } from '../services/offlineQueue';
 
 export function resetAllStores(): void {
+  // [festie-diag] temporary: catch the guest store-wipe in the act.
+  console.log('[festie-diag] resetAllStores called');
   useFestivalDataStore.setState({
     festivals: [],
     currentFestivalId: null,
