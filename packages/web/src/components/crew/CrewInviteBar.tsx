@@ -24,7 +24,7 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
   }, []);
 
   const handleCopy = useCallback(() => {
-    const url = `${window.location.origin}/api/v1/crews/join/${inviteCode}`;
+    const url = `${window.location.origin}/join/${encodeURIComponent(inviteCode)}`;
     navigator.clipboard?.writeText(url);
     setCopiedCode(true);
     if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
@@ -32,7 +32,7 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
   }, [inviteCode]);
 
   const handleShare = useCallback(async () => {
-    const url = `${window.location.origin}/api/v1/crews/join/${inviteCode}`;
+    const url = `${window.location.origin}/join/${encodeURIComponent(inviteCode)}`;
     const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
     if (typeof nav.share === 'function') {
       try {
