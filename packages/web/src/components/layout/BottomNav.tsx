@@ -80,9 +80,9 @@ const baseTabs: NavTab[] = [{ label: 'Schedule', href: '/cards', icon: <Schedule
 const SCHEDULE_HREFS = ['/', '/cards', '/timeline', '/grid'];
 
 const authTabs: NavTab[] = [
-  { label: 'My Picks', href: '/picks', icon: <PicksIcon /> },
+  { label: 'Picks', href: '/picks', icon: <PicksIcon /> },
   { label: 'Crew', href: '/crew', icon: <CrewIcon /> },
-  { label: 'Me', href: '/account', icon: <ProfileIcon /> },
+  { label: 'Account', href: '/account', icon: <ProfileIcon /> },
 ];
 
 const wrapTab: NavTab = { label: 'Wrap', href: '/wrap', icon: <WrapIcon /> };

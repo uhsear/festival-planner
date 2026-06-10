@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -15,7 +14,7 @@ import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@festie/shared/stores';
-import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
+import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
 
 const EMAIL_RE = /^\S+@\S+\.[a-zA-Z]{2,}$/;
 
@@ -25,7 +24,120 @@ const EMAIL_RE = /^\S+@\S+\.[a-zA-Z]{2,}$/;
  * a "check your email" confirmation. The reset link itself is completed via the
  * emailed link (the backend handles the reset); this screen only requests it.
  */
+
+const useStyles = makeStyles((t) => ({
+  container: {
+    flex: 1,
+    backgroundColor: t.colors.bg.primary,
+  },
+  inner: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: t.spacing[6],
+  },
+  title: {
+    // display-lg = Syncopate 700 — brand wordmark, first impression screen.
+    ...typeStyle('display-lg'),
+    color: t.colors.text.primary,
+    textAlign: 'center',
+    marginBottom: t.spacing[1],
+  },
+  subtitle: {
+    ...typeStyle('body'),
+    color: t.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: t.spacing[8],
+  },
+  error: {
+    ...typeStyle('label'),
+    color: t.colors.text.danger,
+    textAlign: 'center',
+    marginBottom: t.spacing[3],
+  },
+  input: {
+    backgroundColor: t.colors.bg.input,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    borderRadius: t.radii.default,
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+    marginBottom: t.spacing[2],
+  },
+  helper: {
+    ...typeStyle('label'),
+    color: t.colors.text.muted,
+    marginBottom: t.spacing[4],
+  },
+  button: {
+    // PRIMARY CTA = aqua + dark ink per the accent rule (coral on white failed
+    // WCAG AA ~3.55:1; coral reserved for danger/SOS). Matches login/register.
+    backgroundColor: t.colors.accent.aqua,
+    borderRadius: t.radii.default,
+    paddingVertical: t.spacing[3],
+    alignItems: 'center' as const,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    ...typeStyle('label'),
+    fontWeight: '600' as const,
+    color: t.colors.text.onLightAccent,
+  },
+  successBox: {
+    alignItems: 'center' as const,
+    gap: t.spacing[3],
+    padding: t.spacing[5],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  successTitle: {
+    ...typeStyle('title'),
+    color: t.colors.text.primary,
+  },
+  successBody: {
+    ...typeStyle('label'),
+    color: t.colors.text.secondary,
+    textAlign: 'center',
+  },
+  successHint: {
+    ...typeStyle('label'),
+    color: t.colors.text.muted,
+    textAlign: 'center',
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: t.colors.accent.aqua,
+    borderRadius: t.radii.default,
+    paddingVertical: t.spacing[3],
+    paddingHorizontal: t.spacing[4],
+    alignItems: 'center' as const,
+    alignSelf: 'stretch' as const,
+    marginTop: t.spacing[2],
+  },
+  secondaryButtonText: {
+    ...typeStyle('label'),
+    fontWeight: '600' as const,
+    color: t.colors.accent.aqua,
+  },
+  linkButton: {
+    marginTop: t.spacing[5],
+    alignItems: 'center' as const,
+  },
+  linkTextAccent: {
+    ...typeStyle('label'),
+    color: t.colors.accent.aqua,
+    fontWeight: '600' as const,
+  },
+}));
+
 export default function ForgotPasswordScreen() {
+  const styles = useStyles();
+  const t = useTokens();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -62,7 +174,7 @@ export default function ForgotPasswordScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.inner,
-          { paddingTop: insets.top + spacing[6], paddingBottom: insets.bottom + spacing[6] },
+          { paddingTop: insets.top + t.spacing[6], paddingBottom: insets.bottom + t.spacing[6] },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -81,7 +193,7 @@ export default function ForgotPasswordScreen() {
             <TextInput
               style={styles.input}
               placeholder="you@example.com"
-              placeholderTextColor={colors.text.placeholder}
+              placeholderTextColor={t.colors.text.placeholder}
               accessibilityLabel="Email address"
               value={email}
               onChangeText={(v) => {
@@ -112,7 +224,7 @@ export default function ForgotPasswordScreen() {
               accessibilityState={{ disabled: isLoading, busy: isLoading }}
             >
               {isLoading ? (
-                <ActivityIndicator color={colors.text.onAccent} />
+                <ActivityIndicator color={t.colors.text.onLightAccent} />
               ) : (
                 <Text style={styles.buttonText}>Send reset link</Text>
               )}
@@ -120,7 +232,7 @@ export default function ForgotPasswordScreen() {
           </>
         ) : (
           <View style={styles.successBox} accessibilityLiveRegion="polite">
-            <Ionicons name="checkmark-circle" size={48} color={colors.accent.aqua} />
+            <Ionicons name="checkmark-circle" size={48} color={t.colors.accent.aqua} />
             <Text style={styles.successTitle}>Check your email</Text>
             <Text style={styles.successBody}>We've sent a password reset link to {email.trim()}.</Text>
             <Text style={styles.successHint}>
@@ -150,114 +262,3 @@ export default function ForgotPasswordScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg.primary,
-  },
-  inner: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing[6],
-  },
-  title: {
-    fontSize: fontSize[32],
-    fontWeight: '700',
-    color: colors.text.primary,
-    textAlign: 'center',
-    marginBottom: spacing[1],
-  },
-  subtitle: {
-    fontSize: fontSize[16],
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing[8],
-  },
-  error: {
-    fontSize: fontSize[14],
-    color: colors.text.danger,
-    textAlign: 'center',
-    marginBottom: spacing[3],
-  },
-  input: {
-    backgroundColor: colors.bg.input,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radii.default,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    fontSize: fontSize[16],
-    color: colors.text.primary,
-    marginBottom: spacing[2],
-  },
-  helper: {
-    fontSize: fontSize[14],
-    color: colors.text.muted,
-    marginBottom: spacing[4],
-  },
-  button: {
-    // PRIMARY CTA = aqua + dark ink per the accent rule (coral on white failed
-    // WCAG AA ~3.55:1; coral reserved for danger/SOS). Matches login/register.
-    backgroundColor: colors.accent.aqua,
-    borderRadius: radii.default,
-    paddingVertical: spacing[3],
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    fontSize: fontSize[16],
-    fontWeight: '600',
-    color: colors.text.onLightAccent,
-  },
-  successBox: {
-    alignItems: 'center',
-    gap: spacing[3],
-    padding: spacing[5],
-    borderRadius: radii.default,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    backgroundColor: colors.bg.secondary,
-  },
-  successTitle: {
-    fontSize: fontSize[18],
-    fontWeight: '600',
-    color: colors.text.primary,
-  },
-  successBody: {
-    fontSize: fontSize[14],
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-  successHint: {
-    fontSize: fontSize[14],
-    color: colors.text.muted,
-    textAlign: 'center',
-  },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: colors.accent.aqua,
-    borderRadius: radii.default,
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing[4],
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    marginTop: spacing[2],
-  },
-  secondaryButtonText: {
-    fontSize: fontSize[14],
-    fontWeight: '600',
-    color: colors.accent.aqua,
-  },
-  linkButton: {
-    marginTop: spacing[5],
-    alignItems: 'center',
-  },
-  linkTextAccent: {
-    fontSize: fontSize[14],
-    color: colors.accent.aqua,
-    fontWeight: '600',
-  },
-});

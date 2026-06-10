@@ -5,8 +5,8 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
 import PlanQRShare from '../components/PlanQRShare';
 import PlanQRScan from '../components/PlanQRScan';
 import SmsHandoff from '../components/SmsHandoff';
@@ -31,11 +31,12 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] 
 export default function PlanShareScreen() {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
   const [tab, setTab] = useState<Tab>('show');
 
   const selectTab = (key: Tab) => {
     if (key !== tab) {
-      Haptics.selectionAsync().catch(() => {});
+      haptics.select();
     }
     setTab(key);
   };

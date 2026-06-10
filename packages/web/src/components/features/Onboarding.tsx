@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { X, Star, Users, ChevronRight } from 'lucide-react';
+import { ONBOARDING_SLIDES_SHARED } from '@festie/shared';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
 import { useKeyboardTrap } from '../../hooks/useKeyboardTrap';
@@ -30,22 +31,19 @@ interface StepConfig {
   description: string;
 }
 
-// Two concrete steps that name the actual gestures, rather than the generic
-// "Welcome / Choose / Join" macrostructure. TASTE CALL — flagged for human
-// review; leading step 1 with live set cards was considered but skipped since
-// onboarding can render before any festival lineup is loaded.
+// Copy is single-sourced from @festie/shared (ONBOARDING_SLIDES_SHARED) for
+// web/mobile parity (DC29). Icons are web-specific (lucide). Step 1 skips live
+// set cards since onboarding can render before any festival lineup is loaded.
 const STEPS: StepConfig[] = [
   {
-    icon: <Star className="w-10 h-10 text-accent-coral" />,
-    title: 'Mark the sets you want',
-    description:
-      'Tap a set to mark it Must-See, Want, or Maybe. Your picks build a personal schedule and flag any time clashes.',
+    icon: <Star className="w-10 h-10 text-accent-aqua" />,
+    title: ONBOARDING_SLIDES_SHARED[0].title,
+    description: ONBOARDING_SLIDES_SHARED[0].description,
   },
   {
     icon: <Users className="w-10 h-10 text-accent-aqua" />,
-    title: 'Plan it with your crew',
-    description:
-      'Create or join a crew to see who else picked each set, share notes, and stay in sync — even with no signal.',
+    title: ONBOARDING_SLIDES_SHARED[1].title,
+    description: ONBOARDING_SLIDES_SHARED[1].description,
   },
 ];
 
@@ -142,7 +140,7 @@ export default function Onboarding() {
               key={i}
               aria-hidden="true"
               className={cn(
-                'h-1.5 rounded-full transition-all duration-300',
+                'h-1.5 rounded-full transition-[width,background-color] duration-300',
                 i === step ? 'w-6 bg-accent-aqua' : 'w-1.5 bg-text-muted/30',
               )}
             />

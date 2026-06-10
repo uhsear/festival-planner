@@ -430,9 +430,10 @@
   /* Chrome surface (header / sub-header / bottom nav). Paired with
      backdrop-blur/saturate so the chrome reads as frosted near-black glass. */
   --color-bg-chrome: rgba(10, 10, 20, 0.82);
-  /* Active day-tab pill: a deliberately darkened coral — white text on it
-     measures ~4.9:1 (AA), whereas white on brand coral #ff3366 is ~2.6:1. */
-  --color-day-tab-active: #c01d3a;
+  /* Active day-tab pill: aqua accent per the codified accent rule (aqua =
+     selection/primary; coral = danger/SOS only). Uses dark ink (onLightAccent
+     #080810) which passes WCAG AA. */
+  --color-day-tab-active: #00e8d0;
 
   /* Elevation for the raised sticky band. */
   --shadow-sticky: 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 12px rgba(0, 0, 0, 0.35);

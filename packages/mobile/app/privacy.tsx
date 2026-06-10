@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import ScreenHeader from '../components/ScreenHeader';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
 
@@ -402,7 +402,7 @@ export default function PrivacyScreen() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Privacy Policy" subtitle="Effective May 31, 2026" icon="shield-checkmark-outline" />
+      <Stack.Screen options={{ title: 'Privacy Policy', headerShown: true }} />
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad }]}

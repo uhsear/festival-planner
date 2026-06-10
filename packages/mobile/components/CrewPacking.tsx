@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore } from '@festie/shared/stores';
+import { duration as motionDuration } from '@festie/shared/tokens';
 import type { CrewPackingItem } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useReduceMotion } from '../hooks/useReduceMotion';
+import Button from './Button';
 
 interface CrewPackingProps {
   crewId: string;
@@ -21,6 +25,7 @@ interface CrewPackingProps {
 export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPackingProps) {
   const t = useTokens();
   const styles = useStyles();
+  const reduceMotion = useReduceMotion();
 
   const items = useCrewStore((s) => s.packingItems);
   const createPackingItem = useCrewStore((s) => s.createPackingItem);
@@ -31,6 +36,7 @@ export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPack
   const [label, setLabel] = useState('');
   const [createBusy, setCreateBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
 
   const reset = () => {
     setLabel('');
@@ -102,24 +108,24 @@ export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPack
             </TouchableOpacity>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, focused && styles.inputFocused]}
             placeholder="Tent, cooler, sunscreen…"
             placeholderTextColor={t.colors.text.placeholder}
             value={label}
             onChangeText={setLabel}
             maxLength={200}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             accessibilityLabel="Packing item label"
           />
-          <TouchableOpacity
-            style={[styles.primaryButton, (createBusy || !canCreate) && styles.buttonDisabled]}
+          <Button
+            label="Add"
+            loading={createBusy}
+            loadingLabel="Adding…"
+            disabled={!canCreate}
             onPress={handleCreate}
-            disabled={createBusy || !canCreate}
-            activeOpacity={0.8}
-            accessibilityRole="button"
             accessibilityLabel="Add packing item"
-          >
-            <Text style={styles.primaryButtonText}>{createBusy ? 'Adding…' : 'Add'}</Text>
-          </TouchableOpacity>
+          />
         </View>
       ) : (
         <TouchableOpacity
@@ -141,8 +147,18 @@ export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPack
         items.map((item) => {
           const mine = item.brought_by === currentUserId;
           const canRemove = item.created_by === currentUserId || isOwner;
+          // DC8: items fade/reflow in and out as the crew adds/claims/removes
+          // them; gated on Reduce Motion (a plain View = instant).
+          const RowContainer = reduceMotion ? View : Animated.View;
+          const motionProps = reduceMotion
+            ? {}
+            : {
+                entering: FadeIn.duration(motionDuration.med),
+                exiting: FadeOut.duration(motionDuration.fast),
+                layout: LinearTransition.duration(motionDuration.med),
+              };
           return (
-            <View key={item.id} style={styles.itemRow}>
+            <RowContainer key={item.id} style={styles.itemRow} {...motionProps}>
               <TouchableOpacity
                 onPress={() => handleToggle(item)}
                 disabled={busyId === item.id}
@@ -174,7 +190,7 @@ export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPack
                   <Ionicons name="trash-outline" size={16} color={t.colors.accent.coral} />
                 </TouchableOpacity>
               ) : null}
-            </View>
+            </RowContainer>
           );
         })
       )}
@@ -229,20 +245,9 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.primary,
   },
-  primaryButton: {
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    ...typeStyle('label'),
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    color: t.colors.text.onLightAccent,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+  inputFocused: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
   },
   iconButton: {
     padding: t.spacing[1],
@@ -271,7 +276,7 @@ const useStyles = makeStyles((t) => ({
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: t.radii.sm ?? 6,
+    borderRadius: t.radii.sm,
     borderWidth: 1,
     borderColor: t.colors.border.default,
     backgroundColor: t.colors.bg.input,

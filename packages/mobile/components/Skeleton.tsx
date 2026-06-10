@@ -1,7 +1,24 @@
-import { useEffect, useRef } from 'react';
-import { Animated, type DimensionValue, type ViewStyle } from 'react-native';
+import { type DimensionValue, type ViewStyle } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  cancelAnimation,
+} from 'react-native-reanimated';
+import { useEffect } from 'react';
+import { easing } from '@festie/shared/tokens';
 import { useTokens } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+
+/**
+ * Ambient-loop half-cycle for shimmer pulses (Skeleton + LiveDot breathing).
+ * Lives here until a `pulse` token lands in @festie/shared/tokens/motion — see
+ * the F38 integration note. Kept as one named constant so both surfaces share a
+ * single ambient cadence instead of re-typing 750ms inline.
+ */
+const PULSE_DURATION = 750;
 
 interface SkeletonProps {
   /** Block width — number (px) or percentage string. Defaults to full width. */
@@ -21,26 +38,32 @@ interface SkeletonProps {
  * instead of animating. Always hidden from the accessibility tree — a
  * screen-reader user hears the screen's `progressbar`/loading label, not the
  * decorative blocks.
+ *
+ * Uses Reanimated (withRepeat) to match the app's single animation system
+ * (LiveDot, SegmentedControl, PressableScale) rather than the legacy Animated API.
  */
 export function Skeleton({ width = '100%', height = 16, radius, style }: SkeletonProps) {
   const t = useTokens();
   const reduceMotion = useReduceMotion();
-  const opacity = useRef(new Animated.Value(0.45)).current;
+  const opacity = useSharedValue(0.45);
 
   useEffect(() => {
     if (reduceMotion) {
-      opacity.setValue(0.6);
+      cancelAnimation(opacity);
+      opacity.value = 0.6;
       return;
     }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.9, duration: 750, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.4, duration: 750, useNativeDriver: true }),
-      ]),
+    // Pulse 0.4 ↔ 0.9 forever; -1 repeats, `true` reverses each cycle.
+    opacity.value = 0.4;
+    opacity.value = withRepeat(
+      withTiming(0.9, { duration: PULSE_DURATION, easing: Easing.bezier(...easing.standard.bezier) }),
+      -1,
+      true,
     );
-    loop.start();
-    return () => loop.stop();
+    return () => cancelAnimation(opacity);
   }, [reduceMotion, opacity]);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   return (
     <Animated.View
@@ -52,8 +75,8 @@ export function Skeleton({ width = '100%', height = 16, radius, style }: Skeleto
           height,
           borderRadius: radius ?? t.radii.default,
           backgroundColor: t.colors.bg.secondary,
-          opacity,
         },
+        animatedStyle,
         style,
       ]}
     />

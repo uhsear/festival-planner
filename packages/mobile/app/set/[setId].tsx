@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Share,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
@@ -25,12 +27,19 @@ import {
   getSetLinks,
   detectConflicts,
   hasSetStarted,
+  parseHex,
+  toHex,
+  relativeLuminance,
+  srgbToLinear,
+  linearToSrgb,
 } from '@festie/shared/utils';
 import type { Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { safeStageColor } from '../../lib/stageColor';
+import { useListBottomInset } from '../../hooks/useListBottomInset';
 import { useHaptics } from '../../hooks/useHaptics';
 import EmptyState from '../../components/EmptyState';
+import LoadingState from '../../components/LoadingState';
 import RatingButtons from '../../components/RatingButtons';
 import ClashPrompt from '../../components/ClashPrompt';
 
@@ -74,6 +83,51 @@ function priorityColor(t: ReturnType<typeof useTokens>, p: Priority): string {
 }
 
 /**
+ * Non-color priority signal for the "Who's going" rows (F27). The dot already
+ * carries the color; this adds the legible label + an icon so the tier survives
+ * color-blindness and screen readers. Mirrors the PRIORITIES vocabulary.
+ */
+const PRIORITY_META: Record<Priority, { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  must: { label: 'Must', icon: 'star' },
+  'want-to-see': { label: 'Want', icon: 'heart' },
+  maybe: { label: 'Maybe', icon: 'ellipse' },
+};
+
+/**
+ * Lift a server-supplied stage color UP in luminance until it reaches ~4.6:1 as
+ * TEXT over the dark sheet background (F26 — the inverse of the shared
+ * `ensureWhiteContrast`, which darkens for white-on-color fills). Stage colors
+ * carry no AA guarantee when used as text; arbitrary festival hexes (or even the
+ * curated tokens at small label sizes) can fall below 4.5:1 vs #080810. Returns
+ * the input unchanged for unparseable colors (safeStageColor already strips
+ * `var(...)` fallbacks upstream).
+ */
+function ensureStageTextContrast(hex: string, bgHex: string): string {
+  const fg = parseHex(hex);
+  const bg = parseHex(bgHex);
+  if (!fg || !bg) return hex;
+  const bgLum = relativeLuminance(bg[0], bg[1], bg[2]);
+  const ratio = (lum: number) => (Math.max(lum, bgLum) + 0.05) / (Math.min(lum, bgLum) + 0.05);
+  let [r, g, b] = fg;
+  // Scale linear luminance up multiplicatively until 4.6:1 (4.6 absorbs 8-bit
+  // rounding). Cap iterations so a near-black-on-black input still terminates.
+  for (let i = 0; i < 24; i++) {
+    if (ratio(relativeLuminance(r, g, b)) >= 4.6) break;
+    const lr = srgbToLinear(r);
+    const lg = srgbToLinear(g);
+    const lb = srgbToLinear(b);
+    // If the color is essentially black, nudge toward neutral grey so the scale
+    // has something to multiply.
+    const floor = 0.02;
+    r = linearToSrgb(Math.max(lr, floor) * 1.25);
+    g = linearToSrgb(Math.max(lg, floor) * 1.25);
+    b = linearToSrgb(Math.max(lb, floor) * 1.25);
+    if (r >= 255 && g >= 255 && b >= 255) break;
+  }
+  return toHex(r, g, b);
+}
+
+/**
  * The mobile set-detail screen — an expo-router modal mirroring the web
  * DetailPanel. Looks the set up by id from the shared data store so it is
  * reload-safe (only the setId travels in the URL). Recomputes everything the
@@ -84,6 +138,9 @@ export default function SetDetailScreen() {
   const styles = useStyles();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // Bottom padding that clears the home indicator (F11 — this stack/modal
+  // surface MUST include the inset per the useListBottomInset contract).
+  const bottomPad = useListBottomInset();
   // Headerless modal: anchor the top affordances to the status-bar inset so the
   // drag handle / close / share clear the notch on Android and any full-screen
   // presentation, while staying compact on iOS card modals.
@@ -166,6 +223,13 @@ export default function SetDetailScreen() {
   const subtitle = set ? artistSubtitle(set, b2bSeparator) : '';
   const stageName = set ? getStageName(set.stageId) || 'Unknown' : 'Unknown';
   const stageColor = safeStageColor(set ? getStageColor(set.stageId) : undefined, t.colors.text.muted);
+  // F26: server stage colors carry no AA guarantee as TEXT. Lift the hue's
+  // luminance until the label reaches ~4.6:1 over the dark sheet. The pill FILL
+  // keeps the raw stageColor at 15% alpha (decorative, not text).
+  const stageTextColor = useMemo(
+    () => ensureStageTextContrast(stageColor, t.colors.bg.primary),
+    [stageColor, t.colors.bg.primary],
+  );
   const timeLabel =
     set && set.startTime && set.endTime ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}` : 'TBA';
   const myPick = set ? getMyPick(set.id) : undefined;
@@ -284,9 +348,12 @@ export default function SetDetailScreen() {
   const handlePriority = useCallback(
     (priority: Priority | null) => {
       if (!set || !currentFestival) return;
+      // F34: selection haptic, matching SetCardMobile's priority toggle and the
+      // reminder chips below — the same gesture class should always buzz.
+      haptics.select();
       savePick(currentFestival.id, set.id, priority).catch(() => {});
     },
-    [set, currentFestival, savePick],
+    [set, currentFestival, savePick, haptics],
   );
 
   const handleReminder = useCallback(
@@ -296,16 +363,6 @@ export default function SetDetailScreen() {
       saveReminder(currentFestival.id, set.id, minutes).catch(() => {});
     },
     [set, currentFestival, saveReminder, haptics],
-  );
-
-  const handleConflictSwitch = useCallback(
-    (conflictSetId: string) => {
-      if (!set || !currentFestival) return;
-      const priority = (getMyPick(set.id) as Priority | null) || 'must';
-      savePick(currentFestival.id, set.id, null).catch(() => {});
-      savePick(currentFestival.id, conflictSetId, priority).catch(() => {});
-    },
-    [set, currentFestival, savePick, getMyPick],
   );
 
   // Clash-prompt clear — demote one side of a clash to null. savePick is
@@ -347,11 +404,14 @@ export default function SetDetailScreen() {
   // ---- Reload-safe guard: the set isn't in the store (cold open / deep link).
   if (!set) {
     // Still resolving the deep link's festival — show a spinner, not "not found".
+    // DC24: use the shared LoadingState component (indeterminate resolve = spinner
+    // rule) instead of a raw ActivityIndicator so the deep-link path matches the
+    // design system.
     if (!resolveFailed) {
       return (
         <View style={[styles.container, styles.loadingContainer]}>
           <CloseButton onPress={dismiss} top={topInset} />
-          <ActivityIndicator size="large" color={t.colors.accent.aqua} />
+          <LoadingState />
         </View>
       );
     }
@@ -384,308 +444,304 @@ export default function SetDetailScreen() {
       </TouchableOpacity>
       <CloseButton onPress={dismiss} top={topInset} />
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Artist photo (from Spotify backfill) */}
-        {artistPhoto ? (
-          <Image
-            source={{ uri: artistPhoto }}
-            style={styles.artistPhoto}
-            resizeMode="cover"
-            accessibilityIgnoresInvertColors
-          />
-        ) : null}
+      {/* F1/F15: the note inputs sit at the bottom of the sheet and the iOS
+          formSheet does not auto-avoid the keyboard. KeyboardAvoidingView
+          (padding on iOS) lifts them; Android lets the OS-level window resize do
+          the work (behavior=undefined avoids the documented double-compensation).
+          automaticallyAdjustKeyboardInsets + interactive dismiss keep the active
+          input scrolled above the keyboard while typing. */}
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Artist photo (from Spotify backfill) */}
+          {artistPhoto ? (
+            <Image
+              source={{ uri: artistPhoto }}
+              style={styles.artistPhoto}
+              resizeMode="cover"
+              accessibilityIgnoresInvertColors
+            />
+          ) : null}
 
-        {/* Stage pill */}
-        <View style={[styles.stagePill, { backgroundColor: stageColor + '25' }]}>
-          <Text style={[styles.stageText, { color: stageColor }]} numberOfLines={1}>
-            {stageName}
+          {/* Stage pill */}
+          <View style={[styles.stagePill, { backgroundColor: stageColor + '25' }]}>
+            <Text style={[styles.stageText, { color: stageTextColor }]} numberOfLines={1}>
+              {stageName}
+            </Text>
+          </View>
+
+          {/* Artist header */}
+          <Text style={styles.artist} accessibilityRole="header">
+            {artistName}
           </Text>
-        </View>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          <Text style={styles.time}>{timeLabel}</Text>
 
-        {/* Artist header */}
-        <Text style={styles.artist} accessibilityRole="header">
-          {artistName}
-        </Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        <Text style={styles.time}>{timeLabel}</Text>
+          {/* Genres */}
+          {allGenres.length > 0 ? (
+            <View style={styles.chipRow}>
+              {allGenres.map((g) => (
+                <View key={g} style={styles.chip}>
+                  <Text style={styles.chipText}>{g}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
-        {/* Genres */}
-        {allGenres.length > 0 ? (
-          <View style={styles.chipRow}>
-            {allGenres.map((g) => (
-              <View key={g} style={styles.chip}>
-                <Text style={styles.chipText}>{g}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
+          {/* Artist links */}
+          {artistLinks.length > 0 ? (
+            <View style={styles.linkRow}>
+              {artistLinks.flatMap((entry) =>
+                Object.entries(entry.links).map(([key, url]) => (
+                  <TouchableOpacity
+                    key={`${entry.name}-${key}`}
+                    style={styles.linkButton}
+                    onPress={() => openLink(url)}
+                    activeOpacity={0.7}
+                    accessibilityRole="link"
+                    accessibilityLabel={`Open ${entry.name} on ${key}`}
+                  >
+                    <Ionicons name="open-outline" size={14} color={t.colors.accent.aqua} />
+                    <Text style={styles.linkText}>{key}</Text>
+                  </TouchableOpacity>
+                )),
+              )}
+            </View>
+          ) : null}
 
-        {/* Artist links */}
-        {artistLinks.length > 0 ? (
-          <View style={styles.linkRow}>
-            {artistLinks.flatMap((entry) =>
-              Object.entries(entry.links).map(([key, url]) => (
-                <TouchableOpacity
-                  key={`${entry.name}-${key}`}
-                  style={styles.linkButton}
-                  onPress={() => openLink(url)}
-                  activeOpacity={0.7}
-                  accessibilityRole="link"
-                  accessibilityLabel={`Open ${entry.name} on ${key}`}
-                >
-                  <Ionicons name="open-outline" size={14} color={t.colors.accent.aqua} />
-                  <Text style={styles.linkText}>{key}</Text>
-                </TouchableOpacity>
-              )),
-            )}
-          </View>
-        ) : null}
-
-        {/* Spotify preview — inline WebView embed behind a show/hide toggle.
+          {/* Spotify preview — inline WebView embed behind a show/hide toggle.
             The embedUrl already carries theme=0 (dark). The section renders
             nothing when no preview is available (guarded on embedType). */}
-        {spotify && spotify.embedUrl ? (
-          <View style={styles.spotifySection}>
-            <TouchableOpacity
-              style={styles.spotifyButton}
-              onPress={() => setSpotifyOpen((v) => !v)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: spotifyOpen }}
-              accessibilityLabel={spotifyOpen ? `Hide preview: ${spotifyLabel}` : `Play preview: ${spotifyLabel}`}
-            >
-              <Ionicons name="musical-note" size={16} color={t.colors.spotify.brand} />
-              <Text style={styles.spotifyText} numberOfLines={1}>
-                {spotifyLabel}
-              </Text>
-              <Ionicons name={spotifyOpen ? 'chevron-up' : 'chevron-down'} size={16} color={t.colors.text.secondary} />
-            </TouchableOpacity>
-            {spotifyOpen ? (
-              <View style={[styles.spotifyEmbed, { height: spotify.embedType === 'track' ? 152 : 352 }]}>
-                <WebView
-                  source={{ uri: spotify.embedUrl }}
-                  style={styles.spotifyWebView}
-                  allowsInlineMediaPlayback
-                  mediaPlaybackRequiresUserAction={false}
-                  originWhitelist={['https://open.spotify.com', 'https://*.spotify.com']}
-                  onShouldStartLoadWithRequest={(req) => {
-                    // Default-DENY: only the embed itself + in-frame Spotify
-                    // resource loads stay in the WebView. User clicks (Spotify
-                    // or not) open externally; any other origin is blocked so a
-                    // hijacked iframe can't navigate the WebView off-Spotify.
-                    if (req.url === spotify.embedUrl) return true;
-                    let host = '';
-                    try {
-                      host = new URL(req.url).hostname;
-                    } catch {
-                      return false;
-                    }
-                    const isSpotify = /(^|\.)(spotify\.com|scdn\.co|spotifycdn\.com)$/.test(host);
-                    if (req.navigationType === 'click') {
-                      // Top-level user navigation → hand off to the OS.
-                      openLink(req.url);
-                      return false;
-                    }
-                    // Non-click (iframe/resource): allow only Spotify hosts.
-                    return isSpotify;
-                  }}
+          {spotify && spotify.embedUrl ? (
+            <View style={styles.spotifySection}>
+              <TouchableOpacity
+                style={styles.spotifyButton}
+                onPress={() => setSpotifyOpen((v) => !v)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: spotifyOpen }}
+                accessibilityLabel={spotifyOpen ? `Hide preview: ${spotifyLabel}` : `Play preview: ${spotifyLabel}`}
+              >
+                <Ionicons name="musical-note" size={16} color={t.colors.spotify.brand} />
+                <Text style={styles.spotifyText} numberOfLines={1}>
+                  {spotifyLabel}
+                </Text>
+                <Ionicons
+                  name={spotifyOpen ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={t.colors.text.secondary}
                 />
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {/* Inline clash prompt — actionable "keep one" nudge (M1). The passive
-            conflict box below stays as the ambient marker. */}
-        {currentProfile && conflicts.length > 0 ? (
-          <ClashPrompt
-            currentSet={set}
-            conflicts={conflicts}
-            b2bSeparator={b2bSeparator}
-            getPriority={getMyPick}
-            onClear={handleClashClear}
-          />
-        ) : null}
-
-        {/* Conflict warning */}
-        {currentProfile && conflicts.length > 0 ? (
-          <View style={styles.conflictBox}>
-            <View style={styles.conflictHeader}>
-              <Ionicons name="warning" size={16} color={t.colors.accent.coral} />
-              <Text style={styles.conflictTitle}>
-                {conflicts.length === 1 ? '1 scheduling conflict' : `${conflicts.length} scheduling conflicts`}
-              </Text>
-            </View>
-            {conflicts.map((c) => (
-              <View key={c.id} style={styles.conflictItem}>
-                <View style={styles.conflictInfo}>
-                  <Text style={styles.conflictArtist} numberOfLines={1}>
-                    {artistDisplayName(c, b2bSeparator)}
-                  </Text>
-                  <Text style={styles.conflictMeta} numberOfLines={1}>
-                    {getStageName(c.stageId) || 'Unknown'}
-                    {c.startTime ? ` · ${formatTime(c.startTime)}` : ''}
-                  </Text>
+              </TouchableOpacity>
+              {spotifyOpen ? (
+                <View style={[styles.spotifyEmbed, { height: spotify.embedType === 'track' ? 152 : 352 }]}>
+                  <WebView
+                    source={{ uri: spotify.embedUrl }}
+                    style={styles.spotifyWebView}
+                    allowsInlineMediaPlayback
+                    mediaPlaybackRequiresUserAction={false}
+                    originWhitelist={['https://open.spotify.com', 'https://*.spotify.com']}
+                    onShouldStartLoadWithRequest={(req) => {
+                      // Default-DENY: only the embed itself + in-frame Spotify
+                      // resource loads stay in the WebView. User clicks (Spotify
+                      // or not) open externally; any other origin is blocked so a
+                      // hijacked iframe can't navigate the WebView off-Spotify.
+                      if (req.url === spotify.embedUrl) return true;
+                      let host = '';
+                      try {
+                        host = new URL(req.url).hostname;
+                      } catch {
+                        return false;
+                      }
+                      const isSpotify = /(^|\.)(spotify\.com|scdn\.co|spotifycdn\.com)$/.test(host);
+                      if (req.navigationType === 'click') {
+                        // Top-level user navigation → hand off to the OS.
+                        openLink(req.url);
+                        return false;
+                      }
+                      // Non-click (iframe/resource): allow only Spotify hosts.
+                      return isSpotify;
+                    }}
+                  />
                 </View>
-                <TouchableOpacity
-                  style={styles.switchButton}
-                  onPress={() => handleConflictSwitch(c.id)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Switch pick to ${artistDisplayName(c, b2bSeparator)}`}
+              ) : null}
+            </View>
+          ) : null}
+
+          {/* Single conflict card (DC3 Option A). ClashPrompt IS the merged
+              card — it names both acts and offers per-pair Keep/Switch actions
+              ("Keep {other}" clears the current pick = a Switch). The passive
+              "N scheduling conflicts" box that used to sit below was the
+              duplicate coral surface and has been removed. */}
+          {currentProfile && conflicts.length > 0 ? (
+            <ClashPrompt
+              currentSet={set}
+              conflicts={conflicts}
+              b2bSeparator={b2bSeparator}
+              getPriority={getMyPick}
+              onClear={handleClashClear}
+            />
+          ) : null}
+
+          {/* Priority picker / Join CTA */}
+          {currentProfile ? (
+            <>
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Your pick</Text>
+                <View style={styles.priorityRow}>
+                  {PRIORITIES.map((option) => {
+                    const active = myPick === option.value;
+                    const accent = priorityColor(t, option.value);
+                    return (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[styles.priorityButton, active && { backgroundColor: accent, borderColor: accent }]}
+                        onPress={() => handlePriority(active ? null : option.value)}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        accessibilityLabel={option.label}
+                      >
+                        <Ionicons
+                          name={option.icon}
+                          size={16}
+                          color={active ? t.colors.text.onLightAccent : t.colors.text.muted}
+                        />
+                        <Text style={[styles.priorityText, active && { color: t.colors.text.onLightAccent }]}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Remind me before it starts</Text>
+                <View style={styles.reminderRow}>
+                  {REMINDER_OPTIONS.map((opt) => {
+                    const active = myReminder === opt.value;
+                    return (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={[
+                          styles.reminderChip,
+                          active && {
+                            backgroundColor: t.colors.accent.aqua,
+                            borderColor: t.colors.accent.aqua,
+                          },
+                        ]}
+                        onPress={() => handleReminder(active ? null : opt.value)}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        accessibilityLabel={
+                          active ? `Reminder set ${opt.label} before, tap to clear` : `Remind me ${opt.label} before`
+                        }
+                      >
+                        <Text style={[styles.priorityText, active && { color: t.colors.text.onLightAccent }]}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </>
+          ) : (
+            <View style={styles.joinBox}>
+              <Text style={styles.joinCopy}>
+                {user
+                  ? 'Join this festival to save picks, keep private notes, and compare crew overlap.'
+                  : 'Sign in to save picks, keep private notes, and compare crew overlap.'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.joinButton, joinBusy && styles.joinButtonBusy]}
+                onPress={handleJoin}
+                disabled={joinBusy}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={user ? 'Join festival' : 'Sign in to join'}
+              >
+                {joinBusy ? (
+                  <ActivityIndicator size="small" color={t.colors.text.onLightAccent} />
+                ) : (
+                  <Text style={styles.joinButtonText}>{user ? 'Join Festival' : 'Sign in to join'}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Ratings — only once the set has started (web parity). */}
+          {currentProfile && currentFestival && hasSetStarted(set, currentFestival, days) ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Rate this set</Text>
+              <RatingButtons setId={set.id} festivalId={currentFestival.id} />
+            </View>
+          ) : null}
+
+          {/* Who's going */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>{whoTitle}</Text>
+            {others.map((o) => {
+              // F27: the priority tier must not be color-only. The dot keeps the
+              // color; a label + matching icon carry the same signal for
+              // color-blind users, and the row exposes it to screen readers.
+              const meta = PRIORITY_META[o.priority];
+              return (
+                <View
+                  key={o.profileId}
+                  style={styles.crewRow}
+                  accessible
+                  accessibilityLabel={`${o.name}, ${meta.label}`}
                 >
-                  <Text style={styles.switchText}>Switch</Text>
-                </TouchableOpacity>
+                  <View style={[styles.crewDot, { backgroundColor: priorityColor(t, o.priority) }]} />
+                  <Text style={styles.crewName} numberOfLines={1}>
+                    {o.name}
+                  </Text>
+                  <Ionicons name={meta.icon} size={12} color={t.colors.text.muted} />
+                  <Text style={styles.crewPriority}>{meta.label}</Text>
+                </View>
+              );
+            })}
+            {crewNotes.map((n, i) => (
+              <View key={`note-${i}`} style={styles.crewNoteRow}>
+                <Text style={styles.crewNoteName}>{n.name}</Text>
+                <Text style={styles.crewNoteText}>{n.note}</Text>
               </View>
             ))}
           </View>
-        ) : null}
 
-        {/* Priority picker / Join CTA */}
-        {currentProfile ? (
-          <>
+          {/* Notes */}
+          {currentProfile ? (
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Your pick</Text>
-              <View style={styles.priorityRow}>
-                {PRIORITIES.map((option) => {
-                  const active = myPick === option.value;
-                  const accent = priorityColor(t, option.value);
-                  return (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[styles.priorityButton, active && { backgroundColor: accent, borderColor: accent }]}
-                      onPress={() => handlePriority(active ? null : option.value)}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      accessibilityLabel={active ? `${option.label} (selected)` : option.label}
-                    >
-                      <Ionicons
-                        name={option.icon}
-                        size={16}
-                        color={active ? t.colors.text.onLightAccent : t.colors.text.muted}
-                      />
-                      <Text style={[styles.priorityText, active && { color: t.colors.text.onLightAccent }]}>
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <Text style={styles.sectionLabel}>Your note</Text>
+              <TextInput
+                style={styles.noteInput}
+                value={personalNote}
+                onChangeText={handlePersonalNoteChange}
+                placeholder="Private note for yourself"
+                placeholderTextColor={t.colors.text.placeholder}
+                multiline
+                accessibilityLabel="Personal note"
+              />
+              <Text style={styles.sectionLabel}>Crew note</Text>
+              <TextInput
+                style={styles.noteInput}
+                value={crewNote}
+                onChangeText={handleCrewNoteChange}
+                placeholder="Shared note for your crew"
+                placeholderTextColor={t.colors.text.placeholder}
+                multiline
+                accessibilityLabel="Crew note"
+              />
             </View>
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Remind me before it starts</Text>
-              <View style={styles.reminderRow}>
-                {REMINDER_OPTIONS.map((opt) => {
-                  const active = myReminder === opt.value;
-                  return (
-                    <TouchableOpacity
-                      key={opt.value}
-                      style={[
-                        styles.reminderChip,
-                        active && {
-                          backgroundColor: t.colors.accent.aqua,
-                          borderColor: t.colors.accent.aqua,
-                        },
-                      ]}
-                      onPress={() => handleReminder(active ? null : opt.value)}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      accessibilityLabel={
-                        active ? `Reminder set ${opt.label} before, tap to clear` : `Remind me ${opt.label} before`
-                      }
-                    >
-                      <Text style={[styles.priorityText, active && { color: t.colors.text.onLightAccent }]}>
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          </>
-        ) : (
-          <View style={styles.joinBox}>
-            <Text style={styles.joinCopy}>
-              {user
-                ? 'Join this festival to save picks, keep private notes, and compare crew overlap.'
-                : 'Sign in to save picks, keep private notes, and compare crew overlap.'}
-            </Text>
-            <TouchableOpacity
-              style={[styles.joinButton, joinBusy && styles.joinButtonBusy]}
-              onPress={handleJoin}
-              disabled={joinBusy}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={user ? 'Join festival' : 'Sign in to join'}
-            >
-              {joinBusy ? (
-                <ActivityIndicator size="small" color={t.colors.text.onLightAccent} />
-              ) : (
-                <Text style={styles.joinButtonText}>{user ? 'Join Festival' : 'Sign in to join'}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Ratings — only once the set has started (web parity). */}
-        {currentProfile && currentFestival && hasSetStarted(set, currentFestival, days) ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Rate this set</Text>
-            <RatingButtons setId={set.id} festivalId={currentFestival.id} />
-          </View>
-        ) : null}
-
-        {/* Who's going */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>{whoTitle}</Text>
-          {others.map((o) => (
-            <View key={o.profileId} style={styles.crewRow}>
-              <View style={[styles.crewDot, { backgroundColor: priorityColor(t, o.priority) }]} />
-              <Text style={styles.crewName} numberOfLines={1}>
-                {o.name}
-              </Text>
-            </View>
-          ))}
-          {crewNotes.map((n, i) => (
-            <View key={`note-${i}`} style={styles.crewNoteRow}>
-              <Text style={styles.crewNoteName}>{n.name}</Text>
-              <Text style={styles.crewNoteText}>{n.note}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Notes */}
-        {currentProfile ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Your note</Text>
-            <TextInput
-              style={styles.noteInput}
-              value={personalNote}
-              onChangeText={handlePersonalNoteChange}
-              placeholder="Private note for yourself"
-              placeholderTextColor={t.colors.text.placeholder}
-              multiline
-              accessibilityLabel="Personal note"
-            />
-            <Text style={styles.sectionLabel}>Crew note</Text>
-            <TextInput
-              style={styles.noteInput}
-              value={crewNote}
-              onChangeText={handleCrewNoteChange}
-              placeholder="Shared note for your crew"
-              placeholderTextColor={t.colors.text.placeholder}
-              multiline
-              accessibilityLabel="Crew note"
-            />
-          </View>
-        ) : null}
-      </ScrollView>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -712,6 +768,10 @@ const useStyles = makeStyles((t) => ({
   container: {
     flex: 1,
     backgroundColor: t.colors.bg.primary,
+  },
+  // KeyboardAvoidingView wrapper around the ScrollView (F1/F15).
+  flex: {
+    flex: 1,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -748,7 +808,8 @@ const useStyles = makeStyles((t) => ({
   content: {
     padding: t.spacing[5],
     paddingTop: t.spacing[5],
-    paddingBottom: t.spacing[6],
+    // paddingBottom is applied at the call site via useListBottomInset (F11) so
+    // the last input clears the home indicator on notched iPhones.
     gap: t.spacing[3],
   },
   artistPhoto: {
@@ -842,50 +903,6 @@ const useStyles = makeStyles((t) => ({
   spotifyWebView: {
     flex: 1,
     backgroundColor: 'transparent',
-  },
-  conflictBox: {
-    gap: t.spacing[2],
-    padding: t.spacing[4],
-    borderRadius: t.radii.default,
-    borderWidth: 1,
-    borderColor: t.colors.accent.coral,
-    backgroundColor: t.colors.ring.coral,
-  },
-  conflictHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: t.spacing[2],
-  },
-  conflictTitle: {
-    ...typeStyle('label'),
-    color: t.colors.accent.coral,
-  },
-  conflictItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: t.spacing[3],
-  },
-  conflictInfo: {
-    flex: 1,
-  },
-  conflictArtist: {
-    ...typeStyle('label'),
-    color: t.colors.text.primary,
-  },
-  conflictMeta: {
-    ...typeStyle('caption'),
-    color: t.colors.text.secondary,
-  },
-  switchButton: {
-    paddingHorizontal: t.spacing[3],
-    paddingVertical: t.spacing[1],
-    borderRadius: t.radii.pill,
-    borderWidth: 1,
-    borderColor: t.colors.accent.aqua,
-  },
-  switchText: {
-    ...typeStyle('label'),
-    color: t.colors.accent.aqua,
   },
   section: {
     gap: t.spacing[2],
@@ -982,6 +999,11 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.primary,
     flex: 1,
+  },
+  // F27: non-color priority label beside the colored dot.
+  crewPriority: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
   },
   crewNoteRow: {
     gap: t.spacing[1],

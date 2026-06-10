@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore } from '@festie/shared/stores';
 import type { CrewRideOffer } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import Button from './Button';
 
 interface CrewRidesProps {
   crewId: string;
@@ -34,6 +35,7 @@ export default function CrewRides({ crewId, currentUserId, isOwner }: CrewRidesP
   const [note, setNote] = useState('');
   const [createBusy, setCreateBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<'driver' | 'seats' | 'from' | 'at' | 'note' | null>(null);
 
   const reset = () => {
     setDriver('');
@@ -108,61 +110,69 @@ export default function CrewRides({ crewId, currentUserId, isOwner }: CrewRidesP
             </TouchableOpacity>
           </View>
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === 'driver' && styles.inputFocused]}
             placeholder="Who's driving?"
             placeholderTextColor={t.colors.text.placeholder}
             value={driver}
             onChangeText={setDriver}
             maxLength={100}
+            onFocus={() => setFocusedField('driver')}
+            onBlur={() => setFocusedField((f) => (f === 'driver' ? null : f))}
             accessibilityLabel="Driver"
           />
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === 'seats' && styles.inputFocused]}
             placeholder="Open seats"
             placeholderTextColor={t.colors.text.placeholder}
             value={seats}
             onChangeText={(text) => setSeats(text.replace(/[^0-9]/g, ''))}
             keyboardType="number-pad"
             maxLength={2}
+            onFocus={() => setFocusedField('seats')}
+            onBlur={() => setFocusedField((f) => (f === 'seats' ? null : f))}
             accessibilityLabel="Open seats"
           />
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === 'from' && styles.inputFocused]}
             placeholder="Leaving from"
             placeholderTextColor={t.colors.text.placeholder}
             value={departFrom}
             onChangeText={setDepartFrom}
             maxLength={200}
+            onFocus={() => setFocusedField('from')}
+            onBlur={() => setFocusedField((f) => (f === 'from' ? null : f))}
             accessibilityLabel="Leaving from"
           />
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === 'at' && styles.inputFocused]}
             placeholder="When (Fri 2pm)"
             placeholderTextColor={t.colors.text.placeholder}
             value={departAt}
             onChangeText={setDepartAt}
             maxLength={100}
+            onFocus={() => setFocusedField('at')}
+            onBlur={() => setFocusedField((f) => (f === 'at' ? null : f))}
             accessibilityLabel="Depart time"
           />
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === 'note' && styles.inputFocused]}
             placeholder="Note"
             placeholderTextColor={t.colors.text.placeholder}
             value={note}
             onChangeText={setNote}
             maxLength={500}
+            onFocus={() => setFocusedField('note')}
+            onBlur={() => setFocusedField((f) => (f === 'note' ? null : f))}
             accessibilityLabel="Note"
           />
-          <TouchableOpacity
-            style={[styles.primaryButton, (createBusy || !canCreate) && styles.buttonDisabled]}
+          <Button
+            label="Post ride"
+            loading={createBusy}
+            loadingLabel="Posting…"
+            disabled={!canCreate}
             onPress={handleCreate}
-            disabled={createBusy || !canCreate}
-            activeOpacity={0.8}
-            accessibilityRole="button"
             accessibilityLabel="Post ride"
-          >
-            <Text style={styles.primaryButtonText}>{createBusy ? 'Posting…' : 'Post ride'}</Text>
-          </TouchableOpacity>
+          />
         </View>
       ) : (
         <TouchableOpacity
@@ -278,20 +288,9 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.primary,
   },
-  primaryButton: {
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    ...typeStyle('label'),
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    color: t.colors.text.onLightAccent,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+  inputFocused: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
   },
   iconButton: {
     padding: t.spacing[1],
@@ -320,7 +319,7 @@ const useStyles = makeStyles((t) => ({
   iconBadge: {
     width: 24,
     height: 24,
-    borderRadius: t.radii.sm ?? 6,
+    borderRadius: t.radii.sm,
     borderWidth: 1,
     borderColor: t.colors.accent.aqua,
     backgroundColor: t.colors.ring.aqua,

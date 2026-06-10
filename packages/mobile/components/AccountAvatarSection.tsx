@@ -212,13 +212,15 @@ const useStyles = makeStyles((t) => ({
   avatar: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    // Circular avatar: use radii.pill (999) so the circle holds at any size
+    // rather than a raw sz/2 literal (F48).
+    borderRadius: t.radii.pill,
     backgroundColor: t.colors.bg.primary,
   },
   avatarFallback: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: t.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: t.colors.bg.primary,

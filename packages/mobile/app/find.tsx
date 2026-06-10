@@ -123,7 +123,9 @@ export default function FindScreen() {
                 <Ionicons
                   name={navigable ? 'location' : 'location-outline'}
                   size={18}
-                  color={navigable ? t.colors.accent.coral : t.colors.text.muted}
+                  // Aqua = navigable/active (accent rule); coral on find/map is
+                  // reserved for the SOS layer, not routine meeting points (F16).
+                  color={navigable ? t.colors.accent.aqua : t.colors.text.muted}
                 />
                 <View style={styles.mpBody}>
                   <Text style={styles.mpLabel}>{p.label}</Text>
@@ -136,6 +138,24 @@ export default function FindScreen() {
           })
         )}
       </ScrollView>
+
+      {/* DC2: raise-SOS shortcut. The "where is everyone" hub is exactly where a
+          lost/in-trouble user already is, so a 2-tap path to the SOS confirm flow
+          lives here. Coral is correct (this IS the danger surface); coralStrong
+          keeps the white label AA-readable. Deep-links to the crew Find pane that
+          owns the full CrewSos card + its confirm dialog. */}
+      <TouchableOpacity
+        testID="find-sos-fab"
+        style={styles.sosFab}
+        onPress={() => router.push({ pathname: '/(tabs)/crew', params: { tab: 'logistics' } })}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Raise an SOS to your crew"
+        accessibilityHint="Opens the crew safety screen to send an SOS"
+      >
+        <Ionicons name="alert-circle" size={20} color={t.colors.text.onAccent} />
+        <Text style={styles.sosFabText}>SOS</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -215,5 +235,30 @@ const useStyles = makeStyles((t) => ({
   mpMuted: {
     ...typeStyle('caption'),
     color: t.colors.text.muted,
+  },
+  sosFab: {
+    position: 'absolute',
+    right: t.spacing[4],
+    bottom: t.spacing[5],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    minHeight: 52,
+    paddingHorizontal: t.spacing[4],
+    borderRadius: t.radii.pill,
+    // Safety FAB: coralStrong (~6.04:1 vs white) passes WCAG AA; plain coral
+    // (#ff3366) only reaches ~3.55:1. Coral here is on-rule — this is the danger
+    // surface.
+    backgroundColor: t.colors.accent.coralStrong,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+  },
+  sosFabText: {
+    ...typeStyle('label'),
+    color: t.colors.text.onAccent,
+    fontWeight: '700',
   },
 }));

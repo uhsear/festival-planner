@@ -116,7 +116,7 @@ function TBACard({
               >
                 <Ionicons
                   name={option.icon}
-                  size={13}
+                  size={12} // DC25: 13 is off-grid; snap to iconSize.xs (12).
                   color={active ? t.colors.text.onLightAccent : t.colors.text.muted}
                 />
               </TouchableOpacity>

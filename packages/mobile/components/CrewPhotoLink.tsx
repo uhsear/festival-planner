@@ -4,6 +4,7 @@ import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore } from '@festie/shared/stores';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import Button from './Button';
 
 interface CrewPhotoLinkProps {
   crewId: string;
@@ -25,6 +26,7 @@ export default function CrewPhotoLink({ crewId, photoAlbumUrl }: CrewPhotoLinkPr
   const [editing, setEditing] = useState(false);
   const [url, setUrl] = useState(photoAlbumUrl ?? '');
   const [saving, setSaving] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   // Keep the form in sync when the crew's stored URL changes underneath us
   // (e.g. another member sets it and the crew:photo-album-updated event lands).
@@ -72,7 +74,7 @@ export default function CrewPhotoLink({ crewId, photoAlbumUrl }: CrewPhotoLinkPr
         </View>
         <Text style={styles.hint}>Paste a shared album link (Google Photos, Apple shared album, etc.).</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, focused && styles.inputFocused]}
           placeholder="https://photos.app.goo.gl/…"
           placeholderTextColor={t.colors.text.placeholder}
           value={url}
@@ -83,19 +85,19 @@ export default function CrewPhotoLink({ crewId, photoAlbumUrl }: CrewPhotoLinkPr
           keyboardType="url"
           returnKeyType="done"
           onSubmitEditing={handleSave}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           accessibilityLabel="Shared album URL"
         />
         {!isValid ? <Text style={styles.errorText}>Link must start with https://</Text> : null}
-        <TouchableOpacity
-          style={[styles.saveButton, (saving || !isValid) && styles.buttonDisabled]}
+        <Button
+          label="Save"
+          loading={saving}
+          loadingLabel="Saving…"
+          disabled={!isValid}
           onPress={handleSave}
-          disabled={saving || !isValid}
-          activeOpacity={0.8}
-          accessibilityRole="button"
           accessibilityLabel="Save crew photo album link"
-        >
-          <Text style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save'}</Text>
-        </TouchableOpacity>
+        />
       </View>
     );
   }
@@ -212,6 +214,12 @@ const useStyles = makeStyles((t) => ({
   },
   iconButton: {
     padding: t.spacing[1],
+    // WCAG 2.5.5 / Apple HIG >=44pt touch target for these small (14-18px)
+    // icon-only controls — padding alone can't reach it.
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     backgroundColor: t.colors.bg.input,
@@ -223,21 +231,12 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.primary,
   },
+  inputFocused: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
+  },
   errorText: {
     ...typeStyle('caption'),
     color: t.colors.accent.coral,
-  },
-  saveButton: {
-    backgroundColor: t.colors.accent.coral,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    ...typeStyle('label'),
-    color: t.colors.text.onAccent,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
   },
 }));

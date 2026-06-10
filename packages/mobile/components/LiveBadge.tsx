@@ -55,7 +55,9 @@ const useStyles = makeStyles((t) => ({
     borderRadius: t.radii.pill,
   },
   livePill: {
-    backgroundColor: t.colors.accent.coral,
+    // Deepened coral (coralStrong, ~6.04:1 vs the white micro label) clears WCAG
+    // AA; plain accent.coral only reaches ~3.55:1. Mirrors the CrewSos pattern.
+    backgroundColor: t.colors.accent.coralStrong,
   },
   liveDot: {
     width: 7,

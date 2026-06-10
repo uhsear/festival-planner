@@ -1,14 +1,27 @@
-import { memo, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { memo, useCallback, useEffect, useMemo } from 'react';
+import { View, Text, Pressable, Platform } from 'react-native';
+import Animated, {
+  Easing,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName, artistSubtitle, ensureWhiteContrast } from '@festie/shared/utils';
 import { useCrewStore, useFestivalStore } from '@festie/shared/stores';
+import { duration, easing } from '@festie/shared/tokens';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useSetStatus } from '../hooks/useSetStatus';
 import { useHaptics } from '../hooks/useHaptics';
+import { useReduceMotion } from '../hooks/useReduceMotion';
+import AppPressable from './AppPressable';
 import Avatar from './Avatar';
 import LiveBadge from './LiveBadge';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /** A single crew member's pick, used to render the "who's going" avatars. */
 export interface FriendProfile {
@@ -112,30 +125,80 @@ function PriorityButton({ option, active, onPress }: PriorityButtonProps) {
   const t = useTokens();
   const styles = useStyles();
   const haptics = useHaptics();
+  const reduceMotion = useReduceMotion();
   const accent = priorityColor(t, option.value);
+
+  // DC21: the pick is the product's core loop — confirm it with a scale pop +
+  // color timing instead of an instant style flip. `progress` (0→1) drives the
+  // fill/border interpolation; `scale` pops on each activation. Both honor
+  // Reduce Motion: progress jumps instantly and the pop is skipped.
+  const progress = useSharedValue(active ? 1 : 0);
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    progress.value = reduceMotion
+      ? active
+        ? 1
+        : 0
+      : withTiming(active ? 1 : 0, {
+          duration: duration.fast,
+          easing: Easing.bezier(...easing.standard.bezier),
+        });
+  }, [active, reduceMotion, progress]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const bg = interpolateColor(progress.value, [0, 1], [t.colors.overlay[3], accent]);
+    const border = interpolateColor(progress.value, [0, 1], [t.colors.border.light, accent]);
+    return {
+      backgroundColor: bg,
+      borderColor: border,
+      transform: [{ scale: scale.value }],
+    };
+  });
+
+  const handlePress = useCallback(() => {
+    // Taptic feedback on iOS (selectionAsync), tuned Vibration on Android —
+    // additive on the existing handler; the no-op fallback keeps picks
+    // working on devices without a vibrator/Taptic Engine.
+    haptics.select();
+    // Scale pop only when ACTIVATING (not when toggling off) — the celebration
+    // is for committing to a pick. Skipped under Reduce Motion.
+    if (!active && !reduceMotion) {
+      scale.value = withSequence(
+        withTiming(1.12, { duration: duration.fast, easing: Easing.bezier(...easing.out.bezier) }),
+        withTiming(1, { duration: duration.med, easing: Easing.bezier(...easing.spring.bezier) }),
+      );
+    }
+    onPress(active ? null : option.value);
+  }, [haptics, active, reduceMotion, scale, onPress, option.value]);
+
+  // Small control → ripple on Android, opacity fade on iOS/web (matching the
+  // AppPressable convention), applied directly so the Reanimated fill/scale
+  // style can ride on an animated component.
+  const android_ripple = Platform.OS === 'android' ? { color: t.colors.overlay[4], borderless: false } : undefined;
+
   return (
-    <TouchableOpacity
-      style={[styles.priorityButton, active && { backgroundColor: accent, borderColor: accent }]}
-      onPress={() => {
-        // Taptic feedback on iOS (selectionAsync), tuned Vibration on Android —
-        // additive on the existing handler; the no-op fallback keeps picks
-        // working on devices without a vibrator/Taptic Engine.
-        haptics.select();
-        onPress(active ? null : option.value);
-      }}
-      activeOpacity={0.7}
+    <AnimatedPressable
+      style={({ pressed }) => [
+        styles.priorityButton,
+        animatedStyle,
+        Platform.OS !== 'android' && pressed ? { opacity: 0.7 } : null,
+      ]}
+      onPress={handlePress}
+      android_ripple={android_ripple}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       accessibilityLabel={active ? `${option.label} (selected)` : option.label}
     >
-      <Ionicons name={option.icon} size={15} color={active ? t.colors.text.onLightAccent : accent} />
+      {/* DC25: 15 is off-grid; snap to iconSize.sm (16). */}
+      <Ionicons name={option.icon} size={16} color={active ? t.colors.text.onLightAccent : accent} />
       <Text
         style={[styles.priorityLabel, { color: active ? t.colors.text.onLightAccent : t.colors.text.secondary }]}
         numberOfLines={1}
       >
         {option.short}
       </Text>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
@@ -179,10 +242,9 @@ function SetCardMobileImpl({
   // buttons stay independently tappable and don't bubble to onPress.
   return (
     <View style={[styles.card, { borderLeftColor: stageColor }]}>
-      <TouchableOpacity
+      <AppPressable
         style={styles.body}
         onPress={onPress}
-        activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel={`${artistName}, ${stageName}, ${timeLabel}`}
       >
@@ -207,7 +269,7 @@ function SetCardMobileImpl({
           {hasNote ? (
             <Ionicons
               name="document-text-outline"
-              size={13}
+              size={12} // DC25: 13 is off-grid; snap to iconSize.xs (12).
               color={t.colors.text.muted}
               accessibilityLabel="Has note"
             />
@@ -219,7 +281,7 @@ function SetCardMobileImpl({
             </View>
           ) : null}
         </View>
-      </TouchableOpacity>
+      </AppPressable>
 
       <View style={styles.footer}>
         <View style={styles.priorityGroup}>
@@ -418,7 +480,8 @@ const useStyles = makeStyles((t) => ({
   overflowBadge: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    // Circular badge: radii.pill (999) keeps it a circle at any size (F48).
+    borderRadius: t.radii.pill,
     borderWidth: 2,
     borderColor: t.colors.bg.card,
     backgroundColor: t.colors.ring.aqua,
@@ -426,13 +489,12 @@ const useStyles = makeStyles((t) => ({
     justifyContent: 'center',
   },
   overflowText: {
-    ...typeStyle('micro'),
-    fontWeight: '700',
+    // micro role is weight 600; typeStyle('micro', 700) selects SpaceGrotesk_700Bold (F4).
+    ...typeStyle('micro', 700),
     color: t.colors.accent.aqua,
   },
   countPill: {
-    ...typeStyle('micro'),
-    fontWeight: '700',
+    ...typeStyle('micro', 700),
     color: t.colors.accent.aqua,
     backgroundColor: t.colors.ring.aqua,
     paddingHorizontal: t.spacing[2],
@@ -458,7 +520,8 @@ const useStyles = makeStyles((t) => ({
     flexShrink: 1,
   },
   priorityLabel: {
-    ...typeStyle('micro'),
-    fontWeight: '700',
+    // F4: typeStyle('micro', 700) selects SpaceGrotesk_700Bold instead of the
+    // inert raw fontWeight override.
+    ...typeStyle('micro', 700),
   },
 }));

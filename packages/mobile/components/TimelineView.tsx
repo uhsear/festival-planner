@@ -22,6 +22,10 @@ const SLOT_MINUTES = 15;
  * 1.47 px/min, inside the spec's 1.4–1.6 px/min target.
  */
 const ROW_HEIGHT = 22;
+// DC11 — minimum rendered block height. 28px + the block's 8+8 vertical hitSlop
+// reaches the 44pt WCAG touch-target floor; the px/min scale is preserved for
+// any set ≥19 min (everything shorter snaps up to this floor).
+const MIN_BLOCK_H = 28;
 const GUTTER_W = 44;
 const STAGE_HEADER_H = 40;
 
@@ -151,10 +155,19 @@ function StageColumn({
           let endMin = timeToMinutes(s.endTime);
           if (endMin <= startMin) endMin += 24 * 60;
           const top = ((startMin - timeBounds.minMin) / SLOT_MINUTES) * ROW_HEIGHT;
-          const height = Math.max(ROW_HEIGHT, ((endMin - startMin) / SLOT_MINUTES) * ROW_HEIGHT);
+          // DC11 — enforce a 28px visual floor so block (28) + hitSlop (8+8)
+          // reaches the 44pt WCAG 2.5.5/2.5.8 touch target even for back-to-back
+          // 15-min sets; the px/min time scale still holds for sets ≥19 min.
+          const rawHeight = Math.max(ROW_HEIGHT, ((endMin - startMin) / SLOT_MINUTES) * ROW_HEIGHT);
+          const height = Math.max(MIN_BLOCK_H, rawHeight - 4);
           const myPick = getMyPick(s.id);
           const conflict = conflictIds.has(s.id);
           const name = artistDisplayName(s, b2bSeparator);
+          // F49 — express the priority tier on the block: thicken + tint the
+          // left rail by must/want/maybe, mirroring web's P1-3. A conflict keeps
+          // its distinct coral border (incl. the left rail) and the warning icon,
+          // so it always wins visually over the priority tint.
+          const pickColor = myPick ? t.colors.priority[myPick === 'want-to-see' ? 'want' : myPick] : null;
           return (
             <TouchableOpacity
               key={s.id}
@@ -162,18 +175,19 @@ function StageColumn({
                 styles.setBlock,
                 {
                   top: top + 2,
-                  height: height - 4,
+                  height,
                   left: GUTTER_W + 2,
                   right: 2,
-                  borderLeftColor: stageColor,
+                  borderLeftColor: pickColor ?? stageColor,
+                  borderLeftWidth: myPick ? 4 : 3,
                   backgroundColor: myPick ? t.colors.bg.hover : t.colors.bg.card,
                 },
-                conflict && { borderColor: t.colors.accent.coral },
+                conflict && { borderColor: t.colors.accent.coral, borderLeftColor: t.colors.accent.coral },
               ]}
               onPress={() => onSetPress(s)}
               activeOpacity={0.7}
-              // Short slots render as little as ~18px tall; expand the touch
-              // area so a brief set isn't hard to tap (WCAG 2.5.5).
+              // Short slots render at the MIN_BLOCK_H floor (28px); the 8+8
+              // vertical hitSlop lifts the effective target to 44pt (WCAG 2.5.5).
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               accessibilityRole="button"
               accessibilityLabel={`${name}, ${stage.name}, ${formatTime(s.startTime)} to ${formatTime(s.endTime)}`}
@@ -408,13 +422,16 @@ export default function TimelineView({
 
       {nowIndicator !== null ? (
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: t.colors.accent.coral }]}
+          // DC19 — aqua per the accent rule (coral is reserved for danger/SOS);
+          // jumping to now is a primary navigation action. Dark ink on the aqua
+          // fill keeps AA contrast (text.onLightAccent).
+          style={[styles.fab, { backgroundColor: t.colors.accent.aqua }]}
           onPress={scrollToNow}
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel="Scroll to current time"
         >
-          <Ionicons name="musical-notes" size={16} color={t.colors.text.onAccent} />
+          <Ionicons name="musical-notes" size={16} color={t.colors.text.onLightAccent} />
           <Text style={styles.fabText}>Now</Text>
         </TouchableOpacity>
       ) : null}
@@ -561,7 +578,7 @@ const useStyles = makeStyles((t) => ({
   },
   fabText: {
     ...typeStyle('label'),
-    color: t.colors.text.onAccent,
+    color: t.colors.text.onLightAccent,
     fontWeight: '700',
   },
 }));

@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -15,9 +14,115 @@ import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@festie/shared/stores';
-import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
+import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
+
+const useStyles = makeStyles((t) => ({
+  container: {
+    flex: 1,
+    backgroundColor: t.colors.bg.primary,
+  },
+  inner: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: t.spacing[6],
+  },
+  title: {
+    // display-lg = Syncopate 700 — brand wordmark, first impression screen.
+    ...typeStyle('display-lg'),
+    color: t.colors.text.primary,
+    textAlign: 'center',
+    marginBottom: t.spacing[1],
+  },
+  subtitle: {
+    ...typeStyle('body'),
+    color: t.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: t.spacing[8],
+  },
+  error: {
+    ...typeStyle('label'),
+    color: t.colors.text.danger,
+    textAlign: 'center',
+    marginBottom: t.spacing[4],
+  },
+  input: {
+    backgroundColor: t.colors.bg.input,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    borderRadius: t.radii.default,
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+    marginBottom: t.spacing[3],
+  },
+  inputFocused: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
+  },
+  passwordRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: t.colors.bg.input,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    borderRadius: t.radii.default,
+    marginBottom: t.spacing[3],
+    paddingRight: t.spacing[2],
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+  },
+  eyeButton: {
+    paddingVertical: t.spacing[2],
+    paddingHorizontal: t.spacing[3],
+  },
+  guestButton: {
+    marginTop: t.spacing[5],
+    alignItems: 'center' as const,
+  },
+  button: {
+    // PRIMARY CTA = aqua fill + dark ink per the accent rule (coral is reserved
+    // for danger/SOS only). Sign-in is the screen's primary action.
+    backgroundColor: t.colors.accent.aqua,
+    borderRadius: t.radii.default,
+    paddingVertical: t.spacing[3],
+    alignItems: 'center' as const,
+    marginTop: t.spacing[2],
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    ...typeStyle('label'),
+    fontWeight: '600' as const,
+    color: t.colors.text.onLightAccent,
+  },
+  forgotButton: {
+    marginTop: t.spacing[4],
+    alignItems: 'center' as const,
+  },
+  linkButton: {
+    marginTop: t.spacing[5],
+    alignItems: 'center' as const,
+  },
+  linkText: {
+    ...typeStyle('label'),
+    color: t.colors.text.secondary,
+  },
+  linkTextAccent: {
+    color: t.colors.accent.aqua,
+    fontWeight: '600' as const,
+  },
+}));
 
 export default function LoginScreen() {
+  const styles = useStyles();
+  const t = useTokens();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [username, setUsername] = useState('');
@@ -54,7 +159,7 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.inner,
-          { paddingTop: insets.top + spacing[6], paddingBottom: insets.bottom + spacing[6] },
+          { paddingTop: insets.top + t.spacing[6], paddingBottom: insets.bottom + t.spacing[6] },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -72,7 +177,7 @@ export default function LoginScreen() {
           testID="login-username-input"
           style={[styles.input, focusedField === 'username' && styles.inputFocused]}
           placeholder="Username"
-          placeholderTextColor={colors.text.placeholder}
+          placeholderTextColor={t.colors.text.placeholder}
           accessibilityLabel="Username"
           value={username}
           onChangeText={setUsername}
@@ -91,7 +196,7 @@ export default function LoginScreen() {
             ref={passwordRef}
             style={styles.passwordInput}
             placeholder="Password"
-            placeholderTextColor={colors.text.placeholder}
+            placeholderTextColor={t.colors.text.placeholder}
             accessibilityLabel="Password"
             value={password}
             onChangeText={setPassword}
@@ -109,7 +214,7 @@ export default function LoginScreen() {
             accessibilityRole="button"
             accessibilityLabel={showPw ? 'Hide password' : 'Show password'}
           >
-            <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.text.secondary} />
+            <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={t.colors.text.secondary} />
           </TouchableOpacity>
         </View>
 
@@ -123,7 +228,7 @@ export default function LoginScreen() {
           accessibilityState={{ disabled: isLoading, busy: isLoading }}
         >
           {isLoading ? (
-            <ActivityIndicator color={colors.text.onLightAccent} />
+            <ActivityIndicator color={t.colors.text.onLightAccent} />
           ) : (
             <Text style={styles.buttonText}>Sign in</Text>
           )}
@@ -159,107 +264,3 @@ export default function LoginScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg.primary,
-  },
-  inner: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing[6],
-  },
-  title: {
-    fontSize: fontSize[32],
-    fontWeight: '700',
-    color: colors.text.primary,
-    textAlign: 'center',
-    marginBottom: spacing[1],
-  },
-  subtitle: {
-    fontSize: fontSize[16],
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing[8],
-  },
-  error: {
-    fontSize: fontSize[14],
-    color: colors.text.danger,
-    textAlign: 'center',
-    marginBottom: spacing[4],
-  },
-  input: {
-    backgroundColor: colors.bg.input,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radii.default,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    fontSize: fontSize[16],
-    color: colors.text.primary,
-    marginBottom: spacing[3],
-  },
-  inputFocused: {
-    borderColor: colors.accent.aqua,
-    backgroundColor: colors.ring.aqua,
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.bg.input,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radii.default,
-    marginBottom: spacing[3],
-    paddingRight: spacing[2],
-  },
-  passwordInput: {
-    flex: 1,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    fontSize: fontSize[16],
-    color: colors.text.primary,
-  },
-  eyeButton: {
-    paddingVertical: spacing[2],
-    paddingHorizontal: spacing[3],
-  },
-  guestButton: {
-    marginTop: spacing[5],
-    alignItems: 'center',
-  },
-  button: {
-    // PRIMARY CTA = aqua fill + dark ink per the accent rule (coral is reserved
-    // for danger/SOS only). Sign-in is the screen's primary action.
-    backgroundColor: colors.accent.aqua,
-    borderRadius: radii.default,
-    paddingVertical: spacing[3],
-    alignItems: 'center',
-    marginTop: spacing[2],
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    fontSize: fontSize[16],
-    fontWeight: '600',
-    color: colors.text.onLightAccent,
-  },
-  forgotButton: {
-    marginTop: spacing[4],
-    alignItems: 'center',
-  },
-  linkButton: {
-    marginTop: spacing[5],
-    alignItems: 'center',
-  },
-  linkText: {
-    fontSize: fontSize[14],
-    color: colors.text.secondary,
-  },
-  linkTextAccent: {
-    color: colors.accent.aqua,
-    fontWeight: '600',
-  },
-});

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { View, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../hooks/useTokens';
 
 interface ScreenHeaderProps {
   /** Primary heading text. */
@@ -18,6 +18,24 @@ interface ScreenHeaderProps {
 /**
  * Standard screen header: optional leading icon, a title with optional
  * subtitle, and an optional trailing slot. Purely presentational.
+ *
+ * ## Adoption rule
+ * Use ScreenHeader on **tab-root screens only** (Schedule, Picks, Crew,
+ * Account). Pushed non-sheet screens (map, compass, find, plan-share,
+ * crew-compare, festival-mode, wrap, crew-plan, privacy) use the native Stack
+ * header (`Stack.Screen options={{ headerShown: true, title: '...' }}`) so the
+ * platform back chevron is always visible — the root Stack in `_layout.tsx`
+ * already styles those headers dark to match the app.
+ *
+ * ## Documented exceptions (do NOT migrate these to ScreenHeader)
+ * - **Auth hero screens** (`(auth)/login`, `register`, `forgot-password`,
+ *   `reset-password`): full-bleed hero layout with branding; the inset is
+ *   consumed inline alongside the auth illustration — no back affordance is
+ *   needed because auth screens are never pushed onto a stack.
+ * - **`set/[setId]` formSheet**: rendered as a native form sheet
+ *   (`presentation: 'formSheet'`) with a real grabber + detents; safe-area
+ *   geometry is different from a card push and the sheet is dismissed by
+ *   swipe-down, not a back chevron.
  */
 export default function ScreenHeader({ title, subtitle, right, icon }: ScreenHeaderProps) {
   const t = useTokens();
@@ -39,12 +57,15 @@ export default function ScreenHeader({ title, subtitle, right, icon }: ScreenHea
             24px Syncopate display face, so medium/long festival & crew names
             (e.g. "North Coast Festival 2026") used to clip to "…". Single-line
             + adjustsFontSizeToFit is the reliable RN path (the title column is
-            width-bounded by titleBlock flex:1). */}
+            width-bounded by titleBlock flex:1).
+            maxFontSizeMultiplier caps Dynamic Type at 1.4× so the heading
+            doesn't overflow the header row at AX sizes; body/notes text in
+            the screen body is left uncapped to scale fully (F12). */}
         <Text
           style={styles.title}
           numberOfLines={1}
           adjustsFontSizeToFit
-          minimumFontScale={0.7}
+          maxFontSizeMultiplier={MAX_FONT_SCALE}
           accessibilityRole="header"
         >
           {title}

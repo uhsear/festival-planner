@@ -95,6 +95,17 @@ const CRITICAL_CHANNEL: Record<string, { channelId: string; category: string }> 
   crew_sos: { channelId: 'sos', category: 'CREW_SOS' },
 };
 
+/**
+ * DC7: Non-critical type → Android channel mapping.
+ * crew_* types route to the 'crew' channel (DEFAULT importance) so users can
+ * silence crew pings without losing their 'set-reminders' (HIGH) channel.
+ * Types not listed here fall back to 'updates' (the default in buildFcmMessage).
+ */
+const TYPE_CHANNEL_MAP: Record<string, string> = {
+  crew_update: 'crew',
+  crew_reformed: 'crew',
+};
+
 /** Check if a stale token error code signals the device is no longer registered */
 function isStaleTokenError(code: any) {
   return code.includes('not-registered') || code.includes('invalid-registration') || code.includes('invalid-argument');
@@ -358,7 +369,10 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
 
     const { safeTitle, safeBody, safeData } = enforcePayloadLimits(title, body, data);
     const isCritical = CRITICAL_TYPES.has(type);
-    const { channelId = 'updates', category = 'CREW_UPDATE' } = CRITICAL_CHANNEL[type] || {};
+    // DC7: critical types override channel; non-critical types may have a per-type
+    // channel (e.g. crew_* → 'crew'); everything else falls back to 'updates'.
+    const { channelId: criticalChannelId, category = 'CREW_UPDATE' } = CRITICAL_CHANNEL[type] || {};
+    const channelId = criticalChannelId ?? TYPE_CHANNEL_MAP[type] ?? 'updates';
     const prefs = await stores.notificationPrefs.get(userId);
     const prefKey = PREF_MAP[type];
     // Safety-critical types (crew_sos) bypass the per-type opt-out and the DND

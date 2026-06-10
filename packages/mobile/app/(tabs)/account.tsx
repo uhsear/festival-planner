@@ -95,7 +95,7 @@ export default function AccountScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScreenHeader title="Account" subtitle="Settings & preferences" icon="person-circle-outline" />
 
       <ScrollView

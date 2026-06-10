@@ -7,6 +7,7 @@ import { etaMinutes, formatStaleness } from '@festie/shared/utils';
 import type { CrewMemberStatus } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
+import Button from './Button';
 
 interface CrewStatusProps {
   crewId: string;
@@ -62,6 +63,7 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [focusedField, setFocusedField] = useState<'eta' | 'note' | null>(null);
 
   // Load once per crew. Offline this resolves from the persisted read-cache.
   useEffect(() => {
@@ -266,59 +268,58 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
 
           {/* Location capture → geo ETA, or manual estimate. */}
           <View style={styles.captureRow}>
-            <TouchableOpacity
-              style={[styles.captureButton, locating && styles.buttonDisabled]}
+            <Button
+              variant="utility"
+              size="sm"
+              icon="locate-outline"
+              label="Use my location"
+              loadingLabel="Locating…"
+              loading={locating}
               onPress={captureLocation}
-              disabled={locating}
-              activeOpacity={0.8}
-              accessibilityRole="button"
               accessibilityLabel="Use my location for ETA"
-            >
-              <Ionicons name="locate-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.captureButtonText}>{locating ? 'Locating…' : 'Use my location'}</Text>
-            </TouchableOpacity>
+            />
             {computedEta != null ? (
               <Text style={styles.etaText}>ETA ~{computedEta} min</Text>
             ) : (
               <TextInput
-                style={styles.etaInput}
+                style={[styles.etaInput, focusedField === 'eta' && styles.inputFocused]}
                 placeholder="ETA min"
                 placeholderTextColor={t.colors.text.placeholder}
                 keyboardType="number-pad"
                 value={manualEta}
                 onChangeText={setManualEta}
                 maxLength={4}
+                onFocus={() => setFocusedField('eta')}
+                onBlur={() => setFocusedField((f) => (f === 'eta' ? null : f))}
                 accessibilityLabel="ETA in minutes"
               />
             )}
           </View>
 
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === 'note' && styles.inputFocused]}
             placeholder="Note (optional, e.g. grabbing water first)"
             placeholderTextColor={t.colors.text.placeholder}
             value={note}
             onChangeText={setNote}
             maxLength={280}
+            onFocus={() => setFocusedField('note')}
+            onBlur={() => setFocusedField((f) => (f === 'note' ? null : f))}
             accessibilityLabel="Status note"
           />
 
-          <TouchableOpacity
-            style={[styles.primaryButton, busy && styles.buttonDisabled]}
+          <Button
+            label={
+              target && status === 'on-my-way'
+                ? `On my way to ${target.label}${effectiveEta != null ? ` · ETA ~${Math.round(effectiveEta)} min` : ''}`
+                : 'Share status'
+            }
+            loading={busy}
+            loadingLabel="Sharing…"
+            numberOfLines={2}
             onPress={submit}
-            disabled={busy}
-            activeOpacity={0.8}
-            accessibilityRole="button"
             accessibilityLabel="Share status"
-          >
-            <Text style={styles.primaryButtonText}>
-              {busy
-                ? 'Sharing…'
-                : target && status === 'on-my-way'
-                  ? `On my way to ${target.label}${effectiveEta != null ? ` · ETA ~${Math.round(effectiveEta)} min` : ''}`
-                  : 'Share status'}
-            </Text>
-          </TouchableOpacity>
+          />
           <Text style={styles.sendHint}>Sent when signal returns.</Text>
         </View>
       ) : null}
@@ -397,8 +398,10 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.primary,
   },
   headerButton: {
+    justifyContent: 'center',
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[2],
+    minHeight: 44, // WCAG 2.5.5 / Apple HIG minimum touch target
     borderRadius: t.radii.pill,
     borderWidth: 1,
     borderColor: t.colors.border.default,
@@ -493,21 +496,6 @@ const useStyles = makeStyles((t) => ({
     flexWrap: 'wrap',
     gap: t.spacing[2],
   },
-  captureButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: t.spacing[2],
-    paddingHorizontal: t.spacing[3],
-    paddingVertical: t.spacing[2],
-    borderRadius: t.radii.default,
-    borderWidth: 1,
-    borderColor: t.colors.border.default,
-    backgroundColor: t.colors.bg.input,
-  },
-  captureButtonText: {
-    ...typeStyle('caption'),
-    color: t.colors.text.primary,
-  },
   etaText: {
     ...typeStyle('caption'),
     color: t.colors.accent.aqua,
@@ -533,18 +521,9 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.primary,
   },
-  primaryButton: {
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    ...typeStyle('label'),
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    color: t.colors.text.onLightAccent,
-    textAlign: 'center',
+  inputFocused: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
   },
   sendHint: {
     ...typeStyle('micro'),

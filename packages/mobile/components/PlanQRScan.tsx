@@ -301,14 +301,19 @@ const useStyles = makeStyles((t) => ({
     width: 240,
     height: 240,
     borderWidth: 3,
-    borderColor: '#FFFFFF',
+    // overlay.hi is rgba(255,255,255,0.95) — near-white, intentional camera
+    // contrast; same semantic as onAccent for non-text surfaces (F42).
+    borderColor: t.colors.overlay.hi,
     borderRadius: t.radii.default,
     backgroundColor: 'transparent',
   },
   hint: {
     ...typeStyle('label'),
-    color: '#FFFFFF',
-    backgroundColor: 'rgba(8,8,16,0.8)',
+    // onAccent (#fff) gives the text full contrast on the camera feed (F42).
+    color: t.colors.text.onAccent,
+    // shade[10] = rgba(0,0,0,0.75) — dark-app scrim; matches OfflineBanner
+    // shade[9] pattern for camera/overlay surfaces (F42).
+    backgroundColor: t.colors.shade[10],
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[2],
     borderRadius: t.radii.pill,

@@ -63,11 +63,7 @@ export default function CrewActivity({ crewId }: CrewActivityProps) {
   }, [crewId, loadActivity]);
 
   if (activity.length === 0) {
-    return (
-      <Text style={styles.empty}>
-        No activity yet — crew events will appear here as they happen.
-      </Text>
-    );
+    return <Text style={styles.empty}>No activity yet — crew events will appear here as they happen.</Text>;
   }
 
   return (
@@ -81,11 +77,8 @@ export default function CrewActivity({ crewId }: CrewActivityProps) {
             </View>
             <View style={styles.info}>
               <Text style={styles.line}>
-                <Text style={styles.name}>{it.username || 'Someone'}</Text>{' '}
-                <Text style={styles.verb}>{verb}</Text>
-                {it.detail ? (
-                  <Text style={styles.verb}>: {it.detail}</Text>
-                ) : null}
+                <Text style={styles.name}>{it.username || 'Someone'}</Text> <Text style={styles.verb}>{verb}</Text>
+                {it.detail ? <Text style={styles.verb}>: {it.detail}</Text> : null}
               </Text>
               <Text style={styles.time}>{timeAgo(it.created_at)}</Text>
             </View>
@@ -119,7 +112,10 @@ const useStyles = makeStyles((t) => ({
   avatar: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    // Circular: half of width/height = 16. Nearest token is radii.lg (20),
+    // but a true circle needs sz/2 — use radii.pill (999) so it stays circular
+    // regardless of content (F48 — no off-scale raw radius literals).
+    borderRadius: t.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: t.colors.accent.aqua,

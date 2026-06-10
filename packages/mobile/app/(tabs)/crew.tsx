@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/stores';
 import { useCrew } from '@festie/shared/hooks';
 import { mapErrorToUserMessage } from '@festie/shared/services';
@@ -140,6 +140,10 @@ export default function CrewScreen() {
   // P1-2: which crew section tab is showing. Members / Plan / Logistics / Money.
   const [crewTab, setCrewTab] = useState<CrewTabKey>('members');
 
+  // DC2: a raise-SOS affordance on /find and /map deep-links here with
+  // ?tab=logistics so the user lands on the Find pane where CrewSos lives.
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+
   // Load the user's crews once on mount.
   useEffect(() => {
     if (user && crews.length === 0) {
@@ -161,6 +165,15 @@ export default function CrewScreen() {
     setForceAddId('');
     setCrewTab('members');
   }, [activeCrew?.id]);
+
+  // DC2: honor a deep-linked ?tab=... (e.g. the find/map SOS shortcut lands on
+  // the Find pane). Runs after the crew-change reset since it keys on the param.
+  const TAB_KEYS: readonly CrewTabKey[] = ['members', 'plan', 'logistics', 'money'];
+  useEffect(() => {
+    if (tabParam && (TAB_KEYS as readonly string[]).includes(tabParam)) {
+      setCrewTab(tabParam as CrewTabKey);
+    }
+  }, [tabParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load polls + meeting points for the active crew (best-effort; errors land
   // in the shared store and surface in the header error line).
@@ -228,7 +241,9 @@ export default function CrewScreen() {
   };
 
   const handleShareInvite = useCallback((code: string, crewName: string) => {
-    const url = `https://festie.us/api/v1/crews/join/${code}`;
+    // Friendly join link (DC15): festie.us/join/CODE 302-redirects into the app
+    // (routes/pages.ts) instead of exposing the machiney /api/v1/crews/join URL.
+    const url = `https://festie.us/join/${code}`;
     Share.share({
       message: `Join "${crewName}" on Festie — tap to join: ${url}`,
       url,
@@ -911,7 +926,8 @@ export default function CrewScreen() {
                         </Text>
                       </View>
                       <View style={styles.overlapBadge}>
-                        <Ionicons name="people" size={13} color={t.colors.accent.aqua} />
+                        {/* DC25: 13 is off-grid; snap to iconSize.xs (12). */}
+                        <Ionicons name="people" size={12} color={t.colors.accent.aqua} />
                         <Text style={styles.overlapBadgeText}>{o.memberCount}</Text>
                       </View>
                     </View>
@@ -944,6 +960,14 @@ export default function CrewScreen() {
             ) : null}
           </View>
           <CrewPolls crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
+
+          {/* DC4: Packing + Rides are pre-festival planning, so they live in
+              Plan (moved out of the mid-festival "Find" cluster). */}
+          <SectionLabel>Packing</SectionLabel>
+          <CrewPacking crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
+
+          <SectionLabel>Rides</SectionLabel>
+          <CrewRides crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
         </ScrollView>
       ) : crewTab === 'logistics' ? (
         <ScrollView
@@ -982,10 +1006,9 @@ export default function CrewScreen() {
             <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
           </TouchableOpacity>
 
-          <CrewHomeBase crewId={crew.id} location={crew.homeBaseLocation} time={crew.homeBaseTime} isOwner={isOwner} />
-
-          <CrewPhotoLink crewId={crew.id} photoAlbumUrl={crew.photoAlbumUrl} />
-
+          {/* Safety cluster leads (DC4): mid-festival find/SOS is what a user
+              opens this tab for, so it sits above the ambient home-base/photo
+              rows instead of below the fold. */}
           <SectionLabel>Live location & SOS</SectionLabel>
           <View style={styles.liveSafetyBlock}>
             <CrewLiveLocation crewId={crew.id} />
@@ -996,11 +1019,9 @@ export default function CrewScreen() {
           <CrewStatus crewId={crew.id} currentUserId={user.id} />
           <CrewMeetingPoints crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
 
-          <SectionLabel>Packing</SectionLabel>
-          <CrewPacking crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
+          <CrewHomeBase crewId={crew.id} location={crew.homeBaseLocation} time={crew.homeBaseTime} isOwner={isOwner} />
 
-          <SectionLabel>Rides</SectionLabel>
-          <CrewRides crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
+          <CrewPhotoLink crewId={crew.id} photoAlbumUrl={crew.photoAlbumUrl} />
 
           <SectionLabel>Activity</SectionLabel>
           <CrewActivity crewId={crew.id} />
@@ -1151,6 +1172,9 @@ const useStyles = makeStyles((t) => ({
   crewChip: {
     paddingHorizontal: t.spacing[4],
     paddingVertical: t.spacing[2],
+    // WCAG 2.5.5 44pt floor (F43) — matches dayChip/filterChip/iconButton.
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: t.radii.default,
     borderWidth: 1,
     borderColor: t.colors.border.default,

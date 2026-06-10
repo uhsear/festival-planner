@@ -2,10 +2,10 @@ import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '@festie/shared/tokens';
 
 /**
- * Poster palette. Hardcoded to match the token palette for offline poster
- * rendering: the off-screen capture must produce identical pixels on every
- * device, but the values are sourced from `@festie/shared/tokens` (pure data,
- * zero runtime deps) so web and poster stay in sync if the palette evolves.
+ * Poster palette — sourced from @festie/shared/tokens (pure data, zero runtime
+ * deps) so web and poster stay in sync if the palette evolves. Both sibling
+ * posters (WrapPoster + CrewWrapPoster) read from this same source (DC10 Option
+ * B): palette from tokens, white-overlay chrome via colors.overlay.
  */
 const POSTER = {
   bg: colors.bg.primary, // #080810
@@ -106,13 +106,17 @@ const s = StyleSheet.create({
   },
   header: { alignItems: 'center' },
   wordmark: {
+    // F25: Syncopate_700Bold for the FESTIE wordmark — matches web WrapPoster.
+    // '900' was inert on native (no loaded cut above 700Bold); drop it.
+    fontFamily: 'Syncopate_700Bold',
     fontSize: 96,
-    fontWeight: '900',
     letterSpacing: 8,
     color: POSTER.wordmark,
     lineHeight: 104,
   },
   kicker: {
+    // F25: Space Grotesk body face for sub-headings.
+    fontFamily: 'SpaceGrotesk_400Regular',
     fontSize: 32,
     color: POSTER.text,
     opacity: 0.7,
@@ -120,14 +124,17 @@ const s = StyleSheet.create({
     letterSpacing: 3,
   },
   festival: {
+    // F25: SpaceGrotesk_700Bold for festival name.
+    fontFamily: 'SpaceGrotesk_700Bold',
     fontSize: 56,
-    fontWeight: '700',
     color: POSTER.text,
     marginTop: 18,
     textAlign: 'center',
   },
   topWrap: { marginTop: 90, flex: 1 },
   topHeading: {
+    // F25: caps label in Space Grotesk Medium.
+    fontFamily: 'SpaceGrotesk_500Medium',
     fontSize: 28,
     letterSpacing: 4,
     color: POSTER.textMuted,
@@ -138,13 +145,33 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 24,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    // DC10: overlay[4] = rgba(255,255,255,0.08) — token-sourced divider.
+    borderBottomColor: colors.overlay[4],
   },
   topEmoji: { fontSize: 64, width: 96, textAlign: 'center' },
   topInfo: { flex: 1, paddingHorizontal: 24 },
-  topArtist: { fontSize: 40, fontWeight: '700', color: POSTER.text },
-  topStage: { fontSize: 24, color: POSTER.text, opacity: 0.55, marginTop: 4 },
-  topRank: { fontSize: 32, fontWeight: '800', color: POSTER.rank, width: 100, textAlign: 'right' },
+  topArtist: {
+    // F25: SpaceGrotesk_700Bold for artist names.
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontSize: 40,
+    color: POSTER.text,
+  },
+  topStage: {
+    // F25: Space Grotesk Regular for stage sub-line.
+    fontFamily: 'SpaceGrotesk_400Regular',
+    fontSize: 24,
+    color: POSTER.text,
+    opacity: 0.55,
+    marginTop: 4,
+  },
+  topRank: {
+    // F25: SpaceGrotesk_700Bold for rank number — '800' was inert, clamp to 700.
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontSize: 32,
+    color: POSTER.rank,
+    width: 100,
+    textAlign: 'right',
+  },
   statsGrid: {
     marginTop: 60,
     flexDirection: 'row',
@@ -152,16 +179,36 @@ const s = StyleSheet.create({
   },
   statCell: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 24,
+    // DC10: overlay[3] = rgba(255,255,255,0.06) — aligned with CrewWrapPoster
+    // (which uses overlay[1]); split the diff at overlay[2] = 0.04 to keep
+    // stat cells visually consistent across both posters.
+    backgroundColor: colors.overlay[2],
+    // F48: 24 is off-scale; nearest token is radii.lg (20). Poster crop does
+    // not require the extra 4px — snap to token.
+    borderRadius: 20, // radii.lg — StyleSheet.create can't reference tokens here
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    // DC10: overlay[4] = rgba(255,255,255,0.08) — token border.
+    borderColor: colors.overlay[4],
     paddingVertical: 28,
     alignItems: 'center',
   },
-  statValue: { fontSize: 56, fontWeight: '800', color: POSTER.wordmark, lineHeight: 60 },
-  statLabel: { fontSize: 20, color: POSTER.text, opacity: 0.65, marginTop: 8, letterSpacing: 3 },
+  statValue: {
+    // F25: SpaceGrotesk_700Bold — '800' was inert, no loaded cut above 700Bold.
+    fontFamily: 'SpaceGrotesk_700Bold',
+    fontSize: 56,
+    color: POSTER.wordmark,
+    lineHeight: 60,
+  },
+  statLabel: {
+    fontFamily: 'SpaceGrotesk_400Regular',
+    fontSize: 20,
+    color: POSTER.text,
+    opacity: 0.65,
+    marginTop: 8,
+    letterSpacing: 3,
+  },
   footer: {
+    fontFamily: 'SpaceGrotesk_400Regular',
     textAlign: 'center',
     marginTop: 60,
     fontSize: 28,

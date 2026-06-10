@@ -144,9 +144,10 @@ export function useLocalReminders(): void {
 }
 
 /**
- * Schedule a single reminder. On Android we route to the existing high-importance
- * 'updates' channel (created by useMobilePush) so local reminders match the
- * importance of FCM set reminders.
+ * Schedule a single reminder. On Android we route to the 'set-reminders'
+ * channel (HIGH importance, created by useMobilePush — DC7 split) so local
+ * alarms land in the dedicated set-reminders channel that users can tune
+ * independently from crew updates.
  */
 async function scheduleReminder(entry: ReminderPlanEntry, b2bSeparator?: string, timeZone?: string): Promise<void> {
   const name = artistDisplayName(entry.set, b2bSeparator) || 'Your set';
@@ -175,9 +176,9 @@ async function scheduleReminder(entry: ReminderPlanEntry, b2bSeparator?: string,
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: new Date(entry.fireAtMs),
-        // Android-only; routes to the existing HIGH-importance 'updates' channel
-        // (created by useMobilePush). Ignored on iOS.
-        channelId: 'updates',
+        // Android-only; routes to the HIGH-importance 'set-reminders' channel
+        // (DC7 split, created by useMobilePush). Ignored on iOS.
+        channelId: 'set-reminders',
       },
     });
   } catch (e) {

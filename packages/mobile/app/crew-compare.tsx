@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/stores';
@@ -53,14 +53,27 @@ export default function CrewCompareScreen() {
   const { getCrewScopedProfiles } = useCrew();
   const { getDays, getStageColor } = useFestival();
 
-  // Refresh crew overlap once on mount (drives the "going" count + keeps the
-  // crew picks fresh). The grid itself is derived from picks, not this call.
-  useEffect(() => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Refresh crew overlap (drives the "going" count + keeps the crew picks/profiles
+  // fresh). The grid is derived from those picks. Reused by mount + pull-to-refresh
+  // + the error retry (F41).
+  const refresh = useCallback(async () => {
     const festivalId = activeCrew?.festivalId ?? currentFestival?.id;
-    if (activeCrew?.id && festivalId) {
-      loadOverlap(activeCrew.id, festivalId).catch(() => {});
+    if (!activeCrew?.id || !festivalId) return;
+    setRefreshing(true);
+    try {
+      await loadOverlap(activeCrew.id, festivalId);
+    } catch {
+      // Error is surfaced via the crew store's `error`.
+    } finally {
+      setRefreshing(false);
     }
   }, [activeCrew?.id, activeCrew?.festivalId, currentFestival?.id, loadOverlap]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   const days = useMemo(() => getDays(), [getDays]);
 
@@ -127,7 +140,16 @@ export default function CrewCompareScreen() {
 
   return (
     <Wrapper>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <TouchableOpacity
+          onPress={() => void refresh()}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={`${error}. Tap to retry.`}
+        >
+          <Text style={styles.error}>{error} · Tap to retry</Text>
+        </TouchableOpacity>
+      ) : null}
 
       {/* Day selector */}
       {days.length > 1 ? (
@@ -156,11 +178,25 @@ export default function CrewCompareScreen() {
       ) : null}
 
       {rows.length === 0 ? (
-        <EmptyState
-          icon="calendar-outline"
-          title="No picks on this day yet"
-          message="Switch days or have your crew add picks to see the overlap."
-        />
+        // Refreshable empty state (F41): a crewmate's picks may still be syncing,
+        // so let the user pull to re-fetch without leaving the screen.
+        <ScrollView
+          contentContainerStyle={styles.flex1}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void refresh()}
+              tintColor={t.colors.accent.aqua}
+              colors={[t.colors.accent.aqua]}
+            />
+          }
+        >
+          <EmptyState
+            icon="calendar-outline"
+            title="No picks on this day yet"
+            message="Switch days or have your crew add picks to see the overlap. Pull to refresh."
+          />
+        </ScrollView>
       ) : (
         // flex:1 bounds the horizontal ScrollView's height to the screen so the
         // nested vertical FlatList below gets a real viewport (its rows scroll)
@@ -193,6 +229,14 @@ export default function CrewCompareScreen() {
               style={styles.flex1}
               data={rows}
               keyExtractor={(s) => s.id}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => void refresh()}
+                  tintColor={t.colors.accent.aqua}
+                  colors={[t.colors.accent.aqua]}
+                />
+              }
               contentContainerStyle={{
                 paddingBottom: Math.max(t.spacing[4], insets.bottom + t.spacing[2]),
               }}
@@ -304,7 +348,10 @@ const useStyles = makeStyles((t) => ({
   },
   dayChip: {
     paddingHorizontal: t.spacing[4],
-    paddingVertical: t.spacing[2],
+    paddingVertical: t.spacing[3],
+    // WCAG 2.5.5 / 2.5.8 minimum 44x44px (F36) — matches (tabs)/index.tsx dayChip.
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: t.radii.pill,
     borderWidth: 1,
     borderColor: t.colors.border.default,

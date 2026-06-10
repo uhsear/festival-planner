@@ -6,6 +6,7 @@ import type { CrewExpense, CrewMember, CrewSettlement } from '@festie/shared/typ
 import { venmoLink, cashAppLink, payPalLink } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
+import Button from './Button';
 
 interface CrewExpensesProps {
   crewId: string;
@@ -457,16 +458,14 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
               Planned expense <Text style={styles.splitHint}>(budget only — won't affect balances)</Text>
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.primaryButton, (busy || !canAdd) && styles.buttonDisabled]}
+          <Button
+            label="Add"
+            loading={busy}
+            loadingLabel="Adding…"
+            disabled={!canAdd}
             onPress={handleAdd}
-            disabled={busy || !canAdd}
-            activeOpacity={0.8}
-            accessibilityRole="button"
             accessibilityLabel="Add expense"
-          >
-            <Text style={styles.primaryButtonText}>{busy ? 'Adding…' : 'Add'}</Text>
-          </TouchableOpacity>
+          />
         </View>
       ) : (
         <TouchableOpacity
@@ -789,21 +788,6 @@ const useStyles = makeStyles((t) => ({
   errorText: {
     ...typeStyle('micro'),
     color: t.colors.text.danger,
-  },
-  primaryButton: {
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    ...typeStyle('label'),
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    color: t.colors.text.onLightAccent,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
   },
   iconButton: {
     padding: t.spacing[1],

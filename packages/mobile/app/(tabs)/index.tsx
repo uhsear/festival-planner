@@ -33,9 +33,9 @@ import LiveDot from '../../components/LiveDot';
 import NowNextStrip from '../../components/NowNextStrip';
 import PhaseHomeActions from '../../components/PhaseHomeActions';
 import FestivalList from '../../components/FestivalList';
+import FreshnessChip from '../../components/FreshnessChip';
 import SetCardMobile from '../../components/SetCardMobile';
 import EmptyState from '../../components/EmptyState';
-import LoadingState from '../../components/LoadingState';
 import ScreenHeader from '../../components/ScreenHeader';
 import TimelineView from '../../components/TimelineView';
 import TBASection from '../../components/TBASection';
@@ -116,6 +116,13 @@ export default function TimelineScreen() {
   const [search, setSearch] = useState(searchQuery);
   // "My picks only" filter — on-site you mostly want to read your own day.
   const [onlyMine, setOnlyMine] = useState(false);
+  // DC1 — search bar and the stage/my-picks + phase-action setup chrome fold
+  // behind a compact icon row so the timeline owns the viewport on small
+  // phones. Day chips stay always visible (the one mid-festival control). Both
+  // panels auto-open when they carry active state (a live search / a stage or
+  // my-picks filter) so a user can't lose track of a filter that's hiding rows.
+  const [showSearch, setShowSearch] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   // Recompute on every render (cheap) so the "today" dot updates at midnight
   // without needing an explicit timer. The component re-renders on store
   // updates, search keystrokes, etc., so this stays current in practice.
@@ -381,6 +388,27 @@ export default function TimelineScreen() {
       />
     ) : null;
 
+  // F2 — when the selected festival failed to load (flaky wifi refresh, cold
+  // restore, server 500) `sets` stays empty; surface the real error + a retry
+  // instead of the misleading "No sets for this day" empty state. Mirrors the
+  // Picks tab's error ladder. Only kicks in when we genuinely have no sets to
+  // show — a populated cache still renders normally even if a refetch errored.
+  const scheduleLoadError = error && allSets.length === 0 ? error : null;
+
+  const errorScheduleState = (
+    <EmptyState
+      icon="cloud-offline-outline"
+      title="Couldn’t load the schedule"
+      message={scheduleLoadError ?? ''}
+      action={{
+        label: 'Try again',
+        onPress: () => {
+          if (currentFestival) selectFestival(currentFestival.id).catch(() => {});
+        },
+      }}
+    />
+  );
+
   const emptyScheduleState = (
     <EmptyState
       icon={search.length > 0 ? 'search' : 'musical-notes'}
@@ -412,8 +440,10 @@ export default function TimelineScreen() {
     JSON.stringify({ hasFestival: !!currentFestival, festivalId: currentFestivalId, isLoading, error: error ?? null }),
   );
 
-  // No festival selected — show the festival selector, or a load/error state
-  // when the festival list itself couldn't be fetched.
+  // No festival selected — show the festival selector. FestivalList owns its own
+  // loading (skeleton), error, and empty states (F21); the screen no longer
+  // pre-empts them with a separate spinner/EmptyState, which produced two
+  // different-looking treatments for the identical condition.
   if (!currentFestival) {
     return (
       // ScreenHeader owns the top safe-area inset (insets.top + spacing[4]) — the
@@ -421,21 +451,19 @@ export default function TimelineScreen() {
       // single top of the screen.
       <View style={styles.container}>
         <ScreenHeader title="Select a Festival" icon="musical-notes" />
-        {festivals.length === 0 && isLoading ? (
-          <LoadingState label="Loading festivals…" />
-        ) : festivals.length === 0 && error ? (
-          <EmptyState
-            icon="cloud-offline-outline"
-            title="Couldn’t load festivals"
-            message={error}
-            action={{ label: 'Try again', onPress: () => loadFestivals().catch(() => {}) }}
-          />
-        ) : (
-          <FestivalList />
-        )}
+        <FestivalList />
       </View>
     );
   }
+
+  // DC1 — a filter is "active" when it's currently hiding/altering rows. The
+  // search and filter panels stay forced-open while their state is active so a
+  // user can always see (and clear) a filter that's shrinking the schedule,
+  // even though both default to collapsed.
+  const stageFilterActive = activeStages.length > 0;
+  const filtersActive = onlyMine || stageFilterActive;
+  const searchOpen = showSearch || search.length > 0;
+  const filtersOpen = showFilters || filtersActive;
 
   // Schedule controls (Now & Next, phase actions, search, day + stage filters).
   // In Cards view these ride in the FlatList's ListHeaderComponent so the WHOLE
@@ -453,40 +481,55 @@ export default function TimelineScreen() {
         <NowNextStrip onPress={() => router.push('/festival-mode')} />
       </View>
 
+      {/* F19 — offline-honest freshness for the flagship schedule surface,
+          matching the crew tab's chip. Driven by festivalDataStore's
+          _festivalCachedAt; renders nothing until the schedule is cached once. */}
+      <View style={[styles.freshnessRow, { paddingHorizontal: hPad }]}>
+        <FreshnessChip surface="schedule" />
+      </View>
+
+      {/* DC1 — search and the stage / my-picks + phase-action setup chrome are
+          folded behind the search/filter toggles in the control row above; only
+          the day chips (the one mid-festival control) stay always visible. The
+          panels expand inline here when toggled (or when they carry active
+          state), so on small phones the timeline keeps ~70% of the viewport. */}
+      {searchOpen ? (
+        <View style={[styles.searchRow, { marginHorizontal: hPad }]}>
+          <Ionicons name="search" size={16} color={t.colors.text.placeholder} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            value={search}
+            onChangeText={handleSearch}
+            placeholder="Search artists or stages"
+            placeholderTextColor={t.colors.text.placeholder}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoFocus={showSearch && search.length === 0}
+            accessibilityLabel="Search the lineup"
+            returnKeyType="search"
+          />
+          {search.length > 0 ? (
+            <TouchableOpacity
+              onPress={() => handleSearch('')}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+              hitSlop={8}
+            >
+              <Ionicons name="close-circle" size={18} color={t.colors.text.muted} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* P1-5 — phase-aware home actions: re-prioritizes the crew's destinations
           (picks / crew / find / Now & Next / wrap) by festival phase. Hidden when
-          the festival has no usable dates (phase === null). */}
-      {phase ? (
+          the festival has no usable dates (phase === null). Folds behind the
+          filter toggle (DC1) — it's a setup action, not a mid-crowd one. */}
+      {phase && filtersOpen ? (
         <View style={{ paddingHorizontal: hPad }}>
           <PhaseHomeActions phase={phase} />
         </View>
       ) : null}
-
-      {/* Search */}
-      <View style={[styles.searchRow, { marginHorizontal: hPad }]}>
-        <Ionicons name="search" size={16} color={t.colors.text.placeholder} style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          value={search}
-          onChangeText={handleSearch}
-          placeholder="Search artists or stages"
-          placeholderTextColor={t.colors.text.placeholder}
-          autoCapitalize="none"
-          autoCorrect={false}
-          accessibilityLabel="Search the lineup"
-          returnKeyType="search"
-        />
-        {search.length > 0 ? (
-          <TouchableOpacity
-            onPress={() => handleSearch('')}
-            accessibilityRole="button"
-            accessibilityLabel="Clear search"
-            hitSlop={8}
-          >
-            <Ionicons name="close-circle" size={18} color={t.colors.text.muted} />
-          </TouchableOpacity>
-        ) : null}
-      </View>
 
       {/* Day selector */}
       {days.length > 1 ? (
@@ -523,8 +566,8 @@ export default function TimelineScreen() {
         </View>
       ) : null}
 
-      {/* Stage + my-picks filters */}
-      {currentProfile || stages.length > 1 ? (
+      {/* Stage + my-picks filters — folded behind the filter toggle (DC1). */}
+      {filtersOpen && (currentProfile || stages.length > 1) ? (
         <View style={styles.filterRow}>
           <ScrollView
             horizontal
@@ -571,44 +614,78 @@ export default function TimelineScreen() {
     </>
   );
 
+  // DC1 (Option C) — the Switch + Now&Next actions move into the header's
+  // trailing slot, collapsing the former standalone live row. The pulsing
+  // LiveDot stays in the control row below as the now indicator.
+  const headerActions = (
+    <View style={styles.headerActions}>
+      <TouchableOpacity
+        style={styles.headerIconButton}
+        onPress={clearSelection}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Switch festival"
+      >
+        <Ionicons name="swap-horizontal" size={20} color={t.colors.accent.aqua} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.headerIconButton}
+        onPress={() => router.push('/festival-mode')}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="Open Now and Next"
+      >
+        {/* "Live" is reserved for location (P1-2); flash = Now & Next. */}
+        <Ionicons name="flash" size={20} color={t.colors.accent.aqua} />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     // ScreenHeader owns the top safe-area inset (insets.top + spacing[4]) — the
     // native Tabs nav header is hidden (see (tabs)/_layout.tsx), so this is the
-    // single top of the screen, sitting above the live/view-switcher row.
+    // single top of the screen, sitting above the consolidated control row.
     <View style={styles.container}>
-      <ScreenHeader title={currentFestival.name} icon="calendar-outline" />
+      <ScreenHeader title={currentFestival.name} icon="calendar-outline" right={headerActions} />
+      {/* DC1 — one consolidated control row: LiveDot now-indicator, the
+          view switcher, and the search/filter toggles. The search bar and the
+          stage/phase filters fold inline below (in `controls`) only when their
+          toggle is on or they carry active state, reclaiming vertical space. */}
       <View style={[styles.viewSwitcher, { paddingHorizontal: hPad }]}>
-        <View style={styles.liveRow}>
-          <LiveDot />
-          <TouchableOpacity
-            style={styles.switchButton}
-            onPress={clearSelection}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Switch festival"
-          >
-            <Ionicons name="swap-horizontal" size={14} color={t.colors.accent.aqua} />
-            <Text style={styles.switchText}>Switch</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.switchButton}
-            onPress={() => router.push('/festival-mode')}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Open Now and Next"
-          >
-            {/* Renamed from the ambiguous "Live" (P1-2): "Live" is reserved for
-                location. The pulsing LiveDot above stays as the now indicator. */}
-            <Ionicons name="flash" size={14} color={t.colors.accent.aqua} />
-            <Text style={styles.switchText}>Now &amp; Next</Text>
-          </TouchableOpacity>
+        <LiveDot />
+        <View style={styles.switcherFlex}>
+          <SegmentedControl
+            options={VIEW_OPTIONS}
+            value={viewMode}
+            onChange={setViewMode}
+            accessibilityLabel="Schedule view"
+          />
         </View>
-        <SegmentedControl
-          options={VIEW_OPTIONS}
-          value={viewMode}
-          onChange={setViewMode}
-          accessibilityLabel="Schedule view"
-        />
+        <TouchableOpacity
+          style={[styles.toggleButton, searchOpen && styles.toggleButtonActive]}
+          onPress={() => setShowSearch((v) => !v)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: searchOpen }}
+          accessibilityLabel={searchOpen ? 'Hide search' : 'Search the lineup'}
+        >
+          <Ionicons name="search" size={18} color={searchOpen ? t.colors.accent.aqua : t.colors.text.secondary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleButton, filtersOpen && styles.toggleButtonActive]}
+          onPress={() => setShowFilters((v) => !v)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: filtersOpen }}
+          accessibilityLabel={filtersOpen ? 'Hide filters' : 'Show filters'}
+        >
+          <Ionicons
+            name="options-outline"
+            size={18}
+            color={filtersOpen ? t.colors.accent.aqua : t.colors.text.secondary}
+          />
+          {filtersActive ? <View style={styles.toggleDot} /> : null}
+        </TouchableOpacity>
       </View>
 
       {/* Schedule body — view-mode specific. In Cards view the `controls` ride
@@ -626,20 +703,26 @@ export default function TimelineScreen() {
           refreshControl={refreshControl}
           ItemSeparatorComponent={cardsSeparator}
           ListEmptyComponent={
-            <EmptyState
-              icon={search.length > 0 ? 'search' : 'musical-notes'}
-              title={search.length > 0 ? 'No artists match your search' : 'No sets for this day'}
-              message={
-                search.length > 0
-                  ? 'Try a different spelling or clear the search to see the full lineup.'
-                  : 'Pick another day from the day selector to browse the schedule.'
-              }
-              action={
-                search.length > 0
-                  ? { label: 'Clear search', onPress: () => handleSearch('') }
-                  : { label: 'Switch festival', onPress: clearSelection }
-              }
-            />
+            // F2 — a failed festival load surfaces the error + retry rather than
+            // a misleading "No sets" empty state.
+            scheduleLoadError ? (
+              errorScheduleState
+            ) : (
+              <EmptyState
+                icon={search.length > 0 ? 'search' : 'musical-notes'}
+                title={search.length > 0 ? 'No artists match your search' : 'No sets for this day'}
+                message={
+                  search.length > 0
+                    ? 'Try a different spelling or clear the search to see the full lineup.'
+                    : 'Pick another day from the day selector to browse the schedule.'
+                }
+                action={
+                  search.length > 0
+                    ? { label: 'Clear search', onPress: () => handleSearch('') }
+                    : { label: 'Switch festival', onPress: clearSelection }
+                }
+              />
+            )
           }
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -680,7 +763,7 @@ export default function TimelineScreen() {
           refreshControl={refreshControl}
         >
           {controls}
-          {emptyScheduleState}
+          {scheduleLoadError ? errorScheduleState : emptyScheduleState}
           {tbaSection}
         </ScrollView>
       )}
@@ -699,33 +782,52 @@ const useStyles = makeStyles((t) => ({
     // bottom tab bar, making tabs untappable. Clipping confines it to the body.
     overflow: 'hidden',
   },
+  // DC1 — one horizontal control row: LiveDot · view switcher (flex) ·
+  // search/filter toggles. Replaces the former two-line live row + switcher.
   viewSwitcher: {
-    paddingHorizontal: t.spacing[4],
-    paddingVertical: t.spacing[3],
-    gap: t.spacing[3],
-  },
-  liveRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
   },
-  switchButton: {
+  switcherFlex: {
+    flex: 1,
+  },
+  // DC1 (Option C) — Switch / Now&Next moved into ScreenHeader's trailing slot.
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: t.spacing[1],
-    borderWidth: 1,
-    borderColor: t.colors.accent.aqua,
-    paddingHorizontal: t.spacing[3],
-    paddingVertical: t.spacing[1],
-    borderRadius: t.radii.pill,
-    // WCAG 2.5.5 / 2.5.8 minimum 44px touch target — these header chips were
-    // ~24px tall; matches the day/filter chip floor.
-    minHeight: 44,
-    justifyContent: 'center',
   },
-  switchText: {
-    ...typeStyle('label'),
-    color: t.colors.accent.aqua,
+  headerIconButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    // WCAG 2.5.5 / 2.5.8 minimum 44px touch target.
+    minWidth: 44,
+    minHeight: 44,
+  },
+  toggleButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    // WCAG 2.5.5 / 2.5.8 minimum 44px touch target.
+    minWidth: 44,
+    minHeight: 44,
+    borderRadius: t.radii.default,
+  },
+  toggleButtonActive: {
+    backgroundColor: t.colors.aquaAlpha[12],
+  },
+  // Active-filter affordance: a small aqua dot on the filter toggle so a
+  // collapsed-but-active filter stays discoverable.
+  toggleDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: t.colors.accent.aqua,
   },
   searchRow: {
     flexDirection: 'row',
@@ -747,6 +849,9 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.primary,
     padding: 0,
+  },
+  freshnessRow: {
+    paddingTop: t.spacing[2],
   },
   daysWrap: {
     paddingVertical: t.spacing[3],
