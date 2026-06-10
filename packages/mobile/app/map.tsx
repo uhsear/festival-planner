@@ -1,9 +1,10 @@
 import { useEffect, useMemo } from 'react';
-import { View } from 'react-native';
-import { Stack } from 'expo-router';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Stack, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore, useCrewStore, useLiveLocationStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
-import { makeStyles } from '../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import OfflineMap from '../components/OfflineMap';
 import FreshnessChip from '../components/FreshnessChip';
 import EmptyState from '../components/EmptyState';
@@ -22,6 +23,7 @@ const SWEEP_INTERVAL_MS = 15_000;
  * pinned-points list is the offline path until the festival is downloaded (F5).
  */
 export default function MapScreen() {
+  const t = useTokens();
   const styles = useStyles();
 
   const user = useAuthStore((s) => s.user);
@@ -79,6 +81,23 @@ export default function MapScreen() {
         <FreshnessChip surface="crew" />
       </View>
       <OfflineMap meetingPoints={meetingPoints} peers={peers} sos={sos} />
+
+      {/* DC2: raise-SOS shortcut on the "where is everyone" map. Deep-links to
+          the crew Find pane that owns the full CrewSos card + confirm dialog.
+          Coral is on-rule here (the danger surface); coralStrong keeps the
+          white label AA-readable. */}
+      <TouchableOpacity
+        testID="map-sos-fab"
+        style={styles.sosFab}
+        onPress={() => router.push({ pathname: '/(tabs)/crew', params: { tab: 'logistics' } })}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Raise an SOS to your crew"
+        accessibilityHint="Opens the crew safety screen to send an SOS"
+      >
+        <Ionicons name="alert-circle" size={20} color={t.colors.text.onAccent} />
+        <Text style={styles.sosFabText}>SOS</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -91,5 +110,27 @@ const useStyles = makeStyles((t) => ({
   chipBar: {
     paddingHorizontal: t.spacing[4],
     paddingVertical: t.spacing[2],
+  },
+  sosFab: {
+    position: 'absolute',
+    right: t.spacing[4],
+    bottom: t.spacing[5],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    minHeight: 52,
+    paddingHorizontal: t.spacing[4],
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.accent.coralStrong,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+  },
+  sosFabText: {
+    ...typeStyle('label'),
+    color: t.colors.text.onAccent,
+    fontWeight: '700',
   },
 }));

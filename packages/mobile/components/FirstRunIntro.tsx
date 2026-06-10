@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
@@ -76,14 +76,49 @@ function ProductVisual() {
   );
 }
 
+/**
+ * DC16: Real horizontal paging pager. Slides are laid out in a horizontal
+ * ScrollView with pagingEnabled; `index` is driven by onMomentumScrollEnd so
+ * the dots always reflect where the user actually landed. The Next button
+ * remains as a secondary/keyboard path — it programmatically scrolls to the
+ * next page instead of toggling state directly, keeping both paths in sync.
+ */
 export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
   const t = useTokens();
   const styles = useStyles();
   const insets = useSafeAreaInsets();
   const [index, setIndex] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
 
+  const screenWidth = Dimensions.get('window').width;
   const isLast = index === SLIDES.length - 1;
-  const slide = SLIDES[index]!;
+
+  // Scroll to the target page programmatically (used by the Next button).
+  const scrollToPage = useCallback(
+    (page: number) => {
+      scrollRef.current?.scrollTo({ x: page * screenWidth, animated: true });
+    },
+    [screenWidth],
+  );
+
+  // Update the dot indicator when a swipe lands on a page boundary.
+  const handleMomentumScrollEnd = useCallback(
+    (e: { nativeEvent: { contentOffset: { x: number } } }) => {
+      const page = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+      setIndex(page);
+    },
+    [screenWidth],
+  );
+
+  const handleNext = useCallback(() => {
+    if (isLast) {
+      onDone();
+    } else {
+      const nextPage = index + 1;
+      setIndex(nextPage);
+      scrollToPage(nextPage);
+    }
+  }, [isLast, index, onDone, scrollToPage]);
 
   return (
     <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -98,24 +133,46 @@ export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
         </TouchableOpacity>
       </View>
 
-      {/* Upper region: the slide visual, centered in the top half. */}
-      <View style={styles.hero}>
-        {slide.showProductVisual ? (
-          <ProductVisual />
-        ) : (
-          <View style={styles.iconCircle} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            <Ionicons name={slide.icon} size={56} color={t.colors.accent.aqua} />
-          </View>
-        )}
-      </View>
+      {/* Paging ScrollView — each slide gets exactly one screen-width slot. */}
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onMomentumScrollEnd={handleMomentumScrollEnd}
+        style={styles.pager}
+        contentContainerStyle={styles.pagerContent}
+        accessibilityRole="adjustable"
+        accessibilityLabel="Intro slides"
+      >
+        {SLIDES.map((slide, i) => (
+          <View key={i} style={[styles.slide, { width: screenWidth }]}>
+            {/* Upper region: the slide visual, centered in the top half. */}
+            <View style={styles.hero}>
+              {slide.showProductVisual ? (
+                <ProductVisual />
+              ) : (
+                <View
+                  style={styles.iconCircle}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no-hide-descendants"
+                >
+                  <Ionicons name={slide.icon} size={56} color={t.colors.accent.aqua} />
+                </View>
+              )}
+            </View>
 
-      {/* Value-first copy, anchored low (just above the controls). */}
-      <View style={styles.copy}>
-        <Text style={styles.title} accessibilityRole="header">
-          {slide.title}
-        </Text>
-        <Text style={styles.text}>{slide.body}</Text>
-      </View>
+            {/* Value-first copy, anchored low (just above the controls). */}
+            <View style={styles.copy}>
+              <Text style={styles.title} accessibilityRole="header">
+                {slide.title}
+              </Text>
+              <Text style={styles.text}>{slide.body}</Text>
+            </View>
+          </View>
+        ))}
+      </ScrollView>
 
       <View style={styles.footer}>
         <View style={styles.dots}>
@@ -125,7 +182,7 @@ export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
         </View>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => (isLast ? onDone() : setIndex((i) => i + 1))}
+          onPress={handleNext}
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel={isLast ? 'Get started' : 'Next'}
@@ -141,17 +198,32 @@ const useStyles = makeStyles((t) => ({
   overlay: {
     ...({ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const),
     backgroundColor: t.colors.bg.primary,
-    paddingHorizontal: t.spacing[6],
     zIndex: 100,
   },
   skipRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     paddingVertical: t.spacing[3],
+    paddingHorizontal: t.spacing[6],
   },
   skip: {
     ...typeStyle('label'),
     color: t.colors.text.secondary,
+  },
+  // DC16: pager container takes all remaining vertical space above the footer.
+  pager: {
+    flex: 1,
+  },
+  pagerContent: {
+    // alignItems stretch so each slide fills the pager's cross-axis (height).
+    // The pager itself gets height via flex:1, so this makes each slide fill
+    // that measured height without needing an explicit pixel value.
+    alignItems: 'stretch' as const,
+  },
+  // Each slide is exactly one screen-width wide (set inline from Dimensions).
+  // Height is inherited from the content container's alignItems: 'stretch'.
+  slide: {
+    paddingHorizontal: t.spacing[6],
   },
   // Takes the upper space and centers the visual in it; pushing the copy block
   // below toward the lower third of the screen (anchored, not dead-center).
@@ -248,6 +320,7 @@ const useStyles = makeStyles((t) => ({
   footer: {
     gap: t.spacing[4],
     paddingBottom: t.spacing[6],
+    paddingHorizontal: t.spacing[6],
   },
   dots: {
     flexDirection: 'row',

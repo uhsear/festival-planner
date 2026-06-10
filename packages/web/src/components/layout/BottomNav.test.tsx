@@ -43,17 +43,17 @@ describe('BottomNav', () => {
 
   it('does not show auth tabs for guest users', () => {
     render(<BottomNav />);
-    expect(screen.queryByLabelText('View My Picks')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('View Picks')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('View Crew')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('View Me')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('View Account')).not.toBeInTheDocument();
   });
 
   it('shows auth tabs for logged-in users', () => {
     mockUser = { id: 'u1', username: 'alice' };
     render(<BottomNav />);
-    expect(screen.getByLabelText('View My Picks')).toBeInTheDocument();
+    expect(screen.getByLabelText('View Picks')).toBeInTheDocument();
     expect(screen.getByLabelText('View Crew')).toBeInTheDocument();
-    expect(screen.getByLabelText('View Me')).toBeInTheDocument();
+    expect(screen.getByLabelText('View Account')).toBeInTheDocument();
   });
 
   it('marks the active item with aria-current=page', () => {

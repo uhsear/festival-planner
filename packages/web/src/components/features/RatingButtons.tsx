@@ -146,7 +146,7 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
             disabled={busy}
             onClick={() => handleClick(r.n)}
             className={cn(
-              'rounded-full flex items-center justify-center transition-all',
+              'rounded-full flex items-center justify-center transition-[background-color,box-shadow,transform]',
               size,
               active
                 ? 'bg-accent-amber/25 scale-110 shadow-[0_0_12px_theme(colors.accent-amber/40)] ring-2 ring-accent-amber/60'

@@ -13,9 +13,7 @@ const EXIT_ROUTE = '/cards';
 
 export default function FestivalModeToggle() {
   const isFestivalMode = useFestivalModeStore((state) => state.isFestivalMode);
-  const toggleFestivalMode = useFestivalModeStore(
-    (state) => state.toggleFestivalMode,
-  );
+  const toggleFestivalMode = useFestivalModeStore((state) => state.toggleFestivalMode);
   const { select } = useHaptics();
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,14 +39,12 @@ export default function FestivalModeToggle() {
     <m.button
       onClick={handleToggle}
       whileTap={{ scale: 0.95 }}
-      aria-label={
-        isFestivalMode ? 'Turn off Festival Mode' : 'Turn on Festival Mode'
-      }
+      aria-label={isFestivalMode ? 'Turn off Festival Mode' : 'Turn on Festival Mode'}
       aria-pressed={isFestivalMode}
       title={isFestivalMode ? 'Festival Mode: on' : 'Festival Mode: off'}
       data-testid="festival-mode-toggle"
       className={cn(
-        'relative p-2 rounded-lg transition-all duration-300 min-h-11 min-w-11 flex items-center justify-center',
+        'relative p-2 rounded-lg transition-[background-color,color,box-shadow] duration-300 min-h-11 min-w-11 flex items-center justify-center',
         isFestivalMode
           ? 'bg-accent-coral text-bg-primary shadow-lg shadow-accent-coral/50'
           : 'bg-glass text-text-secondary hover:text-text-primary',
@@ -64,9 +60,7 @@ export default function FestivalModeToggle() {
 
       <div className="flex items-center gap-2">
         <Flame className="w-5 h-5" aria-hidden="true" />
-        <span className="text-sm font-medium hidden sm:inline">
-          Festival Mode
-        </span>
+        <span className="text-sm font-medium hidden sm:inline">Festival Mode</span>
       </div>
     </m.button>
   );

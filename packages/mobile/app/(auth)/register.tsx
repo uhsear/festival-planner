@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -16,15 +15,150 @@ import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@festie/shared/stores';
-import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
+import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
 
 // No in-app Terms route exists yet; open the canonical web Terms of Service,
 // mirroring how the privacy screen links out to it.
 const TERMS_URL = 'https://festie.us/terms.html';
 
+const useStyles = makeStyles((t) => ({
+  container: {
+    flex: 1,
+    backgroundColor: t.colors.bg.primary,
+  },
+  inner: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: t.spacing[6],
+  },
+  title: {
+    // display-lg = Syncopate 700 — brand wordmark, first impression screen.
+    ...typeStyle('display-lg'),
+    color: t.colors.text.primary,
+    textAlign: 'center',
+    marginBottom: t.spacing[1],
+  },
+  subtitle: {
+    ...typeStyle('body'),
+    color: t.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: t.spacing[8],
+  },
+  error: {
+    ...typeStyle('label'),
+    color: t.colors.text.danger,
+    textAlign: 'center',
+    marginBottom: t.spacing[4],
+  },
+  fieldError: {
+    ...typeStyle('caption'),
+    color: t.colors.text.danger,
+    marginTop: -t.spacing[2],
+    marginBottom: t.spacing[2],
+  },
+  input: {
+    backgroundColor: t.colors.bg.input,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    borderRadius: t.radii.default,
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+    marginBottom: t.spacing[3],
+  },
+  inputError: {
+    borderColor: t.colors.text.danger,
+  },
+  inputFocused: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
+  },
+  passwordRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: t.colors.bg.input,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    borderRadius: t.radii.default,
+    marginBottom: t.spacing[3],
+    paddingRight: t.spacing[2],
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+  },
+  eyeButton: {
+    padding: t.spacing[2],
+  },
+  hint: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+    marginTop: -t.spacing[1],
+    marginBottom: t.spacing[3],
+  },
+  tosRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: t.spacing[2],
+    marginTop: t.spacing[1],
+  },
+  tosCheckbox: {
+    paddingTop: t.spacing[1],
+  },
+  tosTextWrap: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    alignItems: 'center' as const,
+  },
+  tosText: {
+    ...typeStyle('label'),
+    color: t.colors.text.secondary,
+  },
+  guestButton: {
+    marginTop: t.spacing[5],
+    alignItems: 'center' as const,
+  },
+  button: {
+    // PRIMARY CTA = aqua fill + dark ink per the accent rule (coral = danger/SOS only).
+    backgroundColor: t.colors.accent.aqua,
+    borderRadius: t.radii.default,
+    paddingVertical: t.spacing[3],
+    alignItems: 'center' as const,
+    marginTop: t.spacing[2],
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    ...typeStyle('label'),
+    fontWeight: '600' as const,
+    color: t.colors.text.onLightAccent,
+  },
+  linkButton: {
+    marginTop: t.spacing[5],
+    alignItems: 'center' as const,
+  },
+  linkText: {
+    ...typeStyle('label'),
+    color: t.colors.text.secondary,
+  },
+  linkTextAccent: {
+    color: t.colors.accent.aqua,
+    fontWeight: '600' as const,
+  },
+}));
+
 export default function RegisterScreen() {
+  const styles = useStyles();
+  const t = useTokens();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [tosAccepted, setTosAccepted] = useState(false);
@@ -48,7 +182,13 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     Keyboard.dismiss();
-    if (!username.trim() || !email.trim() || !password.trim()) return;
+    if (!username.trim() || !password.trim()) return;
+    // F33: email is required on mobile (needed for password reset); show an
+    // explicit inline error instead of silently ignoring a blank submission.
+    if (!email.trim()) {
+      setEmailError('Email is required for password reset');
+      return;
+    }
     if (password.length < 8) {
       setError('Password must be at least 8 characters');
       return;
@@ -61,6 +201,7 @@ export default function RegisterScreen() {
       setError('Please accept the Terms of Service & Privacy Policy to continue');
       return;
     }
+    setEmailError('');
     setError(null);
     try {
       await register({
@@ -80,7 +221,7 @@ export default function RegisterScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.inner,
-          { paddingTop: insets.top + spacing[6], paddingBottom: insets.bottom + spacing[6] },
+          { paddingTop: insets.top + t.spacing[6], paddingBottom: insets.bottom + t.spacing[6] },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -97,7 +238,7 @@ export default function RegisterScreen() {
         <TextInput
           style={[styles.input, focusedField === 'username' && styles.inputFocused]}
           placeholder="Username"
-          placeholderTextColor={colors.text.placeholder}
+          placeholderTextColor={t.colors.text.placeholder}
           accessibilityLabel="Username"
           value={username}
           onChangeText={setUsername}
@@ -112,12 +253,22 @@ export default function RegisterScreen() {
 
         <TextInput
           ref={emailRef}
-          style={[styles.input, focusedField === 'email' && styles.inputFocused]}
-          placeholder="Email"
-          placeholderTextColor={colors.text.placeholder}
-          accessibilityLabel="Email"
+          style={[
+            styles.input,
+            focusedField === 'email' && styles.inputFocused,
+            emailError ? styles.inputError : undefined,
+          ]}
+          // F33: placeholder explains WHY email is needed so the required field
+          // isn't a surprise, matching the web label "Email (optional)" intent
+          // but clarifying the mobile policy.
+          placeholder="Email (for password reset)"
+          placeholderTextColor={t.colors.text.placeholder}
+          accessibilityLabel="Email address, required for password reset"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(v) => {
+            setEmail(v);
+            if (emailError) setEmailError('');
+          }}
           autoCapitalize="none"
           keyboardType="email-address"
           textContentType="emailAddress"
@@ -127,13 +278,18 @@ export default function RegisterScreen() {
           onSubmitEditing={() => passwordRef.current?.focus()}
           blurOnSubmit={false}
         />
+        {emailError ? (
+          <Text style={styles.fieldError} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+            {emailError}
+          </Text>
+        ) : null}
 
         <View style={[styles.passwordRow, focusedField === 'password' && styles.inputFocused]}>
           <TextInput
             ref={passwordRef}
             style={styles.passwordInput}
             placeholder="Password"
-            placeholderTextColor={colors.text.placeholder}
+            placeholderTextColor={t.colors.text.placeholder}
             accessibilityLabel="Password"
             value={password}
             onChangeText={setPassword}
@@ -151,7 +307,7 @@ export default function RegisterScreen() {
             accessibilityRole="button"
             accessibilityLabel={showPw ? 'Hide password' : 'Show password'}
           >
-            <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.text.secondary} />
+            <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={t.colors.text.secondary} />
           </TouchableOpacity>
         </View>
         <Text style={styles.hint}>At least 8 characters. Avoid common passwords and your name.</Text>
@@ -160,7 +316,7 @@ export default function RegisterScreen() {
           ref={confirmRef}
           style={[styles.input, focusedField === 'confirm' && styles.inputFocused]}
           placeholder="Confirm Password"
-          placeholderTextColor={colors.text.placeholder}
+          placeholderTextColor={t.colors.text.placeholder}
           accessibilityLabel="Confirm password"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
@@ -186,7 +342,7 @@ export default function RegisterScreen() {
             <Ionicons
               name={tosAccepted ? 'checkbox' : 'square-outline'}
               size={20}
-              color={tosAccepted ? colors.accent.aqua : colors.text.secondary}
+              color={tosAccepted ? t.colors.accent.aqua : t.colors.text.secondary}
             />
           </TouchableOpacity>
           <View style={styles.tosTextWrap}>
@@ -219,7 +375,7 @@ export default function RegisterScreen() {
           accessibilityState={{ disabled: isLoading, busy: isLoading }}
         >
           {isLoading ? (
-            <ActivityIndicator color={colors.text.onLightAccent} />
+            <ActivityIndicator color={t.colors.text.onLightAccent} />
           ) : (
             <Text style={styles.buttonText}>Create account</Text>
           )}
@@ -249,126 +405,3 @@ export default function RegisterScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg.primary,
-  },
-  inner: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing[6],
-  },
-  title: {
-    fontSize: fontSize[32],
-    fontWeight: '700',
-    color: colors.text.primary,
-    textAlign: 'center',
-    marginBottom: spacing[1],
-  },
-  subtitle: {
-    fontSize: fontSize[16],
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing[8],
-  },
-  error: {
-    fontSize: fontSize[14],
-    color: colors.text.danger,
-    textAlign: 'center',
-    marginBottom: spacing[4],
-  },
-  input: {
-    backgroundColor: colors.bg.input,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radii.default,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    fontSize: fontSize[16],
-    color: colors.text.primary,
-    marginBottom: spacing[3],
-  },
-  inputFocused: {
-    borderColor: colors.accent.aqua,
-    backgroundColor: colors.ring.aqua,
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.bg.input,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radii.default,
-    marginBottom: spacing[3],
-    paddingRight: spacing[2],
-  },
-  passwordInput: {
-    flex: 1,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    fontSize: fontSize[16],
-    color: colors.text.primary,
-  },
-  eyeButton: {
-    padding: spacing[2],
-  },
-  hint: {
-    fontSize: fontSize[12],
-    color: colors.text.muted,
-    marginTop: -spacing[1],
-    marginBottom: spacing[3],
-  },
-  tosRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing[2],
-    marginTop: spacing[1],
-  },
-  tosCheckbox: {
-    paddingTop: spacing[1],
-  },
-  tosTextWrap: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-  },
-  tosText: {
-    fontSize: fontSize[14],
-    color: colors.text.secondary,
-  },
-  guestButton: {
-    marginTop: spacing[5],
-    alignItems: 'center',
-  },
-  button: {
-    // PRIMARY CTA = aqua fill + dark ink per the accent rule (coral = danger/SOS only).
-    backgroundColor: colors.accent.aqua,
-    borderRadius: radii.default,
-    paddingVertical: spacing[3],
-    alignItems: 'center',
-    marginTop: spacing[2],
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    fontSize: fontSize[16],
-    fontWeight: '600',
-    color: colors.text.onLightAccent,
-  },
-  linkButton: {
-    marginTop: spacing[5],
-    alignItems: 'center',
-  },
-  linkText: {
-    fontSize: fontSize[14],
-    color: colors.text.secondary,
-  },
-  linkTextAccent: {
-    color: colors.accent.aqua,
-    fontWeight: '600',
-  },
-});

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View, Text, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Alert, Share } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -11,6 +12,8 @@ import type { FestivalSet, Priority, Stage } from '@festie/shared/types';
 import { artistDisplayName, getConflictingSetIds, buildPicksIcs } from '@festie/shared/utils';
 import { mapErrorToUserMessage } from '@festie/shared/services';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
+import { duration as motionDuration } from '@festie/shared/tokens';
 import { safeStageColor } from '../../lib/stageColor';
 import ScreenHeader from '../../components/ScreenHeader';
 import EmptyState from '../../components/EmptyState';
@@ -50,6 +53,7 @@ export default function PicksScreen() {
   const styles = useStyles();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReduceMotion();
 
   // Respect the iOS home indicator (~34pt on iPhone 12+/13+/14+) so the last
   // picks scroll clear of the tab bar / indicator with a little breathing room.
@@ -242,7 +246,11 @@ export default function PicksScreen() {
           </View>
         );
       }
-      return (
+      // DC8: picked rows fade/slide in and out and reflow with a layout
+      // transition as picks are added/removed, instead of teleporting. Gated on
+      // Reduce Motion (no entering/exiting/layout = instant) and behind the
+      // FlatList's own virtualization.
+      const card = (
         <SetCardMobile
           set={item.set}
           stageName={getStageName(item.set.stageId) || 'Unknown'}
@@ -254,8 +262,18 @@ export default function PicksScreen() {
           hasNote={!!getMyNote(item.set.id)}
         />
       );
+      if (reduceMotion) return card;
+      return (
+        <Animated.View
+          entering={FadeIn.duration(motionDuration.med)}
+          exiting={FadeOut.duration(motionDuration.fast)}
+          layout={LinearTransition.duration(motionDuration.med)}
+        >
+          {card}
+        </Animated.View>
+      );
     },
-    [styles, getStageName, getStageColor, getMyPick, getMyNote, handlePickChange, conflictIds, router, t],
+    [styles, getStageName, getStageColor, getMyPick, getMyNote, handlePickChange, conflictIds, router, t, reduceMotion],
   );
 
   const keyExtractor = useCallback((item: Row) => item.key, []);

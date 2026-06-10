@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { registerCreateReconciler } from '../services/offlineQueue';
 import { mapErrorToUserMessage } from '../services/errors';
 import { getStorage } from '../platform/storage';
+import { useAuthStore } from './authStore';
 import {
   Crew,
   CrewMember,
@@ -577,8 +578,28 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
 
   // POST /crews/:crewId/polls/:pollId/vote -> { voted: true }. Refetch so the
   // server-resolved vote counts (one-vote-per-user semantics) are authoritative.
+  //
+  // Optimistic: write the user's vote into the local poll BEFORE the POST so the
+  // option fills instantly (mirrors savePick) — critical on festival-grade signal
+  // where the refetch may never complete. Snapshot + roll back on error; the
+  // best-effort refetch then reconciles to the server-authoritative counts.
   votePoll: async (crewId: string, pollId: string, optionIndex: number) => {
     set({ error: null });
+
+    const userId = useAuthStore.getState().user?.id ?? null;
+    const prevPolls = useCrewStore.getState().polls;
+
+    if (userId) {
+      set((state) => ({
+        polls: state.polls.map((p) => {
+          if (p.id !== pollId) return p;
+          // One vote per user: drop this user's prior vote, then add the new one.
+          const others = (p.votes ?? []).filter((v) => v.user_id !== userId);
+          return { ...p, votes: [...others, { option: optionIndex, user_id: userId }] };
+        }),
+      }));
+    }
+
     try {
       await api.post(`/crews/${crewId}/polls/${pollId}/vote`, { optionIndex });
       try {
@@ -587,6 +608,8 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         /* refetch is best-effort; the write succeeded */
       }
     } catch (err) {
+      // Roll back the optimistic vote so the UI matches reality.
+      if (userId) set({ polls: prevPolls });
       const message = mapErrorToUserMessage(err, 'Failed to vote');
       set({ error: message });
       throw err;

@@ -164,7 +164,7 @@ function TimelineGridCell({
                   'rounded-xs',
                   'text-[var(--color-text-secondary)] cursor-pointer',
                   'text-[length:var(--font-size-11)] px-1.5 py-[3px] leading-none',
-                  'transition-all duration-[250ms] ease-[var(--ease-standard)]',
+                  'transition-[color,border-color,background-color] duration-[250ms] ease-[var(--ease-standard)]',
                   'hover:text-[var(--color-text-primary)] hover:border-[var(--color-accent-aqua)] hover:bg-[rgba(255,255,255,0.07)]',
                   'focus-visible:outline-2 focus-visible:outline-[var(--color-accent-aqua)] focus-visible:outline-offset-1',
                   // Hit-slop pseudo-element for 44x44 tap target

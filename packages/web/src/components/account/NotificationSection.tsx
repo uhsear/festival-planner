@@ -30,7 +30,7 @@ export default function NotificationSection() {
         toast('Permission prompt dismissed.', 'info');
       }
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Failed to enable notifications', 'error');
+      toast(e instanceof Error ? e.message : 'Could not enable notifications. Try again.', 'error');
     } finally {
       setPushBusy(false);
     }
@@ -42,7 +42,7 @@ export default function NotificationSection() {
       await push.unregisterToken();
       toast('Push notifications disabled', 'success');
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Failed to disable', 'error');
+      toast(e instanceof Error ? e.message : 'Could not disable notifications. Try again.', 'error');
     } finally {
       setPushBusy(false);
     }
@@ -51,14 +51,19 @@ export default function NotificationSection() {
   return (
     <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
       <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
-        {push.permission === 'granted' ? <Bell className="w-4 h-4" aria-hidden="true" /> : <BellOff className="w-4 h-4" aria-hidden="true" />}
+        {push.permission === 'granted' ? (
+          <Bell className="w-4 h-4" aria-hidden="true" />
+        ) : (
+          <BellOff className="w-4 h-4" aria-hidden="true" />
+        )}
         Push Notifications
       </h2>
       {!push.isSupported ? (
         push.unsupportedReason === 'ios-needs-install' ? (
           <p className="text-sm text-text-muted">
-            On iOS, notifications work only when Festie is installed to your Home Screen.
-            Tap the <span aria-hidden="true">Share</span> button in Safari and choose <strong>Add to Home Screen</strong>, then open Festie from the new icon to enable notifications.
+            On iOS, notifications work only when Festie is installed to your Home Screen. Tap the{' '}
+            <span aria-hidden="true">Share</span> button in Safari and choose <strong>Add to Home Screen</strong>, then
+            open Festie from the new icon to enable notifications.
           </p>
         ) : (
           <p className="text-sm text-text-muted">

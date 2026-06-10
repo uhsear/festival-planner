@@ -53,9 +53,10 @@ function ForgotPasswordPageInner() {
       setSubmitted(true);
       toast('Password reset link sent to your email', 'success');
     } catch {
-      const msg = error && !/^\s*5\d\d/.test(error)
-        ? error
-        : "We couldn't send the reset link right now. Please try again in a moment.";
+      const msg =
+        error && !/^\s*5\d\d/.test(error)
+          ? error
+          : "We couldn't send the reset link right now. Please try again in a moment.";
       toast(msg, 'error');
     }
   };
@@ -94,18 +95,12 @@ function ForgotPasswordPageInner() {
             />
 
             {error && !emailError && (
-              <div className="p-3 bg-accent-coral bg-opacity-10 border border-accent-coral border-opacity-30 rounded-lg text-sm text-accent-coral">
+              <div className="p-3 bg-accent-coral/10 border border-accent-coral/30 rounded-lg text-sm text-accent-coral">
                 {error}
               </div>
             )}
 
-            <Button
-              type="submit"
-              variant="primary"
-              fullWidth
-              isLoading={isLoading}
-              disabled={isLoading}
-            >
+            <Button type="submit" variant="primary" fullWidth isLoading={isLoading} disabled={isLoading}>
               Send Reset Link
             </Button>
           </form>
@@ -130,11 +125,7 @@ function ForgotPasswordPageInner() {
               </p>
             </div>
 
-            <Button
-              variant="secondary"
-              fullWidth
-              onClick={() => setSubmitted(false)}
-            >
+            <Button variant="secondary" fullWidth onClick={() => setSubmitted(false)}>
               Try a different email
             </Button>
           </div>
@@ -142,10 +133,7 @@ function ForgotPasswordPageInner() {
 
         {/* Back to login */}
         <div className="mt-6 text-center">
-          <Link
-            to="/login"
-            className="text-sm text-accent-aqua hover:opacity-75 transition-opacity"
-          >
+          <Link to="/login" className="text-sm text-accent-aqua hover:opacity-75 transition-opacity">
             Back to sign in
           </Link>
         </div>

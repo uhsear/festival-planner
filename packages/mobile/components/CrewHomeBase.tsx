@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore } from '@festie/shared/stores';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import Button from './Button';
 
 interface CrewHomeBaseProps {
   crewId: string;
@@ -18,12 +19,7 @@ interface CrewHomeBaseProps {
  * viewer can't edit. Reads current values from the active crew (server
  * normalizes them onto the crew object), writes via the shared updateHomeBase.
  */
-export default function CrewHomeBase({
-  crewId,
-  location,
-  time,
-  isOwner,
-}: CrewHomeBaseProps) {
+export default function CrewHomeBase({ crewId, location, time, isOwner }: CrewHomeBaseProps) {
   const t = useTokens();
   const styles = useStyles();
   const updateHomeBase = useCrewStore((s) => s.updateHomeBase);
@@ -32,6 +28,7 @@ export default function CrewHomeBase({
   const [loc, setLoc] = useState(location ?? '');
   const [timeValue, setTimeValue] = useState(time ?? '');
   const [saving, setSaving] = useState(false);
+  const [focusedField, setFocusedField] = useState<'location' | 'time' | null>(null);
 
   // Keep the form in sync when the crew's stored values change underneath us.
   useEffect(() => {
@@ -77,16 +74,18 @@ export default function CrewHomeBase({
           </TouchableOpacity>
         </View>
         <TextInput
-          style={styles.input}
+          style={[styles.input, focusedField === 'location' && styles.inputFocused]}
           placeholder="Where should the crew meet?"
           placeholderTextColor={t.colors.text.placeholder}
           value={loc}
           onChangeText={setLoc}
           maxLength={200}
+          onFocus={() => setFocusedField('location')}
+          onBlur={() => setFocusedField((f) => (f === 'location' ? null : f))}
           accessibilityLabel="Home base location"
         />
         <TextInput
-          style={styles.input}
+          style={[styles.input, focusedField === 'time' && styles.inputFocused]}
           placeholder="Time (optional, e.g. 6:00 PM)"
           placeholderTextColor={t.colors.text.placeholder}
           value={timeValue}
@@ -94,21 +93,18 @@ export default function CrewHomeBase({
           maxLength={100}
           returnKeyType="done"
           onSubmitEditing={handleSave}
+          onFocus={() => setFocusedField('time')}
+          onBlur={() => setFocusedField((f) => (f === 'time' ? null : f))}
           accessibilityLabel="Home base time"
         />
-        <TouchableOpacity
-          style={[
-            styles.saveButton,
-            (saving || !loc.trim()) && styles.buttonDisabled,
-          ]}
+        <Button
+          label="Save"
+          loading={saving}
+          loadingLabel="Saving…"
+          disabled={!loc.trim()}
           onPress={handleSave}
-          disabled={saving || !loc.trim()}
-          activeOpacity={0.8}
-          accessibilityRole="button"
           accessibilityLabel="Save home base"
-        >
-          <Text style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save'}</Text>
-        </TouchableOpacity>
+        />
       </View>
     );
   }
@@ -122,17 +118,9 @@ export default function CrewHomeBase({
       disabled={!isOwner}
       activeOpacity={isOwner ? 0.8 : 1}
       accessibilityRole={isOwner ? 'button' : 'text'}
-      accessibilityLabel={
-        hasHomeBase
-          ? `Home base ${location}${time ? ` at ${time}` : ''}`
-          : 'Set crew home base'
-      }
+      accessibilityLabel={hasHomeBase ? `Home base ${location}${time ? ` at ${time}` : ''}` : 'Set crew home base'}
     >
-      <Ionicons
-        name="location"
-        size={16}
-        color={hasHomeBase ? t.colors.accent.aqua : t.colors.text.muted}
-      />
+      <Ionicons name="location" size={16} color={hasHomeBase ? t.colors.accent.aqua : t.colors.text.muted} />
       <View style={styles.cardInfo}>
         {hasHomeBase ? (
           <View style={styles.cardRow}>
@@ -145,13 +133,7 @@ export default function CrewHomeBase({
           <Text style={styles.cardPlaceholder}>Tap to set a home base</Text>
         )}
       </View>
-      {isOwner ? (
-        <Ionicons
-          name="pencil"
-          size={14}
-          color={t.colors.text.secondary}
-        />
-      ) : null}
+      {isOwner ? <Ionicons name="pencil" size={14} color={t.colors.text.secondary} /> : null}
     </TouchableOpacity>
   );
 }
@@ -215,6 +197,12 @@ const useStyles = makeStyles((t) => ({
   },
   iconButton: {
     padding: t.spacing[1],
+    // WCAG 2.5.5 / Apple HIG >=44pt touch target for these small (16-18px)
+    // icon-only controls — padding alone can't reach it.
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     backgroundColor: t.colors.bg.input,
@@ -226,17 +214,8 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.primary,
   },
-  saveButton: {
-    backgroundColor: t.colors.accent.coral,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    ...typeStyle('label'),
-    color: t.colors.text.onAccent,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+  inputFocused: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
   },
 }));

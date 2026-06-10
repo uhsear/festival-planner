@@ -18,6 +18,28 @@ import type { TypeRoleName } from '@festie/shared/tokens';
  * useTokens / makeStyles) instead of re-typing values or importing scattered
  * token modules — this is the single seam a future theme switch hooks into.
  */
+
+/**
+ * Icon-size scale. Reach for these instead of inline literals.
+ *
+ * New-code rule: never write `size={N}` for an Ionicons/icon where N isn't in
+ * this scale. Map to the nearest step (13→xs/12, 15→sm/16 are the historical
+ * off-grid values; both are explicitly snapped here).
+ *
+ *   xs: 12  — inline badge / meta-row indicators
+ *   sm: 16  — in-line action icons (buttons, tab icons)
+ *   md: 20  — medium stand-alone controls
+ *   lg: 24  — screen-level leading icons, header icons
+ *   xl: 48  — empty-state / hero icons
+ */
+export const iconSize = {
+  xs: 12,
+  sm: 16,
+  md: 20,
+  lg: 24,
+  xl: 48,
+} as const;
+
 export const tokens = {
   colors,
   spacing,
@@ -27,6 +49,7 @@ export const tokens = {
   letterSpacing,
   radii,
   typeRoles,
+  iconSize,
 } as const;
 
 export type Tokens = typeof tokens;
@@ -63,16 +86,31 @@ function nativeFontFamily(family: string, weight: number): string | undefined {
  * splash until those fonts load, so the family is always available by the time
  * any screen renders. Sizes come straight from the shared ramp. `fontWeight` is
  * retained for web/iOS fidelity; on native the weighted family is authoritative.
+ *
+ * Pass an optional `weight` to override the role's default — the correct
+ * weight-specific font cut is selected automatically (800/900 clamp to 700Bold).
+ * Use this instead of spreading typeStyle() and then adding a raw `fontWeight`
+ * override (which is inert on native because the weighted family wins).
+ *
+ * @example
+ *   // Wrong — fontWeight '700' does nothing on native:
+ *   { ...typeStyle('caption'), fontWeight: '700' }
+ *
+ *   // Right — selects SpaceGrotesk_700Bold:
+ *   typeStyle('caption', 700)
  */
-export function typeStyle(role: TypeRoleName): TextStyle {
+export function typeStyle(role: TypeRoleName, weight?: number): TextStyle {
   const r = typeRoles[role];
+  const resolvedWeight = weight ?? r.weight;
+  // Clamp 800/900 to 700 — no loaded cut above Bold for either brand face.
+  const clampedWeight = Math.min(resolvedWeight, 700);
   const style: TextStyle = {
     fontSize: r.size,
     lineHeight: Math.round(r.lineHeight * r.size),
     letterSpacing: r.letterSpacing * r.size,
-    fontWeight: String(r.weight) as TextStyle['fontWeight'],
+    fontWeight: String(resolvedWeight) as TextStyle['fontWeight'],
   };
-  const family = nativeFontFamily(r.family, r.weight);
+  const family = nativeFontFamily(r.family, clampedWeight);
   if (family) {
     style.fontFamily = family;
   }
@@ -81,6 +119,16 @@ export function typeStyle(role: TypeRoleName): TextStyle {
   }
   return style;
 }
+
+/**
+ * F12: Sensible Dynamic Type cap for fixed/single-line decorative contexts
+ * (chips, pills, badges) where unbounded scaling causes truncation or layout
+ * break rather than reflow. Body/notes text should scale fully — only apply
+ * this to numberOfLines={1} or fixed-height containers.
+ *
+ * Usage: add `maxFontSizeMultiplier={MAX_FONT_SCALE}` to the Text prop.
+ */
+export const MAX_FONT_SCALE = 1.4;
 
 /** Returns the active design tokens. Single theme today; stable reference. */
 export function useTokens(): Tokens {

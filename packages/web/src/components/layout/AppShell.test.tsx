@@ -14,7 +14,8 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 let mockUser: { id: string; username: string } | null = null;
-vi.mock('@festie/shared', () => ({
+vi.mock('@festie/shared', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   useAuthStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({ user: mockUser, checkSession: vi.fn(async () => {}) }),
 }));

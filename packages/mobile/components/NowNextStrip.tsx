@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { AccessibilityInfo, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
@@ -43,6 +44,23 @@ export default function NowNextStrip({ onPress }: NowNextStripProps) {
   const { getStageName } = useFestival();
   const b2bSeparator = useFestivalDataStore((s) => s.currentFestival?.b2bSeparator);
   const { now, current, upcoming } = useNowNext(1);
+
+  // DC26: announce "Now playing: <artist> at <stage>" exactly once when a
+  // picked set transitions into current. Track the previous leading set id so
+  // only a genuine up-next→now transition fires the announcement (not every
+  // 60s re-render while the set is already current).
+  const prevCurrentIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const leadingId = current[0]?.set.id ?? null;
+    if (leadingId !== null && leadingId !== prevCurrentIdRef.current) {
+      const set = current[0]!.set;
+      const artist = artistDisplayName(set, b2bSeparator) || 'Your set';
+      const stage = getStageName(set.stageId);
+      const announcement = stage ? `Now playing: ${artist} at ${stage}` : `Now playing: ${artist}`;
+      AccessibilityInfo.announceForAccessibility(announcement);
+    }
+    prevCurrentIdRef.current = leadingId;
+  }, [current, b2bSeparator, getStageName]);
 
   const nowSet = current[0];
   const nextSet = upcoming[0];

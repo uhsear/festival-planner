@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName, timeToMinutes } from '@festie/shared/utils';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
 
 interface Props {
   /** The set currently open in the detail screen. */
@@ -51,7 +52,11 @@ function overlapStartLabel(a: FestivalSet, b: FestivalSet): string {
 export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, getPriority, onClear }: Props) {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  // Pair keys we've already buzzed for, so a re-render (or another conflict
+  // appearing) never re-fires the warning for a clash the user already felt.
+  const warnedKeys = useRef<Set<string>>(new Set());
 
   const dismissPair = useCallback((key: string) => {
     setDismissed((prev) => {
@@ -65,6 +70,16 @@ export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, getPr
     () => conflicts.filter((c) => !dismissed.has(pairKey(currentSet.id, c.id))),
     [conflicts, dismissed, currentSet.id],
   );
+
+  // DC22: fire warning() once when a NEW conflict surfaces — warning()'s own
+  // documented use-case (a missed-headliner clash is exactly the moment a
+  // glance-down festival user wants a physical nudge). Tracked per pair key so
+  // it never re-buzzes a clash already felt or one the user is just scrolling past.
+  useEffect(() => {
+    const fresh = active.some((c) => !warnedKeys.current.has(pairKey(currentSet.id, c.id)));
+    for (const c of active) warnedKeys.current.add(pairKey(currentSet.id, c.id));
+    if (fresh) haptics.warning();
+  }, [active, currentSet.id, haptics]);
 
   if (active.length === 0) return null;
 

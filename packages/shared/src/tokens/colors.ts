@@ -69,8 +69,10 @@ export const colors = {
     coral: 'rgba(255, 51, 102, 0.15)',
     aqua: 'rgba(0, 232, 208, 0.15)',
   },
+  // DC12: selected-day pill unified on aqua across web + mobile (accent rule:
+  // aqua = primary/selected). Was the improvised crimson #c01d3a.
   dayTab: {
-    active: '#c01d3a',
+    active: '#00e8d0',
   },
   status: {
     verified: '#22c55e',

@@ -166,7 +166,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                   key={day.id || i}
                   className={cn(
                     'day-tab-underline',
-                    'py-[7px] px-4 rounded-full text-[13px] font-semibold cursor-pointer',
+                    'py-2 px-4 rounded-full text-[13px] font-semibold cursor-pointer',
                     'whitespace-nowrap snap-center min-h-[44px] inline-flex items-center gap-1.5',
                     'transition-[background,color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)]',
                     'active:scale-[0.96]',
@@ -174,9 +174,9 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                     isActive
                       ? [
                           'active',
-                          'bg-day-tab-active text-white border-day-tab-active font-bold',
-                          'shadow-[0_0_0_1px_rgba(255,80,110,0.45),var(--shadow-glow-coral),0_4px_12px_rgba(0,0,0,0.25)]',
-                          '[text-shadow:0_1px_2px_rgba(0,0,0,0.35)]',
+                          // Accent rule: aqua = selection/primary, dark ink = text.onLightAccent.
+                          'bg-day-tab-active text-[#080810] border-day-tab-active font-bold',
+                          'shadow-[0_0_0_1px_rgba(0,232,208,0.45),var(--shadow-glow-aqua),0_4px_12px_rgba(0,0,0,0.25)]',
                         ]
                       : 'bg-bg-card border border-border-light text-text-secondary',
                   )}
@@ -187,7 +187,10 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                 >
                   {isToday && (
                     <span
-                      className={cn('inline-block w-1.5 h-1.5 rounded-full', isActive ? 'bg-white' : 'bg-accent-aqua')}
+                      className={cn(
+                        'inline-block w-1.5 h-1.5 rounded-full',
+                        isActive ? 'bg-[#080810]' : 'bg-accent-aqua',
+                      )}
                       aria-hidden="true"
                     />
                   )}
@@ -210,7 +213,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
             aria-label="Show only my picks"
             className={cn(
               'inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold',
-              'cursor-pointer border-2 transition-all duration-200',
+              'cursor-pointer border-2 transition-[border-color,background-color,color] duration-200',
               onlyMine
                 ? 'border-accent-aqua bg-[var(--color-aqua-a08)] text-accent-aqua'
                 : 'border-border text-text-secondary hover:text-text-primary',
@@ -248,7 +251,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                     className={cn(
                       'inline-flex items-center justify-center rounded-full px-3 py-2 text-xs font-semibold',
                       'min-h-[44px] min-w-[44px]',
-                      'cursor-pointer border-2 border-transparent transition-all duration-200',
+                      'cursor-pointer border-2 border-transparent transition-[border-color,background-color,color] duration-200',
                       isActive && 'border-current',
                     )}
                     style={style}

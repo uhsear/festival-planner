@@ -17,6 +17,7 @@ import {
   SpaceGrotesk_600SemiBold,
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
+import * as SplashScreen from 'expo-splash-screen';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,6 +27,12 @@ import FirstRunIntro from '../components/FirstRunIntro';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useLocalReminders } from '../hooks/useLocalReminders';
 import { ensureAndroidChannels } from '../hooks/useMobilePush';
+
+// Hold the native splash until fonts + hydration + session check complete.
+// hideAsync is called when `loading` flips false inside AuthGate; the existing
+// 4-second bootTimedOut ceiling is the forced-hide backstop so the app never
+// wedges. preventAutoHideAsync must run at module scope (before any render).
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // First-run intro flag — mirrors the web key for parity.
 const INTRO_KEY = 'festie_onboarding_completed';
@@ -222,6 +229,16 @@ function AuthGate() {
   const fontsReady = fontsLoaded || !!fontError;
   const loading = (!hydrated || !sessionChecked || !fontsReady) && !bootTimedOut;
 
+  // Dismiss the native splash as soon as loading resolves. The overlay below
+  // stays as a fallback (same #080810 bg) so any frame gap is invisible. The
+  // 4s bootTimedOut ceiling already triggers `loading = false`, so hideAsync
+  // is always called eventually even if fonts or session check hang.
+  useEffect(() => {
+    if (!loading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [loading]);
+
   return (
     <View style={styles.appShell}>
       {/* Light status bar is intentional: the whole app sits on a dark bg and
@@ -274,7 +291,10 @@ function AuthGate() {
                 headerTintColor: colors.text.primary,
               }}
             />
-            <Stack.Screen name="privacy" options={{ presentation: 'card', headerShown: false }} />
+            <Stack.Screen
+              name="privacy"
+              options={{ presentation: 'card', headerShown: true, title: 'Privacy Policy' }}
+            />
             <Stack.Screen name="reset-password" options={{ presentation: 'card', headerShown: false }} />
           </Stack>
         </ErrorBoundary>

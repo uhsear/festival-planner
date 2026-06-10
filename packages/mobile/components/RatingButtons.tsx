@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text } from 'react-native';
 import { api } from '@festie/shared/services';
 import { makeStyles, typeStyle } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
+import PressableScale from './PressableScale';
 
 /**
  * Emoji scale mirrors the web RatingButtons + legacy ratings.js:
@@ -40,6 +42,7 @@ interface RatingButtonsProps {
  */
 export default function RatingButtons({ setId, festivalId }: RatingButtonsProps) {
   const styles = useStyles();
+  const haptics = useHaptics();
   const [current, setCurrent] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -65,6 +68,9 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
   const handlePress = useCallback(
     async (n: number) => {
       if (busy) return;
+      // Selection haptic on tap — parity with the priority picker and the
+      // segmented control so equivalent "I chose this" controls all confirm (F18).
+      haptics.select();
       setBusy(true);
       const prev = current;
       const removing = current === n;
@@ -83,7 +89,7 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
         setBusy(false);
       }
     },
-    [busy, current, setId],
+    [busy, current, setId, haptics],
   );
 
   return (
@@ -91,18 +97,19 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
       {RATINGS.map((r) => {
         const active = current === r.n;
         return (
-          <TouchableOpacity
+          <PressableScale
             key={r.n}
             style={[styles.button, active && styles.buttonActive]}
             onPress={() => handlePress(r.n)}
             disabled={busy}
-            activeOpacity={0.7}
             accessibilityRole="radio"
-            accessibilityState={{ selected: active, disabled: busy }}
+            // radio/checkbox roles announce on/off via `checked` (TalkBack
+            // ignores `selected` for radios); keep `selected` for iOS parity (F44).
+            accessibilityState={{ checked: active, selected: active, disabled: busy }}
             accessibilityLabel={`${r.label} (${r.n} of 5)`}
           >
             <Text style={[styles.emoji, active && styles.emojiActive]}>{r.emoji}</Text>
-          </TouchableOpacity>
+          </PressableScale>
         );
       })}
     </View>

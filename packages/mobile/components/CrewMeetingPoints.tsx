@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import { useCrewStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import Button from './Button';
 
 // F4: capture the device's current GPS position via expo-location to fill
 // latitude/longitude on create/edit, mirroring the web MeetingPointsTab. Permission
@@ -57,6 +58,7 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
   // F4: optional captured GPS coords. null = no coord (free-text only).
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
+  const [focusedField, setFocusedField] = useState<'label' | 'location' | 'stage' | null>(null);
 
   const reset = () => {
     setLabel('');
@@ -194,17 +196,19 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
           </View>
           <TextInput
             testID="mp-label-input"
-            style={styles.input}
+            style={[styles.input, focusedField === 'label' && styles.inputFocused]}
             placeholder="Label (e.g. Main entrance)"
             placeholderTextColor={t.colors.text.placeholder}
             value={label}
             onChangeText={setLabel}
             maxLength={100}
+            onFocus={() => setFocusedField('label')}
+            onBlur={() => setFocusedField((f) => (f === 'label' ? null : f))}
             accessibilityLabel="Meeting point label"
           />
           <TextInput
             testID="mp-location-input"
-            style={styles.input}
+            style={[styles.input, focusedField === 'location' && styles.inputFocused]}
             placeholder="Location (e.g. Near the food court)"
             placeholderTextColor={t.colors.text.placeholder}
             value={location}
@@ -212,31 +216,33 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
             maxLength={200}
             returnKeyType="done"
             onSubmitEditing={handleCreate}
+            onFocus={() => setFocusedField('location')}
+            onBlur={() => setFocusedField((f) => (f === 'location' ? null : f))}
             accessibilityLabel="Meeting point location"
           />
           <TextInput
             testID="mp-stage-input"
-            style={styles.input}
+            style={[styles.input, focusedField === 'stage' && styles.inputFocused]}
             placeholder="Near stage (optional, e.g. Main Stage)"
             placeholderTextColor={t.colors.text.placeholder}
             value={stageRef}
             onChangeText={setStageRef}
             maxLength={100}
+            onFocus={() => setFocusedField('stage')}
+            onBlur={() => setFocusedField((f) => (f === 'stage' ? null : f))}
             accessibilityLabel="Meeting point stage reference"
           />
           {/* F4: optional GPS capture. Falls back to free-text on denial. */}
           <View style={styles.captureRow}>
-            <TouchableOpacity
-              style={[styles.captureButton, locating && styles.buttonDisabled]}
+            <Button
+              variant="utility"
+              size="sm"
+              icon="locate-outline"
+              label="Use my location"
+              loadingLabel="Locating…"
+              loading={locating}
               onPress={captureLocation}
-              disabled={locating}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Use my location"
-            >
-              <Ionicons name="locate-outline" size={16} color={t.colors.accent.aqua} />
-              <Text style={styles.captureButtonText}>{locating ? 'Locating…' : 'Use my location'}</Text>
-            </TouchableOpacity>
+            />
             {coords ? (
               <View style={styles.coordChip} accessibilityLabel="Captured location">
                 <Ionicons name="checkmark" size={12} color={t.colors.accent.aqua} />
@@ -255,18 +261,14 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
             ) : null}
           </View>
 
-          <TouchableOpacity
-            style={[styles.primaryButton, (createBusy || !canCreate) && styles.buttonDisabled]}
+          <Button
+            label={editingId ? 'Save' : 'Add'}
+            loading={createBusy}
+            loadingLabel={editingId ? 'Saving…' : 'Adding…'}
+            disabled={!canCreate}
             onPress={handleCreate}
-            disabled={createBusy || !canCreate}
-            activeOpacity={0.8}
-            accessibilityRole="button"
             accessibilityLabel="Add meeting point"
-          >
-            <Text style={styles.primaryButtonText}>
-              {createBusy ? (editingId ? 'Saving…' : 'Adding…') : editingId ? 'Save' : 'Add'}
-            </Text>
-          </TouchableOpacity>
+          />
         </View>
       ) : (
         <TouchableOpacity
@@ -418,41 +420,15 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.primary,
   },
-  primaryButton: {
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    ...typeStyle('label'),
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    color: t.colors.text.onLightAccent,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+  inputFocused: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
   },
   captureRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: t.spacing[2],
-  },
-  captureButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: t.spacing[2],
-    paddingHorizontal: t.spacing[3],
-    paddingVertical: t.spacing[2],
-    borderRadius: t.radii.default,
-    borderWidth: 1,
-    borderColor: t.colors.border.default,
-    backgroundColor: t.colors.bg.input,
-  },
-  captureButtonText: {
-    ...typeStyle('caption'),
-    color: t.colors.text.primary,
   },
   coordChip: {
     flexDirection: 'row',

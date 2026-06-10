@@ -38,7 +38,7 @@ export default function UserMenuAccountSection({
       await resendVerification();
       toast('Verification email sent', 'success');
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Failed to resend verification email', 'error');
+      toast(err instanceof Error ? err.message : 'Could not resend verification email. Try again.', 'error');
     } finally {
       setResending(false);
     }

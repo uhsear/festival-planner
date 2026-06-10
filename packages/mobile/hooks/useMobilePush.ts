@@ -27,10 +27,17 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * Ensure the Android channels exist. The FCM sender targets channelId
- * 'updates' for set reminders + crew updates; it MUST exist as HIGH importance
- * or time-critical set reminders arrive silently/low-importance (the old code
- * only created 'default'). Idempotent — safe to call on every mount.
+ * Ensure the Android channels exist. Idempotent — safe to call on every mount.
+ *
+ * DC7: 'updates' has been split into two channels so users can tune them
+ * independently in Android system settings:
+ *   - 'set-reminders' (HIGH)   — on-device local set alarms (time-critical).
+ *   - 'crew' (DEFAULT)          — FCM crew activity (member actions, SOS etc.).
+ *
+ * The legacy 'updates' channel is kept so existing scheduled local
+ * notifications (that still carry channelId='updates') land on a valid
+ * channel during the transition — it can be removed once all devices have
+ * received a build with the new channels.
  */
 export async function ensureAndroidChannels(): Promise<void> {
   if (Platform.OS !== 'android') return;
@@ -38,8 +45,20 @@ export async function ensureAndroidChannels(): Promise<void> {
     name: 'General',
     importance: Notifications.AndroidImportance.DEFAULT,
   });
+  // DC7 split: personal set reminders get their own HIGH-importance channel.
+  await Notifications.setNotificationChannelAsync('set-reminders', {
+    name: 'Set reminders',
+    importance: Notifications.AndroidImportance.HIGH,
+  });
+  // DC7 split: crew activity (member updates, status changes, etc.).
+  await Notifications.setNotificationChannelAsync('crew', {
+    name: 'Crew updates',
+    importance: Notifications.AndroidImportance.DEFAULT,
+  });
+  // Transition channel: keep until all devices have received a build with the
+  // new channels above. Previously bundled set reminders + crew updates.
   await Notifications.setNotificationChannelAsync('updates', {
-    name: 'Set reminders & crew updates',
+    name: 'Set reminders & crew updates (legacy)',
     importance: Notifications.AndroidImportance.HIGH,
   });
 }

@@ -21,7 +21,10 @@ type NowNextProps = {
   subtitle: string;
 };
 
-const AQUA = '#16E0C8';
+// Brand aqua token (packages/shared/src/tokens/colors.ts colors.accent.aqua).
+// expo-widgets compiles this at build time, so we use a literal that mirrors
+// the token rather than importing at runtime.
+const AQUA = '#00e8d0';
 
 const NowNextActivity = (props: NowNextProps, _environment: LiveActivityEnvironment) => {
   'widget';

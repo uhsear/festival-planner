@@ -244,7 +244,7 @@ function SetCard({
         'p-4 cursor-pointer overflow-hidden',
         'border-l-4',
         // Transition + will-change — token-eased, reduce-motion safe.
-        'transition-all duration-200 ease-out will-change-transform',
+        'transition-[background-color,box-shadow,transform] duration-200 ease-out will-change-transform',
         'motion-reduce:transition-none motion-reduce:transform-none',
         // Hover — gentle lift + surface shift + light glow (no heavy drop shadow).
         'hover:bg-bg-card-hover hover:-translate-y-0.5',

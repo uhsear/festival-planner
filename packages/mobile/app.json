@@ -51,7 +51,7 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false,
+      "predictiveBackGestureEnabled": true,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -97,7 +97,7 @@
       [
         "expo-notifications",
         {
-          "color": "#ff3366"
+          "color": "#00e8d0"
         }
       ],
       [

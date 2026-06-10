@@ -41,7 +41,7 @@ export default function PollOptionButton({
       <div
         key={`${pollId}-${optionIndex}-${pct}`}
         className={cn(
-          'crew-poll-bar absolute inset-y-0 left-0 transition-all duration-300 origin-left',
+          'crew-poll-bar absolute inset-y-0 left-0 transition-[width,background-color] duration-300 origin-left',
           isMine ? 'bg-accent-aqua/30' : isWinning ? 'bg-accent-aqua/15' : 'bg-text-muted/10',
         )}
         style={{ width: `${pct}%` }}
@@ -51,10 +51,9 @@ export default function PollOptionButton({
           {isMine && <Check className="w-3.5 h-3.5 text-accent-aqua flex-shrink-0" />}
           <span className="truncate">{text}</span>
         </span>
-        <span className={cn(
-          'text-xs font-medium flex-shrink-0 ml-2',
-          isMine ? 'text-accent-aqua' : 'text-text-secondary',
-        )}>
+        <span
+          className={cn('text-xs font-medium flex-shrink-0 ml-2', isMine ? 'text-accent-aqua' : 'text-text-secondary')}
+        >
           {pct}%
         </span>
       </div>

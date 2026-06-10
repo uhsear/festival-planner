@@ -4,10 +4,14 @@ import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 export type CrewTabKey = 'members' | 'plan' | 'logistics' | 'money';
 
+// DC4: 'Find' owns the mid-festival "where is everyone / where do we meet"
+// cluster (map, compass, live location, SOS, meeting points). Packing + Rides
+// moved into 'Plan' (pre-festival planning), Money kept as-is. The `logistics`
+// key is retained to avoid churning every consumer; only the label/icon changed.
 const TABS: readonly { key: CrewTabKey; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'members', label: 'Members', icon: 'people-outline' },
   { key: 'plan', label: 'Plan', icon: 'calendar-outline' },
-  { key: 'logistics', label: 'Logistics', icon: 'navigate-outline' },
+  { key: 'logistics', label: 'Find', icon: 'location-outline' },
   { key: 'money', label: 'Money', icon: 'cash-outline' },
 ];
 
@@ -51,16 +55,23 @@ export default function CrewTabBar({ activeTab, onTabChange, badges }: CrewTabBa
             activeOpacity={0.8}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={tab.label}
+            accessibilityLabel={
+              typeof badge === 'number' && badge > 0
+                ? `${tab.label}, ${badge} open`
+                : badge === true
+                  ? `${tab.label}, needs attention`
+                  : tab.label
+            }
           >
-            <Ionicons name={tab.icon} size={15} color={active ? t.colors.accent.aqua : t.colors.text.secondary} />
+            {/* DC25: 15 is off-grid; snap to iconSize.sm (16). */}
+            <Ionicons name={tab.icon} size={16} color={active ? t.colors.accent.aqua : t.colors.text.secondary} />
             <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
             {typeof badge === 'number' && badge > 0 ? (
-              <View style={styles.countBadge} accessibilityLabel={`${badge} open`}>
+              <View style={styles.countBadge}>
                 <Text style={styles.countBadgeText}>{badge}</Text>
               </View>
             ) : badge === true ? (
-              <View style={styles.dotBadge} accessibilityLabel="Needs attention" />
+              <View style={styles.dotBadge} />
             ) : null}
           </TouchableOpacity>
         );

@@ -124,6 +124,7 @@ Two-tier+ ramp on near-black (not #000): bg `#0A0A0B`, surface `#161618`, elevat
 
 1. **Accent direction (blocks P0-3).** Recommended: aqua = primary CTA + selection, coral = danger/SOS/conflict only. Confirm, or invert (coral = primary CTA). One must win.
 2. **How far to push the redesign.** Roadmap is scoped as "finish the migration" (token swaps + reuse). Confirm we are NOT doing a ground-up visual redesign — or say so and P1/P2 scope grows.
+   - **RATIFIED (2026-06-10, DC13):** finish-the-migration is the end state. The migration is ~95% landed (P0 fully, P1 fully, most of P2); remaining polish items drop to normal backlog. No ground-up redesign. **This roadmap is closed.**
 3. **Mobile grid removal (P1-1).** OK to drop the pinch-zoom 2D stage×time grid on phones in favor of timeline/list, keeping the dense grid web/tablet-only? (Clashfinder precedent.)
 4. **Icon vocabulary.** Standardize fully on lucide (web) and a single RN icon set (mobile), retiring emoji (admin) and raw text glyphs (`→`, `←`)? Confirm the canonical set per platform.
 5. **Brand font choice on mobile (P0-2).** Confirm Syncopate (display) + Space Grotesk (body) are the intended faces to register, matching web — or substitute.

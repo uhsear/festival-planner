@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -15,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { api } from '@festie/shared/services';
-import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
+import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 /**
  * Reset-password screen reached via the deep link festie.us/reset-password?token=…
@@ -23,7 +22,90 @@ import { colors, spacing, fontSize, radii } from '@festie/shared/tokens';
  * /auth/reset-password { token, newPassword, confirmPassword }. If opened without
  * a token (or the app isn't installed) the web page handles it as a fallback.
  */
+
+const useStyles = makeStyles((t) => ({
+  container: { flex: 1, backgroundColor: t.colors.bg.primary },
+  inner: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: t.spacing[6] },
+  icon: { alignSelf: 'center' as const, marginBottom: t.spacing[3] },
+  title: {
+    // display-lg = Syncopate 700 — brand wordmark, first impression screen.
+    ...typeStyle('display-lg'),
+    color: t.colors.text.primary,
+    textAlign: 'center',
+    marginBottom: t.spacing[1],
+  },
+  subtitle: {
+    ...typeStyle('body'),
+    color: t.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: t.spacing[8],
+  },
+  error: {
+    ...typeStyle('label'),
+    color: t.colors.text.danger,
+    textAlign: 'center',
+    marginBottom: t.spacing[4],
+  },
+  input: {
+    backgroundColor: t.colors.bg.input,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    borderRadius: t.radii.default,
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+    marginBottom: t.spacing[3],
+  },
+  passwordRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: t.colors.bg.input,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    borderRadius: t.radii.default,
+    paddingRight: t.spacing[2],
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+  },
+  eyeButton: { padding: t.spacing[2] },
+  hint: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+    marginTop: t.spacing[1],
+    marginBottom: t.spacing[3],
+  },
+  button: {
+    // PRIMARY CTA = aqua fill + dark ink per the accent rule (coral is reserved
+    // for danger/SOS only). Matches login / register / forgot-password.
+    backgroundColor: t.colors.accent.aqua,
+    borderRadius: t.radii.default,
+    paddingVertical: t.spacing[3],
+    alignItems: 'center' as const,
+    marginTop: t.spacing[2],
+  },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: {
+    ...typeStyle('label'),
+    fontWeight: '600' as const,
+    color: t.colors.text.onLightAccent,
+  },
+  linkButton: { marginTop: t.spacing[5], alignItems: 'center' as const },
+  linkText: {
+    ...typeStyle('label'),
+    color: t.colors.accent.aqua,
+    fontWeight: '600' as const,
+  },
+}));
+
 export default function ResetPasswordScreen() {
+  const styles = useStyles();
+  const t = useTokens();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { token } = useLocalSearchParams<{ token?: string }>();
@@ -65,7 +147,7 @@ export default function ResetPasswordScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.inner}>
-          <Ionicons name="checkmark-circle" size={56} color={colors.accent.aqua} style={styles.icon} />
+          <Ionicons name="checkmark-circle" size={56} color={t.colors.accent.aqua} style={styles.icon} />
           <Text style={styles.title}>Password reset</Text>
           <Text style={styles.subtitle}>Sign in with your new password.</Text>
           <TouchableOpacity
@@ -86,7 +168,7 @@ export default function ResetPasswordScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.inner,
-          { paddingTop: insets.top + spacing[6], paddingBottom: insets.bottom + spacing[6] },
+          { paddingTop: insets.top + t.spacing[6], paddingBottom: insets.bottom + t.spacing[6] },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -104,7 +186,7 @@ export default function ResetPasswordScreen() {
           <TextInput
             style={styles.passwordInput}
             placeholder="New password"
-            placeholderTextColor={colors.text.placeholder}
+            placeholderTextColor={t.colors.text.placeholder}
             accessibilityLabel="New password"
             value={newPassword}
             onChangeText={setNewPassword}
@@ -120,7 +202,7 @@ export default function ResetPasswordScreen() {
             accessibilityRole="button"
             accessibilityLabel={showPw ? 'Hide password' : 'Show password'}
           >
-            <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.text.secondary} />
+            <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={t.colors.text.secondary} />
           </TouchableOpacity>
         </View>
         <Text style={styles.hint}>At least 8 characters. Avoid common passwords and your name.</Text>
@@ -129,7 +211,7 @@ export default function ResetPasswordScreen() {
           ref={confirmRef}
           style={styles.input}
           placeholder="Confirm new password"
-          placeholderTextColor={colors.text.placeholder}
+          placeholderTextColor={t.colors.text.placeholder}
           accessibilityLabel="Confirm new password"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
@@ -148,7 +230,7 @@ export default function ResetPasswordScreen() {
           accessibilityLabel="Reset password"
         >
           {busy ? (
-            <ActivityIndicator color={colors.text.onAccent} />
+            <ActivityIndicator color={t.colors.text.onLightAccent} />
           ) : (
             <Text style={styles.buttonText}>Reset password</Text>
           )}
@@ -166,73 +248,3 @@ export default function ResetPasswordScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg.primary },
-  inner: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing[6] },
-  icon: { alignSelf: 'center', marginBottom: spacing[3] },
-  title: {
-    fontSize: fontSize[32],
-    fontWeight: '700',
-    color: colors.text.primary,
-    textAlign: 'center',
-    marginBottom: spacing[1],
-  },
-  subtitle: {
-    fontSize: fontSize[16],
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing[8],
-  },
-  error: {
-    fontSize: fontSize[14],
-    color: colors.text.danger,
-    textAlign: 'center',
-    marginBottom: spacing[4],
-  },
-  input: {
-    backgroundColor: colors.bg.input,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radii.default,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    fontSize: fontSize[16],
-    color: colors.text.primary,
-    marginBottom: spacing[3],
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.bg.input,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radii.default,
-    paddingRight: spacing[2],
-  },
-  passwordInput: {
-    flex: 1,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    fontSize: fontSize[16],
-    color: colors.text.primary,
-  },
-  eyeButton: { padding: spacing[2] },
-  hint: {
-    fontSize: fontSize[12],
-    color: colors.text.muted,
-    marginTop: spacing[1],
-    marginBottom: spacing[3],
-  },
-  button: {
-    backgroundColor: colors.accent.coral,
-    borderRadius: radii.default,
-    paddingVertical: spacing[3],
-    alignItems: 'center',
-    marginTop: spacing[2],
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { fontSize: fontSize[16], fontWeight: '600', color: colors.text.onAccent },
-  linkButton: { marginTop: spacing[5], alignItems: 'center' },
-  linkText: { fontSize: fontSize[14], color: colors.accent.aqua, fontWeight: '600' },
-});

@@ -61,6 +61,8 @@ export default function WrapScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [sharing, setSharing] = useState(false);
+  // Bumped by the error-state "Try again" action to re-run the fetch (F40).
+  const [reloadKey, setReloadKey] = useState(0);
   const posterRef = useRef<View>(null);
 
   useEffect(() => {
@@ -82,7 +84,7 @@ export default function WrapScreen() {
     return () => {
       cancelled = true;
     };
-  }, [currentFestival?.id, over]);
+  }, [currentFestival?.id, over, reloadKey]);
 
   const allSorted = useMemo(
     () => (data?.allRatings || []).slice().sort((a, b) => b.rating - a.rating),
@@ -173,9 +175,10 @@ export default function WrapScreen() {
     if (error) {
       return (
         <EmptyState
-          icon="sparkles-outline"
+          icon="cloud-offline-outline"
           title="Couldn't load your wrap"
           message="Something went wrong loading your festival wrap."
+          action={{ label: 'Try again', onPress: () => setReloadKey((k) => k + 1) }}
         />
       );
     }
@@ -268,9 +271,9 @@ export default function WrapScreen() {
             accessibilityLabel="Share your wrap"
           >
             {sharing ? (
-              <ActivityIndicator size="small" color={t.colors.text.onAccent} />
+              <ActivityIndicator size="small" color={t.colors.text.onLightAccent} />
             ) : (
-              <Ionicons name="share-social-outline" size={16} color={t.colors.text.onAccent} />
+              <Ionicons name="share-social-outline" size={16} color={t.colors.text.onLightAccent} />
             )}
             <Text style={styles.shareButtonText}>{sharing ? 'Preparing…' : 'Share your wrap'}</Text>
           </TouchableOpacity>
@@ -414,6 +417,8 @@ function CrewWrapTab({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [sharing, setSharing] = useState(false);
+  // Bumped by the error-state "Try again" action to re-run the fetch (F40).
+  const [reloadKey, setReloadKey] = useState(0);
   const posterRef = useRef<View>(null);
 
   useEffect(() => {
@@ -435,7 +440,7 @@ function CrewWrapTab({
     return () => {
       cancelled = true;
     };
-  }, [crewId, festivalId]);
+  }, [crewId, festivalId, reloadKey]);
 
   const hasData =
     !!wrap &&
@@ -486,9 +491,10 @@ function CrewWrapTab({
   if (error || !wrap) {
     return (
       <EmptyState
-        icon="people-outline"
+        icon="cloud-offline-outline"
         title="Couldn't load your crew wrap"
         message="Something went wrong loading the shared recap."
+        action={{ label: 'Try again', onPress: () => setReloadKey((k) => k + 1) }}
       />
     );
   }
@@ -580,9 +586,9 @@ function CrewWrapTab({
             accessibilityLabel="Share crew wrap"
           >
             {sharing ? (
-              <ActivityIndicator size="small" color={t.colors.text.onAccent} />
+              <ActivityIndicator size="small" color={t.colors.text.onLightAccent} />
             ) : (
-              <Ionicons name="share-social-outline" size={16} color={t.colors.text.onAccent} />
+              <Ionicons name="share-social-outline" size={16} color={t.colors.text.onLightAccent} />
             )}
             <Text style={styles.shareButtonText}>{sharing ? 'Preparing…' : 'Share crew wrap'}</Text>
           </TouchableOpacity>
@@ -724,7 +730,8 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     justifyContent: 'center',
     gap: t.spacing[2],
-    backgroundColor: t.colors.accent.coral,
+    // Accent rule (F13): aqua = primary action with dark ink; coral is danger-only.
+    backgroundColor: t.colors.accent.aqua,
     borderRadius: t.radii.default,
     paddingVertical: t.spacing[3],
   },
@@ -733,7 +740,7 @@ const useStyles = makeStyles((t) => ({
   },
   shareButtonText: {
     ...typeStyle('label'),
-    color: t.colors.text.onAccent,
+    color: t.colors.text.onLightAccent,
   },
   footer: {
     ...typeStyle('micro'),
@@ -760,14 +767,15 @@ const useStyles = makeStyles((t) => ({
     borderRadius: t.radii.sm,
   },
   tabActive: {
-    backgroundColor: t.colors.accent.coral,
+    // Aqua selection (F13) to match the SegmentedControl/plan-share active tab.
+    backgroundColor: t.colors.accent.aqua,
   },
   tabText: {
     ...typeStyle('label'),
     color: t.colors.text.secondary,
   },
   tabTextActive: {
-    color: t.colors.text.onAccent,
+    color: t.colors.text.onLightAccent,
   },
   crewFestival: {
     ...typeStyle('caption'),

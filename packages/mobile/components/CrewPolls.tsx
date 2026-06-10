@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore, useFestivalStore, useFestivalDataStore } from '@festie/shared/stores';
+import { duration as motionDuration } from '@festie/shared/tokens';
 import type { CrewPoll, FestivalSet, PollSetRef } from '@festie/shared/types';
 import { artistDisplayName, formatTime, getSetTimeBounds } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 // Lead time (minutes) for the reminder seeded when a schedule poll closes.
 const SCHEDULE_POLL_REMINDER_LEAD = 15;
@@ -47,6 +50,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
   const t = useTokens();
   const styles = useStyles();
   const haptics = useHaptics();
+  const reduceMotion = useReduceMotion();
 
   const polls = useCrewStore((s) => s.polls);
   const createPoll = useCrewStore((s) => s.createPoll);
@@ -414,8 +418,18 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
         polls.map((poll) => {
           const { counts, myVote, total, maxCount } = tally(poll, currentUserId);
           const canClose = poll.created_by === currentUserId || isOwner;
+          // DC8: polls fade/reflow in and out as they're created/closed; gated
+          // on Reduce Motion (a plain View = instant).
+          const PollContainer = reduceMotion ? View : Animated.View;
+          const motionProps = reduceMotion
+            ? {}
+            : {
+                entering: FadeIn.duration(motionDuration.med),
+                exiting: FadeOut.duration(motionDuration.fast),
+                layout: LinearTransition.duration(motionDuration.med),
+              };
           return (
-            <View key={poll.id} style={styles.pollCard}>
+            <PollContainer key={poll.id} style={styles.pollCard} {...motionProps}>
               <View style={styles.pollHeader}>
                 <Text style={styles.pollQuestion}>{poll.question}</Text>
                 <Text style={styles.pollVotes}>
@@ -440,7 +454,8 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
                     <View style={[styles.optionFill, { width: `${pct}%` }, isWinning && styles.optionFillWinning]} />
                     <View style={styles.optionContent}>
                       <View style={styles.optionTextRow}>
-                        {isMine ? <Ionicons name="checkmark-circle" size={15} color={t.colors.accent.aqua} /> : null}
+                        {/* DC25: 15 is off-grid; snap to iconSize.sm (16). */}
+                        {isMine ? <Ionicons name="checkmark-circle" size={16} color={t.colors.accent.aqua} /> : null}
                         <Text style={styles.optionText} numberOfLines={1}>
                           {text}
                         </Text>
@@ -462,7 +477,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
                   <Text style={styles.closeText}>Close poll</Text>
                 </TouchableOpacity>
               ) : null}
-            </View>
+            </PollContainer>
           );
         })
       )}
