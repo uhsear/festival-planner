@@ -49,7 +49,11 @@ env:
     when:
       visible: "Select a Festival"
     commands:
-      - tapOn: "North Coast Festival 2026"
+      # Tap by testID (the whole TouchableOpacity), not by inner Text — under
+      # RN 0.85 New Architecture the accessible container exposes one combined
+      # a11y label and a text-center tap can land on a non-interactive node.
+      - tapOn:
+          id: "festival-card-nc-2026"
       # Diagnostic: capture whatever rendered right after the tap, BEFORE any
       # assertion, so a failure leaves evidence (spinner vs picker vs schedule).
       - waitForAnimationToEnd:
