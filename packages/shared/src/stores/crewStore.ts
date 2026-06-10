@@ -275,7 +275,10 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     });
     try {
       const crew = await api.get<Crew & { members: CrewMember[] }>(`/crews/${crewId}`);
-      if (_lastSelectCrewId !== crewId) return;
+      if (_lastSelectCrewId !== crewId) {
+        set({ crewLoading: false });
+        return;
+      }
       set({
         activeCrew: crew,
         crewMembers: crew.members ?? [],
