@@ -219,6 +219,12 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       }
 
       set({
+        // Re-assert the id alongside the data: an async persist rehydration
+        // finishing mid-fetch can overwrite the id set at the top of this
+        // action with a stale persisted value (null for a first-time guest),
+        // which previously left the store in an inconsistent state and
+        // bounced the user back to the festival picker.
+        currentFestivalId: festivalId,
         currentFestival: festival,
         sets,
         stages,
@@ -524,5 +530,32 @@ export const useFestivalDataStore = create<FestivalDataStore>()(
       _profilesCachedAt: state._profilesCachedAt,
       _cachedFestivalId: state._cachedFestivalId,
     }),
+    // Hydration-vs-live-state guard: persist rehydrates ASYNCHRONOUSLY (the
+    // AsyncStorage read), so a user can start selecting a festival BEFORE
+    // hydration lands. The default merge ({...current, ...persisted}) would
+    // then clobber the in-flight/just-loaded selection with the stale
+    // persisted snapshot (null for a first-time guest) — bouncing the user
+    // back to the picker. When the live state already has a selection that
+    // the persisted blob doesn't match, keep the live selection.
+    merge: (persisted, current) => {
+      const p = (persisted ?? {}) as Partial<FestivalDataState>;
+      if (current.currentFestivalId && p.currentFestivalId !== current.currentFestivalId) {
+        const {
+          currentFestivalId: _id,
+          currentFestival: _f,
+          sets: _s,
+          stages: _st,
+          days: _d,
+          currentProfile: _cp,
+          allProfiles: _ap,
+          _festivalCachedAt: _fca,
+          _profilesCachedAt: _pca,
+          _cachedFestivalId: _cfi,
+          ...rest
+        } = p;
+        return { ...current, ...rest };
+      }
+      return { ...current, ...p };
+    },
   }),
 );

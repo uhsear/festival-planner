@@ -32,7 +32,12 @@ env:
       text: "Select a Festival|North Coast|Timeline"
     timeout: 30000
 - takeScreenshot: 02-festival-picker
-# ── Schedule views (guest) ──
+# ── Guest festival selection (HARD gate) ──
+# Regression guard for the guest bounce-back bug: a stale persist rehydration
+# clobbered currentFestivalId mid-selectFestival, so the schedule rendered for
+# ~2s then bounced back to the picker. The tap and BOTH assertions are
+# non-optional: select as a guest, confirm the schedule rendered, wait past
+# the bounce window, then confirm the picker did NOT come back.
 - tapOn:
     text: "Schedule"
     optional: true
@@ -40,9 +45,26 @@ env:
     visible:
       text: "North Coast Festival 2026|Select a Festival|Timeline"
     timeout: 30000
-- tapOn:
-    text: "North Coast Festival 2026"
-    optional: true
+- runFlow:
+    when:
+      visible: "Select a Festival"
+    commands:
+      - tapOn: "North Coast Festival 2026"
+      # Schedule must render…
+      - extendedWaitUntil:
+          visible:
+            text: "Timeline|Grid|Cards"
+          timeout: 30000
+      - takeScreenshot: 03a-festival-selected
+      # …and must STILL be rendered well past the bounce window.
+      - extendedWaitUntil:
+          notVisible: "Select a Festival"
+          timeout: 1000
+      - waitForAnimationToEnd:
+          timeout: 6000
+      - assertNotVisible: "Select a Festival"
+      - assertVisible:
+          text: "Timeline|Grid|Cards"
 - waitForAnimationToEnd:
     timeout: 4000
 - takeScreenshot: 03-timeline
@@ -59,6 +81,10 @@ env:
 - scroll
 - scroll
 - takeScreenshot: 05a-cards-scrolled
+# Bounce-back gate, part 2: we are now 10s+ past the guest festival selection.
+# If the selection silently unwound to the picker (the rehydration-clobber
+# regression), this fails the flow loudly instead of the walk continuing.
+- assertNotVisible: "Select a Festival"
 # ── Tab-bar interactivity gate (NON-optional, always runs) ──
 # Regression guard for the build-#15 bug where the Schedule body's timeline
 # carousel sized to its content, overflowed the frame, and painted/intercepted
