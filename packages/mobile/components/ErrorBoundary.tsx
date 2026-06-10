@@ -66,6 +66,9 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
   }
 
   componentDidCatch(error: Error): void {
+    // [festie-diag] temporary: surface render crashes in device logs for the
+    // blank-screen investigation (Sentry release events lag; logs are instant).
+    console.log('[festie-diag] ErrorBoundary caught', error?.message, error?.stack?.split('\n')[1] ?? '');
     // Report to Sentry so a recovered crash still surfaces in dashboards.
     Sentry.captureException(error);
   }
