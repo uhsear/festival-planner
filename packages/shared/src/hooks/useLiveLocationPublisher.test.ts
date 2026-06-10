@@ -5,10 +5,18 @@ import { useLiveLocationStore } from '../stores/liveLocationStore';
 import { LIVE_LOCATION } from '../constants/config';
 import type { Socket } from '../services/socket';
 
-/** Minimal fake socket capturing emits. */
+/** Minimal fake socket capturing emits and event listeners. */
 function makeSocket(connected = true) {
   const emit = vi.fn();
-  return { socket: { connected, emit } as unknown as Socket, emit };
+  const handlers: Record<string, (...args: unknown[]) => void> = {};
+  const on = vi.fn((event: string, fn: (...args: unknown[]) => void) => {
+    handlers[event] = fn;
+  });
+  const off = vi.fn((event: string) => {
+    delete handlers[event];
+  });
+  const fire = (event: string) => handlers[event]?.();
+  return { socket: { connected, emit, on, off } as unknown as Socket, emit, on, off, fire };
 }
 
 /**
@@ -234,5 +242,26 @@ describe('useLiveLocationPublisher', () => {
     );
     expect(() => unmount()).not.toThrow();
     expect(useLiveLocationStore.getState().sharingCrewId).toBeNull();
+  });
+
+  it('re-announces location:share on socket reconnect while the session is active', () => {
+    const { socket, emit, fire } = makeSocket(true);
+    const w = makeWatcher();
+    const { unmount } = renderHook(() =>
+      useLiveLocationPublisher({ socket, crewId: 'crew-1', enabled: true, watchPosition: w.watchPosition }),
+    );
+    const sharesBefore = emit.mock.calls.filter((c) => c[0] === 'location:share').length;
+    expect(sharesBefore).toBe(1);
+
+    // Simulate a socket.io reconnect — the server's per-connection share grant
+    // is gone, so the publisher must re-declare intent.
+    fire('connect');
+    const sharesAfter = emit.mock.calls.filter((c) => c[0] === 'location:share').length;
+    expect(sharesAfter).toBe(2);
+
+    // After stop/unmount, a late reconnect must NOT re-share.
+    unmount();
+    fire('connect');
+    expect(emit.mock.calls.filter((c) => c[0] === 'location:share').length).toBe(2);
   });
 });

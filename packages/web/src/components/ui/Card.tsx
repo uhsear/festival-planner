@@ -1,4 +1,4 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
+import { type HTMLAttributes, type ReactNode, type Ref } from 'react';
 import { cn } from '@/lib/utils';
 
 /* ---------------------------------------------------------------------------
@@ -28,14 +28,12 @@ const paddingStyles = {
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: keyof typeof variantStyles;
   padding?: keyof typeof paddingStyles;
+  ref?: Ref<HTMLDivElement>;
 }
 
-const CardRoot = forwardRef<HTMLDivElement, CardProps>(
-  ({ variant = 'default', padding = 'md', className, ...props }, ref) => (
-    <div ref={ref} className={cn(variantStyles[variant], paddingStyles[padding], className)} {...props} />
-  ),
-);
-CardRoot.displayName = 'Card';
+function CardRoot({ variant = 'default', padding = 'md', className, ref, ...props }: CardProps) {
+  return <div ref={ref} className={cn(variantStyles[variant], paddingStyles[padding], className)} {...props} />;
+}
 
 /* ---------------------------------------------------------------------------
  * Compound sub-components
@@ -43,30 +41,32 @@ CardRoot.displayName = 'Card';
 
 interface CardSectionProps extends HTMLAttributes<HTMLDivElement> {
   children?: ReactNode;
+  ref?: Ref<HTMLDivElement>;
 }
 
-const Header = forwardRef<HTMLDivElement, CardSectionProps>(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn('flex items-center gap-3 mb-3 pb-3 border-b border-border-light', className)}
-    {...props}
-  />
-));
-Header.displayName = 'Card.Header';
+function Header({ className, ref, ...props }: CardSectionProps) {
+  return (
+    <div
+      ref={ref}
+      className={cn('flex items-center gap-3 mb-3 pb-3 border-b border-border-light', className)}
+      {...props}
+    />
+  );
+}
 
-const Body = forwardRef<HTMLDivElement, CardSectionProps>(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn('flex-1', className)} {...props} />
-));
-Body.displayName = 'Card.Body';
+function Body({ className, ref, ...props }: CardSectionProps) {
+  return <div ref={ref} className={cn('flex-1', className)} {...props} />;
+}
 
-const Footer = forwardRef<HTMLDivElement, CardSectionProps>(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn('flex items-center gap-3 mt-3 pt-3 border-t border-border-light', className)}
-    {...props}
-  />
-));
-Footer.displayName = 'Card.Footer';
+function Footer({ className, ref, ...props }: CardSectionProps) {
+  return (
+    <div
+      ref={ref}
+      className={cn('flex items-center gap-3 mt-3 pt-3 border-t border-border-light', className)}
+      {...props}
+    />
+  );
+}
 
 /* ---------------------------------------------------------------------------
  * Compose & export
