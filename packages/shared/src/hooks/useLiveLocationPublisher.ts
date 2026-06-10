@@ -81,6 +81,17 @@ export function useLiveLocationPublisher({
     store.getState().startSharing(crewId);
     socket.emit('location:share', { _v: 1, crewId }, () => {});
 
+    // Re-announce on reconnect: the server keeps the share grant on
+    // per-connection state (socket.data.sharingCrewId), so a disconnect/
+    // reconnect silently kills sharing — every location:update is rejected
+    // NOT_SHARING until we re-emit the intent.
+    const onReconnect = () => {
+      if (!stopped) {
+        socket.emit('location:share', { _v: 1, crewId }, () => {});
+      }
+    };
+    socket.on('connect', onReconnect);
+
     // 2. Start watching. Each fix is throttled before publishing.
     const teardownWatcher = watchPosition(
       (fix) => {
@@ -123,6 +134,7 @@ export function useLiveLocationPublisher({
       if (stopped) return;
       stopped = true;
       clearTimeout(sessionTimer);
+      socket!.off('connect', onReconnect);
       try {
         teardownWatcher();
       } catch {

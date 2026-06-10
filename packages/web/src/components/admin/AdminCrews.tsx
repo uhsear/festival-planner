@@ -17,8 +17,15 @@ interface CrewMember {
   userId: string;
   username?: string;
   role?: string;
-  avatar?: string;
+  // Raw getMembers row fields (routes/admin-bulk.ts returns them unserialized).
+  avatarKey?: string | null;
+  avatarVersion?: string | null;
   joinedAt?: string;
+}
+
+function memberAvatarUrl(m: CrewMember): string | null {
+  if (!m.avatarKey || !m.avatarVersion) return null;
+  return `/uploads/avatars/${m.avatarKey}.webp?v=${encodeURIComponent(m.avatarVersion)}`;
 }
 
 /**
@@ -173,9 +180,9 @@ export default function AdminCrews() {
                         <ul className="space-y-1.5">
                           {members.map((m) => (
                             <li key={m.userId} className="flex items-center gap-2 text-xs text-text-secondary">
-                              {m.avatar ? (
+                              {memberAvatarUrl(m) ? (
                                 <img
-                                  src={m.avatar}
+                                  src={memberAvatarUrl(m)!}
                                   alt=""
                                   width={24}
                                   height={24}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -39,15 +39,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const removeToast = useCallback((id: string) => {
-    clearTimer(id);
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, [clearTimer]);
+  const removeToast = useCallback(
+    (id: string) => {
+      clearTimer(id);
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    },
+    [clearTimer],
+  );
 
-  const scheduleRemoval = useCallback((id: string, duration: number) => {
-    const timeoutId = setTimeout(() => removeToast(id), duration);
-    timers.current.set(id, { timeoutId, startedAt: Date.now(), remaining: duration });
-  }, [removeToast]);
+  const scheduleRemoval = useCallback(
+    (id: string, duration: number) => {
+      const timeoutId = setTimeout(() => removeToast(id), duration);
+      timers.current.set(id, { timeoutId, startedAt: Date.now(), remaining: duration });
+    },
+    [removeToast],
+  );
 
   const pauseToast = useCallback((id: string) => {
     const t = timers.current.get(id);
@@ -57,40 +63,50 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     t.remaining = Math.max(0, t.remaining - elapsed);
   }, []);
 
-  const resumeToast = useCallback((id: string) => {
-    const t = timers.current.get(id);
-    if (!t) return;
-    t.startedAt = Date.now();
-    t.timeoutId = setTimeout(() => removeToast(id), t.remaining);
-  }, [removeToast]);
-
-  const toast = useCallback((message: string, type: ToastType = 'info', duration = 3000) => {
-    const id = `${Date.now()}-${Math.random()}`;
-    const newToast: Toast = { id, message, type, duration };
-
-    setToasts((prev) => [...prev.slice(-2), newToast]); // Keep max 3 visible
-
-    if (duration > 0) {
-      scheduleRemoval(id, duration);
-    }
-  }, [scheduleRemoval]);
-
-  const toastUndo = useCallback((message: string, onUndo: () => void, duration = 5000) => {
-    const id = `${Date.now()}-${Math.random()}`;
-    const newToast: Toast = { id, message, type: 'info', duration, onUndo };
-
-    setToasts((prev) => [...prev.slice(-2), newToast]);
-
-    if (duration > 0) {
-      scheduleRemoval(id, duration);
-    }
-  }, [scheduleRemoval]);
-
-  return (
-    <ToastContext.Provider value={{ toasts, toast, toastUndo, removeToast, pauseToast, resumeToast }}>
-      {children}
-    </ToastContext.Provider>
+  const resumeToast = useCallback(
+    (id: string) => {
+      const t = timers.current.get(id);
+      if (!t) return;
+      t.startedAt = Date.now();
+      t.timeoutId = setTimeout(() => removeToast(id), t.remaining);
+    },
+    [removeToast],
   );
+
+  const toast = useCallback(
+    (message: string, type: ToastType = 'info', duration = 3000) => {
+      const id = `${Date.now()}-${Math.random()}`;
+      const newToast: Toast = { id, message, type, duration };
+
+      setToasts((prev) => [...prev.slice(-2), newToast]); // Keep max 3 visible
+
+      if (duration > 0) {
+        scheduleRemoval(id, duration);
+      }
+    },
+    [scheduleRemoval],
+  );
+
+  const toastUndo = useCallback(
+    (message: string, onUndo: () => void, duration = 5000) => {
+      const id = `${Date.now()}-${Math.random()}`;
+      const newToast: Toast = { id, message, type: 'info', duration, onUndo };
+
+      setToasts((prev) => [...prev.slice(-2), newToast]);
+
+      if (duration > 0) {
+        scheduleRemoval(id, duration);
+      }
+    },
+    [scheduleRemoval],
+  );
+
+  const value = useMemo(
+    () => ({ toasts, toast, toastUndo, removeToast, pauseToast, resumeToast }),
+    [toasts, toast, toastUndo, removeToast, pauseToast, resumeToast],
+  );
+
+  return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
 }
 
 export function useToast() {

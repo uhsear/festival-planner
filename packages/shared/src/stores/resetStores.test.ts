@@ -5,6 +5,7 @@ import { useUIStore } from './uiStore';
 import { useFestivalDataStore } from './festivalDataStore';
 import { useFestivalUIStore } from './festivalUIStore';
 import { useFestivalModeStore } from './festivalModeStore';
+import { useLiveLocationStore } from './liveLocationStore';
 
 describe('resetAllStores', () => {
   beforeEach(() => {
@@ -29,7 +30,7 @@ describe('resetAllStores', () => {
       crews: [{ id: 'c1' } as any],
       activeCrew: { id: 'c1' } as any,
       crewMembers: [{ id: 'cm1' } as any],
-      crewOverlap: { 's1': {} as any },
+      crewOverlap: { s1: {} as any },
       crewLoading: true,
       error: 'crew error',
     });
@@ -38,8 +39,10 @@ describe('resetAllStores', () => {
       connected: true,
       offlineMode: true,
       pendingSync: 5,
+      failedSync: [{ clientId: 'x', label: 'test', method: 'PUT', url: '/x', error: 'err', at: 1 }],
       onlineUsers: [{ id: 'u1' } as any],
     });
+    useLiveLocationStore.getState().startSharing('crew-1');
     useFestivalModeStore.setState({
       isFestivalMode: true,
       festivalStarted: true,
@@ -82,14 +85,25 @@ describe('resetAllStores', () => {
     expect(state.error).toBeNull();
   });
 
-  it('resets uiStore to defaults', () => {
+  it('resets uiStore to defaults (including failedSync)', () => {
     resetAllStores();
     const state = useUIStore.getState();
     expect(state.detailSet).toBeNull();
     expect(state.connected).toBe(false);
     expect(state.offlineMode).toBe(false);
     expect(state.pendingSync).toBe(0);
+    expect(state.failedSync).toEqual([]);
     expect(state.onlineUsers).toEqual([]);
+  });
+
+  it('resets liveLocationStore to defaults', () => {
+    expect(useLiveLocationStore.getState().sharingCrewId).toBe('crew-1');
+    resetAllStores();
+    const state = useLiveLocationStore.getState();
+    expect(state.sharingCrewId).toBeNull();
+    expect(state.crewId).toBeNull();
+    expect(state.peers).toEqual({});
+    expect(state.sos).toBeNull();
   });
 
   it('resets festivalModeStore to defaults', () => {
