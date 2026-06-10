@@ -37,11 +37,22 @@ function GridViewInner() {
   const gridRef = useRef<HTMLDivElement>(null);
 
   // Track viewport width so PX_PER_MIN + GUTTER_W can adapt on rotate/resize.
+  // Throttled via rAF so rapid resize events don't re-render every column per frame.
   const [vw, setVw] = useState(() => (typeof window === 'undefined' ? 1024 : window.innerWidth));
   useEffect(() => {
-    const onResize = () => setVw(window.innerWidth);
+    let rafId: number | null = null;
+    const onResize = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        setVw(window.innerWidth);
+        rafId = null;
+      });
+    };
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, []);
   const PX_PER_MIN = getPxPerMin(vw);
   const GUTTER_W = getGutterW(vw);

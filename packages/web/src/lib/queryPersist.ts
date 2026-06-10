@@ -41,6 +41,7 @@ const PERSISTED_KEY_ROOTS = new Set<string>([
   'polls',
   'expenses',
   'expense-balances',
+  'settlement-plan',
   'crew-activity',
 ]);
 

@@ -49,6 +49,7 @@ export function buildCrewQuerySink(queryClient: QueryClient): CrewRealtimeSink {
     onExpensesChanged: (crewId) => {
       void queryClient.invalidateQueries({ queryKey: ['expenses', crewId] });
       void queryClient.invalidateQueries({ queryKey: ['expense-balances', crewId] });
+      void queryClient.invalidateQueries({ queryKey: ['settlement-plan', crewId] });
     },
     onActivityLogged: () => {
       // Web has no activity feed query/view — nothing to invalidate.

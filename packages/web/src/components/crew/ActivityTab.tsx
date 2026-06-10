@@ -1,6 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@festie/shared';
+import { timeAgo } from '@festie/shared/utils';
 import EmptyState from '../ui/EmptyState';
 import Avatar from '../ui/Avatar';
 import Skeleton from '../ui/Skeleton';
@@ -25,35 +26,27 @@ interface Props {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  'member-joined':       'joined the crew',
-  'member-left':         'left the crew',
-  'member-kicked':       'was removed',
-  'poll-created':        'created a poll',
-  'poll-voted':          'voted on a poll',
-  'expense-added':       'added an expense',
-  'expense-deleted':     'removed an expense',
-  'expense-settled':     'settled up',
-  'home-base-updated':   'updated the home base',
+  'member-joined': 'joined the crew',
+  'member-left': 'left the crew',
+  'member-kicked': 'was removed',
+  'poll-created': 'created a poll',
+  'poll-voted': 'voted on a poll',
+  'expense-added': 'added an expense',
+  'expense-deleted': 'removed an expense',
+  'expense-settled': 'settled up',
+  'home-base-updated': 'updated the home base',
   'meeting-point-added': 'dropped a meeting point',
   'meeting-point-removed': 'removed a meeting point',
-  'crew-updated':        'updated the crew',
+  'crew-updated': 'updated the crew',
 };
 
-function timeAgo(iso: string): string {
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  const s = Math.floor((now - then) / 1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d}d ago`;
-}
-
 export default function ActivityTab({ crewId }: Props) {
-  const { data: items = [], isLoading, isError, refetch } = useQuery<ActivityItem[]>({
+  const {
+    data: items = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery<ActivityItem[]>({
     queryKey: ['crew-activity', crewId],
     queryFn: async () => {
       const res = await api.get<ActivityItem[]>(`/crews/${crewId}/activity`);
@@ -64,13 +57,36 @@ export default function ActivityTab({ crewId }: Props) {
   });
 
   if (isLoading) {
-    return <div className="px-4 space-y-2"><Skeleton variant="text" /><Skeleton variant="text" /><Skeleton variant="text" /></div>;
+    return (
+      <div className="px-4 space-y-2">
+        <Skeleton variant="text" />
+        <Skeleton variant="text" />
+        <Skeleton variant="text" />
+      </div>
+    );
   }
   if (isError) {
-    return <div className="px-4"><EmptyState icon={<Activity className="w-12 h-12" aria-hidden="true" />} title="Couldn't load activity" description="Something went wrong loading crew activity." cta={{ label: 'Retry', onClick: () => refetch() }} /></div>;
+    return (
+      <div className="px-4">
+        <EmptyState
+          icon={<Activity className="w-12 h-12" aria-hidden="true" />}
+          title="Couldn't load activity"
+          description="Something went wrong loading crew activity."
+          cta={{ label: 'Retry', onClick: () => refetch() }}
+        />
+      </div>
+    );
   }
   if (items.length === 0) {
-    return <div className="px-4"><EmptyState icon={<Activity className="w-12 h-12" aria-hidden="true" />} title="No activity yet" description="Crew events will appear here as they happen." /></div>;
+    return (
+      <div className="px-4">
+        <EmptyState
+          icon={<Activity className="w-12 h-12" aria-hidden="true" />}
+          title="No activity yet"
+          description="Crew events will appear here as they happen."
+        />
+      </div>
+    );
   }
 
   return (
@@ -78,15 +94,18 @@ export default function ActivityTab({ crewId }: Props) {
       {items.map((it, idx) => {
         const verb = TYPE_LABELS[it.type] || it.type.replace(/-/g, ' ');
         return (
-          <div key={it.id} className="crew-activity-rail stagger-item p-3 rounded-lg bg-bg-card border border-border flex items-start gap-3 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none" style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}>
+          <div
+            key={it.id}
+            className="crew-activity-rail stagger-item p-3 rounded-lg bg-bg-card border border-border flex items-start gap-3 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none"
+            style={{ '--i': Math.min(idx, 20) } as React.CSSProperties}
+          >
             <Avatar name={it.username || 'User'} size="sm" />
             <div className="flex-1 min-w-0">
               <div className="text-sm text-text-primary">
-                <span className="font-semibold">{it.username}</span>{' '}
-                <span className="text-text-secondary">{verb}</span>
+                <span className="font-semibold">{it.username}</span> <span className="text-text-secondary">{verb}</span>
                 {it.detail && <span className="text-text-secondary">: {it.detail}</span>}
               </div>
-              <div className="text-xs text-text-muted mt-0.5">{timeAgo(it.created_at)}</div>
+              <div className="text-xs text-text-muted mt-0.5">{timeAgo(new Date(it.created_at).getTime())}</div>
             </div>
           </div>
         );

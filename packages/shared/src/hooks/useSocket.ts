@@ -108,6 +108,7 @@ export function useSocket(festivalId?: string): UseSocketReturn {
       socket.off('user:offline', handleUserOffline);
       socket.off('error', handleError);
       socket.disconnect();
+      socketRef.current = null;
     };
   }, [userToken, festivalId, currentFestivalId, setConnected, setOnlineUsers, addOnlineUser, removeOnlineUser]);
 

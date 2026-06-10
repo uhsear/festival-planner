@@ -103,13 +103,14 @@ export interface Profile {
 }
 
 export interface CrewMember {
-  id: string;
   userId: string;
   /** Immutable @handle, serialized alongside the friendly `name` (routes/crews.ts). */
   username?: string;
   name?: string;
-  avatar?: string;
+  avatarKey?: string | null;
+  avatarVersion?: string | null;
   role?: 'owner' | 'member';
+  joinedAt?: string;
 }
 
 export interface Crew {

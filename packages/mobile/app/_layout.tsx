@@ -1,8 +1,9 @@
 // MUST be first: configures AsyncStorage before any store module is imported
 // (and thus before zustand-persist hydrates). See bootstrap.ts.
 import '../bootstrap';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -24,6 +25,7 @@ import OfflineBanner from '../components/OfflineBanner';
 import FirstRunIntro from '../components/FirstRunIntro';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useLocalReminders } from '../hooks/useLocalReminders';
+import { ensureAndroidChannels } from '../hooks/useMobilePush';
 
 // First-run intro flag — mirrors the web key for parity.
 const INTRO_KEY = 'festie_onboarding_completed';
@@ -101,6 +103,33 @@ function AuthGate() {
     const id = setTimeout(() => setBootTimedOut(true), 4000);
     return () => clearTimeout(id);
   }, []);
+
+  // Ensure Android notification channels exist BEFORE any notification is
+  // scheduled. useLocalReminders targets channelId 'updates' which must exist
+  // even if the user never visits the Account screen (where useMobilePush
+  // previously created them on first register).
+  useEffect(() => {
+    ensureAndroidChannels().catch(() => {});
+  }, []);
+
+  // Navigate when the user taps a push notification. Without this listener,
+  // tapping a notification opens the app but never deep-links to the relevant
+  // screen. The data payload from FCM/APNs includes a `deepLink` or `setId`
+  // field that maps to an expo-router path.
+  const notificationResponseRef = useRef<Notifications.Subscription | null>(null);
+  useEffect(() => {
+    notificationResponseRef.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+      if (data?.deepLink && typeof data.deepLink === 'string') {
+        router.push(data.deepLink as any);
+      } else if (data?.setId && typeof data.setId === 'string') {
+        router.push(`/set/${data.setId}`);
+      }
+    });
+    return () => {
+      notificationResponseRef.current?.remove();
+    };
+  }, [router]);
 
   // M1: pre-computed on-device set reminders. Reconciles local notifications
   // whenever picks/reminders change (fires even in airplane mode); FCM stays the

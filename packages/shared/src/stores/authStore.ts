@@ -1,6 +1,7 @@
 import { create, StateCreator } from 'zustand';
 import { persist, PersistStorage, StorageValue } from 'zustand/middleware';
 import { api, setAuthToken, clearAuthToken, getApiBase, getAuthToken } from '../services/api';
+import { mapErrorToUserMessage } from '../services/errors';
 import { TRUSTED_MUTATION_HEADER } from '../constants/config';
 import { getStorage, getSecureStorage, hasSecureStorage } from '../platform/storage';
 import { resetAllStores } from './resetStores';
@@ -84,7 +85,7 @@ function safeSecure<T>(op: () => Promise<T> | T, fallback: T): Promise<T> {
  * Whether the client may persist a session credential at all.
  *
  * Only clients with a real OS-backed secure store (native/Expo, which call
- * `configureSecureStorage` at bootstrap) may — the token lands in the
+ * `configureSecureStorage` at bootstrap) may -- the token lands in the
  * Keychain/Keystore, not plaintext.
  *
  * On the WEB no secure adapter is configured, so `getSecureStorage()` falls back
@@ -103,7 +104,7 @@ function mayPersistCredentials(): boolean {
 /**
  * Split PersistStorage. The non-credential state always persists to the regular
  * adapter. Credential fields (userToken/adminToken) are persisted to the secure
- * adapter ONLY in bearer mode (native — Keychain/Keystore). In cookie mode (web)
+ * adapter ONLY in bearer mode (native -- Keychain/Keystore). In cookie mode (web)
  * they are NEVER written to client storage and any stale entry is purged, so the
  * session is re-established from the httpOnly cookie via /auth/me on reload.
  *
@@ -113,7 +114,9 @@ function mayPersistCredentials(): boolean {
  * normally; the next setItem strips it from the blob (and, on web, drops it
  * instead of persisting it).
  */
-const defaultStorage: PersistStorage<AuthState> = {
+type PersistedAuthState = Pick<AuthState, 'user' | 'userToken' | 'isAdmin' | 'adminToken'>;
+
+const defaultStorage: PersistStorage<PersistedAuthState> = {
   getItem: async (name) => {
     const raw = await Promise.resolve(getStorage().getItem(name));
     let parsed: { state?: Record<string, unknown> } | null = null;
@@ -142,7 +145,7 @@ const defaultStorage: PersistStorage<AuthState> = {
         }
       }
     }
-    return parsed as unknown as StorageValue<AuthState> | null;
+    return parsed as unknown as StorageValue<PersistedAuthState> | null;
   },
   setItem: async (name, value) => {
     const state = { ...(value.state as unknown as Record<string, unknown>) };
@@ -154,7 +157,7 @@ const defaultStorage: PersistStorage<AuthState> = {
     await Promise.resolve(getStorage().setItem(name, JSON.stringify({ ...value, state })));
     for (const field of SECURE_FIELDS) {
       const v = tokens[field];
-      // Web/cookie mode: do NOT persist the credential anywhere — always remove.
+      // Web/cookie mode: do NOT persist the credential anywhere -- always remove.
       if (mayPersistCredentials() && typeof v === 'string' && v) {
         await safeSecure(() => getSecureStorage().setItem(SECURE_PREFIX + field, v), undefined);
       } else {
@@ -195,7 +198,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
         isLoading: false,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Login failed';
+      const message = mapErrorToUserMessage(err, 'Login failed');
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -215,7 +218,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
         isLoading: false,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Registration failed';
+      const message = mapErrorToUserMessage(err, 'Registration failed');
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -226,7 +229,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
     try {
       await api.post('/auth/logout', {});
     } catch {
-      // Server call failed — proceed with local cleanup regardless.
+      // Server call failed -- proceed with local cleanup regardless.
     }
     clearAuthToken();
     set({
@@ -272,13 +275,13 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
         set({ user: { ...response.user, isAdmin }, isAdmin, sessionChecked: true });
         return true;
       }
-      // Authenticated probe succeeded but returned no user — genuinely logged out.
+      // Authenticated probe succeeded but returned no user -- genuinely logged out.
       clearAuthToken();
       set({ user: null, isAdmin: false, userToken: null, sessionChecked: true });
       return false;
     } catch (err) {
       // A transient network failure (e.g. offline cold start) must NOT log the
-      // user out — preserve the persisted session and let a later reconnect /
+      // user out -- preserve the persisted session and let a later reconnect /
       // foreground re-verify. Only a genuine auth failure (non-network, e.g.
       // 401) clears the session + the in-memory bearer token. Duck-typed on the
       // ApiClientError shape so it survives module mocks / realm boundaries.
@@ -299,7 +302,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
       await api.post('/auth/forgot-password', request);
       set({ isLoading: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Request failed';
+      const message = mapErrorToUserMessage(err, 'Request failed');
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -311,7 +314,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
       await api.post('/auth/resend-verification', {});
       set({ isLoading: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to resend verification email';
+      const message = mapErrorToUserMessage(err, 'Failed to resend verification email');
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -323,7 +326,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
       await api.post('/auth/change-password', request);
       set({ isLoading: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Change password failed';
+      const message = mapErrorToUserMessage(err, 'Change password failed');
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -338,7 +341,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
         isLoading: false,
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Display name update failed';
+      const message = mapErrorToUserMessage(err, 'Display name update failed');
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -351,7 +354,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
       // logout() clears the token and resets all stores, matching web's flow.
       await get().logout();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Account deletion failed';
+      const message = mapErrorToUserMessage(err, 'Account deletion failed');
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -382,7 +385,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
         throw new Error('Upload failed');
       }
       // This uses raw fetch (not the api client), so the server envelope
-      // { data, error } is NOT auto-unwrapped — pull the user out of data.
+      // { data, error } is NOT auto-unwrapped -- pull the user out of data.
       // The serialized user exposes the new avatar as `avatarUrl`.
       const body = (await response.json()) as { data: AvatarResponse } | AvatarResponse;
       const result: AvatarResponse =
@@ -399,7 +402,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
       // Roll back any partial avatar change to the previous value.
       set((state) => ({
         user: state.user ? { ...state.user, avatarUrl: previousAvatarUrl } : null,
-        error: err instanceof Error ? err.message : 'Avatar upload failed',
+        error: mapErrorToUserMessage(err, 'Avatar upload failed'),
         isLoading: false,
       }));
       throw err;
@@ -417,7 +420,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
         isLoading: false,
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Remove avatar failed';
+      const message = mapErrorToUserMessage(err, 'Remove avatar failed');
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -432,5 +435,11 @@ export const useAuthStore = create<AuthStore>()(
   persist(authStore, {
     name: 'festie-auth',
     storage: defaultStorage,
+    partialize: (state) => ({
+      user: state.user,
+      userToken: state.userToken,
+      isAdmin: state.isAdmin,
+      adminToken: state.adminToken,
+    }),
   }),
 );

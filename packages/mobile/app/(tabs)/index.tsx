@@ -116,7 +116,10 @@ export default function TimelineScreen() {
   const [search, setSearch] = useState(searchQuery);
   // "My picks only" filter — on-site you mostly want to read your own day.
   const [onlyMine, setOnlyMine] = useState(false);
-  const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
+  // Recompute on every render (cheap) so the "today" dot updates at midnight
+  // without needing an explicit timer. The component re-renders on store
+  // updates, search keystrokes, etc., so this stays current in practice.
+  const todayStr = new Date().toLocaleDateString('en-CA');
 
   const clearSelection = useCallback(() => {
     useFestivalDataStore.setState({
@@ -348,6 +351,9 @@ export default function TimelineScreen() {
   );
 
   const keyExtractor = useCallback((item: ListRow) => item.key, []);
+
+  // Stable separator so FlatList doesn't recreate it on every render.
+  const cardsSeparator = useCallback(() => <View style={styles.separator} />, [styles.separator]);
 
   // Stage color resolver that substitutes a real token for web's `var(...)`
   // fallback so the timeline/grid views never receive an unparseable color.
@@ -612,7 +618,7 @@ export default function TimelineScreen() {
           ListHeaderComponent={controls}
           contentContainerStyle={[styles.listContent, { paddingHorizontal: hPad, paddingBottom: cardsBottomPad }]}
           refreshControl={refreshControl}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ItemSeparatorComponent={cardsSeparator}
           ListEmptyComponent={
             <EmptyState
               icon={search.length > 0 ? 'search' : 'musical-notes'}

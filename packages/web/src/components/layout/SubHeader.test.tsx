@@ -43,6 +43,9 @@ vi.mock('../../hooks/useHaptics', () => ({
 vi.mock('../../hooks/useScrollFade', () => ({
   useScrollFade: () => ({ ref: { current: null }, canScrollLeft: false, canScrollRight: false }),
 }));
+vi.mock('../../lib/toastContext', () => ({
+  useToast: () => ({ toast: vi.fn() }),
+}));
 
 function getNav() {
   return document.querySelector('nav.sub-header') as HTMLElement;

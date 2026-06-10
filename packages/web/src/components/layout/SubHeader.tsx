@@ -6,6 +6,7 @@ import { getStageBadgeStyle } from '../ui/StageBadge';
 import { useSwipeDays } from '../../hooks/useSwipeDays';
 import { useHaptics } from '../../hooks/useHaptics';
 import { useScrollFade } from '../../hooks/useScrollFade';
+import { useToast } from '../../lib/toastContext';
 import { Star } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import Input from '../ui/Input';
@@ -40,6 +41,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
   const setOnlyMine = useFestivalStore((s) => s.setOnlyMine);
   const { getStageColor } = useFestival();
   const { select: selectHaptic } = useHaptics();
+  const { toast } = useToast();
   const { ref: stageScrollRef, canScrollLeft, canScrollRight } = useScrollFade<HTMLDivElement>();
 
   const { bind: swipeDaysBind } = useSwipeDays({
@@ -62,7 +64,9 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
       if (!id) return;
       try {
         await selectFestival(id);
-      } catch (_) {} // eslint-disable-line no-empty
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "Couldn't switch festival. Try again.", 'error');
+      }
     },
     [selectFestival],
   );

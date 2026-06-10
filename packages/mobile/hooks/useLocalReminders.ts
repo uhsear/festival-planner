@@ -104,7 +104,7 @@ export function useLocalReminders(): void {
       // (Re)schedule plan entries. Deterministic identifiers make this
       // idempotent — re-scheduling the same id replaces the prior one, so an
       // edited lead time gets the corrected fire date.
-      await Promise.all(toSchedule.map((entry) => scheduleReminder(entry, b2bSeparator)));
+      await Promise.all(toSchedule.map((entry) => scheduleReminder(entry, b2bSeparator, festivalTimeZone)));
     }
 
     reconcile();
@@ -148,9 +148,13 @@ export function useLocalReminders(): void {
  * 'updates' channel (created by useMobilePush) so local reminders match the
  * importance of FCM set reminders.
  */
-async function scheduleReminder(entry: ReminderPlanEntry, b2bSeparator?: string): Promise<void> {
+async function scheduleReminder(entry: ReminderPlanEntry, b2bSeparator?: string, timeZone?: string): Promise<void> {
   const name = artistDisplayName(entry.set, b2bSeparator) || 'Your set';
-  const startLabel = new Date(entry.startMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // Format in the festival's time zone so the notification body shows the set's
+  // local start time, not the device's TZ (which may differ for traveling users).
+  const fmtOpts: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' };
+  if (timeZone) fmtOpts.timeZone = timeZone;
+  const startLabel = new Date(entry.startMs).toLocaleTimeString([], fmtOpts);
   const lead = entry.leadMinutes;
   // TODO(a11y/copy): this rounds e.g. 90m → "2h" instead of "1h 30m". The ideal
   // fix is to reuse a shared compact-countdown helper, but `fmtCountdown` is only

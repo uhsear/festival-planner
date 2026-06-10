@@ -297,7 +297,7 @@ function CrewCluster({ friendProfiles }: CrewClusterProps) {
         const member = userId ? memberByUserId.get(userId) : undefined;
         return {
           ...f,
-          avatarUrl: member?.avatar ?? f.avatarUrl ?? null,
+          avatarUrl: f.avatarUrl ?? null,
           name: f.name ?? member?.name,
         };
       })

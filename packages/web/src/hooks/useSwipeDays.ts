@@ -41,12 +41,12 @@ export function useSwipeDays({ days, selectedDay, onSelectDay }: UseSwipeDaysPro
 
       let newDay = selectedDay;
 
-      // Swipe left (swipeX > 0) → next day
-      if (swipeX > 0 && selectedDay < days.length - 1) {
+      // Swipe left (swipeX < 0) → next day (standard carousel convention)
+      if (swipeX < 0 && selectedDay < days.length - 1) {
         newDay = selectedDay + 1;
       }
-      // Swipe right (swipeX < 0) → previous day
-      else if (swipeX < 0 && selectedDay > 0) {
+      // Swipe right (swipeX > 0) → previous day
+      else if (swipeX > 0 && selectedDay > 0) {
         newDay = selectedDay - 1;
       }
 

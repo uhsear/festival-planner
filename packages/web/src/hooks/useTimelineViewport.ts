@@ -6,20 +6,24 @@ import { useState, useEffect, useMemo } from 'react';
  * computes `(availableH - header) / totalSlots` with a 26 px floor.
  */
 export function useTimelineViewport(totalSlots: number | undefined) {
-  const [vpH, setVpH] = useState(
-    () => (typeof window === 'undefined' ? 900 : window.innerHeight),
-  );
-  const [vpW, setVpW] = useState(
-    () => (typeof window === 'undefined' ? 1024 : window.innerWidth),
-  );
+  const [vpH, setVpH] = useState(() => (typeof window === 'undefined' ? 900 : window.innerHeight));
+  const [vpW, setVpW] = useState(() => (typeof window === 'undefined' ? 1024 : window.innerWidth));
 
   useEffect(() => {
+    let rafId: number | null = null;
     const onResize = () => {
-      setVpH(window.innerHeight);
-      setVpW(window.innerWidth);
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        setVpH(window.innerHeight);
+        setVpW(window.innerWidth);
+        rafId = null;
+      });
     };
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   const rowHeight = useMemo(() => {

@@ -15,6 +15,7 @@ import DetailCrewSection from './DetailCrewSection';
 import DetailNotesSection from './DetailNotesSection';
 import { useDetailPanelData } from './useDetailPanelData';
 import { useHaptics } from '../../hooks/useHaptics';
+import { useToast } from '../../lib/toastContext';
 import { Share2 } from 'lucide-react';
 import Button from '../ui/Button';
 
@@ -53,6 +54,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
   } = useDetailPanelData(set);
 
   const { select: selectHaptic, success: successHaptic, warning: warningHaptic } = useHaptics();
+  const { toast } = useToast();
 
   const [personalNote, setPersonalNote] = useState(currentProfile?.notes?.[set.id] || '');
   const [crewNote, setCrewNote] = useState(currentProfile?.notes?.['crew:' + set.id] || '');
@@ -194,8 +196,8 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
   const handleConflictSwitch = useCallback(
     (fromSetId: string, toSet: FestivalSet, priority: Priority) => {
       if (!currentFestival) return;
-      savePick(currentFestival.id, fromSetId, null);
-      savePick(currentFestival.id, toSet.id, priority);
+      savePick(currentFestival.id, fromSetId, null).catch(() => {});
+      savePick(currentFestival.id, toSet.id, priority).catch(() => {});
     },
     [currentFestival, savePick],
   );
@@ -206,7 +208,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     (setId: string) => {
       if (!currentFestival) return;
       selectHaptic();
-      savePick(currentFestival.id, setId, null);
+      savePick(currentFestival.id, setId, null).catch(() => {});
     },
     [currentFestival, savePick, selectHaptic],
   );
@@ -219,8 +221,8 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
       await api.post(`/profiles`, { festivalId: currentFestival.id });
       await useFestivalStore.getState().loadProfiles(currentFestival.id);
       onClose();
-    } catch {
-      /* Join failed */
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Couldn't join festival. Try again.", 'error');
     } finally {
       setJoinBusy(false);
     }

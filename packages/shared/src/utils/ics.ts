@@ -52,7 +52,12 @@ export interface IcsEvent {
 
 /** Build a single VEVENT block. */
 export function buildVEvent(ev: IcsEvent): string[] {
-  const stamp = ev.dtstamp || new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const stamp =
+    ev.dtstamp ||
+    new Date()
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}/, '');
   const lines = [
     'BEGIN:VEVENT',
     `DTSTAMP:${stamp}`,
@@ -70,10 +75,7 @@ export function buildVEvent(ev: IcsEvent): string[] {
 }
 
 /** Build a complete VCALENDAR string from event descriptors. */
-export function buildVCalendar(
-  events: IcsEvent[],
-  opts: { calendarName?: string; prodId?: string } = {},
-): string {
+export function buildVCalendar(events: IcsEvent[], opts: { calendarName?: string; prodId?: string } = {}): string {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -92,7 +94,10 @@ export function buildVCalendar(
 function setArtistLabel(set: FestivalSet): string {
   if (set.artist) return set.artist;
   if (set.artists && set.artists.length > 0) {
-    return set.artists.map((a) => a.name).filter(Boolean).join(' b2b ');
+    return set.artists
+      .map((a) => a.name)
+      .filter(Boolean)
+      .join(' b2b ');
   }
   return 'Set';
 }
@@ -123,14 +128,19 @@ export function buildPicksIcs(opts: {
     if (!startTime || !endTime) continue;
 
     const stage = stageMap.get(set.stageId);
-    const dtstart = set.date.replace(/-/g, '') + 'T' + startTime.replace(':', '') + '00';
-    const dtend = set.date.replace(/-/g, '') + 'T' + endTime.replace(':', '') + '00';
+    const dateStr = set.date.replace(/-/g, '');
+    const dtstart = dateStr + 'T' + startTime.replace(':', '') + '00';
+    let endDateStr = dateStr;
+    if (endTime < startTime) {
+      const d = new Date(set.date + 'T12:00:00');
+      d.setDate(d.getDate() + 1);
+      endDateStr = d.toISOString().slice(0, 10).replace(/-/g, '');
+    }
+    const dtend = endDateStr + 'T' + endTime.replace(':', '') + '00';
     const priority = picks[set.id] || '';
     const note = notes[set.id] || '';
     const description = [priority && `Priority: ${priority}`, note].filter(Boolean).join('\\n');
-    const location = stage
-      ? stage.name + (festival.location ? ' - ' + festival.location : '')
-      : undefined;
+    const location = stage ? stage.name + (festival.location ? ' - ' + festival.location : '') : undefined;
 
     events.push({
       uid: `${set.id}-${festival.id}@${origin}`,

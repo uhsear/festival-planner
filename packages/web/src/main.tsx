@@ -85,6 +85,7 @@ const queryClient = new QueryClient({
 
 import { useAuthStore } from '@festie/shared';
 import { setOnUnauthorized } from '@festie/shared/services';
+import { clearOfflineQueue } from './hooks/useOfflineQueue';
 
 setOnUnauthorized(async () => {
   try {
@@ -99,7 +100,10 @@ setOnUnauthorized(async () => {
 let prevUserId: string | undefined;
 useAuthStore.subscribe((state) => {
   const newId = state.user?.id;
-  if (prevUserId && newId !== prevUserId) queryClient.clear();
+  if (prevUserId && newId !== prevUserId) {
+    queryClient.clear();
+    clearOfflineQueue().catch(() => {});
+  }
   prevUserId = newId;
 });
 

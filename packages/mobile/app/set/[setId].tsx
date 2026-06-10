@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   View,
   Text,
   TouchableOpacity,
@@ -88,6 +89,16 @@ export default function SetDetailScreen() {
   // presentation, while staying compact on iOS card modals.
   const topInset = Math.max(t.spacing[3], insets.top);
   const { setId } = useLocalSearchParams<{ setId: string }>();
+
+  // Safe dismiss: on a cold deep link there is no back stack, so router.back()
+  // would strand the user on a blank screen. Fall back to the home tab.
+  const dismiss = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  }, [router]);
 
   const sets = useFestivalDataStore((s) => s.sets);
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
@@ -339,19 +350,19 @@ export default function SetDetailScreen() {
     if (!resolveFailed) {
       return (
         <View style={[styles.container, styles.loadingContainer]}>
-          <CloseButton onPress={() => router.back()} top={topInset} />
+          <CloseButton onPress={dismiss} top={topInset} />
           <ActivityIndicator size="large" color={t.colors.accent.aqua} />
         </View>
       );
     }
     return (
       <View style={styles.container}>
-        <CloseButton onPress={() => router.back()} top={topInset} />
+        <CloseButton onPress={dismiss} top={topInset} />
         <EmptyState
           icon="alert-circle-outline"
           title="Set not found"
           message="This set isn't loaded. Go back to the schedule and open it again."
-          action={{ label: 'Back to schedule', onPress: () => router.back() }}
+          action={{ label: 'Back to schedule', onPress: dismiss }}
         />
       </View>
     );
@@ -371,7 +382,7 @@ export default function SetDetailScreen() {
       >
         <Ionicons name="share-outline" size={20} color={t.colors.text.secondary} />
       </TouchableOpacity>
-      <CloseButton onPress={() => router.back()} top={topInset} />
+      <CloseButton onPress={dismiss} top={topInset} />
 
       <ScrollView
         contentContainerStyle={styles.content}

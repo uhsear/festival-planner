@@ -220,6 +220,8 @@ function resolveWinningSetRef(poll: CrewPoll): PollSetRef | null {
   return refs[winner] ?? null;
 }
 
+let _lastSelectCrewId: string | null = null;
+
 const crewStore: StateCreator<CrewStore> = (set) => ({
   crews: [],
   activeCrew: null,
@@ -252,14 +254,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   },
 
   selectCrew: async (crewId: string) => {
-    // Clear previous crew's data immediately so rapid switches don't
-    // leave stale activeCrew/members visible during the fetch.
-    //
-    // Staleness guard: if the persisted/rehydrated sub-data (members, meeting
-    // points, polls, expenses, activity) belongs to a DIFFERENT crew than the
-    // one being opened, drop it now so we never flash crew A's meeting points
-    // while crew B loads. When the cached crew matches we keep the sub-data so
-    // an offline cold start renders instantly until the fetch revalidates.
+    _lastSelectCrewId = crewId;
     set((state) => {
       const sameCrew = state._cachedCrewId === crewId;
       return {
@@ -280,12 +275,11 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     });
     try {
       const crew = await api.get<Crew & { members: CrewMember[] }>(`/crews/${crewId}`);
+      if (_lastSelectCrewId !== crewId) return;
       set({
         activeCrew: crew,
         crewMembers: crew.members ?? [],
         crewLoading: false,
-        // Mark this crew's data as freshly cached for the offline indicator
-        // and the cross-crew staleness guard above.
         _cachedAt: Date.now(),
         _cachedCrewId: crewId,
       });
@@ -303,14 +297,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       set((state) => ({
         crews: [...state.crews, crew],
         activeCrew: crew,
-        crewMembers: [
-          {
-            id: '',
-            userId: '',
-            name: 'You',
-            role: 'owner',
-          },
-        ],
+        crewMembers: crew.members ?? [],
         crewLoading: false,
       }));
       return crew;
@@ -360,7 +347,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       if (optimisticCrew) return;
       const crew = res as Crew;
       set((state) => ({
-        crews: [...state.crews, crew],
+        crews: state.crews.some((c) => c.id === crew.id) ? state.crews : [...state.crews, crew],
         crewLoading: false,
       }));
     } catch (err) {
@@ -391,7 +378,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     try {
       await api.delete(`/crews/${crewId}/members/${memberId}`);
       set((state) => ({
-        crewMembers: state.crewMembers.filter((m) => m.id !== memberId),
+        crewMembers: state.crewMembers.filter((m) => m.userId !== memberId),
       }));
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to kick member');
@@ -406,7 +393,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       await api.put(`/crews/${crewId}/transfer`, { userId: newOwnerId });
       set((state) => ({
         crewMembers: state.crewMembers.map((m) =>
-          m.id === newOwnerId ? { ...m, role: 'owner' } : { ...m, role: 'member' },
+          m.userId === newOwnerId ? { ...m, role: 'owner' } : { ...m, role: 'member' },
         ),
       }));
     } catch (err) {
@@ -591,7 +578,11 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     set({ error: null });
     try {
       await api.post(`/crews/${crewId}/polls/${pollId}/vote`, { optionIndex });
-      await useCrewStore.getState().loadPolls(crewId);
+      try {
+        await useCrewStore.getState().loadPolls(crewId);
+      } catch {
+        /* refetch is best-effort; the write succeeded */
+      }
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to vote');
       set({ error: message });
@@ -1224,7 +1215,14 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     set({ error: null });
     try {
       await api.delete(`/crews/${crewId}/expenses/${expenseId}`);
-      await useCrewStore.getState().loadExpenses(crewId);
+      set((state) => ({
+        expenses: state.expenses.filter((e) => e.id !== expenseId),
+      }));
+      try {
+        await useCrewStore.getState().loadExpenses(crewId);
+      } catch {
+        /* refetch is best-effort; the write succeeded */
+      }
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to remove expense');
       set({ error: message });
@@ -1232,12 +1230,15 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     }
   },
 
-  // POST /crews/:crewId/expenses/settle -> reduce a debt, then refetch.
   settleExpense: async (crewId: string, request: SettleCrewExpenseRequest) => {
     set({ error: null });
     try {
       await api.post(`/crews/${crewId}/expenses/settle`, request);
-      await useCrewStore.getState().loadExpenses(crewId);
+      try {
+        await useCrewStore.getState().loadExpenses(crewId);
+      } catch {
+        /* refetch is best-effort; the write succeeded */
+      }
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to settle up');
       set({ error: message });

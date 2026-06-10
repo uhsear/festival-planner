@@ -169,8 +169,7 @@ describe('buildCrewQuerySink (direct mapping)', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['polls', crewId] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['expenses', crewId] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['expense-balances', crewId] });
-    // meeting-points x2 + polls x3 + expenses x1 + expense-balances x1 = 7
-    // activity is a no-op, so no extra calls.
-    expect(invalidate).toHaveBeenCalledTimes(7);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['settlement-plan', crewId] });
+    expect(invalidate).toHaveBeenCalledTimes(8);
   });
 });

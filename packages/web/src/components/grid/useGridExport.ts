@@ -22,7 +22,10 @@ export function useGridExport(gridRef: RefObject<HTMLDivElement | null>, selecte
     const body = el.querySelector<HTMLElement>('[data-grid-body]');
     const cols = el.querySelector<HTMLElement>('[data-grid-cols]');
     const head = el.querySelector<HTMLElement>('[data-grid-head]');
-    if (!body || !cols || !head) return;
+    if (!body || !cols || !head) {
+      setExporting(false);
+      return;
+    }
 
     const dpr = Math.min(Math.max(Math.ceil(window.devicePixelRatio || 1), 2), 3);
     const saved = {
