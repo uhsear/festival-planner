@@ -188,6 +188,51 @@ describe('festivalDataStore', () => {
       expect(useFestivalDataStore.getState().currentProfile).toBeNull();
     });
 
+    it('survives a persist rehydration clobbering currentFestivalId mid-fetch (guest first selection)', async () => {
+      // Regression: zustand persist rehydrates asynchronously. A guest's first
+      // festival selection can race the hydration — the stale persisted blob
+      // (currentFestivalId: null) lands AFTER selectFestival set the id but
+      // BEFORE the fetch resolved. The selection must still complete and the
+      // final state must be self-consistent (id + festival both set).
+      const detailResponse = { ...mockFestival, stages: [], days: [] };
+      let resolveFetch!: (v: unknown) => void;
+      vi.mocked(api.get).mockReturnValueOnce(new Promise((r) => (resolveFetch = r)));
+
+      const selection = useFestivalDataStore.getState().selectFestival('fest-1');
+      // Simulate the late rehydration overwriting the in-flight id with the
+      // stale persisted value (null — the guest never selected a festival).
+      useFestivalDataStore.setState({ currentFestivalId: null });
+
+      resolveFetch(detailResponse);
+      await selection;
+
+      const state = useFestivalDataStore.getState();
+      expect(state.currentFestivalId).toBe('fest-1');
+      expect(state.currentFestival).toBeTruthy();
+      expect(state.isLoading).toBe(false);
+    });
+
+    it('drops a stale response when a newer selectFestival superseded it', async () => {
+      const detailA = { ...mockFestival, id: 'fest-A', stages: [], days: [] };
+      const detailB = { ...mockFestival, id: 'fest-B', stages: [], days: [] };
+      let resolveA!: (v: unknown) => void;
+      vi.mocked(api.get)
+        .mockReturnValueOnce(new Promise((r) => (resolveA = r)))
+        .mockResolvedValueOnce(detailB);
+
+      const selectionA = useFestivalDataStore.getState().selectFestival('fest-A');
+      const selectionB = useFestivalDataStore.getState().selectFestival('fest-B');
+      await selectionB;
+      // A's slow response lands after B completed — it must NOT overwrite B.
+      resolveA(detailA);
+      await selectionA;
+
+      const state = useFestivalDataStore.getState();
+      expect(state.currentFestivalId).toBe('fest-B');
+      expect(state.currentFestival?.id).toBe('fest-B');
+      expect(state.isLoading).toBe(false);
+    });
+
     it('sets error on failure', async () => {
       vi.mocked(api.get).mockRejectedValueOnce(new Error('404'));
       await expect(useFestivalDataStore.getState().selectFestival('bad')).rejects.toThrow();
