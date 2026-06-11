@@ -5,6 +5,7 @@ node_modules
 .env.local
 .env.production
 .env.*.local
+.env.deploy
 
 # Secrets / credentials
 *.pem
@@ -79,3 +80,5 @@ tests/e2e/.auth/
 /SESSION.md
 
 logs/.alert-state.json
+
+scripts/deploy/__pycache__/
