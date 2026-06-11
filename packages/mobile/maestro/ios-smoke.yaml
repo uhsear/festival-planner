@@ -3,17 +3,19 @@
 # at prod https://festie.us/api/v1). Cross-platform selectors only — visible text
 # and accessibility labels / testIDs, never coordinates.
 #
-# Two phases, mirroring the proven .maestro/ios-smoke.yaml lesson:
-#  1. GUEST (HARD gate, secret-free): launch -> onboarding -> picker -> select a
-#     festival as a guest -> schedule renders -> tabs navigate. This is what the
-#     iOS Simulator + Maestro reliably validates and is the gate for this job.
+# Two phases, mirroring the proven .maestro/android-smoke.yaml + the documented
+# iOS a11y lesson:
+#  1. GUEST (HARD gate, secret-free): launch -> dismiss onboarding -> picker ->
+#     select North Coast as a guest BY testID -> schedule renders -> view switch.
+#     iOS New-Arch exposes a festival card as ONE combined a11y node, so the card
+#     is tapped by testID (festival-card-nc-2026), never by inner name text, and
+#     the schedule is asserted via the view-switcher / Switch chrome that renders
+#     as standalone Text. This is the gate for this job.
 #  2. AUTHED (GUARDED / best-effort): the iOS Simulator + Maestro can't reliably
-#     find the RN login TextInput (TextInput accessibilityLabels aren't surfaced
-#     to the iOS a11y tree the way Maestro matches), so login is wrapped in a
-#     `runFlow: when: visible: Username` guard — if the field can't be found the
-#     block SKIPS and the smoke still passes at the guest level. Authed-feature
-#     coverage on iOS is done on the real TestFlight device; the Android Maestro
-#     job (identical RN code) drives the full authed flow.
+#     find the RN login TextInput, so login is wrapped in a `when: visible:
+#     Username` guard — if the field can't be found the block SKIPS and the smoke
+#     still passes at the guest level. Full authed coverage runs on the Android
+#     Maestro job (identical RN code) and on the real TestFlight device.
 #
 # appId is the iOS bundleIdentifier from app.json.
 appId: us.festie.app
@@ -26,32 +28,39 @@ env:
     clearState: true
 - extendedWaitUntil:
     visible:
-      text: "Skip|Build your festival|Select a Festival|North Coast|Timeline|Festie"
+      text: "Skip|Your festival|Build your festival|Select a Festival|North Coast|Timeline|Festie"
     timeout: 120000
 - takeScreenshot: 01-launch
 
-# ── Dismiss onboarding if it's showing ──
-- tapOn:
-    text: "Skip"
-    optional: true
-
-# ── Reach the festival picker ──
+# ── Dismiss the first-run onboarding carousel ──
+# The Skip control's iOS a11y node is its accessibilityLabel ("Skip intro"), not
+# the inner "Skip" Text, so match by regex to hit either. Tap until the picker
+# (or an already-selected schedule) is reached.
+- runFlow:
+    when:
+      visible: "Skip.*"
+    commands:
+      - tapOn:
+          text: "Skip.*"
+      - waitForAnimationToEnd:
+          timeout: 3000
 - extendedWaitUntil:
     visible:
-      text: "Select a Festival|North Coast|Timeline"
+      text: "Select a Festival|North Coast|Switch|Timeline|Cards"
     timeout: 30000
 - takeScreenshot: 02-festival-picker
 
 # ── Guest-browse the schedule (HARD gate) ──
-# If the picker is showing, select North Coast as a guest and confirm the
-# schedule renders. The schedule chrome ("Switch"/"Timeline"/"Cards") is the
-# proven cross-view text from two-festival.yaml / android-smoke.yaml.
+# If the picker is showing, select North Coast as a guest BY testID (the whole
+# TouchableOpacity; the inner name Text isn't separately exposed on iOS New-Arch)
+# and confirm the schedule renders. "Switch"/"Timeline"/"Cards" are the proven
+# standalone-Text chrome from two-festival.yaml / android-smoke.yaml.
 - runFlow:
     when:
       visible: "Select a Festival"
     commands:
       - tapOn:
-          text: "North Coast Festival 2026"
+          id: "festival-card-nc-2026"
       - waitForAnimationToEnd:
           timeout: 3000
       - takeScreenshot: 03a-after-tap
@@ -79,8 +88,8 @@ env:
 - takeScreenshot: 05-cards
 
 # ── Tab navigation (NativeTabs render their Labels as native tab items on iOS;
-# Maestro taps them by label text). Tabs are best-effort taps with screenshots;
-# the hard chrome gate is at the end. ──
+# Maestro taps them by label text). Best-effort taps with screenshots; the hard
+# chrome gate is at the end. ──
 - tapOn:
     text: "Picks"
     optional: true
