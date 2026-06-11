@@ -162,7 +162,7 @@ export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
                   accessibilityElementsHidden
                   importantForAccessibility="no-hide-descendants"
                 >
-                  <Ionicons name={slide.icon} size={56} color={t.colors.accent.aqua} />
+                  <Ionicons name={slide.icon} size={88} color={t.colors.accent.aqua} />
                 </View>
               )}
             </View>
@@ -239,10 +239,12 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[3],
     paddingBottom: t.spacing[8],
   },
+  // 176px circle / 88px glyph: a 112px circle centered in the ~500px hero
+  // region read as a small glyph lost in a void on device.
   iconCircle: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: 176,
+    height: 176,
+    borderRadius: 88,
     alignItems: 'center',
     justifyContent: 'center',
     // aquaAlpha[12] (was [6]) gives enough fill to distinguish the circle

@@ -133,6 +133,12 @@ const useStyles = makeStyles((t) => ({
     borderRadius: t.radii.pill,
     padding: t.spacing[1],
     gap: t.spacing[1],
+    // Pin the height: on Android (New Arch) the track was measured at ~24dp
+    // while its 44dp segments overflowed below it, leaving the thumb floating
+    // above the labels. 44 (WCAG segment min) + the 4px padding each side.
+    minHeight: 44 + t.spacing[1] * 2,
+    alignItems: 'stretch',
+    overflow: 'hidden',
   },
   // The sliding aqua fill behind the active segment. RN positions absolute
   // children relative to the parent's border box, but the slots are laid out
