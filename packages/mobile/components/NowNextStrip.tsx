@@ -143,8 +143,7 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[1],
   },
   nextLabel: {
-    ...typeStyle('caption'),
-    fontWeight: '700',
+    ...typeStyle('caption', 700),
     textTransform: 'uppercase',
     color: t.colors.text.secondary,
   },
@@ -168,12 +167,13 @@ const useStyles = makeStyles((t) => ({
     flexShrink: 1,
   },
   timing: {
-    ...typeStyle('caption'),
+    ...typeStyle('caption', 600),
     color: t.colors.accent.aqua,
-    fontWeight: '600',
   },
   timingNow: {
+    // Re-spread at 700 so the Bold cut loads (bare fontWeight fake-bolds on
+    // Android over the weighted base family).
+    ...typeStyle('caption', 700),
     color: t.colors.accent.coral,
-    fontWeight: '700',
   },
 }));

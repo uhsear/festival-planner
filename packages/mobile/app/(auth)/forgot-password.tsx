@@ -104,8 +104,7 @@ const useStyles = makeStyles((t) => ({
     marginTop: t.spacing[2],
   },
   secondaryButtonText: {
-    ...typeStyle('label'),
-    fontWeight: '600' as const,
+    ...typeStyle('label', 600),
     color: t.colors.accent.aqua,
   },
   linkButton: {
@@ -113,9 +112,8 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center' as const,
   },
   linkTextAccent: {
-    ...typeStyle('label'),
+    ...typeStyle('label', 600),
     color: t.colors.accent.aqua,
-    fontWeight: '600' as const,
   },
 }));
 

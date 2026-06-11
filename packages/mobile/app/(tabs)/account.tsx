@@ -361,6 +361,10 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.bg.primary,
     borderWidth: 1,
     borderColor: t.colors.border.default,
+    // Floor the pill width so "Off" never clips to "O" if the label is
+    // measured a hair narrow (Android text-measure rounding).
+    minWidth: 48,
+    alignItems: 'center',
   },
   statusPillOn: {
     backgroundColor: t.colors.accent.aqua,

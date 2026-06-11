@@ -247,10 +247,9 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[2],
   },
   bannerTitle: {
-    ...typeStyle('label'),
+    ...typeStyle('label', 700),
     color: t.colors.text.primary,
     flex: 1,
-    fontWeight: '700',
   },
   bannerBody: {
     ...typeStyle('caption'),
@@ -302,9 +301,8 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.accent.coralStrong,
   },
   sosButtonText: {
-    ...typeStyle('label'),
+    ...typeStyle('label', 700),
     color: t.colors.text.onAccent,
-    fontWeight: '700',
   },
   note: {
     ...typeStyle('caption'),

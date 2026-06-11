@@ -109,9 +109,8 @@ const useStyles = makeStyles((t) => ({
     borderColor: t.colors.accent.aqua,
   },
   tabText: {
-    ...typeStyle('caption'),
+    ...typeStyle('caption', 600),
     color: t.colors.text.secondary,
-    fontWeight: '600',
     flexShrink: 1,
   },
   tabTextActive: {

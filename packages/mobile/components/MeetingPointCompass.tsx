@@ -273,9 +273,8 @@ const useStyles = makeStyles((t) => ({
     justifyContent: 'center',
   },
   distance: {
-    ...typeStyle('display-lg'),
+    ...typeStyle('display-lg', 700),
     color: t.colors.text.primary,
-    fontWeight: '700',
   },
   honest: {
     ...typeStyle('caption'),

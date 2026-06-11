@@ -199,9 +199,8 @@ const useStyles = makeStyles((t) => ({
     justifyContent: 'center',
   },
   countBadgeText: {
-    ...typeStyle('caption'),
+    ...typeStyle('caption', 700),
     color: t.colors.accent.aqua,
-    fontWeight: '700',
   },
   dotBadge: {
     width: 8,

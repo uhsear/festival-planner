@@ -78,16 +78,10 @@ export default function FestivalModeScreen() {
             <Text style={styles.clock}>{fmtClock(now)}</Text>
           </View>
 
-          {/* NOW — R8: nowGlowWrap adds the radial aqua glow overlay via two
-              nested Views (expo-linear-gradient is not in package.json, so we
-              approximate the radial using concentric circular Views at low
-              opacity). useReduceMotion is not needed here — no animation is
-              used, just static opacity layers. */}
+          {/* NOW. R8's radial-glow approximation (two concentric flat circles —
+              no expo-linear-gradient) rendered as hard-edged smudges on device,
+              not a glow; removed. The web keeps the real CSS radial. */}
           <View style={glowStyles.nowGlowWrap}>
-            {/* Outer glow ring */}
-            <View style={glowStyles.glowOuter} pointerEvents="none" />
-            {/* Inner core */}
-            <View style={glowStyles.glowInner} pointerEvents="none" />
             <View style={styles.sectionHead}>
               <LiveDot label="NOW" />
             </View>
@@ -236,9 +230,8 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.secondary,
   },
   untilText: {
-    ...typeStyle('caption'),
+    ...typeStyle('caption', 600),
     color: t.colors.accent.aqua,
-    fontWeight: '600',
   },
   nextMeta: {
     flexDirection: 'row',
@@ -251,13 +244,14 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.accent.aqua,
   },
   countdown: {
-    ...typeStyle('caption'),
+    ...typeStyle('caption', 600),
     color: t.colors.accent.aqua,
-    fontWeight: '600',
   },
   countdownImminent: {
+    // Re-spread at 700 so the Bold font cut loads — a bare fontWeight layered
+    // on the weighted base family fake-bolds and clips on Android.
+    ...typeStyle('caption', 700),
     color: t.colors.accent.coral,
-    fontWeight: '700',
   },
   empty: {
     ...typeStyle('caption'),
@@ -275,10 +269,9 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.accent.aqua,
   },
   upNextEmptyTitle: {
-    ...typeStyle('title'),
+    ...typeStyle('title', 600),
     color: t.colors.text.primary,
     textAlign: 'center',
-    fontWeight: '600',
   },
   upNextEmptyMessage: {
     ...typeStyle('body'),
@@ -293,44 +286,12 @@ const useStyles = makeStyles((t) => ({
   },
 }));
 
-// R8: static ambient glow overlay for the NOW section. expo-linear-gradient is
-// absent from package.json, so we approximate the aqua radial using two
-// concentric absolutely-positioned circular Views with aqua background at very
-// low opacity. Circles are positioned so most of their area is BELOW the card
-// top edge (top:0 not top:-N), keeping the overflow:hidden clip on nowGlowWrap
-// from revealing visible arc edges. Outer: 6% opacity. Inner: 8% opacity.
-// No animation — no reduce-motion gate needed.
+// Wrapper for the NOW section (kept for layout rhythm; the former R8 flat-circle
+// "glow" layers were removed — they rendered as hard-edged smudges on device).
 const glowStyles = StyleSheet.create({
   nowGlowWrap: {
     position: 'relative',
-    overflow: 'hidden',
     borderRadius: 12,
     marginBottom: 8,
-  },
-  glowOuter: {
-    position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    top: -60,
-    // alignSelf:'center' is ignored on Android for absolute children.
-    // Use left:'50%' + marginLeft of -halfWidth to horizontally center.
-    left: '50%',
-    marginLeft: -160,
-    backgroundColor: 'rgba(0, 232, 208, 0.06)',
-    zIndex: 0,
-  },
-  glowInner: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    top: -20,
-    // alignSelf:'center' is ignored on Android for absolute children.
-    // Use left:'50%' + marginLeft of -halfWidth to horizontally center.
-    left: '50%',
-    marginLeft: -70,
-    backgroundColor: 'rgba(0, 232, 208, 0.08)',
-    zIndex: 0,
   },
 });

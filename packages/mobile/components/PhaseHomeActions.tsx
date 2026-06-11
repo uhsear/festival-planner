@@ -154,7 +154,9 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.secondary,
   },
   chipTextPrimary: {
+    // Re-spread at 700 so the Bold cut loads (bare fontWeight fake-bolds on
+    // Android over the weighted base family).
+    ...typeStyle('label', 700),
     color: t.colors.accent.aqua,
-    fontWeight: '700',
   },
 }));

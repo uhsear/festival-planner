@@ -467,13 +467,15 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.secondary,
     flexShrink: 1,
   },
+  // Re-spread at the heavier weight so the proper font cut loads (a bare
+  // fontWeight over the weighted base family fake-bolds and clips on Android).
   countdownEta: {
+    ...typeStyle('micro', 700),
     color: t.colors.accent.coral,
-    fontWeight: '700',
   },
   countdownName: {
+    ...typeStyle('micro', 600),
     color: t.colors.text.primary,
-    fontWeight: '600',
   },
   carouselList: {
     flex: 1,
@@ -535,9 +537,8 @@ const useStyles = makeStyles((t) => ({
     overflow: 'hidden',
   },
   setArtist: {
-    ...typeStyle('micro'),
+    ...typeStyle('micro', 600),
     color: t.colors.text.primary,
-    fontWeight: '600',
   },
   setTime: {
     ...typeStyle('micro'),
@@ -577,8 +578,7 @@ const useStyles = makeStyles((t) => ({
     minHeight: 44,
   },
   fabText: {
-    ...typeStyle('label'),
+    ...typeStyle('label', 700),
     color: t.colors.text.onLightAccent,
-    fontWeight: '700',
   },
 }));

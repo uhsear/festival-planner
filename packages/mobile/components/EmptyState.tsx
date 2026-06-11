@@ -67,20 +67,23 @@ const useStyles = makeStyles((t) => ({
   icon: {
     color: t.colors.accent.aqua,
   },
-  // R21: Headline, Space Grotesk 18px weight 600, contextual not generic.
+  // R21: Headline, Space Grotesk 20px weight 600 (weight passed INTO typeStyle
+  // so the SemiBold cut loads — a stacked fontWeight literal fake-bolds and
+  // clips on Android).
   title: {
-    ...typeStyle('title'),
+    ...typeStyle('title', 600),
     color: t.colors.text.primary,
     textAlign: 'center',
-    fontWeight: '600',
   },
-  // R21: Subtext explains the next step. No fixed maxWidth — container
-  // paddingHorizontal already constrains line length; a literal 280px cap
-  // was causing the final wrapped line to be clipped on narrow screens.
+  // R21: Subtext explains the next step. alignSelf:'stretch' is load-bearing:
+  // inside an alignItems:'center' column RN gives the Text its intrinsic
+  // single-line width and clips instead of wrapping (the "…with your" bug) —
+  // stretching it to the padded container width restores wrapping.
   message: {
     ...typeStyle('body'),
     color: t.colors.text.secondary,
     textAlign: 'center',
+    alignSelf: 'stretch',
   },
   // R21: CTA layout only — fill/ink/radius live in components/Button (F8).
   // alignSelf + minWidth prevent the pill from collapsing narrower than its

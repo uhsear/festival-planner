@@ -154,8 +154,7 @@ const useStyles = makeStyles((t) => ({
     elevation: 6,
   },
   sosFabText: {
-    ...typeStyle('label'),
+    ...typeStyle('label', 700),
     color: t.colors.text.onAccent,
-    fontWeight: '700',
   },
 }));
