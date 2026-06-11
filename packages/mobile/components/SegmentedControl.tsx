@@ -134,13 +134,15 @@ const useStyles = makeStyles((t) => ({
     padding: t.spacing[1],
     gap: t.spacing[1],
   },
-  // The sliding aqua fill behind the active segment. Absolute origin is the
-  // track's padding box, the same frame `onLayout` reports the slots in, so
-  // translateX = slot.x lines up exactly (top/bottom 0 = the padded height).
+  // The sliding aqua fill behind the active segment. RN positions absolute
+  // children relative to the parent's border box, but the slots are laid out
+  // inside the track's padding — inset the thumb by the same padding so it
+  // registers exactly over the active slot instead of overhanging 4px on
+  // every edge (the iOS "label half under the pill" misalignment).
   thumb: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
+    top: t.spacing[1],
+    bottom: t.spacing[1],
     left: 0,
     borderRadius: t.radii.pill,
     backgroundColor: t.colors.accent.aqua,

@@ -5,21 +5,21 @@
 
 export const colors = {
   bg: {
-    primary: '#080810',
-    secondary: '#0e0e1a',
-    card: 'rgba(20, 20, 38, 0.65)',
-    cardHover: 'rgba(32, 32, 58, 0.8)',
-    input: 'rgba(16, 16, 34, 0.8)',
-    hover: 'rgba(32, 32, 58, 0.8)',
-    elevated: 'rgba(24, 24, 44, 0.9)',
-    sticky: '#14142a',
+    primary: '#0a0a0a',
+    secondary: '#1a1a1a',
+    card: 'rgba(26, 26, 26, 0.65)',
+    cardHover: 'rgba(38, 38, 38, 0.8)',
+    input: 'rgba(20, 20, 20, 0.8)',
+    hover: 'rgba(38, 38, 38, 0.8)',
+    elevated: 'rgba(32, 32, 32, 0.9)',
+    sticky: '#161616',
   },
   text: {
     primary: '#eaeaf2',
     secondary: '#9999bb',
     muted: '#8787a8',
     onAccent: '#ffffff',
-    onLightAccent: '#080810',
+    onLightAccent: '#0a0a0a',
     onDark: '#000000',
     onPoster: '#ffffff',
     danger: '#f87171',
@@ -29,7 +29,7 @@ export const colors = {
   /**
    * Accent system rule (user-approved 2026-06-07):
    *   - `aqua` is the PRIMARY accent. On filled aqua surfaces use dark ink
-   *     (`text.onLightAccent` #080810); that pair already passes WCAG AA.
+   *     (`text.onLightAccent` #0a0a0a); that pair already passes WCAG AA.
    *   - `coral` is RESERVED for DANGER / SOS only — never as a primary CTA.
    *     `coral` (#ff3366) is for borders/glows/accents/text-on-dark; it only
    *     reaches ~3.55:1 against white text, which FAILS AA (4.5:1) for filled
@@ -57,7 +57,7 @@ export const colors = {
     maybe: '#ffb020',
   },
   glass: {
-    bg: 'rgba(20, 20, 38, 0.65)',
+    bg: 'rgba(26, 26, 26, 0.65)',
     border: 'rgba(255, 255, 255, 0.08)',
   },
   stage: {

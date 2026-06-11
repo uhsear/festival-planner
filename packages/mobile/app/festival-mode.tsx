@@ -142,11 +142,33 @@ export default function FestivalModeScreen() {
               );
             })
           ) : (
-            <Text style={styles.empty}>
-              {picks && Object.keys(picks).length === 0
-                ? 'No picks yet — browse the lineup and pick your must-see sets.'
-                : "No more picks coming up — you've seen everything on your list."}
-            </Text>
+            <View style={styles.upNextEmpty}>
+              <Ionicons
+                name="musical-notes-outline"
+                size={40}
+                style={styles.upNextEmptyIcon}
+                accessibilityElementsHidden
+              />
+              <Text style={styles.upNextEmptyTitle}>
+                {picks && Object.keys(picks).length === 0 ? 'No picks yet' : 'All caught up'}
+              </Text>
+              <Text style={styles.upNextEmptyMessage}>
+                {picks && Object.keys(picks).length === 0
+                  ? 'Browse the lineup and pick your must-see sets.'
+                  : "You've seen everything on your list."}
+              </Text>
+              {picks && Object.keys(picks).length === 0 ? (
+                <TouchableOpacity
+                  style={styles.upNextEmptyAction}
+                  onPress={() => router.push('/schedule')}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Browse lineup"
+                >
+                  <Text style={styles.upNextEmptyActionText}>Browse lineup</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           )}
         </ScrollView>
       )}
@@ -201,8 +223,8 @@ const useStyles = makeStyles((t) => ({
   },
   nowCard: {
     borderLeftWidth: 3,
-    borderLeftColor: t.colors.accent.coral,
-    backgroundColor: t.colors.ring.coral,
+    borderLeftColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
   },
   artist: {
     ...typeStyle('label'),
@@ -241,6 +263,39 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.muted,
     paddingHorizontal: t.spacing[2],
     paddingVertical: t.spacing[2],
+  },
+  upNextEmpty: {
+    alignItems: 'center',
+    gap: t.spacing[3],
+    paddingVertical: t.spacing[8],
+    paddingHorizontal: t.spacing[6],
+  },
+  upNextEmptyIcon: {
+    color: t.colors.accent.aqua,
+  },
+  upNextEmptyTitle: {
+    ...typeStyle('title'),
+    color: t.colors.text.primary,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  upNextEmptyMessage: {
+    ...typeStyle('body'),
+    color: t.colors.text.secondary,
+    textAlign: 'center',
+    maxWidth: 260,
+  },
+  upNextEmptyAction: {
+    backgroundColor: t.colors.accent.aqua,
+    borderRadius: t.radii.pill,
+    paddingHorizontal: t.spacing[6],
+    paddingVertical: t.spacing[3],
+    marginTop: t.spacing[2],
+  },
+  upNextEmptyActionText: {
+    ...typeStyle('label'),
+    color: t.colors.text.onLightAccent,
+    fontWeight: '600',
   },
 }));
 

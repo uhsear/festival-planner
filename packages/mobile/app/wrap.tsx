@@ -788,7 +788,9 @@ const useStyles = makeStyles((t) => ({
     fontSize: 36,
     lineHeight: 44,
     color: t.colors.text.primary,
-    letterSpacing: -0.02 * 36,
+    // No negative tracking on iOS — UIKit kerns after the last glyph and
+    // clips the trailing character. 0 reads fine at this display size.
+    letterSpacing: 0,
   },
   topRow: {
     flexDirection: 'row',

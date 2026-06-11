@@ -595,9 +595,7 @@ export default function TimelineScreen() {
                       accessibilityLabel={`${on ? 'Hide' : 'Show'} ${st.name}`}
                     >
                       <View style={[styles.stageDotSmall, { backgroundColor: resolveStageColor(st.id) }]} />
-                      <Text style={[styles.filterChipText, !on && styles.filterChipTextOff]} numberOfLines={1}>
-                        {st.name}
-                      </Text>
+                      <Text style={[styles.filterChipText, !on && styles.filterChipTextOff]}>{st.name}</Text>
                     </TouchableOpacity>
                   );
                 })
@@ -720,6 +718,7 @@ export default function TimelineScreen() {
           }
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          contentInsetAdjustmentBehavior="automatic"
         />
       ) : timeBounds && visibleStages.length > 0 ? (
         <>
@@ -755,6 +754,7 @@ export default function TimelineScreen() {
           style={styles.scrollBody}
           contentContainerStyle={styles.fallbackScroll}
           refreshControl={refreshControl}
+          contentInsetAdjustmentBehavior="automatic"
         >
           {controls}
           {scheduleLoadError ? errorScheduleState : emptyScheduleState}
@@ -778,15 +778,21 @@ const useStyles = makeStyles((t) => ({
   },
   // DC1 — one horizontal control row: LiveDot · view switcher (flex) ·
   // search/filter toggles. Replaces the former two-line live row + switcher.
+  // gap[1] (4px) instead of gap[2] (8px) recovers ~12px so both "Timeline" and
+  // "Cards" labels fit without clipping on ~360dp phones (toggle targets are 44px
+  // so they still comfortably meet WCAG 2.5.5 without the extra gap).
   viewSwitcher: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: t.spacing[2],
+    gap: t.spacing[1],
     paddingHorizontal: t.spacing[4],
     paddingVertical: t.spacing[3],
   },
+  // minWidth:0 prevents the flex child from overflowing its flex allocation when
+  // the SegmentedControl's natural content width exceeds the available space.
   switcherFlex: {
     flex: 1,
+    minWidth: 0,
   },
   // DC1 (Option C) — Switch / Now&Next moved into ScreenHeader's trailing slot.
   headerActions: {
@@ -932,9 +938,9 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.secondary,
   },
   stageDotSmall: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   stageHeader: {
     flexDirection: 'row',

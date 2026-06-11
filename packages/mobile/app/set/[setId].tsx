@@ -10,8 +10,6 @@ import {
   ActivityIndicator,
   Share,
   Image,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
@@ -444,315 +442,303 @@ export default function SetDetailScreen() {
       </TouchableOpacity>
       <CloseButton onPress={dismiss} top={topInset} />
 
-      {/* F1/F15: the note inputs sit at the bottom of the sheet and the iOS
-          formSheet does not auto-avoid the keyboard. KeyboardAvoidingView
-          (padding on iOS) lifts them; Android lets the OS-level window resize do
-          the work (behavior=undefined avoids the documented double-compensation).
-          automaticallyAdjustKeyboardInsets + interactive dismiss keep the active
-          input scrolled above the keyboard while typing. */}
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          automaticallyAdjustKeyboardInsets
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Artist photo (from Spotify backfill) — R15: wrapped in a container
-              that clips the overlay Views to the image's rounded corners.
-              expo-linear-gradient is not in the dep tree, so the spec gradient
-              (transparent 40% → rgba(10,10,10,0.85) 100%) is approximated by
-              two stacked rgba Views: a transparent top region (40% height) and
-              a dark-to-opaque bottom region (60% height). This gives legible
-              text contrast when content is overlaid on the hero in the future
-              and establishes the hero treatment per the spec. */}
-          {artistPhoto ? (
-            <View style={styles.artistPhotoContainer}>
-              <Image
-                source={{ uri: artistPhoto }}
-                style={styles.artistPhoto}
-                resizeMode="cover"
-                accessibilityIgnoresInvertColors
-              />
-              <View style={styles.artistPhotoOverlayTop} pointerEvents="none" />
-              <View style={styles.artistPhotoOverlayBottom} pointerEvents="none" />
-            </View>
-          ) : null}
-
-          {/* Stage pill */}
-          <View style={[styles.stagePill, { backgroundColor: stageColor + '25' }]}>
-            <Text style={[styles.stageText, { color: stageTextColor }]} numberOfLines={1}>
-              {stageName}
-            </Text>
+      {/* F1/F15: keyboard avoidance for the note inputs at the sheet bottom.
+          NO KeyboardAvoidingView here — behavior="padding" inside an iOS
+          formSheet miscomputes the keyboard frame against the sheet's detent
+          and collapses the content to zero height (the "blank sheet" bug).
+          automaticallyAdjustKeyboardInsets (iOS) + the Android window-resize
+          default cover the keyboard without it; interactive dismiss keeps the
+          active input visible while typing. */}
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Artist photo (from Spotify backfill) — R15: wrapped in a container
+              that clips the image to its rounded corners. No text is overlaid
+              on the hero, so the previous stacked-rgba "gradient" (a hard
+              rgba(10,10,10,0.85) rectangle over the bottom 60% without
+              expo-linear-gradient) only obscured the portrait subject. The
+              photo now reads clean; a single subtle bottom scrim seats it
+              against the sheet without hiding the face. */}
+        {artistPhoto ? (
+          <View style={styles.artistPhotoContainer}>
+            <Image
+              source={{ uri: artistPhoto }}
+              style={styles.artistPhoto}
+              resizeMode="cover"
+              accessibilityIgnoresInvertColors
+            />
+            <View style={styles.artistPhotoScrim} pointerEvents="none" />
           </View>
+        ) : null}
 
-          {/* Artist header */}
-          <Text style={styles.artist} accessibilityRole="header">
-            {artistName}
+        {/* Stage pill */}
+        <View style={[styles.stagePill, { backgroundColor: stageColor + '25' }]}>
+          <Text style={[styles.stageText, { color: stageTextColor }]} numberOfLines={1}>
+            {stageName}
           </Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-          <Text style={styles.time}>{timeLabel}</Text>
+        </View>
 
-          {/* Genres */}
-          {allGenres.length > 0 ? (
-            <View style={styles.chipRow}>
-              {allGenres.map((g) => (
-                <View key={g} style={styles.chip}>
-                  <Text style={styles.chipText}>{g}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
+        {/* Artist header */}
+        <Text style={styles.artist} accessibilityRole="header">
+          {artistName}
+        </Text>
+        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <Text style={styles.time}>{timeLabel}</Text>
 
-          {/* Artist links */}
-          {artistLinks.length > 0 ? (
-            <View style={styles.linkRow}>
-              {artistLinks.flatMap((entry) =>
-                Object.entries(entry.links).map(([key, url]) => (
-                  <TouchableOpacity
-                    key={`${entry.name}-${key}`}
-                    style={styles.linkButton}
-                    onPress={() => openLink(url)}
-                    activeOpacity={0.7}
-                    accessibilityRole="link"
-                    accessibilityLabel={`Open ${entry.name} on ${key}`}
-                  >
-                    <Ionicons name="open-outline" size={14} color={t.colors.accent.aqua} />
-                    <Text style={styles.linkText}>{key}</Text>
-                  </TouchableOpacity>
-                )),
-              )}
-            </View>
-          ) : null}
+        {/* Genres */}
+        {allGenres.length > 0 ? (
+          <View style={styles.chipRow}>
+            {allGenres.map((g) => (
+              <View key={g} style={styles.chip}>
+                <Text style={styles.chipText}>{g}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
-          {/* Spotify preview — inline WebView embed behind a show/hide toggle.
+        {/* Artist links */}
+        {artistLinks.length > 0 ? (
+          <View style={styles.linkRow}>
+            {artistLinks.flatMap((entry) =>
+              Object.entries(entry.links).map(([key, url]) => (
+                <TouchableOpacity
+                  key={`${entry.name}-${key}`}
+                  style={styles.linkButton}
+                  onPress={() => openLink(url)}
+                  activeOpacity={0.7}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open ${entry.name} on ${key}`}
+                >
+                  <Ionicons name="open-outline" size={14} color={t.colors.accent.aqua} />
+                  <Text style={styles.linkText}>{key}</Text>
+                </TouchableOpacity>
+              )),
+            )}
+          </View>
+        ) : null}
+
+        {/* Spotify preview — inline WebView embed behind a show/hide toggle.
             The embedUrl already carries theme=0 (dark). The section renders
             nothing when no preview is available (guarded on embedType). */}
-          {spotify && spotify.embedUrl ? (
-            <View style={styles.spotifySection}>
-              <TouchableOpacity
-                style={styles.spotifyButton}
-                onPress={() => setSpotifyOpen((v) => !v)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: spotifyOpen }}
-                accessibilityLabel={spotifyOpen ? `Hide preview: ${spotifyLabel}` : `Play preview: ${spotifyLabel}`}
-              >
-                <Ionicons name="musical-note" size={16} color={t.colors.spotify.brand} />
-                <Text style={styles.spotifyText} numberOfLines={1}>
-                  {spotifyLabel}
-                </Text>
-                <Ionicons
-                  name={spotifyOpen ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color={t.colors.text.secondary}
+        {spotify && spotify.embedUrl ? (
+          <View style={styles.spotifySection}>
+            <TouchableOpacity
+              style={styles.spotifyButton}
+              onPress={() => setSpotifyOpen((v) => !v)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: spotifyOpen }}
+              accessibilityLabel={spotifyOpen ? `Hide preview: ${spotifyLabel}` : `Play preview: ${spotifyLabel}`}
+            >
+              <Ionicons name="musical-note" size={16} color={t.colors.spotify.brand} />
+              <Text style={styles.spotifyText} numberOfLines={1}>
+                {spotifyLabel}
+              </Text>
+              <Ionicons name={spotifyOpen ? 'chevron-up' : 'chevron-down'} size={16} color={t.colors.text.secondary} />
+            </TouchableOpacity>
+            {spotifyOpen ? (
+              <View style={[styles.spotifyEmbed, { height: spotify.embedType === 'track' ? 152 : 352 }]}>
+                <WebView
+                  source={{ uri: spotify.embedUrl }}
+                  style={styles.spotifyWebView}
+                  allowsInlineMediaPlayback
+                  mediaPlaybackRequiresUserAction={false}
+                  originWhitelist={['https://open.spotify.com', 'https://*.spotify.com']}
+                  onShouldStartLoadWithRequest={(req) => {
+                    // Default-DENY: only the embed itself + in-frame Spotify
+                    // resource loads stay in the WebView. User clicks (Spotify
+                    // or not) open externally; any other origin is blocked so a
+                    // hijacked iframe can't navigate the WebView off-Spotify.
+                    if (req.url === spotify.embedUrl) return true;
+                    let host = '';
+                    try {
+                      host = new URL(req.url).hostname;
+                    } catch {
+                      return false;
+                    }
+                    const isSpotify = /(^|\.)(spotify\.com|scdn\.co|spotifycdn\.com)$/.test(host);
+                    if (req.navigationType === 'click') {
+                      // Top-level user navigation → hand off to the OS.
+                      openLink(req.url);
+                      return false;
+                    }
+                    // Non-click (iframe/resource): allow only Spotify hosts.
+                    return isSpotify;
+                  }}
                 />
-              </TouchableOpacity>
-              {spotifyOpen ? (
-                <View style={[styles.spotifyEmbed, { height: spotify.embedType === 'track' ? 152 : 352 }]}>
-                  <WebView
-                    source={{ uri: spotify.embedUrl }}
-                    style={styles.spotifyWebView}
-                    allowsInlineMediaPlayback
-                    mediaPlaybackRequiresUserAction={false}
-                    originWhitelist={['https://open.spotify.com', 'https://*.spotify.com']}
-                    onShouldStartLoadWithRequest={(req) => {
-                      // Default-DENY: only the embed itself + in-frame Spotify
-                      // resource loads stay in the WebView. User clicks (Spotify
-                      // or not) open externally; any other origin is blocked so a
-                      // hijacked iframe can't navigate the WebView off-Spotify.
-                      if (req.url === spotify.embedUrl) return true;
-                      let host = '';
-                      try {
-                        host = new URL(req.url).hostname;
-                      } catch {
-                        return false;
-                      }
-                      const isSpotify = /(^|\.)(spotify\.com|scdn\.co|spotifycdn\.com)$/.test(host);
-                      if (req.navigationType === 'click') {
-                        // Top-level user navigation → hand off to the OS.
-                        openLink(req.url);
-                        return false;
-                      }
-                      // Non-click (iframe/resource): allow only Spotify hosts.
-                      return isSpotify;
-                    }}
-                  />
-                </View>
-              ) : null}
-            </View>
-          ) : null}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
-          {/* Single conflict card (DC3 Option A). ClashPrompt IS the merged
+        {/* Single conflict card (DC3 Option A). ClashPrompt IS the merged
               card — it names both acts and offers per-pair Keep/Switch actions
               ("Keep {other}" clears the current pick = a Switch). The passive
               "N scheduling conflicts" box that used to sit below was the
               duplicate coral surface and has been removed. */}
-          {currentProfile && conflicts.length > 0 ? (
-            <ClashPrompt
-              currentSet={set}
-              conflicts={conflicts}
-              b2bSeparator={b2bSeparator}
-              getPriority={getMyPick}
-              onClear={handleClashClear}
-            />
-          ) : null}
+        {currentProfile && conflicts.length > 0 ? (
+          <ClashPrompt
+            currentSet={set}
+            conflicts={conflicts}
+            b2bSeparator={b2bSeparator}
+            getPriority={getMyPick}
+            onClear={handleClashClear}
+          />
+        ) : null}
 
-          {/* Priority picker / Join CTA */}
-          {currentProfile ? (
-            <>
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Your pick</Text>
-                <View style={styles.priorityRow}>
-                  {PRIORITIES.map((option) => {
-                    const active = myPick === option.value;
-                    const accent = priorityColor(t, option.value);
-                    return (
-                      <TouchableOpacity
-                        key={option.value}
-                        style={[styles.priorityButton, active && { backgroundColor: accent, borderColor: accent }]}
-                        onPress={() => handlePriority(active ? null : option.value)}
-                        activeOpacity={0.7}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
-                        accessibilityLabel={option.label}
-                      >
-                        <Ionicons
-                          name={option.icon}
-                          size={16}
-                          color={active ? t.colors.text.onLightAccent : t.colors.text.muted}
-                        />
-                        <Text style={[styles.priorityText, active && { color: t.colors.text.onLightAccent }]}>
-                          {option.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Remind me before it starts</Text>
-                <View style={styles.reminderRow}>
-                  {REMINDER_OPTIONS.map((opt) => {
-                    const active = myReminder === opt.value;
-                    return (
-                      <TouchableOpacity
-                        key={opt.value}
-                        style={[
-                          styles.reminderChip,
-                          active && {
-                            backgroundColor: t.colors.accent.aqua,
-                            borderColor: t.colors.accent.aqua,
-                          },
-                        ]}
-                        onPress={() => handleReminder(active ? null : opt.value)}
-                        activeOpacity={0.7}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
-                        accessibilityLabel={
-                          active ? `Reminder set ${opt.label} before, tap to clear` : `Remind me ${opt.label} before`
-                        }
-                      >
-                        <Text style={[styles.priorityText, active && { color: t.colors.text.onLightAccent }]}>
-                          {opt.label}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            </>
-          ) : (
-            <View style={styles.joinBox}>
-              <Text style={styles.joinCopy}>
-                {user
-                  ? 'Join this festival to save picks, keep private notes, and compare crew overlap.'
-                  : 'Sign in to save picks, keep private notes, and compare crew overlap.'}
-              </Text>
-              <TouchableOpacity
-                style={[styles.joinButton, joinBusy && styles.joinButtonBusy]}
-                onPress={handleJoin}
-                disabled={joinBusy}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={user ? 'Join festival' : 'Sign in to join'}
-              >
-                {joinBusy ? (
-                  <ActivityIndicator size="small" color={t.colors.text.onLightAccent} />
-                ) : (
-                  <Text style={styles.joinButtonText}>{user ? 'Join Festival' : 'Sign in to join'}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Ratings — only once the set has started (web parity). */}
-          {currentProfile && currentFestival && hasSetStarted(set, currentFestival, days) ? (
+        {/* Priority picker / Join CTA */}
+        {currentProfile ? (
+          <>
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Rate this set</Text>
-              <RatingButtons setId={set.id} festivalId={currentFestival.id} />
-            </View>
-          ) : null}
-
-          {/* Who's going */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{whoTitle}</Text>
-            {others.map((o) => {
-              // F27: the priority tier must not be color-only. The dot keeps the
-              // color; a label + matching icon carry the same signal for
-              // color-blind users, and the row exposes it to screen readers.
-              const meta = PRIORITY_META[o.priority];
-              return (
-                <View
-                  key={o.profileId}
-                  style={styles.crewRow}
-                  accessible
-                  accessibilityLabel={`${o.name}, ${meta.label}`}
-                >
-                  <View style={[styles.crewDot, { backgroundColor: priorityColor(t, o.priority) }]} />
-                  <Text style={styles.crewName} numberOfLines={1}>
-                    {o.name}
-                  </Text>
-                  <Ionicons name={meta.icon} size={12} color={t.colors.text.muted} />
-                  <Text style={styles.crewPriority}>{meta.label}</Text>
-                </View>
-              );
-            })}
-            {crewNotes.map((n, i) => (
-              <View key={`note-${i}`} style={styles.crewNoteRow}>
-                <Text style={styles.crewNoteName}>{n.name}</Text>
-                <Text style={styles.crewNoteText}>{n.note}</Text>
+              <Text style={styles.sectionLabel}>Your pick</Text>
+              <View style={styles.priorityRow}>
+                {PRIORITIES.map((option) => {
+                  const active = myPick === option.value;
+                  const accent = priorityColor(t, option.value);
+                  return (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[styles.priorityButton, active && { backgroundColor: accent, borderColor: accent }]}
+                      onPress={() => handlePriority(active ? null : option.value)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={option.label}
+                    >
+                      <Ionicons
+                        name={option.icon}
+                        size={16}
+                        color={active ? t.colors.text.onLightAccent : t.colors.text.muted}
+                      />
+                      <Text style={[styles.priorityText, active && { color: t.colors.text.onLightAccent }]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            ))}
+            </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Remind me before it starts</Text>
+              <View style={styles.reminderRow}>
+                {REMINDER_OPTIONS.map((opt) => {
+                  const active = myReminder === opt.value;
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[
+                        styles.reminderChip,
+                        active && {
+                          backgroundColor: t.colors.accent.aqua,
+                          borderColor: t.colors.accent.aqua,
+                        },
+                      ]}
+                      onPress={() => handleReminder(active ? null : opt.value)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={
+                        active ? `Reminder set ${opt.label} before, tap to clear` : `Remind me ${opt.label} before`
+                      }
+                    >
+                      <Text style={[styles.priorityText, active && { color: t.colors.text.onLightAccent }]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </>
+        ) : (
+          <View style={styles.joinBox}>
+            <Text style={styles.joinCopy}>
+              {user
+                ? 'Join this festival to save picks, keep private notes, and compare crew overlap.'
+                : 'Sign in to save picks, keep private notes, and compare crew overlap.'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.joinButton, joinBusy && styles.joinButtonBusy]}
+              onPress={handleJoin}
+              disabled={joinBusy}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={user ? 'Join festival' : 'Sign in to join'}
+            >
+              {joinBusy ? (
+                <ActivityIndicator size="small" color={t.colors.text.onLightAccent} />
+              ) : (
+                <Text style={styles.joinButtonText}>{user ? 'Join Festival' : 'Sign in to join'}</Text>
+              )}
+            </TouchableOpacity>
           </View>
+        )}
 
-          {/* Notes */}
-          {currentProfile ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Your note</Text>
-              <TextInput
-                style={styles.noteInput}
-                value={personalNote}
-                onChangeText={handlePersonalNoteChange}
-                placeholder="Private note for yourself"
-                placeholderTextColor={t.colors.text.placeholder}
-                multiline
-                accessibilityLabel="Personal note"
-              />
-              <Text style={styles.sectionLabel}>Crew note</Text>
-              <TextInput
-                style={styles.noteInput}
-                value={crewNote}
-                onChangeText={handleCrewNoteChange}
-                placeholder="Shared note for your crew"
-                placeholderTextColor={t.colors.text.placeholder}
-                multiline
-                accessibilityLabel="Crew note"
-              />
+        {/* Ratings — only once the set has started (web parity). */}
+        {currentProfile && currentFestival && hasSetStarted(set, currentFestival, days) ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Rate this set</Text>
+            <RatingButtons setId={set.id} festivalId={currentFestival.id} />
+          </View>
+        ) : null}
+
+        {/* Who's going */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>{whoTitle}</Text>
+          {others.map((o) => {
+            // F27: the priority tier must not be color-only. The dot keeps the
+            // color; a label + matching icon carry the same signal for
+            // color-blind users, and the row exposes it to screen readers.
+            const meta = PRIORITY_META[o.priority];
+            return (
+              <View key={o.profileId} style={styles.crewRow} accessible accessibilityLabel={`${o.name}, ${meta.label}`}>
+                <View style={[styles.crewDot, { backgroundColor: priorityColor(t, o.priority) }]} />
+                <Text style={styles.crewName} numberOfLines={1}>
+                  {o.name}
+                </Text>
+                <Ionicons name={meta.icon} size={12} color={t.colors.text.muted} />
+                <Text style={styles.crewPriority}>{meta.label}</Text>
+              </View>
+            );
+          })}
+          {crewNotes.map((n, i) => (
+            <View key={`note-${i}`} style={styles.crewNoteRow}>
+              <Text style={styles.crewNoteName}>{n.name}</Text>
+              <Text style={styles.crewNoteText}>{n.note}</Text>
             </View>
-          ) : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+          ))}
+        </View>
+
+        {/* Notes */}
+        {currentProfile ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Your note</Text>
+            <TextInput
+              style={styles.noteInput}
+              value={personalNote}
+              onChangeText={handlePersonalNoteChange}
+              placeholder="Private note for yourself"
+              placeholderTextColor={t.colors.text.placeholder}
+              multiline
+              accessibilityLabel="Personal note"
+            />
+            <Text style={styles.sectionLabel}>Crew note</Text>
+            <TextInput
+              style={styles.noteInput}
+              value={crewNote}
+              onChangeText={handleCrewNoteChange}
+              placeholder="Shared note for your crew"
+              placeholderTextColor={t.colors.text.placeholder}
+              multiline
+              accessibilityLabel="Crew note"
+            />
+          </View>
+        ) : null}
+      </ScrollView>
     </View>
   );
 }
@@ -791,10 +777,6 @@ const useStyles = makeStyles((t) => ({
     // We use borderTopColor to distinguish the top edge from the sides.
     borderTopColor: 'rgba(255, 255, 255, 0.14)',
     overflow: 'hidden',
-  },
-  // KeyboardAvoidingView wrapper around the ScrollView (F1/F15).
-  flex: {
-    flex: 1,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -851,25 +833,17 @@ const useStyles = makeStyles((t) => ({
     width: '100%',
     height: '100%',
   },
-  // R15: top 40% — fully transparent, lets the image breathe in the upper zone.
-  artistPhotoOverlayTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '40%',
-    backgroundColor: 'transparent',
-  },
-  // R15: bottom 60% — rgba(10,10,10,0.85) approximating the spec gradient's
-  // opaque end-stop. Combined with the transparent top region this reads as a
-  // smooth fade even without a true linear-gradient.
-  artistPhotoOverlayBottom: {
+  // R15: a slim bottom scrim (bottom 28%, low alpha) seats the photo against
+  // the sheet edge without obscuring the subject. RN has no linear-gradient in
+  // the dep tree, so this is a single low-opacity rectangle rather than a hard
+  // near-opaque fill — the face stays fully visible.
+  artistPhotoScrim: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: '60%',
-    backgroundColor: 'rgba(10,10,10,0.85)',
+    height: '28%',
+    backgroundColor: 'rgba(10,10,10,0.35)',
   },
   stagePill: {
     alignSelf: 'flex-start',

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import type { TextStyle } from 'react-native';
 import {
   colors,
@@ -107,7 +107,10 @@ export function typeStyle(role: TypeRoleName, weight?: number): TextStyle {
   const style: TextStyle = {
     fontSize: r.size,
     lineHeight: Math.round(r.lineHeight * r.size),
-    letterSpacing: r.letterSpacing * r.size,
+    // iOS clamps negative tracking to 0: UIKit applies the kern after the
+    // final glyph too, so any negative letterSpacing under-measures the line
+    // and clips the trailing character ("Add to calenda", "Saturda").
+    letterSpacing: Platform.OS === 'ios' ? Math.max(0, r.letterSpacing * r.size) : r.letterSpacing * r.size,
     fontWeight: String(resolvedWeight) as TextStyle['fontWeight'],
   };
   const family = nativeFontFamily(r.family, clampedWeight);

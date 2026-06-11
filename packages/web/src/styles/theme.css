@@ -54,7 +54,7 @@
   }
 }
 
-/* R24 (design-inspiration-deep-2026-06-10): SOS FAB alert ring � continuous
+/* R24 (design-inspiration-deep-2026-06-10): SOS FAB alert ring � continuous
    coral pulse ONLY while an active SOS exists. Justified: emergency context.
    Applied to the SOS button/FAB when liveLocationStore.sos is non-null.
    Reduce-motion: global block collapses to 0.01ms; the sos-fab-static-ring
@@ -421,11 +421,11 @@
   --breakpoint-xl: 80rem;
   --breakpoint-2xl: 96rem;
 
-  --color-bg-primary: #080810;
-  --color-bg-secondary: #0e0e1a;
-  --color-bg-card: rgba(20, 20, 38, 0.65);
-  --color-bg-card-hover: rgba(32, 32, 58, 0.8);
-  --color-bg-input: rgba(16, 16, 34, 0.8);
+  --color-bg-primary: #0a0a0a;
+  --color-bg-secondary: #1a1a1a;
+  --color-bg-card: rgba(26, 26, 26, 0.65);
+  --color-bg-card-hover: rgba(38, 38, 38, 0.8);
+  --color-bg-input: rgba(20, 20, 20, 0.8);
   --color-text-primary: #eaeaf2;
   --color-text-secondary: #9999bb;
   /* R29 pass 2: bumped from #6a6a88 → #8787a8.
@@ -544,8 +544,8 @@
   --shadow-glow-green: 0 0 20px rgba(57, 255, 20, 0.3);
 
   /* ── Additional colors ──────────────────────────────────────────────── */
-  --color-bg-hover: rgba(32, 32, 58, 0.8);
-  --color-bg-elevated: rgba(24, 24, 44, 0.9);
+  --color-bg-hover: rgba(38, 38, 38, 0.8);
+  --color-bg-elevated: rgba(32, 32, 32, 0.9);
   --color-text-danger: #f87171;
   --color-text-disabled: #a8a8c0;
   --color-text-placeholder: #a8a8c0;
@@ -613,7 +613,7 @@
   /* StageBadge fallback for pure-black stage colors (= text-muted, AA ~5.6:1). */
   --color-stage-fallback: #8787a8;
   /* Elevated sticky band (lighter than the canvas + --shadow-sticky). */
-  --color-bg-sticky: #14142a;
+  --color-bg-sticky: #161616;
   /* Chrome surface (header / sub-header / bottom nav). Paired with
      backdrop-blur/saturate so the chrome reads as frosted near-black glass. */
   --color-bg-chrome: rgba(10, 10, 20, 0.82);
