@@ -22,6 +22,9 @@ env:
 
 permissions:
   contents: read
+  # Required by dorny/test-reporter to post JUnit check annotations on the run.
+  checks: write
+  actions: read
 
 jobs:
   android-e2e:
@@ -214,6 +217,19 @@ jobs:
           name: app-release-apk
           path: packages/mobile/android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: ignore
+
+      # Publish the Maestro JUnit report as a PR/run check annotation so failures
+      # surface inline. if: always() + continue-on-error: true ensures this step
+      # never fails the gate — it is purely informational trend tracking.
+      - name: Publish Maestro test results
+        if: always()
+        continue-on-error: true
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        with:
+          name: Android Maestro Results
+          path: packages/mobile/maestro-report.xml
+          reporter: java-junit
+          fail-on-error: false
 
       - name: Upload Maestro artifacts
         if: always()

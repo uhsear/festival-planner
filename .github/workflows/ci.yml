@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main, develop, master]
 
+# Cancel superseded runs on the same ref so only the latest push to a branch/PR
+# holds runners.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Opt every JS action into the Node 24 runtime ahead of GitHub's 2026-06-16
 # forced migration. This silences the Node 20 deprecation across all actions
 # (including pnpm/action-setup@v4, whose `version:` input we keep — the root
@@ -18,8 +24,44 @@ permissions:
   contents: read
 
 jobs:
+  # Path filtering (P8): let docs-only / backend-only pushes skip the web and
+  # mobile jobs. dorny/paths-filter compares against the PR base (or the previous
+  # push) and exposes one boolean output per filter. NOTE: this subsumes P33
+  # (pnpm `[HEAD^1]` affected-filter) — same goal, one mechanism.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      backend: ${{ steps.filter.outputs.backend }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'packages/web/**'
+              - 'packages/shared/**'
+              - 'packages/pnpm-lock.yaml'
+              - 'packages/package.json'
+            mobile:
+              - 'packages/mobile/**'
+              - 'packages/shared/**'
+              - 'packages/pnpm-lock.yaml'
+              - 'packages/package.json'
+            backend:
+              - '!packages/**'
+              - '!docs/**'
+            docs:
+              - 'docs/**'
+              - '**/*.md'
+
   secrets:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
@@ -31,16 +73,12 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+      - uses: ./.github/actions/pnpm-setup
         with:
-          node-version: '22'
-          cache: 'npm'
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-        with:
-          version: 9
-          run_install: false
+          node-cache: 'npm'
       - run: npm ci
       - name: Install web workspace deps
         working-directory: packages
@@ -55,6 +93,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         node-version: [22]
@@ -83,21 +122,23 @@ jobs:
           - 6379:6379
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+      - uses: ./.github/actions/pnpm-setup
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          node-cache: 'npm'
       - run: npm ci
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-        with:
-          version: 9
-          run_install: false
       - name: Install web workspace deps
         working-directory: packages
         run: pnpm install --frozen-lockfile
       - name: Build frontend
         working-directory: packages
         run: pnpm --filter @festie/web build
+      - name: Upload web build (shared by lighthouse + bundle-size)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-dist
+          path: packages/web/dist
+          retention-days: 1
       - name: Set up database
         env:
           TEST_DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
@@ -122,16 +163,13 @@ jobs:
           path: coverage/
 
   frontend-tests:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: '22'
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-        with:
-          version: 9
-          run_install: false
+      - uses: ./.github/actions/pnpm-setup
       - name: Install web workspace deps
         working-directory: packages
         run: pnpm install --frozen-lockfile
@@ -143,16 +181,13 @@ jobs:
         run: pnpm --filter @festie/web test
 
   mobile-typecheck:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: '22'
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-        with:
-          version: 9
-          run_install: false
+      - uses: ./.github/actions/pnpm-setup
       - name: Install web workspace deps
         working-directory: packages
         run: pnpm install --frozen-lockfile
@@ -165,18 +200,18 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+      - uses: ./.github/actions/pnpm-setup
         with:
-          node-version: '22'
-          cache: 'npm'
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-        with:
-          version: 9
-          run_install: false
+          node-cache: 'npm'
       - run: npm ci
-      - run: npm audit --audit-level=high
+      - name: npm audit (advisory — non-blocking)
+        # Advisory only: the blocking owner of this check is security-audit.yml
+        # (daily cron). Keeping it non-fatal here stops a fresh advisory from
+        # wedging the push path red. The `echo` makes the outcome visible in logs.
+        run: npm audit --audit-level=high || echo "::warning::npm audit found high+ advisories — see the security-audit workflow for the blocking check"
       - name: Install web workspace deps
         working-directory: packages
         run: pnpm install --frozen-lockfile
@@ -188,30 +223,12 @@ jobs:
 
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+      - uses: ./.github/actions/pnpm-setup
         with:
-          node-version: '22'
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-        with:
-          version: 9
-          run_install: false
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          # Query from packages/ (the real workspace); the root pnpm-workspace.yaml
-          # has no `packages:` field, so `pnpm store path` errors there. Swallow any
-          # error and fall back to the default store dir so the cache always has a path.
-          STORE_PATH="$(cd packages && pnpm store path --silent 2>/dev/null || true)"
-          if [ -z "$STORE_PATH" ]; then STORE_PATH="$HOME/.local/share/pnpm/store"; fi
-          echo "STORE_PATH=$STORE_PATH" >> $GITHUB_ENV
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('packages/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+          node-cache: 'npm'
       - name: Install web workspace deps
         working-directory: packages
         run: pnpm install --frozen-lockfile
@@ -229,48 +246,50 @@ jobs:
           python3 -m pip install --user pipx
           python3 -m pipx ensurepath
       - name: Semgrep scan (React + OWASP Top Ten)
-        run: pipx run semgrep scan --config=p/react --config=p/owasp-top-ten --error packages/
+        # Pinned for determinism + faster, cached resolution (P9).
+        run: pipx run semgrep==1.166.0 scan --config=p/react --config=p/owasp-top-ten --error packages/
 
   lighthouse:
-    needs: quality
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    # Reuses the web build from `test` (P5) and only runs when the web/shared
+    # surface changed (P8).
+    needs: [changes, test, quality]
+    if: |
+      needs.changes.outputs.web == 'true' &&
+      (github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: '22'
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-        with:
-          version: 9
-          run_install: false
+      - uses: ./.github/actions/pnpm-setup
       - name: Install web workspace deps
         working-directory: packages
         run: pnpm install --frozen-lockfile
-      - name: Build frontend
-        working-directory: packages
-        run: pnpm --filter @festie/web build
+      - name: Download web build
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: web-dist
+          path: packages/web/dist
       - name: Run Lighthouse CI
         working-directory: packages/web
         run: pnpm exec lhci autorun --config=.lighthouserc.cjs
 
   bundle-size:
+    # Reuses the web build from `test` (P5); only runs on web/shared changes (P8).
+    needs: [changes, test]
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
-        with:
-          node-version: '22'
-      - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-        with:
-          version: 9
-          run_install: false
+      - uses: ./.github/actions/pnpm-setup
       - name: Install web workspace deps
         working-directory: packages
         run: pnpm install --frozen-lockfile
-      - name: Build frontend
-        working-directory: packages
-        run: pnpm --filter @festie/web build
+      - name: Download web build
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: web-dist
+          path: packages/web/dist
       - name: Check bundle size
         continue-on-error: true
         working-directory: packages/web
@@ -278,8 +297,17 @@ jobs:
 
   docker:
     needs: [test, frontend-tests, mobile-typecheck]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    # frontend-tests / mobile-typecheck may be path-filtered out (P8). `always()`
+    # plus explicit result checks lets docker proceed when an upstream job is
+    # *skipped*, while still gating on real failures/cancellations.
+    if: |
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
+      always() &&
+      needs.test.result == 'success' &&
+      needs.frontend-tests.result != 'failure' && needs.frontend-tests.result != 'cancelled' &&
+      needs.mobile-typecheck.result != 'failure' && needs.mobile-typecheck.result != 'cancelled'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3

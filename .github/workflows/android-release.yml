@@ -56,6 +56,7 @@ env:
   # strictly greater than (last EAS versionCode - current github.run_number) so
   # the very first GH build already exceeds it. A safe choice: set the offset to
   # (last EAS versionCode + 100). E.g. last EAS code 42 -> set 142 here.
+  # The exact lookup steps are a checklist in docs/runbooks/deploy.md (P18).
   VERSION_CODE_OFFSET: '100'
 
 permissions:
@@ -72,7 +73,7 @@ jobs:
         with:
           node-version: '22'
 
-      # RN 0.81 / Expo SDK 54 build with AGP 8 -> JDK 17.
+      # Expo SDK 56 / RN 0.85 build with AGP 8 -> JDK 17.
       - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
@@ -89,6 +90,10 @@ jobs:
       - name: Install workspace deps (pnpm)
         working-directory: packages
         run: pnpm install --frozen-lockfile
+
+      - name: Expo Doctor (fail-fast config check)
+        working-directory: packages/mobile
+        run: npx expo-doctor@latest
 
       # Generate the native android/ project (CNG; android/ is gitignored).
       # --no-install: pnpm already installed node_modules; don't let prebuild

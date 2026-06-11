@@ -13,14 +13,33 @@ name: Mobile OTA update (eas update)
 # Linux CI is just a clean, consistent place to publish (uses EXPO_TOKEN); under
 # appVersion the publish OS no longer affects delivery. Use for JS-only changes to
 # the CURRENT app version; for native changes or a new app version, cut a build.
+#
+# Staging → production promote flow (P15):
+#   1. Publish to staging (this workflow's default):
+#        gh workflow run mobile-ota.yml -f branch=staging -f message="your message"
+#        — or dispatch from the Actions tab with branch=staging.
+#
+#   2. Verify on a staging-channel device (TestFlight internal / Android internal track).
+#
+#   3. Promote to production WITHOUT a re-publish (republishes the exact same bundle):
+#        npx eas-cli update:republish \
+#          --source-branch staging \
+#          --destination-branch production \
+#          --non-interactive
+#      OR cherry-pick the group id from the staging run's summary and promote by id:
+#        npx eas-cli update:republish --group <groupId> --branch production --non-interactive
+#
+#   The promote keeps the same runtimeVersion as the staging publish, so it lands on
+#   the same set of builds. No separate CI run is needed for production.
+
 on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'EAS Update branch to publish to (maps to a channel, e.g. preview / production)'
+        description: 'EAS Update branch to publish to (maps to a channel: staging / production / preview)'
         type: string
         required: true
-        default: 'preview'
+        default: 'staging'
       message:
         description: 'Update message'
         type: string

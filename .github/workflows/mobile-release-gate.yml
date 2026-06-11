@@ -2,9 +2,12 @@ name: Mobile release gate (build vs OTA)
 
 # Fingerprint-aware build-vs-OTA decision gate.
 #
-# Goal: cut EAS BUILD spend. app.json uses runtimeVersion.policy=fingerprint, so a
-# change only needs a new native *build* when the native fingerprint changes; pure
-# JS/asset changes ship for free via `eas update`. This job computes the current
+# Goal: cut EAS BUILD spend. NOTE: app.json's runtimeVersion.policy is
+# `appVersion` (the fingerprint policy was tried and reverted — see
+# memory/reference_eas_alternatives). This gate is an ADVISORY fingerprint DIFF:
+# it computes the native fingerprint to detect when a change actually needs a new
+# native *build* vs. when pure JS/asset changes can ship for free via
+# `eas update`. It does NOT drive runtimeVersion. This job computes the current
 # native fingerprint, diffs it against the committed baseline
 # (packages/mobile/.fingerprint/baseline.json = the last-built fingerprint), and
 # DECIDES + REPORTS only — it does NOT trigger a build or an eas update (v1 keeps
