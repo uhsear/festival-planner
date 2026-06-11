@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '@festie/shared/services';
+import { useAuthStore } from '@festie/shared/stores';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 // Server shape from GET /ratings/lifetime (M3 cross-festival YoY history).
@@ -51,6 +52,9 @@ function dateSpan(start: string | null, end: string | null): string | null {
 export default function AccountHistorySection() {
   const t = useTokens();
   const styles = useStyles();
+  // Auth gate: /ratings/lifetime 401s for guests (section can be mounted
+  // eagerly by NativeTabs even when the user never opens Account).
+  const user = useAuthStore((s) => s.user);
 
   const [data, setData] = useState<LifetimeResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,6 +62,7 @@ export default function AccountHistorySection() {
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
+    if (!user) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -75,7 +80,9 @@ export default function AccountHistorySection() {
     return () => {
       cancelled = true;
     };
-  }, [reload]);
+  }, [user, reload]);
+
+  if (!user) return null;
 
   if (loading) {
     return (
