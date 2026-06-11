@@ -276,6 +276,9 @@ const useStyles = makeStyles((t) => ({
   btnPrimaryText: {
     ...typeStyle('label'),
     color: t.colors.accent.aqua,
+    // Last knob in the "Uploa" clip saga — forbid the centered row from
+    // shrinking the label below its measured width.
+    flexShrink: 0,
   },
   btnGhost: {
     flex: 1,

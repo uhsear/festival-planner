@@ -38,8 +38,14 @@ env:
 - tapOn: "Cards"
 - takeScreenshot: c04-cards
 
-# --- Festival mode (live now/next) ---
-- tapOn: "Live"
+# --- Festival mode (Now & Next) ---
+# Forbidden Kingdom 2026 is a PAST festival: opening Now & Next must show the
+# Now & Next surface (an empty/ended state is fine — never a redirect to the
+# festival picker), and Back must return to the schedule with the festival still
+# selected. Regression guard: a navigate() (vs push) on this cross-navigator
+# route used to warp the stack so Back popped the user out to the festival picker
+# or the OS home screen, losing festival context.
+- tapOn: "Open Now and Next"
 - extendedWaitUntil:
     visible: "UP NEXT"
     timeout: 30000
@@ -48,6 +54,9 @@ env:
 - extendedWaitUntil:
     visible: "Timeline"
     timeout: 20000
+# Festival context preserved — we are back on the schedule, NOT the picker.
+- assertVisible: "${FESTIVAL}"
+- assertNotVisible: "Select a Festival"
 
 # --- Picks ---
 - tapOn: "Picks"

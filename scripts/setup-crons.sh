@@ -20,8 +20,8 @@ if [ ! -f "$script_dir/scripts/health-monitor.js" ]; then
   exit 1
 fi
 
-if [ ! -f "$script_dir/scripts/error-rate-alert.js" ]; then
-  echo "❌ Error: scripts/error-rate-alert.js not found"
+if [ ! -f "$script_dir/scripts/error-rate-alert.cjs" ]; then
+  echo "❌ Error: scripts/error-rate-alert.cjs not found"
   echo "   Please create this script to track error rates"
   exit 1
 fi
@@ -40,7 +40,7 @@ echo "# Health check every 5 minutes (check uptime, memory, DB connection)"
 echo "*/5 * * * * cd $script_dir && node scripts/health-monitor.js >> logs/cron-health.log 2>&1"
 echo ""
 echo "# Error rate alert every 5 minutes (check for sudden error spikes)"
-echo "*/5 * * * * cd $script_dir && node scripts/error-rate-alert.js >> logs/cron-errors.log 2>&1"
+echo "*/5 * * * * cd $script_dir && node scripts/error-rate-alert.cjs >> logs/cron-errors.log 2>&1"
 echo ""
 echo "# Auto-deploy check every 2 minutes (check for pending updates)"
 echo "*/2 * * * * cd $script_dir && bash scripts/auto-deploy.sh >> logs/cron-deploy.log 2>&1"

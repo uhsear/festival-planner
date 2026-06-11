@@ -146,7 +146,7 @@ export function buildContentSecurityPolicy(config: any, inlineHashes: any, optio
     "frame-ancestors 'none'",
     "form-action 'self'",
     "object-src 'none'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://i.scdn.co",
     "font-src 'self' https://fonts.gstatic.com",
     `style-src ${styleSrc}`,
     `script-src ${scriptSrc}`,
