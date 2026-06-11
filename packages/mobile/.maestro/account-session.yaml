@@ -1,5 +1,10 @@
 appId: us.festie.app
 # Repro probe: does opening the Account tab drop the session?
+# Creds come from env (maestro -e TEST_USERNAME=... -e TEST_PASSWORD=...); never
+# commit a live account secret to a public repo.
+env:
+  TEST_USERNAME: ${TEST_USERNAME}
+  TEST_PASSWORD: ${TEST_PASSWORD}
 ---
 - clearState
 - launchApp
@@ -20,10 +25,10 @@ appId: us.festie.app
       - tapOn: 'Account'
 - assertVisible: 'Sign in to your account'
 - tapOn: 'Username'
-- inputText: 'asir'
+- inputText: ${TEST_USERNAME}
 - hideKeyboard
 - tapOn: 'Password'
-- inputText: 'REDACTED-CREDENTIAL-ROTATED'
+- inputText: ${TEST_PASSWORD}
 - hideKeyboard
 - tapOn: 'Sign in'
 - extendedWaitUntil:
