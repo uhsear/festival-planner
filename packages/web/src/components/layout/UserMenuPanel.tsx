@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useKeyboardTrap } from '../../hooks/useKeyboardTrap';
 
 interface UserMenuPanelProps {
@@ -19,7 +20,12 @@ export default function UserMenuPanel({ ariaLabel, onClose, children }: UserMenu
 
   useKeyboardTrap(panelRef, true, onClose);
 
-  return (
+  // Portal to <body>: the trigger lives inside the blurred header, whose
+  // backdrop-filter creates a containing block / stacking context — a fixed
+  // child gets positioned relative to the header and z-trapped beneath later
+  // page content no matter how high its z-index. Rendering at the body level
+  // restores true viewport positioning and stacking.
+  return createPortal(
     <div
       className="fixed inset-0 z-[200]"
       onClick={(e) => {
@@ -39,6 +45,7 @@ export default function UserMenuPanel({ ariaLabel, onClose, children }: UserMenu
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
