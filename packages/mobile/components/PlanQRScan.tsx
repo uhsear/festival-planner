@@ -2,7 +2,7 @@
 // Licensed under the Business Source License 1.1. See LICENSE file for details.
 
 import { useCallback, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore, useFestivalDataStore } from '@festie/shared/stores';
@@ -10,6 +10,7 @@ import { decodePlanSnapshot, fromPickPriority, type PlanSnapshot } from '@festie
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
+import Button from './Button';
 import EmptyState from './EmptyState';
 
 // ── Untrusted import (offline-native) ──────────────────────────────────────
@@ -225,15 +226,13 @@ export default function PlanQRScan() {
           Imported as a snapshot from your friend's phone. Queued changes sync when signal returns.
         </Text>
 
-        <TouchableOpacity
-          style={styles.scanAgain}
+        <Button
+          label="Scan another"
+          icon="qr-code-outline"
           onPress={reset}
-          accessibilityRole="button"
           accessibilityLabel="Scan another plan QR code"
-        >
-          <Ionicons name="qr-code-outline" size={18} color={t.colors.text.onLightAccent} />
-          <Text style={styles.scanAgainText}>Scan another</Text>
-        </TouchableOpacity>
+          style={styles.scanAgain}
+        />
       </ScrollView>
     );
   }
@@ -359,18 +358,9 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.muted,
     textAlign: 'center',
   },
+  // CTA layout only — fill/ink/radius live in components/Button (F8).
   scanAgain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: t.spacing[2],
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
     paddingHorizontal: t.spacing[5],
-    paddingVertical: t.spacing[3],
     marginTop: t.spacing[2],
-  },
-  scanAgainText: {
-    ...typeStyle('label'),
-    color: t.colors.text.onLightAccent,
   },
 }));

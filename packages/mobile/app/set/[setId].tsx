@@ -1,16 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-  Linking,
-  ActivityIndicator,
-  Share,
-  Image,
-} from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Linking, Share, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,6 +25,7 @@ import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { safeStageColor } from '../../lib/stageColor';
 import { useListBottomInset } from '../../hooks/useListBottomInset';
 import { useHaptics } from '../../hooks/useHaptics';
+import Button from '../../components/Button';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
 import RatingButtons from '../../components/RatingButtons';
@@ -661,20 +651,12 @@ export default function SetDetailScreen() {
                 ? 'Join this festival to save picks, keep private notes, and compare crew overlap.'
                 : 'Sign in to save picks, keep private notes, and compare crew overlap.'}
             </Text>
-            <TouchableOpacity
-              style={[styles.joinButton, joinBusy && styles.joinButtonBusy]}
+            <Button
+              label={user ? 'Join Festival' : 'Sign in to join'}
               onPress={handleJoin}
-              disabled={joinBusy}
-              activeOpacity={0.8}
-              accessibilityRole="button"
+              loading={joinBusy}
               accessibilityLabel={user ? 'Join festival' : 'Sign in to join'}
-            >
-              {joinBusy ? (
-                <ActivityIndicator size="small" color={t.colors.text.onLightAccent} />
-              ) : (
-                <Text style={styles.joinButtonText}>{user ? 'Join Festival' : 'Sign in to join'}</Text>
-              )}
-            </TouchableOpacity>
+            />
           </View>
         )}
 
@@ -1002,20 +984,7 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.secondary,
   },
-  joinButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: t.spacing[3],
-    borderRadius: t.radii.default,
-    backgroundColor: t.colors.accent.aqua,
-  },
-  joinButtonBusy: {
-    opacity: 0.7,
-  },
-  joinButtonText: {
-    ...typeStyle('label'),
-    color: t.colors.text.onLightAccent,
-  },
+  // Join CTA migrated to components/Button (F8).
   crewRow: {
     flexDirection: 'row',
     alignItems: 'center',

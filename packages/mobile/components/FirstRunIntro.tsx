@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Button from './Button';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 /**
@@ -180,15 +181,7 @@ export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
             <View key={i} style={[styles.dot, i === index && styles.dotActive]} />
           ))}
         </View>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleNext}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel={isLast ? 'Get started' : 'Next'}
-        >
-          <Text style={styles.buttonText}>{isLast ? 'Get started' : 'Next'}</Text>
-        </TouchableOpacity>
+        <Button label={isLast ? 'Get started' : 'Next'} onPress={handleNext} style={styles.button} />
       </View>
     </View>
   );
@@ -346,20 +339,9 @@ const useStyles = makeStyles((t) => ({
     width: 20,
     borderRadius: 9999,
   },
+  // CTA layout only — fill/ink/radius live in components/Button (F8). Keeps the
+  // taller intro-CTA padding.
   button: {
-    // PRIMARY action = aqua fill + dark ink (text.onLightAccent), per the
-    // accent rule. Coral is reserved for danger/SOS only.
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
     paddingVertical: t.spacing[4],
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonText: {
-    // weight 600 → SpaceGrotesk_600SemiBold so the label reads at adequate
-    // weight on the bright aqua fill (500Medium was too light).
-    ...typeStyle('label', 600),
-    color: t.colors.text.onLightAccent,
   },
 }));

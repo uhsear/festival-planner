@@ -5,6 +5,7 @@ import { useFestivalDataStore } from '@festie/shared/stores';
 import type { Festival } from '@festie/shared/types';
 import { formatFestivalDateRange, festivalStatus, type FestivalStatus } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import Button from './Button';
 import { Skeleton } from './Skeleton';
 
 // Status pill styling. The list endpoint now provides startDate/endDate, so a
@@ -57,21 +58,10 @@ const useStyles = makeStyles((t) => ({
     textAlign: 'center',
     marginTop: t.spacing[1],
   },
+  // Retry CTA layout only — fill/ink/radius live in components/Button (F8).
   retryButton: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: t.spacing[2],
-    backgroundColor: t.colors.accent.aqua,
     paddingHorizontal: t.spacing[5],
-    paddingVertical: t.spacing[3],
-    borderRadius: t.radii.default,
     marginTop: t.spacing[2],
-  },
-  // F6: retry icon and text use onLightAccent (dark ink) on aqua fill — AA safe.
-  retryText: {
-    ...typeStyle('label'),
-    fontWeight: '600' as const,
-    color: t.colors.text.onLightAccent,
   },
   emptyTitle: {
     // F7: festival name uses typeStyle('title') — Space Grotesk 600 brand face.
@@ -331,11 +321,8 @@ export default function FestivalList() {
       <ScrollView contentContainerStyle={styles.scrollCentered} refreshControl={refreshControl}>
         <Ionicons name="alert-circle-outline" size={48} color={t.colors.status.error} />
         <Text style={styles.errorText}>{error}</Text>
-        {/* F6: retry icon uses onLightAccent (dark ink) on aqua fill — AA safe. */}
-        <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
-          <Ionicons name="refresh" size={18} color={t.colors.text.onLightAccent} />
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
+        {/* F6/F8: canonical Button — primary variant pairs onLightAccent ink on aqua. */}
+        <Button label="Retry" icon="refresh" onPress={handleRefresh} style={styles.retryButton} />
       </ScrollView>
     );
   }

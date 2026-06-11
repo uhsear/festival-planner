@@ -17,6 +17,7 @@ import { artistDisplayName, formatTime, getSetTimeBounds } from '@festie/shared/
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import Button from './Button';
 
 // Lead time (minutes) for the reminder seeded when a schedule poll closes.
 const SCHEDULE_POLL_REMINDER_LEAD = 15;
@@ -351,16 +352,12 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
                   </TouchableOpacity>
                 );
               })}
-              <TouchableOpacity
-                style={[styles.primaryButton, (createBusy || !canCreateSchedule) && styles.buttonDisabled]}
+              <Button
+                label={createBusy ? 'Creating…' : 'Create schedule poll'}
                 onPress={handleCreateSchedule}
                 disabled={createBusy || !canCreateSchedule}
-                activeOpacity={0.8}
-                accessibilityRole="button"
                 accessibilityLabel="Create schedule poll"
-              >
-                <Text style={styles.primaryButtonText}>{createBusy ? 'Creating…' : 'Create schedule poll'}</Text>
-              </TouchableOpacity>
+              />
               <Text style={styles.helperText}>
                 The winning set becomes a crew meeting point with a {SCHEDULE_POLL_REMINDER_LEAD}-minute reminder.
               </Text>
@@ -427,16 +424,12 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
               <Text style={styles.addOptionText}>Add option</Text>
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity
-            style={[styles.primaryButton, (createBusy || !canCreate) && styles.buttonDisabled]}
+          <Button
+            label={createBusy ? 'Creating…' : 'Create'}
             onPress={handleCreate}
             disabled={createBusy || !canCreate}
-            activeOpacity={0.8}
-            accessibilityRole="button"
             accessibilityLabel="Create poll"
-          >
-            <Text style={styles.primaryButtonText}>{createBusy ? 'Creating…' : 'Create'}</Text>
-          </TouchableOpacity>
+          />
         </View>
       ) : (
         <>
@@ -661,21 +654,7 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('caption'),
     color: t.colors.accent.aqua,
   },
-  primaryButton: {
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    ...typeStyle('label'),
-    // accent rule: aqua primary + dark ink (coral = danger/SOS only; coral-on-white failed AA)
-    color: t.colors.text.onLightAccent,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
+  // Primary aqua CTAs migrated to components/Button (F8).
   iconButton: {
     padding: t.spacing[1],
     // WCAG 2.5.5 / Apple HIG >=44pt touch target for these small (16-18px)

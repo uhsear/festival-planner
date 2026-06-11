@@ -8,6 +8,7 @@ import { artistDisplayName } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useOngoingNotification } from '../hooks/useOngoingNotification';
 import { useNowNext } from '../hooks/useNowNext';
+import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import SectionLabel from '../components/SectionLabel';
 import LiveDot from '../components/LiveDot';
@@ -158,15 +159,11 @@ export default function FestivalModeScreen() {
                   : "You've seen everything on your list."}
               </Text>
               {picks && Object.keys(picks).length === 0 ? (
-                <TouchableOpacity
-                  style={styles.upNextEmptyAction}
+                <Button
+                  label="Browse lineup"
                   onPress={() => router.push('/schedule')}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Browse lineup"
-                >
-                  <Text style={styles.upNextEmptyActionText}>Browse lineup</Text>
-                </TouchableOpacity>
+                  style={styles.upNextEmptyAction}
+                />
               ) : null}
             </View>
           )}
@@ -289,17 +286,10 @@ const useStyles = makeStyles((t) => ({
     textAlign: 'center',
     maxWidth: 260,
   },
+  // CTA layout only — fill/ink/radius live in components/Button (F8).
   upNextEmptyAction: {
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.pill,
     paddingHorizontal: t.spacing[6],
-    paddingVertical: t.spacing[3],
     marginTop: t.spacing[2],
-  },
-  upNextEmptyActionText: {
-    ...typeStyle('label'),
-    color: t.colors.text.onLightAccent,
-    fontWeight: '600',
   },
 }));
 

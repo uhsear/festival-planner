@@ -13,6 +13,7 @@ import Skeleton from '../ui/Skeleton';
 import ExpenseItem from './ExpenseItem';
 import { DollarSign, Plus, HandCoins, X } from 'lucide-react';
 import IconButton from '../ui/IconButton';
+import { useAnimatedNumber } from '../../hooks/useAnimatedNumber';
 
 interface RawExpense {
   id: string;
@@ -190,6 +191,8 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   const plannedExpenses = expenses.filter((e) => e.planned);
   const totalSpent = actualExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const totalPlanned = plannedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  // N1: tween the headline total when the live ledger changes instead of hard-cutting.
+  const animatedTotalSpent = useAnimatedNumber(totalSpent, { decimals: 2 });
   const visibleExpenses = view === 'actual' ? actualExpenses : view === 'planned' ? plannedExpenses : expenses;
   const nonZeroBalances = balances.filter((b) => Math.abs(b.balance) > 0.01);
 
@@ -219,7 +222,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
         <div className="crew-stats-grid grid grid-cols-2 gap-2">
           <div className="p-3 rounded-lg bg-bg-card border border-border">
             <div className="text-xs text-text-muted uppercase tracking-wide">Total spent</div>
-            <div className="text-lg font-bold text-text-primary tabular-nums">${totalSpent.toFixed(2)}</div>
+            <div className="text-lg font-bold text-text-primary tabular-nums">${animatedTotalSpent}</div>
           </div>
           <div className="p-3 rounded-lg bg-bg-card border border-border">
             <div className="text-xs text-text-muted uppercase tracking-wide">Your balance</div>

@@ -24,6 +24,7 @@ import { useCrew } from '@festie/shared/hooks';
 import { mapErrorToUserMessage } from '@festie/shared/services';
 import type { Crew, CrewMember, CrewOverlap, FestivalSet } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
+import Button from '../../components/Button';
 import ScreenHeader from '../../components/ScreenHeader';
 import CrewTabBar, { type CrewTabKey } from '../../components/CrewTabBar';
 import EmptyState from '../../components/EmptyState';
@@ -499,16 +500,12 @@ export default function CrewScreen() {
               onSubmitEditing={handleCreate}
               accessibilityLabel="Crew name"
             />
-            <TouchableOpacity
-              style={[styles.primaryButton, createBusy && styles.buttonDisabled]}
+            <Button
+              label={createBusy ? 'Creating…' : 'Create Crew'}
               onPress={handleCreate}
               disabled={createBusy || !name.trim()}
-              activeOpacity={0.8}
-              accessibilityRole="button"
               accessibilityLabel="Create crew"
-            >
-              <Text style={styles.primaryButtonText}>{createBusy ? 'Creating…' : 'Create Crew'}</Text>
-            </TouchableOpacity>
+            />
           </View>
 
           <View style={styles.formGroup}>
@@ -788,20 +785,13 @@ export default function CrewScreen() {
                       >
                         <Text style={styles.outlineButtonText}>Cancel</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.primaryButton,
-                          styles.flexButton,
-                          (forceAddBusy || !forceAddId.trim()) && styles.buttonDisabled,
-                        ]}
+                      <Button
+                        label={forceAddBusy ? 'Adding…' : 'Add'}
                         onPress={() => handleForceAdd(crew.id)}
                         disabled={forceAddBusy || !forceAddId.trim()}
-                        activeOpacity={0.8}
-                        accessibilityRole="button"
                         accessibilityLabel="Confirm force-add"
-                      >
-                        <Text style={styles.primaryButtonText}>{forceAddBusy ? 'Adding…' : 'Add'}</Text>
-                      </TouchableOpacity>
+                        style={styles.flexButton}
+                      />
                     </View>
                   </View>
                 ) : (
@@ -1113,18 +1103,7 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.primary,
   },
-  primaryButton: {
-    // PRIMARY action = aqua fill + dark ink (text.onLightAccent), per the
-    // accent rule. Coral is reserved for danger/SOS only.
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    ...typeStyle('label'),
-    color: t.colors.text.onLightAccent,
-  },
+  // Primary aqua CTAs migrated to components/Button (F8).
   outlineButton: {
     borderWidth: 1,
     borderColor: t.colors.accent.aqua,

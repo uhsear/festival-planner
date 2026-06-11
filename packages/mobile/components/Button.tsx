@@ -133,7 +133,9 @@ const useStyles = makeStyles((t) => ({
     minHeight: 48, // WCAG 2.5.5 / Apple HIG touch target
     paddingVertical: t.spacing[3],
     paddingHorizontal: t.spacing[4],
-    borderRadius: t.radii.default,
+    // Pill per the current design language — the recent design pass moved CTAs
+    // to pill (login, EmptyState R21, festival-mode); this is the single source.
+    borderRadius: t.radii.pill,
   },
   sizeSm: {
     minHeight: 44,

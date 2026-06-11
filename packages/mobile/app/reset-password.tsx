@@ -7,13 +7,13 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { api } from '@festie/shared/services';
+import Button from '../components/Button';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 /**
@@ -80,21 +80,8 @@ const useStyles = makeStyles((t) => ({
     marginTop: t.spacing[1],
     marginBottom: t.spacing[3],
   },
-  button: {
-    // PRIMARY CTA = aqua fill + dark ink per the accent rule (coral is reserved
-    // for danger/SOS only). Matches login / register / forgot-password.
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center' as const,
-    marginTop: t.spacing[2],
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: {
-    ...typeStyle('label'),
-    fontWeight: '600' as const,
-    color: t.colors.text.onLightAccent,
-  },
+  // CTA layout only — fill/ink/disabled live in components/Button (F8).
+  button: { marginTop: t.spacing[2] },
   linkButton: { marginTop: t.spacing[5], alignItems: 'center' as const },
   linkText: {
     ...typeStyle('label'),
@@ -150,14 +137,12 @@ export default function ResetPasswordScreen() {
           <Ionicons name="checkmark-circle" size={56} color={t.colors.accent.aqua} style={styles.icon} />
           <Text style={styles.title}>Password reset</Text>
           <Text style={styles.subtitle}>Sign in with your new password.</Text>
-          <TouchableOpacity
-            style={styles.button}
+          <Button
+            label="Sign in"
             onPress={() => router.replace('/(auth)/login')}
-            accessibilityRole="button"
             accessibilityLabel="Go to sign in"
-          >
-            <Text style={styles.buttonText}>Sign in</Text>
-          </TouchableOpacity>
+            style={styles.button}
+          />
         </View>
       </View>
     );
@@ -221,20 +206,7 @@ export default function ResetPasswordScreen() {
           onSubmitEditing={handleSubmit}
         />
 
-        <TouchableOpacity
-          style={[styles.button, busy && styles.buttonDisabled]}
-          onPress={handleSubmit}
-          disabled={busy}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Reset password"
-        >
-          {busy ? (
-            <ActivityIndicator color={t.colors.text.onLightAccent} />
-          ) : (
-            <Text style={styles.buttonText}>Reset password</Text>
-          )}
-        </TouchableOpacity>
+        <Button label="Reset password" onPress={handleSubmit} loading={busy} style={styles.button} />
 
         <TouchableOpacity
           style={styles.linkButton}
