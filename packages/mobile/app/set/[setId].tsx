@@ -849,6 +849,9 @@ const useStyles = makeStyles((t) => ({
   artist: {
     ...typeStyle('display-lg'),
     color: t.colors.text.primary,
+    // Clear the absolute close button (40px + right inset) so long artist
+    // names wrap instead of running underneath the X.
+    paddingRight: 56,
   },
   subtitle: {
     ...typeStyle('body'),
