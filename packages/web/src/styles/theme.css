@@ -35,6 +35,40 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
+/* R23 (design-inspiration-deep-2026-06-10): One-shot presence flip ring.
+   Applied to the status dot wrapper when isOnline flips true. The ::after
+   pseudo is the expanding ring that fires once and stops (battery rule: no
+   continuous presence animation). Avatar.tsx manages the class toggle via a
+   ref + animationend listener. Reduce-motion: the global block collapses the
+   animation to 0.01ms, so no ring is visible. */
+@utility status-dot-flipped {
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--color-accent-aqua);
+    will-change: transform, opacity;
+    animation: status-dot-pulse-once 600ms var(--ease-out, ease-out) 1 both;
+    pointer-events: none;
+  }
+}
+
+/* R24 (design-inspiration-deep-2026-06-10): SOS FAB alert ring — continuous
+   coral pulse ONLY while an active SOS exists. Justified: emergency context.
+   Applied to the SOS button/FAB when liveLocationStore.sos is non-null.
+   Reduce-motion: global block collapses to 0.01ms; the sos-fab-static-ring
+   utility class is used instead (high-contrast outline, no animation). */
+@utility sos-fab-alerting {
+  animation: sos-fab-pulse 1.5s ease-out infinite;
+}
+
+/* R24 reduce-motion fallback: static high-contrast coral ring on the SOS
+   affordance, no animation. */
+@utility sos-fab-static-ring {
+  box-shadow: 0 0 0 3px rgba(255, 51, 102, 0.6);
+}
+
 @utility crew-poll-bar {
   animation: crew-bar-fill 420ms var(--ease-out, ease-out) both;
 }
@@ -188,6 +222,108 @@
 @utility skeleton-dismiss {
   transition: opacity 150ms linear;
   opacity: 0;
+}
+
+/* R19 (design-inspiration-deep-2026-06-10): Animated gradient border on
+   LIVE/featured cards. Uses CSS @property for --border-angle and conic-gradient.
+   Applied only to .set-card.live (single featured card on screen per R3).
+   Static fallback (1px aqua) when @property unsupported or prefers-reduced-motion. */
+@supports (background: conic-gradient(from 0deg, #00e8d0)) {
+  @property --border-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  @keyframes rotateBorder {
+    to {
+      --border-angle: 360deg;
+    }
+  }
+
+  .set-card.live {
+    background:
+      linear-gradient(#1a1a1a, #1a1a1a) padding-box,
+      conic-gradient(from var(--border-angle), #00e8d0, transparent 30%, #ff6b5b 60%, transparent 80%, #00e8d0)
+        border-box;
+    border: 1.5px solid transparent;
+    animation: rotateBorder 6s linear infinite;
+  }
+
+  @media (prefers-reduced-motion) {
+    .set-card.live {
+      animation: none;
+      background: linear-gradient(#1a1a1a, #1a1a1a) padding-box;
+      border: 1px solid rgba(0, 232, 208, 0.3);
+    }
+  }
+}
+
+/* Fallback for browsers without @property support. */
+.set-card.live {
+  border: 1px solid rgba(0, 232, 208, 0.3);
+}
+
+/* R21 (design-inspiration-deep-2026-06-10): Empty state dot-grid background
+   and fade-up animation on mount. Centered flex column with icon, headline,
+   subtext, and CTA button. */
+.empty-state {
+  position: relative;
+  overflow: hidden;
+}
+
+.empty-state::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(0, 232, 208, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.empty-state-content {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.empty-state-icon {
+  animation: fadeUp 400ms ease-out both;
+}
+
+.empty-state-title {
+  animation: fadeUp 400ms ease-out both;
+  animation-delay: 80ms;
+}
+
+.empty-state-description {
+  animation: fadeUp 400ms ease-out both;
+  animation-delay: 160ms;
+}
+
+.empty-state-cta {
+  animation: fadeUp 400ms ease-out both;
+  animation-delay: 240ms;
+}
+
+@media (prefers-reduced-motion) {
+  .empty-state-icon,
+  .empty-state-title,
+  .empty-state-description,
+  .empty-state-cta {
+    animation: none;
+  }
 }
 
 /* R12 (design-inspiration-deep-2026-06-10): Aqua spotlight hover on schedule

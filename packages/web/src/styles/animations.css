@@ -53,9 +53,10 @@
   }
 }
 
+/* R22: 70ms per step, capped at index 6 (420ms max). Set --i via inline style. */
 .stagger-item {
   animation: stagger-fade-in var(--duration-slow) var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 40ms);
+  animation-delay: calc(min(var(--i, 0), 6) * 70ms);
 }
 
 /* Crew keyframes */
@@ -112,6 +113,36 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* R23 -- One-shot presence flip ring. Fires once when a peer's status dot
+   transitions to ONLINE. A scale+opacity ring expands from the dot and fades
+   out -- continuous animation is banned for battery reasons. Applied via the
+   `.status-dot-flipped` class which is added/removed by Avatar.tsx on the
+   isOnline ref change. The ::after pseudo-element is the ring layer. */
+@keyframes status-dot-pulse-once {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+/* R24 -- Continuous slow SOS attention ring. Justified only for ACTIVE SOS
+   (emergency context). Ring radiates from the FAB/button at 1.5s. */
+@keyframes sos-fab-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 51, 102, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 16px rgba(255, 51, 102, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 51, 102, 0);
   }
 }
 

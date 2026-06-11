@@ -277,10 +277,21 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
 
         <div className="h-px bg-border" />
 
+        {/* R24: pulse ring ONLY while an active SOS exists (emergency context;
+            continuous animation is justified here). sos-fab-alerting is the
+            animated ring; sos-fab-static-ring is the reduce-motion fallback
+            (high-contrast static outline, no animation). */}
         <Button
           variant="danger"
           onClick={() => setSosOpen(true)}
-          className="w-full min-h-11"
+          className={`w-full min-h-11${
+            showSos
+              ? typeof window !== 'undefined' &&
+                window.matchMedia('(prefers-reduced-motion: reduce)').matches
+                ? ' sos-fab-static-ring'
+                : ' sos-fab-alerting'
+              : ''
+          }`}
           aria-label="Raise an SOS to your crew"
         >
           <Siren className="w-4 h-4" aria-hidden="true" /> Raise SOS

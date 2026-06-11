@@ -16,10 +16,12 @@ import { useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useCrewStore } from '@festie/shared/stores';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
+import { useCrewStore, useLiveLocationStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import EmptyState from '../components/EmptyState';
 import SectionLabel from '../components/SectionLabel';
 
@@ -40,6 +42,29 @@ export default function FindScreen() {
 
   const activeCrew = useCrewStore((s) => s.activeCrew);
   const meetingPoints = useCrewStore((s) => s.meetingPoints);
+
+  // R24: show pulsing coral ring on SOS FAB while an active SOS exists for
+  // this crew. Continuous animation is justified (emergency). Ring stops when
+  // SOS clears. Reduce-motion: static high-contrast coral ring, no animation.
+  const sos = useLiveLocationStore((s) => (s.sos && activeCrew && s.sos.crewId === activeCrew.id ? s.sos : null));
+  const reduceMotion = useReduceMotion();
+  const sosFabGlow = useSharedValue(0);
+  useMemo(() => {
+    if (!sos || reduceMotion) {
+      sosFabGlow.value = 0;
+      return;
+    }
+    sosFabGlow.value = withRepeat(withTiming(1, { duration: 750, easing: Easing.out(Easing.cubic) }), -1, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!sos, reduceMotion]);
+  const sosFabPulseStyle = useAnimatedStyle(() => ({
+    shadowColor: '#ff3366',
+    shadowOpacity: sos ? sosFabGlow.value * 0.7 : 0,
+    shadowRadius: 4 + sosFabGlow.value * 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: sos ? 8 : 6,
+    ...(sos && reduceMotion ? { borderWidth: 2, borderColor: 'rgba(255,51,102,0.6)' } : {}),
+  }));
 
   const points = useMemo(() => (meetingPoints ?? []).filter((p) => p && p.active !== false), [meetingPoints]);
 
@@ -139,23 +164,23 @@ export default function FindScreen() {
         )}
       </ScrollView>
 
-      {/* DC2: raise-SOS shortcut. The "where is everyone" hub is exactly where a
-          lost/in-trouble user already is, so a 2-tap path to the SOS confirm flow
-          lives here. Coral is correct (this IS the danger surface); coralStrong
-          keeps the white label AA-readable. Deep-links to the crew Find pane that
-          owns the full CrewSos card + its confirm dialog. */}
-      <TouchableOpacity
-        testID="find-sos-fab"
-        style={styles.sosFab}
-        onPress={() => router.push({ pathname: '/(tabs)/crew', params: { tab: 'logistics' } })}
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel="Raise an SOS to your crew"
-        accessibilityHint="Opens the crew safety screen to send an SOS"
-      >
-        <Ionicons name="alert-circle" size={20} color={t.colors.text.onAccent} />
-        <Text style={styles.sosFabText}>SOS</Text>
-      </TouchableOpacity>
+      {/* DC2 + R24: raise-SOS shortcut. Pulsing coral ring while an active SOS
+          exists for this crew (emergency — continuous animation justified).
+          Reduce-motion: static coral ring border, no animation. */}
+      <Animated.View style={sosFabPulseStyle}>
+        <TouchableOpacity
+          testID="find-sos-fab"
+          style={styles.sosFab}
+          onPress={() => router.push({ pathname: '/(tabs)/crew', params: { tab: 'logistics' } })}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Raise an SOS to your crew"
+          accessibilityHint="Opens the crew safety screen to send an SOS"
+        >
+          <Ionicons name="alert-circle" size={20} color={t.colors.text.onAccent} />
+          <Text style={styles.sosFabText}>SOS</Text>
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }

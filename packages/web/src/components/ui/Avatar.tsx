@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { getAvatarColor, getInitials, normalizeIdentityName } from '@festie/shared';
 import { cn } from '../../lib/utils';
 
@@ -19,7 +20,7 @@ const sizeMap = {
 
 // Intrinsic pixel dimensions that match sizeMap's Tailwind classes. Passed
 // as HTML width/height attrs on <img> so the browser reserves layout space
-// before the avatar URL resolves — eliminates avatar-pop CLS in crew lists
+// before the avatar URL resolves -- eliminates avatar-pop CLS in crew lists
 // and member rows where 20+ avatars load in parallel.
 const sizePx = {
   xs: 24,
@@ -47,6 +48,26 @@ export default function Avatar({
   const initials = getInitials(normalizedName);
   const bgColor = getAvatarColor(normalizedName);
 
+  // R23: one-shot presence flip ring. Track prev isOnline value; when it
+  // transitions false to true, briefly add the `status-dot-flipped` class to
+  // the dot so its ::after pseudo runs the expand+fade keyframe exactly once.
+  // The class is removed on animationend so the ring does not re-play on
+  // subsequent renders. Reduce-motion: the global prefers-reduced-motion block
+  // in animations.css collapses animation-duration to 0.01ms so no ring shows.
+  const dotRef = useRef<HTMLDivElement>(null);
+  const prevOnlineRef = useRef(isOnline);
+  useEffect(() => {
+    const wasOnline = prevOnlineRef.current;
+    prevOnlineRef.current = isOnline;
+    if (!showOnline || !isOnline || wasOnline) return;
+    const el = dotRef.current;
+    if (!el) return;
+    el.classList.add('status-dot-flipped');
+    const remove = () => el.classList.remove('status-dot-flipped');
+    el.addEventListener('animationend', remove, { once: true });
+    return () => el.removeEventListener('animationend', remove);
+  }, [isOnline, showOnline]);
+
   return (
     <div className={cn('relative inline-flex flex-shrink-0', className)}>
       {image ? (
@@ -70,11 +91,12 @@ export default function Avatar({
 
       {showOnline && (
         <div
+          ref={dotRef}
           className={cn(
-            'absolute bottom-0 right-0 rounded-full border-2 border-bg-primary',
+            'absolute bottom-0 right-0 rounded-full border-2 border-bg-primary relative overflow-visible',
             dotSizeMap[size],
-            // R6: ONLINE → aqua dot (#00e8d0); OFFLINE → muted neutral.
-            // No greens — accent rule: aqua = primary/positive, green retired.
+            // R6: ONLINE -> aqua dot (#00e8d0); OFFLINE -> muted neutral.
+            // No greens -- accent rule: aqua = primary/positive, green retired.
             isOnline ? 'bg-accent-aqua' : 'bg-text-muted',
           )}
         />
