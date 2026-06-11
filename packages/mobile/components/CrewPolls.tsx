@@ -1,6 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
-import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeOut,
+  LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore, useFestivalStore, useFestivalDataStore } from '@festie/shared/stores';
 import { duration as motionDuration } from '@festie/shared/tokens';
@@ -39,6 +47,51 @@ function tally(poll: CrewPoll, userId: string) {
   const total = counts.reduce((a, b) => a + b, 0);
   const maxCount = Math.max(0, ...counts);
   return { counts, myVote, total, maxCount };
+}
+
+/**
+ * R26: Animated result bar — width transitions via Reanimated withTiming (400ms).
+ * Instant when reduce-motion is on. Only the fill bar is animated; option row
+ * border / gestures are untouched.
+ */
+function PollBarFill({
+  pct,
+  isMine,
+  isWinning,
+  reduceMotion,
+  barStyle,
+  winningStyle,
+}: {
+  pct: number;
+  isMine: boolean;
+  isWinning: boolean;
+  reduceMotion: boolean;
+  barStyle: object;
+  winningStyle: object;
+}) {
+  const widthPct = useSharedValue(pct);
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      // Snap to initial value without animation on mount.
+      isFirstRender.current = false;
+      widthPct.value = pct;
+      return;
+    }
+    widthPct.value = reduceMotion ? pct : withTiming(pct, { duration: 400 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pct, reduceMotion]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    width: `${widthPct.value}%` as unknown as number,
+  }));
+
+  return (
+    <Animated.View
+      style={[barStyle, isWinning && winningStyle, isMine && { backgroundColor: 'rgba(0,232,208,0.30)' }, animStyle]}
+    />
+  );
 }
 
 /**
@@ -441,28 +494,39 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
                 const pct = total > 0 ? Math.round((votes / total) * 100) : 0;
                 const isMine = myVote === i;
                 const isWinning = votes === maxCount && votes > 0;
+                // R22: stagger poll options on initial reveal; cap at index 9.
+                const optionEntering = reduceMotion ? undefined : FadeInDown.delay(Math.min(i, 9) * 40).duration(250);
                 return (
-                  <TouchableOpacity
-                    key={`${poll.id}-${i}`}
-                    style={[styles.optionButton, isMine && styles.optionButtonMine]}
-                    onPress={() => handleVote(poll.id, i)}
-                    disabled={voteBusy}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Vote for ${text}, ${pct} percent`}
-                  >
-                    <View style={[styles.optionFill, { width: `${pct}%` }, isWinning && styles.optionFillWinning]} />
-                    <View style={styles.optionContent}>
-                      <View style={styles.optionTextRow}>
-                        {/* DC25: 15 is off-grid; snap to iconSize.sm (16). */}
-                        {isMine ? <Ionicons name="checkmark-circle" size={16} color={t.colors.accent.aqua} /> : null}
-                        <Text style={styles.optionText} numberOfLines={1}>
-                          {text}
-                        </Text>
+                  <Animated.View key={`${poll.id}-${i}`} entering={optionEntering}>
+                    <TouchableOpacity
+                      style={[styles.optionButton, isMine && styles.optionButtonMine]}
+                      onPress={() => handleVote(poll.id, i)}
+                      disabled={voteBusy}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Vote for ${text}, ${pct} percent`}
+                    >
+                      {/* R26: animated width bar */}
+                      <PollBarFill
+                        pct={pct}
+                        isMine={isMine}
+                        isWinning={isWinning}
+                        reduceMotion={reduceMotion}
+                        barStyle={styles.optionFill}
+                        winningStyle={styles.optionFillWinning}
+                      />
+                      <View style={styles.optionContent}>
+                        <View style={styles.optionTextRow}>
+                          {/* DC25: 15 is off-grid; snap to iconSize.sm (16). */}
+                          {isMine ? <Ionicons name="checkmark-circle" size={16} color={t.colors.accent.aqua} /> : null}
+                          <Text style={styles.optionText} numberOfLines={1}>
+                            {text}
+                          </Text>
+                        </View>
+                        <Text style={styles.optionPct}>{pct}%</Text>
                       </View>
-                      <Text style={styles.optionPct}>{pct}%</Text>
-                    </View>
-                  </TouchableOpacity>
+                    </TouchableOpacity>
+                  </Animated.View>
                 );
               })}
               {canClose ? (

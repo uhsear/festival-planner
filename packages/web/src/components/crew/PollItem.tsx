@@ -2,7 +2,10 @@ import React from 'react';
 import { Trash2 } from 'lucide-react';
 import PollOptionButton from './PollOptionButton';
 
-interface RawVote { option: number; user_id: string | null }
+interface RawVote {
+  option: number;
+  user_id: string | null;
+}
 
 export interface PollItemProps {
   poll: {
@@ -43,7 +46,7 @@ export default function PollItem({
   return (
     <div
       className="stagger-item rounded-lg bg-bg-card border border-border p-3 space-y-2"
-      style={{ '--i': Math.min(index, 20) } as React.CSSProperties}
+      style={{ '--i': Math.min(index, 6) } as React.CSSProperties}
     >
       <div className="flex items-start justify-between gap-2">
         <h4 className="font-semibold text-text-primary flex-1">{poll.question}</h4>

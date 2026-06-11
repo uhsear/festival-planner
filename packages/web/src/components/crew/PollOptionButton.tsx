@@ -38,10 +38,12 @@ export default function PollOptionButton({
             : 'border border-glass-border hover:border-aqua-a12',
       )}
     >
+      {/* R26: 400ms ease-out on width change. prefers-reduced-motion collapses
+           CSS transitions globally via animations.css — no JS gate needed. */}
       <div
-        key={`${pollId}-${optionIndex}-${pct}`}
         className={cn(
-          'crew-poll-bar absolute inset-y-0 left-0 transition-[width,background-color] duration-300 origin-left',
+          'crew-poll-bar absolute inset-y-0 left-0 origin-left',
+          'transition-[width,background-color] duration-[400ms] ease-out',
           isMine ? 'bg-accent-aqua/30' : isWinning ? 'bg-accent-aqua/15' : 'bg-text-muted/10',
         )}
         style={{ width: `${pct}%` }}

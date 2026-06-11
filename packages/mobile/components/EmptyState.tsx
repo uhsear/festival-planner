@@ -36,15 +36,19 @@ export default function EmptyState({ icon, title, message, action, headerless = 
   const insetStyle = headerless ? { paddingTop: insets.top, paddingBottom: insets.bottom } : null;
   return (
     <View style={[styles.container, insetStyle]}>
+      {/* R21: Icon 48px in aqua tint, simple thematic per context. */}
       <Ionicons
         name={icon}
         size={48}
-        color={t.colors.text.muted}
+        style={styles.icon}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       />
+      {/* R21: Headline contextual not generic (e.g. "No crew yet" not "Empty"). */}
       <Text style={styles.title}>{title}</Text>
+      {/* R21: Subtext explains next step, max-width 280px. */}
       {message ? <Text style={styles.message}>{message}</Text> : null}
+      {/* R21: CTA button aqua pill per R3 spec. */}
       {action ? (
         <TouchableOpacity
           style={styles.action}
@@ -61,32 +65,45 @@ export default function EmptyState({ icon, title, message, action, headerless = 
 }
 
 const useStyles = makeStyles((t) => ({
+  // R21: Empty state container with proper spacing and alignment.
   container: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: t.spacing[3],
+    gap: t.spacing[4],
     paddingHorizontal: t.spacing[6],
   },
+  // R21: Icon in aqua tint, 48px per spec.
+  icon: {
+    color: t.colors.accent.aqua,
+  },
+  // R21: Headline, Space Grotesk 18px weight 600, contextual not generic.
   title: {
     ...typeStyle('title'),
     color: t.colors.text.primary,
     textAlign: 'center',
+    fontWeight: '600',
   },
+  // R21: Subtext explains the next step, max-width 280px.
   message: {
     ...typeStyle('body'),
     color: t.colors.text.secondary,
     textAlign: 'center',
+    maxWidth: 280,
   },
+  // R21: CTA button — aqua pill per R3 spec (canonical Button).
+  // borderRadius 9999px, padding 12px 28px for pill shape.
   action: {
     backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    paddingHorizontal: t.spacing[5],
+    borderRadius: t.radii.pill,
+    paddingHorizontal: t.spacing[6],
     paddingVertical: t.spacing[3],
     marginTop: t.spacing[2],
   },
+  // R21: Label on aqua fill uses dark ink (onLightAccent #080810) for AA contrast.
   actionText: {
     ...typeStyle('label'),
     color: t.colors.text.onLightAccent,
+    fontWeight: '600',
   },
 }));

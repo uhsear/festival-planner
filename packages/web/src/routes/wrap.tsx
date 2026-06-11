@@ -264,21 +264,35 @@ function WrapPageInner() {
           <h1 className="text-xl font-display font-bold text-text-primary leading-tight">{currentFestival.name}</h1>
         </header>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-2 gap-3 max-[319px]:grid-cols-1">
-          <Stat
-            icon={<Trophy className="w-4 h-4" aria-hidden="true" />}
-            label="Sets rated"
-            value={String(stats.totalRated)}
-          />
+        {/* R16: Bento grid — 2x2 with featured full-width headline stat.
+            gap:1px rendered as aqua tint hairline via parent background. */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '2fr 1fr',
+            gridTemplateRows: 'auto auto',
+            gap: '1px',
+            background: 'rgba(0,232,208,0.08)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ gridColumn: 'span 2' }}>
+            <Stat
+              icon={<Trophy className="w-4 h-4" aria-hidden="true" />}
+              label="Sets rated"
+              value={String(stats.totalRated)}
+              featured
+            />
+          </div>
           <Stat
             icon={<MapIcon className="w-4 h-4" aria-hidden="true" />}
-            label="Stages visited"
+            label="Stages"
             value={String(stats.stagesVisited)}
           />
           <Stat
             icon={<CalendarDays className="w-4 h-4" aria-hidden="true" />}
-            label="Days attended"
+            label="Days"
             value={String(stats.daysAttended)}
           />
           <Stat
@@ -500,13 +514,22 @@ function CrewWrapTab({
         <p className="text-sm text-text-secondary">{festivalName}</p>
       </header>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-3 gap-3">
-        <Stat icon={<Users className="w-4 h-4" aria-hidden="true" />} label="Crew" value={String(wrap.memberCount)} />
+      {/* R16: Crew hub stats — 3-cell horizontal bento with aqua hairline dividers. */}
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0' }}
+      >
+        <Stat
+          icon={<Users className="w-4 h-4" aria-hidden="true" />}
+          label="Crew"
+          value={String(wrap.memberCount)}
+          dividerRight
+        />
         <Stat
           icon={<Trophy className="w-4 h-4" aria-hidden="true" />}
           label="Seen together"
           value={String(wrap.setsSeenTogether.length)}
+          dividerRight
         />
         <Stat
           icon={<DollarSign className="w-4 h-4" aria-hidden="true" />}
@@ -664,17 +687,44 @@ function useCountUp(target: string, duration = 800): string {
   return displayed;
 }
 
-// R10: count-up on the Wrap stat numbers. aria-label exposes the real value
-// to screen readers regardless of where the animation is in progress.
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+// R10 + R16: count-up on Wrap stat numbers; bento-aware layout.
+// featured -> Syncopate display scale (text-4xl, tracking-tight).
+// dividerRight -> aqua hairline on right edge for crew 3-cell bento.
+function Stat({
+  icon,
+  label,
+  value,
+  featured = false,
+  dividerRight = false,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+  featured?: boolean;
+  dividerRight?: boolean;
+}) {
   const animated = useCountUp(value, 800);
   return (
-    <div className="flex flex-col gap-1 p-4 rounded-xl bg-bg-card border border-border">
-      <div className="flex items-center gap-1.5 text-xs text-text-muted uppercase tracking-wide">
-        {icon}
-        <span>{label}</span>
-      </div>
-      <div className="text-xl font-bold font-display text-text-primary" aria-label={value}>
+    <div
+      className="flex flex-col gap-1 p-5 bg-bg-card"
+      style={dividerRight ? { borderRight: '1px solid rgba(0,232,208,0.12)' } : undefined}
+    >
+      {icon ? (
+        <div className="flex items-center gap-1.5 text-xs text-text-muted uppercase tracking-wide">
+          {icon}
+          <span>{label}</span>
+        </div>
+      ) : (
+        <div className="text-xs text-text-muted uppercase tracking-wide">{label}</div>
+      )}
+      <div
+        className={
+          featured
+            ? 'font-bold font-display text-text-primary text-4xl tracking-[-0.02em]'
+            : 'text-xl font-bold font-display text-text-primary'
+        }
+        aria-label={value}
+      >
         {animated}
       </div>
     </div>

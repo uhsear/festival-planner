@@ -240,8 +240,10 @@ function SetCardMobileImpl({
   // onPress also fires when a priority button is tapped. Keeping them siblings
   // means: (a) valid DOM on web, (b) the body opens detail, (c) the priority
   // buttons stay independently tappable and don't bubble to onPress.
+  // R19: Apply live state styling when set status is 'live'.
+  const isLive = setStatus.status === 'live';
   return (
-    <View style={[styles.card, { borderLeftColor: stageColor }]}>
+    <View style={[styles.card, { borderLeftColor: stageColor }, isLive && styles.cardLive]}>
       <AppPressable
         style={styles.body}
         onPress={onPress}
@@ -408,6 +410,12 @@ const useStyles = makeStyles((t) => ({
     borderLeftWidth: 4,
     padding: t.spacing[4],
     gap: t.spacing[1],
+  },
+  // R19: Live state — static 1.5px aqua border. Mobile: static border
+  // (no conic-gradient in RN without deps).
+  cardLive: {
+    borderWidth: 1.5,
+    borderColor: t.colors.accent.aqua,
   },
   body: {
     gap: t.spacing[1],

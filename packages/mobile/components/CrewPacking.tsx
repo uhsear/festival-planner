@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Pressable, Alert } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore } from '@festie/shared/stores';
@@ -7,7 +7,10 @@ import { duration as motionDuration } from '@festie/shared/tokens';
 import type { CrewPackingItem } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useHaptics } from '../hooks/useHaptics';
 import Button from './Button';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface CrewPackingProps {
   crewId: string;
@@ -26,6 +29,7 @@ export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPack
   const t = useTokens();
   const styles = useStyles();
   const reduceMotion = useReduceMotion();
+  const haptics = useHaptics();
 
   const items = useCrewStore((s) => s.packingItems);
   const createPackingItem = useCrewStore((s) => s.createPackingItem);
@@ -74,6 +78,8 @@ export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPack
   };
 
   const handleDelete = (item: CrewPackingItem) => {
+    // R20 destructive-confirmation haptic: warn before the irreversible prompt.
+    haptics.warning();
     Alert.alert('Remove item', `Remove "${item.label}" from the packing list?`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -149,7 +155,6 @@ export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPack
           const canRemove = item.created_by === currentUserId || isOwner;
           // DC8: items fade/reflow in and out as the crew adds/claims/removes
           // them; gated on Reduce Motion (a plain View = instant).
-          const RowContainer = reduceMotion ? View : Animated.View;
           const motionProps = reduceMotion
             ? {}
             : {
@@ -157,8 +162,30 @@ export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPack
                 exiting: FadeOut.duration(motionDuration.fast),
                 layout: LinearTransition.duration(motionDuration.med),
               };
+          // R20 swipe-to-delete fallback: react-native-gesture-handler is absent
+          // from the mobile deps, so the whole row is long-pressable (= delete
+          // affordance) rather than a Gesture.Pan swipe. The trash button remains
+          // the always-visible primary affordance, and the checkbox keeps its own
+          // tap target — a long-press on the row body cannot collide with either.
+          // Pressed coral dim is the feedback (no transform/spring; reduce-motion
+          // is honoured via the gated layout motionProps above).
+          const RowContainer = reduceMotion
+            ? canRemove
+              ? Pressable
+              : View
+            : canRemove
+              ? AnimatedPressable
+              : Animated.View;
+          const pressProps = canRemove
+            ? {
+                onLongPress: () => handleDelete(item),
+                delayLongPress: 350,
+                accessibilityHint: 'Long press to remove this item',
+                style: ({ pressed }: { pressed: boolean }) => [styles.itemRow, pressed && styles.itemRowPressed],
+              }
+            : { style: styles.itemRow };
           return (
-            <RowContainer key={item.id} style={styles.itemRow} {...motionProps}>
+            <RowContainer key={item.id} {...pressProps} {...motionProps}>
               <TouchableOpacity
                 onPress={() => handleToggle(item)}
                 disabled={busyId === item.id}
@@ -272,6 +299,12 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.border.light,
     backgroundColor: t.colors.bg.secondary,
+  },
+  // R20 long-press affordance: a coral-tinted dim surfaces the destructive
+  // intent while the row is held (no transform/spring — reduce-motion-safe).
+  itemRowPressed: {
+    backgroundColor: t.colors.ring.coral,
+    borderColor: t.colors.accent.coral,
   },
   checkbox: {
     width: 24,
