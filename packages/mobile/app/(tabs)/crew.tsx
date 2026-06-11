@@ -945,6 +945,24 @@ export default function CrewScreen() {
             <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
           </TouchableOpacity>
 
+          {/* P2P plan handoff — discoverable from the Plan cluster so users
+              find it before they need it. QR / SMS works with no signal. */}
+          <TouchableOpacity
+            testID="crew-action-share-plan-planning"
+            style={styles.overlapToggle}
+            onPress={() => router.push('/plan-share')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Share your plan — QR or SMS handoff, works offline"
+          >
+            <Ionicons name="qr-code-outline" size={16} color={t.colors.accent.aqua} />
+            <View style={styles.overlapToggleLabelStack}>
+              <Text style={styles.overlapToggleText}>Share plan</Text>
+              <Text style={styles.overlapToggleHint}>QR / SMS handoff, works offline</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+          </TouchableOpacity>
+
           <View style={styles.sectionLabelRow}>
             <SectionLabel>Polls</SectionLabel>
             {openPollCount > 0 ? (
@@ -1192,6 +1210,15 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('label'),
     color: t.colors.text.primary,
     flex: 1,
+  },
+  overlapToggleLabelStack: {
+    flex: 1,
+    flexDirection: 'column',
+    gap: 1,
+  },
+  overlapToggleHint: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
   },
   // Emphasized variant for the everyday-primary action (Crew plan): aqua-tinted
   // fill + aqua border so it carries more weight than the plain toolbox rows,

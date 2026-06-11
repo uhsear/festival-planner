@@ -59,6 +59,8 @@ export default function AccountScreen() {
 
   // Identity comes straight off the auth store (single source of truth).
   const user = useAuthStore((s) => s.user);
+  // Admin entry is gated on the derived isAdmin flag (role-based).
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   // Logout is exposed via the shared useAuth hook per the contract.
   const { logout } = useAuth();
 
@@ -227,6 +229,33 @@ export default function AccountScreen() {
             <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
           </TouchableOpacity>
         </View>
+
+        {/* Admin — only visible to administrators (read-only dashboard) */}
+        {isAdmin ? (
+          <>
+            <SectionLabel>Admin</SectionLabel>
+            <View style={styles.card}>
+              <TouchableOpacity
+                style={styles.row}
+                onPress={() => router.push('/admin')}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Open the admin dashboard"
+              >
+                <View style={styles.rowIcon}>
+                  <Ionicons name="speedometer-outline" size={20} color={t.colors.accent.aqua} />
+                </View>
+                <View style={styles.rowBody}>
+                  <Text style={styles.rowTitle}>Admin</Text>
+                  <Text style={styles.rowHint} numberOfLines={1}>
+                    Dashboard, activity &amp; festivals
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : null}
 
         {/* Account actions */}
         <SectionLabel>Account</SectionLabel>
