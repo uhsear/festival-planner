@@ -411,3 +411,185 @@ section dividers:
 Selected-state emphasis borders (selected poll option, `optionButtonMine`) keep
 their solid `accent-aqua` border — that is intentional selection weight, not a
 divider. Stage-color `border-l-4` accents on set cards are likewise preserved.
+
+
+---
+
+## 11. Long-Press Delete Affordance — Mobile List Rows (R20)
+
+R20 specified a Reanimated `Gesture.Pan` swipe-to-delete on expense and packing
+rows. **`react-native-gesture-handler` is not a mobile dependency** (verified in
+`packages/mobile/package.json` — only `react-native-reanimated` /
+`react-native-worklets` are present), and the HARD RULE forbids adding new
+dependencies. Per the R20 fallback clause, the swipe gesture is replaced by a
+**long-press delete affordance** on the whole row.
+
+**Components:** `packages/mobile/components/CrewExpenses.tsx` (expense rows),
+`packages/mobile/components/CrewPacking.tsx` (packing rows).
+
+| Property | Value |
+|---|---|
+| Trigger | `Pressable onLongPress` on the row container (only when the user may delete) |
+| `delayLongPress` | 350ms |
+| Affordance | Pressed-state coral dim: `backgroundColor: ring.coral` + `borderColor: accent.coral` (no transform / no spring) |
+| Haptic | `haptics.warning()` fired once at the start of `handleRemove` / `handleDelete`, before the confirmation Alert (Destructive-confirmation row of the vocab table) |
+| Confirmation | Existing `Alert.alert` destructive prompt → existing Zustand delete action (`removeExpense` / `deletePackingItem`) |
+| Row-tap safety | Expense rows have no tap action; packing rows keep the checkbox + trash `TouchableOpacity` as independent tap targets. A long-press on the row body collides with neither. The always-visible trash button remains the primary delete affordance. |
+| Reduce-motion | Honoured by construction — the affordance is a static color swap, not animation. On packing rows the existing `FadeIn`/`LinearTransition` layout motion stays gated behind `useReduceMotion()`; the row composes long-press onto Reanimated via `AnimatedPressable` (`Animated.createAnimatedComponent(Pressable)`) so the entering/exiting/layout animations are preserved. |
+
+**Motion table row addition:**
+
+| Interaction class | Duration | Easing | Haptic | Primitive |
+|---|---|---|---|---|
+| **Long-press delete** (mobile, RNGH-absent fallback for swipe-to-delete) | 350ms hold | none (static color) | `haptics.warning()` | `Pressable onLongPress` + pressed coral dim |
+
+**Upgrade path:** if `react-native-gesture-handler` is later added to the mobile
+deps, replace the `Pressable onLongPress` with the spec's `Gesture.Pan` swipe
+(translateX clamped `[-rowWidth, 0]`, coral delete zone revealed past -40px,
+`haptics.warning()` at the -0.4·rowWidth threshold, `withSpring({stiffness:200,
+damping:25})` snap-back), wrapping rows in `Gesture.Race` / `activeOffsetX` so the
+checkbox tap still wins. The haptic call and the existing delete actions are reused
+as-is.
+
+---
+
+## 11. Presence Pulse -- One-Shot Flip Ring (R23)
+
+Avatar status dot gets a one-shot scale+fade ring when the peer's presence
+flips from OFFLINE to ONLINE. Continuous animation is banned (battery rule).
+
+### Web (Avatar.tsx)
+
+| Property | Value |
+|---|---|
+| Trigger | `isOnline` prop flips `false` to `true` |
+| Mechanism | `useRef` tracks prev value; `useEffect` adds `status-dot-flipped` class on flip |
+| Animation | `@keyframes status-dot-pulse-once` -- scale `1` to `2.8`, opacity `0.7` to `0`, 600ms `ease-out` |
+| Iteration | `1` (one-shot) -- class removed on `animationend` |
+| Ring element | `::after` pseudo on the status dot div |
+| Reduce-motion | Global `prefers-reduced-motion` block collapses `animation-duration` to 0.01ms -- no ring visible |
+
+**Keyframe:** `status-dot-pulse-once` in `packages/web/src/styles/animations.css`
+**Utility:** `status-dot-flipped` in `packages/web/src/styles/theme.css`
+
+### Mobile (Avatar.tsx)
+
+| Property | Value |
+|---|---|
+| Trigger | `isOnline` prop flips `false` to `true` (tracked via `useRef`) |
+| Mechanism | `useSharedValue` for `ringScale` + `ringOpacity`; `useEffect` fires one `withTiming` sequence |
+| Animation | `ringScale`: 1 to 2.8, `ringOpacity`: 0.7 to 0, 600ms `Easing.out(Easing.cubic)` |
+| Ring element | `Animated.View` positioned absolutely behind the dot |
+| Reduce-motion | `useReduceMotion()` guard -- skip animation entirely when true |
+
+**Motion table row addition:**
+
+| Interaction class | Duration | Easing | Haptic | Primitive |
+|---|---|---|---|---|
+| **Presence flip ring** (web) | 600ms | `ease-out` | none | `status-dot-pulse-once` keyframe, `animation-iteration-count: 1` |
+| **Presence flip ring** (mobile) | 600ms | `Easing.out(Easing.cubic)` | none | `withTiming` on `ringScale` + `ringOpacity` SharedValues |
+
+---
+
+## 12. SOS FAB Alert Pulse (R24)
+
+The SOS floating action button (find.tsx, map.tsx on mobile; LiveLocationControls
+"Raise SOS" button on web) gets a continuous slow coral pulse ring ONLY while an
+active SOS exists in `liveLocationStore.sos` for the current crew.
+
+Continuous animation is **justified** for the emergency context -- the ring must
+command immediate attention. It stops as soon as the SOS is cleared.
+
+### Web (LiveLocationControls.tsx)
+
+| Property | Value |
+|---|---|
+| Active condition | `showSos` -- `sos && sos.crewId === crewId` |
+| Animation class | `sos-fab-alerting` -- `@keyframes sos-fab-pulse` 1.5s ease-out infinite |
+| Pulse shape | `box-shadow: 0 0 0 0 rgba(255,51,102,0.7)` to `0 0 0 16px rgba(255,51,102,0)` |
+| Reduce-motion | `sos-fab-static-ring` class instead -- static `box-shadow: 0 0 0 3px rgba(255,51,102,0.6)` |
+| Detection | `window.matchMedia('(prefers-reduced-motion: reduce)')` at render time |
+
+**Keyframe:** `sos-fab-pulse` in `packages/web/src/styles/animations.css`
+**Utilities:** `sos-fab-alerting`, `sos-fab-static-ring` in `packages/web/src/styles/theme.css`
+
+### Mobile (find.tsx, map.tsx)
+
+| Property | Value |
+|---|---|
+| Active condition | `sos && activeCrew && sos.crewId === activeCrew.id` |
+| Animation | `withRepeat(withTiming(1, { duration: 750, easing: Easing.out(Easing.cubic) }), -1, true)` on `sosFabGlow` shared value |
+| Effect | `shadowColor: '#ff3366'`, `shadowOpacity: glow * 0.7`, `shadowRadius: 4 + glow * 12` on Animated.View wrapper |
+| Reduce-motion | `useReduceMotion()` -- `sosFabGlow` stays at 0; static `borderWidth: 2, borderColor: rgba(255,51,102,0.6)` applied |
+| Store | `useLiveLocationStore((s) => s.sos)` scoped to active crew id |
+
+**Motion table row addition:**
+
+| Interaction class | Duration | Easing | Haptic | Primitive |
+|---|---|---|---|---|
+| **SOS FAB alert ring** (web) | 1.5s infinite | `ease-out` | none | `sos-fab-pulse` keyframe on `box-shadow` |
+| **SOS FAB alert ring** (mobile) | 750ms half-cycle | `Easing.out(Easing.cubic)` | none | `withRepeat(withTiming)` on shadow SharedValue |
+
+---
+
+## Batch 2 Conventions (design-inspiration-deep-2026-06-10)
+
+### Staggered list entrances (R22)
+
+Stagger applies only on **initial mount** — never on re-renders or live updates.
+
+| Property | Web | Mobile |
+|---|---|---|
+| Keyframe | `fadeInUp` (opacity 0→1, translateY 12px→0) | Reanimated `FadeInDown` layout entering prop |
+| Per-item delay | `calc(var(--i) * 70ms)` via inline `style={{ '--i': index }}` | `.delay(Math.min(index, 6) * 70)` |
+| Duration | `350ms ease-out` | `.duration(350)` |
+| Delay cap | index > 6 → clamp delay to `420ms` (no slow tail) | `Math.min(index, 6) * 70` caps at 420ms |
+| Reduce-motion | `@media(prefers-reduced-motion)` block collapses to `animation: none` globally | `useReduceMotion()` gate — omit `entering` prop, use plain `View` |
+
+CSS class `stagger-item` (defined in `animations.css`) applies `animation: fadeInUp 350ms ease-out both` and reads `--i` from the style prop.
+
+### One-shot presence pulse vs. continuous-SOS exception
+
+- **Avatar status dot** (ONLINE): `statusPulse` keyframe (`scale 1→1.15, opacity 1→0.6`) — `2s ease-in-out infinite`. Ambient, low-intensity, continuous. Acceptable because the dot is 10px and visually recessive.
+- **SOS button** (active/triggered): `sosPulse` keyframe (`box-shadow 0→16px→0 coral`) — `1.5s ease-out infinite`. The **sole continuous coral pulse** permitted. All other pulsing elements must be ambient aqua and low-opacity.
+- **General rule**: one-shot animations (list entrance, skeleton dismiss, notification badge bounce) fire once and stop. Continuous animation is reserved for: skeleton shimmer (loading), status dot (online presence), SOS active state. Nothing else loops indefinitely.
+
+Both pulse keyframes respect `@media(prefers-reduced-motion)` — the global block collapses them to `0.01ms 1 iteration`.
+
+### Swipe-to-delete thresholds (R20, mobile)
+
+| Threshold | Action |
+|---|---|
+| `translateX < -40px` | Delete zone becomes visible (`opacity` animates 0→1) |
+| `translateX < -0.4 * rowWidth` OR release velocity `< -500` | Haptic (`ImpactFeedbackStyle.Medium`) fires once |
+| Gesture end past threshold or velocity trigger | Animate to `-rowWidth` then execute delete |
+| Gesture end otherwise | `withSpring(0, { stiffness: 200, damping: 25 })` snap back |
+
+Fire the haptic once when the threshold is first crossed. Track with a `hasFiredHaptic` ref that resets on gesture start.
+
+### Animated gradient border fallback chain (R19)
+
+```
+1. @property --border-angle supported (Chrome/Edge) → conic-gradient border-box animation
+2. @supports not (@property ...) → static 1px rgba(0,232,208,0.3) border (no animation)
+3. prefers-reduced-motion → always static border regardless of @property support
+```
+
+Apply animated gradient borders to **at most one card per screen**. Never stack on multiple simultaneous cards.
+
+### Poll bar timing (R26)
+
+| Property | Web | Mobile |
+|---|---|---|
+| Trigger | React re-render when `pct` prop changes | `useEffect` watching `pct` prop |
+| Duration | `400ms` | `400ms` |
+| Easing | `ease-out` (`duration-[400ms] ease-out`) | `withTiming(pct, { duration: 400 })` |
+| Reduce-motion | CSS transitions collapse globally via `animations.css` — no JS gate needed | `reduceMotion ? (widthPct.value = pct) : withTiming(...)` — instant snap |
+| Mount behaviour | Bar snaps to initial width instantly (no entrance tween) | `isFirstRender` ref skips `withTiming` on first mount |
+| Scope | `PollOptionButton.tsx` — `crew-poll-bar` div only | `PollBarFill` helper in `CrewPolls.tsx` — `Animated.View` fill only |
+
+**Motion table row addition:**
+
+| Interaction class | Duration | Easing | Haptic | Primitive |
+|---|---|---|---|---|
+| **Poll bar width** (vote update) | 400ms | ease-out | none | CSS `transition-[width]` (web) / `withTiming` on `useSharedValue` (mobile) |

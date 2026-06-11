@@ -2,9 +2,11 @@ import { useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { useAuthStore, useCrewStore, useLiveLocationStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import OfflineMap from '../components/OfflineMap';
 import FreshnessChip from '../components/FreshnessChip';
 import EmptyState from '../components/EmptyState';
@@ -37,6 +39,28 @@ export default function MapScreen() {
   const sweepStale = useLiveLocationStore((s) => s.sweepStale);
   const setActiveCrew = useLiveLocationStore((s) => s.setActiveCrew);
   const peers = useMemo(() => Object.values(peersRecord), [peersRecord]);
+
+  // R24: pulsing coral ring on SOS FAB while an active SOS exists for this crew.
+  // Continuous animation justified (emergency context). Reduce-motion: static ring.
+  const sosCurrent = sos && activeCrew && sos.crewId === activeCrew.id ? sos : null;
+  const reduceMotion = useReduceMotion();
+  const sosFabGlow = useSharedValue(0);
+  useMemo(() => {
+    if (!sosCurrent || reduceMotion) {
+      sosFabGlow.value = 0;
+      return;
+    }
+    sosFabGlow.value = withRepeat(withTiming(1, { duration: 750, easing: Easing.out(Easing.cubic) }), -1, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!sosCurrent, reduceMotion]);
+  const sosFabPulseStyle = useAnimatedStyle(() => ({
+    shadowColor: '#ff3366',
+    shadowOpacity: sosCurrent ? sosFabGlow.value * 0.7 : 0,
+    shadowRadius: 4 + sosFabGlow.value * 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: sosCurrent ? 8 : 6,
+    ...(sosCurrent && reduceMotion ? { borderWidth: 2, borderColor: 'rgba(255,51,102,0.6)' } : {}),
+  }));
 
   // Scope the live store to this crew on mount/crew change.
   useEffect(() => {
@@ -82,22 +106,23 @@ export default function MapScreen() {
       </View>
       <OfflineMap meetingPoints={meetingPoints} peers={peers} sos={sos} />
 
-      {/* DC2: raise-SOS shortcut on the "where is everyone" map. Deep-links to
-          the crew Find pane that owns the full CrewSos card + confirm dialog.
-          Coral is on-rule here (the danger surface); coralStrong keeps the
-          white label AA-readable. */}
-      <TouchableOpacity
-        testID="map-sos-fab"
-        style={styles.sosFab}
-        onPress={() => router.push({ pathname: '/(tabs)/crew', params: { tab: 'logistics' } })}
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel="Raise an SOS to your crew"
-        accessibilityHint="Opens the crew safety screen to send an SOS"
-      >
-        <Ionicons name="alert-circle" size={20} color={t.colors.text.onAccent} />
-        <Text style={styles.sosFabText}>SOS</Text>
-      </TouchableOpacity>
+      {/* DC2 + R24: raise-SOS shortcut on the map. Pulsing coral ring while an
+          active SOS exists for this crew (emergency — continuous animation
+          justified). Reduce-motion: static coral ring border, no animation. */}
+      <Animated.View style={sosFabPulseStyle}>
+        <TouchableOpacity
+          testID="map-sos-fab"
+          style={styles.sosFab}
+          onPress={() => router.push({ pathname: '/(tabs)/crew', params: { tab: 'logistics' } })}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel="Raise an SOS to your crew"
+          accessibilityHint="Opens the crew safety screen to send an SOS"
+        >
+          <Ionicons name="alert-circle" size={20} color={t.colors.text.onAccent} />
+          <Text style={styles.sosFabText}>SOS</Text>
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
