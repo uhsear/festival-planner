@@ -12,6 +12,15 @@ eg-*.png
 m1-*.png
 securestore-*.png
 
+# Local prebuild output — NEVER upload. .easignore REPLACES .gitignore for the
+# EAS archive, so without these lines a locally-prebuilt android/ dir (with
+# absolute Windows paths in its autolinking cache) rides along and breaks the
+# EAS worker's gradle config ("projectDirectory .../android/C:/Users/... does
+# not exist"). EAS regenerates both via prebuild.
+android/
+ios/
+node_modules/
+
 # Local Expo cache
 .expo/
 
