@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -10,6 +10,8 @@ import { useFestivalDataStore, useCrewStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
 import { isFestivalOver } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useSharedValue, withTiming, Easing, useDerivedValue, runOnJS } from 'react-native-reanimated';
 import EmptyState from '../components/EmptyState';
 import SectionLabel from '../components/SectionLabel';
 import { Skeleton } from '../components/Skeleton';
@@ -377,12 +379,64 @@ function WrapSkeleton() {
   );
 }
 
+// R10: count-up hook for mobile using Reanimated withTiming.
+// Drives a SharedValue from 0 → numericTarget over `duration` ms with an
+// ease-out cubic. A setState callback (runOnJS) on each frame keeps a
+// React state string in sync so a plain <Text> can render it — avoiding
+// AnimatedText dependency issues and keeping the pattern setState-throttled
+// as the spec permits.
+// Respects OS reduce-motion: when true, jumps straight to the final value.
+function useCountUpMobile(target: string, duration = 800): string {
+  const numericTarget = parseFloat(target);
+  const hasDecimal = target.includes('.');
+  const reduceMotion = useReduceMotion();
+  const sv = useSharedValue(0);
+  const [displayed, setDisplayed] = useState(() =>
+    reduceMotion || isNaN(numericTarget) ? target : hasDecimal ? '0.0' : '0',
+  );
+
+  const fmt = useCallback(
+    (v: number) => {
+      setDisplayed(hasDecimal ? v.toFixed(1) : String(Math.round(v)));
+    },
+    [hasDecimal],
+  );
+
+  useDerivedValue(() => {
+    runOnJS(fmt)(sv.value);
+  });
+
+  useEffect(() => {
+    if (isNaN(numericTarget)) {
+      setDisplayed(target);
+      return;
+    }
+    if (reduceMotion) {
+      sv.value = numericTarget;
+      setDisplayed(target);
+      return;
+    }
+    sv.value = 0;
+    sv.value = withTiming(numericTarget, {
+      duration,
+      easing: Easing.out(Easing.cubic),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, reduceMotion]);
+
+  return displayed;
+}
+
+// R10: Stat renders the count-up animated value on mount.
 function Stat({ label, value }: { label: string; value: string }) {
   const styles = useStyles();
+  const animated = useCountUpMobile(value, 800);
   return (
     <View style={styles.statBox}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statValue} accessibilityLabel={value}>
+        {animated}
+      </Text>
     </View>
   );
 }

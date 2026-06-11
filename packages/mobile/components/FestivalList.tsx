@@ -135,14 +135,16 @@ const useStyles = makeStyles((t) => ({
     lineHeight: Math.round(t.fontSize[24] * 1.3),
     color: t.colors.text.primary,
   },
+  // R6: 9999px radius, 3px/10px padding, 11px Space Grotesk 500, 0.04em tracking.
   badge: {
-    paddingHorizontal: t.spacing[2],
-    paddingVertical: 2,
-    borderRadius: t.radii.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 9999,
   },
   badgeText: {
-    // F7: typeStyle('micro') gives Space Grotesk 600 uppercase — brand face.
-    ...typeStyle('micro'),
+    // R6: weight 500 (SpaceGrotesk_500Medium), 0.04em tracking override from caps default.
+    ...typeStyle('micro', 500),
+    letterSpacing: (typeStyle('micro', 500).fontSize ?? 10) * 0.04,
   },
   metaRow: {
     flexDirection: 'row' as const,

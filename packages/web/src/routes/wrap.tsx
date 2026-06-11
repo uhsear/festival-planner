@@ -628,14 +628,55 @@ function Superlative({ label, value, sub }: { label: string; value: string; sub?
   );
 }
 
+// R10: animates from 0 to `target` on mount (or when value changes) using a
+// requestAnimationFrame loop with ease-out cubic. No library needed.
+// prefers-reduced-motion: jumps straight to the final value when true.
+// Float detection: if `target` contains '.' the display uses toFixed(1).
+function useCountUp(target: string, duration = 800): string {
+  const numericTarget = parseFloat(target);
+  const hasDecimal = target.includes('.');
+  const prefersReducedMotion =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const [displayed, setDisplayed] = React.useState(() =>
+    prefersReducedMotion || isNaN(numericTarget) ? target : hasDecimal ? '0.0' : '0',
+  );
+
+  React.useEffect(() => {
+    if (prefersReducedMotion || isNaN(numericTarget)) {
+      setDisplayed(target);
+      return;
+    }
+    const start = performance.now();
+    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
+    let raf: number;
+    const step = (now: number) => {
+      const p = Math.min((now - start) / duration, 1);
+      const v = numericTarget * easeOut(p);
+      setDisplayed(hasDecimal ? v.toFixed(1) : String(Math.round(v)));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
+
+  return displayed;
+}
+
+// R10: count-up on the Wrap stat numbers. aria-label exposes the real value
+// to screen readers regardless of where the animation is in progress.
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  const animated = useCountUp(value, 800);
   return (
     <div className="flex flex-col gap-1 p-4 rounded-xl bg-bg-card border border-border">
       <div className="flex items-center gap-1.5 text-xs text-text-muted uppercase tracking-wide">
         {icon}
         <span>{label}</span>
       </div>
-      <div className="text-xl font-bold text-text-primary">{value}</div>
+      <div className="text-xl font-bold font-display text-text-primary" aria-label={value}>
+        {animated}
+      </div>
     </div>
   );
 }

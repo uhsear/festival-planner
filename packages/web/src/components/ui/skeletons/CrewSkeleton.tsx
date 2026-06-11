@@ -27,10 +27,7 @@ export default function CrewSkeleton() {
         {/* tab row */}
         <div className="flex gap-1.5">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div
-              key={i}
-              className="skeleton-shimmer h-10 min-w-16 flex-1 rounded-lg"
-            />
+            <div key={i} className="skeleton-shimmer h-10 min-w-16 flex-1 rounded-lg" />
           ))}
         </div>
 
@@ -39,7 +36,7 @@ export default function CrewSkeleton() {
           {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-card)] p-3"
+              className="flex items-center gap-3 rounded-lg border border-[var(--color-aqua-a08)] bg-[var(--color-bg-card)] p-3"
             >
               <div className="skeleton-shimmer h-10 w-10 rounded-full" />
               <div className="flex flex-1 flex-col gap-1.5">

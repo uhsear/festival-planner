@@ -131,6 +131,10 @@ export const colors = {
     15: 'rgba(0, 232, 208, 0.15)',
     20: 'rgba(0, 232, 208, 0.2)',
     30: 'rgba(0, 232, 208, 0.3)',
+    // R3 outline-secondary border (0.4 resting / 0.7 active). Mobile needs the
+    // literal since RN lacks an opacity-modifier syntax; web uses accent-aqua/40.
+    40: 'rgba(0, 232, 208, 0.4)',
+    70: 'rgba(0, 232, 208, 0.7)',
   },
   /** Amber alpha scale (rgba strings). */
   amberAlpha: {

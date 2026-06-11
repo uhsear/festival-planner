@@ -458,14 +458,25 @@ export default function SetDetailScreen() {
           automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
         >
-          {/* Artist photo (from Spotify backfill) */}
+          {/* Artist photo (from Spotify backfill) — R15: wrapped in a container
+              that clips the overlay Views to the image's rounded corners.
+              expo-linear-gradient is not in the dep tree, so the spec gradient
+              (transparent 40% → rgba(10,10,10,0.85) 100%) is approximated by
+              two stacked rgba Views: a transparent top region (40% height) and
+              a dark-to-opaque bottom region (60% height). This gives legible
+              text contrast when content is overlaid on the hero in the future
+              and establishes the hero treatment per the spec. */}
           {artistPhoto ? (
-            <Image
-              source={{ uri: artistPhoto }}
-              style={styles.artistPhoto}
-              resizeMode="cover"
-              accessibilityIgnoresInvertColors
-            />
+            <View style={styles.artistPhotoContainer}>
+              <Image
+                source={{ uri: artistPhoto }}
+                style={styles.artistPhoto}
+                resizeMode="cover"
+                accessibilityIgnoresInvertColors
+              />
+              <View style={styles.artistPhotoOverlayTop} pointerEvents="none" />
+              <View style={styles.artistPhotoOverlayBottom} pointerEvents="none" />
+            </View>
           ) : null}
 
           {/* Stage pill */}
@@ -765,9 +776,21 @@ function CloseButton({ onPress, top }: { onPress: () => void; top: number }) {
 }
 
 const useStyles = makeStyles((t) => ({
+  // R4: glass sheet surface — rgba(29,29,29,0.82) + 24px top-corner radii +
+  // 1px rgba(255,255,255,0.08) border + inset top highlight hairline.
+  // RN has no backdrop-filter; the translucent surface + top-highlight
+  // hairline approximate the glass edge without blur (platform limitation).
   container: {
     flex: 1,
-    backgroundColor: t.colors.bg.primary,
+    backgroundColor: 'rgba(29, 29, 29, 0.82)',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    // Top-highlight: a brighter top border edge simulates the glass inset.
+    // We use borderTopColor to distinguish the top edge from the sides.
+    borderTopColor: 'rgba(255, 255, 255, 0.14)',
+    overflow: 'hidden',
   },
   // KeyboardAvoidingView wrapper around the ScrollView (F1/F15).
   flex: {
@@ -812,12 +835,41 @@ const useStyles = makeStyles((t) => ({
     // the last input clears the home indicator on notched iPhones.
     gap: t.spacing[3],
   },
-  artistPhoto: {
+  // R15: container clips the overlay Views to the rounded image corners.
+  // position:relative + overflow:hidden is the RN pattern for this.
+  artistPhotoContainer: {
     width: '100%',
     height: 200,
     borderRadius: t.radii.default,
     marginBottom: t.spacing[3],
+    overflow: 'hidden',
     backgroundColor: t.colors.bg.secondary,
+  },
+  // R15: the photo fills the container; border-radius is inherited from the
+  // container via overflow:hidden, so we don't duplicate it here.
+  artistPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  // R15: top 40% — fully transparent, lets the image breathe in the upper zone.
+  artistPhotoOverlayTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '40%',
+    backgroundColor: 'transparent',
+  },
+  // R15: bottom 60% — rgba(10,10,10,0.85) approximating the spec gradient's
+  // opaque end-stop. Combined with the transparent top region this reads as a
+  // smooth fade even without a true linear-gradient.
+  artistPhotoOverlayBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+    backgroundColor: 'rgba(10,10,10,0.85)',
   },
   stagePill: {
     alignSelf: 'flex-start',
@@ -1009,7 +1061,8 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[1],
     paddingVertical: t.spacing[2],
     borderTopWidth: 1,
-    borderTopColor: t.colors.border.default,
+    // R2 hairline: neutral white 0.08 section divider (was border.default 0.06).
+    borderTopColor: t.colors.glass.border,
   },
   crewNoteName: {
     ...typeStyle('caption'),

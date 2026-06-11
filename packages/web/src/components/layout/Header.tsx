@@ -48,6 +48,34 @@ export default function Header() {
   // Connection status — simplified for React rewrite
   const [connected] = useState(true);
 
+  // R13: shrinking sticky header. A single scroll listener on the main content
+  // scroll container toggles `.shrunk` once scrollTop passes 80px; the header
+  // re-expands immediately on scroll-up (direction tracked via a ref). All the
+  // visual compression (min-height, brand font-size) is CSS-transitioned and
+  // reduced-motion-safe via the global prefers-reduced-motion block.
+  const [shrunk, setShrunk] = useState(false);
+  useEffect(() => {
+    const scroller = document.getElementById('main-content');
+    if (!scroller) return;
+    let prevTop = scroller.scrollTop;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        const top = scroller.scrollTop;
+        const goingUp = top < prevTop;
+        prevTop = top;
+        setShrunk(top > 80 && !goingUp);
+      });
+    };
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, []);
+
   // Capture the `beforeinstallprompt` event so the Install App button can
   // actually trigger the PWA install flow. Browsers fire this once when
   // the PWA is installable; we stash it on window for the click handler.
@@ -63,6 +91,8 @@ export default function Header() {
   return (
     <header
       className={cn(
+        'app-header',
+        shrunk && 'shrunk',
         'flex items-center justify-between shrink-0',
         'bg-[var(--color-bg-chrome)] backdrop-saturate-[180%] backdrop-blur-[var(--glass-blur-strong)]',
         'border-b border-border',
@@ -98,6 +128,7 @@ export default function Header() {
         <div className={cn('flex flex-col gap-2', 'max-md:gap-0')}>
           <h1
             className={cn(
+              'app-header-brand',
               'font-display text-base font-bold tracking-[3px] uppercase text-accent-coral whitespace-nowrap',
               /* logo link touch target */
               '[&_a]:inline-flex [&_a]:items-center [&_a]:min-h-11 [&_a]:py-1.5',

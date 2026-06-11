@@ -238,22 +238,28 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
       handleOnly
     >
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-[999] bg-black/50" />
+        {/* R4: scrim rgba(0,0,0,0.6) per spec (was bg-black/50 = 0.5) */}
+        <Drawer.Overlay className="fixed inset-0 z-[999] bg-[rgba(0,0,0,0.6)]" />
+        {/* R4: glassmorphic surface — rgba(29,29,29,0.82) + blur(20px) +
+            1px rgba(255,255,255,0.08) border + inset top highlight.
+            Radii: 24px top-corners on mobile sheet, 16px full on lg dialog.
+            detail-glass utility owns all four glass properties; rounded-* owns radii. */}
         <Drawer.Content
           aria-label="Set detail panel"
           className="fixed bottom-0 inset-x-0 z-[1000] max-h-[min(90dvh,calc(100dvh-32px))] flex flex-col
-                     rounded-t-DEFAULT bg-bg-card glass border border-border
-                     shadow-lg outline-none
+                     rounded-tl-[24px] rounded-tr-[24px] detail-glass outline-none
                      lg:bottom-auto lg:inset-x-auto lg:top-1/2 lg:left-1/2
                      lg:-translate-x-1/2 lg:-translate-y-1/2
                      lg:w-[clamp(420px,40vw,540px)] lg:max-w-[calc(100vw-2rem)] lg:max-h-[85dvh]
-                     lg:rounded-DEFAULT"
+                     lg:rounded-[16px]"
           onOpenAutoFocus={(e: Event) => {
             e.preventDefault();
             closeBtnRef.current?.focus();
           }}
         >
           <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-border-light flex-shrink-0 lg:hidden" />
+          {/* R4: aqua hairline divider below drag handle (interior header boundary) */}
+          <div className="h-px w-full bg-[rgba(0,232,208,0.12)] flex-shrink-0 lg:hidden" />
           <Drawer.Title className="sr-only">{artistDisplayName(set, b2bSeparator)}</Drawer.Title>
           <Drawer.Description className="sr-only">
             Set details, schedule, and crew info for {artistDisplayName(set, b2bSeparator)}
@@ -347,7 +353,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
                 />
               </>
             ) : (
-              <div className="p-4 rounded-DEFAULT bg-[var(--color-overlay-2)] border border-border">
+              <div className="p-4 rounded-DEFAULT bg-[var(--color-overlay-2)] border border-glass-border">
                 <p className="text-[length:var(--font-size-13)] text-text-secondary leading-normal mb-3">
                   Join this festival to save picks, keep private notes, and compare crew overlap.
                 </p>

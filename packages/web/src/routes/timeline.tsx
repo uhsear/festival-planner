@@ -13,6 +13,7 @@ import TimelineLegend from '../components/timeline/TimelineLegend';
 import { useTimelineFilters } from '../hooks/useTimelineFilters';
 import { useTimelineViewport } from '../hooks/useTimelineViewport';
 import { useNowIndicator } from '../hooks/useNowIndicator';
+import { useScrollProgress } from '../hooks/useScrollProgress';
 import { useNow } from '../hooks/useSetStatus';
 import { CalendarX, Music, Filter } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -47,6 +48,11 @@ function TimelineViewInner() {
 
   const { vpW, rowHeight } = useTimelineViewport(timeBounds?.totalSlots);
   const { nowIndicator, gridRef, scrollToNow } = useNowIndicator(timeBounds, selectedDay);
+
+  // R11: scroll-driven aqua beam in the left gutter. The hook updates a
+  // --scroll-progress custom property on the scroll container (fallback path);
+  // modern engines fill the beam natively via animation-timeline: scroll().
+  const { ref: scrollRef, handleScroll: handleBeamScroll } = useScrollProgress<HTMLDivElement>();
 
   // --- Live mode -----------------------------------------------------------
   // A 60s device-clock tick drives the next-pick countdown and the auto-scroll.
@@ -188,87 +194,97 @@ function TimelineViewInner() {
   return (
     <RefreshableView queryKeys={[['sets'], ['festival']]} className="timeline-view">
       <div
-        onScroll={handleUserScroll}
-        className="relative overflow-auto h-full [-webkit-overflow-scrolling:touch] overscroll-contain"
+        ref={scrollRef}
+        onScroll={() => {
+          handleUserScroll();
+          handleBeamScroll();
+        }}
+        className="timeline-scroll relative overflow-auto h-full [-webkit-overflow-scrolling:touch] overscroll-contain"
         role="region"
         aria-label="Timeline view"
         data-scroll-sentinel
       >
-        <div className="sticky top-0 z-20 bg-bg-sticky shadow-sticky [backdrop-filter:saturate(140%)_blur(8px)]">
-          <TimelineLegend />
-          {nextPickLabel && (
-            <div
-              className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-text-secondary border-t border-border-default/40"
-              aria-live="polite"
-              data-testid="next-pick-countdown"
-            >
-              <Music aria-hidden="true" className="w-3.5 h-3.5 text-[var(--color-accent-coral)]" />
-              <span>
-                Up next in <span className="text-[var(--color-accent-coral)]">{nextPickLabel.eta}</span>
-                {' · '}
-                <span className="text-text-primary">{nextPickLabel.name}</span>
-              </span>
-            </div>
-          )}
-        </div>
-        <TimelineGrid
-          visibleStages={visibleStages}
-          timedSets={timedSets}
-          timeBounds={timeBounds}
-          selectedDay={selectedDay}
-          rowHeight={rowHeight}
-          vpW={vpW}
-          nowIndicator={nowIndicator}
-          conflictIds={conflictIds}
-          currentProfile={currentProfile}
-          currentFestival={currentFestival}
-          gridRef={gridRef}
-          getMyPick={getMyPick}
-          getOtherPicks={getOtherPicks}
-          getStageColor={getStageColor}
-          onSetClick={setDetailSet}
-          onSavePick={handleSavePick}
-        />
-
-        {nowIndicator !== null && (
-          <button
-            type="button"
-            className={cn(
-              'fixed right-4 bottom-[calc(88px+env(safe-area-inset-bottom,0px))]',
-              'inline-flex items-center gap-1.5',
-              'px-3.5 py-2.5 rounded-full',
-              'bg-[var(--color-accent-coral)]',
-              'text-[var(--color-bg-primary)]',
-              'border-none text-[length:var(--font-size-13)] font-bold tracking-[0.02em]',
-              'cursor-pointer z-30 min-h-11',
-              'shadow-[0_6px_20px_rgba(255,107,107,0.35),0_1px_3px_rgba(0,0,0,0.25)]',
-              'transition-[transform,box-shadow] duration-150',
-              'ease-out',
-              'hover:shadow-[0_8px_24px_rgba(255,107,107,0.45),0_1px_4px_rgba(0,0,0,0.3)]',
-              'active:scale-[0.96]',
+        {/* R11 — full-height content wrapper so the beam's % height resolves
+            against scroll content, not the viewport. The beam fills top→current
+            scroll position in the left gutter. */}
+        <div className="timeline-content relative min-h-full">
+          <div className="timeline-beam" aria-hidden="true" />
+          <div className="sticky top-0 z-20 bg-bg-sticky shadow-sticky [backdrop-filter:saturate(140%)_blur(8px)]">
+            <TimelineLegend />
+            {nextPickLabel && (
+              <div
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-text-secondary border-t border-border-default/40"
+                aria-live="polite"
+                data-testid="next-pick-countdown"
+              >
+                <Music aria-hidden="true" className="w-3.5 h-3.5 text-[var(--color-accent-coral)]" />
+                <span>
+                  Up next in <span className="text-[var(--color-accent-coral)]">{nextPickLabel.eta}</span>
+                  {' · '}
+                  <span className="text-text-primary">{nextPickLabel.name}</span>
+                </span>
+              </div>
             )}
-            aria-label="Scroll to current time"
-            onClick={scrollToNow}
-          >
-            <Music aria-hidden="true" className="w-4 h-4" />
-            <span>Now</span>
-          </button>
-        )}
-
-        {timelessSets.length > 0 && (
-          <TBASection
-            sets={timelessSets}
-            stages={stages}
-            getMyPick={getMyPick}
-            getOtherPicks={getOtherPicks}
+          </div>
+          <TimelineGrid
+            visibleStages={visibleStages}
+            timedSets={timedSets}
+            timeBounds={timeBounds}
+            selectedDay={selectedDay}
+            rowHeight={rowHeight}
+            vpW={vpW}
+            nowIndicator={nowIndicator}
             conflictIds={conflictIds}
             currentProfile={currentProfile}
             currentFestival={currentFestival}
+            gridRef={gridRef}
+            getMyPick={getMyPick}
+            getOtherPicks={getOtherPicks}
             getStageColor={getStageColor}
+            onSetClick={setDetailSet}
             onSavePick={handleSavePick}
-            onOpenDetail={setDetailSet}
           />
-        )}
+
+          {nowIndicator !== null && (
+            <button
+              type="button"
+              className={cn(
+                'fixed right-4 bottom-[calc(88px+env(safe-area-inset-bottom,0px))]',
+                'inline-flex items-center gap-1.5',
+                'px-3.5 py-2.5 rounded-full',
+                'bg-[var(--color-accent-coral)]',
+                'text-[var(--color-bg-primary)]',
+                'border-none text-[length:var(--font-size-13)] font-bold tracking-[0.02em]',
+                'cursor-pointer z-30 min-h-11',
+                'shadow-[0_6px_20px_rgba(255,107,107,0.35),0_1px_3px_rgba(0,0,0,0.25)]',
+                'transition-[transform,box-shadow] duration-150',
+                'ease-out',
+                'hover:shadow-[0_8px_24px_rgba(255,107,107,0.45),0_1px_4px_rgba(0,0,0,0.3)]',
+                'active:scale-[0.96]',
+              )}
+              aria-label="Scroll to current time"
+              onClick={scrollToNow}
+            >
+              <Music aria-hidden="true" className="w-4 h-4" />
+              <span>Now</span>
+            </button>
+          )}
+
+          {timelessSets.length > 0 && (
+            <TBASection
+              sets={timelessSets}
+              stages={stages}
+              getMyPick={getMyPick}
+              getOtherPicks={getOtherPicks}
+              conflictIds={conflictIds}
+              currentProfile={currentProfile}
+              currentFestival={currentFestival}
+              getStageColor={getStageColor}
+              onSavePick={handleSavePick}
+              onOpenDetail={setDetailSet}
+            />
+          )}
+        </div>
       </div>
     </RefreshableView>
   );

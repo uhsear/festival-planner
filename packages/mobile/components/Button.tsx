@@ -118,7 +118,7 @@ const VARIANT_TEXT: Record<ButtonVariant, (s: Styles) => Styles[keyof Styles]> =
 
 const ICON_COLOR: Record<ButtonVariant, (t: Tokens) => string> = {
   primary: (t) => t.colors.text.onLightAccent,
-  secondary: (t) => t.colors.accent.aqua,
+  secondary: (t) => t.colors.text.muted,
   ghost: (t) => t.colors.text.secondary,
   danger: (t) => t.colors.text.onAccent,
   utility: (t) => t.colors.accent.aqua,
@@ -144,9 +144,12 @@ const useStyles = makeStyles((t) => ({
   primary: {
     backgroundColor: t.colors.accent.aqua,
   },
+  // R3 outline-secondary: 1px aqua/40 border + muted text. The single solid
+  // aqua per screen lives on `primary`; demoted CTAs use this. (No hover on
+  // native, so the resting aqua/40 + muted-text state is authoritative.)
   secondary: {
     borderWidth: 1,
-    borderColor: t.colors.accent.aqua,
+    borderColor: t.colors.aquaAlpha[40],
   },
   ghost: {},
   // Filled danger: coralStrong clears WCAG AA behind white text (~6.04:1); plain
@@ -169,8 +172,10 @@ const useStyles = makeStyles((t) => ({
   labelPrimary: {
     color: t.colors.text.onLightAccent,
   },
+  // R3: muted text on the outline-secondary (was aqua) so the lone solid-aqua
+  // primary is the only loud element on screen.
   labelSecondary: {
-    color: t.colors.accent.aqua,
+    color: t.colors.text.muted,
   },
   labelGhost: {
     color: t.colors.text.secondary,

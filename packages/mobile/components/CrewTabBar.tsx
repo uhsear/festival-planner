@@ -1,6 +1,9 @@
+import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 export type CrewTabKey = 'members' | 'plan' | 'logistics' | 'money';
 
@@ -31,61 +34,124 @@ interface CrewTabBarProps {
  * the screen reads as tabs instead of one long scroll. Horizontally scrollable
  * for narrow phones; each tab is a >=44pt touch target. Coral is reserved for
  * the badges (open polls / unsettled balance), matching the web pattern.
+ *
+ * R14: A 2px aqua sliding indicator bar sits above the active tab pill.
+ * Reanimated withSpring/withTiming drives translateX + width on the UI thread
+ * at 60/120 FPS. Under reduce-motion both values jump instantly (duration 0).
+ * Tab x/width are measured via onLayout callbacks so the indicator is accurate
+ * regardless of label length or badge presence.
  */
 export default function CrewTabBar({ activeTab, onTabChange, badges }: CrewTabBarProps) {
   const t = useTokens();
   const styles = useStyles();
+  const reduceMotion = useReduceMotion();
+
+  // Tab layout measurements: keyed by tab.key, populated via onLayout callbacks.
+  const [tabLayouts, setTabLayouts] = useState<Record<string, { x: number; width: number }>>({});
+
+  // Reanimated shared values for the indicator beam.
+  const indicatorX = useSharedValue(-999); // off-screen until first measurement
+  const indicatorW = useSharedValue(0);
+
+  // Drive the indicator to the active tab whenever activeTab or layouts change.
+  useEffect(() => {
+    const layout = tabLayouts[activeTab];
+    if (!layout) return;
+    if (reduceMotion) {
+      indicatorX.value = withTiming(layout.x, { duration: 0 });
+      indicatorW.value = withTiming(layout.width, { duration: 0 });
+    } else {
+      indicatorX.value = withSpring(layout.x, { stiffness: 180, damping: 20 });
+      indicatorW.value = withSpring(layout.width, { stiffness: 180, damping: 20 });
+    }
+  }, [activeTab, tabLayouts, reduceMotion, indicatorX, indicatorW]);
+
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: indicatorX.value }],
+    width: indicatorW.value,
+  }));
+
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.barOuter}
-      contentContainerStyle={styles.bar}
-      accessibilityRole="tablist"
-    >
-      {TABS.map((tab) => {
-        const active = tab.key === activeTab;
-        const badge = badges?.[tab.key];
-        return (
-          <TouchableOpacity
-            key={tab.key}
-            testID={`crew-tab-${tab.key}`}
-            style={[styles.tab, active && styles.tabActive]}
-            onPress={() => onTabChange(tab.key)}
-            activeOpacity={0.8}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={
-              typeof badge === 'number' && badge > 0
-                ? `${tab.label}, ${badge} open`
-                : badge === true
-                  ? `${tab.label}, needs attention`
-                  : tab.label
-            }
-          >
-            {/* DC25: 15 is off-grid; snap to iconSize.sm (16). */}
-            <Ionicons name={tab.icon} size={16} color={active ? t.colors.accent.aqua : t.colors.text.secondary} />
-            <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
-            {typeof badge === 'number' && badge > 0 ? (
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{badge}</Text>
-              </View>
-            ) : badge === true ? (
-              <View style={styles.dotBadge} />
-            ) : null}
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+    <View style={styles.barOuter}>
+      {/* R14: indicator track — absolute strip at top of the bar. pointerEvents
+          "none" on the outer track lets taps fall through to the tabs below. */}
+      <View style={styles.indicatorTrack} pointerEvents="none">
+        <Animated.View style={[styles.indicator, indicatorStyle]} />
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.bar}
+        accessibilityRole="tablist"
+      >
+        {TABS.map((tab) => {
+          const active = tab.key === activeTab;
+          const badge = badges?.[tab.key];
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              testID={`crew-tab-${tab.key}`}
+              style={[styles.tab, active && styles.tabActive]}
+              onPress={() => onTabChange(tab.key)}
+              activeOpacity={0.8}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={
+                typeof badge === 'number' && badge > 0
+                  ? `${tab.label}, ${badge} open`
+                  : badge === true
+                    ? `${tab.label}, needs attention`
+                    : tab.label
+              }
+              onLayout={(e) => {
+                const { x, width } = e.nativeEvent.layout;
+                setTabLayouts((prev) => ({ ...prev, [tab.key]: { x, width } }));
+              }}
+            >
+              {/* DC25: 15 is off-grid; snap to iconSize.sm (16). */}
+              <Ionicons name={tab.icon} size={16} color={active ? t.colors.accent.aqua : t.colors.text.secondary} />
+              <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
+              {typeof badge === 'number' && badge > 0 ? (
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{badge}</Text>
+                </View>
+              ) : badge === true ? (
+                <View style={styles.dotBadge} />
+              ) : null}
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 
 const useStyles = makeStyles((t) => ({
-  // Pin the bar to its content height. A horizontal ScrollView in a flex column
-  // can otherwise grow on the vertical (main) axis to fill slack, which made the
-  // tab pills look oversized on shorter panes; flexGrow:0 keeps it tab-height.
+  // Wrapper: pins bar to content height (same intent as the old flexGrow:0 on
+  // the bare ScrollView) and provides the positioning context for the indicator.
   barOuter: {
     flexGrow: 0,
+  },
+  // R14: full-width absolute strip at the very top of the bar container.
+  // The Animated.View indicator slides within it; zIndex:1 keeps it above the
+  // tab pill borders but behind nothing interactive.
+  indicatorTrack: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    zIndex: 1,
+  },
+  // R14: the sliding 2px aqua beam. translateX + width are Reanimated-driven.
+  // borderRadius:1 gives subtle capsule ends.
+  indicator: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: t.colors.accent.aqua,
   },
   bar: {
     flexDirection: 'row',
