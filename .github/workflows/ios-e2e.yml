@@ -1,0 +1,174 @@
+name: iOS E2E
+
+# Free (public-repo macOS minutes), EAS-credit-free iOS end-to-end smoke.
+#
+# Mirrors android-e2e.yml: builds a *local Release .app* for the iOS Simulator on
+# the runner (no EAS build) and drives it with Maestro 2.6.0 — the same harness
+# used for Android. A Release simulator build embeds the Hermes JS bundle so it's
+# self-contained (a Debug build would need a Metro dev server CI doesn't have) and
+# installs without code signing.
+#
+# Manual-only by design (it's a ~20-25min build+sim job; we don't want it on every
+# push). Run it from the Actions tab, or:
+#   gh workflow run ios-e2e.yml --ref <branch>
+on:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  EXPO_NO_TELEMETRY: '1'
+  # Release simulator builds shouldn't upload to Sentry from CI; keep the plugin quiet.
+  SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+
+permissions:
+  contents: read
+
+jobs:
+  ios-e2e:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install workspace deps (pnpm)
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
+
+      # Boot the simulator BEFORE the long native build so it's warm and ready by
+      # the time the .app is built. macos-15 is Apple Silicon (M-series), Xcode 16+.
+      # No UDID pinning (macos-15 had a device-matching regression) — match by model.
+      - name: Boot iOS Simulator
+        id: sim
+        uses: futureware-tech/simulator-action@e89aa8f93d3aec35083ff49d2854d07f7186f7f5 # v5
+        with:
+          model: 'iPhone 16 Pro'
+          os: 'iOS'
+          os_version: '>=17.0'
+          wait_for_boot: true
+          boot_timeout_seconds: 180
+          boot_retries: 3
+
+      # Generate the native ios/ project (CNG; ios/ is gitignored).
+      # --no-install: pnpm already installed node_modules; don't let prebuild shell
+      # out to npm and fight the pnpm layout. CocoaPods is installed separately below.
+      - name: Expo prebuild (ios)
+        working-directory: packages/mobile
+        run: pnpm exec expo prebuild --platform ios --no-install
+
+      # Prebuild may emit a Gemfile (bundler-managed CocoaPods). If it did, use the
+      # pinned `bundle exec pod`; otherwise fall back to the system `pod`.
+      - name: CocoaPods install
+        working-directory: packages/mobile/ios
+        run: |
+          if [ -f ../Gemfile ]; then
+            (cd .. && bundle install)
+            bundle exec --gemfile=../Gemfile pod install
+          elif [ -f Gemfile ]; then
+            bundle install
+            bundle exec pod install
+          else
+            pod install
+          fi
+
+      # Discover the workspace + scheme dynamically rather than hardcoding "festie"
+      # (the Expo scheme/workspace name can change between SDK templates).
+      - name: Detect workspace and scheme
+        id: xcode
+        working-directory: packages/mobile/ios
+        run: |
+          WORKSPACE=$(ls -d *.xcworkspace | head -1)
+          if [ -z "$WORKSPACE" ]; then
+            echo "::error::No .xcworkspace found in packages/mobile/ios after pod install."
+            exit 1
+          fi
+          # Pick the first non-Pods scheme xcodebuild reports for the workspace.
+          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json \
+            | python3 -c "import sys, json; s=[x for x in json.load(sys.stdin)['workspace']['schemes'] if x != 'Pods']; print(s[0] if s else '')")
+          if [ -z "$SCHEME" ]; then
+            echo "::error::Could not determine a build scheme from xcodebuild -list."
+            exit 1
+          fi
+          echo "workspace=$WORKSPACE" >> "$GITHUB_OUTPUT"
+          echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
+          echo "Using workspace=$WORKSPACE scheme=$SCHEME"
+
+      # Release build targeting the simulator SDK — no code signing required.
+      # arm64 only (Apple Silicon runner) cuts ~40% off the compile vs a fat binary.
+      # Tee the full log to a file so it can be uploaded as an artifact on failure.
+      - name: Build .app for the simulator
+        working-directory: packages/mobile/ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace "${{ steps.xcode.outputs.workspace }}" \
+            -scheme "${{ steps.xcode.outputs.scheme }}" \
+            -sdk iphonesimulator \
+            -configuration Release \
+            -arch arm64 \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
+            build | tee "$GITHUB_WORKSPACE/xcodebuild.log"
+
+      # Locate the built .app and fail loudly with a clear message if it's missing.
+      - name: Locate built .app
+        working-directory: packages/mobile/ios
+        run: |
+          APP_PATH=$(find build/Build/Products -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "::error::No .app bundle found under packages/mobile/ios/build/Build/Products — the xcodebuild step did not produce a simulator app. Check xcodebuild.log."
+            exit 1
+          fi
+          echo "APP_PATH=$(cd "$(dirname "$APP_PATH")" && pwd)/$(basename "$APP_PATH")" >> "$GITHUB_ENV"
+          echo "Found app: $APP_PATH"
+
+      - name: Install .app into the booted simulator
+        run: xcrun simctl install "${{ steps.sim.outputs.udid }}" "$APP_PATH"
+
+      - name: Install Maestro
+        run: |
+          export MAESTRO_VERSION=2.6.0
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run Maestro smoke (iOS)
+        working-directory: packages/mobile
+        env:
+          # Passed to Maestro so the authed phase of the smoke runs; CI provides
+          # them from repo secrets.
+          TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+        run: |
+          MAESTRO_CLI_NO_ANALYTICS=1 maestro test \
+            -e TEST_USERNAME="$TEST_USERNAME" \
+            -e TEST_PASSWORD="$TEST_PASSWORD" \
+            --format junit \
+            --output maestro-ios-report.xml \
+            maestro/ios-smoke.yaml
+
+      - name: Upload Maestro artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-maestro-results
+          path: |
+            packages/mobile/*.png
+            packages/mobile/maestro/*.png
+            packages/mobile/maestro-ios-report.xml
+          if-no-files-found: ignore
+
+      - name: Upload xcodebuild log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-xcodebuild-log
+          path: xcodebuild.log
+          if-no-files-found: ignore

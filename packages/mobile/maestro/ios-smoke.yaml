@@ -1,0 +1,128 @@
+# iOS Simulator SMOKE for the ios-e2e GitHub Actions gate (Maestro 2.6.0 on a
+# macos-15 runner; standalone Release .app installed in the booted sim, pointed
+# at prod https://festie.us/api/v1). Cross-platform selectors only — visible text
+# and accessibility labels / testIDs, never coordinates.
+#
+# Two phases, mirroring the proven .maestro/ios-smoke.yaml lesson:
+#  1. GUEST (HARD gate, secret-free): launch -> onboarding -> picker -> select a
+#     festival as a guest -> schedule renders -> tabs navigate. This is what the
+#     iOS Simulator + Maestro reliably validates and is the gate for this job.
+#  2. AUTHED (GUARDED / best-effort): the iOS Simulator + Maestro can't reliably
+#     find the RN login TextInput (TextInput accessibilityLabels aren't surfaced
+#     to the iOS a11y tree the way Maestro matches), so login is wrapped in a
+#     `runFlow: when: visible: Username` guard — if the field can't be found the
+#     block SKIPS and the smoke still passes at the guest level. Authed-feature
+#     coverage on iOS is done on the real TestFlight device; the Android Maestro
+#     job (identical RN code) drives the full authed flow.
+#
+# appId is the iOS bundleIdentifier from app.json.
+appId: us.festie.app
+env:
+  TEST_USERNAME: ${TEST_USERNAME}
+  TEST_PASSWORD: ${TEST_PASSWORD}
+---
+# ── Launch on a clean slate ──
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      text: "Skip|Build your festival|Select a Festival|North Coast|Timeline|Festie"
+    timeout: 120000
+- takeScreenshot: 01-launch
+
+# ── Dismiss onboarding if it's showing ──
+- tapOn:
+    text: "Skip"
+    optional: true
+
+# ── Reach the festival picker ──
+- extendedWaitUntil:
+    visible:
+      text: "Select a Festival|North Coast|Timeline"
+    timeout: 30000
+- takeScreenshot: 02-festival-picker
+
+# ── Guest-browse the schedule (HARD gate) ──
+# If the picker is showing, select North Coast as a guest and confirm the
+# schedule renders. The schedule chrome ("Switch"/"Timeline"/"Cards") is the
+# proven cross-view text from two-festival.yaml / android-smoke.yaml.
+- runFlow:
+    when:
+      visible: "Select a Festival"
+    commands:
+      - tapOn:
+          text: "North Coast Festival 2026"
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - takeScreenshot: 03a-after-tap
+      # 90s: a cold sim fetching the 121-set lineup from prod over the public
+      # internet can exceed 30s without being a bug.
+      - extendedWaitUntil:
+          visible:
+            text: "Switch|Timeline|Cards"
+          timeout: 90000
+      - waitForAnimationToEnd:
+          timeout: 4000
+      - assertNotVisible: "Select a Festival"
+- assertVisible:
+    text: "Switch|Timeline|Cards"
+- takeScreenshot: 03-schedule-guest
+
+# ── Schedule view switcher ──
+- tapOn:
+    text: "Grid"
+    optional: true
+- takeScreenshot: 04-grid
+- tapOn:
+    text: "Cards"
+    optional: true
+- takeScreenshot: 05-cards
+
+# ── Tab navigation (NativeTabs render their Labels as native tab items on iOS;
+# Maestro taps them by label text). Tabs are best-effort taps with screenshots;
+# the hard chrome gate is at the end. ──
+- tapOn:
+    text: "Picks"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2500
+- takeScreenshot: 06-picks
+
+# ── Login via the Account tab (GUARDED / best-effort on iOS) ──
+- tapOn:
+    text: "Account"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 07-account
+- runFlow:
+    when:
+      visible: "Username"
+    commands:
+      - tapOn: "Username"
+      - inputText: "${TEST_USERNAME}"
+      - hideKeyboard
+      - tapOn: "Password"
+      - inputText: "${TEST_PASSWORD}"
+      - hideKeyboard
+      - tapOn: "Sign in"
+      - tapOn:
+          text: "Not Now"
+          optional: true
+      - extendedWaitUntil:
+          notVisible: "Username"
+          timeout: 25000
+      - takeScreenshot: 08-logged-in
+
+# ── Back to the schedule and confirm it still renders ──
+- tapOn:
+    text: "Schedule"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2500
+- takeScreenshot: 09-schedule
+- assertNotVisible: "Select a Festival"
+
+# ── Hard gate: app chrome present (no crash through the whole walk) ──
+- assertVisible:
+    text: "Schedule|Picks|Crew|Account|Switch|Timeline|Cards|Festie"
