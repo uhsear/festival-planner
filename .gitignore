@@ -77,3 +77,5 @@ tests/e2e/.auth/
 # Local per-session state doc (operational; not for the public repo).
 # NOTE: do NOT ignore /context.md — that case-collides with the tracked public CONTEXT.md on Windows.
 /SESSION.md
+
+logs/.alert-state.json
