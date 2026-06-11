@@ -73,17 +73,19 @@ export default function CrewTabBar({ activeTab, onTabChange, badges }: CrewTabBa
 
   return (
     <View style={styles.barOuter}>
-      {/* R14: indicator track — absolute strip at top of the bar. pointerEvents
-          "none" on the outer track lets taps fall through to the tabs below. */}
-      <View style={styles.indicatorTrack} pointerEvents="none">
-        <Animated.View style={[styles.indicator, indicatorStyle]} />
-      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.bar}
         accessibilityRole="tablist"
       >
+        {/* R14: indicator track — absolute strip at the top of the SCROLL
+            CONTENT (not the outer wrapper) so it stays registered over the
+            measured tab frames when the bar is scrolled. pointerEvents "none"
+            lets taps fall through to the tabs below. */}
+        <View style={styles.indicatorTrack} pointerEvents="none">
+          <Animated.View style={[styles.indicator, indicatorStyle]} />
+        </View>
         {TABS.map((tab) => {
           const active = tab.key === activeTab;
           const badge = badges?.[tab.key];
@@ -158,6 +160,9 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[2],
     paddingHorizontal: t.spacing[4],
     paddingBottom: t.spacing[2],
+    // Fill the viewport when the four tabs fit (the common phone case) so the
+    // bar has no dead horizontal scroll; it still scrolls on narrow screens.
+    flexGrow: 1,
   },
   tab: {
     flexDirection: 'row',

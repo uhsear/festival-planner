@@ -109,10 +109,12 @@ const useStyles = makeStyles((t) => ({
     paddingBottom: t.spacing[2],
   },
   heading: {
-    ...typeStyle('caption'),
+    // typeStyle('caption', 700) selects SpaceGrotesk_700Bold — correct cut.
+    // Spreading typeStyle() then overriding fontWeight is inert on native
+    // because the weighted fontFamily wins (F4 faux-bold fix).
+    ...typeStyle('caption', 700),
     color: t.colors.text.muted,
     textTransform: 'uppercase',
-    fontWeight: '700',
   },
   hint: {
     ...typeStyle('caption'),

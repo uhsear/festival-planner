@@ -482,6 +482,7 @@ export default function PicksScreen() {
         icon="person-add-outline"
         title="Join this festival first"
         message="Open the Schedule tab and join the festival to start saving picks."
+        action={{ label: 'Go to Schedule', onPress: () => router.navigate('/(tabs)/') }}
       />
     );
   } else if (isLoading && rows.length === 0) {
@@ -504,6 +505,7 @@ export default function PicksScreen() {
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         contentContainerStyle={listContentStyle}
+        contentInsetAdjustmentBehavior="automatic"
         ListHeaderComponent={picksHeader}
         ListEmptyComponent={
           <EmptyState
@@ -522,6 +524,7 @@ export default function PicksScreen() {
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         contentContainerStyle={listContentStyle}
+        contentInsetAdjustmentBehavior="automatic"
         ListHeaderComponent={picksHeader}
         ItemSeparatorComponent={Separator}
         refreshControl={refreshControl}

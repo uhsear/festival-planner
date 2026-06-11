@@ -45,14 +45,14 @@ export default function MapScreen() {
   const sosCurrent = sos && activeCrew && sos.crewId === activeCrew.id ? sos : null;
   const reduceMotion = useReduceMotion();
   const sosFabGlow = useSharedValue(0);
-  useMemo(() => {
-    if (!sosCurrent || reduceMotion) {
+  const sosActive = !!sosCurrent;
+  useEffect(() => {
+    if (!sosActive || reduceMotion) {
       sosFabGlow.value = 0;
       return;
     }
     sosFabGlow.value = withRepeat(withTiming(1, { duration: 750, easing: Easing.out(Easing.cubic) }), -1, true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!sosCurrent, reduceMotion]);
+  }, [sosActive, reduceMotion, sosFabGlow]);
   const sosFabPulseStyle = useAnimatedStyle(() => ({
     shadowColor: '#ff3366',
     shadowOpacity: sosCurrent ? sosFabGlow.value * 0.7 : 0,
@@ -107,7 +107,7 @@ export default function MapScreen() {
       <OfflineMap meetingPoints={meetingPoints} peers={peers} sos={sos} />
 
       {/* DC2 + R24: raise-SOS shortcut on the map. Pulsing coral ring while an
-          active SOS exists for this crew (emergency — continuous animation
+          active SOS exists for this crew (emergency ï¿½ continuous animation
           justified). Reduce-motion: static coral ring border, no animation. */}
       <Animated.View style={sosFabPulseStyle}>
         <TouchableOpacity

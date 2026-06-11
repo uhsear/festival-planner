@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Share,
+  StyleSheet,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -473,6 +474,7 @@ export default function CrewScreen() {
         <ScrollView
           style={styles.flex1}
           contentContainerStyle={formScrollStyle}
+          contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
@@ -664,6 +666,7 @@ export default function CrewScreen() {
           data={members}
           keyExtractor={(m) => m.userId}
           contentContainerStyle={memberListStyle}
+          contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           refreshControl={crewRefreshControl}
@@ -698,7 +701,7 @@ export default function CrewScreen() {
                       {/* swap-horizontal reads as "hand over / transfer"; the
                           star glyph is reserved for the Owner badge so the two
                           aren't visually conflated. */}
-                      <Ionicons name="swap-horizontal" size={18} color={t.colors.accent.amber} />
+                      <Ionicons name="swap-horizontal" size={18} color={t.colors.accent.aqua} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleKick(crew.id, item)}
@@ -712,7 +715,7 @@ export default function CrewScreen() {
                   </View>
                 ) : rowIsOwner ? (
                   <View accessible accessibilityLabel="Owner">
-                    <Ionicons name="star" size={16} color={t.colors.accent.amber} />
+                    <Ionicons name="star" size={16} color={t.colors.accent.aqua} />
                   </View>
                 ) : null}
               </View>
@@ -850,6 +853,7 @@ export default function CrewScreen() {
         <ScrollView
           style={styles.flex1}
           contentContainerStyle={tabScrollStyle}
+          contentInsetAdjustmentBehavior="automatic"
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -973,10 +977,15 @@ export default function CrewScreen() {
         <ScrollView
           style={styles.flex1}
           contentContainerStyle={tabScrollStyle}
+          contentInsetAdjustmentBehavior="automatic"
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
+          {/* DC2: SOS must be reachable without any scroll — top of the pane,
+              always visible the instant the Find tab opens. */}
+          <CrewSos crewId={crew.id} currentUserId={user.id} />
+
           {/* "Find each other" — ONE destination that co-locates the crew map,
               the meeting-point compass and saved meeting points. */}
           <TouchableOpacity
@@ -1006,13 +1015,10 @@ export default function CrewScreen() {
             <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
           </TouchableOpacity>
 
-          {/* Safety cluster leads (DC4): mid-festival find/SOS is what a user
-              opens this tab for, so it sits above the ambient home-base/photo
-              rows instead of below the fold. */}
-          <SectionLabel>Live location & SOS</SectionLabel>
+          {/* Live location toggle sits below the SOS button. */}
+          <SectionLabel>Live location</SectionLabel>
           <View style={styles.liveSafetyBlock}>
             <CrewLiveLocation crewId={crew.id} />
-            <CrewSos crewId={crew.id} currentUserId={user.id} />
           </View>
 
           <SectionLabel>Meeting points</SectionLabel>
@@ -1030,6 +1036,7 @@ export default function CrewScreen() {
         <ScrollView
           style={styles.flex1}
           contentContainerStyle={tabScrollStyle}
+          contentInsetAdjustmentBehavior="automatic"
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -1358,10 +1365,10 @@ const useStyles = makeStyles((t) => ({
     // Match AccountScreen's row floor so every member row keeps a >=44pt
     // touch target even when the name wraps to a single short line.
     minHeight: 56,
-    borderRadius: t.radii.default,
-    borderWidth: 1,
-    borderColor: t.colors.border.default,
-    backgroundColor: t.colors.bg.secondary,
+    // Hairline-divider idiom: flat row separated by a single-pixel bottom
+    // border rather than individually boxed cards.
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: t.colors.border.default,
   },
   avatar: {
     width: 40,
@@ -1385,7 +1392,7 @@ const useStyles = makeStyles((t) => ({
   },
   memberRole: {
     ...typeStyle('caption'),
-    color: t.colors.accent.amber,
+    color: t.colors.text.secondary,
   },
   memberActions: {
     flexDirection: 'row',

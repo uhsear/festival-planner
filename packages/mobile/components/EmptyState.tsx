@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle } from '../hooks/useTokens';
 
 interface EmptyStateProps {
   /** Ionicons name for the centered glyph. */
@@ -30,7 +30,6 @@ interface EmptyStateProps {
  * and an optional action button. Use when a list or screen has no content.
  */
 export default function EmptyState({ icon, title, message, action, headerless = false }: EmptyStateProps) {
-  const t = useTokens();
   const styles = useStyles();
   const insets = useSafeAreaInsets();
   const insetStyle = headerless ? { paddingTop: insets.top, paddingBottom: insets.bottom } : null;
@@ -92,13 +91,16 @@ const useStyles = makeStyles((t) => ({
     maxWidth: 280,
   },
   // R21: CTA button — aqua pill per R3 spec (canonical Button).
-  // borderRadius 9999px, padding 12px 28px for pill shape.
+  // alignSelf + minWidth prevent the pill from collapsing narrower than its
+  // label (fixes 'Sign' clipping to 'Sign in' defect).
   action: {
     backgroundColor: t.colors.accent.aqua,
     borderRadius: t.radii.pill,
     paddingHorizontal: t.spacing[6],
     paddingVertical: t.spacing[3],
     marginTop: t.spacing[2],
+    alignSelf: 'center',
+    minWidth: 120,
   },
   // R21: Label on aqua fill uses dark ink (onLightAccent #080810) for AA contrast.
   actionText: {

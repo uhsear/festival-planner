@@ -165,7 +165,7 @@ export default function AccountHistorySection() {
               <Text style={styles.artistName} numberOfLines={1}>
                 {a.artist}
               </Text>
-              {a.timesRated > 1 ? <Text style={styles.artistMeta}>{a.timesRated}×</Text> : null}
+              <Text style={styles.artistMeta}>{a.timesRated > 1 ? `${a.timesRated}×` : `${a.bestRating}★`}</Text>
             </View>
           ))}
         </View>
@@ -241,15 +241,12 @@ const useStyles = makeStyles((t) => ({
     paddingBottom: 0,
   },
   festHead: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: t.spacing[2],
+    flexDirection: 'column',
+    gap: t.spacing[1],
   },
   festName: {
     ...typeStyle('body'),
     color: t.colors.text.primary,
-    flex: 1,
     fontWeight: '600',
   },
   festDate: {

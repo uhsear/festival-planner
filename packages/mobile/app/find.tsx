@@ -12,7 +12,7 @@
  * specific point. Zero network: everything reads from the persisted crewStore, so
  * it works on a cold offline launch.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,14 +49,14 @@ export default function FindScreen() {
   const sos = useLiveLocationStore((s) => (s.sos && activeCrew && s.sos.crewId === activeCrew.id ? s.sos : null));
   const reduceMotion = useReduceMotion();
   const sosFabGlow = useSharedValue(0);
-  useMemo(() => {
-    if (!sos || reduceMotion) {
+  const sosActive = !!sos;
+  useEffect(() => {
+    if (!sosActive || reduceMotion) {
       sosFabGlow.value = 0;
       return;
     }
     sosFabGlow.value = withRepeat(withTiming(1, { duration: 750, easing: Easing.out(Easing.cubic) }), -1, true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!sos, reduceMotion]);
+  }, [sosActive, reduceMotion, sosFabGlow]);
   const sosFabPulseStyle = useAnimatedStyle(() => ({
     shadowColor: '#ff3366',
     shadowOpacity: sos ? sosFabGlow.value * 0.7 : 0,
@@ -165,7 +165,7 @@ export default function FindScreen() {
       </ScrollView>
 
       {/* DC2 + R24: raise-SOS shortcut. Pulsing coral ring while an active SOS
-          exists for this crew (emergency — continuous animation justified).
+          exists for this crew (emergency ï¿½ continuous animation justified).
           Reduce-motion: static coral ring border, no animation. */}
       <Animated.View style={sosFabPulseStyle}>
         <TouchableOpacity

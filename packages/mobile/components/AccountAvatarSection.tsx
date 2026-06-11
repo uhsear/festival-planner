@@ -164,7 +164,7 @@ export default function AccountAvatarSection() {
 
       <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.btn, styles.btnPrimary, busy ? styles.btnDisabled : null]}
+          style={[styles.btn, styles.btnPrimary, avatarUrl ? { flex: 1 } : null, busy ? styles.btnDisabled : null]}
           onPress={() => void pickAndUpload()}
           disabled={busy !== null}
           activeOpacity={0.8}
@@ -260,7 +260,9 @@ const useStyles = makeStyles((t) => ({
     // The avatar is optional, so this is DEMOTED to a secondary/outline aqua
     // button — it must not be the loudest element on the Account screen. A
     // filled aqua fill is reserved for true primary CTAs.
-    flex: 1,
+    // flex:1 is applied conditionally in JSX (present when avatar is set so
+    // both buttons share the row equally; absent when Upload is the only
+    // button so it sizes to content and the label does not clip).
     borderWidth: 1,
     borderColor: t.colors.accent.aqua,
   },
