@@ -170,13 +170,23 @@ jobs:
           # them from repo secrets.
           TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          # On the FIRST run against a fresh sim, Maestro has to build + install
+          # its xcuitest XCTest runner before the flow starts; the default driver
+          # startup window is too short on a cold macOS runner and throws
+          # IOSDriverTimeoutException ("iOS driver not ready in time"). Give it a
+          # generous window (240s) and retry once — the runner is installed by the
+          # first (failed) attempt, so the retry starts instantly.
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '240000'
         run: |
-          MAESTRO_CLI_NO_ANALYTICS=1 maestro test \
-            -e TEST_USERNAME="$TEST_USERNAME" \
-            -e TEST_PASSWORD="$TEST_PASSWORD" \
-            --format junit \
-            --output maestro-ios-report.xml \
-            maestro/ios-smoke.yaml
+          run_maestro() {
+            MAESTRO_CLI_NO_ANALYTICS=1 maestro test \
+              -e TEST_USERNAME="$TEST_USERNAME" \
+              -e TEST_PASSWORD="$TEST_PASSWORD" \
+              --format junit \
+              --output maestro-ios-report.xml \
+              maestro/ios-smoke.yaml
+          }
+          run_maestro || { echo "::warning::First Maestro attempt failed (likely cold iOS driver startup); retrying once."; sleep 10; run_maestro; }
 
       - name: Upload Maestro artifacts
         if: always()
