@@ -25,7 +25,24 @@ function withSkeleton(LazyCmp: ComponentType, Skeleton: ComponentType): () => Re
   };
 }
 
-// Auth check helpers
+// Auth check helpers. On a hard page load the zustand persist rehydration is
+// asynchronous, so a route guard that reads getState() immediately sees the
+// initial (logged-out) state and bounces — /admin redirected to /login → home
+// even for an authed admin. Guards must await hydration first.
+const authReady = (): Promise<void> => {
+  const p = (
+    useAuthStore as unknown as {
+      persist?: { hasHydrated: () => boolean; onFinishHydration: (cb: () => void) => () => void };
+    }
+  ).persist;
+  if (!p || p.hasHydrated()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const unsub = p.onFinishHydration(() => {
+      unsub();
+      resolve();
+    });
+  });
+};
 const isAuthenticated = () => !!useAuthStore.getState().user;
 const isAdmin = () => useAuthStore.getState().user?.isAdmin || false;
 
@@ -128,6 +145,7 @@ const picksRoute = new Route({
   // Playwright sweep flagged /picks as the odd one out. Match the rest:
   // redirect at the router layer so the login flow is reached in one hop.
   beforeLoad: async () => {
+    await authReady();
     if (!isAuthenticated()) throw redirect({ to: '/login' });
   },
 });
@@ -149,6 +167,7 @@ const wrapRoute = new Route({
   path: '/wrap',
   component: WrapView,
   beforeLoad: async () => {
+    await authReady();
     if (!isAuthenticated()) throw redirect({ to: '/login' });
   },
 });
@@ -178,6 +197,7 @@ const crewRoute = new Route({
   path: '/crew',
   component: CrewView,
   beforeLoad: async () => {
+    await authReady();
     if (!isAuthenticated()) throw redirect({ to: '/login' });
   },
 });
@@ -188,6 +208,7 @@ const crewPlanRoute = new Route({
   path: '/crew-plan',
   component: CrewPlanView,
   beforeLoad: async () => {
+    await authReady();
     if (!isAuthenticated()) throw redirect({ to: '/login' });
   },
 });
@@ -197,6 +218,7 @@ const accountRoute = new Route({
   path: '/account',
   component: AccountPage,
   beforeLoad: async () => {
+    await authReady();
     if (!isAuthenticated()) throw redirect({ to: '/login' });
   },
 });
@@ -208,6 +230,7 @@ const compareRoute = new Route({
   path: '/compare',
   component: CompareView,
   beforeLoad: async () => {
+    await authReady();
     if (!isAuthenticated()) throw redirect({ to: '/login' });
   },
 });
@@ -235,6 +258,7 @@ const adminRoute = new Route({
   path: '/admin',
   component: AdminPanel,
   beforeLoad: async () => {
+    await authReady();
     if (!isAuthenticated()) throw redirect({ to: '/login' });
     if (!isAdmin()) throw redirect({ to: '/' });
   },
