@@ -1,0 +1,15 @@
+{
+  // Shared compiler baseline — extended by root tsconfig.json, packages/web, and packages/shared.
+  // packages/mobile keeps its own "extends": "expo/tsconfig.base" chain and does not use this file.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  }
+}

@@ -131,59 +131,69 @@ env:
           notVisible: "Username"
           timeout: 25000
 - takeScreenshot: 06-account
-# ── Crew + Live Location + SOS (authed; best-effort, needs the account in a crew) ──
+# ── Crew + Live Location + SOS (authed; guarded by the login runFlow above) ──
+# The entire crew walk is wrapped in a runFlow:when guard: if login was skipped
+# (no creds supplied) or the account has no crew, the outer tap on "Crew" won't
+# land on an authed crew screen and the sub-tab taps would hard-fail.
+# P25: the sub-tab taps (crew-tab-plan/money/logistics) are now NON-optional inside
+# the guard — a broken segmented bar will fail loudly instead of silently passing.
+# scrollUntilVisible for "Share my live location"/"Send SOS" remain optional because
+# those controls only appear when the account is a crew member; the non-optional
+# sub-tab navigation already guards against a structurally broken Logistics pane.
 - tapOn:
     text: "Crew"
     optional: true
 - waitForAnimationToEnd:
     timeout: 2500
 - takeScreenshot: 07-crew
-# Crew sub-tabs (Members/Plan/Logistics/Money). Screenshot each to verify the
-# segmented bar + pane controls keep their size (no oversized control on the
-# shorter Plan/Logistics panes) and rows don't overlap the bar.
-- tapOn:
-    id: "crew-tab-plan"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 1500
-- takeScreenshot: 07a-crew-plan
-- tapOn:
-    id: "crew-tab-money"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 1500
-- takeScreenshot: 07b-crew-money
-- tapOn:
-    id: "crew-tab-logistics"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 1500
-- takeScreenshot: 07c-crew-logistics
-# Live location + SOS live in the Logistics tab (now selected above).
-- scrollUntilVisible:
-    element:
-      text: "Share my live location"
-    direction: DOWN
-    timeout: 12000
-    optional: true
-- takeScreenshot: 08-live-location
-- scrollUntilVisible:
-    element:
-      text: "Send SOS"
-    direction: DOWN
-    timeout: 8000
-    optional: true
-- takeScreenshot: 09-sos
-# Open the SOS confirm dialog to prove it guards, then CANCEL (never send).
-- tapOn:
-    text: "Send SOS"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 1500
-- takeScreenshot: 10-sos-confirm-dialog
-- tapOn:
-    text: "Cancel"
-    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "crew-tab-plan"
+    commands:
+      # Crew sub-tabs: non-optional inside the guard (P25).
+      - tapOn:
+          id: "crew-tab-plan"
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - takeScreenshot: 07a-crew-plan
+      - tapOn:
+          id: "crew-tab-money"
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - takeScreenshot: 07b-crew-money
+      - tapOn:
+          id: "crew-tab-logistics"
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - takeScreenshot: 07c-crew-logistics
+      # Live location + SOS live in the Logistics tab (now selected above).
+      # scrollUntilVisible + tapOn remain optional: requires crew membership.
+      # Accepted trade-off until a setup/teardown crew-join step is added.
+      - scrollUntilVisible:
+          element:
+            text: "Share my live location"
+          direction: DOWN
+          timeout: 12000
+          optional: true
+      - takeScreenshot: 08-live-location
+      - scrollUntilVisible:
+          element:
+            text: "Send SOS"
+          direction: DOWN
+          timeout: 8000
+          optional: true
+      - takeScreenshot: 09-sos
+      # Open the SOS confirm dialog to prove it guards, then CANCEL (never send).
+      - tapOn:
+          text: "Send SOS"
+          optional: true
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - takeScreenshot: 10-sos-confirm-dialog
+      - tapOn:
+          text: "Cancel"
+          optional: true
 # ── Remaining tabs ──
 - tapOn:
     text: "Picks"
