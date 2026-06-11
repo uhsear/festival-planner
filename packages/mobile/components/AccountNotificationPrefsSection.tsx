@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Switch, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNotificationPrefsStore, useFestivalStore } from '@festie/shared/stores';
+import { useAuthStore, useNotificationPrefsStore, useFestivalStore } from '@festie/shared/stores';
 import { api } from '@festie/shared/services';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
@@ -28,7 +28,11 @@ function FestivalTopicsRows() {
   const styles = useStyles();
   const t = useTokens();
   const currentFestival = useFestivalStore((s) => s.currentFestival);
-  const festivalId = currentFestival?.id ?? null;
+  // Auth gate: /notifications/topics is an authenticated endpoint, and this
+  // section can be mounted eagerly (NativeTabs pre-renders the Account tab).
+  // A guest fetch here 401s for nothing.
+  const user = useAuthStore((s) => s.user);
+  const festivalId = user ? (currentFestival?.id ?? null) : null;
 
   // Default to ON (subscribed) before the real state loads.
   const [subs, setSubs] = useState<TopicSubscriptions>({ crew: true, schedule: true });
@@ -89,13 +93,19 @@ function FestivalTopicsRows() {
 export default function AccountNotificationPrefsSection() {
   const t = useTokens();
   const styles = useStyles();
+  const user = useAuthStore((s) => s.user);
   const prefs = useNotificationPrefsStore((s) => s.prefs);
   const loadPrefs = useNotificationPrefsStore((s) => s.loadPrefs);
   const updatePrefs = useNotificationPrefsStore((s) => s.updatePrefs);
 
   useEffect(() => {
+    // Auth gate: /notifications/prefs 401s for guests (section can be mounted
+    // eagerly by NativeTabs even when the user never opens Account).
+    if (!user) return;
     loadPrefs().catch(() => {});
-  }, [loadPrefs]);
+  }, [user, loadPrefs]);
+
+  if (!user) return null;
 
   const quietOn = !!prefs.dndStart;
 

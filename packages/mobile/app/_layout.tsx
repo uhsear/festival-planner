@@ -64,6 +64,14 @@ configureApi({
   onUnauthorized: async () => {
     // [festie-diag] temporary: store-wipe investigation.
     console.log('[festie-diag] onUnauthorized fired');
+    // GUEST GUARD: with no session there is nothing to refresh and nothing to
+    // log out. Without this, any guest request that hits an authenticated
+    // endpoint (e.g. an eagerly-mounted account section) 401s, the refresh
+    // 401s too, and logout() -> resetAllStores() wipes the guest's festival
+    // selection — the "festival opens then closes" bug.
+    if (!useAuthStore.getState().userToken) {
+      return false;
+    }
     try {
       await useAuthStore.getState().refreshToken();
       return true;
