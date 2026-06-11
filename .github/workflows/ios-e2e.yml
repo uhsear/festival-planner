@@ -79,7 +79,7 @@ jobs:
             pod install
           fi
 
-      # Discover the workspace + scheme dynamically rather than hardcoding "festie"
+      # Discover the workspace + scheme dynamically rather than hardcoding "Festie"
       # (the Expo scheme/workspace name can change between SDK templates).
       - name: Detect workspace and scheme
         id: xcode
@@ -90,9 +90,15 @@ jobs:
             echo "::error::No .xcworkspace found in packages/mobile/ios after pod install."
             exit 1
           fi
-          # Pick the first non-Pods scheme xcodebuild reports for the workspace.
+          # The workspace bundles the app scheme PLUS Pod-provided helper schemes
+          # (Pods, and — because expo-dev-client is a dep — EASClient). Building
+          # EASClient is wrong: it's the dev-launcher helper, not the app, and it
+          # fails the ExpoModulesJSI xcframework script phase. Prefer the scheme
+          # named after the workspace (the app target Expo generates), then fall
+          # back to the first scheme that is not a known helper.
+          WS_NAME="${WORKSPACE%.xcworkspace}"
           SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json \
-            | python3 -c "import sys, json; s=[x for x in json.load(sys.stdin)['workspace']['schemes'] if x != 'Pods']; print(s[0] if s else '')")
+            | WS_NAME="$WS_NAME" python3 -c "import sys,json,os; ss=json.load(sys.stdin)['workspace']['schemes']; ws=os.environ['WS_NAME']; h={'Pods','EASClient'}; print(ws if ws in ss else next((s for s in ss if s not in h), ''))")
           if [ -z "$SCHEME" ]; then
             echo "::error::Could not determine a build scheme from xcodebuild -list."
             exit 1
