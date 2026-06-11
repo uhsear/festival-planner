@@ -89,7 +89,10 @@ export default function Button({
         <>
           {icon ? <Ionicons name={icon} size={size === 'sm' ? 16 : 18} color={iconColor} style={styles.icon} /> : null}
           <Text style={[styles.label, VARIANT_TEXT[variant](styles)]} numberOfLines={numberOfLines}>
-            {loading ? (loadingLabel ?? label) : label}
+            {/* Trailing NBSP when a leading icon exists: Android under-measures
+                a Text following an icon-font sibling and clips the last glyph;
+                the sacrificial space absorbs the shortfall. */}
+            {(loading ? (loadingLabel ?? label) : label) + (icon ? ' ' : '')}
           </Text>
         </>
       )}

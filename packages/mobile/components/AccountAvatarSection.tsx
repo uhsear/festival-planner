@@ -173,7 +173,10 @@ export default function AccountAvatarSection() {
           accessibilityState={{ disabled: busy !== null }}
         >
           <Ionicons name="cloud-upload-outline" size={18} color={t.colors.accent.aqua} style={styles.btnIcon} />
-          <Text style={styles.btnPrimaryText}>{avatarUrl ? 'Change' : 'Upload'}</Text>
+          {/* Trailing NBSP: Android under-measures a Text that follows an
+              icon-font sibling and clips the last glyph ("Uploa") — the
+              sacrificial space absorbs the shortfall. */}
+          <Text style={styles.btnPrimaryText}>{(avatarUrl ? 'Change' : 'Upload') + ' '}</Text>
         </TouchableOpacity>
 
         {avatarUrl ? (
@@ -187,7 +190,7 @@ export default function AccountAvatarSection() {
             accessibilityState={{ disabled: busy !== null }}
           >
             <Ionicons name="trash-outline" size={18} color={t.colors.text.danger} style={styles.btnIcon} />
-            <Text style={styles.btnGhostText}>Remove</Text>
+            <Text style={styles.btnGhostText}>{'Remove '}</Text>
           </TouchableOpacity>
         ) : null}
       </View>

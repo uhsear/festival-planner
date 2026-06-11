@@ -1,0 +1,43 @@
+appId: us.festie.app
+# Repro probe: does opening the Account tab drop the session?
+---
+- clearState
+- launchApp
+# Fresh install state → intro → skip
+- runFlow:
+    when:
+      visible: 'Skip'
+    commands:
+      - tapOn: 'Skip'
+# Reach login via the Account tab gate
+- tapOn:
+    id: 'tab-account'
+    optional: true
+- runFlow:
+    when:
+      notVisible: 'Sign in to your account'
+    commands:
+      - tapOn: 'Account'
+- assertVisible: 'Sign in to your account'
+- tapOn: 'Username'
+- inputText: 'asir'
+- hideKeyboard
+- tapOn: 'Password'
+- inputText: 'REDACTED-CREDENTIAL-ROTATED'
+- hideKeyboard
+- tapOn: 'Sign in'
+- extendedWaitUntil:
+    notVisible: 'Sign in to your account'
+    timeout: 20000
+- tapOn: 'Account'
+- extendedWaitUntil:
+    visible: 'Settings & preferences'
+    timeout: 20000
+- takeScreenshot: as1-account-loaded
+# Linger — let every Account section fetch settle; then confirm still authed
+- waitForAnimationToEnd
+- assertVisible: 'Settings & preferences'
+- swipe:
+    direction: UP
+- takeScreenshot: as2-account-scrolled
+- assertNotVisible: 'Sign in to your account'
