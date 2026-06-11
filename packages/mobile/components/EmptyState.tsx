@@ -83,12 +83,13 @@ const useStyles = makeStyles((t) => ({
     textAlign: 'center',
     fontWeight: '600',
   },
-  // R21: Subtext explains the next step, max-width 280px.
+  // R21: Subtext explains the next step. No fixed maxWidth — container
+  // paddingHorizontal already constrains line length; a literal 280px cap
+  // was causing the final wrapped line to be clipped on narrow screens.
   message: {
     ...typeStyle('body'),
     color: t.colors.text.secondary,
     textAlign: 'center',
-    maxWidth: 280,
   },
   // R21: CTA button — aqua pill per R3 spec (canonical Button).
   // alignSelf + minWidth prevent the pill from collapsing narrower than its

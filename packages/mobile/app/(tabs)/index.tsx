@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   RefreshControl,
+  Platform,
   useWindowDimensions,
   type ListRenderItem,
 } from 'react-native';
@@ -567,6 +568,9 @@ export default function TimelineScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={[styles.filterContent, { paddingHorizontal: hPad }]}
+            // Android-native right-edge fade — signals scrollable overflow without
+            // requiring expo-linear-gradient. No-op on iOS (ignored silently).
+            fadingEdgeLength={Platform.OS === 'android' ? 32 : 0}
           >
             {currentProfile ? (
               // R3 single-accent-fill-per-screen: the SegmentedControl already

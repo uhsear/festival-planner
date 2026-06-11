@@ -983,9 +983,10 @@ const useStyles = makeStyles((t) => ({
   },
   priorityText: {
     // Bumped from the 10px micro role to 12px (caption) for legibility — the
-    // 10px picker labels were too small to read comfortably.
-    ...typeStyle('caption'),
-    fontWeight: '500',
+    // 10px picker labels were too small to read comfortably. Weight 500 is
+    // passed into typeStyle so the correct SpaceGrotesk_500Medium cut is
+    // selected on native (a post-spread fontWeight override is inert there).
+    ...typeStyle('caption', 500),
     color: t.colors.text.muted,
     textAlign: 'center',
   },
