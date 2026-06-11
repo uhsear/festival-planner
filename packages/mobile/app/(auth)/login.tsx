@@ -91,7 +91,7 @@ const useStyles = makeStyles((t) => ({
     // PRIMARY CTA = aqua fill + dark ink per the accent rule (coral is reserved
     // for danger/SOS only). Sign-in is the screen's primary action.
     backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
+    borderRadius: t.radii.pill,
     paddingVertical: t.spacing[3],
     alignItems: 'center' as const,
     marginTop: t.spacing[2],
@@ -249,7 +249,7 @@ export default function LoginScreen() {
 
         <Link href="/(auth)/forgot-password" asChild>
           <TouchableOpacity style={styles.forgotButton} accessibilityRole="link" accessibilityLabel="Forgot password?">
-            <Text style={styles.linkTextAccent}>Forgot password?</Text>
+            <Text style={styles.linkText}>Forgot password?</Text>
           </TouchableOpacity>
         </Link>
 

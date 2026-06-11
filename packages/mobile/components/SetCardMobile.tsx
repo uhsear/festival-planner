@@ -424,7 +424,7 @@ const useStyles = makeStyles((t) => ({
     alignSelf: 'flex-start',
     paddingHorizontal: t.spacing[2],
     paddingVertical: t.spacing[1],
-    borderRadius: t.radii.default,
+    borderRadius: t.radii.pill,
     marginBottom: t.spacing[1],
   },
   stageText: {
