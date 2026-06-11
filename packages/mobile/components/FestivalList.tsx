@@ -276,21 +276,9 @@ export default function FestivalList() {
 
   const handleSelect = useCallback(
     (id: string) => {
-      // [festie-diag] temporary instrumentation for the guest-selection E2E failure
-      console.log('[festie-diag] festival card tapped', id);
-      selectFestival(id)
-        .then(() => {
-          // Read back from the writer module's store copy — if this shows the
-          // festival set while the index screen's render log shows null, the
-          // bundle contains two copies of the shared store module.
-          console.log(
-            '[festie-diag] post-select getState',
-            useFestivalDataStore.getState().currentFestival?.id ?? 'null',
-          );
-        })
-        .catch((e: unknown) => {
-          console.log('[festie-diag] selectFestival rejected', e instanceof Error ? e.message : String(e));
-        });
+      // Failure feedback comes from the store error state (rendered by the
+      // schedule's error empty-state), so the rejection itself is non-fatal.
+      selectFestival(id).catch(() => {});
     },
     [selectFestival],
   );

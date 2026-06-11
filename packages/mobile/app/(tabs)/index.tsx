@@ -434,12 +434,6 @@ export default function TimelineScreen() {
     />
   );
 
-  // [festie-diag] temporary instrumentation for the guest-selection E2E failure
-  console.log(
-    '[festie-diag] index render',
-    JSON.stringify({ hasFestival: !!currentFestival, festivalId: currentFestivalId, isLoading, error: error ?? null }),
-  );
-
   // No festival selected — show the festival selector. FestivalList owns its own
   // loading (skeleton), error, and empty states (F21); the screen no longer
   // pre-empts them with a separate spinner/EmptyState, which produced two
