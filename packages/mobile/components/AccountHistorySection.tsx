@@ -247,9 +247,8 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[1],
   },
   festName: {
-    ...typeStyle('body'),
+    ...typeStyle('body', 600),
     color: t.colors.text.primary,
-    fontWeight: '600',
   },
   festDate: {
     ...typeStyle('caption'),

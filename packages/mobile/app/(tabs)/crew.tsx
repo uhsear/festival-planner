@@ -1201,10 +1201,9 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.aquaAlpha[10],
   },
   overlapTogglePrimaryText: {
-    ...typeStyle('label'),
+    ...typeStyle('label', 700),
     color: t.colors.accent.aqua,
     flex: 1,
-    fontWeight: '700',
   },
   overlapEmpty: {
     ...typeStyle('caption'),
@@ -1324,9 +1323,8 @@ const useStyles = makeStyles((t) => ({
     marginBottom: t.spacing[1],
   },
   countBadgeText: {
-    ...typeStyle('caption'),
+    ...typeStyle('caption', 700),
     color: t.colors.accent.aqua,
-    fontWeight: '700',
   },
   unsettledDot: {
     width: 8,

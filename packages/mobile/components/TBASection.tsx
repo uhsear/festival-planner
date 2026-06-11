@@ -261,9 +261,8 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[1],
   },
   cardArtist: {
-    ...typeStyle('caption'),
+    ...typeStyle('caption', 600),
     color: t.colors.text.primary,
-    fontWeight: '600',
   },
   stageBadge: {
     alignSelf: 'flex-start',
@@ -295,8 +294,7 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[1],
   },
   crewMore: {
-    ...typeStyle('micro'),
+    ...typeStyle('micro', 700),
     color: t.colors.accent.aqua,
-    fontWeight: '700',
   },
 }));

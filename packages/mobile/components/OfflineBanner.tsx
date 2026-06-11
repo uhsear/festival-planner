@@ -226,8 +226,7 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.bg.primary,
   },
   text: {
-    ...typeStyle('caption'),
-    fontWeight: '600',
+    ...typeStyle('caption', 600),
     color: t.colors.bg.primary,
     flex: 1,
   },
@@ -297,8 +296,7 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.aquaAlpha[15],
   },
   retryText: {
-    ...typeStyle('caption'),
-    fontWeight: '700',
+    ...typeStyle('caption', 700),
     color: t.colors.accent.aqua,
   },
   dismissBtn: {

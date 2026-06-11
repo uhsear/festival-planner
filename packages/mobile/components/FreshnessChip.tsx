@@ -115,8 +115,7 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.aquaAlpha[15],
   },
   queuedText: {
-    ...typeStyle('caption'),
+    ...typeStyle('caption', 700),
     color: t.colors.accent.aqua,
-    fontWeight: '700',
   },
 }));

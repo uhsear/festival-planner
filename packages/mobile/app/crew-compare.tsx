@@ -438,9 +438,8 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
   },
   pillText: {
-    ...typeStyle('caption'),
+    ...typeStyle('caption', 700),
     color: t.colors.text.onLightAccent,
-    fontWeight: '700',
   },
   dash: {
     ...typeStyle('body'),

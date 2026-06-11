@@ -111,11 +111,19 @@ export function typeStyle(role: TypeRoleName, weight?: number): TextStyle {
     // final glyph too, so any negative letterSpacing under-measures the line
     // and clips the trailing character ("Add to calenda", "Saturda").
     letterSpacing: Platform.OS === 'ios' ? Math.max(0, r.letterSpacing * r.size) : r.letterSpacing * r.size,
-    fontWeight: String(resolvedWeight) as TextStyle['fontWeight'],
   };
   const family = nativeFontFamily(r.family, clampedWeight);
   if (family) {
+    // The weight-specific family IS the weight on native. Do NOT also set
+    // fontWeight: Android applies synthetic (fake) bold on top of the already
+    // weighted face, drawing glyphs wider than they were measured — clipping
+    // the trailing character ("Uploa", "Of"). iOS ignores it; web never
+    // reaches this code path.
     style.fontFamily = family;
+  } else {
+    // System-font fallback: no weighted family loaded, so the numeric weight
+    // is the only weight signal.
+    style.fontWeight = String(resolvedWeight) as TextStyle['fontWeight'];
   }
   if ('transform' in r && r.transform) {
     style.textTransform = r.transform;

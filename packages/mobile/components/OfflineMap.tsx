@@ -778,9 +778,8 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[1],
   },
   rowLabel: {
-    ...typeStyle('body'),
+    ...typeStyle('body', 600),
     color: t.colors.text.primary,
-    fontWeight: '600',
   },
   rowSub: {
     ...typeStyle('caption'),

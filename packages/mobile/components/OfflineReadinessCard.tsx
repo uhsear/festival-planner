@@ -259,9 +259,8 @@ const useCardStyles = makeStyles((t) => ({
     opacity: 0.7,
   },
   buttonText: {
-    ...typeStyle('micro'),
+    ...typeStyle('micro', 600),
     color: t.colors.text.onLightAccent,
-    fontWeight: '600',
   },
   stepList: {
     marginTop: t.spacing[3],
@@ -318,8 +317,7 @@ const useRowStyles = makeStyles((t) => ({
     color: t.colors.accent.coral,
   },
   retryText: {
-    ...typeStyle('micro'),
+    ...typeStyle('micro', 600),
     color: t.colors.accent.coral,
-    fontWeight: '600',
   },
 }));

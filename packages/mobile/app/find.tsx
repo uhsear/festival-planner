@@ -249,9 +249,8 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[1],
   },
   mpLabel: {
-    ...typeStyle('body'),
+    ...typeStyle('body', 600),
     color: t.colors.text.primary,
-    fontWeight: '600',
   },
   mpSub: {
     ...typeStyle('caption'),
@@ -282,8 +281,7 @@ const useStyles = makeStyles((t) => ({
     elevation: 6,
   },
   sosFabText: {
-    ...typeStyle('label'),
+    ...typeStyle('label', 700),
     color: t.colors.text.onAccent,
-    fontWeight: '700',
   },
 }));

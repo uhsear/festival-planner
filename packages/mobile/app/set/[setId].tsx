@@ -775,7 +775,10 @@ const useStyles = makeStyles((t) => ({
     borderRadius: t.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: t.colors.bg.card,
+    // shade[9] scrim instead of bg.card: these float over the artist photo,
+    // and the translucent card tone vanishes against busy/red imagery. A
+    // constant dark scrim keeps the control legible on any photo.
+    backgroundColor: t.colors.shade[9],
     borderWidth: 1,
     borderColor: t.colors.border.light,
   },
@@ -789,7 +792,10 @@ const useStyles = makeStyles((t) => ({
     borderRadius: t.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: t.colors.bg.card,
+    // shade[9] scrim instead of bg.card: these float over the artist photo,
+    // and the translucent card tone vanishes against busy/red imagery. A
+    // constant dark scrim keeps the control legible on any photo.
+    backgroundColor: t.colors.shade[9],
     borderWidth: 1,
     borderColor: t.colors.border.light,
   },

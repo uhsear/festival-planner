@@ -251,18 +251,16 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[1],
   },
   primaryLine: {
-    ...typeStyle('body'),
+    ...typeStyle('body', 600),
     color: t.colors.text.primary,
-    fontWeight: '600',
   },
   secondaryLine: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
   },
   accentLine: {
-    ...typeStyle('caption'),
+    ...typeStyle('caption', 600),
     color: t.colors.accent.aqua,
-    fontWeight: '600',
   },
   emptyLine: {
     ...typeStyle('caption'),
@@ -291,17 +289,15 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.amberAlpha[12],
   },
   priorityText: {
-    ...typeStyle('caption'),
+    ...typeStyle('caption', 700),
     // Self-consistent amber badge: dark ink on the amber fill (text.onLightAccent
     // #080810 passes AA on #ffb020). Was coral text on an amber fill, which both
     // mixed accents and read poorly.
     color: t.colors.text.onLightAccent,
-    fontWeight: '700',
   },
   pickMember: {
-    ...typeStyle('body'),
+    ...typeStyle('body', 600),
     color: t.colors.text.primary,
-    fontWeight: '600',
     flexShrink: 1,
   },
   pickSet: {

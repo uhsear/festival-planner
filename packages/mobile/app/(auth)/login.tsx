@@ -104,8 +104,10 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.secondary,
   },
   linkTextAccent: {
+    // Re-spread at 600 so the SemiBold cut loads (bare fontWeight fake-bolds
+    // on Android over the weighted base family).
+    ...typeStyle('label', 600),
     color: t.colors.accent.aqua,
-    fontWeight: '600' as const,
   },
 }));
 

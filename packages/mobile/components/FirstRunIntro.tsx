@@ -149,8 +149,11 @@ export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
       >
         {SLIDES.map((slide, i) => (
           <View key={i} style={[styles.slide, { width: screenWidth }]}>
-            {/* Upper region: the slide visual, centered in the top half. */}
-            <View style={styles.hero}>
+            {/* Upper region. The product card (slide 1) anchors high — it has
+                enough visual mass to own the top third. The bare icon slides
+                center in the region instead: a 112px circle pinned to the top
+                of a mostly-empty screen reads as unfinished. */}
+            <View style={[styles.hero, !slide.showProductVisual && styles.heroCentered]}>
               {slide.showProductVisual ? (
                 <ProductVisual />
               ) : (
@@ -225,6 +228,12 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingTop: t.spacing[10],
+  },
+  // Icon slides (2/3): center the small glyph in the hero region; the
+  // top-anchored layout only works when the visual fills the zone (slide 1).
+  heroCentered: {
+    justifyContent: 'center',
+    paddingTop: 0,
   },
   copy: {
     gap: t.spacing[3],
