@@ -1,0 +1,32 @@
+name: Security Audit
+
+# Scheduled dependency audit. This is the BLOCKING owner of `npm audit` — the CI
+# `security` job runs it advisory-only so a new advisory never wedges the push
+# path red, while this workflow still surfaces a real, failing signal daily.
+on:
+  schedule:
+    # 06:00 UTC daily.
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+# Match ci.yml: opt JS actions into the Node 24 runtime ahead of GitHub's
+# 2026-06-16 forced migration.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: npm audit (high+ — failing check)
+        run: npm audit --audit-level=high
