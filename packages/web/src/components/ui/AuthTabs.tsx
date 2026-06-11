@@ -32,7 +32,7 @@ export default function AuthTabs({ active, variant }: AuthTabsProps) {
   const segBase =
     variant === 'pill'
       ? 'flex-1 py-2 px-3 min-h-11 rounded-full text-sm font-semibold text-center inline-flex items-center justify-center'
-      : 'flex-1 py-[var(--space-6)] min-h-11 text-sm text-center inline-flex items-center justify-center';
+      : 'flex-1 py-2.5 min-h-11 text-sm text-center inline-flex items-center justify-center';
 
   const activeSeg = cn(
     'bg-accent-aqua text-[var(--text-on-light-accent)] font-bold cursor-default',
@@ -41,7 +41,7 @@ export default function AuthTabs({ active, variant }: AuthTabsProps) {
   );
 
   const inactiveSeg = cn(
-    variant === 'pill' ? 'bg-transparent' : 'bg-[var(--color-bg-card)]',
+    variant === 'pill' ? 'bg-transparent border border-border' : 'bg-[var(--color-bg-card)]',
     'text-text-secondary hover:text-text-primary cursor-pointer',
     'transition-[background,color,transform] duration-200 ease-[var(--ease-out)]',
     'active:scale-[0.97] motion-reduce:transform-none',

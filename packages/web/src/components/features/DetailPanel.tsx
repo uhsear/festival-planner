@@ -289,10 +289,16 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
           >
             <div>
               <div
-                className="inline-block self-start px-3 py-1 rounded-DEFAULT type-micro mb-3"
-                style={{ background: stageColor + '25', color: stageColor }}
+                className="relative inline-block self-start px-3 py-1 rounded-full type-micro mb-3 overflow-hidden"
+                style={{ color: stageColor }}
               >
-                {stageName}
+                {/* tint layer — safe with any CSS color format (hex, rgb, var()) */}
+                <span
+                  className="absolute inset-0 rounded-full"
+                  style={{ background: stageColor, opacity: 0.15 }}
+                  aria-hidden="true"
+                />
+                <span className="relative">{stageName}</span>
               </div>
 
               <DetailArtistHeader
@@ -312,11 +318,14 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             </div>
 
             {spotifyPreview && (
-              <DetailSpotifySection
-                preview={spotifyPreview}
-                visible={spotifyVisible}
-                onToggle={() => setSpotifyVisible((v) => !v)}
-              />
+              <>
+                <hr className="border-t border-[rgba(255,255,255,0.06)] -mx-7" />
+                <DetailSpotifySection
+                  preview={spotifyPreview}
+                  visible={spotifyVisible}
+                  onToggle={() => setSpotifyVisible((v) => !v)}
+                />
+              </>
             )}
 
             {currentProfile && (
@@ -338,6 +347,8 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
               getOtherPicks={getOtherPicks}
               onSwitch={handleConflictSwitch}
             />
+
+            <hr className="border-t border-[rgba(255,255,255,0.06)] -mx-7" />
 
             {currentProfile ? (
               <>
@@ -378,15 +389,19 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
               </div>
             )}
 
+            <hr className="border-t border-[rgba(255,255,255,0.06)] -mx-7" />
             <DetailCrewSection title={whoTitle} others={others} crewNotes={crewNotes} />
 
             {currentProfile && (
-              <DetailNotesSection
-                personalNote={personalNote}
-                crewNote={crewNote}
-                onPersonalChange={handlePersonalNoteChange}
-                onCrewChange={handleCrewNoteChange}
-              />
+              <>
+                <hr className="border-t border-[rgba(255,255,255,0.06)] -mx-7" />
+                <DetailNotesSection
+                  personalNote={personalNote}
+                  crewNote={crewNote}
+                  onPersonalChange={handlePersonalNoteChange}
+                  onCrewChange={handleCrewNoteChange}
+                />
+              </>
             )}
           </div>
         </Drawer.Content>

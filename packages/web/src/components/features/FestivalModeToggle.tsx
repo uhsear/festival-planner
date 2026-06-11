@@ -46,13 +46,13 @@ export default function FestivalModeToggle() {
       className={cn(
         'relative p-2 rounded-lg transition-[background-color,color,box-shadow] duration-300 min-h-11 min-w-11 flex items-center justify-center',
         isFestivalMode
-          ? 'bg-accent-coral text-bg-primary shadow-lg shadow-accent-coral/50'
+          ? 'bg-accent-aqua text-[var(--text-on-light-accent)] shadow-lg shadow-accent-aqua/50'
           : 'bg-glass text-text-secondary hover:text-text-primary',
       )}
     >
       {isFestivalMode && !prefersReducedMotion && (
         <m.div
-          className="absolute inset-0 rounded-lg bg-accent-coral -z-[1]"
+          className="absolute inset-0 rounded-lg bg-accent-aqua -z-[1]"
           animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.25, 0.6] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
         />

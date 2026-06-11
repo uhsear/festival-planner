@@ -174,7 +174,7 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
           <Navigation className="w-4 h-4 text-accent-aqua" aria-hidden="true" /> Crew status
         </h3>
         {!showForm && (
-          <Button variant="secondary" onClick={() => setShowForm(true)} className="min-h-9 text-xs">
+          <Button variant="outline" onClick={() => setShowForm(true)} className="min-h-9 text-xs">
             {mine ? 'Update mine' : 'On my way…'}
           </Button>
         )}

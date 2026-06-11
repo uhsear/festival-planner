@@ -157,10 +157,10 @@ function WrapPageInner() {
 
   if (!over) {
     return (
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto min-h-[calc(100vh-200px)] flex items-center justify-center">
         <Card padding="lg">
           <EmptyState
-            icon={<Sparkles className="w-12 h-12" aria-hidden="true" />}
+            icon={<Sparkles className="w-12 h-12 text-accent-aqua" aria-hidden="true" />}
             title="Festival wrap coming soon"
             description="We'll put together your highlights the day after the festival ends."
           />

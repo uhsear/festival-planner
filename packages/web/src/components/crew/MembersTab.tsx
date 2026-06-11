@@ -68,7 +68,8 @@ export default function MembersTab({
                     aria-label={`Make ${displayName} the owner`}
                     className="!py-1 !px-2.5 text-xs"
                   >
-                    <Crown className="w-3.5 h-3.5" aria-hidden="true" /> Make owner
+                    <Crown className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span className="hidden sm:inline">Make owner</span>
                   </Button>
                 )}
                 {canKick && (
@@ -78,7 +79,8 @@ export default function MembersTab({
                     aria-label={`Remove ${displayName} from crew`}
                     className="!py-1 !px-2.5 text-xs"
                   >
-                    <UserMinus className="w-3.5 h-3.5" aria-hidden="true" /> Remove
+                    <UserMinus className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span className="hidden sm:inline">Remove</span>
                   </Button>
                 )}
               </div>
