@@ -90,7 +90,9 @@ const useStyles = makeStyles((t) => ({
   },
   card: {
     flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    // Top-align so the chevron tracks the first line of the title, not the
+    // vertical mid-point of a multi-line block (e.g. "North Coast Festival 2026").
+    alignItems: 'flex-start' as const,
     backgroundColor: t.colors.bg.card,
     borderRadius: t.radii.default,
     borderWidth: 1,
@@ -123,7 +125,10 @@ const useStyles = makeStyles((t) => ({
   },
   titleRow: {
     flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    // Top-align so badge and chevron pin to the first line of the title even
+    // when a long festival name wraps to a second line (e.g. "North Coast
+    // Festival 2026"). center-alignment caused them to float at mid-block.
+    alignItems: 'flex-start' as const,
     gap: t.spacing[2],
   },
   festivalName: {

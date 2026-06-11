@@ -569,21 +569,29 @@ export default function TimelineScreen() {
             contentContainerStyle={[styles.filterContent, { paddingHorizontal: hPad }]}
           >
             {currentProfile ? (
+              // R3 single-accent-fill-per-screen: the SegmentedControl already
+              // holds the solid-aqua primary fill. The My picks chip uses the
+              // outlined/tinted secondary variant (aqua border + aqua text on
+              // transparent bg) so two solid aqua fills never appear together.
               <TouchableOpacity
-                style={[styles.filterChip, onlyMine && styles.filterChipActive]}
+                style={[styles.filterChip, onlyMine && styles.filterChipActiveTinted]}
                 onPress={() => setOnlyMine((v) => !v)}
                 activeOpacity={0.7}
                 accessibilityRole="button"
                 accessibilityState={{ selected: onlyMine }}
                 accessibilityLabel="Show only my picks"
               >
-                <Ionicons name="star" size={12} color={onlyMine ? t.colors.text.onLightAccent : t.colors.text.muted} />
-                <Text style={[styles.filterChipText, onlyMine && styles.filterChipTextActive]}>My picks</Text>
+                <Ionicons name="star" size={12} color={onlyMine ? t.colors.accent.aqua : t.colors.text.muted} />
+                <Text style={[styles.filterChipText, onlyMine && styles.filterChipTextTinted]}>My picks</Text>
               </TouchableOpacity>
             ) : null}
             {stages.length > 1
               ? stages.map((st) => {
                   const on = effectiveStages.includes(st.id);
+                  // Stage dots keep their data-driven identity color (matching the
+                  // timeline columns) — the accent rule governs UI accents, not the
+                  // stage palette. Active chips stay neutral; a solid aqua fill per
+                  // chip would flood the screen with accent fills (R3).
                   return (
                     <TouchableOpacity
                       key={st.id}
@@ -661,7 +669,14 @@ export default function TimelineScreen() {
           accessibilityState={{ expanded: searchOpen }}
           accessibilityLabel={searchOpen ? 'Hide search' : 'Search the lineup'}
         >
-          <Ionicons name="search" size={18} color={searchOpen ? t.colors.accent.aqua : t.colors.text.secondary} />
+          {/* When the search bar is open a search icon inside the field already
+              serves as the affordance — switch the header trigger to a close icon
+              so the two search icons don't appear simultaneously on screen. */}
+          <Ionicons
+            name={searchOpen ? 'close' : 'search'}
+            size={18}
+            color={searchOpen ? t.colors.accent.aqua : t.colors.text.secondary}
+          />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.toggleButton, filtersOpen && styles.toggleButtonActive]}
@@ -838,7 +853,10 @@ const useStyles = makeStyles((t) => ({
     paddingVertical: t.spacing[2],
     borderRadius: t.radii.default,
     borderWidth: 1,
-    borderColor: t.colors.border.default,
+    // border.light (0.10 alpha) instead of border.default (0.06) so the field
+    // reads as an interactive text input and is not confused with the card
+    // surfaces (same #1a1a1a bg) that lack a distinguishing border.
+    borderColor: t.colors.border.light,
     backgroundColor: t.colors.bg.secondary,
   },
   searchIcon: {
@@ -917,6 +935,15 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.accent.aqua,
     borderColor: t.colors.accent.aqua,
   },
+  // R3 outlined-secondary variant for the "My picks" chip. The SegmentedControl
+  // already holds the solid-aqua primary fill; a second solid aqua fill (the
+  // old filterChipActive) violates the single-accent-fill-per-screen rule.
+  // Outlined tint (aqua border + tinted bg, no solid fill) is the correct
+  // secondary treatment for a non-primary toggle alongside a primary control.
+  filterChipActiveTinted: {
+    backgroundColor: t.colors.aquaAlpha[12],
+    borderColor: t.colors.aquaAlpha[70],
+  },
   // Inactive (filtered-out) stage chip. A deselected chip is still interactive
   // (tap to re-enable), so it must NOT read as a disabled control. Instead of
   // opacity — which screen readers can't perceive and which dropped the muted
@@ -933,6 +960,10 @@ const useStyles = makeStyles((t) => ({
   },
   filterChipTextActive: {
     color: t.colors.text.onLightAccent,
+  },
+  // Companion text style for the outlined-tinted chip variant (My picks).
+  filterChipTextTinted: {
+    color: t.colors.accent.aqua,
   },
   filterChipTextOff: {
     color: t.colors.text.secondary,

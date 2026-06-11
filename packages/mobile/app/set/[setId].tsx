@@ -534,7 +534,7 @@ export default function SetDetailScreen() {
               accessibilityState={{ expanded: spotifyOpen }}
               accessibilityLabel={spotifyOpen ? `Hide preview: ${spotifyLabel}` : `Play preview: ${spotifyLabel}`}
             >
-              <Ionicons name="musical-note" size={16} color={t.colors.spotify.brand} />
+              <Ionicons name="musical-note" size={16} color={t.colors.accent.aqua} />
               <Text style={styles.spotifyText} numberOfLines={1}>
                 {spotifyLabel}
               </Text>
@@ -726,6 +726,7 @@ export default function SetDetailScreen() {
               multiline
               accessibilityLabel="Personal note"
             />
+            <View style={styles.noteDivider} />
             <Text style={styles.sectionLabel}>Crew note</Text>
             <TextInput
               style={styles.noteInput}
@@ -818,12 +819,15 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[3],
   },
   // R15: container clips the overlay Views to the rounded image corners.
-  // position:relative + overflow:hidden is the RN pattern for this.
+  // position:relative + overflow:hidden is the RN pattern for this. Negative
+  // horizontal margins achieve full-bleed: the parent content has padding
+  // (t.spacing[5]) that would shrink the image, so we pull the container out
+  // to the edges.
   artistPhotoContainer: {
-    width: '100%',
     height: 200,
     borderRadius: t.radii.default,
     marginBottom: t.spacing[3],
+    marginHorizontal: -t.spacing[5],
     overflow: 'hidden',
     backgroundColor: t.colors.bg.secondary,
   },
@@ -849,7 +853,7 @@ const useStyles = makeStyles((t) => ({
     alignSelf: 'flex-start',
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[1],
-    borderRadius: t.radii.default,
+    borderRadius: t.radii.pill,
   },
   stageText: {
     ...typeStyle('micro'),
@@ -912,7 +916,7 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[2],
     paddingHorizontal: t.spacing[4],
     paddingVertical: t.spacing[3],
-    borderRadius: t.radii.default,
+    borderRadius: t.radii.pill,
     borderWidth: 1,
     borderColor: t.colors.border.light,
     backgroundColor: t.colors.bg.card,
@@ -958,7 +962,7 @@ const useStyles = makeStyles((t) => ({
     justifyContent: 'center',
     paddingHorizontal: t.spacing[4],
     paddingVertical: t.spacing[2],
-    borderRadius: t.radii.default,
+    borderRadius: t.radii.pill,
     backgroundColor: t.colors.overlay[3],
     borderWidth: 1,
     borderColor: t.colors.border.light,
@@ -972,7 +976,7 @@ const useStyles = makeStyles((t) => ({
     // WCAG 2.5.5 / 2.5.8 minimum 44pt touch target.
     minHeight: 44,
     paddingVertical: t.spacing[3],
-    borderRadius: t.radii.default,
+    borderRadius: t.radii.pill,
     backgroundColor: t.colors.overlay[3],
     borderWidth: 1,
     borderColor: t.colors.border.light,
@@ -1056,5 +1060,12 @@ const useStyles = makeStyles((t) => ({
     borderColor: t.colors.border.default,
     backgroundColor: t.colors.bg.input,
     textAlignVertical: 'top',
+  },
+  // R2 hairline divider between personal and crew note sections for visual
+  // separation (rgba(255,255,255,0.08) matches the glass border token).
+  noteDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: t.spacing[3],
   },
 }));

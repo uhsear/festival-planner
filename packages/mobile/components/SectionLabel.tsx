@@ -32,6 +32,7 @@ const useStyles = makeStyles((t) => ({
     letterSpacing: t.fontSize[12] * t.letterSpacing.caps,
     textTransform: 'uppercase',
     color: t.colors.text.secondary,
+    marginTop: t.spacing[3],
     marginBottom: t.spacing[1],
   },
   muted: {

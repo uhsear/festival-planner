@@ -148,7 +148,7 @@ export default function AccountHistorySection() {
                 <Text style={styles.festMeta}>
                   {f.totalRated} rated
                   {f.avgRating != null ? ` · ${f.avgRating.toFixed(1)}★` : ''}
-                  {` · ${f.stagesVisited} stages · ${f.daysAttended} days · ${(f.totalHours ?? 0).toFixed(1)}h`}
+                  {` · ${f.stagesVisited} ${f.stagesVisited === 1 ? 'stage' : 'stages'} · ${f.daysAttended} ${f.daysAttended === 1 ? 'day' : 'days'} · ${(f.totalHours ?? 0).toFixed(1)}h`}
                 </Text>
               </View>
             );
@@ -165,7 +165,9 @@ export default function AccountHistorySection() {
               <Text style={styles.artistName} numberOfLines={1}>
                 {a.artist}
               </Text>
-              <Text style={styles.artistMeta}>{a.timesRated > 1 ? `${a.timesRated}×` : `${a.bestRating}★`}</Text>
+              <Text style={styles.artistMeta}>
+                {a.bestRating}★ · {a.timesRated}×
+              </Text>
             </View>
           ))}
         </View>

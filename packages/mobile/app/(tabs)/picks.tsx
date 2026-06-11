@@ -479,7 +479,7 @@ export default function PicksScreen() {
   } else if (!currentProfile) {
     body = (
       <EmptyState
-        icon="person-add-outline"
+        icon="musical-note-outline"
         title="Join this festival first"
         message="Open the Schedule tab and join the festival to start saving picks."
         action={{ label: 'Go to Schedule', onPress: () => router.navigate('/(tabs)/') }}
