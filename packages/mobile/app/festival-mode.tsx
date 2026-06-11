@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -77,31 +77,41 @@ export default function FestivalModeScreen() {
             <Text style={styles.clock}>{fmtClock(now)}</Text>
           </View>
 
-          {/* NOW */}
-          <View style={styles.sectionHead}>
-            <LiveDot label="NOW" />
+          {/* NOW — R8: nowGlowWrap adds the radial aqua glow overlay via two
+              nested Views (expo-linear-gradient is not in package.json, so we
+              approximate the radial using concentric circular Views at low
+              opacity). useReduceMotion is not needed here — no animation is
+              used, just static opacity layers. */}
+          <View style={glowStyles.nowGlowWrap}>
+            {/* Outer glow ring */}
+            <View style={glowStyles.glowOuter} pointerEvents="none" />
+            {/* Inner core */}
+            <View style={glowStyles.glowInner} pointerEvents="none" />
+            <View style={styles.sectionHead}>
+              <LiveDot label="NOW" />
+            </View>
+            {current.length > 0 ? (
+              current.map(({ set: s, end }) => {
+                const stageName = getStageName(s.stageId) || '';
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[styles.card, styles.nowCard]}
+                    onPress={() => router.push(`/set/${s.id}`)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${artistDisplayName(s, currentFestival.b2bSeparator)} playing now, open details`}
+                  >
+                    <Text style={styles.artist}>{artistDisplayName(s, currentFestival.b2bSeparator)}</Text>
+                    {stageName ? <Text style={styles.stage}>{stageName}</Text> : null}
+                    <Text style={styles.untilText}>until {fmtClock(new Date(end))}</Text>
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <Text style={styles.empty}>Nothing playing right now — your next set will show up below.</Text>
+            )}
           </View>
-          {current.length > 0 ? (
-            current.map(({ set: s, end }) => {
-              const stageName = getStageName(s.stageId) || '';
-              return (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[styles.card, styles.nowCard]}
-                  onPress={() => router.push(`/set/${s.id}`)}
-                  activeOpacity={0.85}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${artistDisplayName(s, currentFestival.b2bSeparator)} playing now, open details`}
-                >
-                  <Text style={styles.artist}>{artistDisplayName(s, currentFestival.b2bSeparator)}</Text>
-                  {stageName ? <Text style={styles.stage}>{stageName}</Text> : null}
-                  <Text style={styles.untilText}>until {fmtClock(new Date(end))}</Text>
-                </TouchableOpacity>
-              );
-            })
-          ) : (
-            <Text style={styles.empty}>Nothing playing right now — your next set will show up below.</Text>
-          )}
 
           {/* UP NEXT */}
           <View style={styles.sectionHead}>
@@ -233,3 +243,37 @@ const useStyles = makeStyles((t) => ({
     paddingVertical: t.spacing[2],
   },
 }));
+
+// R8: static radial-ish glow overlay for the NOW section. expo-linear-gradient
+// is absent from package.json, so we approximate the aqua radial using two
+// concentric absolutely-positioned circular Views with aqua background at low
+// opacity. No animation — purely static colour layers; no reduce-motion gate
+// needed. Outer: 200px radius, 11% opacity. Inner: 80px radius, 14% opacity.
+// Both sit at z-index 0; content is already laid out above them in the tree.
+const glowStyles = StyleSheet.create({
+  nowGlowWrap: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 12,
+  },
+  glowOuter: {
+    position: 'absolute',
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    top: -100,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 232, 208, 0.11)',
+    zIndex: 0,
+  },
+  glowInner: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    top: -40,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 232, 208, 0.14)',
+    zIndex: 0,
+  },
+});

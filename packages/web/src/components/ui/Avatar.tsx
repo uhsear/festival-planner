@@ -57,18 +57,12 @@ export default function Avatar({
           height={sizePx[size]}
           loading="lazy"
           decoding="async"
-          className={cn(
-            'rounded-full object-cover',
-            sizeMap[size]
-          )}
+          className={cn('rounded-full object-cover', sizeMap[size])}
         />
       ) : (
         <div
           style={{ backgroundColor: bgColor }}
-          className={cn(
-            'rounded-full flex-center font-semibold text-white',
-            sizeMap[size]
-          )}
+          className={cn('rounded-full flex-center font-semibold text-white', sizeMap[size])}
         >
           {initials}
         </div>
@@ -79,7 +73,9 @@ export default function Avatar({
           className={cn(
             'absolute bottom-0 right-0 rounded-full border-2 border-bg-primary',
             dotSizeMap[size],
-            isOnline ? 'bg-accent-green' : 'bg-text-muted'
+            // R6: ONLINE → aqua dot (#00e8d0); OFFLINE → muted neutral.
+            // No greens — accent rule: aqua = primary/positive, green retired.
+            isOnline ? 'bg-accent-aqua' : 'bg-text-muted',
           )}
         />
       )}

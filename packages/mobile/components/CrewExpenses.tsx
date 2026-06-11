@@ -811,7 +811,8 @@ const useStyles = makeStyles((t) => ({
     paddingVertical: t.spacing[3],
     borderRadius: t.radii.default,
     borderWidth: 1,
-    borderColor: t.colors.border.light,
+    // R2 hairline: neutral white 0.08 separator (was border.light 0.1).
+    borderColor: t.colors.glass.border,
     backgroundColor: t.colors.bg.secondary,
   },
   expenseEmoji: {

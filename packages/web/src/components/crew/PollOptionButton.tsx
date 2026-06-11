@@ -35,7 +35,7 @@ export default function PollOptionButton({
           ? 'border-2 border-accent-aqua'
           : isWinning
             ? 'border-2 border-dashed border-accent-aqua/60'
-            : 'border border-border hover:border-border-light',
+            : 'border border-glass-border hover:border-aqua-a12',
       )}
     >
       <div

@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
 import { LayoutGrid, AlignLeft, Columns3 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -30,6 +31,28 @@ export default function ScheduleViewSwitcher() {
 
   const activeKey = location.pathname === '/' ? '/cards' : location.pathname;
 
+  // R13: sliding underline indicator. Measure the active tab and drive the
+  // underline's translateX/width via CSS custom properties — the .tab-underline
+  // element transitions transform + width (200ms standard easing). Measured in
+  // useLayoutEffect (pre-paint, no flash) on active-tab change AND on resize so
+  // it stays aligned. transform/width transitions are reduced-motion-safe via
+  // the global prefers-reduced-motion block.
+  const tabBarRef = useRef<HTMLDivElement | null>(null);
+  const [indicator, setIndicator] = useState<{ x: number; w: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const bar = tabBarRef.current;
+    if (!bar) return;
+    const measure = () => {
+      const active = bar.querySelector<HTMLButtonElement>('[aria-selected="true"]');
+      if (!active) return;
+      setIndicator({ x: active.offsetLeft, w: active.offsetWidth });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [activeKey]);
+
   return (
     <div
       className={cn(
@@ -40,7 +63,7 @@ export default function ScheduleViewSwitcher() {
       role="tablist"
       aria-label="Schedule view"
     >
-      <div className="flex gap-1 p-1 rounded-full bg-bg-secondary">
+      <div ref={tabBarRef} className="relative flex gap-1 p-1 rounded-full bg-bg-secondary">
         {VIEWS.map(({ key, label, Icon }) => {
           const active = key === activeKey;
           return (
@@ -67,6 +90,18 @@ export default function ScheduleViewSwitcher() {
             </button>
           );
         })}
+        {indicator && (
+          <span
+            className="tab-underline"
+            aria-hidden="true"
+            style={
+              {
+                '--tab-x': `${indicator.x}px`,
+                '--tab-w': `${indicator.w}px`,
+              } as CSSProperties
+            }
+          />
+        )}
       </div>
     </div>
   );

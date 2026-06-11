@@ -53,7 +53,7 @@ export default function MembersTab({
             return (
               <div
                 key={m.userId}
-                className="py-2 px-2.5 rounded-md bg-bg-card border border-border flex items-center gap-2.5 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none"
+                className="crew-member-row relative py-2 px-2.5 rounded-md bg-bg-card border border-glass-border flex items-center gap-2.5 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none"
               >
                 <Avatar name={displayName} size="sm" />
                 <div className="flex-1 min-w-0">

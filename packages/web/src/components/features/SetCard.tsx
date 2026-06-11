@@ -106,6 +106,8 @@ function SetCard({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioListenersRef = useRef<{ ended: () => void; error: () => void } | null>(null);
   const setStatus = useSetStatus(set);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [spotlightPos, setSpotlightPos] = useState({ x: '50%', y: '50%' });
 
   // Cleanup audio element and its event listeners on unmount to prevent leaks.
   useEffect(() => {
@@ -123,6 +125,24 @@ function SetCard({
       }
     };
   }, []);
+
+  // R12: Spotlight hover effect — mousemove listener updates CSS vars
+  // for radial gradient spotlight. Desktop-only via @media (hover: hover).
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setSpotlightPos({
+      x: `${x}px`,
+      y: `${y}px`,
+    });
+  };
+
+  const handleMouseLeave = () => {
+    // Reset to center on leave (will fade out via CSS transition)
+    setSpotlightPos({ x: '50%', y: '50%' });
+  };
 
   const myPick = getMyPick(set.id);
   const myNote = getMyNote(set.id);
@@ -235,24 +255,27 @@ function SetCard({
 
   return (
     <div
+      ref={cardRef}
       className={cn(
         // Keep CSS class names for container query selectors (Phase 4 cleanup)
         'set-card',
         // Base styles — mobile glass card with an unconditional stage-colored
         // left border (color set inline below). Softer radius + density.
-        'relative bg-bg-card glass-xs border border-border rounded-xl',
+        'relative bg-bg-card glass-xs border border-glass-border rounded-xl',
         'p-4 cursor-pointer overflow-hidden',
         'border-l-4',
         // Transition + will-change — token-eased, reduce-motion safe.
         'transition-[background-color,box-shadow,transform] duration-200 ease-out will-change-transform',
         'motion-reduce:transition-none motion-reduce:transform-none',
         // Hover — gentle lift + surface shift + light glow (no heavy drop shadow).
+        // R12: Aqua spotlight effect with 200ms ease-out transition.
         'hover:bg-bg-card-hover hover:-translate-y-0.5',
-        'hover:shadow-[0_0_0_1px_var(--color-overlay-2)]',
-        // ::after subtle aqua sheen on hover only (much lighter than before).
-        'after:content-[""] after:absolute after:inset-[-1px] after:rounded-[inherit]',
+        'hover:shadow-[0_0_12px_rgba(0,232,208,0.25),0_0_1px_rgba(0,232,208,0.4)]',
+        'transition-shadow duration-200 ease-out',
+        // R12: Radial spotlight gradient via ::after pseudo-element.
+        'after:content-[""] after:absolute after:inset-0 after:rounded-[inherit]',
         'after:opacity-0 after:transition-opacity after:duration-200 after:pointer-events-none',
-        'after:bg-[linear-gradient(135deg,var(--color-aqua-a06)_0%,transparent_60%)]',
+        'after:pointer-events-none',
         'hover:after:opacity-100',
         // Priority variants — lighter, static glow (no infinite pulse for list perf).
         pri === 'must' && ['priority-must', 'shadow-[var(--shadow-glow-coral)]'],
@@ -261,9 +284,18 @@ function SetCard({
         // Conflict marker class (for tests + potential styling)
         hasConflict && 'has-conflict',
       )}
-      style={{ borderLeftColor: ensureWhiteContrast(stageColor) }}
+      style={
+        {
+          borderLeftColor: ensureWhiteContrast(stageColor),
+          // R12: CSS vars for radial spotlight gradient
+          '--mx': spotlightPos.x,
+          '--my': spotlightPos.y,
+        } as React.CSSProperties
+      }
       data-testid="set-card"
       data-artist={artistName}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Click/keyboard target — positioned absolute to fill the card so the
           outer div can stay non-interactive (avoids nested-interactive axe

@@ -35,7 +35,7 @@ export default function ExpenseItem({
   isRemoving,
 }: ExpenseItemProps) {
   return (
-    <div className="p-3 rounded-lg bg-bg-card border border-border flex items-start gap-3 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none">
+    <div className="p-3 rounded-lg bg-bg-card border border-glass-border flex items-start gap-3 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none">
       <span className="text-xl leading-none" aria-hidden="true">
         {category.emoji}
       </span>

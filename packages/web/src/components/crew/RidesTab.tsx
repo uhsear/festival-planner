@@ -101,7 +101,7 @@ export default function RidesTab({ crewId, currentUserId, isOwner }: Props) {
           <Plus className="w-4 h-4" aria-hidden="true" /> Post a ride
         </Button>
       ) : (
-        <form onSubmit={submit} className="p-3 rounded-lg bg-bg-card border border-border space-y-3">
+        <form onSubmit={submit} className="p-3 rounded-lg bg-bg-card border border-glass-border space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-text-primary">New ride</h3>
             <IconButton label="Cancel" icon={<X className="w-5 h-5" />} onClick={reset} />

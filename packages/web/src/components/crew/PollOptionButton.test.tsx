@@ -58,9 +58,10 @@ describe('PollOptionButton', () => {
     expect(screen.getByRole('button').className).toContain('border-accent-aqua');
   });
 
-  it('applies normal border when not selected', () => {
+  it('applies neutral hairline border when not selected', () => {
     render(<PollOptionButton {...defaultProps} />);
-    expect(screen.getByRole('button').className).toContain('border-border');
+    // R2: neutral white-0.08 hairline (border-glass-border) replaced border-border.
+    expect(screen.getByRole('button').className).toContain('border-glass-border');
   });
 
   it('renders check icon when isMine', () => {

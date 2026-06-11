@@ -108,7 +108,11 @@ function FestivalModeViewInner() {
         </div>
       </div>
 
-      <section className="mb-5" aria-labelledby="fm-now-title">
+      {/* R8: fm-now-hero applies a radial aqua ::before glow + slow aurora
+          keyframe. Reduced-motion: the aurora animation is collapsed to 0.01ms
+          by the global @media(prefers-reduced-motion) block in animations.css;
+          the static radial gradient (non-motion) remains visible. */}
+      <section className="fm-now-hero mb-5 rounded-xl" aria-labelledby="fm-now-title">
         <h2 id="fm-now-title" className="type-micro text-text-secondary mb-2 leading-[1.15]">
           <span className="fm-live-dot motion-reduce:after:animate-none" aria-hidden="true" /> NOW
         </h2>

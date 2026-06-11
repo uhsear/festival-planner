@@ -22,6 +22,19 @@
   backdrop-filter: blur(8px);
 }
 
+/* R4 (design-inspiration-deep-2026-06-10): Glassmorphic set-detail surface.
+   rgba(29,29,29,0.82) + blur(20px) + 1px rgba(255,255,255,0.08) border +
+   inset 1px top highlight (the glass edge). Used on DetailPanel Drawer.Content.
+   The scrim (Drawer.Overlay) uses rgba(0,0,0,0.6) — set at the call site.
+   Border-radius: 24px top corners on mobile (default), 16px on lg (dialog). */
+@utility detail-glass {
+  background-color: rgba(29, 29, 29, 0.82);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
 @utility crew-poll-bar {
   animation: crew-bar-fill 420ms var(--ease-out, ease-out) both;
 }
@@ -161,16 +174,49 @@
   }
 }
 
+/* R7 (design-inspiration-deep-2026-06-10): surface-palette shimmer — #1a1a1a
+   base with #2a2a2a highlight matches the 5-step neutral scale. 1.4s linear. */
 @utility skeleton-shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.1) 50%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
+  background: linear-gradient(90deg, #1a1a1a 0%, #2a2a2a 40%, #1a1a1a 100%);
   background-size: 200% 100%;
-  animation: skeleton-loading 1.5s infinite;
+  animation: skeleton-loading 1.4s linear infinite;
   border-radius: 0.5rem;
+}
+
+/* R7: 150ms fade-out on data arrival. Add to the skeleton wrapper, then remove
+   the element after the transition ends (transitionend or 150ms setTimeout). */
+@utility skeleton-dismiss {
+  transition: opacity 150ms linear;
+  opacity: 0;
+}
+
+/* R12 (design-inspiration-deep-2026-06-10): Aqua spotlight hover on schedule
+   and crew cards. Radial gradient spotlight follows mousemove via CSS vars
+   --mx and --my. Desktop-only via @media (hover: hover). Applied to ::after
+   pseudo-element; set opacity via JavaScript state on hover. Box-shadow glow
+   is 0 0 12px rgba(0,232,208,0.25), 0 0 1px rgba(0,232,208,0.4) with 200ms
+   ease-out transition. */
+.set-card::after {
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(0, 232, 208, 0.08) 0%, transparent 60%);
+}
+
+@media (hover: hover) {
+  .crew-member-row::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-accent-aqua);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 200ms ease-out;
+  }
+
+  .crew-member-row:hover::before {
+    transform: scaleY(1);
+  }
 }
 
 /* ── Stagelight type roles ───────────────────────────────────────────────
@@ -405,6 +451,11 @@
   --color-aqua-a2: rgba(0, 232, 208, 0.2);
   --color-aqua-a25: rgba(0, 232, 208, 0.25);
   --color-aqua-a3: rgba(0, 232, 208, 0.3);
+  /* R3 outline-secondary border: 0.4 resting, 0.7 active. (Web buttons use the
+     accent-aqua/40 opacity util; these mirror the colors.ts aquaAlpha additions
+     that mobile consumes as literals.) */
+  --color-aqua-a4: rgba(0, 232, 208, 0.4);
+  --color-aqua-a7: rgba(0, 232, 208, 0.7);
 
   /* Coral alpha scale (coral-ring at 0.15 lives in the focus-ring block). */
   --color-coral-a3: rgba(255, 51, 102, 0.3);

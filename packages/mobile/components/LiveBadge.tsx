@@ -12,6 +12,12 @@ interface LiveBadgeProps {
  * the time-sensitive states only (live / soon / upcoming); other statuses
  * return null since the card already shows the start–end time. The "live" dot
  * is static (no per-card animation) to stay light inside long scrolling lists.
+ *
+ * R6: 9999px radius, 3px/10px padding, 11px Space Grotesk 500, 0.04em tracking.
+ * Color assignments:
+ *   live     → coralStrong fill + onLightAccent ink (AA ~6.04:1, sole coral exception)
+ *   soon     → aqua fill + onLightAccent dark ink (R6 NOW PLAYING, AA)
+ *   upcoming → transparent + 1px aqua/40% border + aqua text (R6 UP NEXT)
  */
 export default function LiveBadge({ status, label }: LiveBadgeProps) {
   const styles = useStyles();
@@ -20,7 +26,9 @@ export default function LiveBadge({ status, label }: LiveBadgeProps) {
     return (
       <View style={[styles.pill, styles.livePill]} accessibilityRole="text" accessibilityLabel="Live">
         <View style={styles.liveDot} />
-        <Text style={styles.liveText}>{label}</Text>
+        <Text style={styles.liveText} maxFontSizeMultiplier={1.2}>
+          {label}
+        </Text>
       </View>
     );
   }
@@ -29,7 +37,9 @@ export default function LiveBadge({ status, label }: LiveBadgeProps) {
     return (
       <View style={[styles.pill, styles.soonPill]} accessibilityRole="text" accessibilityLabel="Starting soon">
         <View style={styles.soonDot} />
-        <Text style={styles.soonText}>{label}</Text>
+        <Text style={styles.soonText} maxFontSizeMultiplier={1.2}>
+          {label}
+        </Text>
       </View>
     );
   }
@@ -37,7 +47,9 @@ export default function LiveBadge({ status, label }: LiveBadgeProps) {
   if (status === 'upcoming') {
     return (
       <View style={[styles.pill, styles.upcomingPill]} accessibilityRole="text" accessibilityLabel={label}>
-        <Text style={styles.upcomingText}>{label}</Text>
+        <Text style={styles.upcomingText} maxFontSizeMultiplier={1.2}>
+          {label}
+        </Text>
       </View>
     );
   }
@@ -45,52 +57,63 @@ export default function LiveBadge({ status, label }: LiveBadgeProps) {
   return null;
 }
 
+// R6 shared text style: Space Grotesk 500, micro size, 0.04em tracking, uppercase.
+// typeStyle('micro', 500) resolves to SpaceGrotesk_500Medium on native.
+// letterSpacing is overridden to 0.04em (spec) from micro's default 0.08em (caps).
+const _pillText = typeStyle('micro', 500);
+const PILL_TEXT_BASE = {
+  ..._pillText,
+  textTransform: 'uppercase' as const,
+  letterSpacing: (_pillText.fontSize ?? 10) * 0.04,
+};
+
 const useStyles = makeStyles((t) => ({
+  // R6 base: 9999px radius, 3px vertical / 10px horizontal padding.
   pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     gap: t.spacing[1],
-    paddingHorizontal: t.spacing[2],
-    paddingVertical: t.spacing[1],
-    borderRadius: t.radii.pill,
+    borderRadius: 9999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
   },
+  // Live: coralStrong fill, onLightAccent (dark ink) text — AA ~6.04:1.
+  // Deliberate danger-accent exception; not a CTA.
   livePill: {
-    // Deepened coral (coralStrong, ~6.04:1 vs the white micro label) clears WCAG
-    // AA; plain accent.coral only reaches ~3.55:1. Mirrors the CrewSos pattern.
     backgroundColor: t.colors.accent.coralStrong,
   },
   liveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: t.colors.text.onAccent,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: t.colors.text.onLightAccent,
   },
   liveText: {
-    ...typeStyle('micro'),
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    color: t.colors.text.onAccent,
+    ...PILL_TEXT_BASE,
+    color: t.colors.text.onLightAccent,
   },
+  // R6 NOW PLAYING (soon): aqua fill + onLightAccent dark ink. AA.
   soonPill: {
-    backgroundColor: t.colors.amberAlpha[20],
+    backgroundColor: t.colors.accent.aqua,
   },
   soonDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: t.colors.accent.amber,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: t.colors.text.onLightAccent,
   },
   soonText: {
-    ...typeStyle('micro'),
-    fontWeight: '700',
-    color: t.colors.accent.amber,
+    ...PILL_TEXT_BASE,
+    color: t.colors.text.onLightAccent,
   },
+  // R6 UP NEXT (upcoming): transparent + 1px aqua/40% border + aqua text.
   upcomingPill: {
-    backgroundColor: t.colors.ring.aqua,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 232, 208, 0.4)',
   },
   upcomingText: {
-    ...typeStyle('micro'),
-    fontWeight: '700',
+    ...PILL_TEXT_BASE,
     color: t.colors.accent.aqua,
   },
 }));

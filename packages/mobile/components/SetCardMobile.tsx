@@ -403,7 +403,8 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.bg.card,
     borderRadius: t.radii.default,
     borderWidth: 1,
-    borderColor: t.colors.border.default,
+    // R2 hairline: neutral white 0.08 separator (was border.default 0.06).
+    borderColor: t.colors.glass.border,
     borderLeftWidth: 4,
     padding: t.spacing[4],
     gap: t.spacing[1],

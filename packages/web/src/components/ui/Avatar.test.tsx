@@ -78,17 +78,14 @@ describe('Avatar', () => {
     });
 
     it('shows online dot when showOnline is true and isOnline is true', () => {
-      const { container } = render(
-        <Avatar name="Jane" showOnline isOnline />,
-      );
-      const dot = container.querySelector('.bg-accent-green');
+      const { container } = render(<Avatar name="Jane" showOnline isOnline />);
+      // R6: online dot is aqua, not green — accent rule: aqua = primary/positive.
+      const dot = container.querySelector('.bg-accent-aqua');
       expect(dot).toBeInTheDocument();
     });
 
     it('shows offline dot when showOnline is true and isOnline is false', () => {
-      const { container } = render(
-        <Avatar name="Jane" showOnline isOnline={false} />,
-      );
+      const { container } = render(<Avatar name="Jane" showOnline isOnline={false} />);
       const dot = container.querySelector('.bg-text-muted');
       expect(dot).toBeInTheDocument();
     });
