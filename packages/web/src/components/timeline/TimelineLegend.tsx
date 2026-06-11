@@ -17,11 +17,11 @@ export default function TimelineLegend() {
         className={cn(
           'cursor-pointer inline-flex items-center gap-1',
           'px-1.5 py-[3px] rounded-lg',
-          'bg-[var(--color-bg-glass,rgba(20,20,40,0.4))]',
+          'bg-[var(--color-glass,rgba(26,26,26,0.4))]',
           'font-semibold tracking-[0.04em] uppercase text-[10px]',
           'select-none',
           'transition-colors duration-[120ms] ease-out',
-          'hover:bg-[var(--color-bg-glass-strong,rgba(20,20,40,0.6))]',
+          'hover:bg-[var(--color-bg-elevated,rgba(32,32,32,0.9))]',
         )}
       >
         Legend
@@ -31,7 +31,7 @@ export default function TimelineLegend() {
           'timeline-legend-list',
           'list-none p-[8px_10px] mt-1.5 mb-0',
           'grid gap-1.5',
-          'bg-[var(--color-bg-glass,rgba(20,20,40,0.4))]',
+          'bg-[var(--color-glass,rgba(26,26,26,0.4))]',
           'border border-[var(--color-border,rgba(255,255,255,0.08))]',
           'rounded-[10px]',
         )}

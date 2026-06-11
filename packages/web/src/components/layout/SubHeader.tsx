@@ -108,7 +108,9 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           'sm:px-6 sm:py-3 sm:gap-[var(--space-6)]',
           'bg-[var(--color-bg-chrome)] backdrop-saturate-150 backdrop-blur-sm',
           'border-b border-border flex-wrap shrink-0',
-          'sm:[column-gap:var(--space-9)]',
+          // --space-9 never existed in the scale (invalid var -> column-gap
+          // silently dropped); --space-8 (2rem) is the nearest real step.
+          'sm:[column-gap:var(--space-8)]',
           '[backdrop-filter:saturate(150%)_blur(12px)]',
           '[box-shadow:0_1px_0_rgba(255,255,255,0.02)]',
         )}

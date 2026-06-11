@@ -453,7 +453,7 @@
   --color-priority-maybe: #ffb020;
   --font-family-body: 'Space Grotesk', system-ui, sans-serif;
   --font-family-display: 'Syncopate', sans-serif;
-  --color-glass: rgba(20, 20, 38, 0.65);
+  --color-glass: rgba(26, 26, 26, 0.65);
   --color-glass-border: rgba(255, 255, 255, 0.08);
 
   /* Stage palette — accessible variants for contexts where the stage

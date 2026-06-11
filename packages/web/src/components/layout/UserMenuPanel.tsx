@@ -14,11 +14,7 @@ interface UserMenuPanelProps {
  * the change-password modal. Provides backdrop dismiss, ARIA
  * `dialog` role, and keyboard focus trapping.
  */
-export default function UserMenuPanel({
-  ariaLabel,
-  onClose,
-  children,
-}: UserMenuPanelProps) {
+export default function UserMenuPanel({ ariaLabel, onClose, children }: UserMenuPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useKeyboardTrap(panelRef, true, onClose);
@@ -31,7 +27,11 @@ export default function UserMenuPanel({
       }}
     >
       <div
-        className="user-menu-panel fixed top-[68px] right-[var(--space-9)] z-[201] w-[min(360px,calc(100vw-20px))] max-h-[min(calc(100vh-92px),760px)] overflow-y-auto rounded-DEFAULT border border-border-light bg-[rgba(14,14,26,.96)] p-[var(--space-7)] shadow-[0_18px_48px_rgba(0,0,0,.55),inset_0_1px_0_var(--color-overlay-2)] backdrop-saturate-[180%] backdrop-blur-[24px] pb-[calc(88px+env(safe-area-inset-bottom,0px))] overscroll-contain"
+        // right/padding previously pointed at var(--space-9)/var(--space-7),
+        // which have never existed in the scale — the invalid `right` made the
+        // panel fall to the LEFT edge. Use real utilities (right-6 = 24px,
+        // p-6 = 24px) and the neutral surface (old value was blue-tinted).
+        className="user-menu-panel fixed top-[68px] right-6 z-[201] w-[min(360px,calc(100vw-20px))] max-h-[min(calc(100vh-92px),760px)] overflow-y-auto rounded-DEFAULT border border-border-light bg-[rgba(18,18,18,.96)] p-6 shadow-[0_18px_48px_rgba(0,0,0,.55),inset_0_1px_0_var(--color-overlay-2)] backdrop-saturate-[180%] backdrop-blur-[24px] pb-[calc(88px+env(safe-area-inset-bottom,0px))] overscroll-contain"
         ref={panelRef}
         role="dialog"
         aria-modal="true"
