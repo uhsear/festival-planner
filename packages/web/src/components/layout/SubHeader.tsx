@@ -127,7 +127,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           id="festival-select-input"
           className={cn(
             'festival-select',
-            'py-2 px-3.5 bg-bg-card border border-border-light rounded-sm',
+            'py-2 px-3.5 bg-bg-card border border-border rounded-full',
             'text-text-primary text-sm font-semibold cursor-pointer',
             // Responsive cap: reserve room for the label + sibling controls on
             // narrow phones (down to 320px) instead of a hard 220px that could
@@ -237,7 +237,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           >
             <div
               ref={stageScrollRef}
-              className={cn('filter-stage', 'flex gap-[var(--space-3)] flex-wrap')}
+              className={cn('filter-stage', 'flex gap-[var(--space-3)] flex-nowrap overflow-x-auto scrollbar-hide')}
               role="group"
               aria-label="Filter by stage"
             >

@@ -9,13 +9,7 @@ interface Props {
 export default function DetailSpotifySection({ preview, visible, onToggle }: Props) {
   return (
     <div className="my-2.5">
-      <Button
-        variant="ghost"
-        size="sm"
-        type="button"
-        onClick={onToggle}
-        aria-expanded={visible}
-      >
+      <Button variant="outline" size="sm" type="button" onClick={onToggle} aria-expanded={visible}>
         {visible ? '\u25B2 Hide Player' : '\u25B6 Listen on Spotify'}
       </Button>
       {visible && (

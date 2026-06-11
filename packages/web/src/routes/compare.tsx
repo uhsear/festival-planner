@@ -69,7 +69,7 @@ function CompareViewInner() {
   return (
     <div className="compare-page pb-24">
       <header className="pb-2 max-w-6xl mx-auto">
-        <h1 className="text-xl font-display font-semibold text-text-primary">Compare schedules</h1>
+        <h1 className="text-xl font-display font-bold text-text-primary">Compare schedules</h1>
         <p className="text-sm text-text-secondary mt-1">
           {activeCrew.name} {'·'} {animatedMemberCount} {columns.length === 1 ? 'member' : 'members'}
         </p>
@@ -86,9 +86,9 @@ function CompareViewInner() {
                 aria-selected={selectedDay === idx}
                 tabIndex={selectedDay === idx ? 0 : -1}
                 onClick={() => setSelectedDay(idx)}
-                className={`flex-shrink-0 min-h-11 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                className={`flex-shrink-0 min-h-11 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                   selectedDay === idx
-                    ? 'bg-accent-aqua/15 text-accent-aqua border border-accent-aqua/30'
+                    ? 'bg-accent-aqua text-[var(--text-on-light-accent)] border border-accent-aqua'
                     : 'bg-bg-card text-text-secondary border border-border'
                 }`}
               >

@@ -185,7 +185,7 @@ export default function UserMenuAccountSection({
       <div className="flex flex-col gap-[var(--space-3)]">
         {user.isAdmin && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             type="button"
             onClick={() => {

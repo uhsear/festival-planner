@@ -159,9 +159,11 @@ export default function AppShell() {
           <aside
             className={cn(
               'guest-banner',
+              'z-10 relative',
               'flex items-center justify-between gap-[var(--space-6)]',
               'py-3 px-4 bg-[var(--color-aqua-a08)] border border-[var(--color-aqua-a25)]',
-              'text-text-primary rounded-sm mb-2 font-semibold text-sm',
+              'text-text-primary rounded-sm mb-0 font-semibold text-sm',
+              'pb-[max(12px,calc(env(safe-area-inset-bottom,0px)+8px))]',
             )}
             aria-label="Guest notice"
           >

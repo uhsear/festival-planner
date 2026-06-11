@@ -65,6 +65,8 @@ function CrewViewInner() {
   const [joinBusy, setJoinBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  const [kickTarget, setKickTarget] = useState<CrewMember | null>(null);
+  const [transferTarget, setTransferTarget] = useState<CrewMember | null>(null);
 
   useEffect(() => {
     if (user && crews.length > 0 && !activeCrew) {
@@ -166,24 +168,32 @@ function CrewViewInner() {
 
   const handleTransferOwnership = (member: CrewMember) => {
     if (!activeCrew) return;
-    const name = member.name || member.username || 'this member';
-    if (!window.confirm(`Make ${name} the crew owner? You will become a regular member.`)) return;
-    transferOwnership(activeCrew.id, member.userId)
+    setTransferTarget(member);
+  };
+
+  const submitTransferOwnership = () => {
+    if (!activeCrew || !transferTarget) return;
+    transferOwnership(activeCrew.id, transferTarget.userId)
       .then(() => selectCrew(activeCrew.id))
       .catch((e: unknown) => {
         toast(e instanceof Error ? e.message : "Couldn't transfer ownership. Try again.", 'error');
-      });
+      })
+      .finally(() => setTransferTarget(null));
   };
 
   const handleKick = (member: CrewMember) => {
     if (!activeCrew) return;
-    const name = member.name || member.username || 'this member';
-    if (!window.confirm(`Remove ${name} from the crew?`)) return;
-    kickMember(activeCrew.id, member.userId)
+    setKickTarget(member);
+  };
+
+  const submitKick = () => {
+    if (!activeCrew || !kickTarget) return;
+    kickMember(activeCrew.id, kickTarget.userId)
       .then(() => selectCrew(activeCrew.id))
       .catch((e: unknown) => {
         toast(e instanceof Error ? e.message : "Couldn't remove member. Try again.", 'error');
-      });
+      })
+      .finally(() => setKickTarget(null));
   };
 
   const crew = activeCrew as CrewWithHomeBase | null;
@@ -262,7 +272,7 @@ function CrewViewInner() {
           <Link
             to="/compare"
             aria-label="Compare crew schedules"
-            className="flex items-center gap-2 py-2 px-4 min-h-11 rounded-full bg-accent-aqua text-[var(--text-on-light-accent)] hover:bg-[var(--color-accent-aqua-hover)] transition-colors duration-[var(--duration-med)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
+            className="flex items-center gap-2 py-2 px-4 min-h-11 rounded-full bg-transparent border border-accent-aqua/50 text-accent-aqua hover:bg-[var(--color-aqua-a08)] transition-colors duration-[var(--duration-med)] ease-[var(--ease-out)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
           >
             <Columns3 className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
             <span className="text-sm font-semibold">Compare schedules</span>
@@ -350,6 +360,27 @@ function CrewViewInner() {
         destructive
         busy={confirmBusy}
         onConfirm={submitDestroy}
+      />
+      <ConfirmDialog
+        open={kickTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setKickTarget(null);
+        }}
+        title="Remove member"
+        description={`Remove ${kickTarget?.name || kickTarget?.username || 'this member'} from the crew?`}
+        confirmLabel="Remove"
+        destructive
+        onConfirm={submitKick}
+      />
+      <ConfirmDialog
+        open={transferTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setTransferTarget(null);
+        }}
+        title="Transfer ownership"
+        description={`Make ${transferTarget?.name || transferTarget?.username || 'this member'} the crew owner? You will become a regular member.`}
+        confirmLabel="Make owner"
+        onConfirm={submitTransferOwnership}
       />
     </div>
   );

@@ -122,7 +122,7 @@ export default function UserMenuProfileCard({ user }: UserMenuProfileCardProps) 
                 ] as const
               ).map(([value, label]) => (
                 <div
-                  className="flex flex-col gap-[var(--space-1)] rounded-sm bg-[var(--color-overlay-2)] border border-border px-3 py-2.5"
+                  className="flex flex-col gap-[var(--space-1)] rounded-DEFAULT bg-[var(--color-overlay-2)] border border-border px-3 py-2.5"
                   key={label}
                 >
                   <strong className="text-base font-bold">{value}</strong>

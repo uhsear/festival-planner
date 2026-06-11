@@ -20,6 +20,7 @@ export default function RegisterPage() {
 const authInputClasses = cn(
   'w-full py-3.5 px-[18px] text-base text-left mb-3 rounded-DEFAULT',
   'bg-[var(--color-bg-card)] backdrop-blur-[12px] min-h-11',
+  'border border-border text-text-primary placeholder:text-text-placeholder',
   'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
   'focus:shadow-[0_0_0_4px_var(--color-aqua-a1),0_0_24px_var(--color-aqua-a06)]',
 );
@@ -88,8 +89,8 @@ function RegisterPageInner() {
       <h1
         className={cn(
           'font-display text-[clamp(22px,5vw,36px)] font-bold tracking-[6px] uppercase',
-          'text-accent-coral mb-3 relative z-[1]',
-          '[text-shadow:0_0_40px_rgba(var(--accent-coral-rgb),0.3)]',
+          'text-accent-aqua mb-3 relative z-[1]',
+          '[text-shadow:0_0_40px_rgba(0,232,208,0.3)]',
         )}
       >
         FESTIE
@@ -158,7 +159,7 @@ function RegisterPageInner() {
             onClick={() => setShowPw((v) => !v)}
             label={showPw ? 'Hide password' : 'Show password'}
             icon={showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            className="absolute right-0 top-[22px] -translate-y-1/2"
+            className="absolute right-0 top-1/2 -translate-y-1/2"
           />
         </div>
 
