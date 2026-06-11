@@ -164,7 +164,7 @@ export default function AccountAvatarSection() {
 
       <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.btn, styles.btnPrimary, avatarUrl ? { flex: 1 } : null, busy ? styles.btnDisabled : null]}
+          style={[styles.btn, styles.btnPrimary, { flex: 1 }, busy ? styles.btnDisabled : null]}
           onPress={() => void pickAndUpload()}
           disabled={busy !== null}
           activeOpacity={0.8}

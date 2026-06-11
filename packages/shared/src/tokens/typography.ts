@@ -35,7 +35,7 @@ export const lineHeight = {
  * Multiply by font size to get px value on RN.
  */
 export const letterSpacing = {
-  display: 0.06,
+  display: -0.02,
   caps: 0.08,
   body: -0.01,
 } as const;
@@ -47,14 +47,57 @@ export const letterSpacing = {
  * 12 or 14. `transform: 'uppercase'` applies to the micro role only.
  */
 export const typeRoles = {
-  'display-xl': { family: fontFamily.display, size: fontSize[48], lineHeight: lineHeight.tight, letterSpacing: letterSpacing.display, weight: 700 },
-  'display-lg': { family: fontFamily.display, size: fontSize[32], lineHeight: lineHeight.tight, letterSpacing: letterSpacing.display, weight: 700 },
-  heading: { family: fontFamily.display, size: fontSize[24], lineHeight: lineHeight.tight, letterSpacing: letterSpacing.display, weight: 700 },
-  title: { family: fontFamily.body, size: fontSize[20], lineHeight: lineHeight.snug, letterSpacing: letterSpacing.body, weight: 600 },
-  body: { family: fontFamily.body, size: fontSize[16], lineHeight: lineHeight.normal, letterSpacing: letterSpacing.body, weight: 400 },
-  label: { family: fontFamily.body, size: fontSize[14], lineHeight: lineHeight.normal, letterSpacing: letterSpacing.body, weight: 500 },
+  'display-xl': {
+    family: fontFamily.display,
+    size: fontSize[48],
+    lineHeight: lineHeight.tight,
+    letterSpacing: letterSpacing.display,
+    weight: 700,
+  },
+  'display-lg': {
+    family: fontFamily.display,
+    size: fontSize[32],
+    lineHeight: lineHeight.tight,
+    letterSpacing: letterSpacing.display,
+    weight: 700,
+  },
+  heading: {
+    family: fontFamily.display,
+    size: fontSize[24],
+    lineHeight: lineHeight.tight,
+    letterSpacing: letterSpacing.display,
+    weight: 700,
+  },
+  title: {
+    family: fontFamily.body,
+    size: fontSize[20],
+    lineHeight: lineHeight.snug,
+    letterSpacing: letterSpacing.body,
+    weight: 600,
+  },
+  body: {
+    family: fontFamily.body,
+    size: fontSize[16],
+    lineHeight: lineHeight.normal,
+    letterSpacing: letterSpacing.body,
+    weight: 400,
+  },
+  label: {
+    family: fontFamily.body,
+    size: fontSize[14],
+    lineHeight: lineHeight.normal,
+    letterSpacing: letterSpacing.body,
+    weight: 500,
+  },
   caption: { family: fontFamily.body, size: fontSize[12], lineHeight: lineHeight.snug, letterSpacing: 0, weight: 400 },
-  micro: { family: fontFamily.body, size: fontSize[10], lineHeight: lineHeight.snug, letterSpacing: letterSpacing.caps, weight: 600, transform: 'uppercase' as const },
+  micro: {
+    family: fontFamily.body,
+    size: fontSize[10],
+    lineHeight: lineHeight.snug,
+    letterSpacing: letterSpacing.caps,
+    weight: 600,
+    transform: 'uppercase' as const,
+  },
 } as const;
 
 export type FontFamily = typeof fontFamily;

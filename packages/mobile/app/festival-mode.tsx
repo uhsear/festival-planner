@@ -113,8 +113,8 @@ export default function FestivalModeScreen() {
             )}
           </View>
 
-          {/* UP NEXT */}
-          <View style={styles.sectionHead}>
+          {/* UP NEXT — extra top margin keeps NOW and UP NEXT sections balanced */}
+          <View style={[styles.sectionHead, styles.upNextHead]}>
             <Ionicons name="play-skip-forward" size={14} color={t.colors.text.secondary} />
             <SectionLabel style={styles.sectionHeadLabel}>Up next</SectionLabel>
           </View>
@@ -212,6 +212,10 @@ const useStyles = makeStyles((t) => ({
   sectionHeadLabel: {
     marginBottom: 0,
   },
+  // Extra top spacing above the UP NEXT section so NOW and UP NEXT feel balanced.
+  upNextHead: {
+    marginTop: t.spacing[4],
+  },
   card: {
     paddingVertical: t.spacing[3],
     paddingHorizontal: t.spacing[4],
@@ -299,42 +303,44 @@ const useStyles = makeStyles((t) => ({
   },
 }));
 
-// R8: static radial-ish glow overlay for the NOW section. expo-linear-gradient
-// is absent from package.json, so we approximate the aqua radial using two
-// concentric absolutely-positioned circular Views with aqua background at low
-// opacity. No animation — purely static colour layers; no reduce-motion gate
-// needed. Outer: 200px radius, 11% opacity. Inner: 80px radius, 14% opacity.
-// Both sit at z-index 0; content is already laid out above them in the tree.
+// R8: static ambient glow overlay for the NOW section. expo-linear-gradient is
+// absent from package.json, so we approximate the aqua radial using two
+// concentric absolutely-positioned circular Views with aqua background at very
+// low opacity. Circles are positioned so most of their area is BELOW the card
+// top edge (top:0 not top:-N), keeping the overflow:hidden clip on nowGlowWrap
+// from revealing visible arc edges. Outer: 6% opacity. Inner: 8% opacity.
+// No animation — no reduce-motion gate needed.
 const glowStyles = StyleSheet.create({
   nowGlowWrap: {
     position: 'relative',
     overflow: 'hidden',
     borderRadius: 12,
+    marginBottom: 8,
   },
   glowOuter: {
     position: 'absolute',
-    width: 400,
-    height: 400,
-    borderRadius: 200,
-    top: -100,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    top: -60,
     // alignSelf:'center' is ignored on Android for absolute children.
     // Use left:'50%' + marginLeft of -halfWidth to horizontally center.
     left: '50%',
-    marginLeft: -200,
-    backgroundColor: 'rgba(0, 232, 208, 0.11)',
+    marginLeft: -160,
+    backgroundColor: 'rgba(0, 232, 208, 0.06)',
     zIndex: 0,
   },
   glowInner: {
     position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    top: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    top: -20,
     // alignSelf:'center' is ignored on Android for absolute children.
     // Use left:'50%' + marginLeft of -halfWidth to horizontally center.
     left: '50%',
-    marginLeft: -80,
-    backgroundColor: 'rgba(0, 232, 208, 0.14)',
+    marginLeft: -70,
+    backgroundColor: 'rgba(0, 232, 208, 0.08)',
     zIndex: 0,
   },
 });

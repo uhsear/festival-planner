@@ -122,11 +122,11 @@ const useStyles = makeStyles((t) => ({
     borderRadius: t.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.aquaAlpha[15],
   },
   avatarText: {
     ...typeStyle('caption'),
-    color: t.colors.text.onLightAccent,
+    color: t.colors.accent.aqua,
   },
   info: {
     flex: 1,

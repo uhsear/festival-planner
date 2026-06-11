@@ -243,9 +243,12 @@ const useStyles = makeStyles((t) => ({
     borderRadius: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: t.colors.aquaAlpha[6],
+    // aquaAlpha[12] (was [6]) gives enough fill to distinguish the circle
+    // shape from a pure-black (#0a0a0a) background. Border bumped to [20]
+    // so the container boundary reads clearly.
+    backgroundColor: t.colors.aquaAlpha[12],
     borderWidth: 1,
-    borderColor: t.colors.aquaAlpha[12],
+    borderColor: t.colors.aquaAlpha[20],
   },
   // ── Product visual (slide 1) ───────────────────────────────────────────────
   visualCard: {
@@ -334,7 +337,9 @@ const useStyles = makeStyles((t) => ({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: t.colors.border.light,
+    // border.light is only rgba(255,255,255,0.1) — near-invisible on #0a0a0a.
+    // Use 25% white so inactive dots read as a clear progress indicator.
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   dotActive: {
     backgroundColor: t.colors.accent.aqua,
@@ -352,7 +357,9 @@ const useStyles = makeStyles((t) => ({
     justifyContent: 'center',
   },
   buttonText: {
-    ...typeStyle('label'),
+    // weight 600 → SpaceGrotesk_600SemiBold so the label reads at adequate
+    // weight on the bright aqua fill (500Medium was too light).
+    ...typeStyle('label', 600),
     color: t.colors.text.onLightAccent,
   },
 }));

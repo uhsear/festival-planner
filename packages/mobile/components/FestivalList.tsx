@@ -140,16 +140,16 @@ const useStyles = makeStyles((t) => ({
     lineHeight: Math.round(t.fontSize[24] * 1.3),
     color: t.colors.text.primary,
   },
-  // R6: 9999px radius, 3px/10px padding, 11px Space Grotesk 500, 0.04em tracking.
+  // R6: 9999px radius, 3px/10px padding, 10px Space Grotesk 600, 0.04em tracking.
   badge: {
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 9999,
   },
   badgeText: {
-    // R6: weight 500 (SpaceGrotesk_500Medium), 0.04em tracking override from caps default.
-    ...typeStyle('micro', 500),
-    letterSpacing: (typeStyle('micro', 500).fontSize ?? 10) * 0.04,
+    // R6: weight 600 (SpaceGrotesk_600SemiBold), 0.04em tracking override from caps default.
+    ...typeStyle('micro', 600),
+    letterSpacing: (typeStyle('micro', 600).fontSize ?? 10) * 0.04,
   },
   metaRow: {
     flexDirection: 'row' as const,

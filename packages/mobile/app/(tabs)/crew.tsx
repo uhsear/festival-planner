@@ -715,7 +715,7 @@ export default function CrewScreen() {
                   </View>
                 ) : rowIsOwner ? (
                   <View accessible accessibilityLabel="Owner">
-                    <Ionicons name="star" size={16} color={t.colors.accent.aqua} />
+                    <Ionicons name="star" size={16} color={t.colors.aquaAlpha[40]} />
                   </View>
                 ) : null}
               </View>
@@ -1376,11 +1376,11 @@ const useStyles = makeStyles((t) => ({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.aquaAlpha[15],
   },
   avatarText: {
     ...typeStyle('label'),
-    color: t.colors.text.onLightAccent,
+    color: t.colors.accent.aqua,
   },
   memberInfo: {
     flex: 1,
