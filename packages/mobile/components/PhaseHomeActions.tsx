@@ -86,7 +86,14 @@ export default function PhaseHomeActions({ phase }: PhaseHomeActionsProps) {
               key={key}
               testID={`phase-action-${key}`}
               style={[styles.chip, primary && styles.chipPrimary]}
-              onPress={() => router.navigate(a.href)}
+              // Tab destinations switch tabs (navigate dedupes to the existing
+              // tab instance); the root-level pushed routes (Now & Next, Find,
+              // Wrap) must PUSH so Back pops cleanly to the schedule with the
+              // festival context intact. router.navigate on those cross-navigator
+              // routes warps the stack — on a past festival it dropped the
+              // back-to-schedule entry, popping the user out to festival-select /
+              // the OS home screen on Back.
+              onPress={() => (a.href.startsWith('/(tabs)') ? router.navigate(a.href) : router.push(a.href))}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel={a.a11y}

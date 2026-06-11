@@ -101,8 +101,20 @@ export function createRequestHelpers({
     return Boolean(cookies[config.USER_SESSION_COOKIE] || cookies[config.ADMIN_SESSION_COOKIE]);
   }
 
+  // Paths that are explicitly exempt from CSRF origin enforcement.
+  // Must be fire-and-forget, unauthenticated, and already hardened at the
+  // route level (rate-limited, no auth, no DB writes, strict input validation).
+  const ORIGIN_EXEMPT_PATHS = new Set([
+    '/api/v1/metrics/web-vitals', // sendBeacon sends Origin: null in opaque contexts
+  ]);
+
   function enforceAllowedOrigin(req: any, res: any, next: any) {
     if (!MUTATING_METHODS.has(req.method)) return next();
+    // Beacon endpoints: sendBeacon can send Origin: null (opaque origin) in some
+    // browser contexts. These routes are already locked down at the route level
+    // (rate-limited, no auth, no DB writes, 204 always) so CSRF origin enforcement
+    // is not needed and would silently drop legitimate metrics.
+    if (ORIGIN_EXEMPT_PATHS.has(req.path)) return next();
     // L8/H4 (server defense): only exempt *true* Bearer-only clients (mobile,
     // which never sends a session cookie). A request that carries BOTH a Bearer
     // header and a session cookie is a browser — keep enforcing Origin so a
