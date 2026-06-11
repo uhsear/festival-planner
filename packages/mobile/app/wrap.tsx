@@ -209,11 +209,23 @@ export default function WrapScreen() {
           <Text style={styles.festivalName}>{currentFestival.name}</Text>
         </View>
 
-        <View style={styles.statsGrid}>
-          <Stat label="Sets rated" value={String(stats.totalRated)} />
-          <Stat label="Stages visited" value={String(stats.stagesVisited)} />
-          <Stat label="Days attended" value={String(stats.daysAttended)} />
-          <Stat label="Hours of music" value={totalHours.toFixed(1)} />
+        {/* R16: Bento layout — featured full-width top cell + two-column second row */}
+        <View style={styles.bentoGrid}>
+          <View style={styles.bentoFeatured}>
+            <Stat label="Sets rated" value={String(stats.totalRated)} featured />
+          </View>
+          <View style={[styles.bentoRow, { gap: 1 }]}>
+            <View style={[styles.bentoCell, styles.bentoCellDivider]}>
+              <Stat label="Stages" value={String(stats.stagesVisited)} />
+            </View>
+            <View style={styles.bentoCell}>
+              <Stat label="Days" value={String(stats.daysAttended)} />
+            </View>
+          </View>
+          <View style={{ height: 1, backgroundColor: 'rgba(0,232,208,0.08)' }} />
+          <View style={styles.bentoCell}>
+            <Stat label="Hours of music" value={totalHours.toFixed(1)} />
+          </View>
         </View>
 
         {topSets.length > 0 ? (
@@ -363,13 +375,22 @@ function WrapSkeleton() {
         <Skeleton width={140} height={12} radius={t.radii.xs} />
         <Skeleton width={200} height={24} radius={t.radii.xs} />
       </View>
-      <View style={styles.statsGrid}>
-        {[0, 1, 2, 3].map((i) => (
-          <View key={i} style={styles.statBox}>
+      {/* Bento-shaped skeleton — 1 full-width featured + 2 side-by-side */}
+      <View style={styles.bentoGrid}>
+        <View style={[styles.bentoFeatured, { padding: t.spacing[4], gap: t.spacing[1] }]}>
+          <Skeleton width="50%" height={10} radius={t.radii.xs} />
+          <Skeleton width="35%" height={28} radius={t.radii.xs} />
+        </View>
+        <View style={[styles.bentoRow, { gap: 1 }]}>
+          <View style={[styles.bentoCell, styles.bentoCellDivider, { padding: t.spacing[4], gap: t.spacing[1] }]}>
             <Skeleton width="60%" height={10} radius={t.radii.xs} />
             <Skeleton width="40%" height={20} radius={t.radii.xs} />
           </View>
-        ))}
+          <View style={[styles.bentoCell, { padding: t.spacing[4], gap: t.spacing[1] }]}>
+            <Skeleton width="60%" height={10} radius={t.radii.xs} />
+            <Skeleton width="40%" height={20} radius={t.radii.xs} />
+          </View>
+        </View>
       </View>
       <Skeleton width="45%" height={12} radius={t.radii.xs} />
       {[0, 1, 2].map((i) => (
@@ -427,14 +448,15 @@ function useCountUpMobile(target: string, duration = 800): string {
   return displayed;
 }
 
-// R10: Stat renders the count-up animated value on mount.
-function Stat({ label, value }: { label: string; value: string }) {
+// R10 + R16: Stat renders the count-up animated value on mount.
+// `featured` uses larger Syncopate-scale display type for the headline stat.
+function Stat({ label, value, featured = false }: { label: string; value: string; featured?: boolean }) {
   const styles = useStyles();
   const animated = useCountUpMobile(value, 800);
   return (
-    <View style={styles.statBox}>
+    <View style={styles.statContent}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue} accessibilityLabel={value}>
+      <Text style={featured ? styles.statValueFeatured : styles.statValue} accessibilityLabel={value}>
         {animated}
       </Text>
     </View>
@@ -570,10 +592,17 @@ function CrewWrapTab({
           <Text style={styles.crewFestival}>{festivalName}</Text>
         </View>
 
-        <View style={styles.statsGrid}>
-          <Stat label="Crew" value={String(wrap.memberCount)} />
-          <Stat label="Seen together" value={String(wrap.setsSeenTogether.length)} />
-          <Stat label="Split" value={money(wrap.totalSplit)} />
+        {/* R16: 3-cell horizontal bento with aqua hairline dividers */}
+        <View style={styles.bentoCrew}>
+          <View style={[styles.bentoCell, styles.bentoCellDivider]}>
+            <Stat label="Crew" value={String(wrap.memberCount)} />
+          </View>
+          <View style={[styles.bentoCell, styles.bentoCellDivider]}>
+            <Stat label="Seen together" value={String(wrap.setsSeenTogether.length)} />
+          </View>
+          <View style={styles.bentoCell}>
+            <Stat label="Split" value={money(wrap.totalSplit)} />
+          </View>
         </View>
 
         <View style={styles.superlative}>
@@ -704,19 +733,44 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.primary,
     textAlign: 'center',
   },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: t.spacing[2],
-  },
-  statBox: {
-    flexGrow: 1,
-    flexBasis: '47%',
-    padding: t.spacing[3],
+  // R16: Bento grid — aqua hairline gap via backgroundColor on the grid
+  // container; each cell has a white bg so the gap shows through.
+  bentoGrid: {
     borderRadius: t.radii.default,
-    borderWidth: 1,
-    borderColor: t.colors.border.default,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,232,208,0.08)',
+    gap: 1,
+  },
+  bentoFeatured: {
     backgroundColor: t.colors.bg.secondary,
+  },
+  bentoRow: {
+    flexDirection: 'row',
+    backgroundColor: 'transparent',
+  },
+  bentoCell: {
+    flex: 1,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  bentoCellDivider: {
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(0,232,208,0.12)',
+  },
+  bentoDividerH: {
+    height: 1,
+    backgroundColor: 'rgba(0,232,208,0.08)',
+  },
+  // R16: crew 3-cell horizontal bento
+  bentoCrew: {
+    flexDirection: 'row',
+    borderRadius: t.radii.default,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,232,208,0.08)',
+    gap: 1,
+  },
+  // Content inside a bento cell (no outer border — the grid handles it)
+  statContent: {
+    padding: t.spacing[4],
     gap: t.spacing[1],
   },
   statLabel: {
@@ -727,6 +781,14 @@ const useStyles = makeStyles((t) => ({
   statValue: {
     ...typeStyle('title'),
     color: t.colors.text.primary,
+  },
+  // Featured stat: larger Syncopate-scale display number
+  statValueFeatured: {
+    fontFamily: 'Syncopate_700Bold',
+    fontSize: 36,
+    lineHeight: 44,
+    color: t.colors.text.primary,
+    letterSpacing: -0.02 * 36,
   },
   topRow: {
     flexDirection: 'row',

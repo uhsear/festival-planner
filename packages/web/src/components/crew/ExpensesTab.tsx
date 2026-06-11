@@ -516,11 +516,12 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
         />
       ) : (
         <div className="space-y-2">
-          {visibleExpenses.map((e) => {
+          {visibleExpenses.map((e, i) => {
             const cat = CATEGORIES.find((c) => c.key === e.category) ?? CATEGORIES[CATEGORIES.length - 1]!;
             return (
               <ExpenseItem
                 key={e.id}
+                index={i}
                 id={e.id}
                 description={e.description}
                 amount={e.amount}

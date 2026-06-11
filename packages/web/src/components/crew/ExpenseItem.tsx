@@ -10,6 +10,7 @@ interface CategoryDef {
 
 export interface ExpenseItemProps {
   id: string;
+  index: number;
   description: string;
   amount: string | number;
   paidByName: string;
@@ -24,6 +25,7 @@ export interface ExpenseItemProps {
 
 export default function ExpenseItem({
   id,
+  index,
   description,
   amount,
   paidByName,
@@ -35,7 +37,10 @@ export default function ExpenseItem({
   isRemoving,
 }: ExpenseItemProps) {
   return (
-    <div className="p-3 rounded-lg bg-bg-card border border-glass-border flex items-start gap-3 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none">
+    <div
+      className="stagger-item p-3 rounded-lg bg-bg-card border border-glass-border flex items-start gap-3 motion-reduce:!animate-none"
+      style={{ '--i': Math.min(index, 6) } as React.CSSProperties}
+    >
       <span className="text-xl leading-none" aria-hidden="true">
         {category.emoji}
       </span>

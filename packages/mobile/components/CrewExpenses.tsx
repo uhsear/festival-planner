@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, Linking } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Pressable, Alert, Linking } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore } from '@festie/shared/stores';
 import type { CrewExpense, CrewMember, CrewSettlement } from '@festie/shared/types';
 import { venmoLink, cashAppLink, payPalLink } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import Button from './Button';
 
 interface CrewExpensesProps {
@@ -44,6 +46,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
   const t = useTokens();
   const styles = useStyles();
   const haptics = useHaptics();
+  const reduceMotion = useReduceMotion();
 
   const expenses = useCrewStore((s) => s.expenses);
   const balances = useCrewStore((s) => s.expenseBalances);
@@ -131,6 +134,8 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
   };
 
   const handleRemove = (expense: CrewExpense) => {
+    // R20 destructive-confirmation haptic: warn before the irreversible prompt.
+    haptics.warning();
     Alert.alert('Remove expense', `Remove "${expense.description}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -490,41 +495,60 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
             : 'No actual expenses yet.'}
         </Text>
       ) : (
-        visibleExpenses.map((e) => {
+        visibleExpenses.map((e, idx) => {
           const cat = categoryFor(e.category);
           const canRemove = e.paid_by === currentUserId;
+          // R20 swipe-to-delete fallback: react-native-gesture-handler is absent
+          // from the mobile deps, so the whole row is long-pressable (= delete
+          // affordance) rather than a Gesture.Pan swipe. The trash button stays the
+          // always-visible primary affordance; rows have no tap action, so
+          // onLongPress can't collide with a row tap. Pressed coral dim is the
+          // feedback (no transform/spring — reduce-motion-safe by construction).
+          const RowContainer = canRemove ? Pressable : View;
+          const rowProps = canRemove
+            ? {
+                onLongPress: () => handleRemove(e),
+                delayLongPress: 350,
+                accessibilityHint: 'Long press to remove this expense',
+                style: ({ pressed }: { pressed: boolean }) => [styles.expenseRow, pressed && styles.expenseRowPressed],
+              }
+            : { style: styles.expenseRow };
+          // R22: staggered entrance — cap at index 9 (400ms max), reduce-motion safe.
+          const rowEntering = reduceMotion ? undefined : FadeInDown.delay(Math.min(idx, 9) * 40).duration(250);
           return (
-            <View key={e.id} style={styles.expenseRow}>
-              <Text style={styles.expenseEmoji}>{cat.emoji}</Text>
-              <View style={styles.expenseInfo}>
-                <View style={styles.expenseTitleRow}>
-                  <Text style={styles.expenseDesc} numberOfLines={1}>
-                    {e.description}
+            <Animated.View key={e.id} entering={rowEntering}>
+              <RowContainer {...rowProps}>
+                <Text style={styles.expenseEmoji}>{cat.emoji}</Text>
+                <View style={styles.expenseInfo}>
+                  <View style={styles.expenseTitleRow}>
+                    <Text style={styles.expenseDesc} numberOfLines={1}>
+                      {e.description}
+                    </Text>
+                    {e.planned ? (
+                      <View style={styles.plannedBadge}>
+                        <Text style={styles.plannedBadgeText}>Planned</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.expenseMeta} numberOfLines={1}>
+                    {e.planned ? 'planned' : `${e.paid_by === currentUserId ? 'You' : e.paid_by_name} paid`} · split{' '}
+                    {e.split_with.length}
                   </Text>
-                  {e.planned ? (
-                    <View style={styles.plannedBadge}>
-                      <Text style={styles.plannedBadgeText}>Planned</Text>
-                    </View>
-                  ) : null}
                 </View>
-                <Text style={styles.expenseMeta} numberOfLines={1}>
-                  {e.planned ? 'planned' : `${e.paid_by === currentUserId ? 'You' : e.paid_by_name} paid`} · split{' '}
-                  {e.split_with.length}
-                </Text>
-              </View>
-              <Text style={[styles.expenseAmount, styles.tabularNums]}>${Number(e.amount).toFixed(2)}</Text>
-              {canRemove ? (
-                <TouchableOpacity
-                  onPress={() => handleRemove(e)}
-                  style={styles.iconButton}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove expense ${e.description}`}
-                >
-                  <Ionicons name="trash-outline" size={18} color={t.colors.text.danger} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
+                <Text style={[styles.expenseAmount, styles.tabularNums]}>${Number(e.amount).toFixed(2)}</Text>
+                {canRemove ? (
+                  <TouchableOpacity
+                    onPress={() => handleRemove(e)}
+                    style={styles.iconButton}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove expense ${e.description}`}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={t.colors.text.danger} />
+                  </TouchableOpacity>
+                ) : null}
+              </RowContainer>
+            </Animated.View>
           );
         })
       )}
@@ -814,6 +838,12 @@ const useStyles = makeStyles((t) => ({
     // R2 hairline: neutral white 0.08 separator (was border.light 0.1).
     borderColor: t.colors.glass.border,
     backgroundColor: t.colors.bg.secondary,
+  },
+  // R20 long-press affordance: a coral-tinted dim surfaces the destructive
+  // intent while the row is held (no transform/spring — reduce-motion-safe).
+  expenseRowPressed: {
+    backgroundColor: t.colors.ring.coral,
+    borderColor: t.colors.accent.coral,
   },
   expenseEmoji: {
     ...typeStyle('body'),

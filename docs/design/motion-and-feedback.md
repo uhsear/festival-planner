@@ -593,3 +593,71 @@ Apply animated gradient borders to **at most one card per screen**. Never stack 
 | Interaction class | Duration | Easing | Haptic | Primitive |
 |---|---|---|---|---|
 | **Poll bar width** (vote update) | 400ms | ease-out | none | CSS `transition-[width]` (web) / `withTiming` on `useSharedValue` (mobile) |
+
+---
+
+## 13. Bento Grid for Wrap Stats (R16)
+
+CSS Grid / flex-wrap layout for Wrap stat surfaces. Zero shadows; depth from hairline gaps only.
+
+### Web (`packages/web/src/routes/wrap.tsx`)
+
+| Property | Value |
+|---|---|
+| Grid | `display: grid; grid-template-columns: 2fr 1fr; gap: 1px` |
+| Gap color | Parent `background: rgba(0,232,208,0.08)` — gap shows through as aqua tint |
+| Featured cell | `grid-column: span 2`; number at `text-4xl` Syncopate, `tracking-[-0.02em]` |
+| Supporting cells | `text-xl` Syncopate; individual `bg-bg-card` |
+| Crew 3-cell | `grid-template-columns: 1fr 1fr 1fr`; 1px `rgba(0,232,208,0.12)` `border-right` on cells 1–2 |
+| Border-radius | `12px` on outer container with `overflow: hidden` |
+
+### Mobile (`packages/mobile/app/wrap.tsx`)
+
+| Property | Value |
+|---|---|
+| Container | `borderRadius: t.radii.default`, `overflow: hidden`, `backgroundColor: 'rgba(0,232,208,0.08)'`, `gap: 1` |
+| Featured cell | Full-width top row; `fontSize: 36`, `letterSpacing: -0.02 * 36`, `fontFamily: 'Syncopate_700Bold'` |
+| Row cells | `flexDirection: row`, `gap: 1`; divider cells add `borderRightWidth: 1, borderRightColor: 'rgba(0,232,208,0.12)'` |
+| Crew 3-cell | `flexDirection: row` with `bentoCellDivider` on cells 1–2 |
+
+### Rule
+
+> Bento grids use **gap-as-hairline** (1px gap + aqua-tint parent bg) rather than explicit borders.
+> No `box-shadow` on any bento cell — depth from surface contrast only.
+
+---
+
+## 14. Multi-Step Offline-Download Loader (R18)
+
+Per-step visual state for the festival offline-download sync. Replaces single spinner/progress rows.
+
+### States
+
+| State | Web | Mobile |
+|---|---|---|
+| **pending** | 8px `#3a3a3a` dot | 8px `#3a3a3a` `View` circle |
+| **active** | 8px `#00e8d0` dot, `offline-step-pulse 900ms` CSS keyframe | Reanimated `withRepeat(withTiming(0.45, 450ms))` on opacity 1→0.45 |
+| **done** | Lucide `<Check>` in `text-accent-aqua` + "synced N ago" text | Ionicons `checkmark-circle` + time label |
+| **error** | Lucide `<AlertCircle>` in `text-accent-coral` + inline Retry button | Ionicons `alert-circle` + Retry `TouchableOpacity` |
+
+### Motion
+
+- Active dot pulse: `offline-step-pulse` — `0%,100% {opacity:1;scale(1)}` `50% {opacity:0.45;scale(1.35)}`, 900ms ease-in-out infinite.
+- Reduce-motion (web): `@media(prefers-reduced-motion:reduce)` collapses keyframe to `opacity:0.7;transform:none`.
+- Reduce-motion (mobile): `useReduceMotion()` gate — `withTiming` skipped, static `opacity: 0.7`.
+- Keyframe injected via `document.createElement('style')` in a `useEffect` (web only) — no new CSS file needed.
+
+### Shimmer placeholder (active state, web)
+
+The active step's right-side label uses `skeleton-shimmer` utility (R7) as a width-80px placeholder instead of text — consistent with the shimmer vocabulary established in section 4.
+
+### Files
+
+- Web: `packages/web/src/components/features/OfflineReadinessCard.tsx`
+- Mobile: `packages/mobile/components/OfflineReadinessCard.tsx` (new)
+
+**Motion table row additions:**
+
+| Interaction class | Duration | Easing | Haptic | Primitive |
+|---|---|---|---|---|
+| **Step pulse** (offline sync active dot) | 900ms per full cycle | ease-in-out | none | CSS `offline-step-pulse` keyframe (web) / Reanimated `withRepeat(withTiming)` (mobile) |

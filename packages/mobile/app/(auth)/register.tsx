@@ -11,10 +11,12 @@ import {
   Keyboard,
   Linking,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@festie/shared/stores';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
 
 // No in-app Terms route exists yet; open the canonical web Terms of Service,
@@ -165,6 +167,8 @@ export default function RegisterScreen() {
   const [showPw, setShowPw] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // R25: gate hero reveal on reduce-motion preference
+  const reduceMotion = useReduceMotion();
   const register = useAuthStore((s) => s.register);
   const isLoading = useAuthStore((s) => s.isLoading);
   const error = useAuthStore((s) => s.error);
@@ -226,8 +230,16 @@ export default function RegisterScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Festie</Text>
-        <Text style={styles.subtitle}>Create your account</Text>
+        {/* R25: hero staggered reveal — brand word then subtitle, gated on reduceMotion */}
+        <Animated.Text style={styles.title} entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(350)}>
+          Festie
+        </Animated.Text>
+        <Animated.Text
+          style={styles.subtitle}
+          entering={reduceMotion ? undefined : FadeInDown.delay(360).duration(350)}
+        >
+          Create your account
+        </Animated.Text>
 
         {error ? (
           <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">

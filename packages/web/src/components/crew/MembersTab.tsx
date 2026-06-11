@@ -44,7 +44,7 @@ export default function MembersTab({
       )}
       {members.length > 0 ? (
         <div className="space-y-0.5">
-          {members.map((m) => {
+          {members.map((m, index) => {
             const memberIsOwner = m.role === 'owner' || ownerId === m.userId;
             const canManage = isOwner && !memberIsOwner && m.userId !== currentUserId;
             const canTransfer = canManage;
@@ -53,7 +53,8 @@ export default function MembersTab({
             return (
               <div
                 key={m.userId}
-                className="crew-member-row relative py-2 px-2.5 rounded-md bg-bg-card border border-glass-border flex items-center gap-2.5 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none"
+                className="crew-member-row stagger-item relative py-2 px-2.5 rounded-md bg-bg-card border border-glass-border flex items-center gap-2.5 motion-reduce:!animate-none"
+                style={{ '--i': Math.min(index, 6) } as React.CSSProperties}
               >
                 <Avatar name={displayName} size="sm" />
                 <div className="flex-1 min-w-0">

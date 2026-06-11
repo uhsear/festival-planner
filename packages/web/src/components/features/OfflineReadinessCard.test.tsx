@@ -37,13 +37,20 @@ describe('OfflineReadinessCard', () => {
     setCrew({ id: 'crew-1' });
   });
 
-  it('shows "Not downloaded" for every section before any download', () => {
+  // R18: pending sections render as muted dots with no text label (idle state).
+  // Verify the section names are present and the Download button is shown.
+  it('renders all section labels and Download button before any download', () => {
     render(<OfflineReadinessCard festivalId="fest-1" />);
-    expect(screen.getAllByText('Not downloaded')).toHaveLength(5);
+    expect(screen.getByText('Schedule')).toBeInTheDocument();
+    expect(screen.getByText('My picks')).toBeInTheDocument();
+    expect(screen.getByText('Crew plan')).toBeInTheDocument();
+    expect(screen.getByText('Weather')).toBeInTheDocument();
+    expect(screen.getByText('Artist art')).toBeInTheDocument();
     expect(screen.getByText('Download')).toBeInTheDocument();
   });
 
-  it('renders "Ready · synced …" for a section that is ready', () => {
+  // R18: done sections show "synced N ago" or "ready" (no longer "Ready · synced").
+  it('renders a "synced" label for a section that is ready', () => {
     setReadiness({
       byFestival: {
         'fest-1': {
@@ -56,7 +63,7 @@ describe('OfflineReadinessCard', () => {
       },
     });
     render(<OfflineReadinessCard festivalId="fest-1" />);
-    expect(screen.getByText(/Ready · synced/)).toBeInTheDocument();
+    expect(screen.getByText(/synced/)).toBeInTheDocument();
     // Once any section is ready, the button becomes "Update".
     expect(screen.getByText('Update')).toBeInTheDocument();
   });
@@ -77,12 +84,15 @@ describe('OfflineReadinessCard', () => {
   it('disables the button and shows "Downloading…" while this festival is downloading', () => {
     setReadiness({ downloadingFestivalId: 'fest-1' });
     render(<OfflineReadinessCard festivalId="fest-1" />);
-    const btn = screen.getByRole('button');
+    const btn = screen.getByRole('button', { name: /download/i });
     expect(btn).toBeDisabled();
-    expect(screen.getAllByText('Downloading…').length).toBeGreaterThan(0);
+    expect(screen.getByText('Downloading…')).toBeInTheDocument();
   });
 
-  it('shows an error label for a failed section', () => {
+  // R18: error sections show a Retry button (when onRetry is available).
+  // The coral "failed" text is shown only when syncedAt has a timestamp;
+  // with syncedAt: null and onRetry provided, just the Retry button appears.
+  it('shows a Retry button for a failed section', () => {
     setReadiness({
       byFestival: {
         'fest-1': {
@@ -95,6 +105,9 @@ describe('OfflineReadinessCard', () => {
       },
     });
     render(<OfflineReadinessCard festivalId="fest-1" />);
-    expect(screen.getByText("Couldn't download")).toBeInTheDocument();
+    // Retry button is rendered for the failed weather section.
+    expect(screen.getByRole('button', { name: /retry weather/i })).toBeInTheDocument();
+    // The weather label text turns coral (rendered as label text).
+    expect(screen.getByText('Weather')).toBeInTheDocument();
   });
 });

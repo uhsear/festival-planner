@@ -10,10 +10,12 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@festie/shared/stores';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
 
 const useStyles = makeStyles((t) => ({
@@ -125,6 +127,8 @@ export default function LoginScreen() {
   const t = useTokens();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // R25: gate hero reveal on reduce-motion preference
+  const reduceMotion = useReduceMotion();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -164,8 +168,17 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Festie</Text>
-        <Text style={styles.subtitle}>Sign in to your account</Text>
+        {/* R25: hero staggered reveal — brand word (300ms) then subtitle (360ms).
+            FadeInDown gives translateY+fade per spec. Gated on reduceMotion. */}
+        <Animated.Text style={styles.title} entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(350)}>
+          Festie
+        </Animated.Text>
+        <Animated.Text
+          style={styles.subtitle}
+          entering={reduceMotion ? undefined : FadeInDown.delay(360).duration(350)}
+        >
+          Sign in to your account
+        </Animated.Text>
 
         {error ? (
           <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
