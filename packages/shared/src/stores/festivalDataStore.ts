@@ -156,14 +156,11 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   //      Profiles come from GET /profiles/:festivalId (separate endpoint).
   //      Removed 3 phantom sub-resource fetches (/sets, /stages, /days).
   selectFestival: async (festivalId: string) => {
-    // [festie-diag] temporary instrumentation for the guest-selection E2E failure
-    console.log('[festie-diag] selectFestival start', festivalId);
     _lastSelectFestivalId = festivalId;
     set({ isLoading: true, error: null, currentFestivalId: festivalId });
     try {
       // Festival detail is public; profiles require auth (401 for guests).
       const detail = await withRetry(() => api.get<FestivalDetailResponse>(`/festivals/${festivalId}`));
-      console.log('[festie-diag] selectFestival detail loaded', festivalId, detail?.id);
       let profiles: Profile[] = [];
       let profilesFetchFailed = false;
       if (useAuthStore.getState().user) {
@@ -217,7 +214,6 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       const profilesAreFresh = !(profilesFetchFailed && profiles.length === 0);
 
       if (_lastSelectFestivalId !== festivalId) {
-        console.log('[festie-diag] selectFestival superseded, dropping', festivalId);
         set({ isLoading: false });
         return;
       }
@@ -251,9 +247,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         activeStages: allStageIds,
         selectedDay: todayIdx >= 0 ? todayIdx : 0,
       });
-      console.log('[festie-diag] selectFestival committed', festivalId);
     } catch (err) {
-      console.log('[festie-diag] selectFestival error', err instanceof Error ? err.message : String(err));
       const message = mapErrorToUserMessage(err, 'Failed to load festival');
       set({ error: message, isLoading: false });
       throw err;
