@@ -55,17 +55,31 @@ env:
 # TouchableOpacity; the inner name Text isn't separately exposed on iOS New-Arch)
 # and confirm the schedule renders. "Switch"/"Timeline"/"Cards" are the proven
 # standalone-Text chrome from two-festival.yaml / android-smoke.yaml.
+# Run 27379911148 showed a single tap can fail to register on a cold sim
+# (03a-after-tap still showed the picker), so retry the tap up to 3 times
+# until the picker is gone.
 - runFlow:
     when:
       visible: "Select a Festival"
     commands:
-      - tapOn:
-          id: "festival-card-nc-2026"
-      - waitForAnimationToEnd:
-          timeout: 3000
+      - repeat:
+          times: 3
+          commands:
+            - runFlow:
+                when:
+                  visible: "Select a Festival"
+                commands:
+                  - tapOn:
+                      id: "festival-card-nc-2026"
+                  - waitForAnimationToEnd:
+                      timeout: 5000
+                  # 60s per attempt: a cold sim fetching the 121-set lineup
+                  # from prod over the public internet is slow, not broken.
+                  - extendedWaitUntil:
+                      optional: true
+                      notVisible: "Select a Festival"
+                      timeout: 60000
       - takeScreenshot: 03a-after-tap
-      # 90s: a cold sim fetching the 121-set lineup from prod over the public
-      # internet can exceed 30s without being a bug.
       - extendedWaitUntil:
           visible:
             text: "Cards|My picks|Now & Next|NOW|Crew"
