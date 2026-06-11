@@ -53,7 +53,7 @@ concurrency:
 
 ### Release / OTA
 
-**P12 — Commit the deploy script and strip the ***REDACTED-CREDENTIAL*** *What:* move `festie-deploy.py`/`festie-verify.py` into `scripts/deploy/`, read creds from env / a gitignored `.env.deploy`, document the runbook. *Evidence:* both live in `%TEMP%`, uncommitted, with plaintext `REDACTED-CREDENTIAL-ROTATED` SSH password and `REDACTED-CREDENTIAL-ROTATED` prod login hardcoded. *Effort:* M. *Impact:* high. *First step:* `mkdir scripts/deploy`, move + parametrize with `os.environ[...]`, add `.env.deploy` to `.gitignore`, **rotate both leaked passwords ***REDACTED-CREDENTIAL***
+**P12 — Commit the deploy script and strip the ***REDACTED-CREDENTIAL*** *What:* move `festie-deploy.py`/`festie-verify.py` into `scripts/deploy/`, read creds from env / a gitignored `.env.deploy`, document the runbook. *Evidence:* both live in `%TEMP%`, uncommitted, with a plaintext SSH password and prod login hardcoded (redacted here). *Effort:* M. *Impact:* high. *First step:* `mkdir scripts/deploy`, move + parametrize with `os.environ[...]`, add `.env.deploy` to `.gitignore`, **rotate both leaked passwords ***REDACTED-CREDENTIAL***
 
 **P13 — Add a production migration runner + `schema_migrations` table.** *What:* idempotent `db:migrate` npm script with a tracking table; call it in deploy. *Evidence:* only `test:db:migrate` exists (verified in package.json); deploy applies no migrations; "no schema_migrations tracking table." *Effort:* M. *Impact:* high. *First step:* add `scripts/migrate.mjs` that creates `schema_migrations(filename TEXT PK, applied_at TIMESTAMPTZ)` and applies only un-recorded `migrations/*.sql` in order; add `"db:migrate"` to package.json and a step to the deploy script before `pm2 restart`.
 

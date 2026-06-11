@@ -11,9 +11,9 @@ const AUTH_STATE = path.join(__dirname, '.auth', 'responsive-state.json');
 const viewports = [
   { name: 'iphone-se', width: 320, height: 568 },
   { name: 'iphone-14', width: 390, height: 844 },
-  { name: 'ipad',      width: 768, height: 1024 },
-  { name: 'laptop',    width: 1024, height: 768 },
-  { name: 'desktop',   width: 1440, height: 900 },
+  { name: 'ipad', width: 768, height: 1024 },
+  { name: 'laptop', width: 1024, height: 768 },
+  { name: 'desktop', width: 1440, height: 900 },
 ];
 
 test.describe.configure({ mode: 'serial' });
@@ -25,9 +25,16 @@ test.beforeAll(async ({ browser }) => {
   sharedContext = await browser.newContext();
   sharedPage = await sharedContext.newPage();
 
+  // Creds come from env so no live account secret is committed. Set
+  // FESTIE_TEST_USER / FESTIE_TEST_PASSWORD (CI provides them from repo
+  // secrets); this spec is skipped when they're absent.
+  const TEST_USER = process.env.FESTIE_TEST_USER;
+  const TEST_PASSWORD = process.env.FESTIE_TEST_PASSWORD;
+  test.skip(!TEST_USER || !TEST_PASSWORD, 'FESTIE_TEST_USER/PASSWORD not set');
+
   await sharedPage.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
-  await sharedPage.fill('input[name="username"], input[type="text"]', 'asir');
-***REDACTED-CREDENTIAL***
+  await sharedPage.fill('input[name="username"], input[type="text"]', TEST_USER!);
+  await sharedPage.fill('input[type="password"]', TEST_PASSWORD!);
   await sharedPage.click('button[type="submit"]');
   await sharedPage.waitForURL(/\/(cards|$)/, { timeout: 20000 });
   await sharedPage.waitForTimeout(2000);
