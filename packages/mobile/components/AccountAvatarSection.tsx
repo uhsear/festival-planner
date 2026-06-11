@@ -172,7 +172,7 @@ export default function AccountAvatarSection() {
           accessibilityLabel={avatarUrl ? 'Change profile photo' : 'Upload profile photo'}
           accessibilityState={{ disabled: busy !== null }}
         >
-          <Ionicons name="cloud-upload-outline" size={18} color={t.colors.accent.aqua} />
+          <Ionicons name="cloud-upload-outline" size={18} color={t.colors.accent.aqua} style={styles.btnIcon} />
           <Text style={styles.btnPrimaryText}>{avatarUrl ? 'Change' : 'Upload'}</Text>
         </TouchableOpacity>
 
@@ -186,7 +186,7 @@ export default function AccountAvatarSection() {
             accessibilityLabel="Remove profile photo"
             accessibilityState={{ disabled: busy !== null }}
           >
-            <Ionicons name="trash-outline" size={18} color={t.colors.text.danger} />
+            <Ionicons name="trash-outline" size={18} color={t.colors.text.danger} style={styles.btnIcon} />
             <Text style={styles.btnGhostText}>Remove</Text>
           </TouchableOpacity>
         ) : null}
@@ -251,10 +251,14 @@ const useStyles = makeStyles((t) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: t.spacing[2],
+    // No `gap`: Android under-measures a centered Text sibling in a gap-spaced
+    // row and clips the last glyph ("Uploa") — the icon carries marginRight.
     minHeight: 44,
     paddingHorizontal: t.spacing[4],
     borderRadius: t.radii.default,
+  },
+  btnIcon: {
+    marginRight: t.spacing[2],
   },
   btnPrimary: {
     // The avatar is optional, so this is DEMOTED to a secondary/outline aqua

@@ -87,7 +87,7 @@ export default function Button({
         <ActivityIndicator size="small" color={iconColor} />
       ) : (
         <>
-          {icon ? <Ionicons name={icon} size={size === 'sm' ? 16 : 18} color={iconColor} /> : null}
+          {icon ? <Ionicons name={icon} size={size === 'sm' ? 16 : 18} color={iconColor} style={styles.icon} /> : null}
           <Text style={[styles.label, VARIANT_TEXT[variant](styles)]} numberOfLines={numberOfLines}>
             {loading ? (loadingLabel ?? label) : label}
           </Text>
@@ -129,7 +129,9 @@ const useStyles = makeStyles((t) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: t.spacing[2],
+    // No `gap` here: Android under-measures a centered Text sibling in a
+    // gap-spaced row and clips the last glyph ("Uploa"); the icon carries a
+    // marginRight instead.
     minHeight: 48, // WCAG 2.5.5 / Apple HIG touch target
     paddingVertical: t.spacing[3],
     paddingHorizontal: t.spacing[4],
@@ -166,6 +168,10 @@ const useStyles = makeStyles((t) => ({
   },
   disabled: {
     opacity: 0.6,
+  },
+  // Leading-glyph spacing (replaces the row gap — see `base`).
+  icon: {
+    marginRight: t.spacing[2],
   },
   label: {
     ...typeStyle('label'),
