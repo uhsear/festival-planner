@@ -1033,7 +1033,9 @@ const useStyles = makeStyles((t) => ({
     padding: t.spacing[3],
     borderRadius: t.radii.default,
     borderWidth: 1,
-    borderColor: t.colors.border.default,
+    // border.light (0.10) not default (0.06): the input sits on the glass
+    // sheet surface and the dimmer hairline was effectively invisible.
+    borderColor: t.colors.border.light,
     backgroundColor: t.colors.bg.input,
     textAlignVertical: 'top',
   },

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import type { TextStyle } from 'react-native';
 import {
   colors,
@@ -107,10 +107,12 @@ export function typeStyle(role: TypeRoleName, weight?: number): TextStyle {
   const style: TextStyle = {
     fontSize: r.size,
     lineHeight: Math.round(r.lineHeight * r.size),
-    // iOS clamps negative tracking to 0: UIKit applies the kern after the
-    // final glyph too, so any negative letterSpacing under-measures the line
-    // and clips the trailing character ("Add to calenda", "Saturda").
-    letterSpacing: Platform.OS === 'ios' ? Math.max(0, r.letterSpacing * r.size) : r.letterSpacing * r.size,
+    // Negative tracking is clamped to 0 on BOTH native platforms. iOS kerns
+    // after the final glyph (clipping it: "Add to calenda"); Android's
+    // fractional negative letterSpacing under-measures the text node by ~one
+    // glyph even in unconstrained containers ("Uploa", "Of"). The R5 negative
+    // display ramp remains web-only via theme.css.
+    letterSpacing: Math.max(0, r.letterSpacing * r.size),
   };
   const family = nativeFontFamily(r.family, clampedWeight);
   if (family) {
