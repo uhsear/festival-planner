@@ -68,13 +68,16 @@ env:
       # internet can exceed 30s without being a bug.
       - extendedWaitUntil:
           visible:
-            text: "Switch|Timeline|Cards"
+            text: "Cards|My picks|Now & Next|NOW|Crew"
           timeout: 90000
       - waitForAnimationToEnd:
           timeout: 4000
       - assertNotVisible: "Select a Festival"
+# Schedule chrome that renders as standalone Text on iOS (proven in 03-schedule
+# screenshot): the Cards view-switcher label, the "My picks"/"Crew"/"Now & Next"
+# action cluster, and the "NOW" indicator.
 - assertVisible:
-    text: "Switch|Timeline|Cards"
+    text: "Cards|My picks|Now & Next|NOW|Crew"
 - takeScreenshot: 03-schedule-guest
 
 # ── Schedule view switcher ──
@@ -110,10 +113,12 @@ env:
     commands:
       - tapOn: "Username"
       - inputText: "${TEST_USERNAME}"
-      - hideKeyboard
+      # No `hideKeyboard`: it throws on the iOS Simulator ("Couldn't hide the
+      # keyboard…") and fails the flow. Tapping the Password field dismisses the
+      # Username keyboard naturally; the large "Sign in" button sits below the
+      # fields and is tappable with the keyboard up, so it isn't needed.
       - tapOn: "Password"
       - inputText: "${TEST_PASSWORD}"
-      - hideKeyboard
       - tapOn: "Sign in"
       - tapOn:
           text: "Not Now"
@@ -134,4 +139,4 @@ env:
 
 # ── Hard gate: app chrome present (no crash through the whole walk) ──
 - assertVisible:
-    text: "Schedule|Picks|Crew|Account|Switch|Timeline|Cards|Festie"
+    text: "Schedule|Picks|Crew|Account|Cards|My picks|Now & Next|NOW|Festie"
