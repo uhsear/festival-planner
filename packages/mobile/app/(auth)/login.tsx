@@ -7,7 +7,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Keyboard,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -15,6 +14,7 @@ import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@festie/shared/stores';
+import Button from '../../components/Button';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
 
@@ -87,22 +87,9 @@ const useStyles = makeStyles((t) => ({
     marginTop: t.spacing[5],
     alignItems: 'center' as const,
   },
+  // Sign-in CTA layout only — fill/ink/disabled live in components/Button (F8).
   button: {
-    // PRIMARY CTA = aqua fill + dark ink per the accent rule (coral is reserved
-    // for danger/SOS only). Sign-in is the screen's primary action.
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.pill,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center' as const,
     marginTop: t.spacing[2],
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    ...typeStyle('label'),
-    fontWeight: '600' as const,
-    color: t.colors.text.onLightAccent,
   },
   forgotButton: {
     marginTop: t.spacing[4],
@@ -231,21 +218,13 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
+        <Button
+          label="Sign in"
           onPress={handleLogin}
-          disabled={isLoading}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Sign in"
+          loading={isLoading}
           accessibilityState={{ disabled: isLoading, busy: isLoading }}
-        >
-          {isLoading ? (
-            <ActivityIndicator color={t.colors.text.onLightAccent} />
-          ) : (
-            <Text style={styles.buttonText}>Sign in</Text>
-          )}
-        </TouchableOpacity>
+          style={styles.button}
+        />
 
         <Link href="/(auth)/forgot-password" asChild>
           <TouchableOpacity style={styles.forgotButton} accessibilityRole="link" accessibilityLabel="Forgot password?">

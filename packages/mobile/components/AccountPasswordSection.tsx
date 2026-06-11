@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@festie/shared/hooks';
+import Button from './Button';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 /**
@@ -148,21 +149,12 @@ export default function AccountPasswordSection() {
             </Text>
           ) : null}
 
-          <TouchableOpacity
-            style={[styles.submit, submitting && styles.submitDisabled]}
+          <Button
+            label="Update Password"
             onPress={() => void submit()}
-            disabled={submitting}
-            activeOpacity={0.8}
-            accessibilityRole="button"
+            loading={submitting}
             accessibilityLabel="Save new password"
-            accessibilityState={{ disabled: submitting }}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color={t.colors.text.onLightAccent} />
-            ) : (
-              <Text style={styles.submitText}>Update Password</Text>
-            )}
-          </TouchableOpacity>
+          />
         </View>
       ) : null}
     </View>
@@ -224,19 +216,5 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('caption'),
     color: t.colors.text.danger,
   },
-  submit: {
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: t.spacing[4],
-  },
-  submitDisabled: {
-    opacity: 0.6,
-  },
-  submitText: {
-    ...typeStyle('label'),
-    color: t.colors.text.onLightAccent,
-  },
+  // Submit CTA migrated to components/Button (F8).
 }));

@@ -7,6 +7,7 @@ import EmptyState from '../components/ui/EmptyState';
 import CompareColumn from '../components/compare/CompareColumn';
 import CompareRow from '../components/compare/CompareRow';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
+import { useAnimatedNumber } from '../hooks/useAnimatedNumber';
 import { Users } from 'lucide-react';
 
 export default function CompareView() {
@@ -34,6 +35,9 @@ function CompareViewInner() {
     const me = currentProfile ? [{ ...currentProfile, isMe: true as const }] : [];
     return [...me, ...others.map((p) => ({ ...p, isMe: false as const }))];
   }, [getCrewScopedProfiles, currentProfile]);
+
+  // N1: tween the live member count when crew membership changes in real time.
+  const animatedMemberCount = useAnimatedNumber(columns.length);
 
   const rows = useMemo(() => {
     return sets
@@ -67,7 +71,7 @@ function CompareViewInner() {
       <header className="pb-2 max-w-6xl mx-auto">
         <h1 className="text-xl font-display font-semibold text-text-primary">Compare schedules</h1>
         <p className="text-sm text-text-secondary mt-1">
-          {activeCrew.name} {'·'} {columns.length} {columns.length === 1 ? 'member' : 'members'}
+          {activeCrew.name} {'·'} {animatedMemberCount} {columns.length === 1 ? 'member' : 'members'}
         </p>
       </header>
 

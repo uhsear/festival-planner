@@ -13,6 +13,7 @@ import Button from '../components/ui/Button';
 import WrapPoster from '../components/features/WrapPoster';
 import CrewWrapPoster, { type CrewWrapData } from '../components/features/CrewWrapPoster';
 import { useToast } from '../lib/toastContext';
+import { useAnimatedNumber } from '../hooks/useAnimatedNumber';
 import { isFestivalOver } from '@festie/shared/utils';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { Sparkles, Trophy, Map as MapIcon, Clock, CalendarDays, Share2, Users, DollarSign } from 'lucide-react';
@@ -651,40 +652,19 @@ function Superlative({ label, value, sub }: { label: string; value: string; sub?
   );
 }
 
-// R10: animates from 0 to `target` on mount (or when value changes) using a
-// requestAnimationFrame loop with ease-out cubic. No library needed.
-// prefers-reduced-motion: jumps straight to the final value when true.
-// Float detection: if `target` contains '.' the display uses toFixed(1).
+// R10 / N1: animates from 0 to `target` on mount (or when value changes) via
+// the shared useAnimatedNumber tween. Float detection: if `target` contains
+// '.' the display uses one decimal. Non-numeric targets (e.g. the
+// currency-formatted "Split" stat) render as-is, no tween.
 function useCountUp(target: string, duration = 800): string {
   const numericTarget = parseFloat(target);
-  const hasDecimal = target.includes('.');
-  const prefersReducedMotion =
-    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  const [displayed, setDisplayed] = React.useState(() =>
-    prefersReducedMotion || isNaN(numericTarget) ? target : hasDecimal ? '0.0' : '0',
-  );
-
-  React.useEffect(() => {
-    if (prefersReducedMotion || isNaN(numericTarget)) {
-      setDisplayed(target);
-      return;
-    }
-    const start = performance.now();
-    const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
-    let raf: number;
-    const step = (now: number) => {
-      const p = Math.min((now - start) / duration, 1);
-      const v = numericTarget * easeOut(p);
-      setDisplayed(hasDecimal ? v.toFixed(1) : String(Math.round(v)));
-      if (p < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target]);
-
-  return displayed;
+  const isNumeric = !Number.isNaN(numericTarget);
+  const animated = useAnimatedNumber(isNumeric ? numericTarget : 0, {
+    duration,
+    decimals: target.includes('.') ? 1 : 0,
+    startFrom: 0,
+  });
+  return isNumeric ? animated : target;
 }
 
 // R10 + R16: count-up on Wrap stat numbers; bento-aware layout.

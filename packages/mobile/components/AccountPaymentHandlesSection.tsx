@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@festie/shared/stores';
 import { api } from '@festie/shared/services';
 import type { User } from '@festie/shared/types';
+import Button from './Button';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 /**
@@ -157,21 +158,13 @@ export default function AccountPaymentHandlesSection() {
             </Text>
           ) : null}
 
-          <TouchableOpacity
-            style={[styles.submit, submitting && styles.submitDisabled]}
+          <Button
+            label="Save Payment Handles"
             onPress={() => void submit()}
-            disabled={submitting}
-            activeOpacity={0.8}
-            accessibilityRole="button"
+            loading={submitting}
             accessibilityLabel="Save payment handles"
-            accessibilityState={{ disabled: submitting }}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color={t.colors.text.onLightAccent} />
-            ) : (
-              <Text style={styles.submitText}>Save Payment Handles</Text>
-            )}
-          </TouchableOpacity>
+            style={styles.submit}
+          />
         </View>
       ) : null}
     </View>
@@ -237,20 +230,8 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('caption'),
     color: t.colors.text.danger,
   },
+  // Submit CTA layout only — fill/ink/disabled live in components/Button (F8).
   submit: {
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: t.spacing[4],
     marginTop: t.spacing[1],
-  },
-  submitDisabled: {
-    opacity: 0.6,
-  },
-  submitText: {
-    ...typeStyle('label'),
-    color: t.colors.text.onLightAccent,
   },
 }));

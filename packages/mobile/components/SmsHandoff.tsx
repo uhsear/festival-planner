@@ -2,13 +2,14 @@
 // Licensed under the Business Source License 1.1. See LICENSE file for details.
 
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import * as SMS from 'expo-sms';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore, useFestivalDataStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
+import Button from './Button';
 import EmptyState from './EmptyState';
 
 // ── SMS handoff (last-resort P2P) ──────────────────────────────────────────
@@ -142,16 +143,13 @@ export default function SmsHandoff() {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={[styles.button, available == null && styles.buttonDisabled]}
+      <Button
+        label="Open messages"
+        icon="send"
         onPress={openComposer}
         disabled={available == null}
-        accessibilityRole="button"
         accessibilityLabel="Open the SMS composer prefilled with the meeting point"
-      >
-        <Ionicons name="send" size={18} color={t.colors.text.onLightAccent} />
-        <Text style={styles.buttonText}>Open messages</Text>
-      </TouchableOpacity>
+      />
 
       {status ? <Text style={styles.status}>{status}</Text> : null}
 
@@ -198,22 +196,7 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.secondary,
   },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: t.spacing[2],
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    ...typeStyle('label'),
-    color: t.colors.text.onLightAccent,
-  },
+  // CTA migrated to components/Button (F8).
   status: {
     ...typeStyle('caption'),
     color: t.colors.accent.amber,

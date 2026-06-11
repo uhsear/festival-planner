@@ -7,13 +7,13 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
   Keyboard,
 } from 'react-native';
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@festie/shared/stores';
+import Button from '../../components/Button';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
 
 const EMAIL_RE = /^\S+@\S+\.[a-zA-Z]{2,}$/;
@@ -69,22 +69,6 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('label'),
     color: t.colors.text.muted,
     marginBottom: t.spacing[4],
-  },
-  button: {
-    // PRIMARY CTA = aqua + dark ink per the accent rule (coral on white failed
-    // WCAG AA ~3.55:1; coral reserved for danger/SOS). Matches login/register.
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.default,
-    paddingVertical: t.spacing[3],
-    alignItems: 'center' as const,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    ...typeStyle('label'),
-    fontWeight: '600' as const,
-    color: t.colors.text.onLightAccent,
   },
   successBox: {
     alignItems: 'center' as const,
@@ -214,21 +198,12 @@ export default function ForgotPasswordScreen() {
             ) : null}
             <Text style={styles.helper}>We'll send you a link to reset your password.</Text>
 
-            <TouchableOpacity
-              style={[styles.button, isLoading && styles.buttonDisabled]}
+            <Button
+              label="Send reset link"
               onPress={handleSubmit}
-              disabled={isLoading}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Send reset link"
+              loading={isLoading}
               accessibilityState={{ disabled: isLoading, busy: isLoading }}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={t.colors.text.onLightAccent} />
-              ) : (
-                <Text style={styles.buttonText}>Send reset link</Text>
-              )}
-            </TouchableOpacity>
+            />
           </>
         ) : (
           <View style={styles.successBox} accessibilityLiveRegion="polite">

@@ -1,6 +1,7 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Button from './Button';
 import { makeStyles, typeStyle } from '../hooks/useTokens';
 
 interface EmptyStateProps {
@@ -47,18 +48,8 @@ export default function EmptyState({ icon, title, message, action, headerless = 
       <Text style={styles.title}>{title}</Text>
       {/* R21: Subtext explains next step, max-width 280px. */}
       {message ? <Text style={styles.message}>{message}</Text> : null}
-      {/* R21: CTA button aqua pill per R3 spec. */}
-      {action ? (
-        <TouchableOpacity
-          style={styles.action}
-          onPress={action.onPress}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={action.label}
-        >
-          <Text style={styles.actionText}>{action.label}</Text>
-        </TouchableOpacity>
-      ) : null}
+      {/* R21: CTA button aqua pill per R3 spec (canonical Button primitive). */}
+      {action ? <Button label={action.label} onPress={action.onPress} style={styles.action} /> : null}
     </View>
   );
 }
@@ -91,22 +82,13 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.secondary,
     textAlign: 'center',
   },
-  // R21: CTA button — aqua pill per R3 spec (canonical Button).
+  // R21: CTA layout only — fill/ink/radius live in components/Button (F8).
   // alignSelf + minWidth prevent the pill from collapsing narrower than its
   // label (fixes 'Sign' clipping to 'Sign in' defect).
   action: {
-    backgroundColor: t.colors.accent.aqua,
-    borderRadius: t.radii.pill,
     paddingHorizontal: t.spacing[6],
-    paddingVertical: t.spacing[3],
     marginTop: t.spacing[2],
     alignSelf: 'center',
     minWidth: 120,
-  },
-  // R21: Label on aqua fill uses dark ink (onLightAccent #080810) for AA contrast.
-  actionText: {
-    ...typeStyle('label'),
-    color: t.colors.text.onLightAccent,
-    fontWeight: '600',
   },
 }));

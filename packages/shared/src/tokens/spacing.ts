@@ -17,6 +17,8 @@ export const spacing = {
   8: 32,
   10: 40,
   12: 48,
+  16: 64,
+  20: 80,
 } as const;
 
 /** Legacy named spacing aliases (px values). */
