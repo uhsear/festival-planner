@@ -5,8 +5,6 @@ import { fileURLToPath } from 'node:url';
 
 import { test as base, expect } from '@playwright/test';
 
-// @ts-expect-error -- legacy SQLite planner module removed during PostgreSQL migration
-import { importLegacyJsonToSqlite } from '../../lib/planner-db';
 import { createFestivalPlanner } from '../../server.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,9 +38,7 @@ function createFestivalFixture() {
         {
           label: 'Saturday',
           date: '2026-06-06',
-          sets: [
-            { id: 'set-d', artist: 'Delta', stageId: 'forest', startTime: '14:00', endTime: '15:00' },
-          ],
+          sets: [{ id: 'set-d', artist: 'Delta', stageId: 'forest', startTime: '14:00', endTime: '15:00' }],
         },
       ],
       createdAt: '2026-03-09T00:00:00.000Z',
@@ -52,16 +48,12 @@ function createFestivalFixture() {
       id: 'fest-2',
       name: 'Campfire Fest',
       location: 'Lakeside',
-      stages: [
-        { id: 'ember', name: 'Ember Stage', color: '#ff8c00' },
-      ],
+      stages: [{ id: 'ember', name: 'Ember Stage', color: '#ff8c00' }],
       days: [
         {
           label: 'Sunday',
           date: '2026-06-07',
-          sets: [
-            { id: 'set-o', artist: 'Omega', stageId: 'ember', startTime: '16:00', endTime: '17:00' },
-          ],
+          sets: [{ id: 'set-o', artist: 'Omega', stageId: 'ember', startTime: '16:00', endTime: '17:00' }],
         },
       ],
       createdAt: '2026-03-09T00:00:00.000Z',
@@ -77,7 +69,6 @@ async function startServer() {
   fs.writeFileSync(path.join(dataDir, 'users.json'), '[]');
   fs.writeFileSync(path.join(dataDir, 'messages-fest-1.json'), '[]');
   fs.writeFileSync(path.join(dataDir, 'messages-fest-2.json'), '[]');
-  importLegacyJsonToSqlite({ dataDir });
 
   const planner = await createFestivalPlanner({
     ADMIN_USER,
@@ -109,9 +100,4 @@ export const test = base.extend<{ app: any }>({
   },
 });
 
-export {
-  expect,
-  ADMIN_USER,
-  ADMIN_PASSWORD,
-  DEFAULT_PASSWORD,
-};
+export { expect, ADMIN_USER, ADMIN_PASSWORD, DEFAULT_PASSWORD };

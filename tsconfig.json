@@ -1,19 +1,11 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": true,
     // TS 6.0 changed the `types` default from auto-loading all @types to [];
     // declare node explicitly so process/Buffer/__dirname globals keep resolving.
     "types": ["node"],
     "noEmit": true,
     "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noUncheckedIndexedAccess": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true
