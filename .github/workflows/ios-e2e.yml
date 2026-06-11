@@ -28,6 +28,24 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 60
     steps:
+      # Expo SDK 56's precompiled XCFrameworks ship a Package.swift declaring
+      # `swift-tools-version: 6.2`, which xcodebuild can only resolve with a
+      # Swift 6.2 toolchain. The macos-15 image's DEFAULT Xcode is 16.4 (Swift
+      # 6.1) and fails SPM resolution ("package 'apple' is using Swift tools
+      # version 6.2.0 but the installed version is 6.1.0"). Select the newest
+      # Xcode the image has installed (16.x/26 ships Swift 6.2) before building.
+      - name: Select newest installed Xcode (need Swift >= 6.2)
+        run: |
+          NEWEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null \
+            | sort -t_ -k2 -V | tail -1)
+          if [ -z "$NEWEST" ]; then
+            NEWEST=/Applications/Xcode.app
+          fi
+          echo "Selecting $NEWEST"
+          sudo xcode-select -s "$NEWEST/Contents/Developer"
+          xcodebuild -version
+          swift --version
+
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
