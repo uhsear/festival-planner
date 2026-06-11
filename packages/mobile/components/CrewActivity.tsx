@@ -62,13 +62,17 @@ export default function CrewActivity({ crewId }: CrewActivityProps) {
     return () => clearInterval(interval);
   }, [crewId, loadActivity]);
 
-  if (activity.length === 0) {
+  // Deduplicate by id — the polling interval can produce duplicate entries if the
+  // server returns overlapping pages or the store accumulates repeated loads.
+  const dedupedActivity = Array.from(new Map(activity.map((a) => [a.id, a])).values());
+
+  if (dedupedActivity.length === 0) {
     return <Text style={styles.empty}>No activity yet — crew events will appear here as they happen.</Text>;
   }
 
   return (
     <View style={styles.container}>
-      {activity.map((it) => {
+      {dedupedActivity.map((it) => {
         const verb = TYPE_LABELS[it.type] ?? it.type.replace(/-/g, ' ');
         return (
           <View key={it.id} style={styles.row}>

@@ -106,6 +106,8 @@ export default function PhaseHomeActions({ phase }: PhaseHomeActionsProps) {
 const useStyles = makeStyles((t) => ({
   wrap: {
     gap: t.spacing[1],
+    // Separate the phase block from the filter controls above it.
+    marginTop: t.spacing[3],
     paddingBottom: t.spacing[2],
   },
   heading: {
@@ -117,7 +119,9 @@ const useStyles = makeStyles((t) => ({
     textTransform: 'uppercase',
   },
   hint: {
-    ...typeStyle('caption'),
+    // Downsize to micro so the hint reads as contextual annotation rather than
+    // competing with the filter controls in the same visual register.
+    ...typeStyle('micro'),
     color: t.colors.text.secondary,
     marginBottom: t.spacing[1],
   },

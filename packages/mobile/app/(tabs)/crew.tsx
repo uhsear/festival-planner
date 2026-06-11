@@ -427,7 +427,7 @@ export default function CrewScreen() {
       <View style={styles.screen}>
         <ScreenHeader title="Crew" icon="people" />
         <EmptyState
-          icon="lock-closed"
+          icon="lock-closed-outline"
           title="Sign in required"
           message="Log in to coordinate with your crew."
           action={{ label: 'Sign in', onPress: () => router.push('/(auth)/login') }}

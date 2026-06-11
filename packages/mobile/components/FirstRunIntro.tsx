@@ -225,12 +225,13 @@ const useStyles = makeStyles((t) => ({
   slide: {
     paddingHorizontal: t.spacing[6],
   },
-  // Takes the upper space and centers the visual in it; pushing the copy block
-  // below toward the lower third of the screen (anchored, not dead-center).
+  // Upper region: visual sits in the top third, not dead-centered. flex:1
+  // fills remaining height so the copy block stays anchored at the bottom.
   hero: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: t.spacing[10],
   },
   copy: {
     gap: t.spacing[3],
@@ -242,9 +243,9 @@ const useStyles = makeStyles((t) => ({
     borderRadius: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: t.colors.aquaAlpha[10],
+    backgroundColor: t.colors.aquaAlpha[6],
     borderWidth: 1,
-    borderColor: t.colors.aquaAlpha[20],
+    borderColor: t.colors.aquaAlpha[12],
   },
   // ── Product visual (slide 1) ───────────────────────────────────────────────
   visualCard: {
@@ -270,7 +271,9 @@ const useStyles = makeStyles((t) => ({
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[1],
     borderRadius: t.radii.pill,
-    backgroundColor: t.colors.aquaAlpha[12],
+    backgroundColor: t.colors.aquaAlpha[20],
+    borderWidth: 1,
+    borderColor: t.colors.aquaAlpha[30],
   },
   visualPillText: {
     ...typeStyle('caption'),
@@ -336,6 +339,7 @@ const useStyles = makeStyles((t) => ({
   dotActive: {
     backgroundColor: t.colors.accent.aqua,
     width: 20,
+    borderRadius: 9999,
   },
   button: {
     // PRIMARY action = aqua fill + dark ink (text.onLightAccent), per the

@@ -317,7 +317,10 @@ const glowStyles = StyleSheet.create({
     height: 400,
     borderRadius: 200,
     top: -100,
-    alignSelf: 'center',
+    // alignSelf:'center' is ignored on Android for absolute children.
+    // Use left:'50%' + marginLeft of -halfWidth to horizontally center.
+    left: '50%',
+    marginLeft: -200,
     backgroundColor: 'rgba(0, 232, 208, 0.11)',
     zIndex: 0,
   },
@@ -327,7 +330,10 @@ const glowStyles = StyleSheet.create({
     height: 160,
     borderRadius: 80,
     top: -40,
-    alignSelf: 'center',
+    // alignSelf:'center' is ignored on Android for absolute children.
+    // Use left:'50%' + marginLeft of -halfWidth to horizontally center.
+    left: '50%',
+    marginLeft: -80,
     backgroundColor: 'rgba(0, 232, 208, 0.14)',
     zIndex: 0,
   },
