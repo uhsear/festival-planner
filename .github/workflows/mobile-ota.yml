@@ -3,12 +3,12 @@ name: Mobile OTA update (eas update)
 # Publish a JS/asset-only OTA update via EAS Update.
 #
 # app.json uses runtimeVersion.policy=appVersion, so the runtime is the fixed app
-# version string (e.g. "1.1.0") — OS-independent and identical between `eas build`
+# version string (e.g. "1.1.0") - OS-independent and identical between `eas build`
 # and `eas update`, so OTAs reliably reach builds on the same app version. (We
 # tried policy=fingerprint to auto-detect native changes, but EAS builds errored
 # at the Configure-expo-updates phase AND eas build vs eas update computed
-# inconsistent fingerprints in this project — see SESSION.md. appVersion is the
-# reliable choice and even restores OTA to the shipped TestFlight build #14.)
+# inconsistent fingerprints in this project; appVersion is the reliable choice
+# and even restores OTA to the shipped TestFlight build #14.)
 #
 # Linux CI is just a clean, consistent place to publish (uses EXPO_TOKEN); under
 # appVersion the publish OS no longer affects delivery. Use for JS-only changes to
@@ -17,7 +17,7 @@ name: Mobile OTA update (eas update)
 # Staging → production promote flow (P15):
 #   1. Publish to staging (this workflow's default):
 #        gh workflow run mobile-ota.yml -f branch=staging -f message="your message"
-#        — or dispatch from the Actions tab with branch=staging.
+#        - or dispatch from the Actions tab with branch=staging.
 #
 #   2. Verify on a staging-channel device (TestFlight internal / Android internal track).
 #

@@ -136,7 +136,7 @@ Effort S/M/L. Tier abbreviations: **ON** offline-native · **OD** offline-degrad
 
 All additive `ADD COLUMN IF NOT EXISTS` / `CREATE TABLE` per the repo pattern; add FK indexes per the `_fk_indexes` convention. **Note:** prod migrations do NOT auto-apply reliably — see `[[deployment]]` (apply manually as part of deploy).
 
-### New Expo deps (all need a dev-client/EAS build — Expo Go is insufficient; add config plugins to `app.json`, declare in `packages/mobile/package.json` per CLAUDE.md)
+### New Expo deps (all need a dev-client/EAS build — Expo Go is insufficient; add config plugins to `app.json`, declare in `packages/mobile/package.json` per project conventions)
 `expo-location` (F4 + compass + ETA) · `expo-sensors` (compass) · `expo-camera` (QR) · `expo-sms` (SMS handoff) · `expo-auth-session` + `expo-web-browser` (Spotify OAuth) · a QR-render lib (mobile) · later: MapLibre (native, optional). **No new native module is needed for the WebView map** (`react-native-webview` already present). All reusable logic (codecs, geo/ETA math, staleness) lives in `@festie/shared`.
 
 ### Shared modules to build once
