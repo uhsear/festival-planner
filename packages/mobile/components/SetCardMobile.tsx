@@ -18,6 +18,7 @@ import { useSetStatus } from '../hooks/useSetStatus';
 import { useHaptics } from '../hooks/useHaptics';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import AppPressable from './AppPressable';
+import { priorityColor } from '../lib/priorityColor';
 import Avatar from './Avatar';
 import LiveBadge from './LiveBadge';
 
@@ -106,13 +107,6 @@ function buildOverlapBreakdown(friends: readonly { priority: Priority }[]): stri
     .filter((p) => counts[p] > 0)
     .map((p) => `${counts[p]} ${PRIORITY_NOUN[p]}`)
     .join(', ');
-}
-
-/** Maps a priority to its accent token for active styling. */
-function priorityColor(t: ReturnType<typeof useTokens>, p: Priority): string {
-  if (p === 'must') return t.colors.priority.must;
-  if (p === 'want-to-see') return t.colors.priority.want;
-  return t.colors.priority.maybe;
 }
 
 interface PriorityButtonProps {

@@ -5,6 +5,7 @@ import type { FestivalSet, Priority, Stage, Festival, Profile } from '@festie/sh
 import { artistDisplayName, ensureWhiteContrast } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import Avatar from './Avatar';
+import { priorityColor } from '../lib/priorityColor';
 
 const PRIORITIES: readonly {
   value: Priority;
@@ -30,12 +31,6 @@ export interface TBASectionProps {
   onOpenDetail: (set: FestivalSet) => void;
   /** Start expanded (e.g. when the day has no timed sets, so TBA is all there is). */
   defaultExpanded?: boolean;
-}
-
-function priorityColor(t: ReturnType<typeof useTokens>, p: Priority): string {
-  if (p === 'must') return t.colors.priority.must;
-  if (p === 'want-to-see') return t.colors.priority.want;
-  return t.colors.priority.maybe;
 }
 
 interface TBACardProps {

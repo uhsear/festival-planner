@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '@festie/shared/tokens';
+import type { CrewWrapOverlapPair, CrewWrapSeenTogether, CrewWrapMemberSummary } from '@festie/shared/types';
 
 /**
  * Poster palette — sourced from @festie/shared/tokens (pure data, zero runtime
@@ -17,24 +18,8 @@ const POSTER = {
   rank: colors.accent.aqua, // #00e8d0
 } as const;
 
-export interface CrewWrapOverlapPair {
-  aUserId: string;
-  aName: string;
-  bUserId: string;
-  bName: string;
-  shared: number;
-  sharedSets: string[];
-}
-export interface CrewWrapSeenTogether {
-  setId: string;
-  artist: string | null;
-  count: number;
-}
-export interface CrewWrapMemberSummary {
-  userId: string;
-  name: string;
-  topSets: { setId: string; artist: string | null; rating: number }[];
-}
+export type { CrewWrapOverlapPair, CrewWrapSeenTogether, CrewWrapMemberSummary };
+
 export interface CrewWrapData {
   crewId: string;
   festivalId: string;

@@ -25,9 +25,6 @@ interface FestieLiveActivityNative {
 const Native: FestieLiveActivityNative | null =
   Platform.OS === 'ios' ? ((NativeModules.FestieLiveActivity as FestieLiveActivityNative) ?? null) : null;
 
-/** True once the native ActivityKit widget is present in the running binary. */
-export const liveActivitySupported = !!Native;
-
 export interface LiveActivityContent {
   title: string;
   body: string;

@@ -23,6 +23,7 @@ import {
 import type { Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { safeStageColor } from '../../lib/stageColor';
+import { priorityColor } from '../../lib/priorityColor';
 import { useListBottomInset } from '../../hooks/useListBottomInset';
 import { useHaptics } from '../../hooks/useHaptics';
 import Button from '../../components/Button';
@@ -62,13 +63,6 @@ const REMINDER_OPTIONS: readonly { value: number; label: string }[] = [
   { value: 30, label: '30m' },
   { value: 60, label: '1h' },
 ];
-
-/** Maps a priority to its accent token (matches SetCardMobile). */
-function priorityColor(t: ReturnType<typeof useTokens>, p: Priority): string {
-  if (p === 'must') return t.colors.priority.must;
-  if (p === 'want-to-see') return t.colors.priority.want;
-  return t.colors.priority.maybe;
-}
 
 /**
  * Non-color priority signal for the "Who's going" rows (F27). The dot already

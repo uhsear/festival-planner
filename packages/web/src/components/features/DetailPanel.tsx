@@ -73,10 +73,6 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
   const panelRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
 
-  const handleClose = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
   // Share this set with friends via the native share sheet (mobile web).
   // No per-set web route exists, so the link points at festie.us and the
   // artist/time live in the share text. Gated on navigator.share so it only
@@ -232,7 +228,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     <Drawer.Root
       open
       onOpenChange={(o: boolean) => {
-        if (!o) handleClose();
+        if (!o) onClose();
       }}
       dismissible
       handleOnly
@@ -278,7 +274,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             className="absolute top-4 right-4 w-11 h-11 min-w-11 min-h-11 rounded-full bg-bg-card border border-border-light flex items-center justify-center text-text-secondary text-lg cursor-pointer transition-[background-color,color,border-color] duration-200 ease-[var(--ease-standard)] hover:bg-accent-coral hover:text-text-on-accent hover:border-accent-coral focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua z-10"
             type="button"
             aria-label="Close detail panel"
-            onClick={handleClose}
+            onClick={onClose}
             ref={closeBtnRef}
           >
             {'×'}

@@ -15,6 +15,7 @@ import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
 import { duration as motionDuration } from '@festie/shared/tokens';
 import { safeStageColor } from '../../lib/stageColor';
+import { priorityColor } from '../../lib/priorityColor';
 import ScreenHeader from '../../components/ScreenHeader';
 import EmptyState from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
@@ -31,12 +32,11 @@ const PRIORITY_SECTIONS: readonly { value: Priority; label: string }[] = [
   { value: 'maybe', label: 'Maybe' },
 ];
 
-/** Maps a priority to its accent token (matches SetCardMobile). */
-function priorityColor(t: ReturnType<typeof useTokens>, p: Priority): string {
-  if (p === 'must') return t.colors.priority.must;
-  if (p === 'want-to-see') return t.colors.priority.want;
-  return t.colors.priority.maybe;
-}
+const PRIORITY_CHOICES: readonly { value: Priority; label: string }[] = [
+  { value: 'must', label: 'Must' },
+  { value: 'want-to-see', label: 'Want' },
+  { value: 'maybe', label: 'Maybe' },
+];
 
 /**
  * A flattened list row: either a day header, a priority section header, or a
@@ -169,8 +169,13 @@ export default function PicksScreen() {
     const order = new Map<string, number>();
     stages.forEach((st: Stage, i) => order.set(st.id, i));
     return [...byStage.entries()]
-      .map(([stageId, setIds]) => ({ key: `stage-${stageId}`, label: getStageName(stageId) || 'Stage', setIds }))
-      .sort((a, b) => (order.get(a.key.slice(6)) ?? 0) - (order.get(b.key.slice(6)) ?? 0));
+      .map(([stageId, setIds]) => ({
+        key: `stage-${stageId}`,
+        stageId,
+        label: getStageName(stageId) || 'Stage',
+        setIds,
+      }))
+      .sort((a, b) => (order.get(a.stageId) ?? 0) - (order.get(b.stageId) ?? 0));
   }, [sets, stages, getStageName]);
 
   const genreGroups = useMemo(() => {
@@ -345,12 +350,6 @@ export default function PicksScreen() {
     const url = `https://festie.us/s/${currentProfile.id}`;
     Share.share({ message: `My ${currentFestival.name} picks on Festie: ${url}`, url }).catch(() => {});
   }, [currentProfile, currentFestival]);
-
-  const PRIORITY_CHOICES: readonly { value: Priority; label: string }[] = [
-    { value: 'must', label: 'Must' },
-    { value: 'want-to-see', label: 'Want' },
-    { value: 'maybe', label: 'Maybe' },
-  ];
 
   const bulkPanel = hasBulkGroups ? (
     <View style={styles.bulkPanel}>

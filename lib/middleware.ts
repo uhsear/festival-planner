@@ -369,14 +369,7 @@ function configureMiddleware(app: Application, ctx: any) {
     const originalJson = res.json.bind(res);
     res.json = (body: any) => {
       if (_idempotencyCache.size >= IDEMPOTENCY_MAX_ENTRIES) {
-        let oldestKey: any = null;
-        let oldestTs = Infinity;
-        for (const [k, v] of _idempotencyCache) {
-          if (v.ts < oldestTs) {
-            oldestTs = v.ts;
-            oldestKey = k;
-          }
-        }
+        const oldestKey = _idempotencyCache.keys().next().value;
         if (oldestKey) _idempotencyCache.delete(oldestKey);
       }
       _idempotencyCache.set(cacheKey, { status: res.statusCode, body, ts: Date.now() });

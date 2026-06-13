@@ -510,18 +510,7 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
   );
 
   const clearQueue = useCallback(async (): Promise<void> => {
-    try {
-      await openDB();
-      const { tx, store } = openTx('readwrite');
-      try {
-        await idbRequest(store.clear());
-      } catch (err) {
-        abortTx(tx);
-        throw err;
-      }
-    } catch {
-      localStorage.removeItem('festie-offline-queue');
-    }
+    await clearOfflineQueue();
     setPendingCount(0);
     setPendingSync(0);
   }, [setPendingSync]);
