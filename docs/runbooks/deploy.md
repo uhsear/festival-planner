@@ -46,9 +46,9 @@ python scripts/deploy/deploy.py
 What it does, in order:
 
 1. SSH (key auth) → `git fetch --tags` + `git reset --hard origin/main`.
-2. **Run DB migrations** — `npm run db:migrate` (see §3; idempotent).
-3. Build the web bundle (`pnpm --filter @festie/web build`).
-4. `pm2 restart festie`.
+2. Build the web bundle (`pnpm --filter @festie/web build`).
+3. `pm2 reload festie` — re-execs the backend; on boot it applies any pending
+   migrations itself (see §3). Prefer `reload` over `restart`.
 5. **Readiness gate** — hit `/api/ready` (which checks Postgres + Redis). If it
    is **not 200**, the deploy ABORTS and prints the exact rollback command
    (P16). Cloudflare keeps routing, so a failed deploy must be rolled back fast.
@@ -76,39 +76,30 @@ failure.
 
 ---
 
-## 3. Database migrations
+## 3. Database migrations (app-managed)
 
 Migrations live in `migrations/*.sql` and are **additive + idempotent** by
-convention. The runner (`scripts/migrate.mjs`, invoked via `npm run db:migrate`)
-tracks applied files in a `schema_migrations(filename, applied_at)` table and
-applies only un-recorded files, each in its own transaction.
+convention. They are applied by the **application itself**, not by a separate
+deploy step: `lib/planner-db-pg.ts` owns a version-keyed `schema_migrations`
+ledger and, once per Postgres URL per process boot, applies any file that isn't
+already recorded (each in its own transaction) and logs a drift WARN if the
+on-disk file count exceeds the ledger.
 
-It reads `DATABASE_URL` from the environment (same var the app uses).
+That means the `pm2 reload` in step 3 of the deploy is also what runs pending
+migrations — there is nothing to invoke by hand. To add a migration: drop a new
+`migrations/NNN_name.sql` file, deploy, and the next boot applies it.
 
-```sh
-node scripts/migrate.mjs --dry-run   # print the plan, change nothing
-node scripts/migrate.mjs             # apply unapplied migrations
-node scripts/migrate.mjs --baseline  # record ALL current files WITHOUT running
-```
-
-### ⚠️ First production run MUST be `--baseline`
-
-The prod database already has all 52 migrations applied (they were run by hand
-historically), but the new `schema_migrations` table starts empty — so the
-runner would see every file as "pending." Although the migrations are
-idempotent, the correct, auditable path is to **baseline first**:
+To inspect the ledger read-only:
 
 ```sh
-# ON THE SERVER (or with DATABASE_URL pointed at prod), ONCE:
-cd /home/asir/festival-planner
-node scripts/migrate.mjs --baseline
+# ON THE SERVER, with DATABASE_URL from the app .env:
+psql "$DATABASE_URL" -c 'SELECT version, name, applied_at FROM schema_migrations ORDER BY version DESC LIMIT 10;'
 ```
 
-This records every current file as applied **without executing any SQL**. After
-baselining, only genuinely-new migrations run on subsequent deploys.
-
-Do **not** run `--baseline` more than once, and never run a plain
-`node scripts/migrate.mjs` against prod before it has been baselined.
+> Do NOT add a second, independent migration runner — it will double-run and
+> collide with the app's ledger (this is why an earlier `scripts/migrate.mjs`
+> experiment was removed: it used a `filename`-keyed table incompatible with the
+> app's `version`-keyed one).
 
 ---
 

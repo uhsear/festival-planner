@@ -9,7 +9,7 @@
 #
 #   1. SSHes to the prod box (KEY AUTH ONLY — no password support).
 #   2. git fetch + reset --hard origin/main.
-#   3. Runs DB migrations (node scripts/migrate.mjs) before restart.
+#   3. Migrations are app-managed (applied on backend boot); no deploy step.
 #   4. Builds the web bundle.
 #   5. Restarts the PM2 app ("festie").
 #   6. Tags the deploy `deploy-<UTC timestamp>` and pushes the tag (P14).
@@ -107,16 +107,11 @@ def main():
             rollback_hint()
             raise SystemExit("git sync failed")
 
-        # 2. Run DB migrations before restart (idempotent; baselined on first prod run)
-        code, out, err = run(
-            client,
-            f"bash -lc 'cd {APP} && npm run db:migrate' 2>&1 | tail -30",
-            timeout=300,
-        )
-        print(f"[migrate] exit={code}\n{out}{err}")
-        if code != 0:
-            rollback_hint()
-            raise SystemExit("db migration failed")
+        # 2. Migrations are APP-MANAGED: lib/planner-db-pg.ts owns a version-keyed
+        # `schema_migrations` ledger and applies any pending migrations/*.sql once
+        # per Postgres URL on backend boot (the pm2 reload below triggers it). There
+        # is no separate migration step in the deploy — adding one would double-run
+        # and conflict with that ledger.
 
         # 3. Build the web bundle (login shell so pnpm is on PATH)
         code, out, err = run(
