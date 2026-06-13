@@ -58,6 +58,7 @@ export default function CrewCompareScreen() {
   // Refresh crew overlap (drives the "going" count + keeps the crew picks/profiles
   // fresh). The grid is derived from those picks. Reused by mount + pull-to-refresh
   // + the error retry (F41).
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- narrower deps (id/festivalId, not the whole crew object) are deliberate
   const refresh = useCallback(async () => {
     const festivalId = activeCrew?.festivalId ?? currentFestival?.id;
     if (!activeCrew?.id || !festivalId) return;
@@ -72,6 +73,7 @@ export default function CrewCompareScreen() {
   }, [activeCrew?.id, activeCrew?.festivalId, currentFestival?.id, loadOverlap]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh() flips the loading flag before its async fetch
     void refresh();
   }, [refresh]);
 

@@ -16,6 +16,7 @@ import {
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
+import { useNow } from '../hooks/useNow';
 import EmptyState from './EmptyState';
 
 // ── Snapshot assembly (offline-native, zero network) ───────────────────────
@@ -53,6 +54,9 @@ export default function PlanQRShare() {
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
   const currentProfile = useFestivalDataStore((s) => s.currentProfile);
   const meetingPoints = useCrewStore((s) => s.meetingPoints);
+  // Ticks so the "active now" share meeting point stays current without an
+  // impure Date.now() in the memo factory (react-hooks/purity).
+  const now = useNow();
 
   const { encoded, picksCount, meetingPoint, tooLong } = useMemo(() => {
     if (!currentFestival || !currentProfile) {
@@ -72,7 +76,7 @@ export default function PlanQRShare() {
       .slice(0, MAX_PICKS)
       .map((p) => ({ setId: p.setId, priority: toPickPriority(p.priority) }));
 
-    const mp = pickShareMeetingPoint(meetingPoints, Date.now());
+    const mp = pickShareMeetingPoint(meetingPoints, now);
 
     const input: PlanSnapshotInput = {
       festivalId: currentFestival.id,
@@ -90,7 +94,7 @@ export default function PlanQRShare() {
       meetingPoint: mp,
       tooLong: enc.length > MAX_ENCODED_LENGTH,
     };
-  }, [currentFestival, currentProfile, meetingPoints]);
+  }, [currentFestival, currentProfile, meetingPoints, now]);
 
   if (!currentFestival || !currentProfile) {
     return (

@@ -13,7 +13,7 @@ interface Props {
 }
 
 // Ordered step list — matches store section order (schedule must finish first).
-const SECTIONS: Array<{ key: ReadinessSection; label: string }> = [
+const SECTIONS: { key: ReadinessSection; label: string }[] = [
   { key: 'schedule', label: 'Schedule' },
   { key: 'picks', label: 'My picks' },
   { key: 'crew', label: 'Crew plan' },

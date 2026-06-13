@@ -64,6 +64,7 @@ export default function AccountHistorySection() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- show loading state before the async fetch
     setLoading(true);
     setError(null);
     api

@@ -36,7 +36,7 @@ interface ImagePickerResult {
 interface ImagePickerModule {
   requestMediaLibraryPermissionsAsync: () => Promise<{ granted: boolean }>;
   launchImageLibraryAsync: (options?: {
-    mediaTypes?: Array<'images' | 'videos' | 'livePhotos'>;
+    mediaTypes?: ('images' | 'videos' | 'livePhotos')[];
     allowsEditing?: boolean;
     aspect?: [number, number];
     quality?: number;

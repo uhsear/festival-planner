@@ -76,7 +76,9 @@ export default function SegmentedControl<T extends string>({
       const f = framesMap[index];
       if (!f) return;
       const config = { duration: reduceMotion ? 0 : duration.med, easing: Easing.bezier(...easing.standard.bezier) };
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value
       thumbX.value = withTiming(f.x, config);
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value
       thumbW.value = withTiming(f.width, config);
     },
     [reduceMotion, thumbX, thumbW],

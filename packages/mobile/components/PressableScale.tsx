@@ -41,6 +41,7 @@ export default function PressableScale({
   const handlePressIn = useCallback<NonNullable<PressableProps['onPressIn']>>(
     (e) => {
       if (!reduceMotion) {
+        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value
         pressed.value = withTiming(1, {
           duration: duration.fast,
           easing: Easing.bezier(...easing.out.bezier),
@@ -54,6 +55,7 @@ export default function PressableScale({
   const handlePressOut = useCallback<NonNullable<PressableProps['onPressOut']>>(
     (e) => {
       if (!reduceMotion) {
+        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value
         pressed.value = withTiming(0, {
           duration: duration.med,
           easing: Easing.bezier(...easing.spring.bezier),

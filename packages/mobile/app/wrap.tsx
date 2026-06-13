@@ -70,6 +70,7 @@ export default function WrapScreen() {
   useEffect(() => {
     if (!currentFestival?.id || !over) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- show loading state before the async fetch
     setLoading(true);
     setError(false);
     api
@@ -429,10 +430,12 @@ function useCountUpMobile(target: string, duration = 800): string {
 
   useEffect(() => {
     if (isNaN(numericTarget)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- non-numeric target shows as-is, no animation
       setDisplayed(target);
       return;
     }
     if (reduceMotion) {
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value
       sv.value = numericTarget;
       setDisplayed(target);
       return;
@@ -500,6 +503,7 @@ function CrewWrapTab({
   useEffect(() => {
     if (!crewId) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- show loading state before the async fetch
     setLoading(true);
     setError(false);
     api

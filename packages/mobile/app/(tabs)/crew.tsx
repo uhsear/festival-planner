@@ -160,19 +160,25 @@ export default function CrewScreen() {
     }
   }, [user?.id, crews, activeCrew, selectCrew]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset the transient sub-feature UI whenever the active crew changes.
-  useEffect(() => {
+  // Reset the transient sub-feature UI whenever the active crew changes. Done
+  // with the render-time "previous value" pattern (keyed off the crew id) rather
+  // than a setState-in-effect, so the reset lands in the same render the crew
+  // changes and before the ?tab deep-link effect below re-applies any tab.
+  const [prevCrewId, setPrevCrewId] = useState(activeCrew?.id);
+  if (activeCrew?.id !== prevCrewId) {
+    setPrevCrewId(activeCrew?.id);
     setShowOverlap(false);
     setForceAddOpen(false);
     setForceAddId('');
     setCrewTab('members');
-  }, [activeCrew?.id]);
+  }
 
   // DC2: honor a deep-linked ?tab=... (e.g. the find/map SOS shortcut lands on
   // the Find pane). Runs after the crew-change reset since it keys on the param.
   const TAB_KEYS: readonly CrewTabKey[] = ['members', 'plan', 'logistics', 'money'];
   useEffect(() => {
     if (tabParam && (TAB_KEYS as readonly string[]).includes(tabParam)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- apply deep-linked ?tab once it changes
       setCrewTab(tabParam as CrewTabKey);
     }
   }, [tabParam]); // eslint-disable-line react-hooks/exhaustive-deps

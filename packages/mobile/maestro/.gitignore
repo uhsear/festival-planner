@@ -1,8 +1,0 @@
-# Screenshots captured by takeScreenshot
-*.png
-# Downloaded build artifacts
-*.apk
-*.aab
-# Local credentials for runs (never commit)
-.env
-*.local.yaml

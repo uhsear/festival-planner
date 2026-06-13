@@ -14,6 +14,7 @@ import {
 import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
+import { useNow } from '../hooks/useNow';
 
 /** A peer/SOS marker pushed into the WebView via window.__festieSetPeers. */
 interface LivePin {
@@ -409,9 +410,11 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
   const hasLive = (peers?.length ?? 0) > 0 || !!sos;
 
   // Live peer + SOS markers pushed into the WebView (and listed in the fallback).
+  // `now` ticks via useNow so staleness recomputes without an impure Date.now()
+  // in the memo factory (react-hooks/purity).
+  const now = useNow();
   const livePins = useMemo<LivePin[]>(() => {
     const items: LivePin[] = [];
-    const now = Date.now();
     for (const p of peers ?? []) {
       if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
       const age = formatStaleness(p.serverAt).replace(/^as of /, '');
@@ -440,7 +443,7 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
       });
     }
     return items;
-  }, [peers, sos]);
+  }, [peers, sos, now]);
 
   // Meeting points present but without coords — listed so they're never lost,
   // even though they can't be plotted.

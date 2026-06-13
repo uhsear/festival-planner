@@ -309,8 +309,8 @@ export default function createLineupImportRoute(deps: any) {
 
       // M3 re-engagement: a recurring festival just published its lineup → notify
       // prior-year attendees of the same-named festival (handled in the trigger:
-      // event-gated, per-type opt-out + DND + deduped, capped fan-out with a
-      // queue TODO). Fire-and-forget so a notify failure never fails the import.
+      // event-gated, per-type opt-out + DND + deduped, capped fan-out). Fire-and-forget
+      // notification; durable job-queue for reliable delivery is deferred future work.
       if (reengagement?.sendLineupDrop) {
         reengagement
           .sendLineupDrop(festivalId)

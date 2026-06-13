@@ -226,7 +226,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     } finally {
       setJoinBusy(false);
     }
-  }, [currentFestival, onClose]);
+  }, [currentFestival, onClose, toast]);
 
   return (
     <Drawer.Root

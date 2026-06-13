@@ -94,6 +94,7 @@ export default function AdminScreen() {
 
   useEffect(() => {
     if (!isAdmin) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear loading when there's nothing to fetch
       setLoading(false);
       return;
     }

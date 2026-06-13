@@ -237,14 +237,19 @@ export default function PlanQRScan() {
     );
   }
 
-  // Scanning.
+  // Scanning. Gate the camera callback on render-safe state (`phase`) rather
+  // than reading handledRef.current during render (react-hooks/refs). We only
+  // reach this branch while phase === 'scanning'; once a code is accepted,
+  // handleScanned advances phase and this view unmounts. The ref still guards
+  // against the camera firing the callback repeatedly within a single tick.
+  const stillScanning = phase === 'scanning';
   return (
     <View style={styles.screen}>
       <CameraView
         style={styles.camera}
         facing="back"
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        onBarcodeScanned={handledRef.current ? undefined : (e) => void handleScanned(e)}
+        onBarcodeScanned={stillScanning ? (e) => void handleScanned(e) : undefined}
         accessibilityLabel="QR code scanner"
         accessibilityHint="Point your camera at a Festie plan QR code to scan and import picks"
       />

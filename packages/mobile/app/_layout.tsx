@@ -87,7 +87,19 @@ function AuthGate() {
   const segments = useSegments();
   const router = useRouter();
   const navState = useRootNavigationState();
-  const [hydrated, setHydrated] = useState(false);
+  // Initialize from persist's current hydration state. When Zustand persist has
+  // already rehydrated synchronously (e.g. noop storage), restore the bearer
+  // token into the API client right here in the lazy initializer so we start
+  // `hydrated` and avoid a setState-in-effect for that path. The async
+  // onFinishHydration path is handled by the effect below.
+  const [hydrated, setHydrated] = useState(() => {
+    if (useAuthStore.persist.hasHydrated()) {
+      const token = useAuthStore.getState().userToken;
+      if (token) setAuthToken(token);
+      return true;
+    }
+    return false;
+  });
   // null = still reading the flag; false = show intro; true = already seen.
   const [introSeen, setIntroSeen] = useState<boolean | null>(null);
 
@@ -168,6 +180,9 @@ function AuthGate() {
   // checkSession (and all subsequent requests) include the Authorization
   // header.
   useEffect(() => {
+    // The synchronous-hydration case is handled by the lazy initializer above;
+    // here we only need to react to async rehydration finishing. Subscribing is
+    // still safe if hydration already completed — the callback simply won't fire.
     const unsub = useAuthStore.persist.onFinishHydration(() => {
       const token = useAuthStore.getState().userToken;
       if (token) {
@@ -175,16 +190,6 @@ function AuthGate() {
       }
       setHydrated(true);
     });
-
-    // If hydration already completed synchronously (e.g. noop storage)
-    if (useAuthStore.persist.hasHydrated()) {
-      const token = useAuthStore.getState().userToken;
-      if (token) {
-        setAuthToken(token);
-      }
-      setHydrated(true);
-    }
-
     return unsub;
   }, []);
 

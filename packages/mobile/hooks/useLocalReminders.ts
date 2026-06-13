@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Sentry from '@sentry/react-native';
@@ -58,6 +58,28 @@ export function useLocalReminders(): void {
   useEffect(() => {
     loadPrefs().catch(() => {});
   }, [loadPrefs]);
+
+  /** Request notification permission at most once; returns whether granted. */
+  // Defined before the reconcile effect that calls it (avoids a TDZ/forward ref).
+  // Depends only on the stable permissionRef, so the identity is stable.
+  const ensurePermission = useCallback(async (): Promise<boolean> => {
+    if (permissionRef.current.granted) return true;
+    try {
+      const existing = await Notifications.getPermissionsAsync();
+      let status = existing.status;
+      if (status !== 'granted' && !permissionRef.current.requested) {
+        permissionRef.current.requested = true;
+        const req = await Notifications.requestPermissionsAsync();
+        status = req.status;
+      }
+      const granted = status === 'granted';
+      permissionRef.current.granted = granted;
+      return granted;
+    } catch (e) {
+      Sentry.captureException(e);
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,27 +142,7 @@ export function useLocalReminders(): void {
       sub.remove();
     };
     // permissionRef is a ref (stable); intentionally excluded.
-  }, [reminders, picks, sets, days, b2bSeparator, setRemindersPref, festivalTimeZone]);
-
-  /** Request notification permission at most once; returns whether granted. */
-  async function ensurePermission(): Promise<boolean> {
-    if (permissionRef.current.granted) return true;
-    try {
-      const existing = await Notifications.getPermissionsAsync();
-      let status = existing.status;
-      if (status !== 'granted' && !permissionRef.current.requested) {
-        permissionRef.current.requested = true;
-        const req = await Notifications.requestPermissionsAsync();
-        status = req.status;
-      }
-      const granted = status === 'granted';
-      permissionRef.current.granted = granted;
-      return granted;
-    } catch (e) {
-      Sentry.captureException(e);
-      return false;
-    }
-  }
+  }, [reminders, picks, sets, days, b2bSeparator, setRemindersPref, festivalTimeZone, ensurePermission]);
 }
 
 /**

@@ -30,7 +30,7 @@ interface TimelineStaticLayerProps {
  * React.memo subcomponent keyed on those two props skips the rebuild entirely
  * unless the day/stage selection or time window actually changes.
  */
-const TimelineStaticLayer = React.memo(function TimelineStaticLayer({
+const TimelineStaticLayer = React.memo(function TimelineStaticLayerImpl({
   visibleStages,
   timeBounds,
 }: TimelineStaticLayerProps) {
