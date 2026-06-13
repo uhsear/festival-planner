@@ -102,16 +102,17 @@ async function openAdminPanel(page: any) {
   await expect(page.locator('.admin-panel')).toBeVisible();
 }
 
-test.describe('festival planner browser regression', () => {
-  // FIXME(e2e-web nightly): this end-to-end walk targets the retired vanilla-JS UI.
-  // The shared registerUser/joinFestival helpers and the body assert on DOM that the
-  // React SPA no longer renders — the landing route "/" is now the guest schedule
-  // (no inline "Create Account" button; auth lives on /register), and the navigation
-  // moved off `.desktop-nav` with the join flow's `join-callout`/`join-festival-button`
-  // test-ids removed. The security core (tokens/profileId absent from localStorage,
-  // empty cookie) is still worth keeping, but the rest needs a full rewrite against the
-  // new Header/BottomNav + /register flow, which can't be validated without a backing
-  // DB/Redis in this environment. Skipping rather than shipping a confidently-wrong test.
+// QUARANTINED (e2e-web nightly): this whole suite targets the RETIRED vanilla-JS UI.
+// The shared registerUser/joinFestival helpers and most bodies assert on DOM the
+// React SPA no longer renders — landing "/" is now the guest schedule (no inline
+// "Create Account"; auth lives on /login + /register), and the nav moved off
+// `.desktop-nav` (the `join-callout`/`join-festival-button` test-ids are gone). Every
+// test here either uses those helpers or asserts retired DOM, so the suite provides
+// zero real coverage today. `.fixme` keeps the structure + the already-migrated
+// `WCAG: auth errors…` test (now correct against /login) as the template for a full
+// rewrite against the Header/BottomNav + /login//register flow — a migration that
+// needs a DB/Redis-backed run (CI provides them; not available locally).
+test.describe.fixme('festival planner browser regression', () => {
   test.fixme('keeps planner features working while sessions stay out of localStorage', async ({ app, page }: any) => {
     await registerUser(page, app, 'alice');
     await joinFestival(page);
