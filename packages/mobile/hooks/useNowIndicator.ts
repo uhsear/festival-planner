@@ -63,12 +63,19 @@ export function useNowIndicator(timeBounds: TimeBounds | null, selectedDay: numb
     el.scrollTo({ y: Math.max(0, targetY - 120), animated: true });
   }, [nowIndicator, timeBounds, rowHeight]);
 
-  // Auto-scroll to now once per day switch (matches web's rAF-on-day-change).
+  // Keep a ref to the latest scrollToNow so the day-switch effect can call it
+  // without listing it (or nowIndicator) as a dep — depending on nowIndicator
+  // would re-scroll on every 30s tick, not just on a day change.
+  const scrollToNowRef = useRef(scrollToNow);
   useEffect(() => {
-    if (nowIndicator === null) return;
-    const id = requestAnimationFrame(() => scrollToNow());
+    scrollToNowRef.current = scrollToNow;
+  }, [scrollToNow]);
+
+  // Auto-scroll to now once per day switch (matches web's rAF-on-day-change).
+  // scrollToNow no-ops when nowIndicator is null, so the guard rides along.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => scrollToNowRef.current());
     return () => cancelAnimationFrame(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDay]);
 
   return { nowIndicator, scrollRef, scrollToNow };

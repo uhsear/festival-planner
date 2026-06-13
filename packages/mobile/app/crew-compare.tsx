@@ -58,7 +58,12 @@ export default function CrewCompareScreen() {
   // Refresh crew overlap (drives the "going" count + keeps the crew picks/profiles
   // fresh). The grid is derived from those picks. Reused by mount + pull-to-refresh
   // + the error retry (F41).
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- narrower deps (id/festivalId, not the whole crew object) are deliberate
+  // The narrow deps (activeCrew?.id / ?.festivalId, not the whole activeCrew
+  // object) are deliberate and load-bearing: `refresh` feeds useEffect([refresh])
+  // below, so widening to `activeCrew` (what the compiler infers) would re-fire
+  // the mount fetch on every store-driven object-identity change. React Compiler
+  // is not enabled here, so we keep the manual memo and suppress its readiness warning.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- intentional narrower deps; widening would cause redundant overlap refetches
   const refresh = useCallback(async () => {
     const festivalId = activeCrew?.festivalId ?? currentFestival?.id;
     if (!activeCrew?.id || !festivalId) return;
@@ -73,7 +78,7 @@ export default function CrewCompareScreen() {
   }, [activeCrew?.id, activeCrew?.festivalId, currentFestival?.id, loadOverlap]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh() flips the loading flag before its async fetch
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- genuine data-fetch side effect: refresh() flips the refreshing flag before its async overlap GET; not derivable from render inputs
     void refresh();
   }, [refresh]);
 

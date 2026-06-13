@@ -196,7 +196,10 @@ export default function SetDetailScreen() {
   // festie:// scheme also resolves set/<id>, so the link deep-links into the app
   // when installed and falls back to the web page otherwise.
   const shareUrl = useMemo(() => (set ? `https://festie.us/set/${set.id}` : ''), [set]);
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- narrower deps (currentFestival?.name, not the whole object) are deliberate
+  // Narrow dep (currentFestival?.name, not the whole object) is deliberate so the
+  // share handler only re-creates when the displayed name changes. React Compiler
+  // is not enabled here, so keep the manual memo and suppress its readiness warning.
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- intentional narrower deps
   const handleShare = useCallback(async () => {
     if (!set) return;
     try {
@@ -275,7 +278,7 @@ export default function SetDetailScreen() {
 
   useEffect(() => {
     if (!set) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local note drafts when the set/profile changes
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- seed the editable note drafts from the store when the set/profile changes; can't be derived state because the user then edits these locally (debounced save back to the store)
     setPersonalNote(currentProfile?.notes?.[set.id] || '');
     setCrewNote(currentProfile?.notes?.['crew:' + set.id] || '');
   }, [set, currentProfile]);

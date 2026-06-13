@@ -94,7 +94,7 @@ export default function AdminScreen() {
 
   useEffect(() => {
     if (!isAdmin) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear loading when there's nothing to fetch
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- load-once guard: non-admins have nothing to fetch, so clear the initial loading flag. Tied to the fetch lifecycle, not derivable from render inputs.
       setLoading(false);
       return;
     }

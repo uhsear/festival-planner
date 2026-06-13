@@ -14,7 +14,7 @@ name: Mobile OTA update (eas update)
 # appVersion the publish OS no longer affects delivery. Use for JS-only changes to
 # the CURRENT app version; for native changes or a new app version, cut a build.
 #
-# Staging → production promote flow (P15):
+# Staging -> production promote flow (P15):
 #   1. Publish to staging (this workflow's default):
 #        gh workflow run mobile-ota.yml -f branch=staging -f message="your message"
 #        - or dispatch from the Actions tab with branch=staging.
@@ -147,13 +147,13 @@ jobs:
           THRESHOLD="${CRASH_THRESHOLD:-2}"
           echo "## EAS Update insights" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Group: \`$GROUP_ID\` · channel: \`$CHANNEL\` · runtimeVersion: \`$RUNTIME_VERSION\` · crash-threshold: ${THRESHOLD}%" >> "$GITHUB_STEP_SUMMARY"
+          echo "Group: \`$GROUP_ID\` - channel: \`$CHANNEL\` - runtimeVersion: \`$RUNTIME_VERSION\` - crash-threshold: ${THRESHOLD}%" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           # Give the metrics pipeline a moment to register the fresh publish, then retry.
           INSIGHTS_JSON=""
           for attempt in 1 2 3; do
-            echo "update:insights attempt $attempt/3 for group $GROUP_ID …"
+            echo "update:insights attempt $attempt/3 for group $GROUP_ID ..."
             if INSIGHTS_JSON=$(eas update:insights "$GROUP_ID" --json --non-interactive 2>/tmp/insights.err); then
               # Got valid JSON with at least one platform entry? then stop retrying.
               if node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8")); process.exit(Array.isArray(d.platforms)&&d.platforms.length?0:1)' <<<"$INSIGHTS_JSON" 2>/dev/null; then
@@ -170,7 +170,7 @@ jobs:
 
           if [ -z "$INSIGHTS_JSON" ]; then
             echo "::notice::EAS update insights not available yet for $GROUP_ID (metrics pipeline lag). Skipping crash-rate check; this is normal right after a publish."
-            echo "_Insights not available yet (metrics pipeline lag right after publish) — crash-rate check skipped._" >> "$GITHUB_STEP_SUMMARY"
+            echo "_Insights not available yet (metrics pipeline lag right after publish) -- crash-rate check skipped._" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
@@ -209,7 +209,7 @@ jobs:
                 const ota = d.otaTotalUniqueUsers ?? 0;
                 console.log("[channel] channel=%s rtv=%s embeddedUsers=%s otaUsers=%s", d.channel, d.runtimeVersion, emb, ota);
                 fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-                  `\n**Reach (channel \`${d.channel}\` @ \`${d.runtimeVersion}\`):** embedded users: ${emb} · OTA users: ${ota}\n`);
+                  `\n**Reach (channel \`${d.channel}\` @ \`${d.runtimeVersion}\`):** embedded users: ${emb} - OTA users: ${ota}\n`);
               ' 2>/dev/null || echo "::notice::Could not parse channel:insights output."
             else
               echo "::notice::channel:insights not available yet (no OTA launches recorded for $CHANNEL @ $RUNTIME_VERSION)."
@@ -222,14 +222,14 @@ jobs:
           if [ "$OVER" = "true" ]; then
             echo "::warning::EAS update crash rate ${MAX_CRASH}% exceeds threshold ${THRESHOLD}% for group $GROUP_ID (channel $CHANNEL)."
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "> ⚠️ **Crash rate ${MAX_CRASH}% exceeds threshold ${THRESHOLD}%.**" >> "$GITHUB_STEP_SUMMARY"
+            echo "> WARN **Crash rate ${MAX_CRASH}% exceeds threshold ${THRESHOLD}%.**" >> "$GITHUB_STEP_SUMMARY"
             if [ "${FAIL_ON_THRESHOLD}" = "true" ]; then
-              echo "fail_on_crash_threshold=true → failing the job."
+              echo "fail_on_crash_threshold=true -- failing the job."
               exit 1
             fi
-            echo "fail_on_crash_threshold=false → warning only, not blocking the OTA."
+            echo "fail_on_crash_threshold=false -- warning only, not blocking the OTA."
           else
-            echo "Crash rate ${MAX_CRASH}% within threshold ${THRESHOLD}%. ✅"
+            echo "Crash rate ${MAX_CRASH}% within threshold ${THRESHOLD}%. [ok]"
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "> ✅ Crash rate ${MAX_CRASH}% within threshold ${THRESHOLD}%." >> "$GITHUB_STEP_SUMMARY"
+            echo "> [ok] Crash rate ${MAX_CRASH}% within threshold ${THRESHOLD}%." >> "$GITHUB_STEP_SUMMARY"
           fi

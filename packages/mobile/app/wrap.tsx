@@ -70,7 +70,7 @@ export default function WrapScreen() {
   useEffect(() => {
     if (!currentFestival?.id || !over) return;
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- show loading state before the async fetch
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- genuine data-fetch side effect: flip loading on before the async GET. Not derivable — loading tracks the in-flight request, not render inputs.
     setLoading(true);
     setError(false);
     api
@@ -430,12 +430,12 @@ function useCountUpMobile(target: string, duration = 800): string {
 
   useEffect(() => {
     if (isNaN(numericTarget)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- non-numeric target shows as-is, no animation
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- non-numeric target shows verbatim once; not derivable as render state because the animated frames also drive `displayed` via runOnJS
       setDisplayed(target);
       return;
     }
     if (reduceMotion) {
-      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value
+      // eslint-disable-next-line react-hooks/immutability -- imperative Reanimated shared-value write; the count-up animation has no declarative/derived equivalent
       sv.value = numericTarget;
       setDisplayed(target);
       return;
@@ -445,8 +445,8 @@ function useCountUpMobile(target: string, duration = 800): string {
       duration,
       easing: Easing.out(Easing.cubic),
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target, reduceMotion]);
+    // sv is a useSharedValue (stable ref); numericTarget is derived from target.
+  }, [target, numericTarget, reduceMotion, duration, sv]);
 
   return displayed;
 }
@@ -503,7 +503,7 @@ function CrewWrapTab({
   useEffect(() => {
     if (!crewId) return;
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- show loading state before the async fetch
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- genuine data-fetch side effect: flip loading on before the async GET. Not derivable — loading tracks the in-flight request, not render inputs.
     setLoading(true);
     setError(false);
     api

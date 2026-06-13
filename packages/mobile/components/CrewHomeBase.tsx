@@ -32,7 +32,7 @@ export default function CrewHomeBase({ crewId, location, time, isOwner }: CrewHo
 
   // Keep the form in sync when the crew's stored values change underneath us.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync the edit form when stored values change underneath
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- seed the editable form drafts from the store when another member updates the home base; can't be pure derived state because the user edits these locally before saving back.
     setLoc(location ?? '');
     setTimeValue(time ?? '');
   }, [location, time]);

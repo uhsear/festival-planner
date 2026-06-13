@@ -173,12 +173,16 @@ jobs:
       - name: Install web workspace deps
         working-directory: packages
         run: pnpm install --frozen-lockfile
-      - name: Test shared (vitest)
+      - name: Test shared (vitest + coverage)
         working-directory: packages
-        run: pnpm --filter @festie/shared test
-      - name: Test web (vitest)
+        env:
+          COVERAGE: '1'
+        run: pnpm --filter @festie/shared test -- --coverage
+      - name: Test web (vitest + coverage)
         working-directory: packages
-        run: pnpm --filter @festie/web test
+        env:
+          COVERAGE: '1'
+        run: pnpm --filter @festie/web test -- --coverage
 
   mobile-typecheck:
     needs: changes

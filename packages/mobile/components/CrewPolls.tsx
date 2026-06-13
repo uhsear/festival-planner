@@ -81,8 +81,9 @@ function PollBarFill({
       return;
     }
     widthPct.value = reduceMotion ? pct : withTiming(pct, { duration: 400 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pct, reduceMotion]);
+    // widthPct is a useSharedValue (stable ref); listed to satisfy exhaustive-deps
+    // without changing when the effect re-runs (only pct / reduceMotion drive it).
+  }, [pct, reduceMotion, widthPct]);
 
   const animStyle = useAnimatedStyle(() => ({
     width: `${widthPct.value}%` as unknown as number,

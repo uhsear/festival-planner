@@ -60,7 +60,7 @@ export default function OfflineBanner() {
 
   // Re-arm the offline banner for the next offline episode once back online.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- re-arm the banner once back online
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- event-driven re-arm: once connectivity returns, clear the user's manual dismissal so the banner can show again on the next offline episode. Not derivable — `dismissed` is user intent that must persist within an episode.
     if (!offlineMode && dismissed) setDismissed(false);
   }, [offlineMode, dismissed]);
 

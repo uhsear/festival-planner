@@ -45,7 +45,8 @@ DROP INDEX IF EXISTS public.idx_set_ratings_user;                  -- covered by
 DROP INDEX IF EXISTS public.idx_user_roles_user_id;                -- covered by user_roles_pkey
 
 -- Partial index on the hot profile-lookup path. Matches the soft-delete
--- filter that every `festival_profiles` read must include (per CLAUDE.md).
+-- filter that every `festival_profiles` read must include
+-- (soft-delete convention: deleted_at IS NULL must be included in all festival_profiles reads).
 CREATE INDEX IF NOT EXISTS idx_fp_user_live
   ON public.festival_profiles (user_id, festival_id)
   WHERE deleted_at IS NULL;

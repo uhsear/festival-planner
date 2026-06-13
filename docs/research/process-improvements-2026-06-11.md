@@ -69,7 +69,7 @@ concurrency:
 
 ### Testing
 
-**P19 — Delete or quarantine the stale Expo-Go Maestro flows.** *What:* remove `packages/mobile/maestro/*` (SDK-54 / `host.exp.exponent` targets) or move under `legacy/`. *Evidence:* project on SDK 56; these target Expo Go SDK 54 and aren't in CI — silent rot. *Effort:* S. *Impact:* med. *First step:* `git rm -r packages/mobile/maestro/phase*.yaml smoke.yaml ...` keeping only what's referenced by CI in `.maestro/`.
+**P19 — Delete or quarantine the stale Expo-Go Maestro flows.** *What:* remove `packages/mobile/maestro/*` (SDK-54 / `host.exp.exponent` targets) or move under `legacy/`. *Evidence:* project on SDK 56; these target Expo Go SDK 54 and aren't in CI — silent rot. *Effort:* S. *Impact:* med. *First step:* `git rm -r packages/mobile/maestro/phase*.yaml smoke.yaml ...` keeping only what's referenced by CI in `.maestro/`. **[RESOLVED]** The SDK-54 YAML flows (`phase*.yaml`, `smoke.yaml`) are no longer present in `packages/mobile/maestro/` (verified 2026-06-12); only screenshots/APKs remain. Canonical flows live in `packages/mobile/.maestro/` and are referenced by CI.
 
 **P20 — Make web/shared vitest coverage a hard gate (or raise thresholds).** *What:* fail the `frontend-tests` job on coverage drop. *Evidence:* "40/35% … not enforced as a separate CI gate" — only backend c8 blocks. *Effort:* S. *Impact:* med. *First step:* add `--coverage` + `coverage.thresholds` to the web/shared vitest configs so vitest exits non-zero below threshold; ratchet up from current actuals.
 
