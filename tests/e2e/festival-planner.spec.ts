@@ -1,17 +1,14 @@
 import fs from 'node:fs';
 
-import {
-  test,
-  expect,
-  ADMIN_PASSWORD,
-  ADMIN_USER,
-  DEFAULT_PASSWORD,
-} from './fixtures.js';
+import { test, expect, ADMIN_PASSWORD, ADMIN_USER, DEFAULT_PASSWORD } from './fixtures.js';
 
 const AVATAR_FIXTURE = {
   name: 'avatar.png',
   mimeType: 'image/png',
-  buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP8z/CfAQgwgImBgaEBAAriA/1oCbcnAAAAAElFTkSuQmCC', 'base64'),
+  buffer: Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP8z/CfAQgwgImBgaEBAAriA/1oCbcnAAAAAElFTkSuQmCC',
+    'base64',
+  ),
 };
 
 async function openApp(page: any, app: any, suffix = '') {
@@ -106,13 +103,24 @@ async function openAdminPanel(page: any) {
 }
 
 test.describe('festival planner browser regression', () => {
-  test('keeps planner features working while sessions stay out of localStorage', async ({ app, page }: any) => {
+  // FIXME(e2e-web nightly): this end-to-end walk targets the retired vanilla-JS UI.
+  // The shared registerUser/joinFestival helpers and the body assert on DOM that the
+  // React SPA no longer renders — the landing route "/" is now the guest schedule
+  // (no inline "Create Account" button; auth lives on /register), and the navigation
+  // moved off `.desktop-nav` with the join flow's `join-callout`/`join-festival-button`
+  // test-ids removed. The security core (tokens/profileId absent from localStorage,
+  // empty cookie) is still worth keeping, but the rest needs a full rewrite against the
+  // new Header/BottomNav + /register flow, which can't be validated without a backing
+  // DB/Redis in this environment. Skipping rather than shipping a confidently-wrong test.
+  test.fixme('keeps planner features working while sessions stay out of localStorage', async ({ app, page }: any) => {
     await registerUser(page, app, 'alice');
     await joinFestival(page);
     await openUserMenu(page);
     await expect(page.locator('[data-testid="user-menu-profile"]')).toContainText('alice');
     await expect(page.locator('[data-testid="festival-profile-section"]')).toContainText('Specific to Test Fest');
-    await expect(page.locator('[data-testid="account-section"]')).toContainText('Photo and password changes apply across every festival');
+    await expect(page.locator('[data-testid="account-section"]')).toContainText(
+      'Photo and password changes apply across every festival',
+    );
     await page.locator('[data-testid="avatar-file-input"]').setInputFiles(AVATAR_FIXTURE);
     await expect(page.locator('#toasts')).toContainText('Profile photo updated');
     await expect(page.locator('.profile-badge .avatar img')).toBeVisible();
@@ -152,7 +160,9 @@ test.describe('festival planner browser regression', () => {
     await page.waitForTimeout(900);
     await page.locator('.detail-close').click();
     await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"] .card-note-indicator')).toBeVisible();
-    await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"] .reminder-badge')).toContainText('15m alert');
+    await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"] .reminder-badge')).toContainText(
+      '15m alert',
+    );
 
     await openSet(page, 'Beta');
     await page.getByText('Want to See').click();
@@ -223,7 +233,12 @@ test.describe('festival planner browser regression', () => {
     await alicePage.locator('[data-testid="online-users-trigger"]').click();
     await expect(alicePage.locator('[data-testid="online-users-menu"]')).toContainText('alice');
     await expect(alicePage.locator('[data-testid="online-users-menu"]')).toContainText('bob');
-    await expect(alicePage.locator('[data-testid="online-users-menu"] .online-user-row').filter({ hasText: 'alice' }).locator('img')).toBeVisible();
+    await expect(
+      alicePage
+        .locator('[data-testid="online-users-menu"] .online-user-row')
+        .filter({ hasText: 'alice' })
+        .locator('img'),
+    ).toBeVisible();
     await alicePage.mouse.click(10, 10);
 
     await openSet(bobPage, 'Alpha');
@@ -322,29 +337,42 @@ test.describe('festival planner browser regression', () => {
     await page.getByRole('button', { name: 'Save Changes' }).click();
     await expect(page.locator('#toasts')).toContainText('Festival updated!');
 
-    const updatedRow = page.locator('[data-testid="admin-festival-row"]').filter({ hasText: 'UI Fest Updated' }).first();
+    const updatedRow = page
+      .locator('[data-testid="admin-festival-row"]')
+      .filter({ hasText: 'UI Fest Updated' })
+      .first();
     const updatedFestivalId = await updatedRow.getAttribute('data-festival-id');
     await updatedRow.locator('[data-testid="admin-clone-festival"]').click();
     await expect(page.locator('#toasts')).toContainText('Festival cloned');
-    await expect(page.locator('[data-testid="admin-festival-row"]').filter({ hasText: 'UI Fest Updated Copy' }).first()).toBeVisible();
+    await expect(
+      page.locator('[data-testid="admin-festival-row"]').filter({ hasText: 'UI Fest Updated Copy' }).first(),
+    ).toBeVisible();
 
     await page.getByRole('button', { name: 'Create/Edit Festival' }).click();
     await page.getByRole('button', { name: 'Import CSV' }).click();
-    await page.locator('.import-box textarea').fill([
-      'dayLabel,date,artist,stage,startTime,endTime,stageColor',
-      'Sunday,2026-06-09,Orbit,CSV Stage,18:00,19:00,#4488ff',
-    ].join('\n'));
+    await page
+      .locator('.import-box textarea')
+      .fill(
+        [
+          'dayLabel,date,artist,stage,startTime,endTime,stageColor',
+          'Sunday,2026-06-09,Orbit,CSV Stage,18:00,19:00,#4488ff',
+        ].join('\n'),
+      );
     await page.locator('.import-box').getByRole('button', { name: 'Import' }).click();
     await page.locator('#adminFestName').fill('CSV Fest');
     await page.locator('#adminFestLocation').fill('Import Dome');
     await page.getByRole('button', { name: 'Create Festival' }).click();
     await expect(page.locator('#toasts')).toContainText('Festival created!');
-    await expect(page.locator('[data-testid="admin-festival-row"]').filter({ hasText: 'CSV Fest' }).first()).toBeVisible();
+    await expect(
+      page.locator('[data-testid="admin-festival-row"]').filter({ hasText: 'CSV Fest' }).first(),
+    ).toBeVisible();
 
     page.once('dialog', (dialog: any) => dialog.accept());
     await updatedRow.locator('[data-testid="admin-delete-festival"]').click();
     await expect(page.locator('#toasts')).toContainText('Festival deleted');
-    await expect(page.locator(`[data-testid="admin-festival-row"][data-festival-id="${updatedFestivalId}"]`)).toHaveCount(0);
+    await expect(
+      page.locator(`[data-testid="admin-festival-row"][data-festival-id="${updatedFestivalId}"]`),
+    ).toHaveCount(0);
   });
 
   test('recovers cleanly when the current festival is deleted', async ({ app, page }: any) => {
@@ -389,7 +417,10 @@ test.describe('festival planner browser regression', () => {
     await page.locator('.detail-close').click();
 
     // Guest should NOT see My Picks or Crew tabs
-    const navText = await page.locator('.desktop-nav').textContent().catch(() => '');
+    const navText = await page
+      .locator('.desktop-nav')
+      .textContent()
+      .catch(() => '');
     expect(navText).not.toContain('My Picks');
     expect(navText).not.toContain('Crew');
 
@@ -513,14 +544,18 @@ test.describe('festival planner browser regression', () => {
   });
 
   test('WCAG: auth errors are announced via role=alert', async ({ app, page }: any) => {
-    await openApp(page, app);
-    const errEl = page.locator('#authError');
+    // The React SPA shows the guest schedule at "/" (inside #app); the auth form
+    // and its live-region error element live on the dedicated /login route, which
+    // renders the standalone <main class="auth-screen"> shell (no #app wrapper).
+    await page.goto(`${app.baseUrl}/login`);
+    await expect(page.locator('.auth-screen')).toBeVisible();
+    const errEl = page.locator('#authFormError');
     await expect(errEl).toHaveAttribute('role', 'alert');
     await expect(errEl).toHaveAttribute('aria-live', 'assertive');
 
-    // Trigger a validation error
-    await page.locator('#authBtn').click();
-    await expect(errEl).not.toHaveText(' ');
+    // Trigger a validation error (submit with empty fields) and assert it is announced.
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(errEl).toHaveText('Username is required');
   });
 
   test('account menu shows email and supports email change flow', async ({ app, page }: any) => {
