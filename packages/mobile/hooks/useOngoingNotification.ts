@@ -12,6 +12,7 @@ import {
 } from '@festie/shared/utils';
 import type { FestivalSet } from '@festie/shared/types';
 import { startOrUpdateLiveActivity, endLiveActivity } from '../lib/liveActivity';
+import { NowNextWidgetInstance } from '../widgets/NowNextActivity';
 
 /**
  * M6 — Android ongoing (sticky) notification.
@@ -196,6 +197,16 @@ export function useOngoingNotification(enabled: boolean = true): void {
         }
       }
       startOrUpdateLiveActivity({ title: model.title, body: model.body, endsAt });
+      // Home-screen widget: push the same model snapshot so the WidgetKit
+      // timeline reflects the current set without waiting for a background
+      // refresh. updateSnapshot is a no-op when the native widget extension
+      // is not present in the running binary (same safe pattern as the Live
+      // Activity bridge).
+      try {
+        NowNextWidgetInstance.updateSnapshot({ title: model.title, subtitle: model.body });
+      } catch {
+        // Never let a widget-timeline failure surface to the user.
+      }
     } else {
       endLiveActivity();
     }
