@@ -2,7 +2,7 @@
 
 > Supersedes the prioritization in `docs/research/competitor-features-2026-06-02.md`. That report ranked an opt-in **live crew location** feature as the #1 flagship differentiator. This report corrects that blind spot: a festival is a **dead-signal environment**, and any feature whose value depends on a live server round-trip *during the crowd* is structurally broken there — no matter how good Festie's Socket.IO plumbing is. The lens for every feature is now: **does it survive a congested/no-signal crowd, across the festival lifecycle (before / during / after)?**
 >
-> Grounded against Festie's real offline architecture (commit `f04873b`): a **read-cache** (`crewStore` + web TanStack-Query persist serving the last-synced snapshot) plus a **one-directional, store-and-forward async write-queue** (`api.ts` `OFFLINE_ELIGIBLE_PATTERNS` allowlist → IndexedDB/AsyncStorage → replay on reconnect, no silent drops). **There is no peer-to-peer/BLE/mesh transport.** The decisive consequence the prior report ignored: the write-queue lets *you* record intent offline, but it delivers *nothing to your crew* until everyone is back on signal.
+> Grounded against Festie's real offline architecture (commit `f04873b`): a **read-cache** (`crewStore` + web TanStack-Query persist serving the last-synced snapshot) plus a **one-directional, store-and-forward async write-queue** (`api.ts` `OFFLINE_ELIGIBLE_PATTERNS` allowlist → IndexedDB/AsyncStorage → replay on reconnect, no silent drops). **There is no peer-to-peer/BLE/mesh transport.** The decisive consequence the prior report missed: the write-queue lets *you* record intent offline, but it delivers *nothing to your crew* until everyone is back on signal.
 
 ---
 

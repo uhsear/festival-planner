@@ -130,7 +130,7 @@ concurrency:
 - **PM2 cluster mode (right now).** Blocked by `tsx`-as-interpreter (can't load `.ts` in cluster mode — documented in the config). True zero-downtime reload needs ≥2 workers + `wait_ready` + `process.send('ready')`, which requires compiling the backend to JS first. That's a real project, not a config tweak — defer until a compile step exists. Keep fork mode for now.
 - **Fingerprint `runtimeVersion` policy.** Already tried and reverted (spurious iOS-prebuild hash churn, expo/expo#34195). Research confirms it's still experimental for SDK 56. Stay on `appVersion`; add a CI fingerprint *diff gate* (cheap, non-policy) instead if you want the safety signal.
 - **Self-hosted GlitchTip / Loki+Grafana.** Sentry free tier (5K errors/mo) fits a small user base with zero ops. Self-hosting adds RAM + Celery + another Postgres/Redis tenant to the already-single box. Revisit only if you blow the free quota.
-- **AI-driven Playwright test generation (Planner/Generator/Healer).** Research (testquality.com) sets a 200-test floor before the MCP/token overhead pays off; the current E2E suite is far below that. First normalize locators to `getByRole`/`getByTestId` and get the suite into CI (P10).
+- **Automated Playwright test generation (Planner/Generator/Healer).** Research (testquality.com) sets a 200-test floor before the MCP/token overhead pays off; the current E2E suite is far below that. First normalize locators to `getByRole`/`getByTestId` and get the suite into CI (P10).
 
 ---
 

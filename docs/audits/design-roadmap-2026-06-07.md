@@ -11,7 +11,7 @@ This roadmap merges the **internal design review** (`docs/audits/design-review-i
 3. **Web↔mobile drift vs. the parity mandate.** Brand fonts (Syncopate/Space Grotesk) never load on mobile (Roboto fallback); day-pill accent differs (aqua vs crimson); nav labels diverge; the schedule tab is misnamed "Timeline."
 4. **Hierarchy collapse on the densest screen.** The mobile Crew tab is a flat wall of 7 identical full-width rows; web already solves it with a tab bar. Clashfinder/Eleken's lesson — single-axis structure on phone, dense grid only on web — applies broadly.
 
-**Overall design maturity: high intent, incomplete application.** Festie has a real centralized token system (`packages/shared/src/tokens/`), an enforced anti-AI-slop discipline, and a strong web implementation (lucide icons, `.glass` panels, `ensureWhiteContrast`, AA-corrected day pills, 44px `IconButton`). This is a "finish the migration" roadmap, not a redesign. **Do first:** the P0 contrast + font + accent-rule cluster — they are token swaps and component reuse that erase the two High findings and the #1/#2 themes in days, not weeks.
+**Overall design maturity: high intent, incomplete application.** Festie has a real centralized token system (`packages/shared/src/tokens/`), an enforced design discipline with documented rationales, and a strong web implementation (lucide icons, `.glass` panels, `ensureWhiteContrast`, AA-corrected day pills, 44px `IconButton`). This is a "finish the migration" roadmap, not a redesign. **Do first:** the P0 contrast + font + accent-rule cluster — they are token swaps and component reuse that erase the two High findings and the #1/#2 themes in days, not weeks.
 
 **Counts by priority:** P0 = 7 · P1 = 6 · P2 = 8 · Cross-cutting = 3 · Decisions = 5 · Already-strong = 6.
 
@@ -134,7 +134,7 @@ Two-tier+ ramp on near-black (not #000): bg `#0A0A0B`, surface `#161618`, elevat
 ## Already strong — do NOT touch
 
 1. **Centralized token system** — `packages/shared/src/tokens/` (colors, typography, spacing) consumed by both apps; the right values almost always already exist.
-2. **Enforced anti-AI-slop discipline** — the team caught/fixed the white-on-coral day pill (`theme.css:426-428`), added hover tokens to replace `brightness` (`theme.css:454-455`), and documents deliberate font-drift fixes in comments.
+2. **Enforced anti-slop discipline** — the team caught/fixed the white-on-coral day pill (`theme.css:426-428`), added hover tokens to replace `brightness` (`theme.css:454-455`), and documents deliberate font-drift fixes in comments.
 3. **Strong web implementation** — lucide icon system, `.glass` panels, `StageBadge` `ensureWhiteContrast()`, AA-corrected day pills, dark-ink coral CTAs, shared `IconButton` (44px + focus ring), `EmptyState` with action support.
 4. **The Crew screen IS mostly sectioned** — Members, Live location & SOS, Meeting points, Polls, Packing, Rides, Expenses, Activity are labeled; Force-add is owner-gated and separated. The defect is only the top action cluster (P0-5).
 5. **Set-card priority controls are distinct glyphs with correct aria-labels** (not color-only), and the mobile SegmentedControl is the right pattern web should copy.

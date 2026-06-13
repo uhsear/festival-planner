@@ -1,6 +1,6 @@
 # Competitor Feature Research — Festie
 
-> Recovered 2026-06-03 from the 10-agent deep-research workflow run on 2026-06-02 (EDM/festival/event-coordination apps: Woov, Partiful, Splitwise, DICE, Bandsintown, Songkick, Clashfinder, setlist.fm, Frontstage, Festival Buddy, Life360, Instafest, etc.). Grounded against the Festie codebase.
+> Research conducted 2026-06-02 covering EDM/festival/event-coordination apps: Woov, Partiful, Splitwise, DICE, Bandsintown, Songkick, Clashfinder, setlist.fm, Frontstage, Festival Buddy, Life360, Instafest, etc. Grounded against the Festie codebase through systematic feature mapping.
 
 ## Summary
 

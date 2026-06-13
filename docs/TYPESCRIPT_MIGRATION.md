@@ -7,7 +7,7 @@
 
 ## Decision
 
-After analysis by 10 parallel agents across 7 dimensions (codebase inventory, backend complexity, mobile feasibility, alternative languages, dependency support, real-time performance, SaaS readiness), TypeScript was confirmed as the only language that can unify all layers of Festie without a rewrite.
+After comprehensive analysis across 7 dimensions (codebase inventory, backend complexity, mobile feasibility, alternative languages, dependency support, real-time performance, SaaS readiness), TypeScript was confirmed as the only language that can unify all layers of Festie without a rewrite.
 
 See ADR in `docs/adrs/005-typescript-migration.md` for the full decision record.
 

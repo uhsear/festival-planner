@@ -39,7 +39,7 @@ been merged into single entries and ranked by the highest severity any lens assi
 ### Overall design maturity
 
 Festie has a real, opinionated design system: centralized tokens in
-`packages/shared/src/tokens/`, an anti-AI-slop checklist the team actually enforces,
+`packages/shared/src/tokens/`, an anti-slop checklist the team actually enforces,
 documented contrast fixes with rationale comments in `theme.css`, and a strong web
 implementation (lucide icon system, `.glass` panels, AA-corrected day pills, dark-ink
 coral CTAs). The maturity gap is **consistency of application, not design intent**: the
@@ -399,7 +399,7 @@ contrast/target decisions web already encodes.** Lifting the web helpers
 - **A real, centralized token system.** `packages/shared/src/tokens/` (colors, typography,
   spacing) is consumed by both apps; the right values almost always already exist — most
   fixes are "use the token that's already there."
-- **An enforced anti-AI-slop discipline.** The team caught and fixed the white-on-coral day
+- **An enforced design discipline.** The team caught and fixed the white-on-coral day
   pill (`theme.css:426-428`), added dedicated hover tokens to replace `brightness` filters
   (`theme.css:454-455`), and `wrap.tsx:261-263` even carries a comment documenting a font
   drift it deliberately fixed — evidence of genuine design self-review.
