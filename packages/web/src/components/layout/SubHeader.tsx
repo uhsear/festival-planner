@@ -64,11 +64,11 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
       if (!id) return;
       try {
         await selectFestival(id);
-      } catch (e) {
-        toast(e instanceof Error ? e.message : "Couldn't switch festival. Try again.", 'error');
+      } catch (err) {
+        toast(err instanceof Error ? err.message : "Couldn't switch festival. Try again.", 'error');
       }
     },
-    [selectFestival],
+    [selectFestival, toast],
   );
 
   const handleStageToggle = useCallback(

@@ -196,6 +196,7 @@ export default function SetDetailScreen() {
   // festie:// scheme also resolves set/<id>, so the link deep-links into the app
   // when installed and falls back to the web page otherwise.
   const shareUrl = useMemo(() => (set ? `https://festie.us/set/${set.id}` : ''), [set]);
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- narrower deps (currentFestival?.name, not the whole object) are deliberate
   const handleShare = useCallback(async () => {
     if (!set) return;
     try {
@@ -274,6 +275,7 @@ export default function SetDetailScreen() {
 
   useEffect(() => {
     if (!set) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync local note drafts when the set/profile changes
     setPersonalNote(currentProfile?.notes?.[set.id] || '');
     setCrewNote(currentProfile?.notes?.['crew:' + set.id] || '');
   }, [set, currentProfile]);

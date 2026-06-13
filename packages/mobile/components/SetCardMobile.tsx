@@ -164,6 +164,7 @@ function PriorityButton({ option, active, onPress }: PriorityButtonProps) {
     // Scale pop only when ACTIVATING (not when toggling off) — the celebration
     // is for committing to a pick. Skipped under Reduce Motion.
     if (!active && !reduceMotion) {
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value
       scale.value = withSequence(
         withTiming(1.12, { duration: duration.fast, easing: Easing.bezier(...easing.out.bezier) }),
         withTiming(1, { duration: duration.med, easing: Easing.bezier(...easing.spring.bezier) }),

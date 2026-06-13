@@ -9,6 +9,7 @@ import { useCrewStore, useFestivalDataStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
+import { useNow } from '../hooks/useNow';
 import Button from './Button';
 import EmptyState from './EmptyState';
 
@@ -86,7 +87,10 @@ export default function SmsHandoff() {
     };
   }, []);
 
-  const meetingPoint = useMemo(() => pickMeetingPoint(meetingPoints, Date.now()), [meetingPoints]);
+  // Ticks so the active meeting point stays current without an impure Date.now()
+  // in the memo factory (react-hooks/purity).
+  const now = useNow();
+  const meetingPoint = useMemo(() => pickMeetingPoint(meetingPoints, now), [meetingPoints, now]);
   const message = useMemo(
     () => (meetingPoint ? buildMessage(meetingPoint, currentFestivalId) : ''),
     [meetingPoint, currentFestivalId],

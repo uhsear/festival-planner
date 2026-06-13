@@ -73,6 +73,7 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
 
   // Reset sharing whenever the crew changes — you must re-opt-in per crew.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset transient share state on crew change
     resetShare();
   }, [crewId, resetShare]);
 
@@ -130,7 +131,9 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
 
   // Keep one ref so the error handler can flip the toggle without re-subscribing.
   const sharingRef = useRef(sharing);
-  sharingRef.current = sharing;
+  useEffect(() => {
+    sharingRef.current = sharing;
+  }, [sharing]);
   const handleError = useCallback(() => {
     if (!sharingRef.current) return;
     resetShare();

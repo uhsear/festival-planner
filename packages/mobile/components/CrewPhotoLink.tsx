@@ -31,6 +31,7 @@ export default function CrewPhotoLink({ crewId, photoAlbumUrl }: CrewPhotoLinkPr
   // Keep the form in sync when the crew's stored URL changes underneath us
   // (e.g. another member sets it and the crew:photo-album-updated event lands).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync the edit form when the stored URL changes underneath
     setUrl(photoAlbumUrl ?? '');
   }, [photoAlbumUrl]);
 

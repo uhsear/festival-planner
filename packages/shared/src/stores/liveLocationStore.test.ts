@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useLiveLocationStore } from './liveLocationStore';
 import { LIVE_LOCATION } from '../constants/config';
 import type { PeerLocation, SosEntry } from '../types/domain';

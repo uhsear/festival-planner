@@ -7,6 +7,7 @@ import { getSetTimeBounds, artistDisplayName, formatTime } from '@festie/shared/
 import type { CrewMeetingPoint, FestivalDay, FestivalSet, Priority, Profile } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
+import { useNow } from '../hooks/useNow';
 import FreshnessChip from '../components/FreshnessChip';
 import EmptyState from '../components/EmptyState';
 
@@ -108,7 +109,7 @@ export default function CrewPlanScreen() {
     return allProfiles.filter((p) => memberIds.has(p.userId));
   }, [crewMembers, activeCrew, allProfiles]);
 
-  const nowMs = Date.now();
+  const nowMs = useNow();
   const meetingPoint = useMemo(() => pickActiveMeetingPoint(meetingPoints, nowMs), [meetingPoints, nowMs]);
   const slots = useMemo(() => buildSlots(sets, days, crewProfiles, nowMs), [sets, days, crewProfiles, nowMs]);
   const slotsWithPicks = slots.filter((s) => s.picks.length > 0);
