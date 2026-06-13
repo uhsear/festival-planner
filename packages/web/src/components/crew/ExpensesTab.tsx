@@ -127,6 +127,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses', crewId] });
       qc.invalidateQueries({ queryKey: ['settlement-plan', crewId] });
+      qc.invalidateQueries({ queryKey: ['expense-balances', crewId] });
       toast('Expense added', 'success');
       reset();
     },
@@ -138,6 +139,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses', crewId] });
       qc.invalidateQueries({ queryKey: ['settlement-plan', crewId] });
+      qc.invalidateQueries({ queryKey: ['expense-balances', crewId] });
       toast('Removed', 'success');
     },
     onError: () => toast("Couldn't remove expense. Try again.", 'error'),
@@ -148,6 +150,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses', crewId] });
       qc.invalidateQueries({ queryKey: ['settlement-plan', crewId] });
+      qc.invalidateQueries({ queryKey: ['expense-balances', crewId] });
       toast('Settled up', 'success');
     },
     onError: (e) => toast(e instanceof Error ? e.message : "Couldn't settle up. Try again.", 'error'),
