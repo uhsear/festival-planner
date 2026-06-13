@@ -9,3 +9,4 @@ packages:
 # upload. Minimal allowlist — everything else stays blocked.
 onlyBuiltDependencies:
   - "@sentry/cli"
+  - "esbuild"
