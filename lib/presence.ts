@@ -72,6 +72,9 @@ export function createPresenceManager({ state, redisPresence, redis, log, getUse
         _presenceDebounce.delete(festivalId);
         try {
           const online = await getPresenceList(festivalId);
+          if (redisPresence) {
+            redisPresence.refresh(festivalId).catch(() => {});
+          }
           io.to(festivalId).emit('presence:update', { online });
         } catch (err: any) {
           log.warn('emitPresence failed', { festivalId, error: err.message });

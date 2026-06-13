@@ -315,16 +315,17 @@ export default function createCrewMemberRoutes(deps: any) {
         const existing = await stores.crews.getMember(crewId, targetUserId);
         if (existing) return sendError(res, 400, 'Already a member of this crew', ErrorCodes.ALREADY_EXISTS);
 
-        const memberCount = await stores.crews.getMemberCount(crewId);
-        if (memberCount >= crew.maxMembers) {
+        // Atomically enforce the member cap to close the count-then-insert race.
+        const addResult = await stores.crews.tryAddMemberWithinCap(
+          { crewId: crew.id, userId: targetUserId, role: 'member' },
+          crew.maxMembers,
+        );
+        if (addResult === 'full') {
           return sendError(res, 400, 'Crew is full', ErrorCodes.MAX_LIMIT_REACHED);
         }
-
-        await stores.crews.addMember({
-          crewId: crew.id,
-          userId: targetUserId,
-          role: 'member',
-        });
+        if (addResult === 'exists') {
+          return sendError(res, 400, 'Already a member of this crew', ErrorCodes.ALREADY_EXISTS);
+        }
 
         const members = await stores.crews.getMembers(crew.id);
 

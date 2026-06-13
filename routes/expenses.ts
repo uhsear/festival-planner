@@ -230,12 +230,14 @@ export default function createExpenseRoutes(deps: any) {
           splitWith: [toUserId],
           category: 'settlement',
         });
-        await stores.activity.log({
-          crewId,
-          userId: req.user.userId,
-          type: 'expense_settled',
-          detail: `$${amount.toFixed(2)} to ${toUserId}`,
-        });
+        stores.activity
+          .log({
+            crewId,
+            userId: req.user.userId,
+            type: 'expense_settled',
+            detail: `$${amount.toFixed(2)} to ${toUserId}`,
+          })
+          .catch(() => {});
         emitter.crewExpenseAdded({ crewId, expense: settlement });
         res.status(201);
         return sendSuccess(res, settlement);
