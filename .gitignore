@@ -30,6 +30,8 @@ lhci-reports/
 dist/
 dist.disabled/
 packages/web/dist/
+*.apk
+*.aab
 
 # Playwright debug scripts
 pw-*.js
