@@ -82,3 +82,9 @@ tests/e2e/.auth/
 logs/.alert-state.json
 
 scripts/deploy/__pycache__/
+
+# Local instruction/config files — not for the public repo
+/CLAUDE.md
+/AGENTS.md
+/.cursorrules
+/.github/copilot-instructions.md

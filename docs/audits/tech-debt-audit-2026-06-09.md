@@ -1,6 +1,6 @@
 # Tech-Debt & Hardening Audit — 2026-06-09
 
-**Status: PARTIALLY VERIFIED + FIXED.** Raw output of a 15-finder multi-agent audit
+**Status: PARTIALLY VERIFIED + FIXED.** Output of a comprehensive multi-dimensional audit
 (web / shared / mobile-iOS / mobile-Android / cross-cutting lenses). The dedup and
 adversarial-verification stages could not run (session limits). **9 critical/high
 findings were manually verified against the code and fixed** (see "Verified & Fixed"

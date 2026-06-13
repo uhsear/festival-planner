@@ -1,6 +1,6 @@
 # Design Inspiration Research — 2026-06-10
 
-Sources: ui.aceternity.com, styles.refero.design, mobbin.com, godly.website (4 haiku researchers + sonnet synthesis; 83 raw patterns).
+Sources: ui.aceternity.com, styles.refero.design, mobbin.com, godly.website (83 raw patterns).
 
 ## Cross-site themes
 

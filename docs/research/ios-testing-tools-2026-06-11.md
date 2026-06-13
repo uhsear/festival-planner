@@ -48,28 +48,28 @@ the primary barrier. The constraint that remains is wall-time (test turnaround) 
 - **Stars/maturity:** 1.4k stars, v0.1.75 (June 9 2026), 110+ tests, active cadence.
 - **Hard requirements:** macOS + Xcode 26, Apple Silicon. GH Actions `macos-15` runners are
   Apple Silicon — this works in CI. Dev box (Windows) cannot run it.
-- **Role for Festie:** Agent-driven interactive inspection/debugging on the CI runner. Not a test
-  runner — it's a control layer. Useful if you need an agent to visually inspect simulator state
+- **Role for Festie:** Interactive inspection/debugging on the CI runner. Not a test
+  runner — it's a control layer. Useful for visually inspecting simulator state
   (e.g., debug a flaky flow by streaming the screen). No MCP server shipped; needs a thin shell
-  wrapper for agent integration.
-- **Verdict:** Interesting for future agent-driven debugging. Not needed in initial build. Xcode 26
+  wrapper for remote debugging integration.
+- **Verdict:** Interesting for future interactive debugging. Not needed in initial build. Xcode 26
   requirement is a risk (runner must have Xcode 26; macos-26 runners in beta as of mid-2026).
   **Defer.**
 
 ### 2c. ios-simulator-mcp (joshuayoes variant)
 
 - **What it is:** Node.js MCP server (npm: `ios-simulator-mcp`, v1.6.0 April 2026, 2,000+ stars,
-  15 releases) exposing 15+ tools to Claude/Cursor: `ui_tap`, `ui_swipe`, `ui_type`,
+  15 releases) exposing 15+ tools to Cursor and similar tools: `ui_tap`, `ui_swipe`, `ui_type`,
   `ui_find_element` (accessibility tree search), `screenshot`, `record_video`, `launch_app`,
   `install_app`, etc. Backed by Facebook IDB.
 - **Local (Windows):** No. iOS Simulator is macOS-only.
 - **CI:** Viable on GH Actions macOS runner. IDB install adds ~60 s setup overhead.
 - **vs Maestro:** Maestro already has iOS simulator support and shares the same YAML DSL as the
   Android flows. For CI automation, Maestro is the right tool (shared flows, lower overhead).
-  ios-simulator-mcp's value is interactive Claude-driven testing sessions on a macOS machine —
+  ios-simulator-mcp's value is interactive testing sessions on a macOS machine —
   not a CI runner.
 - **Verdict:** Not recommended for Festie CI (Maestro is already the harness). Potentially useful
-  if a macOS machine were available for interactive agent sessions. **Reject for CI; consider for
+  if a macOS machine were available for interactive debugging sessions. **Reject for CI; consider for
   interactive debugging only if/when a Mac is available.**
 
 ### 2d. agent-simulator (jasonkneen)
@@ -304,7 +304,7 @@ remote Mac via ios-bridge (or similar)?
   Android today (no local emulator on Windows; rely on CI artifacts).
 - **If a persistent macOS server is ever provisioned** (Mac Mini, self-hosted runner): ios-bridge
   becomes viable for quick interactive checks. Baguette (with a shell-wrapper) would be superior
-  for agent-driven inspection given its accessibility tree JSON output. But this requires Mac
+  for interactive inspection given its accessibility tree JSON output. But this requires Mac
   infrastructure investment.
 
 **Bottom line:** No viable real-time Windows→iOS remote control path that is production-ready
@@ -365,7 +365,7 @@ until Option A proves too slow.
 ### Rank 3 — Defer: Baguette
 
 **Why:** Requires Xcode 26 (macos-26 runner, beta stability risk), ARCHITECTURE.md-level
-understanding of a new tool, and a shell wrapper for CI integration. Value add is agent-driven
+understanding of a new tool, and a shell wrapper for CI integration. Value add is interactive
 visual debugging — useful but not essential for initial iOS E2E gate.
 
 **Revisit when:** Xcode 26 runners are stable (GA macos-26), or when a flaky simulator flow
@@ -373,7 +373,7 @@ needs video/accessibility-tree inspection that Maestro's `video_recording` doesn
 
 ### Rejected: ios-simulator-mcp (joshuayoes)
 
-Maestro is already the established harness. ios-simulator-mcp's value is interactive Claude
+Maestro is already the established harness. ios-simulator-mcp's value is interactive testing
 sessions on macOS — not CI automation. Adds IDB setup overhead with no benefit over Maestro
 for CI use.
 
