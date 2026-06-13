@@ -60,20 +60,13 @@ function subscribeToBothStores(listener: () => void): () => void {
 }
 
 export const useFestivalStore: UseFestivalStore = (<T>(selector?: (state: FestivalStore) => T): T | FestivalStore => {
-  // Fast path: no selector -- return the full merged state (rare in practice,
-  // kept for API compatibility). This will re-render on any change.
-  if (!selector) {
-    return useSyncExternalStore(subscribeToBothStores, getMergedState, getMergedState);
-  }
-
-  // With a selector: only re-render when the selected slice changes.
-  // We cache the last snapshot so useSyncExternalStore sees a stable
-  // reference when the selected value hasn't changed.
+  // These refs/callbacks must be declared unconditionally to satisfy Rules of Hooks.
+  // When there is no selector they are allocated but never used.
   const cachedRef = useRef<{ value: T; merged: FestivalStore } | null>(null);
 
   const getSnapshot = useCallback((): T => {
     const merged = getMergedState();
-    const next = selector(merged);
+    const next = selector!(merged);
 
     // Return the cached value if the selected slice is unchanged.
     // This preserves referential identity, preventing re-renders.
@@ -85,6 +78,15 @@ export const useFestivalStore: UseFestivalStore = (<T>(selector?: (state: Festiv
     return next;
   }, [selector]);
 
+  // Fast path: no selector -- return the full merged state (rare in practice,
+  // kept for API compatibility). This will re-render on any change.
+  if (!selector) {
+    return useSyncExternalStore(subscribeToBothStores, getMergedState, getMergedState);
+  }
+
+  // With a selector: only re-render when the selected slice changes.
+  // We cache the last snapshot so useSyncExternalStore sees a stable
+  // reference when the selected value hasn't changed.
   return useSyncExternalStore(subscribeToBothStores, getSnapshot, getSnapshot);
 }) as UseFestivalStore;
 

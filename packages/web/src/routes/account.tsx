@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared/stores/authStore';
 import ProfileSection from '../components/account/ProfileSection';
@@ -31,10 +32,10 @@ function AccountPageInner() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
 
-  if (!user) {
-    navigate({ to: '/login' });
-    return null;
-  }
+  useEffect(() => {
+    if (!user) navigate({ to: '/login' }).catch(() => {});
+  }, [user, navigate]);
+  if (!user) return null;
 
   const displayName = user.name ?? user.username ?? 'Account';
 

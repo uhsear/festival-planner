@@ -399,6 +399,17 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         crewMembers: state.crewMembers.map((m) =>
           m.userId === newOwnerId ? { ...m, role: 'owner' } : { ...m, role: 'member' },
         ),
+        activeCrew:
+          state.activeCrew?.id === crewId
+            ? {
+                ...state.activeCrew,
+                owner: newOwnerId,
+                members: state.activeCrew.members.map((m) =>
+                  m.userId === newOwnerId ? { ...m, role: 'owner' } : { ...m, role: 'member' },
+                ),
+              }
+            : state.activeCrew,
+        crews: state.crews.map((c) => (c.id === crewId ? { ...c, owner: newOwnerId } : c)),
       }));
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to transfer ownership');
