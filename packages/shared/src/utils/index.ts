@@ -13,3 +13,4 @@ export * from './liveLocation';
 export * from './planSnapshot';
 export * from './mapPins';
 export * from './ongoingNotification';
+export * from './crewNudges';

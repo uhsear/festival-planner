@@ -2,7 +2,7 @@ import React, { memo, useRef, useState, useEffect, useMemo } from 'react';
 import { Star, Diamond, Circle, Play, Square, AlertTriangle, StickyNote } from 'lucide-react';
 import { FestivalSet, Priority } from '@festie/shared/types';
 import { usePicks } from '@festie/shared/hooks';
-import { formatTime, artistDisplayName, artistSubtitle } from '@festie/shared/utils';
+import { formatTime, artistDisplayName, artistSubtitle, PRIORITY_RANK } from '@festie/shared/utils';
 import { useFestivalStore, useCrewStore } from '@festie/shared/stores';
 import { api } from '@festie/shared/services/api';
 import { useSetStatus } from '@/hooks/useSetStatus';
@@ -10,7 +10,7 @@ import { useToast } from '@/lib/toastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { cn } from '@/lib/utils';
 import LiveBadge from './LiveBadge';
-import Avatar from '../ui/Avatar';
+import CrewOverlapAvatars from './CrewOverlapAvatars';
 import { ensureWhiteContrast } from '../ui/StageBadge';
 
 interface SpotifyPreviewResponse {
@@ -45,39 +45,6 @@ const PRI_MAP: Record<string, string> = {
   'want-to-see': 'want',
   maybe: 'maybe',
 };
-
-// Crew-overlap avatars cluster by priority: must first, then want, then maybe.
-// Lower rank sorts earlier. Drives both the visible avatar order and the
-// "N of your crew have this as a must" aria-label.
-const PRIORITY_RANK: Record<Priority, number> = {
-  must: 0,
-  'want-to-see': 1,
-  maybe: 2,
-};
-
-const PRIORITY_NOUN: Record<Priority, string> = {
-  must: 'must',
-  'want-to-see': 'want',
-  maybe: 'maybe',
-};
-
-/**
- * Build the human "N of your crew have this as a must" breakdown phrase from a
- * priority-grouped friend list, e.g. "2 must, 1 want". Empty groups are
- * omitted; an all-empty list yields ''.
- */
-function buildOverlapBreakdown(friends: readonly { priority: Priority }[]): string {
-  const counts: Record<Priority, number> = {
-    must: 0,
-    'want-to-see': 0,
-    maybe: 0,
-  };
-  for (const f of friends) counts[f.priority] = (counts[f.priority] ?? 0) + 1;
-  return (['must', 'want-to-see', 'maybe'] as const)
-    .filter((p) => counts[p] > 0)
-    .map((p) => `${counts[p]} ${PRIORITY_NOUN[p]}`)
-    .join(', ');
-}
 
 function SetCard({
   set,
@@ -495,74 +462,7 @@ function SetCard({
         )}
 
         {/* Crew overlap / who's going */}
-        {groupedFriends.length > 0 &&
-          (() => {
-            // Render compact avatars when crew identity data (name/initials/avatar)
-            // is present; otherwise fall back to the bare "N going" count.
-            const hasAvatarData = groupedFriends.some((f) => f.name || f.initials || f.avatarUrl);
-            const count = groupedFriends.length;
-            const countLabel = count === 1 ? '1 going' : `${count} going`;
-            // Priority-grouped label, e.g. "2 of your crew going to X — 1 must,
-            // 1 maybe". Surfaces the must>want>maybe breakdown to screen readers.
-            const breakdown = buildOverlapBreakdown(groupedFriends);
-            const ariaLabel =
-              `${count} crew ${count === 1 ? 'member' : 'members'} going to ${artistName}` +
-              (breakdown ? ` — ${breakdown}` : '');
-            const visible = groupedFriends.slice(0, 3);
-            const overflow = count - visible.length;
-
-            return (
-              <button
-                className={cn(
-                  'card-overlap',
-                  'flex gap-2 items-center cursor-pointer',
-                  'bg-transparent border-0 p-0 text-inherit font-inherit appearance-none',
-                  'min-h-11 inline-flex',
-                  'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:rounded-sm',
-                )}
-                type="button"
-                aria-label={ariaLabel}
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-              >
-                {hasAvatarData ? (
-                  <span className="flex items-center" aria-hidden="true">
-                    {visible.map((f, i) => (
-                      <Avatar
-                        key={f.profileId ?? `${f.name ?? 'crew'}-${i}`}
-                        name={f.name || f.initials || 'Crew'}
-                        image={f.avatarUrl ?? undefined}
-                        size="xs"
-                        className={cn('ring-2 ring-bg-card rounded-full', i > 0 && '-ml-2')}
-                      />
-                    ))}
-                    {overflow > 0 && (
-                      <span
-                        className={cn(
-                          'flex-center -ml-2 w-6 h-6 rounded-full ring-2 ring-bg-card',
-                          'type-micro font-bold text-accent-aqua',
-                          'bg-[var(--color-aqua-a15)]',
-                        )}
-                      >
-                        +{overflow}
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  <span
-                    className={cn(
-                      'type-micro font-bold text-accent-aqua',
-                      'bg-[var(--color-aqua-a15)] py-0.5 px-[7px] rounded-md',
-                      'whitespace-nowrap mr-0.5',
-                    )}
-                  >
-                    {countLabel}
-                  </span>
-                )}
-              </button>
-            );
-          })()}
+        {groupedFriends.length > 0 && <CrewOverlapAvatars friends={groupedFriends} artistName={artistName} />}
       </div>
     </div>
   );

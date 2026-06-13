@@ -29,6 +29,7 @@ vi.mock('@festie/shared/hooks', () => ({
     getStageColor: vi.fn(() => '#ccc'),
     getStageName: vi.fn(() => 'Main Stage'),
   })),
+  useCrewNudges: vi.fn(() => []),
 }));
 
 vi.mock('@festie/shared/utils', () => ({

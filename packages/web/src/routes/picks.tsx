@@ -13,6 +13,7 @@ import Button from '../components/ui/Button';
 import RefreshableView from '../components/layout/RefreshableView';
 import PickBulkActions from '../components/PickBulkActions';
 import OfflineReadinessCard from '../components/features/OfflineReadinessCard';
+import CrewSuggestionStrip from '../components/features/CrewSuggestionStrip';
 // Lazy-loaded: PlanQRShare pulls in qrcode.react, which has no business in the
 // picks bundle until the user actually opens the share modal.
 const PlanQRShare = lazy(() => import('../components/features/PlanQRShare'));
@@ -228,6 +229,7 @@ function PicksViewInner() {
         <div role="region" aria-label="My picks" className="max-w-[600px] mx-auto w-full">
           {actionButtons && <div className="flex justify-end gap-2 mb-3">{actionButtons}</div>}
           <OfflineReadinessCard festivalId={currentFestival.id} className="mb-3" />
+          <CrewSuggestionStrip />
           <PickBulkActions />
           <EmptyState
             icon={<Star className="w-9 h-9" aria-hidden="true" />}
@@ -245,6 +247,7 @@ function PicksViewInner() {
       <div role="region" aria-label="My picks" className="max-w-[600px] mx-auto w-full">
         {actionButtons && <div className="flex justify-end gap-2 mb-3">{actionButtons}</div>}
         <OfflineReadinessCard festivalId={currentFestival.id} className="mb-3" />
+        <CrewSuggestionStrip />
         <PickBulkActions />
         {/* Priority sections */}
         {PRIORITY_SECTIONS.map(({ value: pri, label, accent, badge }) => {
