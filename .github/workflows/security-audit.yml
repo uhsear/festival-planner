@@ -30,3 +30,10 @@ jobs:
       - run: npm ci
       - name: npm audit (high+ — failing check)
         run: npm audit --audit-level=high
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: pnpm install (workspace)
+        run: cd packages && pnpm install --frozen-lockfile
+      - name: pnpm audit workspace (high+ — failing check)
+        run: cd packages && pnpm audit --audit-level=high
