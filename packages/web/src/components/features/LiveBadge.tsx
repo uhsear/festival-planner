@@ -71,15 +71,6 @@ export default function LiveBadge({ status, label, className }: LiveBadgeProps) 
     );
   }
 
-  // R6 PAST: neutral surface #3a3a3a, muted text #686868.
-  if (status === 'past') {
-    return <div className={cn(PILL_BASE, 'bg-[#3a3a3a] text-[#686868]', className)}>{label}</div>;
-  }
-
-  // R6 TBA / Later: same neutral treatment as PAST.
-  if (status === 'tba') {
-    return <div className={cn(PILL_BASE, 'bg-[#3a3a3a] text-[#686868]', className)}>{label}</div>;
-  }
-
+  // R6 PAST / TBA / Later: neutral surface #3a3a3a, muted text #686868.
   return <div className={cn(PILL_BASE, 'bg-[#3a3a3a] text-[#686868]', className)}>{label}</div>;
 }

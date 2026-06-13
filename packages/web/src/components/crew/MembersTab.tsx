@@ -47,7 +47,6 @@ export default function MembersTab({
           {members.map((m, index) => {
             const memberIsOwner = m.role === 'owner' || ownerId === m.userId;
             const canManage = isOwner && !memberIsOwner && m.userId !== currentUserId;
-            const canTransfer = canManage;
             const canKick = canManage && !!onKick;
             const displayName = m.name || m.username || 'User';
             return (
@@ -61,7 +60,7 @@ export default function MembersTab({
                   <div className="font-semibold text-text-primary truncate">{m.name || m.username}</div>
                   {memberIsOwner && <div className="text-xs text-accent-amber">{'👑'} Owner</div>}
                 </div>
-                {canTransfer && (
+                {canManage && (
                   <Button
                     variant="outline"
                     onClick={() => onTransferOwnership(m)}

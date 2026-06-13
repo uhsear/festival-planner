@@ -949,10 +949,6 @@ const useStyles = makeStyles((t) => ({
     borderColor: t.colors.border.default,
     backgroundColor: t.colors.bg.secondary,
   },
-  filterChipActive: {
-    backgroundColor: t.colors.accent.aqua,
-    borderColor: t.colors.accent.aqua,
-  },
   // R3 outlined-secondary variant for the "My picks" chip. The SegmentedControl
   // already holds the solid-aqua primary fill; a second solid aqua fill (the
   // old filterChipActive) violates the single-accent-fill-per-screen rule.
@@ -975,9 +971,6 @@ const useStyles = makeStyles((t) => ({
   filterChipText: {
     ...typeStyle('label'),
     color: t.colors.text.secondary,
-  },
-  filterChipTextActive: {
-    color: t.colors.text.onLightAccent,
   },
   // Companion text style for the outlined-tinted chip variant (My picks).
   filterChipTextTinted: {
