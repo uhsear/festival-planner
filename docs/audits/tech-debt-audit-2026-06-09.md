@@ -1236,7 +1236,7 @@ The sort in `sortedFestivals` calls `rank(a)`/`rank(b)` inside the comparator, a
 - **File:** `packages/mobile/app/(tabs)/crew.tsx:456`
 - **Dimension:** android-keyboard · **Effort:** small
 
-Seven screens use the pattern `<KeyboardAvoidingView ... behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>` (crew.tsx:456 and :559, account.tsx:98, login.tsx:49, register.tsx:79, forgot-password.tsx:61, reset-password.tsx:85). app.json sets no `android.softwareKeyboardLayoutMode`, so the default `resize` applies: the window content already shrinks for the keyboard, and KAV's `height` behavior applies a second height adjustment when its frame changes. Under SDK 54's always-on edge-to-edge this is the classic source of content jumping or a leftover keyboard-height gap after dismiss on Android.
+Seven screens use the pattern `<KeyboardAvoidingView ... behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>` (crew.tsx:456 and :559, account.tsx:98, login.tsx:49, register.tsx:79, forgot-password.tsx:61, reset-password.tsx:85). app.json sets no `android.softwareKeyboardLayoutMode`, so the default `resize` applies: the window content already shrinks for the keyboard, and KAV's `height` behavior applies a second height adjustment when its frame changes. Under SDK 56's always-on edge-to-edge this is the classic source of content jumping or a leftover keyboard-height gap after dismiss on Android.
 
 **Suggested fix:** On Android pass `behavior={undefined}` (or `enabled={Platform.OS === 'ios'}`) and let adjustResize do the work — ideally via one shared wrapper component instead of seven copies of the ternary; verify the crew chat input on a gesture-nav Android device.
 
