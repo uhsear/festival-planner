@@ -8,15 +8,15 @@ Verification: ci.yml, ecosystem.config.cjs, packages/mobile/app.json, package.js
 
 ## 1. Per-process current state
 
-**CI/CD.** Single `ci.yml` fires on push + PR to `main`/`develop`/`master` with 10 jobs on `ubuntu-latest`. All actions are SHA-pinned, `permissions: contents: read` everywhere, Node-24 action runtime forced ahead of GitHub's 2026-06-16 migration — genuinely hardened. But there are no `concurrency` groups anywhere, so every push to both active branches spins a full independent suite; caching is inconsistent (pnpm store cached only in `quality`, npm cached only in `lint`/`test`/`security`); the web build runs three times per run (`test`, `lighthouse`, `bundle-size`) with no artifact sharing; the `security` job hard-fails on `npm audit --audit-level=high` (currently red on the @grpc/grpc-js CVE across 10+ runs) yet is not a required check, so CI is permanently visually red while nothing is blocked; and branch protection lists a ghost `test (20)` check that the matrix (`node-version: [22]`) can never satisfy. No job-level `timeout-minutes` on `ci.yml`.
+**CI/CD.** Single `ci.yml` fires on push + PR to `main`/`develop`/`master` with 10+ jobs on `ubuntu-latest`. All actions are SHA-pinned, `permissions: contents: read` everywhere, Node-24 action runtime forced ahead of GitHub's 2026-06-16 migration — genuinely hardened. **[Updated 2026-06-13]** Concurrency groups (P1), `timeout-minutes` on every job (P4), a shared `.github/actions/pnpm-setup` composite action (P6), `dorny/paths-filter` path gating for web/mobile/docs (P8), `frontend-tests` and `mobile-typecheck` CI jobs, and `npm audit` moved to advisory + a dedicated `security-audit.yml` cron (P2) have all shipped. Remaining open: the web build still runs in `test`, `lighthouse`, and `bundle-size` separately without artifact sharing (P5); branch protection may still list a ghost `test (20)` check (P3); pnpm store cache not yet extracted to all jobs that need it.
 
 **Release / OTA.** No root `eas.json` (verified) — release config lives entirely in `app.json` + workflow files. `runtimeVersion.policy = appVersion` (fingerprint tried and reverted). OTA (`mobile-ota.yml`), Android native (`android-release.yml`), and the build-vs-OTA `mobile-release-gate.yml` are all `workflow_dispatch`-only; the gate is advisory and has only ever run on a feature branch. No iOS CI build path. Backend/web deploy is an **uncommitted** `%TEMP%/festie-deploy.py` paramiko script with **plaintext SSH and prod-login credentials baked in**; it does `git reset --hard origin/main` + web build on the server + `pm2 restart` (hard, ~5s drop of all Socket.IO connections). No migration step, no rollback script, no git-tag-per-deploy, no staging.
 
-**Testing.** Strong unit/integration backend coverage (94 node:test files, c8-enforced 80% lines / 60% branches — the only hard coverage gate). Web (72 files) and shared (37 files) vitest run at low 40/35% thresholds that are *not* CI-blocking. Playwright E2E exists (7 specs, 6 browser projects, visual regression) but **is not wired into CI at all** and carries a dead `importLegacyJsonToSqlite` import. Mobile has zero unit tests; Maestro smoke flows are split across a canonical `.maestro/` (in CI, manual dispatch) and a stale Expo-Go `maestro/` set targeting SDK 54. iOS E2E is new and 100% failing (5/5). No JUnit trend tracking.
+**Testing.** Strong unit/integration backend coverage (94 node:test files, c8-enforced 80% lines / 60% branches — the only hard coverage gate). Web (72 files) and shared (37 files) vitest now run in CI via the `frontend-tests` job (shipped post-audit). **[Updated 2026-06-13]** Playwright E2E is wired into a nightly `e2e-web.yml` workflow (P10 resolved). The stale Expo-Go Maestro flows targeting SDK 54 have been removed (P19 resolved); canonical flows live in `.maestro/`. iOS E2E (`ios-e2e.yml`) was implemented as a free macOS-runner Maestro job and is now green (historical "100% failing" status no longer applies). Mobile has zero unit tests. No JUnit trend tracking.
 
 **Ops.** Single Linux box (192.168.0.150) runs Postgres 16, Redis 7, the Node app (PM2 fork, 1 instance), and the Cloudflare tunnel — single point of failure. `pm2-logrotate` active, `error-rate-alert.cjs` + a self-deprecated `health-monitor.js` both on 5-min cron. **No external uptime monitoring.** Sentry is a conditional no-op wrapper (install status unconfirmed). Redis is RDB-only (AOF off). The INVENTORY contains a critical conflict: the RELEASE section shows fresh 6-hourly backups through Jun 11, while the OPS section reports backups frozen since May 2 with a path mismatch (`backups/festie` vs `backups/festival-planner`) — this discrepancy alone is the #1 thing to physically verify on the box.
 
-**Dev-loop.** Monorepo split (npm root, pnpm `packages/`) is correct and documented per project conventions — do not "fix" it. No husky/lint-staged pre-commit hooks; no shared `tsconfig.base.json` / shared eslint-config package; no path-filtered affected-package builds. Windows dev box, Linux prod — env drift risk is real.
+**Dev-loop.** Monorepo split (npm root, pnpm `packages/`) is correct and documented per project conventions — do not "fix" it. No husky/lint-staged pre-commit hooks; ~~no shared `tsconfig.base.json`~~ (a root `tsconfig.base.json` now exists — P32 resolved); no shared eslint-config package; path-filtered builds via `dorny/paths-filter` now in CI (P8/P33 resolved). Windows dev box, Linux prod — env drift risk is real.
 
 ---
 
@@ -30,24 +30,30 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 ```
+**[RESOLVED]** Concurrency groups shipped; `ci.yml` top-level block confirmed present.
 
 **P2 — Move `npm audit` out of the blocking push path onto a cron + make it non-fatal.** *What:* split security audit into a scheduled workflow; in `ci.yml` make the step advisory. *Evidence:* `ci.yml` line 179 `- run: npm audit --audit-level=high` hard-fails the job; it has failed 10+ consecutive runs on @grpc/grpc-js and is not a required check, so it only produces alert fatigue. *Effort:* S. *Impact:* high. *First step:* change line 179 to `run: npm audit --audit-level=high || true`, and add a new `security-audit.yml` with `on: { schedule: [{cron: '0 6 * * *'}], workflow_dispatch: {} }`.
+**[RESOLVED]** `npm audit` in `ci.yml` is now advisory (`|| echo "::warning::..."`); a dedicated `security-audit.yml` cron handles the blocking check.
 
 **P3 — Remove the ghost `test (20)` required check.** *What:* drop `test (20)` from branch-protection required contexts. *Evidence:* matrix is `node-version: [22]` (ci.yml line 60) — `test (20)` never runs, so required checks are permanently unsatisfiable except by admin bypass. *Effort:* S. *Impact:* med. *First step:* `gh api -X PATCH repos/uhsear/festival-planner/branches/main/protection/required_status_checks -f 'contexts[]=lint' -f 'contexts[]=test (22)' -f 'contexts[]=quality'` (drop the `(20)` context). Add `security` only after P2.
 
 **P4 — Add `timeout-minutes` to every `ci.yml` job.** *What:* cap runaway jobs. *Evidence:* only android/ios-e2e set timeouts; `test` ran 17.5 min and would hold a runner for GitHub's 6-hour default if it hung. *Effort:* S. *Impact:* med. *First step:* add `timeout-minutes: 30` under each job (10 for the fast ones).
+**[RESOLVED]** Every job in `ci.yml` now has `timeout-minutes`.
 
 **P5 — Build the web bundle once, share via artifact.** *What:* upload `packages/web/dist` from `test`, download in `lighthouse` + `bundle-size`. *Evidence:* `pnpm --filter @festie/web build` appears 3× (lines 100, 252, 273). *Effort:* M. *Impact:* med. *First step:* in `test`, `actions/upload-artifact` the `dist/`; replace the build steps in the other two jobs with `download-artifact`.
 
 **P6 — Cache the pnpm store in all pnpm jobs.** *What:* lift the `quality`-job pnpm-store cache pattern into `lint`/`frontend-tests`/`mobile-typecheck`/`bundle-size`/`lighthouse`. *Evidence:* "pnpm store cache is only used in the quality job" — confirmed (cache block only at lines 209-214). *Effort:* M. *Impact:* med. *First step:* extract the store-path + `actions/cache@v4` steps into a tiny composite action under `.github/actions/pnpm-setup` and reuse.
+**[RESOLVED]** Shared `.github/actions/pnpm-setup` composite action created and used across `lint`, `frontend-tests`, `mobile-typecheck`, and other pnpm jobs.
 
 **P7 — Add `cache: 'npm'` to setup-node in jobs running `npm ci`.** *What:* npm cache in `quality` (runs `npm ci` at line 218) and any other. *Evidence:* only `lint`/`test`/`security` set `cache: 'npm'`. *Effort:* S. *Impact:* low. *First step:* add `cache: 'npm'` to the `setup-node` in `quality`.
 
 **P8 — Path-filter jobs so docs-only / backend-only pushes skip irrelevant work.** *What:* `dorny/paths-filter` to gate `lighthouse`, `bundle-size`, `frontend-tests`, `mobile-typecheck`. *Evidence:* "No path-filter on any job"; a backend-only push triggers a full ~166s Lighthouse run. *Effort:* M. *Impact:* med. *First step:* add a `changes` job using `dorny/paths-filter@v3` with `web`/`mobile`/`backend`/`docs` filters; `needs: changes` + `if` on the dependent jobs.
+**[RESOLVED]** `changes` job using `dorny/paths-filter@v3` with `web`/`mobile`/`backend`/`docs` filters is present in `ci.yml`; dependent jobs gate on outputs.
 
 **P9 — Pin the semgrep version in `quality`.** *What:* `pipx run semgrep==<ver>` instead of unpinned. *Evidence:* `pipx run semgrep` (line 232) downloads latest each run — non-deterministic + slower. *Effort:* S. *Impact:* low. *First step:* pin e.g. `pipx run semgrep==1.XX.X scan ...`.
 
 **P10 — Wire Playwright E2E into CI as a non-blocking nightly.** *What:* a scheduled job running `npm run test:e2e` against a CI-spun server. *Evidence:* "Playwright E2E does NOT run in CI" — confirmed; `test:e2e`/`test:all` exist in package.json but are referenced by no workflow. *Effort:* L. *Impact:* med. *First step:* new `e2e-web.yml`, `schedule` nightly + `workflow_dispatch`, reuse the `test` job's postgres/redis services; first delete the dead `importLegacyJsonToSqlite` import in `fixtures.ts`.
+**[RESOLVED]** `.github/workflows/e2e-web.yml` exists with nightly schedule + `workflow_dispatch`.
 
 **P11 — Protect `master`.** *What:* apply at least required-checks to the day-to-day branch. *Evidence:* "master branch is NOT protected at all" and is where work lands. *Effort:* S. *Impact:* med. *First step:* `gh api -X PUT repos/uhsear/festival-planner/branches/master/protection ...` mirroring main's required checks.
 
@@ -78,6 +84,7 @@ concurrency:
 **P22 — Fix the iOS Maestro path inconsistency.** *What:* unify on `.maestro/` for both platforms. *Evidence:* iOS uses `maestro/ios-smoke.yaml`, Android uses `.maestro/android-smoke.yaml`. *Effort:* S. *Impact:* low. *First step:* `git mv packages/mobile/maestro/ios-smoke.yaml packages/mobile/.maestro/` and update `ios-e2e.yml`.
 
 **P23 — Replace fixed sleeps with Maestro auto-wait; diagnose the iOS 5/5 failure.** *What:* the retry-once + 10s sleep masks root cause; use `assertVisible`/`waitForAnimationToEnd`. *Evidence:* "ios-e2e.yml has been failing 100% … retry-once workaround… masks the root cause." *Effort:* M. *Impact:* med. *First step:* run the flow locally with `--test-output-dir` to capture the failing screenshot, then replace sleeps with element waits.
+**[RESOLVED]** iOS E2E (`ios-e2e.yml`) is now green (free public-repo macOS + Maestro); the 100%-failing status was the pre-fix state.
 
 **P24 — Add CocoaPods + pnpm-store caching to `ios-e2e.yml`.** *What:* cache `Pods` + `~/Library/Caches/CocoaPods` + pnpm store. *Evidence:* "ios-e2e.yml has zero caching… pod install runs cold every time (2-5min)." *Effort:* M. *Impact:* med. *First step:* add `actions/cache@v4` keyed on `ios/Podfile.lock` once prebuild has generated it.
 
@@ -100,6 +107,7 @@ concurrency:
 **P31 — Add husky + lint-staged pre-commit (ESLint/Prettier on staged files).** *What:* fast pre-commit formatting/lint; keep full typecheck in CI. *Evidence:* no hooks present; relies on CI to catch lint. *Effort:* M. *Impact:* med. *First step:* `pnpm add -Dw husky lint-staged` in `packages/`, `npx husky init`, add a `lint-staged` block running `eslint --fix` + `prettier --write`.
 
 **P32 — Extract a root `tsconfig.base.json`.** *What:* shared compilerOptions (strict, moduleResolution, target) each package extends. *Evidence:* three packages with independent tsconfigs; drift risk. *Effort:* M. *Impact:* low. *First step:* create `tsconfig.base.json`, change each package tsconfig to `"extends": "../../tsconfig.base.json"`.
+**[RESOLVED]** Root `tsconfig.base.json` exists in the repo.
 
 **P33 — Use `pnpm --filter '[HEAD^1]'` for affected-only tasks in CI.** *What:* run web/mobile/shared tasks only when those packages changed. *Evidence:* every job runs regardless of what changed. *Effort:* M. *Impact:* med (overlaps P8). *First step:* prototype `pnpm --filter '...[origin/main]' test` locally, then adopt in the relevant jobs.
 
@@ -136,17 +144,19 @@ concurrency:
 
 ## 5. Top 10 quick reference (ranked by impact / effort)
 
-| # | Process | Improvement | Impact | Effort |
-|---|---------|-------------|--------|--------|
-| 1 | Ops | External uptime monitor + cron heartbeats (P26) | high | S |
-| 2 | CI/CD | Concurrency groups + cancel-in-progress (P1) | high | S |
-| 3 | CI/CD | `npm audit` → cron + non-blocking; unblock red CI (P2) | high | S |
-| 4 | Release | Commit deploy script, strip + rotate creds (P12) | high | M |
-| 5 | Release | Production migration runner + tracking table (P13) | high | M |
-| 6 | Release | Rollback script + per-deploy git tag (P14) | high | M |
-| 7 | CI/CD | Remove ghost `test (20)` required check (P3) | med | S |
-| 8 | CI/CD | `timeout-minutes` on every job (P4) | med | S |
-| 9 | Ops | Drop deprecated `health-monitor.js` cron (P27) | med | S |
-| 10 | Release | Fix `restart.sh` / stale process-name mismatches (P17) | med | S |
+> ✅ = resolved as of 2026-06-13. Remaining open items shown without checkmark.
+
+| # | Process | Improvement | Impact | Effort | Status |
+|---|---------|-------------|--------|--------|--------|
+| 1 | Ops | External uptime monitor + cron heartbeats (P26) | high | S | open |
+| 2 | CI/CD | Concurrency groups + cancel-in-progress (P1) | high | S | ✅ |
+| 3 | CI/CD | `npm audit` → cron + non-blocking; unblock red CI (P2) | high | S | ✅ |
+| 4 | Release | Commit deploy script, strip + rotate creds (P12) | high | M | open |
+| 5 | Release | Production migration runner + tracking table (P13) | high | M | open |
+| 6 | Release | Rollback script + per-deploy git tag (P14) | high | M | open |
+| 7 | CI/CD | Remove ghost `test (20)` required check (P3) | med | S | open |
+| 8 | CI/CD | `timeout-minutes` on every job (P4) | med | S | ✅ |
+| 9 | Ops | Drop deprecated `health-monitor.js` cron (P27) | med | S | open |
+| 10 | Release | Fix `restart.sh` / stale process-name mismatches (P17) | med | S | partially resolved |
 
 (Backups — risk #1 — sits above this table as a verify-then-fix action, not a clean impact/effort cell, because the very state of the backups is unconfirmed.)

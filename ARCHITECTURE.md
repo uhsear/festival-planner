@@ -20,7 +20,7 @@ server.ts ─── orchestrator
   lib/middleware.ts ── Express middleware stack (security, CORS, parsing, metrics)
   lib/socket-setup.ts  Socket.IO server + Redis adapter
   lib/shutdown.ts ──── graceful shutdown + background cleanup tasks
-  routes/*.ts ──────── 29 API route modules (factory pattern)
+  routes/*.ts ──────── 38 API route modules (factory pattern)
 ```
 
 `server.ts` calls `createAppContext()` to build the dependency injection container, applies middleware, mounts routes, starts Socket.IO, and registers shutdown handlers. It validates startup configuration (PUBLIC_ORIGIN, SESSION_SECRET, webhook keys) before any initialization runs.
@@ -89,7 +89,7 @@ FCM push notification subsystem with retry and do-not-disturb support.
 
 ### Data Access: `lib/db/stores/`
 
-13 store modules, each exporting CRUD functions that accept a `pool` (pg Pool) parameter. All queries use parameterized SQL (`$1, $2`).
+14 store modules, each exporting CRUD functions that accept a `pool` (pg Pool) parameter. All queries use parameterized SQL (`$1, $2`).
 
 | Store | Lines | Tables |
 |-------|-------|--------|
@@ -105,11 +105,12 @@ FCM push notification subsystem with retry and do-not-disturb support.
 | `expenses.ts` | 93 | `crew_expenses`, `expense_splits` |
 | `ratings.ts` | 88 | `set_ratings` -- post-festival artist ratings |
 | `calendar-tokens.ts` | 36 | `calendar_tokens` -- ICS feed authentication |
+| `email-tokens.ts` | — | `email_tokens` -- magic-link and verification tokens |
 | `activity.ts` | 29 | `crew_activity` -- crew event feed |
 
 ### Routes: `routes/`
 
-29 route modules, each a factory function receiving `deps` and returning an Express Router:
+38 route modules, each a factory function receiving `deps` and returning an Express Router:
 
 ```ts
 import { Router } from 'express';
@@ -139,7 +140,15 @@ export default function createFeatureRoutes({ pool, redis, config, io, log }: Ap
 | `admin.ts` | 267 | Admin login, session management, role checks |
 | `admin-metrics.ts` | 255 | Prometheus metrics endpoint, custom dashboards |
 | `profiles.ts` | 237 | Join festival, update picks/notes/reminders, live status |
-| `crew-features.ts` | 237 | Crew polls, expenses, meeting points |
+| `crew-features.ts` | 237 | Crew feature aggregation (legacy; sub-features extracted below) |
+| `crew-invites.ts` | — | Crew invite link generation and redemption |
+| `crew-members.ts` | — | Crew member management (add, remove, role) |
+| `crew-meeting-points.ts` | — | Crew meeting point CRUD |
+| `crew-packing.ts` | — | Crew shared packing list |
+| `crew-polls.ts` | — | Crew polls and voting |
+| `crew-rides.ts` | — | Crew ride coordination |
+| `crew-sos.ts` | — | SOS signal and crew alert |
+| `crew-status.ts` | — | Live crew member status |
 | `admin-bulk.ts` | 187 | Bulk admin operations (mass email, data export) |
 | `health-core.ts` | 148 | Health checks (DB, Redis, disk), readiness probe |
 | `calendar-sync.ts` | 148 | ICS calendar feed generation and sync |
@@ -216,7 +225,7 @@ TypeScript package imported by the frontend via workspace aliases (`@festie/shar
 
 ## Database
 
-PostgreSQL 16 with connection pooling (pg, min 2 / max 20). 37 migrations in `migrations/` (004 baseline through 041), all idempotent with parameterized queries.
+PostgreSQL 16 with connection pooling (pg, min 2 / max 20). 49 migrations in `migrations/` (004 baseline through 052), all idempotent with parameterized queries.
 
 Key tables: `users`, `user_sessions`, `festivals`, `festival_stages`, `festival_days`, `festival_sets`, `festival_profiles`, `crews`, `crew_members`, `crew_activity`, `crew_polls`, `crew_expenses`, `device_tokens`, `audit_log`, `user_roles`.
 

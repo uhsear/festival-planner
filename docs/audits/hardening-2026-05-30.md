@@ -283,19 +283,21 @@ The two expense-schema findings (`splitWith`/`toUserId` types **B-1** and non-me
 
 ## Toolchain
 
-### T-1 — HIGH — Mobile package never built, typechecked, or linted in CI
+### T-1 — HIGH — Mobile package never built, typechecked, or linted in CI ✅ RESOLVED
 - **Location:** `.github/workflows/ci.yml` (no `mobile` reference), `packages/mobile/package.json:12` (lint is `echo` stub)
-- **Problem:** CI typechecks backend + web only; mobile (Expo SDK 54, 45+ TS/TSX files, 40 importing `@festie/shared`) has no gate. A TS error / broken import in `app/**` reaches main with zero signal until an EAS build or runtime crash. Recent history (Sentry plugin Android break, login-persistence fixes) shows active mobile work.
+- **Problem:** CI typechecks backend + web only; mobile (Expo SDK 54 at time of audit, now SDK 56; 45+ TS/TSX files, 40 importing `@festie/shared`) has no gate. A TS error / broken import in `app/**` reaches main with zero signal until an EAS build or runtime crash. Recent history (Sentry plugin Android break, login-persistence fixes) shows active mobile work.
 - **Fix:** (1) **Now:** add `mobile-typecheck` job — checkout, node 22, pnpm/action-setup v4, `pnpm install --frozen-lockfile` in `packages`, `pnpm --filter @festie/mobile typecheck` (script exists, passes locally). (2) **Follow-up:** add `eslint` + `eslint-config-expo`, replace the lint stub, wire into CI as non-blocking (`--max-warnings`) until backlog cleared. Defer `expo export`/`expo-doctor` to a separate workflow.
 - **Risk:** Low-medium — may surface latent errors (the point); stage it.
 - **Auto-applyable:** ❌ No (CI job add; may turn CI red first run — needs local green confirmation)
+- **Status (2026-06-13):** `mobile-typecheck` job added to `ci.yml`; mobile lint also wired in. SDK is now 56.
 
-### T-2 — HIGH — CI never runs web (632) or shared (~397) vitest suites
+### T-2 — HIGH — CI never runs web (632) or shared (~397) vitest suites ✅ RESOLVED
 - **Location:** `.github/workflows/ci.yml` (test job 42-101, quality 120-160)
 - **Problem:** Both define `vitest run`; ~1,029 frontend+shared cases exist (authStore/crewStore/festivalDataStore/api/socket/conflicts/etc.). CI runs only the backend `node --test` suite, web lint/typecheck/build, Semgrep. A broken store/hook/component lands green. **Downgraded critical→high** (CI-process gap, not exploitable).
 - **Fix:** Add a dedicated `frontend-tests` job: checkout, node 22, pnpm/action-setup v4, install in `packages`, `pnpm --filter @festie/shared test` then `pnpm --filter @festie/web test`. Add it to the `docker` job's `needs:`. (`vitest run` already exits non-zero; CI=true auto-set — no `--reporter=dot`/`CI=true` needed.)
 - **Risk:** Low — additive; may surface pre-existing failures (run locally first to confirm green before making required).
 - **Auto-applyable:** ✅ Yes (pure CI job addition; scripts exist)
+- **Status (2026-06-13):** `frontend-tests` job added to `ci.yml`; runs web + shared vitest in CI.
 
 ### T-3 — MEDIUM — CI dependency audit covers only the npm backend tree; web/mobile/shared (pnpm) unaudited
 - **Location:** `.github/workflows/ci.yml:110-119` (`npm ci` + `npm audit --audit-level=high`)
@@ -318,17 +320,19 @@ The two expense-schema findings (`splitWith`/`toUserId` types **B-1** and non-me
 - **Risk:** Low — nothing installs from it.
 - **Auto-applyable:** ✅ Yes
 
-### T-6 — LOW — TypeScript version drift (backend 5.8 / mobile 5.9 / web+shared 6.0.3)
+### T-6 — LOW — TypeScript version drift (backend 5.8 / mobile 5.9 / web+shared 6.0.3) ✅ RESOLVED
 - **Location:** `package.json` ~5.8.0, `packages/mobile/package.json` ~5.9.3, `packages/web` + `packages/shared` ~6.0.3
-- **Problem:** Shared source is typechecked by both web (6.0) and mobile (5.9). **"CI flakiness by ordering" is inaccurate** — CI runs only backend (5.8) + web (6.0); mobile/shared typecheck aren't in CI, and the jobs don't race over shared. All frontend tsconfigs set `skipLibCheck:true` + same strictness. Real residual risk = local-vs-CI divergence on genuine 5.9-vs-6.0 semantics. (typescript@6.0.3 is current `latest`, not beta.)
-- **Fix:** Pin web + shared to `~5.9.3` (mobile's Expo-blessed line), relock `packages/`. **Do not** push mobile to 6.0 (Expo SDK 54 validates 5.9.x). Backend can stay 5.8 (shares no frontend source) or bump to 5.9.3 for consistency. Add mobile + shared typecheck to CI (T-1/T-4). Keep `skipLibCheck:true`.
+- **Problem (at audit time):** Shared source is typechecked by both web (6.0) and mobile (5.9). **"CI flakiness by ordering" is inaccurate** — CI runs only backend (5.8) + web (6.0); mobile/shared typecheck aren't in CI, and the jobs don't race over shared. All frontend tsconfigs set `skipLibCheck:true` + same strictness. Real residual risk = local-vs-CI divergence on genuine 5.9-vs-6.0 semantics. (typescript@6.0.3 is current `latest`, not beta.)
+- **Fix (proposed):** Pin web + shared to `~5.9.3` (mobile's Expo-blessed line), relock `packages/`. **Do not** push mobile to 6.0 (SDK 54 validated 5.9.x). Backend can stay 5.8 or bump to 5.9.3. Add mobile + shared typecheck to CI. Keep `skipLibCheck:true`.
 - **Risk:** Low-medium — downgrading web/shared 6.0→5.9 could surface 6.0-only syntax.
 - **Auto-applyable:** ❌ No (version decision + relock + verify)
+- **Status (2026-06-13):** Resolved by aligning all packages to TypeScript 6.0.3 during the SDK 56 upgrade (Expo SDK 56 / RN 0.85). All four packages (backend, web, shared, mobile) now use TypeScript 6. The divergence was closed by upgrading rather than downgrading.
 
 ### T-7 — LOW — OTA `runtimeVersion.policy = "appVersion"` couples native compat to a manual marketing version
 - **Location:** `packages/mobile/app.json:10-15`, `eas.json:22-26`
 - **Problem:** OTA delivered only to clients built from the same `expo.version` ("1.0.0"). `autoIncrement` bumps **build number**, NOT `expo.version` (finding's mechanism slightly wrong) — so `expo.version` is a static manual string. A native-surface change (Sentry plugin, FCM, SDK bump) shipped without bumping `expo.version` keeps the same runtimeVersion → OTA JS bundle assuming new native APIs delivered to incompatible native code → mismatch crash. Latent process risk, not an active bug.
-- **Fix:** Switch to `{ "policy": "fingerprint" }` (SDK 54 + expo-updates ~29 support it) — runtimeVersion auto-tracks native compat (JS-only keeps fingerprint, native changes it). **Migration caveat:** first build after the switch establishes a new runtime namespace; existing clients stop getting OTA until a store build — coordinate with a release, verify via `npx expo-updates fingerprint:generate`. Or enforce a strict "native change → bump expo.version" rule (fingerprint removes the human-error dependency).
+- **Fix:** Switch to `{ "policy": "fingerprint" }` — runtimeVersion auto-tracks native compat (JS-only keeps fingerprint, native changes it). **Migration caveat:** first build after the switch establishes a new runtime namespace; existing clients stop getting OTA until a store build — coordinate with a release, verify via `npx expo-updates fingerprint:generate`. Or enforce a strict "native change → bump expo.version" rule (fingerprint removes the human-error dependency).
+- **Note (2026-06-13):** Fingerprint policy was tried during the SDK 56 upgrade and reverted — EAS builds errored at the Configure-expo-updates phase and `eas build` vs `eas update` computed inconsistent fingerprints. `appVersion` policy remains in use as the reliable choice. See `mobile-ota.yml` comments for context.
 - **Risk:** Medium — one-time delivery discontinuity; product/release decision.
 - **Auto-applyable:** ❌ No
 
@@ -387,29 +391,29 @@ Every triaged "benign/upstream/cosmetic/environmental" item, with an explicit ve
 
 ### Auto-applyable now (low-regression, no product decision)
 
-1. **B-1** (CRITICAL) — expense schema string IDs (`lib/schemas.ts:551,628`). Unbreaks all crew expenses. + integration test.
-2. **B-2** (HIGH) — `getBalances` integer-cents fix + string `amount` test fixture (`lib/db/stores/expenses.ts:116-139`).
-3. **S-1** (HIGH) — `checkSession` preserve session on network error (`authStore.ts:164-178`) + regression tests.
-4. **T-2** (HIGH) — add `frontend-tests` CI job running web + shared vitest; add to docker `needs:`.
-5. **S-3** (MEDIUM) — day-guard in `detectConflicts`/`findAlternatives` (`conflicts.ts`) + tests.
-6. **B-3** (LOW) — `setNoStore(res)` on GDPR export (`routes/account.ts:313`).
-7. **B-5** (LOW) — expense `splitWith`/`toUserId` member validation (after B-1).
-8. **S-4** (LOW) — `clearAuthToken()` in both `checkSession` failure branches (with S-1).
-9. **S-7** (LOW) — optimistic-mutation rollback in savePick/removePick/saveNote.
-10. **S-8** (LOW) — all-TBA conflict test.
-11. **M-4** (MEDIUM) — `accessibilityLabel` on auth inputs.
-12. **M-5** (LOW) — live-region/alert on auth error Texts.
-13. **M-6** (LOW) — role/state on auth buttons + link roles.
-14. **M-7** (LOW) — role/state/label on FestivalList cards.
-15. **T-4** (LOW) — add shared typecheck + lint CI steps (pre-existing scripts).
-16. **T-5** (LOW) — remove orphaned root `pnpm-lock.yaml` + `.gitignore`.
-17. **K-7 / vestigial pnpm** (LOW) — delete the invalid root `allowBuilds` block + root pnpm-workspace.yaml.
+> **Note (2026-06-13):** Items with ✅ below were shipped as part of the 2026-05-30/31 remediation sprint or the subsequent SDK 56 upgrade. They are kept here as a historical record.
 
-*(Items 4, 15 may turn CI red on first run if pre-existing failures exist — run the suites locally to confirm green before making the check required. Otherwise pure additions.)*
+1. ✅ **B-1** (CRITICAL) — expense schema string IDs. Fixed 2026-05-30.
+2. ✅ **B-2** (HIGH) — `getBalances` integer-cents fix. Fixed 2026-05-30.
+3. ✅ **S-1** (HIGH) — `checkSession` preserve session on network error. Fixed 2026-05-30.
+4. ✅ **T-2** (HIGH) — `frontend-tests` CI job (web + shared vitest). Shipped; CI job confirmed in `ci.yml`.
+5. ✅ **S-3** (MEDIUM) — day-guard in `detectConflicts`/`findAlternatives`. Fixed 2026-05-30.
+6. ✅ **B-3** (LOW) — `setNoStore(res)` on GDPR export. Fixed 2026-05-30.
+7. ✅ **B-5** (LOW) — expense `splitWith`/`toUserId` member validation. Fixed 2026-05-30.
+8. ✅ **S-4** (LOW) — `clearAuthToken()` in `checkSession` failure branches. Fixed 2026-05-30.
+9. ✅ **S-7** (LOW) — optimistic-mutation rollback. Fixed 2026-05-30.
+10. ✅ **S-8** (LOW) — all-TBA conflict test. Fixed 2026-05-30.
+11. ✅ **M-4** (MEDIUM) — `accessibilityLabel` on auth inputs. Fixed 2026-05-30.
+12. ✅ **M-5** (LOW) — live-region/alert on auth error Texts. Fixed 2026-05-30.
+13. ✅ **M-6** (LOW) — role/state on auth buttons + link roles. Fixed 2026-05-30.
+14. ✅ **M-7** (LOW) — role/state/label on FestivalList cards. Fixed 2026-05-30.
+15. ✅ **T-4** (LOW) — shared typecheck + lint CI steps. Shipped; `mobile-typecheck` and shared lint in CI.
+16. **T-5** (LOW) — remove orphaned root `pnpm-lock.yaml` + `.gitignore`. Verify current state.
+17. **K-7 / vestigial pnpm** (LOW) — delete the invalid root `allowBuilds` block + root pnpm-workspace.yaml. Verify current state.
 
 ### Decisions needed (product/design/release sign-off, or on-device verification)
 
-- **T-1** (HIGH) — add mobile typecheck/lint CI (may surface latent errors; stage).
+- ✅ **T-1** (HIGH) — mobile typecheck/lint CI. Shipped (`mobile-typecheck` job in `ci.yml`).
 - **W-1** (HIGH) — fix keyboard trap in nav (ARIA contract + test changes).
 - **M-1** (HIGH) — mobile offline queue + honest banner copy (feature scope).
 - **M-2** (MEDIUM) — move token to SecureStore (migration + hydration verify).
@@ -419,8 +423,8 @@ Every triaged "benign/upstream/cosmetic/environmental" item, with an explicit ve
 - **B-4** (LOW) — common/breached password screen (bundled list + messaging).
 - **M-3** (LOW) — Spotify WebView allowlist (on-device playback test).
 - **M-9** (LOW) — SetCardMobile memoization (prop-signature change; profile).
-- **T-6** (LOW) — TS version alignment (relock + verify).
-- **T-7** (LOW) — OTA `fingerprint` policy (release coordination).
+- ✅ **T-6** (LOW) — TS version alignment. Resolved: all packages aligned to TypeScript 6 in SDK 56 upgrade.
+- **T-7** (LOW) — OTA `fingerprint` policy. Tried and reverted (see T-7 note above); staying on `appVersion`.
 - **B-6** (LOW) — profiles realtime patch-in-place (verify).
 - **S-5** (LOW) — socket-initiated re-auth (avoid refresh storm).
 - **M-8** (LOW) — SegmentedControl 44pt (design tolerance; trivially safe).

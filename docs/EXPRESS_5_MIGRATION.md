@@ -1,10 +1,13 @@
 # Express 5.x Migration Plan
 
-**Status**: Planned (Phase 3)
+**Status**: **COMPLETE** — Express 5 is live (^5.2.1 in `package.json`).
 **Risk**: LOW — codebase is already well-aligned with Express 5 patterns
-**Estimated effort**: 2-4 hours (reduced from initial 8h estimate after audit)
-**Current version**: express ~4.22.1
-**Target version**: express ^5.0.0
+**Completed**: 2026-05 (as part of the TypeScript migration / backend modernization)
+**Previous version**: express ~4.22.1
+**Current version**: express ^5.2.1
+
+> This document is a historical pre-migration audit and plan. The migration is done.
+> The "Required Changes" below were implemented; see `server.ts` for current state.
 
 ## Pre-Migration Audit Results
 
