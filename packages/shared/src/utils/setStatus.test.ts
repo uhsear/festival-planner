@@ -105,6 +105,67 @@ describe('getSetTimeBounds with a festival timeZone', () => {
   });
 });
 
+// ── Festival-timezone-aware getSetStatus ─────────────────────────────────────
+// This block tests the bug fixed by passing `timeZone` through getSetStatus.
+//
+// THE BUG: When a festival is in America/Chicago (UTC-5 in winter) and the user's
+// device is in America/New_York (UTC-4 in winter), a set at "20:00" wall-clock
+// in Chicago actually starts at 01:00 UTC. Without the timeZone fix, getSetStatus
+// anchors "20:00" in New York local time (00:00 UTC), making the set appear to
+// start one hour earlier than reality. A user in New York would see the badge flip
+// to "LIVE" at 20:00 New York time — but the set hasn't started yet in Chicago.
+//
+// The fix: pass `timeZone` to getSetTimeBounds so bounds are absolute epoch-ms in
+// the festival's zone. `now` must then be an absolute Date (new Date(Date.now())),
+// which it always is in production — so the comparison is like-for-like in UTC.
+//
+// These tests use Date.UTC to build `now` so they are host-TZ-independent and
+// FAIL before the fix (getSetStatus ignoring timeZone uses createDateInLocalFrame,
+// whose result differs from Date.UTC by the host's UTC offset on non-UTC hosts).
+describe('getSetStatus with festival timeZone', () => {
+  // Festival is in UTC for isolation: wall-clock 20:00 UTC = 20:00 wall-clock.
+  // `now` is constructed from Date.UTC so it is absolute and host-TZ-independent.
+  const set = makeSet({ startTime: '20:00', endTime: '21:00', date: '2026-09-04' });
+
+  it('reports LIVE at wall-clock midpoint in the festival zone (UTC)', () => {
+    // 2026-09-04 20:30 UTC — inside [20:00, 21:00] UTC.
+    const now = new Date(Date.UTC(2026, 8, 4, 20, 30, 0));
+    expect(getSetStatus(set, now, [], 'UTC').status).toBe('live');
+  });
+
+  it('reports past just after the wall-clock end in the festival zone (UTC)', () => {
+    // 2026-09-04 21:01 UTC — after [20:00, 21:00] UTC.
+    const now = new Date(Date.UTC(2026, 8, 4, 21, 1, 0));
+    expect(getSetStatus(set, now, [], 'UTC').status).toBe('past');
+  });
+
+  it('reports upcoming 90 minutes before the festival-zone start', () => {
+    // 2026-09-04 18:30 UTC — 90m before 20:00 UTC.
+    const now = new Date(Date.UTC(2026, 8, 4, 18, 30, 0));
+    const result = getSetStatus(set, now, [], 'UTC');
+    expect(result.status).toBe('upcoming');
+    expect(result.minutesUntil).toBe(90);
+  });
+
+  it('LIVE/past badge is correct for a festival in America/New_York (EDT = UTC-4)', () => {
+    // 2026-09-04 is in EDT (UTC-4): wall-clock 20:00 EDT = 00:00 UTC 2026-09-05.
+    // A set 20:00-21:00 EDT; at 20:30 EDT (= 00:30 UTC next day) it should be LIVE.
+    const edtSet = makeSet({ startTime: '20:00', endTime: '21:00', date: '2026-09-04' });
+    const nowLive = new Date(Date.UTC(2026, 8, 5, 0, 30, 0)); // 20:30 EDT
+    expect(getSetStatus(edtSet, nowLive, [], 'America/New_York').status).toBe('live');
+
+    // At 21:30 EDT (= 01:30 UTC next day) the set has ended.
+    const nowPast = new Date(Date.UTC(2026, 8, 5, 1, 30, 0)); // 21:30 EDT
+    expect(getSetStatus(edtSet, nowPast, [], 'America/New_York').status).toBe('past');
+
+    // At 18:30 EDT (= 22:30 UTC same day = 90m before start) it should be upcoming.
+    const nowUpcoming = new Date(Date.UTC(2026, 8, 4, 22, 30, 0)); // 18:30 EDT
+    const upcoming = getSetStatus(edtSet, nowUpcoming, [], 'America/New_York');
+    expect(upcoming.status).toBe('upcoming');
+    expect(upcoming.minutesUntil).toBe(90);
+  });
+});
+
 describe('getSetStatus consumes getSetTimeBounds (parity)', () => {
   it('reports a post-midnight set as LIVE just after midnight', () => {
     const set = makeSet({ startTime: '23:30', endTime: '01:00' });

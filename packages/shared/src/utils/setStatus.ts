@@ -167,15 +167,35 @@ export function getSetTimeBounds(
  * Compute a set's status relative to a given `now`. Pure — the time source is
  * injected so it stays testable and works identically on web and native. Shared
  * single source of truth consumed by both web's and mobile's useSetStatus hooks.
+ *
+ * `timeZone` (optional IANA id, e.g. `America/New_York`): when supplied the set
+ * wall-clock times are anchored in the FESTIVAL's zone rather than the device's
+ * local frame. This is the correct mode whenever the festival has a known
+ * `timeZone` field — without it a user whose device is in a different zone sees
+ * the wrong live/past/soon badge because their local frame shifts the boundaries.
+ * Omit to retain the original device-local behaviour (all existing callers that
+ * don't pass it are unaffected).
+ *
+ * Importantly, when `timeZone` is supplied `now` **must** be a true UTC-epoch
+ * `Date` (i.e. `new Date()` or `new Date(Date.now())`), NOT one constructed via
+ * `createDateInLocalFrame` — the zoned bounds are absolute epoch-ms and must be
+ * compared against an absolute `now`.
  */
-export function getSetStatus(set: FestivalSet, now: Date, days: FestivalDay[] = []): SetStatusResult {
+export function getSetStatus(
+  set: FestivalSet,
+  now: Date,
+  days: FestivalDay[] = [],
+  timeZone?: string,
+): SetStatusResult {
   if (!set.startTime || !set.endTime) {
     return { status: 'tba', label: 'TBA', minutesUntil: Infinity, progress: 0 };
   }
 
   // Delegate the TZ-safe start/end math (incl. post-midnight rollover) to the
   // shared getSetTimeBounds so status + festival/live mode never diverge.
-  const bounds = getSetTimeBounds(set, days);
+  // Pass timeZone through so the bounds are anchored in the festival's zone
+  // (absolute epoch-ms) rather than the device's local frame when a zone is known.
+  const bounds = getSetTimeBounds(set, days, timeZone);
   if (!bounds) {
     return { status: 'tba', label: 'TBA', minutesUntil: Infinity, progress: 0 };
   }

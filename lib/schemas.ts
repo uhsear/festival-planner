@@ -281,11 +281,34 @@ export const daySchema = z.object({
 });
 export type DayInput = z.infer<typeof daySchema>;
 
+// Optional IANA time-zone id (e.g. `America/New_York`). Anchors set status +
+// reminder fire-times in the festival's zone. Validated by attempting to
+// construct an Intl.DateTimeFormat with it — a RangeError means an unknown zone.
+// Allow null/undefined so existing festivals (and the update path) can omit it.
+const festivalTimeZone = z
+  .string()
+  .max(64)
+  .refine(
+    (value) => {
+      try {
+        // Throws RangeError for an unknown IANA zone.
+        new Intl.DateTimeFormat('en-US', { timeZone: value });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: 'Invalid IANA time zone' },
+  )
+  .nullable()
+  .optional();
+
 export const festivalCreateSchema = z.object({
   id: z.string().max(100).optional(),
   name: z.string().min(1).max(200),
   location: z.string().max(500).optional(),
   b2bSeparator: z.string().max(10).optional(),
+  timeZone: festivalTimeZone,
   stages: z.array(stageSchema).max(20).optional(),
   days: z.array(daySchema).max(10).optional(),
 });
@@ -544,11 +567,17 @@ export function normalizeReminderPayload(input: any, config: any): { error?: str
 export function sanitizeFestivalPayload(input: any, existingFestival: any, config: any, createOpaqueId: any): any {
   const now = new Date().toISOString();
   const b2bSep = sanitizeString(input.b2bSeparator ?? existingFestival?.b2bSeparator ?? 'b2b', 10) || 'b2b';
+  // Time zone: already validated as a plausible IANA id by the Zod schema. An
+  // explicit empty string clears it (→ null = device-local behavior). Undefined
+  // keeps whatever the festival already had so updates don't drop it.
+  const rawTz = input.timeZone !== undefined ? input.timeZone : existingFestival?.timeZone;
+  const timeZone = rawTz ? sanitizeString(rawTz, 64) || null : null;
   return {
     id: existingFestival?.id || sanitizeIdentifier(input.id, 100) || createOpaqueId('fest'),
     name: sanitizeString(input.name || existingFestival?.name || ''),
     location: sanitizeString(input.location ?? existingFestival?.location ?? '', 500),
     b2bSeparator: b2bSep,
+    timeZone,
     stages: (input.stages || existingFestival?.stages || [])
       .slice(0, config.MAX_STAGES)
       .map((stage: any, index: number) => ({

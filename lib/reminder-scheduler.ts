@@ -14,6 +14,7 @@
  */
 
 import { isInDndWindow } from './notifications/index.js';
+import { zonedWallTimeToMs } from './time-zone.js';
 
 function createReminderScheduler({ pool, stores, notificationService, log, config }: any) {
   // ── Leader election (PM2 cluster) ──────────────────────────────────────────
@@ -46,21 +47,42 @@ function createReminderScheduler({ pool, stores, notificationService, log, confi
   /**
    * Compute absolute timestamp for a set given festival day date and set start time.
    * festival_days stores date as 'YYYY-MM-DD', festival_sets stores start_time as 'HH:MM'.
+   *
+   * `timeZone` (optional IANA id): when supplied the wall-clock is anchored in
+   * the FESTIVAL's zone (DST-correct, absolute epoch-ms) so reminders fire at the
+   * right real-world instant for attendees whose device is in another zone. When
+   * absent — or invalid — falls back to the bare local parse (the exact prior
+   * behavior), so zone-less festivals are unchanged.
    */
-  function computeSetStartMs(dayDate: any, startTime: any) {
+  function computeSetStartMs(dayDate: any, startTime: any, timeZone?: string | null) {
     if (!dayDate || !startTime) return null;
     const dateStr = typeof dayDate === 'object' ? dayDate.toISOString().slice(0, 10) : String(dayDate).slice(0, 10);
     const [h, m] = startTime.split(':').map(Number);
     if (isNaN(h) || isNaN(m)) return null;
+
+    if (timeZone) {
+      // Anchor the wall-clock in the festival's zone (absolute epoch-ms).
+      const [y, mo, d] = dateStr.split('-').map(Number);
+      const ms = zonedWallTimeToMs(y, mo, d, h, m, timeZone);
+      if (!isNaN(ms)) return ms;
+      // Invalid zone → fall through to the bare-local parse below.
+    }
+
     const dt = new Date(`${dateStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
     return isNaN(dt.getTime()) ? null : dt.getTime();
   }
 
-  async function processProfileReminders(profile: any, setLookup: Map<string, any>, festival: any, now: number, { notify, logger }: any) {
+  async function processProfileReminders(
+    profile: any,
+    setLookup: Map<string, any>,
+    festival: any,
+    now: number,
+    { notify, logger }: any,
+  ) {
     let reminders: any;
     try {
-      reminders = typeof profile.remindersJson === 'string'
-        ? JSON.parse(profile.remindersJson) : (profile.remindersJson || {});
+      reminders =
+        typeof profile.remindersJson === 'string' ? JSON.parse(profile.remindersJson) : profile.remindersJson || {};
     } catch (err: any) {
       logger.warn('reminder json parse failed, skipping profile', { userId: profile.userId, error: err.message });
       return;
@@ -70,7 +92,7 @@ function createReminderScheduler({ pool, stores, notificationService, log, confi
       const setInfo = setLookup.get(setId);
       if (!setInfo) continue;
 
-      const fireAt = setInfo.startMs - ((minutesBefore as number) * 60_000);
+      const fireAt = setInfo.startMs - (minutesBefore as number) * 60_000;
       if (fireAt < now || fireAt > now + config.REMINDER_FIRE_WINDOW_MS) continue;
 
       // Dedup check
@@ -115,7 +137,7 @@ function createReminderScheduler({ pool, stores, notificationService, log, confi
     try {
       // 1. Find active festivals
       const { rows: festivals } = await pool.query(
-        'SELECT id, name FROM festivals WHERE deleted_at IS NULL'
+        'SELECT id, name, time_zone AS "timeZone" FROM festivals WHERE deleted_at IS NULL',
       );
       if (festivals.length === 0) return;
 
@@ -127,7 +149,10 @@ function createReminderScheduler({ pool, stores, notificationService, log, confi
         const [daysResult, stagesResult, setsResult] = await Promise.all([
           pool.query('SELECT day_index, label, date FROM festival_days WHERE festival_id = $1', [festival.id]),
           pool.query('SELECT id, name FROM festival_stages WHERE festival_id = $1', [festival.id]),
-          pool.query('SELECT id, day_index, artist, artists, stage_id, start_time AS "startTime", end_time AS "endTime" FROM festival_sets WHERE festival_id = $1', [festival.id]),
+          pool.query(
+            'SELECT id, day_index, artist, artists, stage_id, start_time AS "startTime", end_time AS "endTime" FROM festival_sets WHERE festival_id = $1',
+            [festival.id],
+          ),
         ]);
 
         const dayMap = new Map<any, any>(daysResult.rows.map((d: any) => [d.day_index, d]));
@@ -138,7 +163,7 @@ function createReminderScheduler({ pool, stores, notificationService, log, confi
         for (const set of setsResult.rows) {
           const day = dayMap.get(set.day_index);
           if (!day) continue;
-          const startMs = computeSetStartMs(day.date, set.startTime);
+          const startMs = computeSetStartMs(day.date, set.startTime, festival.timeZone);
           if (!startMs) continue;
           let artistName: string;
           if (set.artists && Array.isArray(set.artists) && set.artists.length > 0) {
@@ -157,7 +182,8 @@ function createReminderScheduler({ pool, stores, notificationService, log, confi
         if (setLookup.size === 0) continue;
 
         // 3. Query profiles with active reminders for this festival
-        const { rows: profiles } = await pool.query(`
+        const { rows: profiles } = await pool.query(
+          `
           SELECT
             fp.id,
             fp.user_id AS "userId",
@@ -170,7 +196,9 @@ function createReminderScheduler({ pool, stores, notificationService, log, confi
             AND fp.reminders_json IS NOT NULL
             AND fp.reminders_json != '{}'::jsonb
             AND fp.deleted_at IS NULL
-        `, [festival.id]);
+        `,
+          [festival.id],
+        );
 
         const deps = { notify: notificationService.send.bind(notificationService), logger: log };
         for (const profile of profiles) {

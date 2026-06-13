@@ -25,9 +25,13 @@ function buildMultiInsert(rows: any[][], startIdx: number = 1): { clause: string
  * ready for batch INSERT. Returns { stageRows, dayRows, setRows, newSetIds, setIdentityMap }.
  */
 function collectFestivalChildren(festivalId: string, festival: any) {
-  const stageRows = (festival.stages || []).map((stage: any, sortOrder: number) =>
-    [festivalId, stage.id, stage.name, stage.color, sortOrder],
-  );
+  const stageRows = (festival.stages || []).map((stage: any, sortOrder: number) => [
+    festivalId,
+    stage.id,
+    stage.name,
+    stage.color,
+    sortOrder,
+  ]);
 
   const dayRows: any[][] = [];
   const setRows: any[][] = [];
@@ -39,9 +43,16 @@ function collectFestivalChildren(festivalId: string, festival: any) {
 
     for (const [sortOrder, set] of (day.sets || []).entries()) {
       setRows.push([
-        set.id, festivalId, dayIndex, set.artist, set.stageId,
-        set.startTime, set.endTime, sortOrder,
-        set.linkUrl || null, JSON.stringify(set.artists || []),
+        set.id,
+        festivalId,
+        dayIndex,
+        set.artist,
+        set.stageId,
+        set.startTime,
+        set.endTime,
+        sortOrder,
+        set.linkUrl || null,
+        JSON.stringify(set.artists || []),
       ]);
       newSetIds.add(set.id);
       const key = `${set.artist}|${set.startTime}`;
@@ -56,20 +67,14 @@ function collectFestivalChildren(festivalId: string, festival: any) {
 async function insertStagesBatch(client: any, rows: any[][]) {
   if (rows.length === 0) return;
   const { clause, params } = buildMultiInsert(rows);
-  await client.query(
-    `INSERT INTO festival_stages (festival_id, id, name, color, sort_order) VALUES ${clause}`,
-    params,
-  );
+  await client.query(`INSERT INTO festival_stages (festival_id, id, name, color, sort_order) VALUES ${clause}`, params);
 }
 
 /** Batch-insert days in a single multi-row query. */
 async function insertDaysBatch(client: any, rows: any[][]) {
   if (rows.length === 0) return;
   const { clause, params } = buildMultiInsert(rows);
-  await client.query(
-    `INSERT INTO festival_days (festival_id, day_index, label, date) VALUES ${clause}`,
-    params,
-  );
+  await client.query(`INSERT INTO festival_days (festival_id, day_index, label, date) VALUES ${clause}`, params);
 }
 
 /** Batch-insert sets in a single multi-row query. */
@@ -222,9 +227,10 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
           const createdAt = festival.createdAt || new Date().toISOString();
           const updatedAt = festival.updatedAt || createdAt;
 
-          await client.query(`
-            INSERT INTO festivals (id, name, location, created_at, updated_at, b2b_separator, latitude, longitude)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          await client.query(
+            `
+            INSERT INTO festivals (id, name, location, created_at, updated_at, b2b_separator, latitude, longitude, time_zone)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT(id) DO UPDATE SET
               name = EXCLUDED.name,
               location = EXCLUDED.location,
@@ -232,8 +238,21 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
               updated_at = EXCLUDED.updated_at,
               b2b_separator = EXCLUDED.b2b_separator,
               latitude = EXCLUDED.latitude,
-              longitude = EXCLUDED.longitude
-          `, [festival.id, festival.name, festival.location || '', createdAt, updatedAt, festival.b2bSeparator || 'b2b', festival.latitude || null, festival.longitude || null]);
+              longitude = EXCLUDED.longitude,
+              time_zone = EXCLUDED.time_zone
+          `,
+            [
+              festival.id,
+              festival.name,
+              festival.location || '',
+              createdAt,
+              updatedAt,
+              festival.b2bSeparator || 'b2b',
+              festival.latitude || null,
+              festival.longitude || null,
+              festival.timeZone ?? null,
+            ],
+          );
 
           // Delete old stages and batch-insert new ones
           await client.query('DELETE FROM festival_stages WHERE festival_id = $1', [festival.id]);
@@ -247,26 +266,22 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
     },
 
     async softDelete(festivalId: string) {
-      await pool.query(
-        'UPDATE festivals SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL',
-        [festivalId],
-      );
+      await pool.query('UPDATE festivals SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL', [festivalId]);
     },
 
     async restore(festivalId: string) {
-      await pool.query(
-        'UPDATE festivals SET deleted_at = NULL WHERE id = $1',
-        [festivalId],
-      );
+      await pool.query('UPDATE festivals SET deleted_at = NULL WHERE id = $1', [festivalId]);
     },
 
     async getById(festivalId: string) {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         SELECT
           f.id,
           f.name,
           COALESCE(f.location, '') AS location,
           COALESCE(f.b2b_separator, 'b2b') AS "b2bSeparator",
+          f.time_zone AS "timeZone",
           f.created_at AS "createdAt",
           f.updated_at AS "updatedAt",
           COALESCE(
@@ -309,25 +324,50 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
           ) AS days
         FROM festivals f
         WHERE f.id = $1 AND f.deleted_at IS NULL
-      `, [festivalId]);
+      `,
+        [festivalId],
+      );
       return result.rows[0] || null;
     },
 
     async hardDelete(festivalId: string) {
       return withTransaction(pool, async (client) => {
         // Crew grandchild rows (FK CASCADE from crews, but crews FK is RESTRICT from festivals)
-        await client.query('DELETE FROM crew_poll_votes WHERE poll_id IN (SELECT id FROM crew_polls WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1))', [festivalId]);
-        await client.query('DELETE FROM crew_polls WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [festivalId]);
-        await client.query('DELETE FROM crew_meeting_points WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [festivalId]);
-        await client.query('DELETE FROM crew_expenses WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [festivalId]);
-        await client.query('DELETE FROM crew_activity WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [festivalId]);
-        await client.query('DELETE FROM crew_members WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [festivalId]);
+        await client.query(
+          'DELETE FROM crew_poll_votes WHERE poll_id IN (SELECT id FROM crew_polls WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1))',
+          [festivalId],
+        );
+        await client.query('DELETE FROM crew_polls WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [
+          festivalId,
+        ]);
+        await client.query(
+          'DELETE FROM crew_meeting_points WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)',
+          [festivalId],
+        );
+        await client.query('DELETE FROM crew_expenses WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [
+          festivalId,
+        ]);
+        await client.query('DELETE FROM crew_activity WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [
+          festivalId,
+        ]);
+        await client.query('DELETE FROM crew_members WHERE crew_id IN (SELECT id FROM crews WHERE festival_id = $1)', [
+          festivalId,
+        ]);
         // Crews (FK RESTRICT from festivals)
         await client.query('DELETE FROM crews WHERE festival_id = $1', [festivalId]);
         // Child rows of festival_sets (FK RESTRICT — must delete before sets)
-        await client.query('DELETE FROM set_ratings WHERE set_id IN (SELECT id FROM festival_sets WHERE festival_id = $1)', [festivalId]);
-        await client.query('DELETE FROM festival_profile_picks WHERE set_id IN (SELECT id FROM festival_sets WHERE festival_id = $1)', [festivalId]);
-        await client.query('DELETE FROM festival_profile_notes WHERE set_id IN (SELECT id FROM festival_sets WHERE festival_id = $1)', [festivalId]);
+        await client.query(
+          'DELETE FROM set_ratings WHERE set_id IN (SELECT id FROM festival_sets WHERE festival_id = $1)',
+          [festivalId],
+        );
+        await client.query(
+          'DELETE FROM festival_profile_picks WHERE set_id IN (SELECT id FROM festival_sets WHERE festival_id = $1)',
+          [festivalId],
+        );
+        await client.query(
+          'DELETE FROM festival_profile_notes WHERE set_id IN (SELECT id FROM festival_sets WHERE festival_id = $1)',
+          [festivalId],
+        );
         // Festival child tables
         await client.query('DELETE FROM festival_sets WHERE festival_id = $1', [festivalId]);
         await client.query('DELETE FROM festival_stages WHERE festival_id = $1', [festivalId]);
@@ -343,9 +383,16 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
     async insertSets(festivalId: string, sets: any[]) {
       if (!sets || sets.length === 0) return;
       const rows = sets.map((set: any, sortOrder: number) => [
-        set.id, festivalId, set.dayIndex, set.artist, set.stageId,
-        set.startTime, set.endTime, set.sortOrder ?? sortOrder,
-        set.linkUrl || null, JSON.stringify(set.artists || []),
+        set.id,
+        festivalId,
+        set.dayIndex,
+        set.artist,
+        set.stageId,
+        set.startTime,
+        set.endTime,
+        set.sortOrder ?? sortOrder,
+        set.linkUrl || null,
+        JSON.stringify(set.artists || []),
       ]);
       await insertSetsBatch({ query: (sql: string, params: any[]) => pool.query(sql, params) }, rows);
     },
@@ -357,8 +404,18 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
         const updatedAt = festival.updatedAt || createdAt;
 
         await client.query(
-          'INSERT INTO festivals (id, name, location, created_at, updated_at, b2b_separator, latitude, longitude) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-          [festival.id, festival.name, festival.location || '', createdAt, updatedAt, festival.b2bSeparator || 'b2b', festival.latitude || null, festival.longitude || null],
+          'INSERT INTO festivals (id, name, location, created_at, updated_at, b2b_separator, latitude, longitude, time_zone) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+          [
+            festival.id,
+            festival.name,
+            festival.location || '',
+            createdAt,
+            updatedAt,
+            festival.b2bSeparator || 'b2b',
+            festival.latitude || null,
+            festival.longitude || null,
+            festival.timeZone ?? null,
+          ],
         );
 
         // Batch insert stages, days, and sets
@@ -367,11 +424,13 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
         await insertDaysBatch(client, dayRows);
         await insertSetsBatch(client, setRows);
 
-        const result = await client.query(`
+        const result = await client.query(
+          `
           SELECT
             id,
             name,
             location,
+            time_zone AS "timeZone",
             created_at AS "createdAt",
             updated_at AS "updatedAt"
           FROM
@@ -379,7 +438,9 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
           WHERE
             id = $1
             AND deleted_at IS NULL
-        `, [festival.id]);
+        `,
+          [festival.id],
+        );
         return result.rows[0] || null;
       });
     },
@@ -391,12 +452,39 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
         const values: any[] = [];
         let idx = 1;
 
-        if (fields.name !== undefined) { sets.push(`name = $${idx}`); values.push(fields.name); idx++; }
-        if (fields.location !== undefined) { sets.push(`location = $${idx}`); values.push(fields.location); idx++; }
-        if (fields.b2bSeparator !== undefined) { sets.push(`b2b_separator = $${idx}`); values.push(fields.b2bSeparator); idx++; }
-        if (fields.latitude !== undefined) { sets.push(`latitude = $${idx}`); values.push(fields.latitude); idx++; }
-        if (fields.longitude !== undefined) { sets.push(`longitude = $${idx}`); values.push(fields.longitude); idx++; }
-        sets.push(`updated_at = $${idx}`); values.push(new Date().toISOString()); idx++;
+        if (fields.name !== undefined) {
+          sets.push(`name = $${idx}`);
+          values.push(fields.name);
+          idx++;
+        }
+        if (fields.location !== undefined) {
+          sets.push(`location = $${idx}`);
+          values.push(fields.location);
+          idx++;
+        }
+        if (fields.b2bSeparator !== undefined) {
+          sets.push(`b2b_separator = $${idx}`);
+          values.push(fields.b2bSeparator);
+          idx++;
+        }
+        if (fields.latitude !== undefined) {
+          sets.push(`latitude = $${idx}`);
+          values.push(fields.latitude);
+          idx++;
+        }
+        if (fields.longitude !== undefined) {
+          sets.push(`longitude = $${idx}`);
+          values.push(fields.longitude);
+          idx++;
+        }
+        if (fields.timeZone !== undefined) {
+          sets.push(`time_zone = $${idx}`);
+          values.push(fields.timeZone ?? null);
+          idx++;
+        }
+        sets.push(`updated_at = $${idx}`);
+        values.push(new Date().toISOString());
+        idx++;
         values.push(festivalId);
 
         await client.query(`UPDATE festivals SET ${sets.join(', ')} WHERE id = $${idx} AND deleted_at IS NULL`, values);
@@ -404,9 +492,13 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
         // Update stages if provided (batch insert)
         if (fields.stages !== undefined) {
           await client.query('DELETE FROM festival_stages WHERE festival_id = $1', [festivalId]);
-          const stageRows = (fields.stages || []).map((stage: any, sortOrder: number) =>
-            [festivalId, stage.id, stage.name, stage.color, sortOrder],
-          );
+          const stageRows = (fields.stages || []).map((stage: any, sortOrder: number) => [
+            festivalId,
+            stage.id,
+            stage.name,
+            stage.color,
+            sortOrder,
+          ]);
           await insertStagesBatch(client, stageRows);
         }
 
@@ -416,11 +508,13 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
           await replaceChildRows(client, festivalId, children);
         }
 
-        const result = await client.query(`
+        const result = await client.query(
+          `
           SELECT
             id,
             name,
             location,
+            time_zone AS "timeZone",
             created_at AS "createdAt",
             updated_at AS "updatedAt"
           FROM
@@ -428,7 +522,9 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
           WHERE
             id = $1
             AND deleted_at IS NULL
-        `, [festivalId]);
+        `,
+          [festivalId],
+        );
         return result.rows[0] || null;
       });
     },

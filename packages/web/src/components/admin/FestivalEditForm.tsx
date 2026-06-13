@@ -9,10 +9,26 @@ export interface Festival {
   startDate?: string;
   endDate?: string;
   b2bSeparator?: string;
+  /** Optional IANA zone — anchors set status + reminders in the festival's zone. */
+  timeZone?: string | null;
   stages?: Stage[];
   days?: Day[];
   [key: string]: unknown;
 }
+
+// Common IANA zones offered in the festival editor. The festival's current
+// value is merged in at render time so an existing custom zone is never dropped.
+const COMMON_TIME_ZONES = [
+  'UTC',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Phoenix',
+  'America/Los_Angeles',
+  'Europe/London',
+  'Europe/Berlin',
+  'Australia/Sydney',
+];
 
 export interface FestivalEditFormProps {
   formData: Partial<Festival>;
@@ -38,9 +54,7 @@ export default function FestivalEditForm({
   onSave,
   onCancel,
 }: FestivalEditFormProps) {
-  const [expandedDays, setExpandedDays] = useState<Set<string>>(
-    initialExpandedDays ?? new Set(),
-  );
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(initialExpandedDays ?? new Set());
 
   const toggleDayExpanded = (dayId: string) => {
     setExpandedDays((prev) => {
@@ -55,10 +69,7 @@ export default function FestivalEditForm({
   const handleAddStage = () => {
     setFormData({
       ...formData,
-      stages: [
-        ...(formData.stages || []),
-        { id: `stage-${Date.now()}`, name: '', color: '#6a6a88' },
-      ],
+      stages: [...(formData.stages || []), { id: `stage-${Date.now()}`, name: '', color: '#6a6a88' }],
     });
   };
 
@@ -70,16 +81,12 @@ export default function FestivalEditForm({
   };
 
   const handleStageName = (index: number, value: string) => {
-    const updated = (formData.stages || []).map((s, i) =>
-      i === index ? { ...s, name: value } : s,
-    );
+    const updated = (formData.stages || []).map((s, i) => (i === index ? { ...s, name: value } : s));
     setFormData({ ...formData, stages: updated });
   };
 
   const handleStageColor = (index: number, value: string) => {
-    const updated = (formData.stages || []).map((s, i) =>
-      i === index ? { ...s, color: value } : s,
-    );
+    const updated = (formData.stages || []).map((s, i) => (i === index ? { ...s, color: value } : s));
     setFormData({ ...formData, stages: updated });
   };
 
@@ -87,10 +94,7 @@ export default function FestivalEditForm({
   const handleAddDay = () => {
     setFormData({
       ...formData,
-      days: [
-        ...(formData.days || []),
-        { id: `day-${Date.now()}`, label: '', date: '', sets: [] },
-      ],
+      days: [...(formData.days || []), { id: `day-${Date.now()}`, label: '', date: '', sets: [] }],
     });
   };
 
@@ -102,16 +106,12 @@ export default function FestivalEditForm({
   };
 
   const handleDayLabel = (dayId: string, value: string) => {
-    const updated = (formData.days || []).map((d) =>
-      d.id === dayId ? { ...d, label: value } : d,
-    );
+    const updated = (formData.days || []).map((d) => (d.id === dayId ? { ...d, label: value } : d));
     setFormData({ ...formData, days: updated });
   };
 
   const handleDayDate = (dayId: string, value: string) => {
-    const updated = (formData.days || []).map((d) =>
-      d.id === dayId ? { ...d, date: value } : d,
-    );
+    const updated = (formData.days || []).map((d) => (d.id === dayId ? { ...d, date: value } : d));
     setFormData({ ...formData, days: updated });
   };
 
@@ -150,9 +150,7 @@ export default function FestivalEditForm({
       d.id === dayId
         ? {
             ...d,
-            sets: (d.sets || []).map((s) =>
-              s.id === setId ? { ...s, [field]: value } : s,
-            ),
+            sets: (d.sets || []).map((s) => (s.id === setId ? { ...s, [field]: value } : s)),
           }
         : d,
     );
@@ -176,6 +174,26 @@ export default function FestivalEditForm({
           onChange={(e) => setFormData({ ...formData, location: e.target.value })}
           className="px-4 py-2 rounded-lg bg-bg-primary border border-glass-border text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
         />
+        <label className="flex flex-col gap-1 text-xs text-text-muted md:col-span-2">
+          Time zone
+          <select
+            aria-label="Festival time zone"
+            value={formData.timeZone || ''}
+            onChange={(e) => setFormData({ ...formData, timeZone: e.target.value || null })}
+            className="px-4 py-2 rounded-lg bg-bg-primary border border-glass-border text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-aqua"
+          >
+            {/* Empty = use each attendee's device zone (the prior behavior). */}
+            <option value="">Device-local (no festival zone)</option>
+            {/* Merge in the festival's current value so a custom zone isn't lost. */}
+            {Array.from(new Set([...COMMON_TIME_ZONES, ...(formData.timeZone ? [formData.timeZone] : [])])).map(
+              (tz) => (
+                <option key={tz} value={tz}>
+                  {tz}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
       </div>
 
       {/* Stages */}
