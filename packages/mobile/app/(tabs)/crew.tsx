@@ -60,6 +60,11 @@ function setLabel(set: FestivalSet | undefined, fallbackId: string): string {
   return `${artist}${time}`;
 }
 
+// DC2 deep-link tab whitelist. Module-scoped so its identity is stable across
+// renders (a component-local array would be a new ref each render and force the
+// ?tab effect to re-run / need it as a dep).
+const TAB_KEYS: readonly CrewTabKey[] = ['members', 'plan', 'logistics', 'money'];
+
 export default function CrewScreen() {
   const t = useTokens();
   const styles = useStyles();
@@ -148,17 +153,17 @@ export default function CrewScreen() {
 
   // Load the user's crews once on mount.
   useEffect(() => {
-    if (user && crews.length === 0) {
+    if (user?.id && crews.length === 0) {
       loadCrews().catch(() => {});
     }
-  }, [user?.id, crews.length, loadCrews]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, crews.length, loadCrews]);
 
   // Auto-select the first crew when none is active yet.
   useEffect(() => {
-    if (user && crews.length > 0 && !activeCrew) {
+    if (user?.id && crews.length > 0 && !activeCrew) {
       selectCrew(crews[0]!.id).catch(() => {});
     }
-  }, [user?.id, crews, activeCrew, selectCrew]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, crews, activeCrew, selectCrew]);
 
   // Reset the transient sub-feature UI whenever the active crew changes. Done
   // with the render-time "previous value" pattern (keyed off the crew id) rather
@@ -175,13 +180,13 @@ export default function CrewScreen() {
 
   // DC2: honor a deep-linked ?tab=... (e.g. the find/map SOS shortcut lands on
   // the Find pane). Runs after the crew-change reset since it keys on the param.
-  const TAB_KEYS: readonly CrewTabKey[] = ['members', 'plan', 'logistics', 'money'];
+  // TAB_KEYS is module-scoped (stable), so the param is the only dep.
   useEffect(() => {
     if (tabParam && (TAB_KEYS as readonly string[]).includes(tabParam)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- apply deep-linked ?tab once it changes
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- event-driven: apply the deep-linked ?tab exactly when the URL param changes; not derivable as render state since the user can still switch tabs afterward
       setCrewTab(tabParam as CrewTabKey);
     }
-  }, [tabParam]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tabParam]);
 
   // Load polls + meeting points for the active crew (best-effort; errors land
   // in the shared store and surface in the header error line).

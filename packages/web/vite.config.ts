@@ -7,6 +7,7 @@ import path from 'path';
 
 export default defineConfig({
   build: {
+    chunkSizeWarningLimit: 1100,
     target: 'es2022',
     cssCodeSplit: true,
     rolldownOptions: {

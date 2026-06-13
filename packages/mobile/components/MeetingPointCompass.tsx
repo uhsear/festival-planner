@@ -18,7 +18,7 @@
  * (legacy free-text meeting point) states each render an honest explanation
  * instead of a spinning or bogus arrow.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Magnetometer } from 'expo-sensors';
@@ -74,10 +74,16 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
   const t = useTokens();
   const styles = useStyles();
 
-  const targetCoord: Coord | null =
-    Number.isFinite(target.latitude) && Number.isFinite(target.longitude)
-      ? { latitude: target.latitude, longitude: target.longitude }
-      : null;
+  // Memoized on the coord primitives so its identity is stable across renders;
+  // this lets the sensor/GPS effects depend on `targetCoord` directly (they only
+  // re-subscribe when the actual lat/lng change, not on every render).
+  const targetCoord: Coord | null = useMemo(
+    () =>
+      Number.isFinite(target.latitude) && Number.isFinite(target.longitude)
+        ? { latitude: target.latitude, longitude: target.longitude }
+        : null,
+    [target.latitude, target.longitude],
+  );
 
   const [phase, setPhase] = useState<Phase>(targetCoord ? 'init' : 'no-coords');
   const [heading, setHeading] = useState<number>(0); // smoothed, degrees CW from north
@@ -111,9 +117,7 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
       sub?.remove();
       sub = null;
     };
-    // targetCoord identity is stable per coord values; depend on the primitives.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target.latitude, target.longitude]);
+  }, [targetCoord]);
 
   // ── One-shot GPS read (viewer position) ──────────────────────────────────
   useEffect(() => {
@@ -148,8 +152,7 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target.latitude, target.longitude]);
+  }, [targetCoord]);
 
   // ── Derived bearing / distance / arrow rotation ──────────────────────────
   const brng = origin && targetCoord ? bearing(origin, targetCoord) : NaN;

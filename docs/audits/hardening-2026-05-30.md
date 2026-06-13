@@ -1,5 +1,7 @@
 # Festie Hardening Audit — 2026-05-30
 
+> **SDK NOTE:** This audit was conducted against Expo SDK 54; the project is now on SDK 56, so some findings (including the SDK-54 framing on line 286) may no longer apply.
+
 > **STATUS: ARCHIVED — all findings remediated (2026-05-30/31).** This document is a
 > historical record of the audit process, not a list of open work. Every finding
 > below (B-1 … K-7) was fixed on or shortly after the audit date; see the git

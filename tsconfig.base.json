@@ -10,6 +10,15 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    // isolatedModules: true means each file is transpiled independently (no cross-file
+    // type information). Consequence for @festie/shared: any re-export that only carries
+    // types MUST use `export type { Foo }` or `export type * from './...'` syntax so
+    // transpilers (esbuild, swc, Babel) can safely elide the import.  Plain
+    // `export { Foo }` is fine only when Foo is a value (class, function, const).
+    // To enforce this automatically at the TypeScript level, set
+    // `verbatimModuleSyntax: true` (TS 5+). Currently left off because the shared
+    // barrel files use `export * from` which would require migrating each to
+    // `export type * from` before the flag can be enabled.
     "isolatedModules": true
   }
 }

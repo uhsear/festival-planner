@@ -41,7 +41,7 @@ export default function PressableScale({
   const handlePressIn = useCallback<NonNullable<PressableProps['onPressIn']>>(
     (e) => {
       if (!reduceMotion) {
-        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value
+        // eslint-disable-next-line react-hooks/immutability -- imperative Reanimated shared-value write in an event handler; .value mutation is the animation API and has no derived-state equivalent
         pressed.value = withTiming(1, {
           duration: duration.fast,
           easing: Easing.bezier(...easing.out.bezier),
@@ -55,7 +55,7 @@ export default function PressableScale({
   const handlePressOut = useCallback<NonNullable<PressableProps['onPressOut']>>(
     (e) => {
       if (!reduceMotion) {
-        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value
+        // eslint-disable-next-line react-hooks/immutability -- imperative Reanimated shared-value write in an event handler; .value mutation is the animation API and has no derived-state equivalent
         pressed.value = withTiming(0, {
           duration: duration.med,
           easing: Easing.bezier(...easing.spring.bezier),

@@ -121,7 +121,7 @@ jobs:
       # dies with OutOfMemoryError: Metaspace. The properties file's last value
       # wins, so appending overrides it. Runner has ~7GB; leave room for the
       # native (clang/CMake) compilers that run outside the JVM. RN 0.85's
-      # heavier New-Arch/C++20 codegen needs more Metaspace than 0.81 did.
+      # heavier New-Arch/C++20 codegen needs more Metaspace -- set -XX:MaxMetaspaceSize=768m.
       - name: Raise Gradle JVM memory
         working-directory: packages/mobile/android
         run: |
