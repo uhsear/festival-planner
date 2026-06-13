@@ -47,22 +47,22 @@ jobs:
 
           echo "Response: $body"
 
-          # Validate status field
-          status=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status',''))")
+          # The API wraps everything in a {data:{...},error:null} envelope:
+          #   {"data":{"status":"ready","checks":{"database":"ok","redis":"ok"}},...}
+          # so status is at data.status and db/redis at data.checks.*.
+          status=$(echo "$body" | python3 -c "import sys,json; print((json.load(sys.stdin).get('data') or {}).get('status',''))")
           if [ "$status" != "ready" ]; then
             echo "ERROR: status='$status', expected 'ready'"
             exit 1
           fi
 
-          # Validate database field
-          db=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('database',''))")
+          db=$(echo "$body" | python3 -c "import sys,json; print(((json.load(sys.stdin).get('data') or {}).get('checks') or {}).get('database',''))")
           if [ "$db" != "ok" ]; then
             echo "ERROR: database='$db', expected 'ok'"
             exit 1
           fi
 
-          # Validate redis field
-          redis=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('redis',''))")
+          redis=$(echo "$body" | python3 -c "import sys,json; print(((json.load(sys.stdin).get('data') or {}).get('checks') or {}).get('redis',''))")
           if [ "$redis" != "ok" ]; then
             echo "ERROR: redis='$redis', expected 'ok'"
             exit 1
