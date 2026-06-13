@@ -220,6 +220,7 @@ export default function createFestivalsRoutes(deps: any) {
           name: nextFestival.name,
           location: nextFestival.location,
           b2bSeparator: nextFestival.b2bSeparator,
+          timeZone: nextFestival.timeZone,
           stages: nextFestival.stages,
           days: nextFestival.days,
         });

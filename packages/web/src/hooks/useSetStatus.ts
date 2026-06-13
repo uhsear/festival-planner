@@ -1,7 +1,7 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import { FestivalSet } from '@festie/shared/types';
-import { getSetStatus } from '@festie/shared/utils';
-import { useFestivalStore } from '@festie/shared/stores/festivalStore';
+import { getSetStatus, resolveFestivalTimeZone } from '@festie/shared/utils';
+import { useFestivalStore, useFestivalDataStore } from '@festie/shared/stores/festivalStore';
 
 // Status logic now lives in @festie/shared/utils as the single source of truth
 // shared with mobile. Re-exported here so existing web imports keep working.
@@ -63,14 +63,17 @@ export function useSetStatus(sets: FestivalSet[]): SetStatusResult[];
 export function useSetStatus(sets: FestivalSet | FestivalSet[]): SetStatusResult | SetStatusResult[] {
   const nowMs = useNow();
   const days = useFestivalStore((s) => s.days);
+  // Validate through the shared resolver so a garbage IANA id can never reach
+  // Intl and crash the SetCard/timeline render (undefined → device-local frame).
+  const timeZone = useFestivalDataStore((s) => resolveFestivalTimeZone(s.currentFestival));
   const isSingleSet = !Array.isArray(sets);
   const setsArray = useMemo(() => (isSingleSet ? [sets] : sets), [isSingleSet, sets]);
 
   // Memoize the computation
   const results = useMemo(() => {
     const now = new Date(nowMs);
-    return setsArray.map((set) => getSetStatus(set, now, days));
-  }, [setsArray, nowMs, days]);
+    return setsArray.map((set) => getSetStatus(set, now, days, timeZone));
+  }, [setsArray, nowMs, days, timeZone]);
 
   return isSingleSet ? results[0]! : results;
 }

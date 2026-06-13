@@ -39,6 +39,7 @@ export default function createUtils(pool: Pool) {
         f.name,
         COALESCE(f.location, '') AS location,
         COALESCE(f.b2b_separator, 'b2b') AS "b2bSeparator",
+        f.time_zone AS "timeZone",
         f.created_at AS "createdAt",
         f.updated_at AS "updatedAt",
         COALESCE(
@@ -90,7 +91,11 @@ export default function createUtils(pool: Pool) {
   function parseMessageRow(row: any) {
     let reactions: any = null;
     if (row.reactionsJson) {
-      try { reactions = JSON.parse(row.reactionsJson); } catch { reactions = null; }
+      try {
+        reactions = JSON.parse(row.reactionsJson);
+      } catch {
+        reactions = null;
+      }
     }
     return {
       id: row.id,
