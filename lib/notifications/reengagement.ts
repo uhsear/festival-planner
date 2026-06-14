@@ -122,8 +122,8 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
     const deepLink = `${origin()}/wrap?festival=${encodeURIComponent(festivalId)}`;
     const pushSent = await pushFanout(fresh, () => ({
       type: 'wrap_ready',
-      title: `${festivalName} — your wrap is ready`,
-      body: 'Relive your top sets, crew superlatives, and the numbers.',
+      title: `${festivalName}: your wrap is ready`,
+      body: 'Relive your top sets and crew superlatives.',
       data: { festivalId, eventKey, deepLink },
     }));
 
@@ -203,7 +203,7 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
     const pushSent = await pushFanout(fresh, () => ({
       type: 'lineup_drop',
       title: `${festivalName} lineup just dropped`,
-      body: 'Start building your picks and rally the crew.',
+      body: 'Start picking your sets.',
       data: { festivalId, eventKey, deepLink },
     }));
 
