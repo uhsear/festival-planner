@@ -32,11 +32,7 @@ export default function Toast() {
   };
 
   return (
-    <div
-      className="fixed bottom-24 right-4 left-4 z-[var(--z-toast)] flex flex-col gap-2 pointer-events-none sm:left-auto sm:max-w-sm"
-      aria-live="polite"
-      aria-atomic="false"
-    >
+    <div className="fixed bottom-24 right-4 left-4 z-[var(--z-toast)] flex flex-col gap-2 pointer-events-none sm:left-auto sm:max-w-sm">
       {toasts.map((t) => {
         const isAlert = t.type === 'error' || t.type === 'warning';
         const roleAttr: { role: 'alert' | 'status' } = { role: isAlert ? 'alert' : 'status' };

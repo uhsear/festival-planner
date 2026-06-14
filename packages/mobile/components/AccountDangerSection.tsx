@@ -1,12 +1,5 @@
 import { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@festie/shared/stores';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
@@ -102,11 +95,7 @@ export default function AccountDangerSection({ onDeleted }: AccountDangerSection
           <Text style={[styles.rowTitle, styles.dangerText]}>Delete Account</Text>
           <Text style={styles.rowHint}>30-day grace period before permanent removal</Text>
         </View>
-        <Ionicons
-          name={open ? 'chevron-up' : 'chevron-forward'}
-          size={18}
-          color={t.colors.text.placeholder}
-        />
+        <Ionicons name={open ? 'chevron-up' : 'chevron-forward'} size={18} color={t.colors.text.placeholder} />
       </TouchableOpacity>
 
       {open ? (
@@ -211,7 +200,7 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.danger,
   },
   submit: {
-    backgroundColor: t.colors.text.danger,
+    backgroundColor: t.colors.accent.coralStrong,
     borderRadius: t.radii.default,
     minHeight: 48,
     alignItems: 'center',
@@ -223,6 +212,6 @@ const useStyles = makeStyles((t) => ({
   },
   submitText: {
     ...typeStyle('label'),
-    color: t.colors.text.onLightAccent,
+    color: t.colors.text.onAccent,
   },
 }));

@@ -18,10 +18,7 @@ export default function AccountNotificationsSection() {
       if (next) await register();
       else await unregister();
     } catch (err) {
-      Alert.alert(
-        'Notifications',
-        err instanceof Error ? err.message : 'Could not update notifications.',
-      );
+      Alert.alert('Notifications', err instanceof Error ? err.message : 'Could not update notifications.');
     }
   };
 
@@ -29,11 +26,7 @@ export default function AccountNotificationsSection() {
     <View style={styles.card}>
       <View style={styles.row}>
         <View style={styles.rowIcon}>
-          <Ionicons
-            name="notifications-outline"
-            size={20}
-            color={t.colors.text.secondary}
-          />
+          <Ionicons name="notifications-outline" size={20} color={t.colors.text.secondary} />
         </View>
         <View style={styles.rowBody}>
           <Text style={styles.rowTitle}>Push Notifications</Text>
@@ -47,6 +40,7 @@ export default function AccountNotificationsSection() {
           disabled={busy}
           trackColor={{ false: t.colors.border.default, true: t.colors.accent.aqua }}
           thumbColor={t.colors.text.onAccent}
+          accessibilityLabel="Push notifications"
         />
       </View>
     </View>

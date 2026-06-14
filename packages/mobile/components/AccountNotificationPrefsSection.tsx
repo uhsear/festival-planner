@@ -83,6 +83,7 @@ function FestivalTopicsRows() {
             onValueChange={(v) => setTopic(r.key, v)}
             trackColor={{ false: t.colors.border.default, true: t.colors.accent.aqua }}
             thumbColor={t.colors.text.onAccent}
+            accessibilityLabel={r.title}
           />
         </View>
       ))}
@@ -162,6 +163,7 @@ export default function AccountNotificationPrefsSection() {
             onValueChange={r.onChange}
             trackColor={{ false: t.colors.border.default, true: t.colors.accent.aqua }}
             thumbColor={t.colors.text.onAccent}
+            accessibilityLabel={r.title}
           />
         </View>
       ))}
@@ -179,6 +181,7 @@ export default function AccountNotificationPrefsSection() {
           }
           trackColor={{ false: t.colors.border.default, true: t.colors.accent.aqua }}
           thumbColor={t.colors.text.onAccent}
+          accessibilityLabel="Quiet hours"
         />
       </View>
       <FestivalTopicsRows />

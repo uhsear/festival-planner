@@ -15,12 +15,14 @@ vi.mock('../../lib/toastContext', async (importOriginal) => {
 import { useToast } from '../../lib/toastContext';
 const mockUseToast = vi.mocked(useToast);
 
-function setupMockToast(toasts: Array<{
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'warning' | 'info';
-  onUndo?: () => void;
-}>) {
+function setupMockToast(
+  toasts: Array<{
+    id: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+    onUndo?: () => void;
+  }>,
+) {
   mockUseToast.mockReturnValue({
     toasts,
     toast: vi.fn(),
@@ -32,12 +34,11 @@ function setupMockToast(toasts: Array<{
 }
 
 describe('Toast', () => {
-  it('renders nothing when there are no toasts', () => {
+  it('renders no toast items when there are no toasts', () => {
     setupMockToast([]);
-    const { container } = render(<Toast />);
-    const toastContainer = container.querySelector('[aria-live="polite"]');
-    expect(toastContainer).toBeInTheDocument();
-    expect(toastContainer?.children.length).toBe(0);
+    render(<Toast />);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('renders a success toast with status role', () => {
@@ -113,11 +114,13 @@ describe('Toast', () => {
     expect(undoFn).toHaveBeenCalledOnce();
   });
 
-  it('has aria-live=polite container for toast announcements', () => {
-    setupMockToast([]);
+  it('announces each toast via its own role, with no nested live region on the wrapper', () => {
+    // Each toast carries role=status/alert (its own live region). A wrapper
+    // aria-live would nest live regions and double-announce, so the wrapper
+    // must NOT be a live region.
+    setupMockToast([{ id: '1', message: 'Saved!', type: 'success' }]);
     const { container } = render(<Toast />);
-    const liveRegion = container.querySelector('[aria-live="polite"]');
-    expect(liveRegion).toBeInTheDocument();
-    expect(liveRegion).toHaveAttribute('aria-atomic', 'false');
+    expect(container.querySelector('[aria-live]')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('Saved!');
   });
 });
