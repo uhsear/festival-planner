@@ -308,7 +308,30 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
       return result.rows[0] || null;
     },
 
-    async addMember(data: any) {
+    /**
+     * Add a member to a crew. When `maxMembers` is supplied the cap is enforced
+     * ATOMICALLY: the parent crews row is locked so concurrent joins serialize,
+     * the count is re-read under the lock, and the insert is skipped if the crew
+     * is full — closing the count-then-insert race in the join/admin-add routes.
+     * Returns 'full' if the cap was reached (no insert), otherwise 'added'.
+     * Without a cap (owner creation, reform) it's a plain insert.
+     */
+    async addMember(data: any, maxMembers?: number): Promise<'added' | 'full'> {
+      if (typeof maxMembers === 'number') {
+        return withTransaction(pool, async (client) => {
+          // Lock the crew row; all capped joiners for this crew serialize here.
+          await client.query('SELECT 1 FROM crews WHERE id = $1 FOR UPDATE', [data.crewId]);
+          const countRes = await client.query('SELECT COUNT(*)::int AS count FROM crew_members WHERE crew_id = $1', [
+            data.crewId,
+          ]);
+          if ((countRes.rows[0]?.count ?? 0) >= maxMembers) return 'full';
+          await client.query(
+            'INSERT INTO crew_members (crew_id, user_id, role, joined_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (crew_id, user_id) DO NOTHING',
+            [data.crewId, data.userId, data.role],
+          );
+          return 'added';
+        });
+      }
       await pool.query(
         `
         INSERT INTO
@@ -318,37 +341,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
       `,
         [data.crewId, data.userId, data.role],
       );
-    },
-
-    /**
-     * Atomically add a member only if the crew is below its cap. Locks the parent
-     * crews row so concurrent joins serialize, closing the count-then-insert TOCTOU
-     * race that let simultaneous joiners exceed maxMembers. Returns:
-     *   'added'  — member inserted
-     *   'full'   — cap reached (no insert)
-     *   'exists' — already a member (no insert)
-     */
-    async tryAddMemberWithinCap(data: any, maxMembers: number): Promise<'added' | 'full' | 'exists'> {
-      return withTransaction(pool, async (client) => {
-        // Lock the crew row; all joiners for this crew serialize through here.
-        const crewRes = await client.query('SELECT 1 FROM crews WHERE id = $1 FOR UPDATE', [data.crewId]);
-        if (crewRes.rowCount === 0) return 'full';
-        const existing = await client.query('SELECT 1 FROM crew_members WHERE crew_id = $1 AND user_id = $2', [
-          data.crewId,
-          data.userId,
-        ]);
-        if ((existing.rowCount ?? 0) > 0) return 'exists';
-        const countRes = await client.query('SELECT COUNT(*)::int AS count FROM crew_members WHERE crew_id = $1', [
-          data.crewId,
-        ]);
-        const count = countRes.rows[0]?.count ?? 0;
-        if (count >= maxMembers) return 'full';
-        await client.query(
-          'INSERT INTO crew_members (crew_id, user_id, role, joined_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (crew_id, user_id) DO NOTHING',
-          [data.crewId, data.userId, data.role],
-        );
-        return 'added';
-      });
+      return 'added';
     },
 
     async removeMember(crewId: string, userId: string) {

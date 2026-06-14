@@ -247,9 +247,14 @@ describe('getSetHotness', () => {
   it('returns 1000 for a currently-playing set', () => {
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
-    const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
     const startDate = new Date(now.getTime() - 30 * 60000);
     const endDate = new Date(now.getTime() + 30 * 60000);
+    // Anchor the set's calendar date to its START instant, not `now`: when the
+    // test runs in the first 30 min after local midnight, `now - 30min` is the
+    // previous day, and dating the set by `now` would push the rolled-over
+    // window past `now` and report hotness 0. (Pre-existing flake, unrelated to
+    // the timezone change.)
+    const date = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}`;
     const set = makeSet({
       id: 'hotness-playing',
       date,
