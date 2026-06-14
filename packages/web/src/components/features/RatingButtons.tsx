@@ -3,17 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared/services';
 import { useToast } from '../../lib/toastContext';
 import { useHaptics } from '../../hooks/useHaptics';
+import { RATING_META, RATING_SCALE } from '../../lib/ratingIcon';
 import { cn } from '../../lib/utils';
 
-// Emoji scale matches legacy public/app/ratings.js:
-//   5 🔥 Fire · 4 😊 Good · 3 👍 Okay · 2 🤔 Meh · 1 👎 Skip
-const RATINGS = [
-  { n: 5, emoji: '🔥', label: 'Fire' },
-  { n: 4, emoji: '😊', label: 'Good' },
-  { n: 3, emoji: '👍', label: 'Okay' },
-  { n: 2, emoji: '🤔', label: 'Meh' },
-  { n: 1, emoji: '👎', label: 'Skip' },
-] as const;
+const RATINGS = RATING_SCALE.map((n) => ({ n, ...RATING_META[n]! }));
 
 interface Rating {
   setId: string;
@@ -125,7 +118,7 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
     }
   };
 
-  const size = compact ? 'w-11 h-11 text-base' : 'w-11 h-11 text-xl';
+  const iconSize = compact ? 'w-4 h-4' : 'w-5 h-5';
 
   return (
     <div
@@ -146,14 +139,13 @@ export default function RatingButtons({ setId, festivalId, compact = false }: Pr
             disabled={busy}
             onClick={() => handleClick(r.n)}
             className={cn(
-              'rounded-full flex items-center justify-center transition-[background-color,box-shadow,transform]',
-              size,
+              'w-11 h-11 rounded-full flex items-center justify-center transition-[background-color,box-shadow,transform]',
               active
-                ? 'bg-accent-amber/25 scale-110 shadow-[0_0_12px_theme(colors.accent-amber/40)] ring-2 ring-accent-amber/60'
-                : 'bg-bg-card/60 border border-border hover:border-border-light',
+                ? 'bg-accent-amber/25 scale-110 shadow-[0_0_12px_theme(colors.accent-amber/40)] ring-2 ring-accent-amber/60 text-accent-amber'
+                : 'bg-bg-card/60 border border-border hover:border-border-light text-text-secondary',
             )}
           >
-            <span aria-hidden="true">{r.emoji}</span>
+            <r.Icon className={iconSize} aria-hidden="true" />
           </button>
         );
       })}

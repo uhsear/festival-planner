@@ -15,6 +15,7 @@ import CrewWrapPoster, { type CrewWrapData } from '../components/features/CrewWr
 import { useToast } from '../lib/toastContext';
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber';
 import { useRovingTabs } from '../hooks/useRovingTabs';
+import { RATING_META } from '../lib/ratingIcon';
 import { isFestivalOver } from '@festie/shared/utils';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { Sparkles, Trophy, Map as MapIcon, Clock, CalendarDays, Share2, Users, DollarSign } from 'lucide-react';
@@ -45,8 +46,6 @@ interface WrapResponse {
   topSets: TopSet[];
   allRatings: TopSet[];
 }
-
-const EMOJI: Record<number, string> = { 5: '🔥', 4: '😊', 3: '👍', 2: '🤔', 1: '👎' };
 
 export default function WrapPage() {
   return (
@@ -317,9 +316,10 @@ function WrapPageInner() {
             <div className="space-y-3">
               {topSets.map((s, i) => (
                 <div key={s.setId} className="flex items-center gap-3 p-4 rounded-xl bg-bg-card border border-border">
-                  <div className="text-3xl flex-shrink-0" aria-hidden="true">
-                    {EMOJI[s.rating]}
-                  </div>
+                  {(() => {
+                    const Icon = RATING_META[s.rating]?.Icon ?? Trophy;
+                    return <Icon className="w-7 h-7 text-accent-amber flex-shrink-0" aria-hidden="true" />;
+                  })()}
                   <div className="flex-1 min-w-0">
                     <div className="text-xs text-text-muted">
                       #{i + 1} · {s.stageName || (s.stageId ? getStageName(s.stageId) : 'Stage')}
@@ -354,9 +354,10 @@ function WrapPageInner() {
                   key={s.setId}
                   className="flex items-center gap-3 py-2 border-b border-border last:border-b-0 first:pt-0 last:pb-0"
                 >
-                  <span className="text-lg" aria-hidden="true">
-                    {EMOJI[s.rating]}
-                  </span>
+                  {(() => {
+                    const Icon = RATING_META[s.rating]?.Icon ?? Trophy;
+                    return <Icon className="w-4 h-4 text-text-secondary flex-shrink-0" aria-hidden="true" />;
+                  })()}
                   <span className="flex-1 text-sm text-text-primary truncate">{s.artist || s.setId}</span>
                   {(s.stageName || s.stageId) && (
                     <span className="text-xs text-text-muted">{s.stageName || getStageName(s.stageId!)}</span>
@@ -604,9 +605,13 @@ function CrewWrapTab({
                     {m.topSets.map((s) => (
                       <span
                         key={s.setId}
-                        className="text-xs px-2 py-1 rounded-full bg-bg-secondary border border-border text-text-secondary"
+                        className="text-xs px-2 py-1 rounded-full bg-bg-secondary border border-border text-text-secondary inline-flex items-center gap-1"
                       >
-                        {EMOJI[s.rating]} {s.artist || s.setId}
+                        {(() => {
+                          const Icon = RATING_META[s.rating]?.Icon ?? Trophy;
+                          return <Icon className="w-3 h-3" aria-hidden="true" />;
+                        })()}
+                        {s.artist || s.setId}
                       </span>
                     ))}
                   </div>
