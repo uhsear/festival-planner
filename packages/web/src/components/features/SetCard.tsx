@@ -424,7 +424,10 @@ function SetCard({
                     active &&
                       priKey === 'must' && [
                         'active-must',
-                        'bg-priority-must text-text-on-accent border-priority-must',
+                        // Fill = coral-strong so white label clears WCAG AA (white on
+                        // #ff3366 is only 3.55:1); brand coral #ff3366 stays as the
+                        // rim border + glow halo for the "hot must-pick" identity.
+                        'bg-accent-coral-strong text-text-on-accent border-priority-must',
                         'shadow-[var(--shadow-glow-coral),0_0_0_1px_var(--color-coral-a3)]',
                       ],
                     active &&

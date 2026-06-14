@@ -18,6 +18,9 @@ vi.mock('lucide-react', () => ({
   List: () => <span data-testid="list-icon" />,
   // CrewStatus (rendered by MeetingPointsTab) pulls these too.
   LocateFixed: () => <span data-testid="locate-fixed-icon" />,
+  Footprints: () => <span data-testid="footprints-icon" />,
+  CircleCheck: () => <span data-testid="circle-check-icon" />,
+  Hourglass: () => <span data-testid="hourglass-icon" />,
 }));
 
 // api is unused in assertions (the mutation fns are what we check), but the
