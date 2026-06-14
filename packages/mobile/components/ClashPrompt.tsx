@@ -94,8 +94,8 @@ export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, getPr
         // Both sides a must-see → escalate to an explicit conflict.
         const hard = getPriority?.(currentSet.id) === 'must' && getPriority?.(c.id) === 'must';
         const title = hard
-          ? `You have a conflict${at ? ` at ${at}` : ''} — keep one`
-          : `2 acts${at ? ` at ${at}` : ''} — keep one`;
+          ? `You have a conflict${at ? ` at ${at}` : ''}: keep one`
+          : `2 acts${at ? ` at ${at}` : ''}: keep one`;
         const body = hard
           ? `Both ${currentName} and ${otherName} are must-sees but overlap. Keep one and we'll clear the other.`
           : `${currentName} and ${otherName} overlap. Keep one and we'll clear the other.`;

@@ -28,19 +28,19 @@ interface Slide {
 const SLIDES: Slide[] = [
   {
     icon: 'calendar-outline',
-    title: 'Your festival, planned',
-    body: 'Pick the sets you can’t miss across every stage and see your whole weekend at a glance.',
+    title: 'Plan your whole weekend',
+    body: 'Pick the sets you want across every stage and see your whole weekend in one place.',
     showProductVisual: true,
   },
   {
     icon: 'people-outline',
     title: 'Keep your crew together',
-    body: 'Compare schedules, drop meeting points, and find each other when the signal drops.',
+    body: 'Compare schedules, set meeting points, and find each other when there’s no signal.',
   },
   {
     icon: 'notifications-outline',
-    title: 'Never miss a set',
-    body: 'Get a reminder before every pick starts — even when you’re offline.',
+    title: 'Reminders for your picks',
+    body: 'Get a reminder before each set, online or off.',
   },
 ];
 
