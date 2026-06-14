@@ -14,12 +14,14 @@ function at(msAgo: number): number {
 }
 
 describe('timeAgo', () => {
-  it('returns "just now" under 45 seconds', () => {
+  it('returns "just now" under 60 seconds (incl. the 45-59s window that used to render "0m ago")', () => {
     expect(timeAgo(at(0))).toBe('just now');
     expect(timeAgo(at(44_000))).toBe('just now');
+    expect(timeAgo(at(50_000))).toBe('just now');
+    expect(timeAgo(at(59_000))).toBe('just now');
   });
 
-  it('returns minutes between 45s and 60m', () => {
+  it('returns minutes between 60s and 60m', () => {
     expect(timeAgo(at(60_000))).toBe('1m ago');
     expect(timeAgo(at(59 * 60_000))).toBe('59m ago');
   });

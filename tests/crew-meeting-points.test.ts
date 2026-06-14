@@ -684,6 +684,84 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
     assert.equal((updateFn.mock.calls as any[])[0].arguments[1].recursDaily, true);
   });
 
+  // 055/056 regression: the PUT handler must recompute expires_at from the
+  // effective (post-merge) meetAt + recurrence, or an edit strands a stale
+  // expiry and the expireStale() sweep deactivates the point at the wrong time.
+  test('toggling a timed one-shot point to recurring clears expires_at', async () => {
+    const updateFn = mock.fn(async (id: any, data: any) => ({ ...DEFAULT_MEETING_POINT, ...data, id }));
+    const { app } = await buildApp({
+      stores: {
+        crews: {
+          getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
+          meetingPoints: {
+            getById: mock.fn(async () => ({
+              ...DEFAULT_MEETING_POINT,
+              meet_at: '2026-06-15T14:00:00.000Z',
+              recurs_daily: false,
+              expires_at: '2026-06-15T14:30:00.000Z',
+            })),
+            update: updateFn,
+          },
+        },
+      },
+    });
+
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ recursDaily: true });
+
+    assert.equal(res.status, 200);
+    assert.equal((updateFn.mock.calls as any[])[0].arguments[1].expiresAt, null);
+  });
+
+  test('editing meetAt on a one-shot point recomputes expires_at to newMeetAt + 30min', async () => {
+    const updateFn = mock.fn(async (id: any, data: any) => ({ ...DEFAULT_MEETING_POINT, ...data, id }));
+    const { app } = await buildApp({
+      stores: {
+        crews: {
+          getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
+          meetingPoints: {
+            getById: mock.fn(async () => ({
+              ...DEFAULT_MEETING_POINT,
+              meet_at: '2026-06-15T14:00:00.000Z',
+              recurs_daily: false,
+              expires_at: '2026-06-15T14:30:00.000Z',
+            })),
+            update: updateFn,
+          },
+        },
+      },
+    });
+
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ meetAt: '2026-06-15T20:00:00.000Z' });
+
+    assert.equal(res.status, 200);
+    assert.equal((updateFn.mock.calls as any[])[0].arguments[1].expiresAt, '2026-06-15T20:30:00.000Z');
+  });
+
+  test('a label-only edit on a recurring point keeps expires_at null', async () => {
+    const updateFn = mock.fn(async (id: any, data: any) => ({ ...DEFAULT_MEETING_POINT, ...data, id }));
+    const { app } = await buildApp({
+      stores: {
+        crews: {
+          getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
+          meetingPoints: {
+            getById: mock.fn(async () => ({
+              ...DEFAULT_MEETING_POINT,
+              meet_at: '2026-06-15T15:00:00.000Z',
+              recurs_daily: true,
+              expires_at: null,
+            })),
+            update: updateFn,
+          },
+        },
+      },
+    });
+
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ label: 'Tree (north)' });
+
+    assert.equal(res.status, 200);
+    assert.equal((updateFn.mock.calls as any[])[0].arguments[1].expiresAt, null);
+  });
+
   test('crew owner can update any meeting point', async () => {
     const mpByOtherUser = { ...DEFAULT_MEETING_POINT, created_by: 'user-2' };
     const { app } = await buildApp({
