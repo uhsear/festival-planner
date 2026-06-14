@@ -87,8 +87,14 @@ export default function createCrewInviteRoutes(deps: any) {
         );
       }
 
-      // Atomically enforce the member cap to close the count-then-insert race.
-      const joinResult = await stores.crews.tryAddMemberWithinCap(
+      // Check member cap (fast pre-check; addMember enforces it atomically below).
+      const memberCount = await stores.crews.getMemberCount(crew.id);
+      if (memberCount >= crew.maxMembers) {
+        return sendError(res, 400, 'Crew is full', ErrorCodes.MAX_LIMIT_REACHED);
+      }
+
+      // Pass the cap so the insert closes the count-then-insert race under a row lock.
+      const joinResult = await stores.crews.addMember(
         { crewId: crew.id, userId: req.user.userId, role: 'member' },
         crew.maxMembers,
       );
