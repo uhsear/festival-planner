@@ -14,6 +14,7 @@ import WrapPoster from '../components/features/WrapPoster';
 import CrewWrapPoster, { type CrewWrapData } from '../components/features/CrewWrapPoster';
 import { useToast } from '../lib/toastContext';
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber';
+import { useRovingTabs } from '../hooks/useRovingTabs';
 import { isFestivalOver } from '@festie/shared/utils';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { Sparkles, Trophy, Map as MapIcon, Clock, CalendarDays, Share2, Users, DollarSign } from 'lucide-react';
@@ -63,6 +64,8 @@ function WrapPageInner() {
   const { getStageName } = useFestival();
   const { toast } = useToast();
   const posterRef = useRef<HTMLDivElement>(null);
+  const wrapTabsRef = useRef<HTMLDivElement>(null);
+  useRovingTabs(wrapTabsRef);
   const [sharing, setSharing] = useState(false);
   const [tab, setTab] = useState<'me' | 'crew'>('me');
 
@@ -175,6 +178,7 @@ function WrapPageInner() {
   const tabBar = (
     <div className="max-w-lg mx-auto">
       <div
+        ref={wrapTabsRef}
         role="tablist"
         aria-label="Wrap view"
         className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-bg-card border border-border"

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
 import { LayoutGrid, AlignLeft, Columns3 } from 'lucide-react';
+import { useRovingTabs } from '../../hooks/useRovingTabs';
 import { cn } from '../../lib/utils';
 
 /**
@@ -52,6 +53,9 @@ export default function ScheduleViewSwitcher() {
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
   }, [activeKey]);
+
+  // Arrow-key roving between the view tabs (WAI-ARIA tablist pattern).
+  useRovingTabs(tabBarRef);
 
   return (
     <div
