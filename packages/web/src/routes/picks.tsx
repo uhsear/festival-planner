@@ -275,8 +275,7 @@ function PicksViewInner() {
                 return (
                   <button
                     key={set.id}
-                    className="flex items-center gap-x-3 px-4 py-3 w-full text-left bg-bg-card border border-border border-l-4 rounded-xl mb-2 cursor-pointer transition-[background,transform] duration-200 ease-standard hover:bg-bg-card-hover active:scale-[0.97] motion-reduce:transition-none motion-reduce:transform-none focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2"
-                    style={{ borderLeftColor: accent }}
+                    className="flex items-center gap-x-3 px-4 py-3 w-full text-left bg-bg-card border border-border rounded-xl mb-2 cursor-pointer transition-[background,transform] duration-200 ease-standard hover:bg-bg-card-hover active:scale-[0.97] motion-reduce:transition-none motion-reduce:transform-none focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2"
                     type="button"
                     aria-label={`${dn} — ${dayLabel}${set.startTime ? ' ' + formatTime(set.startTime) : ' TBA'}`}
                     onClick={() => setDetailSet(set)}

@@ -67,16 +67,13 @@ export default function TBASection({
                 'focus-visible:bg-[var(--color-bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent-aqua)]',
                 'motion-reduce:!transition-none',
                 // Priority border-left tint
-                myPick === 'must' &&
-                  'border-l-[3px] border-l-[var(--color-priority-must)] shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
-                myPick === 'want-to-see' &&
-                  'border-l-[3px] border-l-[var(--color-priority-want)] shadow-[inset_0_0_24px_var(--color-aqua-a12)]',
-                myPick === 'maybe' &&
-                  'border-l-[3px] border-l-[var(--color-priority-maybe)] shadow-[inset_0_0_24px_var(--color-amber-a12)]',
+                myPick === 'must' && 'shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
+                myPick === 'want-to-see' && 'shadow-[inset_0_0_24px_var(--color-aqua-a12)]',
+                myPick === 'maybe' && 'shadow-[inset_0_0_24px_var(--color-amber-a12)]',
               )}
               style={
                 stageColor
-                  ? ({ '--i': Math.min(idx, 20), borderLeft: `3px solid ${stageColor}` } as React.CSSProperties)
+                  ? ({ '--i': Math.min(idx, 20) } as React.CSSProperties)
                   : ({ '--i': Math.min(idx, 20) } as React.CSSProperties)
               }
             >

@@ -39,16 +39,16 @@ export default memo(function CompareRow({
 }: CompareRowProps) {
   return (
     <tr className="border-t border-border">
-      <th
-        scope="row"
-        className="sticky left-0 bg-bg-primary z-10 py-3 pr-3 align-top text-left pl-2.5"
-        style={{ borderLeft: `3px solid ${stageColor}` }}
-      >
+      <th scope="row" className="sticky left-0 bg-bg-primary z-10 py-3 pr-3 align-top text-left pl-2.5">
         <div className="font-semibold text-text-primary truncate max-w-[180px]">{set.artist}</div>
         <div className="text-xs text-text-secondary">
-          {formatTime(set.startTime)}{'–'}{formatTime(set.endTime)}
+          {formatTime(set.startTime)}
+          {'–'}
+          {formatTime(set.endTime)}
         </div>
-        <div className="text-xs" style={{ color: stageColor }}>{stageName}</div>
+        <div className="text-xs" style={{ color: stageColor }}>
+          {stageName}
+        </div>
         {isConsensus && (
           <div className="mt-1 inline-block text-[10px] px-1.5 py-0.5 rounded bg-accent-amber/20 text-accent-amber font-semibold">
             All going

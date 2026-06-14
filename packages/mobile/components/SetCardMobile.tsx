@@ -238,7 +238,7 @@ function SetCardMobileImpl({
   // R19: Apply live state styling when set status is 'live'.
   const isLive = setStatus.status === 'live';
   return (
-    <View style={[styles.card, { borderLeftColor: stageColor }, isLive && styles.cardLive]}>
+    <View style={[styles.card, isLive && styles.cardLive]}>
       <AppPressable
         style={styles.body}
         onPress={onPress}
@@ -402,7 +402,6 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     // R2 hairline: neutral white 0.08 separator (was border.default 0.06).
     borderColor: t.colors.glass.border,
-    borderLeftWidth: 4,
     padding: t.spacing[4],
     gap: t.spacing[1],
   },
