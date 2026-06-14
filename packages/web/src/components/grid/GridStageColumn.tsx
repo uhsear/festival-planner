@@ -15,6 +15,7 @@ interface GridStageColumnProps {
   totalH: number;
   pxPerMin: number;
   b2bSeparator?: string;
+  minColWidth?: string;
   getMyPick: (setId: string) => Priority | null | undefined;
   /**
    * How many OTHER crew members picked a set (M1 crew-overlap). Optional so the
@@ -33,6 +34,7 @@ function GridStageColumn({
   bounds,
   totalH,
   pxPerMin,
+  minColWidth = '110px',
   b2bSeparator,
   getMyPick,
   getOverlapCount,
@@ -40,10 +42,10 @@ function GridStageColumn({
 }: GridStageColumnProps) {
   return (
     <div
-      className="fk-grid__col relative flex-1 min-w-[110px] max-w-[160px] border-l border-border"
+      className="fk-grid__col relative flex-1 border-l border-border"
       role="row"
       aria-label={stageName}
-      style={{ height: totalH, '--stage-c': stageColor } as React.CSSProperties}
+      style={{ height: totalH, minWidth: minColWidth, '--stage-c': stageColor } as React.CSSProperties}
       data-grid-col
     >
       {hours.map(({ m, px }) => (
@@ -76,7 +78,7 @@ function GridStageColumn({
             key={set.id}
             role="gridcell"
             className={cn(
-              'fk-grid__set absolute left-1 right-1 rounded-md py-[5px] px-[7px] pb-1',
+              'fk-grid__set absolute left-1 right-1 rounded-md border py-[5px] px-[7px] pb-1',
               'cursor-pointer overflow-hidden flex flex-col gap-0.5 text-left',
               'transition-[filter,transform] duration-[120ms] ease-[ease]',
               'backdrop-blur-[2px]',
@@ -89,7 +91,10 @@ function GridStageColumn({
                 top,
                 height,
                 '--set-c': pc,
-                background: pick ? `color-mix(in srgb, ${pc} 28%, #0d0d1a)` : pc + '15',
+                // Stage identity = a full subtle stage-colour border + tint (the
+                // old left-stripe was an AI tell); picked sets read brighter.
+                background: pick ? `color-mix(in srgb, ${pc} 28%, #0d0d1a)` : `color-mix(in srgb, ${pc} 14%, #0d0d1a)`,
+                borderColor: `color-mix(in srgb, ${pc} ${pick ? '55' : '38'}%, transparent)`,
               } as React.CSSProperties
             }
             onClick={() => onSetClick(set)}

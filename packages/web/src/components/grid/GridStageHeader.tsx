@@ -26,7 +26,7 @@ export default function GridStageHeader({
       className="fk-grid__head grid shrink-0 bg-bg-primary border-b border-border-light sticky top-0 z-10"
       role="row"
       style={{
-        gridTemplateColumns: `${gutterW}px repeat(${visibleStages.length}, minmax(${minColWidth}, 160px))`,
+        gridTemplateColumns: `${gutterW}px repeat(${visibleStages.length}, minmax(${minColWidth}, 1fr))`,
       }}
       data-grid-head
     >
@@ -67,12 +67,14 @@ export default function GridStageHeader({
               'overflow-hidden text-ellipsis whitespace-nowrap',
             )}
             role="columnheader"
-            style={{
-              '--stage-c': c,
-              background: `color-mix(in srgb, ${c || 'var(--color-border-light)'} 18%, transparent)`,
-              border: `1px solid color-mix(in srgb, ${c || 'var(--color-border-light)'} 40%, transparent)`,
-              borderBottom: `3px solid ${c || 'var(--color-border-light)'}`,
-            } as React.CSSProperties}
+            style={
+              {
+                '--stage-c': c,
+                background: `color-mix(in srgb, ${c || 'var(--color-border-light)'} 18%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${c || 'var(--color-border-light)'} 40%, transparent)`,
+                borderBottom: `3px solid ${c || 'var(--color-border-light)'}`,
+              } as React.CSSProperties
+            }
           >
             {getStageName(st.id)}
           </div>
