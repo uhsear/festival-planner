@@ -1,5 +1,5 @@
 import React from 'react';
-import { m } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 import { useLocation } from '@tanstack/react-router';
 
 interface PageTransitionProps {
@@ -20,11 +20,14 @@ interface PageTransitionProps {
 export default function PageTransition({ children }: PageTransitionProps) {
   const location = useLocation();
   const key = location.pathname;
+  // The global CSS prefers-reduced-motion block can't reach JS-driven Motion, so
+  // gate the enter animation here: under reduce-motion the page mounts in place.
+  const reduce = useReducedMotion();
 
   return (
     <m.div
       key={key}
-      initial={{ opacity: 0, y: 4 }}
+      initial={reduce ? false : { opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       /* ease-out cubic-bezier matches --ease-out token in globals.css;
          180ms is long enough to read the hierarchy shift (4px Y translate)

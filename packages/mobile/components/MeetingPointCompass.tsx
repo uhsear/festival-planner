@@ -26,6 +26,7 @@ import * as Location from 'expo-location';
 import { bearing, haversineDistance, relativeArrowAngle, formatDistance } from '@festie/shared/utils';
 import type { Coord } from '@festie/shared/utils';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 /** A saved meeting-point target: a label plus its captured coords. */
 export interface MeetingPointTarget {
@@ -73,6 +74,7 @@ type Phase = 'init' | 'denied' | 'no-sensor' | 'no-coords' | 'ready';
 export default function MeetingPointCompass({ target }: MeetingPointCompassProps) {
   const t = useTokens();
   const styles = useStyles();
+  const reduceMotion = useReduceMotion();
 
   // Memoized on the coord primitives so its identity is stable across renders;
   // this lets the sensor/GPS effects depend on `targetCoord` directly (they only
@@ -103,7 +105,9 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
         setPhase((p) => (p === 'init' ? 'no-sensor' : p));
         return;
       }
-      Magnetometer.setUpdateInterval(UPDATE_INTERVAL_MS);
+      // Reduce-motion: slow the needle to ~2.5fps so it still points correctly
+      // without the continuous fast rotation that can trigger vestibular nausea.
+      Magnetometer.setUpdateInterval(reduceMotion ? 400 : UPDATE_INTERVAL_MS);
       sub = Magnetometer.addListener(({ x, y }) => {
         const raw = magnetometerHeading(x, y);
         const next = smoothHeading(smoothedRef.current, raw, SMOOTHING_ALPHA);
@@ -117,7 +121,7 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
       sub?.remove();
       sub = null;
     };
-  }, [targetCoord]);
+  }, [targetCoord, reduceMotion]);
 
   // ── One-shot GPS read (viewer position) ──────────────────────────────────
   useEffect(() => {
