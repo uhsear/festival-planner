@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useFestivalStore, useAuthStore, useCrewStore } from '@festie/shared/stores';
 import { useCrew, useFestival } from '@festie/shared/hooks';
 import type { Priority } from '@festie/shared/types';
@@ -8,6 +8,7 @@ import CompareColumn from '../components/compare/CompareColumn';
 import CompareRow from '../components/compare/CompareRow';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber';
+import { useRovingTabs } from '../hooks/useRovingTabs';
 import { Users } from 'lucide-react';
 
 export default function CompareView() {
@@ -29,6 +30,8 @@ function CompareViewInner() {
 
   const { getCrewScopedProfiles, getCrewScopedOtherPicks } = useCrew();
   const { getStageColor, getStageName } = useFestival();
+  const dayTabsRef = useRef<HTMLDivElement>(null);
+  useRovingTabs(dayTabsRef);
 
   const columns = useMemo(() => {
     const others = getCrewScopedProfiles().filter((p) => p.id !== currentProfile?.id);
@@ -77,7 +80,12 @@ function CompareViewInner() {
 
       {days.length > 1 && (
         <div className="max-w-6xl mx-auto">
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide py-2" role="tablist" aria-label="Day">
+          <div
+            ref={dayTabsRef}
+            className="flex gap-2 overflow-x-auto scrollbar-hide py-2"
+            role="tablist"
+            aria-label="Day"
+          >
             {days.map((d, idx) => (
               <button
                 key={d.id}
