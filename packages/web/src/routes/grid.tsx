@@ -56,6 +56,9 @@ function GridViewInner() {
   }, []);
   const PX_PER_MIN = getPxPerMin(vw);
   const GUTTER_W = getGutterW(vw);
+  // Min column width — shared by the header grid and the body columns so they
+  // stay aligned; columns then flex to fill the remaining width on desktop.
+  const minColW = vw <= 430 ? '92px' : '110px';
 
   const { exporting, exportGrid } = useGridExport(
     gridRef,
@@ -163,7 +166,7 @@ function GridViewInner() {
       <GridStageHeader
         visibleStages={visibleStages}
         gutterW={GUTTER_W}
-        minColWidth={vw <= 430 ? '92px' : '110px'}
+        minColWidth={minColW}
         exporting={exporting}
         onExport={exportGrid}
         getStageColor={getStageColor}
@@ -180,9 +183,9 @@ function GridViewInner() {
       >
         {/* Time gutter */}
         <div
-          className="relative shrink-0 w-[52px] border-r border-border-light bg-bg-primary sticky left-0 z-5"
+          className="relative shrink-0 border-r border-border-light bg-bg-primary sticky left-0 z-5"
           role="presentation"
-          style={{ height: totalH }}
+          style={{ height: totalH, width: GUTTER_W }}
           data-grid-gutter
         >
           {hours.map(({ m, px }) => (
@@ -224,6 +227,7 @@ function GridViewInner() {
               bounds={bounds}
               totalH={totalH}
               pxPerMin={PX_PER_MIN}
+              minColWidth={minColW}
               b2bSeparator={currentFestival.b2bSeparator}
               getMyPick={getMyPick}
               getOverlapCount={getOverlapCount}
