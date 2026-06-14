@@ -93,10 +93,7 @@ export default function CrewWrapPoster({ crewName, festivalName, wrap }: Props) 
             fontSize: 96,
             fontWeight: 900,
             letterSpacing: 8,
-            background: `linear-gradient(90deg, ${POSTER_COLORS.coral}, ${POSTER_COLORS.aqua})`,
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            color: 'transparent',
+            color: POSTER_COLORS.aqua,
             lineHeight: 1,
           }}
         >

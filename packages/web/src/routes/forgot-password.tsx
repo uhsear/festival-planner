@@ -81,7 +81,7 @@ function ForgotPasswordPageInner() {
 
         {!submitted ? (
           // Form
-          <form onSubmit={handleSubmit} className="glass rounded-lg p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="bg-bg-card border border-border rounded-lg p-6 space-y-4">
             <Input
               label="Email Address"
               name="email"
@@ -107,7 +107,7 @@ function ForgotPasswordPageInner() {
         ) : (
           // Success message
           <div
-            className="glass rounded-lg p-6 text-center space-y-4 animate-in fade-in zoom-in-95 duration-300"
+            className="bg-bg-card border border-border rounded-lg p-6 text-center space-y-4 animate-in fade-in zoom-in-95 duration-300"
             role="status"
             aria-live="polite"
           >

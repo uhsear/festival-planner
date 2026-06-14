@@ -98,13 +98,13 @@ function _wrapTemplate(title: any, bodyHtml: any) {
 
 function _buttonHtml(url: any, label: any) {
   return `<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-      <a href="${escapeHtml(url)}" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 36px;border-radius:10px">${label}</a>
+      <a href="${escapeHtml(url)}" style="display:inline-block;background:#00e8d0;color:#0a0a0f;text-decoration:none;font-size:15px;font-weight:600;padding:14px 36px;border-radius:10px">${label}</a>
     </td></tr></table>`;
 }
 
 function _urlFallback(url: any) {
   return `<p style="color:rgba(255,255,255,0.4);font-size:13px;line-height:1.5;margin:24px 0 0">If the button doesn't work, copy and paste this URL into your browser:</p>
-    <p style="color:#a78bfa;font-size:12px;line-height:1.5;word-break:break-all;margin:8px 0 0">${escapeHtml(url)}</p>`;
+    <p style="color:#00e8d0;font-size:12px;line-height:1.5;word-break:break-all;margin:8px 0 0">${escapeHtml(url)}</p>`;
 }
 
 /**

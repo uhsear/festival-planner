@@ -244,7 +244,7 @@
   .set-card.live {
     background:
       linear-gradient(#1a1a1a, #1a1a1a) padding-box,
-      conic-gradient(from var(--border-angle), #00e8d0, transparent 30%, #ff6b5b 60%, transparent 80%, #00e8d0)
+      conic-gradient(from var(--border-angle), #00e8d0, transparent 30%, #ff3366 60%, transparent 80%, #00e8d0)
         border-box;
     border: 1.5px solid transparent;
     animation: rotateBorder 6s linear infinite;
