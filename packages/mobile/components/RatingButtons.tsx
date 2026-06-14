@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '@festie/shared/services';
-import { makeStyles, typeStyle } from '../hooks/useTokens';
+import { makeStyles, useTokens } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
 import PressableScale from './PressableScale';
 
 /**
- * Emoji scale mirrors the web RatingButtons + legacy ratings.js:
- *   5 🔥 Fire · 4 😊 Good · 3 👍 Okay · 2 🤔 Meh · 1 👎 Skip
+ * Rating scale mirrors the web RatingButtons (shared lib/ratingIcon): vector
+ * icons instead of OS-font emoji, so it renders consistently and stays tintable.
+ *   5 Fire · 4 Good · 3 Okay · 2 Meh · 1 Skip
  */
-const RATINGS: readonly { n: number; emoji: string; label: string }[] = [
-  { n: 5, emoji: '🔥', label: 'Fire' },
-  { n: 4, emoji: '😊', label: 'Good' },
-  { n: 3, emoji: '👍', label: 'Okay' },
-  { n: 2, emoji: '🤔', label: 'Meh' },
-  { n: 1, emoji: '👎', label: 'Skip' },
+const RATINGS: readonly { n: number; icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
+  { n: 5, icon: 'flame', label: 'Fire' },
+  { n: 4, icon: 'happy', label: 'Good' },
+  { n: 3, icon: 'thumbs-up', label: 'Okay' },
+  { n: 2, icon: 'remove', label: 'Meh' },
+  { n: 1, icon: 'thumbs-down', label: 'Skip' },
 ];
 
 interface Rating {
@@ -42,6 +44,7 @@ interface RatingButtonsProps {
  */
 export default function RatingButtons({ setId, festivalId }: RatingButtonsProps) {
   const styles = useStyles();
+  const t = useTokens();
   const haptics = useHaptics();
   const [current, setCurrent] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -108,7 +111,7 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
             accessibilityState={{ checked: active, selected: active, disabled: busy }}
             accessibilityLabel={`${r.label} (${r.n} of 5)`}
           >
-            <Text style={[styles.emoji, active && styles.emojiActive]}>{r.emoji}</Text>
+            <Ionicons name={r.icon} size={22} color={active ? t.colors.accent.amber : t.colors.text.secondary} />
           </PressableScale>
         );
       })}
@@ -136,11 +139,5 @@ const useStyles = makeStyles((t) => ({
   buttonActive: {
     borderColor: t.colors.accent.amber,
     backgroundColor: t.colors.accent.amber + '40',
-  },
-  emoji: {
-    ...typeStyle('title'),
-  },
-  emojiActive: {
-    ...typeStyle('heading'),
   },
 }));
