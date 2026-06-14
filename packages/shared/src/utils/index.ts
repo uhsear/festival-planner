@@ -6,6 +6,7 @@ export * from './festivalTime';
 export * from './setStatus';
 export * from './reminderSchedule';
 export * from './timeAgo';
+export * from './lastSynced';
 export * from './ics';
 export * from './paymentLinks';
 export * from './geo';

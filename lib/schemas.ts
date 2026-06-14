@@ -323,6 +323,8 @@ export type FestivalUpdateInput = z.infer<typeof festivalUpdateSchema>;
 export const crewCreateSchema = z.object({
   name: z.string().trim().min(1, 'Crew name required').max(60),
   festivalId: identifier,
+  totemName: z.string().trim().max(40).optional(),
+  totemEmoji: z.string().trim().max(16).optional(),
 });
 export type CrewCreateInput = z.infer<typeof crewCreateSchema>;
 
@@ -330,6 +332,8 @@ export const crewUpdateSchema = z
   .object({
     name: z.string().trim().min(1).max(60).optional(),
     maxMembers: z.number().int().min(2).max(30).optional(),
+    totemName: z.string().trim().max(40).optional(),
+    totemEmoji: z.string().trim().max(16).optional(),
   })
   .refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), {
     message: 'At least one field required',

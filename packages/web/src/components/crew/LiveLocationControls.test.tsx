@@ -39,6 +39,13 @@ function useLiveLocationStore(selector: (s: typeof storeState) => unknown) {
 useLiveLocationStore.getState = () => ({ ...storeState, clearSos: clearSosSpy });
 vi.mock('@festie/shared/stores/liveLocationStore', () => ({ useLiveLocationStore }));
 
+// festivalModeStore — low-power mode gates the share affordance. Controllable
+// so a test can flip lowPowerMode on and assert the toggle is disabled.
+const { fmState } = vi.hoisted(() => ({ fmState: { lowPowerMode: false } }));
+vi.mock('@festie/shared/stores/festivalModeStore', () => ({
+  useFestivalModeStore: (selector: (s: typeof fmState) => unknown) => selector(fmState),
+}));
+
 // Shared socket — connected by default so the share toggle is allowed.
 const { socketState } = vi.hoisted(() => ({ socketState: { connected: true } }));
 vi.mock('../../lib/socketContext', () => ({ useSharedSocket: () => socketState }));
@@ -55,6 +62,7 @@ const ME = 'user-me';
 function resetStore() {
   storeState.sharingCrewId = null;
   storeState.sos = null;
+  fmState.lowPowerMode = false;
 }
 
 beforeEach(() => {
@@ -126,6 +134,20 @@ describe('LiveLocationControls — share toggle', () => {
     expect(publisherSpy).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false, crewId: CREW_ID }));
     await user.click(screen.getByRole('switch'));
     expect(publisherSpy).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: true }));
+  });
+
+  it('disables the share affordance in low-power mode (battery gate) and warns on tap', async () => {
+    const user = userEvent.setup();
+    fmState.lowPowerMode = true;
+    render(<LiveLocationControls crewId={CREW_ID} currentUserId={ME} />);
+
+    const sw = screen.getByTestId('live-share-toggle');
+    expect(sw).toBeDisabled();
+    // SOS — an essential — stays available even in low-power mode.
+    expect(screen.getByRole('button', { name: /raise an sos/i })).toBeInTheDocument();
+    // A disabled switch swallows the click, so the publisher never goes live.
+    await user.click(sw);
+    expect(publisherSpy).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: false }));
   });
 });
 

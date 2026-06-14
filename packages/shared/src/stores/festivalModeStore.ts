@@ -8,6 +8,23 @@ export interface FestivalModeState {
   showPastSets: boolean;
   autoScrollToNow: boolean;
   manuallyDisabled: boolean;
+  /**
+   * Festival low-power mode (PERSISTED). Battery is a paired constraint with
+   * no-signal at a festival: the phone has to last the whole day. When ON,
+   * consumers MUST gate expensive, battery-hungry features and keep only the
+   * essentials:
+   *
+   *   GATE OFF when lowPowerMode:           KEEP ON (essentials):
+   *   - live-location auto-share            - set reminders / notifications
+   *   - ambient / decorative animation      - crew meeting pins
+   *   - aggressive polling (poll/status     - last-known breadcrumbs
+   *     refetch intervals → back off)       - manual one-shot location share
+   *
+   * This is a USER-CONTROLLED preference (independent of `isFestivalMode`), so
+   * it persists across launches. Consumers read it as `useFestivalModeStore(s =>
+   * s.lowPowerMode)` and branch their effects on it.
+   */
+  lowPowerMode: boolean;
 }
 
 export interface FestivalModeActions {
@@ -16,6 +33,9 @@ export interface FestivalModeActions {
   setFestivalStarted: (started: boolean) => void;
   toggleShowPastSets: () => void;
   toggleAutoScrollToNow: () => void;
+  /** Toggle festival low-power mode (persisted). See `lowPowerMode` docs. */
+  setLowPowerMode: (on: boolean) => void;
+  toggleLowPowerMode: () => void;
 }
 
 export type FestivalModeStore = FestivalModeState & FestivalModeActions;
@@ -26,6 +46,7 @@ const festivalModeStore: StateCreator<FestivalModeStore> = (set) => ({
   showPastSets: true,
   autoScrollToNow: false,
   manuallyDisabled: false,
+  lowPowerMode: false,
 
   toggleFestivalMode: () => {
     set((state) => {
@@ -56,6 +77,14 @@ const festivalModeStore: StateCreator<FestivalModeStore> = (set) => ({
   toggleAutoScrollToNow: () => {
     set((state) => ({ autoScrollToNow: !state.autoScrollToNow }));
   },
+
+  setLowPowerMode: (on: boolean) => {
+    set((state) => (state.lowPowerMode === on ? state : { lowPowerMode: on }));
+  },
+
+  toggleLowPowerMode: () => {
+    set((state) => ({ lowPowerMode: !state.lowPowerMode }));
+  },
 });
 
 export const useFestivalModeStore = create<FestivalModeStore>()(
@@ -65,6 +94,7 @@ export const useFestivalModeStore = create<FestivalModeStore>()(
     partialize: (state) => ({
       isFestivalMode: state.isFestivalMode,
       manuallyDisabled: state.manuallyDisabled,
+      lowPowerMode: state.lowPowerMode,
     }),
   }),
 );

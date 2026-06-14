@@ -19,7 +19,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/stores';
+import { useAuthStore, useCrewStore, useFestivalStore, useFestivalModeStore } from '@festie/shared/stores';
 import { useCrew } from '@festie/shared/hooks';
 import { mapErrorToUserMessage } from '@festie/shared/services';
 import type { Crew, CrewMember, CrewOverlap, FestivalSet } from '@festie/shared/types';
@@ -41,7 +41,8 @@ import CrewExpenses from '../../components/CrewExpenses';
 import CrewActivity from '../../components/CrewActivity';
 import CrewLiveLocation from '../../components/CrewLiveLocation';
 import CrewSos from '../../components/CrewSos';
-import FreshnessChip from '../../components/FreshnessChip';
+import UpdatedAgoBadge from '../../components/UpdatedAgoBadge';
+import { LowPowerIndicator } from '../../components/LowPowerControls';
 
 /** Two-letter initials derived from a member's display name (fallback "?"). */
 function initialsFor(name: string | undefined): string {
@@ -105,6 +106,7 @@ export default function CrewScreen() {
   const loadCrews = useCrewStore((s) => s.loadCrews);
   const selectCrew = useCrewStore((s) => s.selectCrew);
   const createCrew = useCrewStore((s) => s.createCrew);
+  const updateCrew = useCrewStore((s) => s.updateCrew);
   const joinByCode = useCrewStore((s) => s.joinByCode);
   const leaveCrew = useCrewStore((s) => s.leaveCrew);
   const deleteCrew = useCrewStore((s) => s.deleteCrew);
@@ -128,14 +130,29 @@ export default function CrewScreen() {
   const festivals = useFestivalStore((s) => s.festivals);
   const loadFestivals = useFestivalStore((s) => s.loadFestivals);
 
+  // Festival low-power mode gates battery-hungry features (live-location
+  // auto-share). Read from the shared store; the toggle itself lives on the
+  // Now & Next screen.
+  const lowPowerMode = useFestivalModeStore((s) => s.lowPowerMode);
+
   // Per-set crew picks (shared hook) — used to enrich the overlap UI without
   // an extra endpoint round-trip.
   const { getCrewScopedOtherPicks } = useCrew();
   const router = useRouter();
 
   const [name, setName] = useState('');
+  // Crew totem (rally marker) on the create form — a plain emoji field (no
+  // picker) + short label, both optional. Capped server-side (16 / 40 chars).
+  const [createTotemEmoji, setCreateTotemEmoji] = useState('');
+  const [createTotemName, setCreateTotemName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [createBusy, setCreateBusy] = useState(false);
+  // Owner-only totem editor (in the Manage footer). Opens prefilled from the
+  // active crew; `null` while closed so we can re-seed on open.
+  const [totemEditOpen, setTotemEditOpen] = useState(false);
+  const [editTotemEmoji, setEditTotemEmoji] = useState('');
+  const [editTotemName, setEditTotemName] = useState('');
+  const [totemBusy, setTotemBusy] = useState(false);
   const [joinBusy, setJoinBusy] = useState(false);
   const [regenBusy, setRegenBusy] = useState(false);
   const [overlapBusy, setOverlapBusy] = useState(false);
@@ -177,6 +194,7 @@ export default function CrewScreen() {
     setForceAddOpen(false);
     setForceAddId('');
     setCrewTab('members');
+    setTotemEditOpen(false);
   }
 
   // DC2: honor a deep-linked ?tab=... (e.g. the find/map SOS shortcut lands on
@@ -229,12 +247,50 @@ export default function CrewScreen() {
     setError(null);
     setCreateBusy(true);
     try {
-      await createCrew({ name: trimmed, festivalId: currentFestival?.id });
+      const emoji = createTotemEmoji.trim();
+      const totemName = createTotemName.trim();
+      await createCrew({
+        name: trimmed,
+        festivalId: currentFestival?.id,
+        // Only send totem fields when the user actually filled them in.
+        ...(emoji ? { totemEmoji: emoji } : {}),
+        ...(totemName ? { totemName } : {}),
+      });
       setName('');
+      setCreateTotemEmoji('');
+      setCreateTotemName('');
     } catch {
       // Error is set in the store.
     } finally {
       setCreateBusy(false);
+    }
+  };
+
+  // Owner-only totem save (rename the crew's rally marker). Opens the editor
+  // seeded from the active crew, then PUTs name + emoji via the shared store.
+  const openTotemEditor = (c: Crew) => {
+    setEditTotemEmoji(c.totem_emoji ?? '');
+    setEditTotemName(c.totem_name ?? '');
+    setTotemEditOpen(true);
+  };
+
+  const handleSaveTotem = async (crewId: string) => {
+    if (totemBusy) return;
+    Keyboard.dismiss();
+    setError(null);
+    setTotemBusy(true);
+    try {
+      // Send empty strings (not omitted) so clearing a field actually clears
+      // the totem server-side.
+      await updateCrew(crewId, {
+        totemEmoji: editTotemEmoji.trim(),
+        totemName: editTotemName.trim(),
+      });
+      setTotemEditOpen(false);
+    } catch {
+      // Error is set in the store.
+    } finally {
+      setTotemBusy(false);
     }
   };
 
@@ -512,6 +568,32 @@ export default function CrewScreen() {
               onSubmitEditing={handleCreate}
               accessibilityLabel="Crew name"
             />
+            {/* Crew totem (rally marker) — the flag/emoji the crew holds up so
+                they can find each other. Both optional; a plain emoji text
+                field (no picker) + short label. */}
+            <View style={styles.totemFieldRow}>
+              <TextInput
+                style={[styles.input, styles.totemEmojiInput]}
+                placeholder="🦄"
+                placeholderTextColor={t.colors.text.placeholder}
+                value={createTotemEmoji}
+                onChangeText={setCreateTotemEmoji}
+                maxLength={16}
+                autoCorrect={false}
+                accessibilityLabel="Crew totem emoji"
+              />
+              <TextInput
+                style={[styles.input, styles.totemNameInput]}
+                placeholder="Totem name (optional)"
+                placeholderTextColor={t.colors.text.placeholder}
+                value={createTotemName}
+                onChangeText={setCreateTotemName}
+                maxLength={40}
+                returnKeyType="done"
+                onSubmitEditing={handleCreate}
+                accessibilityLabel="Crew totem name"
+              />
+            </View>
             <Button
               label={createBusy ? 'Creating…' : 'Create Crew'}
               onPress={handleCreate}
@@ -595,7 +677,24 @@ export default function CrewScreen() {
       <View style={[styles.crewChrome, tabletInset]}>
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <FreshnessChip surface="crew" />
+        {/* Crew totem (rally marker) + low-power status, shown in the header so
+            the crew's flag is always visible. The totem chip renders only when
+            the crew has an emoji or name set. */}
+        {crew.totem_emoji || crew.totem_name ? (
+          <View style={styles.totemChip} accessibilityLabel={`Crew totem ${crew.totem_name ?? ''}`.trim()}>
+            {crew.totem_emoji ? <Text style={styles.totemChipEmoji}>{crew.totem_emoji}</Text> : null}
+            {crew.totem_name ? (
+              <Text style={styles.totemChipName} numberOfLines={1}>
+                {crew.totem_name}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.crewMetaRow}>
+          <UpdatedAgoBadge surface="crew" />
+          <LowPowerIndicator />
+        </View>
 
         {crew.inviteCode ? (
           <View style={styles.inviteBar}>
@@ -766,6 +865,71 @@ export default function CrewScreen() {
                   <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
                 )}
               </TouchableOpacity>
+
+              {/* Owner-only crew totem editor (rally marker: emoji + name). */}
+              {isOwner ? (
+                totemEditOpen ? (
+                  <View style={styles.forceAddBox}>
+                    <Text style={styles.formLabel}>Crew totem</Text>
+                    <View style={styles.totemFieldRow}>
+                      <TextInput
+                        style={[styles.input, styles.totemEmojiInput]}
+                        placeholder="🦄"
+                        placeholderTextColor={t.colors.text.placeholder}
+                        value={editTotemEmoji}
+                        onChangeText={setEditTotemEmoji}
+                        maxLength={16}
+                        autoCorrect={false}
+                        accessibilityLabel="Crew totem emoji"
+                      />
+                      <TextInput
+                        style={[styles.input, styles.totemNameInput]}
+                        placeholder="Totem name"
+                        placeholderTextColor={t.colors.text.placeholder}
+                        value={editTotemName}
+                        onChangeText={setEditTotemName}
+                        maxLength={40}
+                        returnKeyType="done"
+                        onSubmitEditing={() => handleSaveTotem(crew.id)}
+                        accessibilityLabel="Crew totem name"
+                      />
+                    </View>
+                    <View style={styles.forceAddRow}>
+                      <TouchableOpacity
+                        style={[styles.outlineButton, styles.flexButton]}
+                        onPress={() => setTotemEditOpen(false)}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel="Cancel totem edit"
+                      >
+                        <Text style={styles.outlineButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <Button
+                        label={totemBusy ? 'Saving…' : 'Save totem'}
+                        onPress={() => handleSaveTotem(crew.id)}
+                        disabled={totemBusy}
+                        accessibilityLabel="Save crew totem"
+                        style={styles.flexButton}
+                      />
+                    </View>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    testID="crew-action-edit-totem"
+                    style={styles.overlapToggle}
+                    onPress={() => openTotemEditor(crew)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit crew totem"
+                  >
+                    <Ionicons name="flag-outline" size={16} color={t.colors.accent.aqua} />
+                    <Text style={styles.overlapToggleText}>
+                      {crew.totem_emoji || crew.totem_name ? 'Edit crew totem' : 'Add crew totem'}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
+                  </TouchableOpacity>
+                )
+              ) : null}
 
               {/* Force-add (admin-gated server-side). Shown to owners. */}
               {isOwner ? (
@@ -1035,10 +1199,22 @@ export default function CrewScreen() {
             <Ionicons name="chevron-forward" size={16} color={t.colors.accent.aqua} />
           </TouchableOpacity>
 
-          {/* Live location toggle sits below the SOS button. */}
+          {/* Live location toggle sits below the SOS button. In low-power mode
+              the battery-hungry live-location share is paused (gated by the
+              shared festival low-power flag); a chip explains why. */}
           <SectionLabel>Live location</SectionLabel>
           <View style={styles.liveSafetyBlock}>
-            <CrewLiveLocation crewId={crew.id} />
+            {lowPowerMode ? (
+              <View style={styles.lowPowerPaused}>
+                <LowPowerIndicator />
+                <Text style={styles.lowPowerPausedText}>
+                  Live location is paused to save battery. Turn off low-power mode on the Now & Next screen to share
+                  again.
+                </Text>
+              </View>
+            ) : (
+              <CrewLiveLocation crewId={crew.id} />
+            )}
           </View>
 
           <SectionLabel>Meeting points</SectionLabel>
@@ -1105,6 +1281,52 @@ const useStyles = makeStyles((t) => ({
     paddingHorizontal: t.spacing[4],
     gap: t.spacing[3],
     paddingBottom: t.spacing[3],
+  },
+  // Header meta row: freshness badge + low-power indicator.
+  crewMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+  },
+  // Crew totem chip shown in the header (emoji + name rally marker).
+  totemChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    alignSelf: 'flex-start',
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[1],
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.aquaAlpha[15],
+  },
+  totemChipEmoji: {
+    ...typeStyle('label'),
+  },
+  totemChipName: {
+    ...typeStyle('caption', 700),
+    color: t.colors.accent.aqua,
+    flexShrink: 1,
+  },
+  // Totem create/edit fields: a narrow emoji box + a flexible name box.
+  totemFieldRow: {
+    flexDirection: 'row',
+    gap: t.spacing[2],
+  },
+  totemEmojiInput: {
+    width: 64,
+    textAlign: 'center',
+  },
+  totemNameInput: {
+    flex: 1,
+  },
+  // Live-location block when low-power mode pauses the share.
+  lowPowerPaused: {
+    gap: t.spacing[2],
+  },
+  lowPowerPausedText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
   },
   // Scroll content for the Plan / Logistics / Money tabs.
   tabScroll: {

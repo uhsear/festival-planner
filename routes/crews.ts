@@ -24,6 +24,10 @@ type SerializedCrew = Omit<Crew, 'members'> & {
   role?: string;
   joinedAt?: string;
   inviteExpiresAt?: string | null;
+  // Totem (snake on the wire since the Crew domain object is camelCase):
+  // the crowd-finding sign/emoji a crew rallies to. Nullable.
+  totem_name: string | null;
+  totem_emoji: string | null;
 };
 
 /**
@@ -105,6 +109,9 @@ export default function createCrewRoutes(deps: any) {
       homeBaseUpdatedAt: crew.homeBaseUpdatedAt || crew.home_base_updated_at || null,
       // M6 Crew Photo Wall (Phase 1): shared-album link-out URL.
       photoAlbumUrl: crew.photoAlbumUrl || crew.photo_album_url || null,
+      // Crew totem: crowd-finding sign name + emoji. Snake-cased on the wire.
+      totem_name: crew.totemName ?? null,
+      totem_emoji: crew.totemEmoji ?? null,
     };
     if (membership) {
       result.role = membership.role || crew.role;
@@ -189,9 +196,11 @@ export default function createCrewRoutes(deps: any) {
   // ── POST / — Create a crew ──────────────────────────────────────
   router.post('/', userAuth, rateLimit(10, 'crew-create'), validate(schemas.crewCreate), async (req: any, res: any) => {
     try {
-      const { name, festivalId } = req.validatedBody;
+      const { name, festivalId, totemName, totemEmoji } = req.validatedBody;
       const cleanName = sanitizeString(name, 60);
       const cleanFestivalId = sanitizeIdentifier(festivalId, 100);
+      const cleanTotemName = totemName !== undefined ? sanitizeString(totemName, 40) : undefined;
+      const cleanTotemEmoji = totemEmoji !== undefined ? sanitizeString(totemEmoji, 16) : undefined;
 
       if (!cleanName) return sendError(res, 400, 'Crew name required', ErrorCodes.MISSING_FIELD);
       if (!cleanFestivalId) return sendError(res, 400, 'Festival ID required', ErrorCodes.MISSING_FIELD);
@@ -218,6 +227,8 @@ export default function createCrewRoutes(deps: any) {
         inviteCode,
         inviteExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         maxMembers: 30,
+        totemName: cleanTotemName,
+        totemEmoji: cleanTotemEmoji,
       };
 
       await persistCrew(crewData);
@@ -510,6 +521,19 @@ export default function createCrewRoutes(deps: any) {
           updateData.maxMembers = req.validatedBody.maxMembers;
         } else {
           updateData.maxMembers = crew.maxMembers;
+        }
+        // Totem: keep existing when the field is omitted (undefined → unchanged),
+        // mirroring name/maxMembers above. The store only writes a column when
+        // its value is supplied, so passing the prior value is a harmless no-op.
+        if (req.validatedBody.totemName !== undefined) {
+          updateData.totemName = sanitizeString(req.validatedBody.totemName, 40);
+        } else {
+          updateData.totemName = crew.totemName ?? null;
+        }
+        if (req.validatedBody.totemEmoji !== undefined) {
+          updateData.totemEmoji = sanitizeString(req.validatedBody.totemEmoji, 16);
+        } else {
+          updateData.totemEmoji = crew.totemEmoji ?? null;
         }
 
         await stores.crews.update(updateData);

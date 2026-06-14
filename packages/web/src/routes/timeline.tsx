@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
+import { useFestivalModeStore } from '@festie/shared/stores/festivalModeStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import { Priority } from '@festie/shared/types';
 import { getSetTimeBounds, artistDisplayName } from '@festie/shared/utils';
@@ -10,6 +11,8 @@ import TimelineGrid from '../features/TimelineGrid';
 import EmptyState from '../components/ui/EmptyState';
 import TBASection from '../components/timeline/TBASection';
 import TimelineLegend from '../components/timeline/TimelineLegend';
+import LastSyncedBadge from '../components/features/LastSyncedBadge';
+import LowPowerIndicator from '../components/features/LowPowerIndicator';
 import { useTimelineFilters } from '../hooks/useTimelineFilters';
 import { useTimelineViewport } from '../hooks/useTimelineViewport';
 import { useNowIndicator } from '../hooks/useNowIndicator';
@@ -31,6 +34,9 @@ function TimelineViewInner() {
   const days = useFestivalStore((state) => state.days);
   const allSets = useFestivalStore((state) => state.sets);
   const setDetailSet = useUIStore((state) => state.setDetailSet);
+  // Low-power mode backs off the per-tick auto-scroll-to-now (an aggressive,
+  // battery-costing reflow loop). The manual "Now" button stays available.
+  const lowPowerMode = useFestivalModeStore((state) => state.lowPowerMode);
   const { getMyPick, getOtherPicks, savePick } = usePicks();
   const { getStageColor } = useFestival();
 
@@ -113,13 +119,14 @@ function TimelineViewInner() {
   // Auto-scroll to now on each tick — but only when the user isn't actively
   // scrolling and a now-line exists for the current day.
   useEffect(() => {
+    if (lowPowerMode) return; // back off the auto-scroll loop to save battery
     if (nowIndicator === null) return;
     if (recentlyScrolledRef.current) return;
     const id = window.requestAnimationFrame(() => {
       if (!recentlyScrolledRef.current) scrollToNow();
     });
     return () => window.cancelAnimationFrame(id);
-  }, [nowMs, nowIndicator, scrollToNow]);
+  }, [nowMs, nowIndicator, scrollToNow, lowPowerMode]);
 
   const handleSavePick = useCallback(
     async (setId: string, priority: string | null) => {
@@ -210,7 +217,13 @@ function TimelineViewInner() {
         <div className="timeline-content relative min-h-full">
           <div className="timeline-beam" aria-hidden="true" />
           <div className="sticky top-0 z-20 bg-bg-sticky shadow-sticky [backdrop-filter:saturate(140%)_blur(8px)]">
-            <TimelineLegend />
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <TimelineLegend />
+              <div className="flex items-center gap-1.5 flex-wrap pr-3 py-0.5">
+                <LowPowerIndicator />
+                <LastSyncedBadge surface="schedule" />
+              </div>
+            </div>
             {nextPickLabel && (
               <div
                 className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold text-text-secondary border-t border-border-default/40"

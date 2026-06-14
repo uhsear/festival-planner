@@ -88,7 +88,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
   };
 
   const CREW_COLUMNS =
-    'id, festival_id AS "festivalId", name, created_by AS "createdBy", invite_code AS "inviteCode", invite_expires_at AS "inviteExpiresAt", max_members AS "maxMembers", reformed_from AS "reformedFrom", home_base_location AS "homeBaseLocation", home_base_time AS "homeBaseTime", home_base_updated_at AS "homeBaseUpdatedAt", photo_album_url AS "photoAlbumUrl", created_at AS "createdAt", updated_at AS "updatedAt"';
+    'id, festival_id AS "festivalId", name, created_by AS "createdBy", invite_code AS "inviteCode", invite_expires_at AS "inviteExpiresAt", max_members AS "maxMembers", reformed_from AS "reformedFrom", home_base_location AS "homeBaseLocation", home_base_time AS "homeBaseTime", home_base_updated_at AS "homeBaseUpdatedAt", photo_album_url AS "photoAlbumUrl", totem_name AS "totemName", totem_emoji AS "totemEmoji", created_at AS "createdAt", updated_at AS "updatedAt"';
 
   // Phase 7: Crew system store
   const crews: any = {
@@ -105,11 +105,26 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
             invite_expires_at,
             max_members,
             reformed_from,
+            totem_name,
+            totem_emoji,
             created_at,
             updated_at
           )
         VALUES
-          ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+          (
+            $1,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            $7,
+            $8,
+            $9,
+            $10,
+            NOW(),
+            NOW()
+          )
       `,
         [
           data.id,
@@ -120,6 +135,8 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           data.inviteExpiresAt || null,
           data.maxMembers,
           data.reformedFrom || null,
+          data.totemName ?? null,
+          data.totemEmoji ?? null,
         ],
       );
       const result = await pool.query(`SELECT ${CREW_COLUMNS} FROM crews WHERE id = $1`, [data.id]);
@@ -144,11 +161,26 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
               invite_expires_at,
               max_members,
               reformed_from,
+              totem_name,
+              totem_emoji,
               created_at,
               updated_at
             )
           VALUES
-            ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+            (
+              $1,
+              $2,
+              $3,
+              $4,
+              $5,
+              $6,
+              $7,
+              $8,
+              $9,
+              $10,
+              NOW(),
+              NOW()
+            )
         `,
           [
             data.id,
@@ -159,6 +191,8 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
             data.inviteExpiresAt || null,
             data.maxMembers,
             data.reformedFrom || null,
+            data.totemName ?? null,
+            data.totemEmoji ?? null,
           ],
         );
         await client.query(
@@ -176,18 +210,25 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
     },
 
     async update(data: any) {
-      await pool.query(
-        `
-        UPDATE crews
-        SET
-          name = $1,
-          max_members = $2,
-          updated_at = NOW()
-        WHERE
-          id = $3
-      `,
-        [data.name, data.maxMembers, data.id],
-      );
+      const sets: string[] = ['name = $1', 'max_members = $2'];
+      const vals: any[] = [data.name, data.maxMembers];
+      let idx = 3;
+      // Totem fields follow the optional-field pattern: only written when the
+      // caller supplies them, so an update that omits them leaves the crew's
+      // existing totem untouched.
+      if (data.totemName !== undefined) {
+        sets.push('totem_name = $' + idx);
+        vals.push(data.totemName);
+        idx++;
+      }
+      if (data.totemEmoji !== undefined) {
+        sets.push('totem_emoji = $' + idx);
+        vals.push(data.totemEmoji);
+        idx++;
+      }
+      sets.push('updated_at = NOW()');
+      vals.push(data.id);
+      await pool.query('UPDATE crews SET ' + sets.join(', ') + ' WHERE id = $' + idx, vals);
       const result = await pool.query(`SELECT ${CREW_COLUMNS} FROM crews WHERE id = $1`, [data.id]);
       return result.rows[0] || null;
     },
@@ -249,6 +290,9 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           c.home_base_location AS "homeBaseLocation",
           c.home_base_time AS "homeBaseTime",
           c.home_base_updated_at AS "homeBaseUpdatedAt",
+          c.photo_album_url AS "photoAlbumUrl",
+          c.totem_name AS "totemName",
+          c.totem_emoji AS "totemEmoji",
           c.created_at AS "createdAt",
           c.updated_at AS "updatedAt",
           cm.role,
@@ -281,6 +325,9 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           c.home_base_location AS "homeBaseLocation",
           c.home_base_time AS "homeBaseTime",
           c.home_base_updated_at AS "homeBaseUpdatedAt",
+          c.photo_album_url AS "photoAlbumUrl",
+          c.totem_name AS "totemName",
+          c.totem_emoji AS "totemEmoji",
           c.created_at AS "createdAt",
           c.updated_at AS "updatedAt",
           cm.role,

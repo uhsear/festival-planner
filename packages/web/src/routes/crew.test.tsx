@@ -64,6 +64,18 @@ vi.mock('../components/crew/HomeBaseCard', () => ({
   default: () => <div data-testid="home-base-card" />,
 }));
 
+vi.mock('../components/crew/CrewTotemCard', () => ({
+  default: ({ totemName }: { totemName: string | null }) => <div data-testid="crew-totem-card">{totemName}</div>,
+}));
+
+vi.mock('../components/features/FreshnessChip', () => ({
+  default: () => <div data-testid="freshness-chip" />,
+}));
+
+vi.mock('../components/features/LastSyncedBadge', () => ({
+  default: () => <div data-testid="last-synced-badge" />,
+}));
+
 vi.mock('../components/crew/CrewInviteBar', () => ({
   default: ({ inviteCode }: { inviteCode: string }) => <div data-testid="crew-invite-bar">{inviteCode}</div>,
 }));
