@@ -1,11 +1,12 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
 // Licensed under the Business Source License 1.1. See LICENSE file for details.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Square, Siren, Navigation, ShieldCheck, X, MapPin } from 'lucide-react';
 import { api } from '@festie/shared';
 import { useLiveLocationStore } from '@festie/shared/stores/liveLocationStore';
+import { useFestivalModeStore } from '@festie/shared/stores/festivalModeStore';
 import { useLiveLocationPublisher, type GeoWatcher } from '@festie/shared/hooks';
 import { LIVE_LOCATION } from '@festie/shared/constants';
 import { formatStaleness } from '@festie/shared/utils';
@@ -44,6 +45,14 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
   const [sharing, setSharing] = useState(false);
   const sharingCrewId = useLiveLocationStore((s) => s.sharingCrewId);
   const sos = useLiveLocationStore((s) => s.sos);
+  // Low-power mode disables the battery-hungry live-location auto-share (GPS
+  // watch + socket emit loop). SOS stays available — it's an essential.
+  const lowPowerMode = useFestivalModeStore((s) => s.lowPowerMode);
+
+  // If low-power mode flips on while we're sharing, stop the GPS watch loop.
+  useEffect(() => {
+    if (lowPowerMode && sharing) setSharing(false);
+  }, [lowPowerMode, sharing]);
 
   const [sosOpen, setSosOpen] = useState(false);
   const [sosMessage, setSosMessage] = useState('');
@@ -102,6 +111,10 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
   function toggleSharing() {
     if (sharing) {
       setSharing(false);
+      return;
+    }
+    if (lowPowerMode) {
+      toast('Low-power mode is on — turn it off to share your live location.', 'info');
       return;
     }
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -253,7 +266,9 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
               Share my live location with this crew
             </p>
             <p id="live-share-desc" className="text-xs text-text-muted">
-              Ephemeral and crew-only. Auto-stops on exit and after {SESSION_MINUTES} min.
+              {lowPowerMode
+                ? 'Paused by low-power mode to save battery. Turn it off in Festival Mode to share.'
+                : `Ephemeral and crew-only. Auto-stops on exit and after ${SESSION_MINUTES} min.`}
             </p>
           </div>
           <button
@@ -263,7 +278,9 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
             aria-labelledby="live-share-label"
             aria-describedby="live-share-desc"
             onClick={toggleSharing}
-            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua ${
+            disabled={lowPowerMode}
+            data-testid="live-share-toggle"
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua disabled:opacity-40 disabled:cursor-not-allowed ${
               isSharingThisCrew ? 'bg-accent-aqua' : 'bg-border-light'
             }`}
           >
@@ -286,8 +303,7 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
           onClick={() => setSosOpen(true)}
           className={`w-full min-h-11${
             showSos
-              ? typeof window !== 'undefined' &&
-                window.matchMedia('(prefers-reduced-motion: reduce)').matches
+              ? typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
                 ? ' sos-fab-static-ring'
                 : ' sos-fab-alerting'
               : ''

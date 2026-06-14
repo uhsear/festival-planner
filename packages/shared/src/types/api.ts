@@ -92,6 +92,23 @@ export interface JoinCrewRequest {
 export interface CreateCrewRequest {
   name: string;
   festivalId?: string;
+  // Crew totem (rally marker). Both optional on create. `totemName` is trimmed +
+  // capped at 40 chars server-side; `totemEmoji` is capped at 16 chars. Sent as
+  // camelCase in the request body; the row comes back with snake_case
+  // totem_name / totem_emoji (defaulting to null when unset).
+  totemName?: string;
+  totemEmoji?: string;
+}
+
+/**
+ * Body for PUT /crews/:crewId — a general crew update. All fields optional; only
+ * the keys present are applied. Currently carries the crew totem (rally marker);
+ * sent camelCase, serialized back as snake_case totem_name / totem_emoji.
+ */
+export interface UpdateCrewRequest {
+  name?: string;
+  totemName?: string;
+  totemEmoji?: string;
 }
 
 export interface TransferCrewRequest {

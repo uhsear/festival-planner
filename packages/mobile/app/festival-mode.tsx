@@ -12,6 +12,8 @@ import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import SectionLabel from '../components/SectionLabel';
 import LiveDot from '../components/LiveDot';
+import UpdatedAgoBadge from '../components/UpdatedAgoBadge';
+import { LowPowerToggle, LowPowerIndicator } from '../components/LowPowerControls';
 
 // Countdown flips to coral when a set is <= this many minutes away.
 const IMMINENT_MIN = 5;
@@ -77,6 +79,17 @@ export default function FestivalModeScreen() {
             </Text>
             <Text style={styles.clock}>{fmtClock(now)}</Text>
           </View>
+
+          {/* Offline-honest freshness for the live schedule surface, plus the
+              low-power status chip so the user knows when polling is backed off. */}
+          <View style={styles.metaRow}>
+            <UpdatedAgoBadge surface="schedule" />
+            <LowPowerIndicator />
+          </View>
+
+          {/* Festival low-power mode — pauses the battery-hungry features so the
+              phone lasts the whole day. Persisted via the shared store flag. */}
+          <LowPowerToggle />
 
           {/* NOW. R8's radial-glow approximation (two concentric flat circles —
               no expo-linear-gradient) rendered as hard-edged smudges on device,
@@ -182,6 +195,13 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'baseline',
     justifyContent: 'space-between',
     marginBottom: t.spacing[3],
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+    marginBottom: t.spacing[2],
   },
   festivalName: {
     ...typeStyle('title'),

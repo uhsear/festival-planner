@@ -126,6 +126,13 @@ export interface Crew {
   homeBaseLocation?: string | null;
   homeBaseTime?: string | null;
   homeBaseUpdatedAt?: string | null;
+  // Crew totem: a crew's rally marker (the flag/sign held up in the crowd so the
+  // crew can find each other). `totem_name` is a short label (≤40 chars) and
+  // `totem_emoji` a small glyph (≤16 chars). Serialized snake_case on every crew
+  // read/list response, defaulting to null when unset. Optional/nullable so the
+  // additions never break existing crew consumers; set via crew create/update.
+  totem_name?: string | null;
+  totem_emoji?: string | null;
   // M6 Crew Photo Wall (Phase 1, link-out only): a single shared-album URL
   // (e.g. Google Photos / Apple shared album) any member can set; members open
   // it to view/add photos off-platform. Festie does not host photos yet (the R2

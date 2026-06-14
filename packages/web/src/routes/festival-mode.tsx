@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
+import { useFestivalModeStore } from '@festie/shared/stores/festivalModeStore';
 import { useFestival } from '@festie/shared/hooks';
+import LowPowerToggle from '../components/features/LowPowerToggle';
+import LowPowerIndicator from '../components/features/LowPowerIndicator';
 import { artistDisplayName, getSetTimeBounds } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import EmptyState from '../components/ui/EmptyState';
@@ -47,6 +50,9 @@ function FestivalModeViewInner() {
   const days = useFestivalStore((s) => s.days);
   const currentProfile = useFestivalStore((s) => s.currentProfile);
   const setDetailSet = useUIStore((s) => s.setDetailSet);
+  // Low-power mode collapses the ambient aurora glow on the NOW hero (a
+  // continuous keyframe loop) to save battery. The static gradient remains.
+  const lowPowerMode = useFestivalModeStore((s) => s.lowPowerMode);
   const { getStageName, getStageColor } = useFestival();
   const navigate = useNavigate();
 
@@ -99,12 +105,15 @@ function FestivalModeViewInner() {
       className="max-w-[500px] mx-auto lg:max-w-3xl pb-[calc(20px+env(safe-area-inset-bottom,0px))]"
       data-testid="festival-mode-view"
     >
-      <div className="flex justify-between items-baseline mb-5">
-        <div className="text-2xl font-bold font-display tracking-[0.06em] text-text-primary">
+      <div className="flex justify-between items-baseline mb-5 gap-2">
+        <div className="text-2xl font-bold font-display tracking-[0.06em] text-text-primary min-w-0 truncate">
           {currentFestival.name}
         </div>
-        <div className="text-base text-text-secondary tabular-nums" aria-label="Current time">
-          {fmtClock(now)}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <LowPowerIndicator />
+          <div className="text-base text-text-secondary tabular-nums" aria-label="Current time">
+            {fmtClock(now)}
+          </div>
         </div>
       </div>
 
@@ -112,8 +121,10 @@ function FestivalModeViewInner() {
         {/* R8: fm-now-hero applies a radial aqua ::before glow + slow aurora
           keyframe. Reduced-motion: the aurora animation is collapsed to 0.01ms
           by the global @media(prefers-reduced-motion) block in animations.css;
-          the static radial gradient (non-motion) remains visible. */}
-        <section className="fm-now-hero mb-5 rounded-xl" aria-labelledby="fm-now-title">
+          the static radial gradient (non-motion) remains visible.
+          LOW-POWER: drop the ambient hero treatment entirely (the looping glow
+          is exactly the battery cost low-power mode exists to shed). */}
+        <section className={cn('mb-5 rounded-xl', !lowPowerMode && 'fm-now-hero')} aria-labelledby="fm-now-title">
           <h2 id="fm-now-title" className="type-micro text-text-secondary mb-2 leading-[1.15]">
             {current.length > 0 ? (
               <span className="fm-live-dot motion-reduce:after:animate-none" aria-hidden="true" />
@@ -243,6 +254,12 @@ function FestivalModeViewInner() {
             />
           )}
         </section>
+      </div>
+
+      {/* Battery is a paired constraint with no-signal at a festival — surface
+          the low-power toggle right here on the festival-mode screen. */}
+      <div className="mt-2">
+        <LowPowerToggle />
       </div>
     </div>
   );

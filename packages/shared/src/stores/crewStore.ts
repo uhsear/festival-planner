@@ -10,6 +10,7 @@ import {
   CrewMember,
   CrewOverlap,
   CreateCrewRequest,
+  UpdateCrewRequest,
   JoinCrewRequest,
   ReformCrewResponse,
   CrewPoll,
@@ -73,6 +74,10 @@ export interface CrewActions {
   loadCrews: () => Promise<void>;
   selectCrew: (crewId: string) => Promise<void>;
   createCrew: (request: CreateCrewRequest) => Promise<Crew>;
+  // PUT /crews/:crewId — general crew update (name + totem). Camel-in request
+  // body; the snake_case totem_name/totem_emoji come back on the returned crew,
+  // merged onto activeCrew + the crews list (mirrors updateHomeBase).
+  updateCrew: (crewId: string, request: UpdateCrewRequest) => Promise<Crew>;
   joinByCode: (request: JoinCrewRequest) => Promise<void>;
   leaveCrew: (crewId: string) => Promise<void>;
   kickMember: (crewId: string, memberId: string) => Promise<void>;
@@ -308,6 +313,27 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to create crew');
       set({ error: message, crewLoading: false });
+      throw err;
+    }
+  },
+
+  // PUT /crews/:crewId -> the updated crew (bare or { crew } envelope). General
+  // crew update: name + totem (totemName/totemEmoji camelCase in; snake_case
+  // totem_name/totem_emoji back). Merge the returned crew onto activeCrew + the
+  // crews list so the rename/totem shows immediately (mirrors updateHomeBase).
+  updateCrew: async (crewId: string, request: UpdateCrewRequest) => {
+    set({ error: null });
+    try {
+      const res = await api.put<Crew | { crew: Crew }>(`/crews/${crewId}`, request);
+      const crew = (res && typeof res === 'object' && 'crew' in res ? res.crew : res) as Crew;
+      set((state) => ({
+        activeCrew: state.activeCrew?.id === crewId ? { ...state.activeCrew, ...crew } : state.activeCrew,
+        crews: state.crews.map((c) => (c.id === crewId ? { ...c, ...crew } : c)),
+      }));
+      return crew;
+    } catch (err) {
+      const message = mapErrorToUserMessage(err, 'Failed to update crew');
+      set({ error: message });
       throw err;
     }
   },
@@ -1501,6 +1527,16 @@ export const useCrewStore = create<CrewStore>()(
     },
   }),
 );
+
+// ── Last-synced selector (offline-honesty surfaces) ────────────────────────
+// The crew read-cache already tracks `_cachedAt` (epoch-ms the active crew's
+// data last loaded). Expose it as a tiny pure selector so surfaces can render an
+// honest "Updated Xm ago / offline-ready" chip without reaching into store
+// internals. Pair with `formatLastSynced` (utils/lastSynced.ts) for the label.
+// Returns null when the crew has never been cached (no honest claim to make).
+export function selectCrewLastSyncedAt(state: CrewState): number | null {
+  return state._cachedAt;
+}
 
 // ── Offline create reconciliation (Phase 2) ────────────────────────────────
 // When a queued offline POST replays successfully on reconnect, the offline

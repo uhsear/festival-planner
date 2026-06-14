@@ -15,6 +15,20 @@ vi.mock('@festie/shared/stores/uiStore', () => ({
   useUIStore: vi.fn((selector: (s: Record<string, unknown>) => unknown) => selector({})),
 }));
 
+vi.mock('@festie/shared/stores/festivalModeStore', () => ({
+  useFestivalModeStore: vi.fn((selector: (s: Record<string, unknown>) => unknown) =>
+    selector({ lowPowerMode: false, toggleLowPowerMode: vi.fn() }),
+  ),
+}));
+
+vi.mock('../components/features/LowPowerToggle', () => ({
+  default: () => <div data-testid="low-power-toggle" />,
+}));
+
+vi.mock('../components/features/LowPowerIndicator', () => ({
+  default: () => null,
+}));
+
 vi.mock('@festie/shared/hooks', () => ({
   useFestival: vi.fn(() => ({
     getStageName: vi.fn(() => 'Main Stage'),
@@ -39,11 +53,7 @@ vi.mock('../components/ui/EmptyState', () => ({
       <h3>{title}</h3>
       {description && <p>{description}</p>}
       {cta && (
-        <button
-          type="button"
-          data-testid="fm-empty-pick-cta"
-          onClick={cta.onClick}
-        >
+        <button type="button" data-testid="fm-empty-pick-cta" onClick={cta.onClick}>
           {cta.label}
         </button>
       )}
@@ -67,20 +77,22 @@ import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 
 // Helper to set up store mocks
-function mockStores(overrides: {
-  currentFestival?: { id: string; name: string; b2bSeparator?: string } | null;
-  sets?: Array<{
-    id: string;
-    artist: string;
-    stageId: string;
-    startTime?: string;
-    endTime?: string;
-    date?: string;
-    dayIndex?: number;
-  }>;
-  days?: Array<{ date: string; label: string }>;
-  currentProfile?: { picks: Record<string, string> } | null;
-} = {}) {
+function mockStores(
+  overrides: {
+    currentFestival?: { id: string; name: string; b2bSeparator?: string } | null;
+    sets?: Array<{
+      id: string;
+      artist: string;
+      stageId: string;
+      startTime?: string;
+      endTime?: string;
+      date?: string;
+      dayIndex?: number;
+    }>;
+    days?: Array<{ date: string; label: string }>;
+    currentProfile?: { picks: Record<string, string> } | null;
+  } = {},
+) {
   const state = {
     currentFestival: overrides.currentFestival ?? null,
     sets: overrides.sets ?? [],
@@ -89,11 +101,11 @@ function mockStores(overrides: {
     setDetailSet: vi.fn(),
   };
 
-  vi.mocked(useFestivalStore).mockImplementation(
-    (selector: (s: Record<string, unknown>) => unknown) => selector(state as unknown as Record<string, unknown>),
+  vi.mocked(useFestivalStore).mockImplementation((selector: (s: Record<string, unknown>) => unknown) =>
+    selector(state as unknown as Record<string, unknown>),
   );
-  vi.mocked(useUIStore).mockImplementation(
-    (selector: (s: Record<string, unknown>) => unknown) => selector(state as unknown as Record<string, unknown>),
+  vi.mocked(useUIStore).mockImplementation((selector: (s: Record<string, unknown>) => unknown) =>
+    selector(state as unknown as Record<string, unknown>),
   );
 
   return state;

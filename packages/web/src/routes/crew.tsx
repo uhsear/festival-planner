@@ -7,10 +7,12 @@ import { useAuthStore } from '@festie/shared/stores';
 import { useFestivalStore } from '@festie/shared/stores';
 import CrewSelector from '../components/features/CrewSelector';
 import FreshnessChip from '../components/features/FreshnessChip';
+import LastSyncedBadge from '../components/features/LastSyncedBadge';
 import EmptyState from '../components/ui/EmptyState';
 import Button from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import HomeBaseCard from '../components/crew/HomeBaseCard';
+import CrewTotemCard from '../components/crew/CrewTotemCard';
 import CrewPhotosCard from '../components/crew/CrewPhotosCard';
 import CrewInviteBar from '../components/crew/CrewInviteBar';
 import ReformCrewButton from '../components/crew/ReformCrewButton';
@@ -233,7 +235,18 @@ function CrewViewInner() {
         </Card>
       ) : (
         <div className="crew-content space-y-4 min-w-0">
-          <FreshnessChip surface="crew" />
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <FreshnessChip surface="crew" />
+            <LastSyncedBadge surface="crew" />
+          </div>
+
+          <CrewTotemCard
+            crewId={activeCrew.id}
+            totemName={crew?.totem_name ?? null}
+            totemEmoji={crew?.totem_emoji ?? null}
+            isOwner={isOwner}
+            onSaved={() => selectCrew(activeCrew.id)}
+          />
 
           <HomeBaseCard
             crewId={activeCrew.id}

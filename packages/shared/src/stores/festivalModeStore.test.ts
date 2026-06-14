@@ -9,6 +9,7 @@ describe('festivalModeStore', () => {
       showPastSets: true,
       autoScrollToNow: false,
       manuallyDisabled: false,
+      lowPowerMode: false,
     });
   });
 
@@ -121,7 +122,52 @@ describe('festivalModeStore', () => {
     });
   });
 
+  describe('low-power mode', () => {
+    it('starts off', () => {
+      expect(useFestivalModeStore.getState().lowPowerMode).toBe(false);
+    });
+
+    it('setLowPowerMode(true) turns it on', () => {
+      useFestivalModeStore.getState().setLowPowerMode(true);
+      expect(useFestivalModeStore.getState().lowPowerMode).toBe(true);
+    });
+
+    it('setLowPowerMode(false) turns it off', () => {
+      useFestivalModeStore.getState().setLowPowerMode(true);
+      useFestivalModeStore.getState().setLowPowerMode(false);
+      expect(useFestivalModeStore.getState().lowPowerMode).toBe(false);
+    });
+
+    it('setLowPowerMode keeps the value stable when already at the target', () => {
+      useFestivalModeStore.getState().setLowPowerMode(false);
+      expect(useFestivalModeStore.getState().lowPowerMode).toBe(false);
+      useFestivalModeStore.getState().setLowPowerMode(true);
+      useFestivalModeStore.getState().setLowPowerMode(true);
+      expect(useFestivalModeStore.getState().lowPowerMode).toBe(true);
+    });
+
+    it('toggleLowPowerMode flips the flag', () => {
+      useFestivalModeStore.getState().toggleLowPowerMode();
+      expect(useFestivalModeStore.getState().lowPowerMode).toBe(true);
+      useFestivalModeStore.getState().toggleLowPowerMode();
+      expect(useFestivalModeStore.getState().lowPowerMode).toBe(false);
+    });
+
+    it('does not touch festival mode (independent preference)', () => {
+      useFestivalModeStore.getState().setLowPowerMode(true);
+      expect(useFestivalModeStore.getState().isFestivalMode).toBe(false);
+    });
+  });
+
   describe('persistence partialize', () => {
+    it('persists lowPowerMode', () => {
+      useFestivalModeStore.getState().setLowPowerMode(true);
+      const stored = localStorage.getItem('festie-festival-mode-v2');
+      expect(stored).toBeTruthy();
+      const parsed = JSON.parse(stored!);
+      expect(parsed.state).toHaveProperty('lowPowerMode', true);
+    });
+
     it('only persists isFestivalMode and manuallyDisabled', () => {
       // The persist middleware is configured with partialize that only
       // includes isFestivalMode and manuallyDisabled. We verify via

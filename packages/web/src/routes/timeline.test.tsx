@@ -12,6 +12,18 @@ vi.mock('@festie/shared/stores/uiStore', () => ({
   useUIStore: vi.fn((sel: (s: Record<string, unknown>) => unknown) => sel(storeState)),
 }));
 
+vi.mock('@festie/shared/stores/festivalModeStore', () => ({
+  useFestivalModeStore: vi.fn((sel: (s: Record<string, unknown>) => unknown) => sel({ lowPowerMode: false })),
+}));
+
+vi.mock('../components/features/LastSyncedBadge', () => ({
+  default: () => <div data-testid="last-synced-badge" />,
+}));
+
+vi.mock('../components/features/LowPowerIndicator', () => ({
+  default: () => null,
+}));
+
 vi.mock('@festie/shared/hooks', () => ({
   usePicks: vi.fn(() => ({
     getMyPick: vi.fn(() => null),
