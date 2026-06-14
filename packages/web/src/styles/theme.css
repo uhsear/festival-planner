@@ -452,7 +452,7 @@
   --color-priority-want: #00e8d0;
   --color-priority-maybe: #ffb020;
   --font-family-body: 'Space Grotesk', system-ui, sans-serif;
-  --font-family-display: 'Syncopate', sans-serif;
+  --font-family-display: 'Clash Display', 'Clash Display Fallback', sans-serif;
   --color-glass: rgba(26, 26, 26, 0.65);
   --color-glass-border: rgba(255, 255, 255, 0.08);
 
@@ -480,8 +480,9 @@
 
   /* ── Typography scale (2026-04-18) ──────────────────────────────────────
      Canonical type ramp: 10/12/14/16/18/20/24/32/48. Body = Space Grotesk
-     at -0.01em; display = Syncopate at 0.06em. Line-heights follow
-     1.5 body / 1.15 display for WCAG-friendly rhythm.
+     at -0.01em; display = Clash Display at -0.01em (tight grotesk — the
+     FESTIE wordmark keeps its own explicit tracking in Header). Line-heights
+     follow 1.5 body / 1.15 display for WCAG-friendly rhythm.
      ─────────────────────────────────────────────────────────────────── */
   --font-size-10: 0.625rem;
   /* 11/13 are off-ramp steps that recur in dense UI (set cards, timeline
@@ -501,7 +502,7 @@
   --line-height-snug: 1.3;
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.6;
-  --letter-spacing-display: 0.06em;
+  --letter-spacing-display: -0.01em;
   --letter-spacing-caps: 0.08em;
   --letter-spacing-body: -0.01em;
 

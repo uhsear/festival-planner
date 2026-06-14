@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useCrewStore, formatStaleness, etaMinutes, type CrewMemberStatus } from '@festie/shared';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
-import { Navigation, LocateFixed, X, MapPin } from 'lucide-react';
+import { Navigation, LocateFixed, X, MapPin, Footprints, CircleCheck, Hourglass } from 'lucide-react';
 import { inputBase } from '../../lib/styles';
 
 // A meeting point as the parent passes it (snake_case server shape). Only the
@@ -22,11 +22,12 @@ interface Props {
   meetingPoints: MeetingPointLite[];
 }
 
-// Status enum → user-facing label + emoji. `null` means "cleared".
-const STATUS_META: Record<string, { emoji: string; label: string }> = {
-  'on-my-way': { emoji: '🚶', label: 'On my way' },
-  here: { emoji: '✅', label: "I'm here" },
-  delayed: { emoji: '⏳', label: 'Running late' },
+// Status enum → user-facing label + lucide icon. `null` means "cleared".
+// Icons (not emoji) keep the crew UI on the app's single icon vocabulary.
+const STATUS_META: Record<string, { Icon: React.ComponentType<{ className?: string }>; label: string }> = {
+  'on-my-way': { Icon: Footprints, label: 'On my way' },
+  here: { Icon: CircleCheck, label: "I'm here" },
+  delayed: { Icon: Hourglass, label: 'Running late' },
 };
 
 /**
@@ -201,25 +202,26 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
           </div>
 
           <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Status">
-            {(['on-my-way', 'here', 'delayed'] as const).map((key) => (
-              <button
-                key={key}
-                type="button"
-                role="radio"
-                aria-checked={status === key}
-                onClick={() => setStatus(key)}
-                className={`px-2 py-2 rounded-lg border text-xs font-medium min-h-11 flex flex-col items-center gap-1 transition-colors ${
-                  status === key
-                    ? 'bg-accent-aqua/15 border-accent-aqua text-accent-aqua'
-                    : 'bg-bg-card border-border text-text-secondary hover:border-border-light'
-                }`}
-              >
-                <span className="text-base leading-none" aria-hidden="true">
-                  {STATUS_META[key]!.emoji}
-                </span>
-                <span>{STATUS_META[key]!.label}</span>
-              </button>
-            ))}
+            {(['on-my-way', 'here', 'delayed'] as const).map((key) => {
+              const { Icon, label } = STATUS_META[key]!;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={status === key}
+                  onClick={() => setStatus(key)}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium min-h-11 flex flex-col items-center gap-1 transition-colors ${
+                    status === key
+                      ? 'bg-accent-aqua/15 border-accent-aqua text-accent-aqua'
+                      : 'bg-bg-card border-border text-text-secondary hover:border-border-light'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" aria-hidden="true" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* ETA target: a meeting point. Coordless points still work (manual ETA). */}
@@ -235,7 +237,7 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
               {meetingPoints.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
-                  {typeof m.latitude === 'number' && typeof m.longitude === 'number' ? ' 📍' : ''}
+                  {typeof m.latitude === 'number' && typeof m.longitude === 'number' ? ' (pinned)' : ''}
                 </option>
               ))}
             </select>
@@ -297,9 +299,11 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
               return (
                 <li key={s.user_id} className="p-2.5 rounded-lg bg-bg-card border border-border">
                   <div className="flex items-start gap-2">
-                    <span className="text-lg leading-none" aria-hidden="true">
-                      {meta?.emoji ?? '📍'}
-                    </span>
+                    {meta ? (
+                      <meta.Icon className="w-5 h-5 text-text-secondary shrink-0" aria-hidden="true" />
+                    ) : (
+                      <MapPin className="w-5 h-5 text-text-muted shrink-0" aria-hidden="true" />
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium text-text-primary truncate">

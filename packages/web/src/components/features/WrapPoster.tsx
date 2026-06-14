@@ -71,7 +71,7 @@ export default function WrapPoster({ festivalName, topSets, stats }: Props) {
       <header style={{ textAlign: 'center' }}>
         <div
           style={{
-            fontFamily: 'Syncopate, system-ui, sans-serif',
+            fontFamily: "'Clash Display', system-ui, sans-serif",
             fontSize: 96,
             fontWeight: 900,
             letterSpacing: 8,
