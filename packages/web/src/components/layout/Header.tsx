@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
-import { useAuthStore } from '@festie/shared';
+import { useAuthStore, useUIStore } from '@festie/shared';
 import { cn } from '@/lib/utils';
 import UserMenu from './UserMenu';
 import FestivalModeToggle from '../features/FestivalModeToggle';
@@ -45,8 +45,11 @@ export default function Header() {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#080810');
   }, []);
 
-  // Connection status — simplified for React rewrite
-  const [connected] = useState(true);
+  // Connection status — reflects the live realtime-socket state (driven by
+  // useRealtimeSync via uiStore.setConnected). Only meaningful when signed in;
+  // logged-out pages have no socket, so don't show a misleading "Disconnected".
+  const socketConnected = useUIStore((state) => state.connected);
+  const connected = user ? socketConnected : true;
 
   // R13: shrinking sticky header. A single scroll listener on the main content
   // scroll container toggles `.shrunk` once scrollTop passes 80px; the header
