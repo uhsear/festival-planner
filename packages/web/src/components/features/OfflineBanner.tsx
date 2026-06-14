@@ -75,7 +75,7 @@ export default function OfflineBanner() {
     message = `${failedCount} change${failedCount === 1 ? '' : 's'} couldn't sync`;
   } else if (showOffline) {
     tone = 'bg-accent-amber/90 border-b border-accent-amber/20 text-bg-primary';
-    message = "You're offline — changes will sync when you reconnect";
+    message = "You're offline. Changes will sync when you reconnect.";
   } else {
     tone = 'bg-accent-aqua/90 border-b border-accent-aqua/20 text-bg-primary';
     message = `Syncing ${pendingSync} pending change${pendingSync === 1 ? '' : 's'}…`;

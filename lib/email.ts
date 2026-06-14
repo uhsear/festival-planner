@@ -157,11 +157,11 @@ export async function sendWrapReadyEmail({ to, username, festivalName, festivalI
   const name = festivalName || 'your festival';
   const bodyHtml = `
     <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 16px">Hey <strong style="color:#e4e4e7">${escapeHtml(username || 'there')}</strong>,</p>
-    <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 24px">${escapeHtml(name)} is a wrap! Your recap — top sets, crew superlatives, and the numbers — is ready to relive and share.</p>
+    <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 24px">${escapeHtml(name)} wrapped up. Your recap is ready: top sets, crew superlatives, and your numbers.</p>
     ${_buttonHtml(wrapUrl, 'See your wrap-up')}
     ${_urlFallback(wrapUrl)}`;
   const html = _wrapTemplate('Your Festival Wrap-Up', bodyHtml);
-  const text = `Hey ${username || 'there'},\n\n${name} is a wrap! Your recap is ready.\n\nSee your wrap-up: ${wrapUrl}`;
+  const text = `Hey ${username || 'there'},\n\n${name} wrapped up. Your recap is ready.\n\nSee your wrap-up: ${wrapUrl}`;
   return sendEmail({ to, subject: `Your ${name} wrap-up is ready`, html, text, config, log, _client });
 }
 
@@ -174,7 +174,7 @@ export async function sendLineupDropEmail({ to, username, festivalName, festival
   const name = festivalName || 'a festival you love';
   const bodyHtml = `
     <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 16px">Hey <strong style="color:#e4e4e7">${escapeHtml(username || 'there')}</strong>,</p>
-    <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 24px">The lineup for <strong style="color:#e4e4e7">${escapeHtml(name)}</strong> just dropped. Start building your picks and rally the crew before tickets move.</p>
+    <p style="color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 24px">The lineup for <strong style="color:#e4e4e7">${escapeHtml(name)}</strong> is out. Start picking your sets before tickets move.</p>
     ${_buttonHtml(festivalUrl, 'See the lineup')}
     ${_urlFallback(festivalUrl)}`;
   const html = _wrapTemplate('New Lineup', bodyHtml);
