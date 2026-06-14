@@ -14,6 +14,7 @@ import RefreshableView from '../components/layout/RefreshableView';
 import PickBulkActions from '../components/PickBulkActions';
 import OfflineReadinessCard from '../components/features/OfflineReadinessCard';
 import CrewSuggestionStrip from '../components/features/CrewSuggestionStrip';
+import PickConflicts from '../components/features/PickConflicts';
 // Lazy-loaded: PlanQRShare pulls in qrcode.react, which has no business in the
 // picks bundle until the user actually opens the share modal.
 const PlanQRShare = lazy(() => import('../components/features/PlanQRShare'));
@@ -248,6 +249,7 @@ function PicksViewInner() {
         {actionButtons && <div className="flex justify-end gap-2 mb-3">{actionButtons}</div>}
         <OfflineReadinessCard festivalId={currentFestival.id} className="mb-3" />
         <CrewSuggestionStrip />
+        <PickConflicts />
         <PickBulkActions />
         {/* Priority sections */}
         {PRIORITY_SECTIONS.map(({ value: pri, label, accent, badge }) => {
