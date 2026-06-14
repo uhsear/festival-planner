@@ -136,6 +136,10 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
           targetMeetingPointId: targetId || null,
           etaMinutes: eta != null && eta >= 0 ? Math.min(eta, 1440) : null,
           note: note.trim() || null,
+          // Persist the captured device coord as a last-synced breadcrumb (never
+          // live). Omit position entirely when nothing was captured so the
+          // server COALESCEs and leaves any prior breadcrumb untouched.
+          ...(coords ? { position: { lat: coords.lat, lng: coords.lng } } : {}),
         },
         currentUserId,
       );
@@ -322,6 +326,20 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
                         <div className="text-xs text-accent-aqua mt-0.5">ETA ~{s.eta_minutes} min</div>
                       )}
                       {s.note && <div className="text-xs text-text-secondary mt-0.5">{s.note}</div>}
+                      {/* Last-synced breadcrumb — NOT live. Staleness is read from
+                          location_captured_at (when the device stamped the fix),
+                          distinct from updated_at (when the row last synced). */}
+                      {typeof s.latitude === 'number' && typeof s.longitude === 'number' && s.location_captured_at && (
+                        <a
+                          href={`https://maps.google.com/?q=${s.latitude},${s.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] text-text-secondary hover:text-accent-aqua mt-0.5 inline-flex items-center gap-1"
+                        >
+                          <MapPin className="w-3 h-3" aria-hidden="true" />
+                          last seen {formatStaleness(s.location_captured_at)}
+                        </a>
+                      )}
                       {/* Honest staleness — the cardinal rule. */}
                       <div className="text-[11px] text-text-muted mt-1">{formatStaleness(s.updated_at)}</div>
                     </div>

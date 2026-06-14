@@ -521,6 +521,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
             expires_at,
             latitude,
             longitude,
+            recurs_daily,
             active,
             created_at,
             updated_at
@@ -538,6 +539,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
             $9,
             $10,
             $11,
+            $12,
             TRUE,
             NOW(),
             NOW()
@@ -555,6 +557,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           data.expiresAt || null,
           data.latitude ?? null,
           data.longitude ?? null,
+          data.recursDaily ?? false,
         ],
       );
       const result = await pool.query(
@@ -571,6 +574,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           expires_at,
           latitude,
           longitude,
+          recurs_daily,
           active,
           created_at,
           updated_at
@@ -599,6 +603,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           mp.expires_at,
           mp.latitude,
           mp.longitude,
+          mp.recurs_daily,
           mp.active,
           mp.created_at,
           mp.updated_at,
@@ -642,6 +647,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
             expiresAt: 'expires_at',
             latitude: 'latitude',
             longitude: 'longitude',
+            recursDaily: 'recurs_daily',
           } as Record<string, string>
         )[key];
         if (col) {
@@ -672,6 +678,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           expires_at,
           latitude,
           longitude,
+          recurs_daily,
           active,
           created_at,
           updated_at
@@ -704,6 +711,7 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           expires_at,
           latitude,
           longitude,
+          recurs_daily,
           active,
           created_at,
           updated_at
@@ -1045,6 +1053,13 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
     // Upsert the requesting member's own status. ON CONFLICT (crew_id, user_id)
     // overwrites so an offline toggle that replays simply lands the latest value.
     async upsert(data: any) {
+      // 055: latitude/longitude/location_captured_at are the offline presence
+      // breadcrumb (NOT live GPS). They are only overwritten when a position is
+      // supplied (latitude !== undefined); a status-only update leaves the prior
+      // breadcrumb intact via COALESCE so a member can clear their ETA without
+      // wiping their last-known location. Default location_captured_at to NOW()
+      // when a position arrives without an explicit (offline-stamped) capturedAt.
+      const hasPosition = data.latitude !== undefined && data.latitude !== null;
       await pool.query(
         `
         INSERT INTO
@@ -1055,15 +1070,24 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
             target_meeting_point_id,
             eta_minutes,
             note,
+            latitude,
+            longitude,
+            location_captured_at,
             updated_at
           )
         VALUES
-          ($1, $2, $3, $4, $5, $6, NOW())
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
         ON CONFLICT (crew_id, user_id) DO UPDATE SET
           status = EXCLUDED.status,
           target_meeting_point_id = EXCLUDED.target_meeting_point_id,
           eta_minutes = EXCLUDED.eta_minutes,
           note = EXCLUDED.note,
+          latitude = COALESCE(EXCLUDED.latitude, crew_member_status.latitude),
+          longitude = COALESCE(EXCLUDED.longitude, crew_member_status.longitude),
+          location_captured_at = COALESCE(
+            EXCLUDED.location_captured_at,
+            crew_member_status.location_captured_at
+          ),
           updated_at = NOW()
       `,
         [
@@ -1073,6 +1097,9 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           data.targetMeetingPointId ?? null,
           data.etaMinutes ?? null,
           data.note ?? null,
+          hasPosition ? data.latitude : null,
+          hasPosition ? (data.longitude ?? null) : null,
+          hasPosition ? (data.locationCapturedAt ?? null) : null,
         ],
       );
       const result = await pool.query(
@@ -1084,6 +1111,9 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           target_meeting_point_id,
           eta_minutes,
           note,
+          latitude,
+          longitude,
+          location_captured_at,
           updated_at
         FROM
           crew_member_status
@@ -1106,6 +1136,9 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
           s.target_meeting_point_id,
           s.eta_minutes,
           s.note,
+          s.latitude,
+          s.longitude,
+          s.location_captured_at,
           s.updated_at,
           u.username,
           u.display_name AS name,

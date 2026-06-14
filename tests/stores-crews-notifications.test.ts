@@ -523,6 +523,8 @@ describe('createCrewsStore — meetingPoints', () => {
       // F4: latitude / longitude default to null when not provided.
       null,
       null,
+      // 055: recurs_daily defaults to false when not provided.
+      false,
     ]);
   });
 
@@ -542,6 +544,8 @@ describe('createCrewsStore — meetingPoints', () => {
     // F4: latitude ($10) / longitude ($11) default to null when omitted.
     assert.strictEqual(params[9], null);
     assert.strictEqual(params[10], null);
+    // 055: recurs_daily ($12) defaults to false when omitted.
+    assert.strictEqual(params[11], false);
   });
 
   it('create threads F4 latitude/longitude into the INSERT params', async () => {
@@ -587,6 +591,42 @@ describe('createCrewsStore — meetingPoints', () => {
     assert.ok(sql.includes('latitude = $1'));
     assert.ok(sql.includes('longitude = $2'));
     assert.deepStrictEqual(pool.queries[0].params, [40.1, -74.2, 'mp1']);
+  });
+
+  it('create threads 055 recursDaily into the INSERT params + SELECTs the column', async () => {
+    const mp = { id: 'mp1', crewId: 'c1', createdBy: 'u1', label: 'Tree', location: 'North', recursDaily: true };
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'mp1', recurs_daily: true }] }]);
+    const { meetingPoints } = createCrewsStore(pool, mockUtils);
+
+    const result = await meetingPoints.create(mp);
+
+    const insert = norm(pool.queries[0].sql);
+    assert.ok(insert.includes('recurs_daily'));
+    // $12 is the recurs_daily slot.
+    assert.strictEqual(pool.queries[0].params[11], true);
+    // The post-insert SELECT returns recurs_daily (snake) on the row.
+    assert.ok(norm(pool.queries[1].sql).includes('recurs_daily'));
+    assert.strictEqual(result.recurs_daily, true);
+  });
+
+  it('update maps 055 recursDaily to the recurs_daily column', async () => {
+    const pool = mockPool([{ rows: [] }, { rows: [{ id: 'mp1', recurs_daily: true }] }]);
+    const { meetingPoints } = createCrewsStore(pool, mockUtils);
+
+    await meetingPoints.update('mp1', { recursDaily: true });
+
+    const sql = norm(pool.queries[0].sql);
+    assert.ok(sql.includes('recurs_daily = $1'));
+    assert.deepStrictEqual(pool.queries[0].params, [true, 'mp1']);
+  });
+
+  it('listByCrew selects the 055 recurs_daily column', async () => {
+    const pool = mockPool([{ rows: [{ id: 'mp1', recurs_daily: true }] }]);
+    const { meetingPoints } = createCrewsStore(pool, mockUtils);
+
+    await meetingPoints.listByCrew('c1');
+
+    assert.ok(norm(pool.queries[0].sql).includes('recurs_daily'));
   });
 
   it('create returns null when SELECT returns nothing', async () => {

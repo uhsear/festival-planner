@@ -16,6 +16,8 @@ vi.mock('lucide-react', () => ({
   // List/Map view toggle.
   Map: () => <span data-testid="map-icon" />,
   List: () => <span data-testid="list-icon" />,
+  // 055: daily-recurrence toggle + badge.
+  Repeat: () => <span data-testid="repeat-icon" />,
   // CrewStatus (rendered by MeetingPointsTab) pulls these too.
   LocateFixed: () => <span data-testid="locate-fixed-icon" />,
   Footprints: () => <span data-testid="footprints-icon" />,
@@ -41,6 +43,10 @@ vi.mock('@festie/shared', () => {
     useCrewStore: (selector: (s: typeof crewState) => unknown) => selector(crewState),
     formatStaleness: () => 'just now',
     etaMinutes: () => 0,
+    // 055: recurring-point badge. Mirror the real helper's recurring shape
+    // ("daily <time>") so the component's `.replace(/^daily /, '')` yields the
+    // time-of-day rendered after "Daily · ".
+    meetingTimeDisplay: () => ({ label: 'daily 3:00 PM', recurring: true, next: null }),
   };
 });
 
@@ -255,5 +261,37 @@ describe('MeetingPointsTab', () => {
     const label = screen.getByText('Main Entrance');
     const card = label.closest('div.p-3') as HTMLElement;
     expect(within(card).getByText('By the front gate')).toBeInTheDocument();
+  });
+
+  it('renders a "Daily · <time>" badge for a recurring timed point', () => {
+    setQuery({
+      data: [{ ...POINT, meet_at: '2026-06-14T15:00:00Z', recurs_daily: true }],
+    });
+    render(<MeetingPointsTab crewId="c1" currentUserId="u1" />);
+    expect(screen.getByText('Daily · 3:00 PM')).toBeInTheDocument();
+  });
+
+  it('shows the "Repeats daily" toggle only once a meet time is set, and rides it into the create payload', async () => {
+    const user = userEvent.setup();
+    render(<MeetingPointsTab crewId="c1" currentUserId="u1" />);
+    await user.click(screen.getByRole('button', { name: /add meeting point/i }));
+
+    await user.type(screen.getByLabelText('Label'), 'Entrance');
+    await user.type(screen.getByLabelText('Location'), 'Front gate');
+
+    // No meet time yet → no recurrence toggle.
+    expect(screen.queryByRole('switch', { name: /repeats daily/i })).not.toBeInTheDocument();
+
+    // datetime-local accepts a "YYYY-MM-DDTHH:mm" value directly.
+    const meetAt = screen.getByLabelText('Meet at time');
+    await user.type(meetAt, '2026-06-14T15:00');
+
+    const toggle = screen.getByRole('switch', { name: /repeats daily/i });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(createMutate).toHaveBeenCalledWith(expect.objectContaining({ recursDaily: true }));
   });
 });

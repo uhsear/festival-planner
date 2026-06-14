@@ -69,11 +69,17 @@ export default function createCrewStatusRoutes(deps: any) {
       try {
         const crewId = sanitizeIdentifier(req.validatedParams.crewId);
         const userId = req.user.userId;
-        const { status, targetMeetingPointId, etaMinutes, note } = req.validatedBody;
+        const { status, targetMeetingPointId, etaMinutes, note, position } = req.validatedBody;
 
         const membership = await stores.crews.getMember(crewId, userId);
         if (!membership) return sendError(res, 403, 'Not a crew member', ErrorCodes.FORBIDDEN);
 
+        // 055: optional offline presence breadcrumb. NOT live GPS — a last-known
+        // coord the member captured (often offline) that syncs on the next blip.
+        // When a position arrives without an offline-stamped capturedAt, default
+        // location_captured_at to now() so the UI always has an honest "as of"
+        // timestamp. A status-only update (no position) leaves the prior
+        // breadcrumb untouched (the store COALESCEs it).
         const row = await stores.crewStatus.upsert({
           crewId,
           userId,
@@ -81,6 +87,9 @@ export default function createCrewStatusRoutes(deps: any) {
           targetMeetingPointId: targetMeetingPointId ?? null,
           etaMinutes: etaMinutes ?? null,
           note: note ?? null,
+          latitude: position ? position.lat : null,
+          longitude: position ? position.lng : null,
+          locationCapturedAt: position ? (position.capturedAt ?? new Date().toISOString()) : null,
         });
 
         // Broadcast to the crew room so any open client patches in place. The

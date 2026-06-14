@@ -478,6 +478,71 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
     assert.equal((createFn.mock.calls as any[])[0].arguments[0].meetAt, meetAt);
   });
 
+  // 055: a recurring point must NOT auto-expire, even with a meetAt — otherwise
+  // expireStale() would deactivate it after the first occurrence.
+  test('leaves expiresAt null for a recurring point even when meetAt is provided', async () => {
+    const createFn = mock.fn(async (data: any) => data);
+    const meetAt = '2026-06-15T14:00:00.000Z';
+
+    const { app } = await buildApp({
+      stores: {
+        crews: {
+          getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
+          meetingPoints: {
+            countByCrew: mock.fn(async () => 0),
+            create: createFn,
+          },
+        },
+      },
+    });
+
+    await request(app)
+      .post('/crew-1/meeting-points')
+      .send({ label: 'Tree', location: 'North', meetAt, recursDaily: true });
+
+    assert.equal((createFn.mock.calls as any[])[0].arguments[0].expiresAt, null);
+    assert.equal((createFn.mock.calls as any[])[0].arguments[0].recursDaily, true);
+  });
+
+  // 055: daily recurrence flag threads through to the store on create.
+  test('threads 055 recursDaily through to meetingPoints.create', async () => {
+    const createFn = mock.fn(async (data: any) => ({ ...data, active: true }));
+    const { app } = await buildApp({
+      stores: {
+        crews: {
+          getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
+          meetingPoints: {
+            countByCrew: mock.fn(async () => 0),
+            create: createFn,
+          },
+        },
+      },
+    });
+
+    await request(app).post('/crew-1/meeting-points').send({ label: 'Tree', location: 'North', recursDaily: true });
+
+    assert.equal((createFn.mock.calls as any[])[0].arguments[0].recursDaily, true);
+  });
+
+  test('defaults recursDaily to false when omitted on create', async () => {
+    const createFn = mock.fn(async (data: any) => data);
+    const { app } = await buildApp({
+      stores: {
+        crews: {
+          getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
+          meetingPoints: {
+            countByCrew: mock.fn(async () => 0),
+            create: createFn,
+          },
+        },
+      },
+    });
+
+    await request(app).post('/crew-1/meeting-points').send({ label: 'Test', location: 'Here' });
+
+    assert.equal((createFn.mock.calls as any[])[0].arguments[0].recursDaily, false);
+  });
+
   test('sets expiresAt to null when meetAt is not provided', async () => {
     const createFn = mock.fn(async (data: any) => data);
     const { app } = await buildApp({
@@ -596,6 +661,27 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
     assert.equal(res.body.error, null);
     assert.equal(res.body.data.meetingPoint.label, 'Updated Label');
     assert.equal((updateFn.mock.calls as any[])[0].arguments[0], 'mp-1');
+  });
+
+  // 055: recurs_daily toggle flows through the body to meetingPoints.update.
+  test('threads 055 recursDaily through to meetingPoints.update', async () => {
+    const updateFn = mock.fn(async (id: any, data: any) => ({ ...DEFAULT_MEETING_POINT, ...data, id }));
+    const { app } = await buildApp({
+      stores: {
+        crews: {
+          getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
+          meetingPoints: {
+            getById: mock.fn(async () => ({ ...DEFAULT_MEETING_POINT })),
+            update: updateFn,
+          },
+        },
+      },
+    });
+
+    const res = await request(app).put('/crew-1/meeting-points/mp-1').send({ recursDaily: true });
+
+    assert.equal(res.status, 200);
+    assert.equal((updateFn.mock.calls as any[])[0].arguments[1].recursDaily, true);
   });
 
   test('crew owner can update any meeting point', async () => {

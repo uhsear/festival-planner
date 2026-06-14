@@ -141,10 +141,14 @@ export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
           );
         }
 
-        const { label, location, type, meetAt, stageReference, latitude, longitude } = body;
+        const { label, location, type, meetAt, stageReference, latitude, longitude, recursDaily } = body;
         const id = createOpaqueId('mp');
+        // A one-shot timed point auto-expires 30 min after its meet time. A
+        // recurring point (recursDaily) must NOT expire — it repeats every
+        // festival day, so leave expires_at NULL or the expireStale() sweep
+        // would deactivate it after the first occurrence (055).
         let expiresAt = null;
-        if (meetAt) {
+        if (meetAt && !recursDaily) {
           expiresAt = new Date(new Date(meetAt).getTime() + 30 * 60_000).toISOString();
         }
 
@@ -160,6 +164,8 @@ export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
           expiresAt,
           latitude: latitude ?? null,
           longitude: longitude ?? null,
+          // 055: optional daily recurrence; defaults FALSE in the store when omitted.
+          recursDaily: recursDaily ?? false,
         });
 
         io.to('crew:' + crewId).emit('crew:meeting-point-created', point);

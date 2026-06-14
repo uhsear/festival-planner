@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, Linking } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Linking, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useCrewStore } from '@festie/shared/stores';
-import type { CrewMeetingPoint } from '@festie/shared/types';
+import { meetingTimeDisplay, resolveFestivalTimeZone } from '@festie/shared/utils';
+import type { CrewMeetingPoint, Festival, FestivalDay } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import Button from './Button';
 
@@ -18,6 +19,10 @@ interface CrewMeetingPointsProps {
   crewId: string;
   currentUserId: string;
   isOwner: boolean;
+  /** Active festival — supplies the zone so a recurring point's wall-clock is festival-framed. */
+  festival?: Festival | null;
+  /** Festival days — a recurring point resolves to one occurrence per day. */
+  days?: readonly FestivalDay[];
 }
 
 // Server enum (lib/constants MEETING_POINT_TYPES) with mobile-facing labels.
@@ -39,9 +44,19 @@ function typeLabel(type: string): string {
  * (label + location + type, mirroring the server schema). Creators and owners
  * may remove a point. Uses the shared crewStore actions; the screen owns load.
  */
-export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: CrewMeetingPointsProps) {
+export default function CrewMeetingPoints({
+  crewId,
+  currentUserId,
+  isOwner,
+  festival,
+  days = [],
+}: CrewMeetingPointsProps) {
   const t = useTokens();
   const styles = useStyles();
+
+  // Anchor a recurring point's time-of-day in the festival's zone when known,
+  // else the device-local frame (resolveFestivalTimeZone returns undefined).
+  const timeZone = resolveFestivalTimeZone(festival);
 
   const meetingPoints = useCrewStore((s) => s.meetingPoints);
   const createMeetingPoint = useCrewStore((s) => s.createMeetingPoint);
@@ -54,6 +69,8 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
   const [location, setLocation] = useState('');
   const [stageRef, setStageRef] = useState('');
   const [type, setType] = useState<string>('during');
+  // 055: when on, the point repeats every festival day at its time-of-day.
+  const [recursDaily, setRecursDaily] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
   // F4: optional captured GPS coords. null = no coord (free-text only).
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -65,6 +82,7 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
     setLocation('');
     setStageRef('');
     setType('during');
+    setRecursDaily(false);
     setCoords(null);
     setLocating(false);
     setShowForm(false);
@@ -77,6 +95,7 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
     setLocation(point.location);
     setStageRef(point.stage_reference ?? '');
     setType(point.type);
+    setRecursDaily(!!point.recurs_daily);
     // F4: pre-fill captured coords on edit (null for legacy free-text points).
     setCoords(
       typeof point.latitude === 'number' && typeof point.longitude === 'number'
@@ -134,9 +153,18 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
           stageReference,
           latitude,
           longitude,
+          recursDaily,
         });
       } else {
-        await createMeetingPoint(crewId, { label: l, location: loc, type, stageReference, latitude, longitude });
+        await createMeetingPoint(crewId, {
+          label: l,
+          location: loc,
+          type,
+          stageReference,
+          latitude,
+          longitude,
+          recursDaily,
+        });
       }
       reset();
     } catch {
@@ -261,6 +289,24 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
             ) : null}
           </View>
 
+          {/* 055: daily-recurrence toggle. On → the point repeats every festival
+              day at its time-of-day (rendered "daily 3:00 PM"). */}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleBody}>
+              <Text style={styles.toggleTitle}>Repeats daily</Text>
+              <Text style={styles.toggleHint} numberOfLines={2}>
+                Meet here at the same time every festival day.
+              </Text>
+            </View>
+            <Switch
+              value={recursDaily}
+              onValueChange={setRecursDaily}
+              trackColor={{ false: t.colors.border.default, true: t.colors.accent.aqua }}
+              thumbColor={t.colors.text.onAccent}
+              accessibilityLabel="Repeats daily"
+            />
+          </View>
+
           <Button
             label={editingId ? 'Save' : 'Add'}
             loading={createBusy}
@@ -290,6 +336,9 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
         meetingPoints.map((point) => {
           const canRemove = point.created_by === currentUserId || isOwner;
           const isEmergency = point.type === 'emergency';
+          // 055: resolve the point's display time honoring daily recurrence.
+          // Recurring → "daily 3:00 PM"; one-shot → "Sat 3:00 PM"; no meetAt → ''.
+          const timeDisplay = meetingTimeDisplay(point.meet_at, point.recurs_daily, days, new Date(), timeZone);
           return (
             <View key={point.id} style={[styles.pointRow, isEmergency && styles.pointRowEmergency]}>
               <View style={styles.pointInfo}>
@@ -298,6 +347,12 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
                     {point.label}
                   </Text>
                   <Text style={styles.pointType}>{typeLabel(point.type)}</Text>
+                  {point.recurs_daily ? (
+                    <View style={styles.recurBadge} accessibilityLabel="Repeats daily">
+                      <Ionicons name="repeat" size={11} color={t.colors.accent.aqua} />
+                      <Text style={styles.recurBadgeText}>Daily</Text>
+                    </View>
+                  ) : null}
                 </View>
                 <Text style={styles.pointLocation} numberOfLines={1}>
                   {point.location}
@@ -306,6 +361,14 @@ export default function CrewMeetingPoints({ crewId, currentUserId, isOwner }: Cr
                   <Text style={styles.pointStage} numberOfLines={1}>
                     Near {point.stage_reference}
                   </Text>
+                ) : null}
+                {timeDisplay.label ? (
+                  <View style={styles.pointTimeRow}>
+                    <Ionicons name="time-outline" size={12} color={t.colors.accent.aqua} />
+                    <Text style={styles.pointTime} numberOfLines={1}>
+                      {timeDisplay.label}
+                    </Text>
+                  </View>
                 ) : null}
               </View>
               <View style={styles.rowActions}>
@@ -443,6 +506,24 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('micro'),
     color: t.colors.accent.aqua,
   },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[3],
+    paddingVertical: t.spacing[1],
+  },
+  toggleBody: {
+    flex: 1,
+    gap: 2,
+  },
+  toggleTitle: {
+    ...typeStyle('label'),
+    color: t.colors.text.primary,
+  },
+  toggleHint: {
+    ...typeStyle('micro'),
+    color: t.colors.text.muted,
+  },
   iconButton: {
     padding: t.spacing[1],
     // WCAG 2.5.5 / Apple HIG >=44pt touch target for these small (16-18px)
@@ -495,6 +576,19 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.muted,
     textTransform: 'uppercase',
   },
+  recurBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: t.spacing[2],
+    paddingVertical: 2,
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.ring.aqua,
+  },
+  recurBadgeText: {
+    ...typeStyle('micro'),
+    color: t.colors.accent.aqua,
+  },
   pointLocation: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
@@ -502,5 +596,15 @@ const useStyles = makeStyles((t) => ({
   pointStage: {
     ...typeStyle('micro'),
     color: t.colors.accent.aqua,
+  },
+  pointTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+  },
+  pointTime: {
+    ...typeStyle('micro'),
+    color: t.colors.accent.aqua,
+    flexShrink: 1,
   },
 }));
