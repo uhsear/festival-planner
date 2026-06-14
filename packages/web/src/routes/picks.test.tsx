@@ -70,6 +70,12 @@ vi.mock('../components/features/OfflineReadinessCard', () => ({
   default: () => <div data-testid="offline-readiness-card" />,
 }));
 
+// PickConflicts has its own render test; stub it so PicksView tests don't need
+// its crew-store mocks / extra lucide icons / shared buildPickConflicts mock.
+vi.mock('../components/features/PickConflicts', () => ({
+  default: () => <div data-testid="pick-conflicts" />,
+}));
+
 vi.mock('lucide-react', () => ({
   Star: () => <span data-testid="star-icon" />,
   CalendarX: () => <span data-testid="calendar-x-icon" />,

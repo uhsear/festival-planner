@@ -20,6 +20,7 @@ import ScreenHeader from '../../components/ScreenHeader';
 import EmptyState from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import SetCardMobile from '../../components/SetCardMobile';
+import ClashBanner from '../../components/ClashBanner';
 
 /**
  * Priority ordering + display metadata, mirroring the web /picks route. Sets
@@ -452,6 +453,7 @@ export default function PicksScreen() {
           <Text style={styles.calendarButtonText}>Share picks</Text>
         </TouchableOpacity>
       </View>
+      <ClashBanner />
       {bulkPanel}
     </View>
   );
