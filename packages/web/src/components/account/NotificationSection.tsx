@@ -12,7 +12,7 @@ export default function NotificationSection() {
   const handleEnablePush = async () => {
     if (!push.isSupported) {
       if (push.unsupportedReason === 'ios-needs-install') {
-        toast('Add Festie to your Home Screen first — iOS needs the installed PWA to allow notifications.', 'info');
+        toast('Add Festie to your Home Screen first. iOS needs the installed PWA to allow notifications.', 'info');
       } else {
         toast('Push notifications not supported on this browser', 'error');
       }

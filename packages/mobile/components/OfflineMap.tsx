@@ -232,6 +232,11 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
       0% { box-shadow: 0 0 0 0 rgba(0,232,208,0.45); }
       100% { box-shadow: 0 0 0 14px rgba(0,232,208,0); }
     }
+    /* Respect the OS Reduce Motion setting inside the WebView (the RN reduce-motion
+       hook can't reach this document) — drop the infinite pulse, keep the dot. */
+    @media (prefers-reduced-motion: reduce) {
+      .festie-peer, .festie-sos { animation: none; }
+    }
     .maplibregl-popup-content { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; }
   </style>
 </head>
