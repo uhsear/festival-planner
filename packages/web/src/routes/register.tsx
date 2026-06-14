@@ -4,9 +4,8 @@ import { useAuth } from '@festie/shared';
 import { useToast } from '../lib/toastContext';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import Button from '../components/ui/Button';
-import IconButton from '../components/ui/IconButton';
+import Input from '../components/ui/Input';
 import AuthTabs from '../components/ui/AuthTabs';
-import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function RegisterPage() {
@@ -17,14 +16,6 @@ export default function RegisterPage() {
   );
 }
 
-const authInputClasses = cn(
-  'w-full py-3.5 px-[18px] text-base text-left mb-3 rounded-DEFAULT',
-  'bg-[var(--color-bg-card)] backdrop-blur-[12px] min-h-11',
-  'border border-border text-text-primary placeholder:text-text-placeholder',
-  'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
-  'focus:shadow-[0_0_0_4px_var(--color-aqua-a1),0_0_24px_var(--color-aqua-a06)]',
-);
-
 function RegisterPageInner() {
   const navigate = useNavigate();
   const { register, isLoading, error } = useAuth();
@@ -33,9 +24,12 @@ function RegisterPageInner() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPw, setShowPw] = useState(false);
   const [email, setEmail] = useState('');
   const [tosAccepted, setTosAccepted] = useState(false);
+  const [usernameErr, setUsernameErr] = useState('');
+  const [passwordErr, setPasswordErr] = useState('');
+  const [confirmErr, setConfirmErr] = useState('');
+  const [emailErr, setEmailErr] = useState('');
   const [formError, setFormError] = useState('');
 
   const isValidEmail = (value: string) => /^\S+@\S+\.\w{2,}$/.test(value);
@@ -43,25 +37,29 @@ function RegisterPageInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
+    setUsernameErr('');
+    setPasswordErr('');
+    setConfirmErr('');
+    setEmailErr('');
 
     if (!username) {
-      setFormError('Username is required');
+      setUsernameErr('Username is required');
       return;
     }
     if (!password) {
-      setFormError('Password is required');
+      setPasswordErr('Password is required');
       return;
     }
     if (password.length < 8) {
-      setFormError('Password must be at least 8 characters');
+      setPasswordErr('Password must be at least 8 characters');
       return;
     }
     if (password !== confirmPassword) {
-      setFormError('Passwords do not match');
+      setConfirmErr('Passwords do not match');
       return;
     }
     if (email && !isValidEmail(email)) {
-      setFormError('Please enter a valid email address');
+      setEmailErr('Please enter a valid email address');
       return;
     }
     if (!tosAccepted) {
@@ -77,10 +75,10 @@ function RegisterPageInner() {
         tosAccepted,
         email: email || undefined,
       });
-      toast('Account created successfully', 'success');
+      toast('Account created', 'success');
       await navigate({ to: '/cards' });
     } catch {
-      setFormError(error || 'Registration failed');
+      setFormError(error || "Couldn't create your account. Try again.");
     }
   };
 
@@ -107,98 +105,70 @@ function RegisterPageInner() {
         noValidate
         {...(isLoading ? { 'aria-busy': true } : {})}
       >
-        <div
-          id="authFormError"
-          className="text-accent-coral text-[13px] mb-3 min-h-[18px] text-center"
-          role="alert"
-          aria-live="assertive"
-        >
-          {formError || ' '}
+        {formError && (
+          <div
+            className="text-[var(--color-text-danger)] text-[13px] mb-3 text-center"
+            role="alert"
+            aria-live="assertive"
+          >
+            {formError}
+          </div>
+        )}
+
+        <div className="mb-3">
+          <Input
+            aria-label="Username"
+            placeholder="Username"
+            autoComplete="username"
+            maxLength={30}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            disabled={isLoading}
+            error={usernameErr}
+          />
         </div>
 
-        <label htmlFor="authUsername" className="sr-only">
-          Username
-        </label>
-        <input
-          type="text"
-          id="authUsername"
-          placeholder="Username"
-          autoComplete="username"
-          maxLength={30}
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') document.getElementById('authPassword')?.focus();
-          }}
-          disabled={isLoading}
-          aria-invalid={Boolean(formError && !username)}
-          aria-describedby={formError ? 'authFormError' : undefined}
-          className={authInputClasses}
-        />
-
-        <label htmlFor="authPassword" className="sr-only">
-          Password
-        </label>
-        <div className="relative">
-          <input
-            type={showPw ? 'text' : 'password'}
-            id="authPassword"
+        <div className="mb-3">
+          <Input
+            aria-label="Password"
             placeholder="Password"
+            isPassword
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') document.getElementById('authPassword2')?.focus();
-            }}
             disabled={isLoading}
-            aria-invalid={Boolean(formError && !password)}
-            aria-describedby={formError ? 'authFormError' : undefined}
-            className={cn(authInputClasses, 'pr-11')}
-          />
-          <IconButton
-            onClick={() => setShowPw((v) => !v)}
-            label={showPw ? 'Hide password' : 'Show password'}
-            icon={showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            className="absolute right-0 top-1/2 -translate-y-1/2"
+            error={passwordErr}
+            helperText="At least 8 characters"
           />
         </div>
 
-        <label htmlFor="authPassword2" className="sr-only">
-          Confirm Password
-        </label>
-        <input
-          type={showPw ? 'text' : 'password'}
-          id="authPassword2"
-          placeholder="Confirm Password"
-          autoComplete="new-password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') document.getElementById('authEmail')?.focus();
-          }}
-          disabled={isLoading}
-          className={authInputClasses}
-        />
+        <div className="mb-3">
+          <Input
+            aria-label="Confirm password"
+            placeholder="Confirm Password"
+            isPassword
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            disabled={isLoading}
+            error={confirmErr}
+          />
+        </div>
 
-        <label htmlFor="authEmail" className="sr-only">
-          Email (optional)
-        </label>
-        <input
-          type="email"
-          id="authEmail"
-          placeholder="Email &#x2014; for password reset"
-          autoComplete="email"
-          maxLength={254}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSubmit(e);
-          }}
-          disabled={isLoading}
-          aria-invalid={Boolean(email && !isValidEmail(email))}
-          aria-describedby={formError ? 'authFormError' : undefined}
-          className={authInputClasses}
-        />
+        <div className="mb-3">
+          <Input
+            aria-label="Email (optional)"
+            type="email"
+            placeholder="Email (optional)"
+            helperText="For password recovery"
+            autoComplete="email"
+            maxLength={254}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={isLoading}
+            error={emailErr}
+          />
+        </div>
 
         {/* TOS checkbox */}
         <label className="my-2.5 flex min-h-11 cursor-pointer items-start gap-2 text-[13px] text-[var(--color-text-secondary)]">

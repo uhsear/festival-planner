@@ -29,19 +29,14 @@ export default function Input({
   const labelOnly = label && !props['aria-label'];
   const errorId = error ? `${inputId}-error` : undefined;
   const helperId = helperText && !error ? `${inputId}-helper` : undefined;
-  const describedBy = [errorId, helperId, props['aria-describedby']]
-    .filter(Boolean)
-    .join(' ') || undefined;
+  const describedBy = [errorId, helperId, props['aria-describedby']].filter(Boolean).join(' ') || undefined;
 
   const isSearch = variant === 'search';
 
   return (
     <div className="w-full">
       {label && (
-        <label
-          htmlFor={inputId}
-          className="block text-sm font-medium text-text-primary mb-2"
-        >
+        <label htmlFor={inputId} className="block text-sm font-medium text-text-primary mb-2">
           {label}
         </label>
       )}
@@ -57,7 +52,7 @@ export default function Input({
         <input
           id={inputId}
           type={inputType}
-          aria-label={props['aria-label'] || (labelOnly ? undefined : (props.placeholder || undefined))}
+          aria-label={props['aria-label'] || (labelOnly ? undefined : props.placeholder || undefined)}
           aria-invalid={Boolean(error)}
           aria-describedby={describedBy}
           className={cn(
@@ -69,7 +64,7 @@ export default function Input({
             'focus-visible:ring-2 focus-visible:ring-accent-aqua',
             isSearch && 'pl-10',
             error && 'border-accent-coral focus-visible:border-accent-coral focus-visible:ring-coral-ring',
-            className
+            className,
           )}
           {...props}
         />
@@ -95,14 +90,16 @@ export default function Input({
         <p
           id={errorId}
           role="alert"
-          className="text-sm text-accent-coral mt-1 animate-in fade-in slide-in-from-top-1 duration-200"
+          className="text-sm text-[var(--color-text-danger)] mt-1 animate-in fade-in slide-in-from-top-1 duration-200"
         >
           {error}
         </p>
       )}
 
       {helperText && !error && (
-        <p id={helperId} className="text-sm text-text-muted mt-1">{helperText}</p>
+        <p id={helperId} className="text-sm text-text-muted mt-1">
+          {helperText}
+        </p>
       )}
     </div>
   );
