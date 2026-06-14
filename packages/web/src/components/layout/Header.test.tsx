@@ -13,6 +13,7 @@ vi.mock('@tanstack/react-router', () => ({
 const mockAuthStore = vi.fn();
 vi.mock('@festie/shared', () => ({
   useAuthStore: (selector: (s: { user: unknown }) => unknown) => selector({ user: mockAuthStore() }),
+  useUIStore: (selector: (s: { connected: boolean }) => unknown) => selector({ connected: true }),
 }));
 
 // Mock UserMenu to avoid complex child rendering
