@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '@festie/shared/services/api';
 import { useToast } from '../../lib/toastContext';
 import EmptyState from '../ui/EmptyState';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import { SearchX } from 'lucide-react';
 
 interface Crew {
@@ -38,6 +39,8 @@ export default function AdminCrews() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [membersByCrew, setMembersByCrew] = useState<Record<string, CrewMember[]>>({});
   const [membersLoading, setMembersLoading] = useState<Record<string, boolean>>({});
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string; description: string } | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -80,23 +83,31 @@ export default function AdminCrews() {
     void loadCrewMembers(crewId);
   };
 
-  const handleDelete = async (crewId: string) => {
+  const handleDelete = (crewId: string) => {
     const target = crews.find((c) => c.id === crewId);
     const name = target?.name || 'this crew';
-    if (
-      !confirm(
-        `Delete ${name}?\n\nThis removes the crew and all ${target?.memberCount ?? ''} member link${target?.memberCount === 1 ? '' : 's'}. Members will lose access to shared picks.`,
-      )
-    ) {
-      return;
-    }
+    const links = `${target?.memberCount ?? ''} member link${target?.memberCount === 1 ? '' : 's'}`.trim();
+    setConfirmDelete({
+      id: crewId,
+      title: `Delete ${name}?`,
+      description: `This removes the crew and all ${links}. Members will lose access to shared picks.`,
+    });
+  };
 
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    const { id } = confirmDelete;
+    const name = crews.find((c) => c.id === id)?.name || 'this crew';
+    setDeleteBusy(true);
     try {
-      await api.delete<void>(`/admin/crews/${crewId}`);
-      setCrews(crews.filter((c) => c.id !== crewId));
+      await api.delete<void>(`/admin/crews/${id}`);
+      setCrews(crews.filter((c) => c.id !== id));
       toast(`Deleted ${name}`, 'success');
+      setConfirmDelete(null);
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Couldn't delete crew. Try again.", 'error');
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -212,6 +223,16 @@ export default function AdminCrews() {
           })}
         </div>
       )}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onOpenChange={(o) => !o && setConfirmDelete(null)}
+        title={confirmDelete?.title || ''}
+        description={confirmDelete?.description}
+        confirmLabel="Delete"
+        destructive
+        busy={deleteBusy}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }

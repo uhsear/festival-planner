@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '@festie/shared/services/api';
 import { useToast } from '../../lib/toastContext';
 import EmptyState from '../ui/EmptyState';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import { SearchX } from 'lucide-react';
 
 interface User {
@@ -20,6 +21,8 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string; description: string } | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -53,23 +56,30 @@ export default function AdminUsers() {
     }
   };
 
-  const handleDelete = async (userId: string) => {
+  const handleDelete = (userId: string) => {
     const target = users.find((u) => u.id === userId);
     const name = target?.username || 'this user';
-    if (
-      !confirm(
-        `Delete ${name}?\n\nThis permanently removes their account, picks, and crew memberships. This action cannot be undone.`,
-      )
-    ) {
-      return;
-    }
+    setConfirmDelete({
+      id: userId,
+      title: `Delete ${name}?`,
+      description: 'This permanently removes their account, picks, and crew memberships. This cannot be undone.',
+    });
+  };
 
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    const { id } = confirmDelete;
+    const name = users.find((u) => u.id === id)?.username || 'this user';
+    setDeleteBusy(true);
     try {
-      await api.delete<void>(`/admin/users/${userId}`);
-      setUsers(users.filter((u) => u.id !== userId));
+      await api.delete<void>(`/admin/users/${id}`);
+      setUsers(users.filter((u) => u.id !== id));
       toast(`Deleted ${name}`, 'success');
+      setConfirmDelete(null);
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Couldn't delete user. Try again.", 'error');
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -190,6 +200,16 @@ export default function AdminUsers() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onOpenChange={(o) => !o && setConfirmDelete(null)}
+        title={confirmDelete?.title || ''}
+        description={confirmDelete?.description}
+        confirmLabel="Delete"
+        destructive
+        busy={deleteBusy}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }
