@@ -199,8 +199,20 @@ describe('createCrewsStore — crews', () => {
     assert.deepStrictEqual(result, { id: 'c1' });
     assert.strictEqual(pool.queries.length, 2);
     assert.ok(norm(pool.queries[0].sql).includes('INSERT INTO crews'));
-    // Trailing null is reformed_from (043_crew_lineage) — null for a normal crew.
-    assert.deepStrictEqual(pool.queries[0].params, ['c1', 'f1', 'The Crew', 'u1', 'abc123', null, 10, null]);
+    // Trailing nulls: reformed_from (043_crew_lineage), then totem_name + totem_emoji
+    // (056_crew_totem) — all null for a normal crew with no totem.
+    assert.deepStrictEqual(pool.queries[0].params, [
+      'c1',
+      'f1',
+      'The Crew',
+      'u1',
+      'abc123',
+      null,
+      10,
+      null,
+      null,
+      null,
+    ]);
   });
 
   it('create returns null when SELECT finds nothing', async () => {
