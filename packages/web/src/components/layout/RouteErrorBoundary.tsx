@@ -15,10 +15,7 @@ interface ApiErrorLike {
 }
 
 function isApiError(err: unknown): err is Error & ApiErrorLike {
-  return (
-    err instanceof Error &&
-    typeof (err as unknown as ApiErrorLike).status === 'number'
-  );
+  return err instanceof Error && typeof (err as unknown as ApiErrorLike).status === 'number';
 }
 
 type ErrorKind = 'network' | 'not-found' | 'server' | 'generic';
@@ -65,8 +62,7 @@ function getPresentation(kind: ErrorKind, error: Error): ErrorPresentation {
       return {
         icon: <WifiOff className="size-8 text-[var(--color-accent-coral)]" aria-hidden="true" />,
         heading: 'You appear to be offline',
-        description:
-          'Check your internet connection and try again. Your data is safe—we’ll sync when you’re back online.',
+        description: 'Check your connection and try again. Your data is safe; we’ll sync it when you reconnect.',
         showBack: false,
       };
     case 'not-found':
@@ -81,16 +77,16 @@ function getPresentation(kind: ErrorKind, error: Error): ErrorPresentation {
         icon: <ServerCrash className="size-8 text-[var(--color-accent-coral)]" aria-hidden="true" />,
         heading: 'Server error',
         description: errorId
-          ? `Something went wrong on our end (ref: ${errorId}). Please try again in a moment.`
-          : 'Something went wrong on our end. Please try again in a moment.',
+          ? `Our server hit an error (ref: ${errorId}). Try again shortly.`
+          : 'Our server hit an error. Try again shortly.',
         showBack: false,
       };
     case 'generic':
     default:
       return {
         icon: <AlertTriangle className="size-8 text-[var(--color-accent-coral)]" aria-hidden="true" />,
-        heading: 'Something went wrong',
-        description: 'An unexpected error occurred. Try reloading the page.',
+        heading: 'Something broke',
+        description: 'Reload the page to try again.',
         showBack: false,
       };
   }
@@ -114,11 +110,7 @@ export interface RouteErrorBoundaryProps {
  * appropriate icon, heading, description, and action buttons. Routes can
  * pass an optional `contextMessage` for additional guidance.
  */
-export default function RouteErrorBoundary({
-  error,
-  reset,
-  contextMessage,
-}: RouteErrorBoundaryProps) {
+export default function RouteErrorBoundary({ error, reset, contextMessage }: RouteErrorBoundaryProps) {
   const navigate = useNavigate();
   const kind = classifyError(error);
   const { icon, heading, description, showBack } = getPresentation(kind, error);
@@ -131,13 +123,9 @@ export default function RouteErrorBoundary({
     <div className="flex flex-col items-center justify-center h-full text-center text-text-muted p-12" role="alert">
       <div className="mb-3 flex justify-center">{icon}</div>
       <h2 className="mt-0 text-lg">{heading}</h2>
-      <p className="my-2 text-sm text-[var(--color-text-secondary)] max-w-[400px]">
-        {description}
-      </p>
+      <p className="my-2 text-sm text-[var(--color-text-secondary)] max-w-[400px]">{description}</p>
       {contextMessage && (
-        <p className="my-1 mb-3 text-sm text-[var(--color-text-secondary)] italic max-w-[400px]">
-          {contextMessage}
-        </p>
+        <p className="my-1 mb-3 text-sm text-[var(--color-text-secondary)] italic max-w-[400px]">{contextMessage}</p>
       )}
       <div className="mt-4 flex justify-center gap-2">
         {kind !== 'not-found' && (
@@ -181,9 +169,7 @@ export default function RouteErrorBoundary({
  * });
  * ```
  */
-export function withContextMessage(
-  contextMessage: string,
-): (props: { error: Error; reset: () => void }) => ReactNode {
+export function withContextMessage(contextMessage: string): (props: { error: Error; reset: () => void }) => ReactNode {
   return function ContextualErrorBoundary({ error, reset }) {
     return <RouteErrorBoundary error={error} reset={reset} contextMessage={contextMessage} />;
   };
@@ -197,10 +183,7 @@ export function withContextMessage(
  *
  * Usage: <RenderErrorBoundary name="timeline">...</RenderErrorBoundary>
  */
-export class RenderErrorBoundary extends Component<
-  { children: ReactNode; name: string },
-  { error: Error | null }
-> {
+export class RenderErrorBoundary extends Component<{ children: ReactNode; name: string }, { error: Error | null }> {
   state = { error: null as Error | null };
 
   static getDerivedStateFromError(error: Error) {
@@ -214,27 +197,20 @@ export class RenderErrorBoundary extends Component<
   render() {
     if (this.state.error) {
       return (
-        <div className="flex flex-col items-center justify-center h-full text-center text-text-muted p-12" role="alert" aria-label={`${this.props.name} view error`}>
-          <h2 className="mt-0 text-lg">Something went wrong</h2>
+        <div
+          className="flex flex-col items-center justify-center h-full text-center text-text-muted p-12"
+          role="alert"
+          aria-label={`${this.props.name} view error`}
+        >
+          <h2 className="mt-0 text-lg">This view failed to load</h2>
           <p className="my-2 mb-4 text-sm text-[var(--color-text-secondary)] max-w-[400px]">
-            An unexpected error occurred while loading this view. Try reloading
-            the page or switching festivals.
+            Reload the page or switch festivals to try again.
           </p>
           <div className="flex gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              type="button"
-              onClick={() => this.setState({ error: null })}
-            >
+            <Button variant="primary" size="sm" type="button" onClick={() => this.setState({ error: null })}>
               Try again
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              onClick={() => window.location.reload()}
-            >
+            <Button variant="ghost" size="sm" type="button" onClick={() => window.location.reload()}>
               Reload page
             </Button>
           </div>

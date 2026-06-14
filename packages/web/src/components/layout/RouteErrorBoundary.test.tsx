@@ -2,10 +2,7 @@ import type React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import RouteErrorBoundary, {
-  RenderErrorBoundary,
-  withContextMessage,
-} from './RouteErrorBoundary';
+import RouteErrorBoundary, { RenderErrorBoundary, withContextMessage } from './RouteErrorBoundary';
 
 // --- Mocks ---
 
@@ -49,7 +46,7 @@ describe('RouteErrorBoundary', () => {
   it('renders generic error heading for unknown errors', () => {
     const error = new Error('Crash');
     render(<RouteErrorBoundary error={error} reset={vi.fn()} />);
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByText('Something broke')).toBeInTheDocument();
   });
 
   it('has role=alert for accessibility', () => {
@@ -145,7 +142,7 @@ describe('RouteErrorBoundary', () => {
     const error = makeApiError('Internal Server Error', 500);
     render(<RouteErrorBoundary error={error} reset={vi.fn()} />);
     expect(screen.getByText('Server error')).toBeInTheDocument();
-    expect(screen.getByText(/something went wrong on our end/i)).toBeInTheDocument();
+    expect(screen.getByText(/our server hit an error/i)).toBeInTheDocument();
   });
 
   it('shows error reference code when available', () => {
@@ -164,13 +161,7 @@ describe('RouteErrorBoundary', () => {
 
   it('renders optional contextMessage', () => {
     const error = new Error('Crash');
-    render(
-      <RouteErrorBoundary
-        error={error}
-        reset={vi.fn()}
-        contextMessage="Could not load your crew."
-      />,
-    );
+    render(<RouteErrorBoundary error={error} reset={vi.fn()} contextMessage="Could not load your crew." />);
     expect(screen.getByText('Could not load your crew.')).toBeInTheDocument();
   });
 
@@ -196,7 +187,7 @@ describe('withContextMessage', () => {
     const error = new Error('Boom');
     render(<ContextualBoundary error={error} reset={vi.fn()} />);
     expect(screen.getByText('Try switching festivals.')).toBeInTheDocument();
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByText('Something broke')).toBeInTheDocument();
   });
 });
 
@@ -229,7 +220,7 @@ describe('RenderErrorBoundary', () => {
       </RenderErrorBoundary>,
     );
     expect(screen.getByRole('alert')).toBeInTheDocument();
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByText('This view failed to load')).toBeInTheDocument();
   });
 
   it('includes the boundary name in the aria-label', () => {
@@ -254,7 +245,7 @@ describe('RenderErrorBoundary', () => {
         <MaybeThrow />
       </RenderErrorBoundary>,
     );
-    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByText('This view failed to load')).toBeInTheDocument();
 
     shouldThrow = false;
     await user.click(screen.getByRole('button', { name: 'Try again' }));
