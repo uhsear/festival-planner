@@ -103,7 +103,7 @@ export default function SmsHandoff() {
       // No recipients — let the user pick from their contacts in the composer.
       const { result } = await SMS.sendSMSAsync([], message);
       if (result === 'sent') {
-        setStatus("Composer handed off. We can't confirm if it was delivered.");
+        setStatus('Opened in Messages. Delivery depends on whether you hit send.');
       } else if (result === 'cancelled') {
         setStatus('Cancelled — nothing was sent.');
       } else {
@@ -139,9 +139,9 @@ export default function SmsHandoff() {
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <Ionicons name="navigate" size={18} color={t.colors.accent.coral} />
-          <Text style={styles.cardTitle}>Text the crew our meetup</Text>
+          <Text style={styles.cardTitle}>Text the meeting point to your crew</Text>
         </View>
-        <Text style={styles.previewLabel}>This message will be prefilled:</Text>
+        <Text style={styles.previewLabel}>Message preview:</Text>
         <View style={styles.preview}>
           <Text style={styles.previewText}>{message}</Text>
         </View>
@@ -158,8 +158,8 @@ export default function SmsHandoff() {
       {status ? <Text style={styles.status}>{status}</Text> : null}
 
       <Text style={styles.disclaimer}>
-        Last resort: this opens your phone's messaging app with the meetup prefilled. You still pick who to send it to
-        and hit send — and Festie can't confirm it was delivered. The maps link works in any app, no Festie needed.
+        Opens your phone's Messages app with the meeting point prefilled. You choose who to send it to and hit send.
+        Festie never sees what you send or whether it arrived. The maps link works in any app.
       </Text>
     </ScrollView>
   );
