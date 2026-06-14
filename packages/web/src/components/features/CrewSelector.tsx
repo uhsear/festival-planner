@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Crew } from '@festie/shared/types';
-import { ChevronDown, Plus, LogIn } from 'lucide-react';
+import { ChevronDown, Plus, LogIn, Users } from 'lucide-react';
 import Button from '../ui/Button';
 import { cn } from '@/lib/utils';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -87,7 +87,10 @@ export default function CrewSelector({
     <div className="relative" ref={containerRef}>
       <button
         ref={triggerRef}
-        onClick={() => { tap(); setIsOpen(!isOpen); }}
+        onClick={() => {
+          tap();
+          setIsOpen(!isOpen);
+        }}
         aria-label="Select crew"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
@@ -104,10 +107,7 @@ export default function CrewSelector({
         )}
       >
         <span>{selectedCrew?.name || 'Select Crew'}</span>
-        <ChevronDown
-          className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')}
-          aria-hidden="true"
-        />
+        <ChevronDown className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')} aria-hidden="true" />
       </button>
 
       {isOpen && (
@@ -117,11 +117,12 @@ export default function CrewSelector({
           aria-label="Crew list"
           onKeyDown={handlePanelKeyDown}
           className={cn(
-          'absolute top-full mt-1 left-0 right-0 z-50',
-          'bg-bg-secondary border border-border rounded-lg overflow-hidden',
-          'shadow-lg',
-          'animate-[card-in_180ms_var(--ease-out,ease-out)_both] origin-top motion-reduce:!animate-none',
-        )}>
+            'absolute top-full mt-1 left-0 right-0 z-50',
+            'bg-bg-secondary border border-border rounded-lg overflow-hidden',
+            'shadow-lg',
+            'animate-[card-in_180ms_var(--ease-out,ease-out)_both] origin-top motion-reduce:!animate-none',
+          )}
+        >
           {crews.length > 0 && (
             <div className="max-h-48 overflow-y-auto overscroll-contain">
               {crews.map((crew) => (
@@ -142,7 +143,7 @@ export default function CrewSelector({
                   )}
                 >
                   {crew.name}
-                  <span className="ml-2 text-xs text-text-muted">👥</span>
+                  <Users className="ml-2 w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
                 </button>
               ))}
             </div>

@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 /**
@@ -56,7 +57,7 @@ export default function TimelineLegend() {
           Crew pick — a friend in your crew also picked this set
         </li>
         <li className="flex items-center gap-2 text-xs leading-tight">
-          <span aria-hidden="true">⚠</span>
+          <AlertTriangle className="w-3.5 h-3.5 text-accent-amber" aria-hidden="true" />
           Schedule conflict with another of your picks
         </li>
         <li className="flex items-center gap-2 text-xs leading-tight">

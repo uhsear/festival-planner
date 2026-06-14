@@ -20,6 +20,13 @@ import {
   Map as MapIcon,
   List,
   Repeat,
+  Tent,
+  Crosshair,
+  Flag,
+  Moon,
+  AlertTriangle,
+  Bookmark,
+  Clock,
 } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import { inputBase } from '../../lib/styles';
@@ -41,12 +48,12 @@ const SWEEP_INTERVAL_MS = 15_000;
 
 // Server enum (lib/constants.js MEETING_POINT_TYPES) + user-facing metadata.
 const TYPES = [
-  { key: 'pre-show', emoji: '🎪', label: 'Pre-show' },
-  { key: 'during', emoji: '📍', label: 'During' },
-  { key: 'post-show', emoji: '🏁', label: 'Post-show' },
-  { key: 'post-event', emoji: '🌙', label: 'After' },
-  { key: 'emergency', emoji: '🚨', label: 'Emergency' },
-  { key: 'general', emoji: '🔖', label: 'General' },
+  { key: 'pre-show', Icon: Tent, label: 'Pre-show' },
+  { key: 'during', Icon: Crosshair, label: 'During' },
+  { key: 'post-show', Icon: Flag, label: 'Post-show' },
+  { key: 'post-event', Icon: Moon, label: 'After' },
+  { key: 'emergency', Icon: AlertTriangle, label: 'Emergency' },
+  { key: 'general', Icon: Bookmark, label: 'General' },
 ] as const;
 type TypeKey = (typeof TYPES)[number]['key'];
 
@@ -348,9 +355,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
                         : 'bg-bg-card border-border text-text-secondary hover:border-border-light'
                     }`}
                   >
-                    <span className="text-base leading-none" aria-hidden="true">
-                      {t.emoji}
-                    </span>
+                    <t.Icon className="w-4 h-4" aria-hidden="true" />
                     <span>{t.label}</span>
                   </button>
                 ))}
@@ -471,9 +476,10 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
                     className={`p-3 rounded-lg bg-bg-card border animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none ${isEmergency ? 'border-accent-coral' : 'border-border'}`}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl leading-none" aria-hidden="true">
-                        {meta.emoji}
-                      </span>
+                      <meta.Icon
+                        className={`w-5 h-5 shrink-0 mt-0.5 ${isEmergency ? 'text-accent-coral-strong' : 'text-text-secondary'}`}
+                        aria-hidden="true"
+                      />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-text-primary">{p.label}</span>
@@ -492,8 +498,9 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
                               {`Daily · ${meetingTimeDisplay(p.meet_at, true, festivalDays, new Date(), festivalTimeZone).label.replace(/^daily /, '')}`}
                             </div>
                           ) : (
-                            <div className="text-xs text-accent-aqua mt-1">
-                              ⏰ {new Date(p.meet_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                            <div className="text-xs text-accent-aqua mt-1 inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3" aria-hidden="true" />
+                              {new Date(p.meet_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                             </div>
                           ))}
                       </div>
