@@ -226,11 +226,11 @@ function SetCard({
       className={cn(
         // Keep CSS class names for container query selectors (Phase 4 cleanup)
         'set-card',
-        // Base styles — mobile glass card with an unconditional stage-colored
-        // left border (color set inline below). Softer radius + density.
+        // Base styles — mobile glass card. Stage identity is carried by the
+        // stage pill (not a left stripe, which reads as an AI tell). Softer
+        // radius + density.
         'relative bg-bg-card glass-xs border border-glass-border rounded-xl',
         'p-4 cursor-pointer overflow-hidden',
-        'border-l-4',
         // Transition + will-change — token-eased, reduce-motion safe.
         'transition-[background-color,box-shadow,transform] duration-200 ease-out will-change-transform',
         'motion-reduce:transition-none motion-reduce:transform-none',
@@ -255,7 +255,6 @@ function SetCard({
       )}
       style={
         {
-          borderLeftColor: ensureWhiteContrast(stageColor),
           // R12: CSS vars for radial spotlight gradient
           '--mx': spotlightPos.x,
           '--my': spotlightPos.y,

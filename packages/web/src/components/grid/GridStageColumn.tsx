@@ -76,7 +76,7 @@ function GridStageColumn({
             key={set.id}
             role="gridcell"
             className={cn(
-              'fk-grid__set absolute left-1 right-1 rounded-md border-l-[3px] py-[5px] px-[7px] pb-1',
+              'fk-grid__set absolute left-1 right-1 rounded-md py-[5px] px-[7px] pb-1',
               'cursor-pointer overflow-hidden flex flex-col gap-0.5 text-left',
               'transition-[filter,transform] duration-[120ms] ease-[ease]',
               'backdrop-blur-[2px]',
@@ -89,7 +89,6 @@ function GridStageColumn({
                 top,
                 height,
                 '--set-c': pc,
-                borderLeftColor: pc,
                 background: pick ? `color-mix(in srgb, ${pc} 28%, #0d0d1a)` : pc + '15',
               } as React.CSSProperties
             }

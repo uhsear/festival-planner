@@ -336,25 +336,6 @@
   background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(0, 232, 208, 0.08) 0%, transparent 60%);
 }
 
-@media (hover: hover) {
-  .crew-member-row::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--color-accent-aqua);
-    transform: scaleY(0);
-    transform-origin: top;
-    transition: transform 200ms ease-out;
-  }
-
-  .crew-member-row:hover::before {
-    transform: scaleY(1);
-  }
-}
-
 /* ── Stagelight type roles ───────────────────────────────────────────────
    Named roles bound to the existing px ramp. A "title" is 20px here and on
    RN (see @festie/shared typeRoles). Use these instead of ad-hoc text-[Npx].

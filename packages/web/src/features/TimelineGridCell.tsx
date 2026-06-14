@@ -65,7 +65,6 @@ function TimelineGridCell({
         'px-2 py-1 rounded-sm',
         'cursor-pointer overflow-hidden',
         'flex flex-col justify-center',
-        'border-l-[3px] border-l-transparent',
         'z-[2] opacity-[0.88]',
         // Press & hover feedback
         'transition-[transform,box-shadow] duration-150',
@@ -78,11 +77,9 @@ function TimelineGridCell({
         '[animation-delay:var(--tl-stagger,0ms)]',
         'motion-reduce:!animate-none motion-reduce:!transition-none',
         // Priority variants
-        myPick === 'must' &&
-          'border-l-[var(--color-priority-must)] shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
-        myPick === 'want-to-see' &&
-          'border-l-[var(--color-priority-want)] shadow-[inset_0_0_24px_var(--color-aqua-a12)]',
-        myPick === 'maybe' && 'border-l-[var(--color-priority-maybe)] shadow-[inset_0_0_24px_var(--color-amber-a12)]',
+        myPick === 'must' && 'shadow-[inset_0_0_24px_rgba(var(--accent-coral-rgb),0.12)]',
+        myPick === 'want-to-see' && 'shadow-[inset_0_0_24px_var(--color-aqua-a12)]',
+        myPick === 'maybe' && 'shadow-[inset_0_0_24px_var(--color-amber-a12)]',
         // Conflict indicator
         hasConflictActive && '!border-2 !border-[var(--color-accent-amber)] shadow-[0_0_8px_rgba(245,158,11,0.3)]',
       )}

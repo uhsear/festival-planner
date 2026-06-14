@@ -53,7 +53,7 @@ function FestivalModeViewInner() {
   // Low-power mode collapses the ambient aurora glow on the NOW hero (a
   // continuous keyframe loop) to save battery. The static gradient remains.
   const lowPowerMode = useFestivalModeStore((s) => s.lowPowerMode);
-  const { getStageName, getStageColor } = useFestival();
+  const { getStageName } = useFestival();
   const navigate = useNavigate();
 
   // 60s tick so Now/Next and countdowns refresh without reload. Matches legacy
@@ -149,8 +149,9 @@ function FestivalModeViewInner() {
                     'fm-card-enter motion-reduce:animate-none',
                     'block w-full text-left p-4 mb-2 cursor-pointer',
                     'bg-bg-card glass-xs border border-border rounded-xl',
-                    // 4px coral left border + faint coral wash flags the live set.
-                    'border-l-4 border-l-accent-coral bg-coral-ring',
+                    // Full coral ring + faint coral wash flags the live set
+                    // (a full ring, not a left stripe, to avoid the AI tell).
+                    'ring-1 ring-accent-coral/60 bg-coral-ring',
                     // Token-eased hover/press, reduce-motion safe.
                     'transition-[border-color,transform,background-color] duration-[var(--duration-med)] ease-[var(--ease-out)]',
                     'motion-reduce:transition-none',
@@ -193,7 +194,6 @@ function FestivalModeViewInner() {
           {upcoming.length > 0 ? (
             upcoming.map(({ set: s, start }) => {
               const stageName = getStageName(s.stageId) || '';
-              const stageColor = getStageColor(s.stageId);
               const mins = Math.round((start - now.getTime()) / 60_000);
               const imminent = mins <= IMMINENT_MIN;
               return (
@@ -201,17 +201,16 @@ function FestivalModeViewInner() {
                   key={s.id}
                   type="button"
                   className={cn(
-                    // Same signature glass surface as the NOW card; the left
-                    // border is stage-colored (set inline below) instead of coral.
+                    // Same signature glass surface as the NOW card. Stage is
+                    // conveyed by the stage name text, not a left stripe.
                     'fm-card-enter motion-reduce:animate-none',
                     'block w-full text-left p-4 mb-2 cursor-pointer',
-                    'bg-bg-card glass-xs border border-border rounded-xl border-l-4',
+                    'bg-bg-card glass-xs border border-border rounded-xl',
                     'transition-[border-color,transform,background-color] duration-[var(--duration-med)] ease-[var(--ease-out)]',
                     'motion-reduce:transition-none',
                     'hover:bg-bg-card-hover active:scale-[0.985] motion-reduce:active:scale-100',
                     'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2',
                   )}
-                  style={{ borderLeftColor: stageColor }}
                   data-testid="fm-next-card"
                   onClick={() => setDetailSet(s)}
                   aria-label={`${artistDisplayName(s, currentFestival.b2bSeparator)}${stageName ? ' at ' + stageName : ''} ${fmtCountdown(mins)}, open details`}

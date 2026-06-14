@@ -468,7 +468,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
                 return (
                   <div
                     key={p.id}
-                    className={`p-3 rounded-lg bg-bg-card border animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none ${isEmergency ? 'border-accent-coral border-l-4' : 'border-border'}`}
+                    className={`p-3 rounded-lg bg-bg-card border animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none ${isEmergency ? 'border-accent-coral' : 'border-border'}`}
                   >
                     <div className="flex items-start gap-3">
                       <span className="text-2xl leading-none" aria-hidden="true">

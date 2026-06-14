@@ -130,8 +130,7 @@ const useStyles = makeStyles((t) => ({
   },
   // Currently-playing: coral accent rail (matches festival-mode's nowCard).
   stripNow: {
-    borderLeftWidth: 3,
-    borderLeftColor: t.colors.accent.coral,
+    borderColor: t.colors.accent.coral,
     backgroundColor: t.colors.ring.coral,
   },
   labelCol: {

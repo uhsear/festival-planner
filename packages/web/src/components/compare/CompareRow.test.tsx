@@ -78,20 +78,15 @@ describe('CompareRow', () => {
   });
 
   it('renders other user pick when present', () => {
-    renderInTable(
-      <CompareRow
-        {...defaultProps}
-        others={[{ profileId: 'other', priority: 'maybe' }]}
-      />,
-    );
+    renderInTable(<CompareRow {...defaultProps} others={[{ profileId: 'other', priority: 'maybe' }]} />);
     expect(screen.getByText('Maybe')).toBeInTheDocument();
   });
 
-  it('applies stage color border', () => {
-    const { container } = renderInTable(<CompareRow {...defaultProps} />);
-    const th = container.querySelector('th');
-    // jsdom normalizes hex to rgb, so check for the rgb equivalent
-    expect(th!.style.borderLeft).toContain('solid');
-    expect(th!.style.borderLeft).toContain('3px');
+  it('shows the stage name in the stage color', () => {
+    // The stage cue is the stage-colored name (the old left-stripe was an AI
+    // tell and was removed). jsdom normalizes hex to rgb.
+    renderInTable(<CompareRow {...defaultProps} />);
+    const stageEl = screen.getByText('Main Stage');
+    expect(stageEl.style.color).toBe('rgb(255, 51, 102)');
   });
 });
