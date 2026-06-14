@@ -130,7 +130,7 @@ describe('invite-pages: renderInviteErrorPage', () => {
 
   it('contains the error title', () => {
     const html = renderInviteErrorPage('https://festie.us', 'Invite expired');
-    assert.ok(html.includes('Invalid or Expired'));
+    assert.ok(html.includes('Invite link invalid or expired'));
   });
 
   it('contains the error message', () => {
@@ -145,10 +145,7 @@ describe('invite-pages: renderInviteErrorPage', () => {
   });
 
   it('HTML-escapes the error message to prevent XSS', () => {
-    const html = renderInviteErrorPage(
-      'https://festie.us',
-      '<script>alert("xss")</script>',
-    );
+    const html = renderInviteErrorPage('https://festie.us', '<script>alert("xss")</script>');
     assert.ok(!html.includes('<script>alert("xss")</script>'));
     assert.ok(html.includes('&lt;script&gt;'));
   });

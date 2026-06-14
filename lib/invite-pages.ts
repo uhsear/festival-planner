@@ -172,7 +172,7 @@ export function renderInviteErrorPage(origin: any, message: any) {
   <div class="invite-container">
     <div class="invite-card">
       <div class="invite-error-icon">❌</div>
-      <div class="invite-error-title">Invalid or Expired</div>
+      <div class="invite-error-title">Invite link invalid or expired</div>
       <div class="invite-error-message">${escapeHtml(message)}</div>
       <div class="invite-footer">
         <a href="${origin}">Return to Festie</a>
