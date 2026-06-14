@@ -47,8 +47,17 @@ vi.mock('@festie/shared', () => {
     // ("daily <time>") so the component's `.replace(/^daily /, '')` yields the
     // time-of-day rendered after "Daily · ".
     meetingTimeDisplay: () => ({ label: 'daily 3:00 PM', recurring: true, next: null }),
+    resolveFestivalTimeZone: () => undefined,
   };
 });
+
+// MeetingPointsTab reads the festival timezone + days from the festival store to
+// render recurring-point badges in the festival frame. The list tests don't care
+// about the value, so a null festival / empty days is enough.
+vi.mock('@festie/shared/stores', () => ({
+  useFestivalStore: (selector: (s: { currentFestival: unknown; days: unknown[] }) => unknown) =>
+    selector({ currentFestival: null, days: [] }),
+}));
 
 vi.mock('../../lib/toastContext', () => ({
   useToast: () => ({ toast: vi.fn() }),

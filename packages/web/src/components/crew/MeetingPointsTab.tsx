@@ -1,7 +1,8 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, meetingTimeDisplay } from '@festie/shared';
+import { api, meetingTimeDisplay, resolveFestivalTimeZone } from '@festie/shared';
 import type { CrewMeetingPoint } from '@festie/shared/types';
+import { useFestivalStore } from '@festie/shared/stores';
 import { useLiveLocationStore } from '@festie/shared/stores/liveLocationStore';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
@@ -71,6 +72,11 @@ interface Props {
 export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  // Festival timezone + days so recurring-point badges render the meet time in
+  // the FESTIVAL frame (matching mobile), not the viewer's device zone.
+  const currentFestival = useFestivalStore((s) => s.currentFestival);
+  const festivalDays = useFestivalStore((s) => s.days);
+  const festivalTimeZone = resolveFestivalTimeZone(currentFestival);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
@@ -483,7 +489,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
                             // ("Daily · 3:00 PM") from the shared meetingTime helper.
                             <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-accent-aqua/15 px-2 py-0.5 text-xs font-medium text-accent-aqua">
                               <Repeat className="w-3 h-3" aria-hidden="true" />
-                              {`Daily · ${meetingTimeDisplay(p.meet_at, true).label.replace(/^daily /, '')}`}
+                              {`Daily · ${meetingTimeDisplay(p.meet_at, true, festivalDays, new Date(), festivalTimeZone).label.replace(/^daily /, '')}`}
                             </div>
                           ) : (
                             <div className="text-xs text-accent-aqua mt-1">

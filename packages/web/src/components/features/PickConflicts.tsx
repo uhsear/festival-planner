@@ -101,13 +101,19 @@ export default function PickConflicts() {
           const [a, b] = group.picks as [ConflictPick, ConflictPick];
           // a starts no later than b (picks are start-sorted). The non-overlap
           // head of a + the non-overlap tail of b is the realistic "catch both".
-          const headA = Math.max(0, Math.round((b.startMs - a.startMs) / 60000));
-          const tailB = Math.max(0, Math.round((b.endMs - a.endMs) / 60000));
-          const nameA = artistDisplayName(a.set, b2bSeparator);
-          const nameB = artistDisplayName(b.set, b2bSeparator);
-          splitHint = `Catch the first ~${fmtDuration(headA)} of ${nameA}, then the last ~${fmtDuration(
-            tailB,
-          )} of ${nameB}.`;
+          const headA = Math.round((b.startMs - a.startMs) / 60000);
+          const tailB = Math.round((b.endMs - a.endMs) / 60000);
+          // Only a STAGGERED overlap has a meaningful split. When one act
+          // contains or starts with the other (headA<=0 or tailB<=0) there's no
+          // clean "first of A then last of B" — omit the hint (the recommended
+          // "Keep" already guides the choice) rather than render a nonsensical ~0m.
+          if (headA > 0 && tailB > 0) {
+            const nameA = artistDisplayName(a.set, b2bSeparator);
+            const nameB = artistDisplayName(b.set, b2bSeparator);
+            splitHint = `Catch the first ~${fmtDuration(headA)} of ${nameA}, then the last ~${fmtDuration(
+              tailB,
+            )} of ${nameB}.`;
+          }
         }
 
         return (

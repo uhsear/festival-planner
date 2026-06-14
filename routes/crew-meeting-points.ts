@@ -204,7 +204,18 @@ export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
           return sendError(res, 403, 'Only the creator or crew owner can edit', ErrorCodes.FORBIDDEN);
         }
 
-        const updated = await stores.crews.meetingPoints.update(mpId, body);
+        // Recompute expiry from the EFFECTIVE (post-merge) meetAt + recurrence so an
+        // edit can't strand a stale expires_at. A recurring point must NEVER expire
+        // (else the expireStale() sweep deactivates it after its first occurrence);
+        // re-timing a one-shot point must move its expiry with it. Mirrors create.
+        const effMeetAt = (body.meetAt !== undefined ? body.meetAt : existing.meet_at) as string | null | undefined;
+        const effRecurs = body.recursDaily !== undefined ? body.recursDaily : existing.recurs_daily;
+        let expiresAt: string | null = null;
+        if (effMeetAt && !effRecurs) {
+          expiresAt = new Date(new Date(effMeetAt).getTime() + 30 * 60_000).toISOString();
+        }
+
+        const updated = await stores.crews.meetingPoints.update(mpId, { ...body, expiresAt });
         io.to('crew:' + crewId).emit('crew:meeting-point-updated', updated);
         return sendSuccess(res, { meetingPoint: updated });
       } catch (err) {
