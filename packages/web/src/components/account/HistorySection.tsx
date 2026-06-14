@@ -4,6 +4,7 @@ import { useAuthStore } from '@festie/shared/stores';
 import EmptyState from '../ui/EmptyState';
 import Skeleton from '../ui/Skeleton';
 import { History, Trophy, CalendarDays, Clock, Music } from 'lucide-react';
+import { RATING_META } from '../../lib/ratingIcon';
 
 // Server shape from GET /ratings/lifetime:
 //   { totals: { totalRated, avgRating, festivalsAttended, stagesVisited,
@@ -41,8 +42,6 @@ interface LifetimeResponse {
   byFestival: FestivalRow[];
   topArtists: TopArtist[];
 }
-
-const EMOJI: Record<number, string> = { 5: '🔥', 4: '😊', 3: '👍', 2: '🤔', 1: '👎' };
 
 /** Render a festival date span from the (string) start/end dates, degrading
  *  gracefully when one or both are missing. */
@@ -170,9 +169,10 @@ export default function HistorySection() {
                 key={a.artist}
                 className="flex items-center gap-3 py-2 border-b border-border last:border-b-0 first:pt-0 last:pb-0"
               >
-                <span className="text-lg" aria-hidden="true">
-                  {EMOJI[a.bestRating] ?? '🎵'}
-                </span>
+                {(() => {
+                  const Icon = RATING_META[a.bestRating]?.Icon ?? Music;
+                  return <Icon className="w-4 h-4 text-text-secondary flex-shrink-0" aria-hidden="true" />;
+                })()}
                 <span className="flex-1 text-sm text-text-primary truncate">{a.artist}</span>
                 <span className="text-xs text-text-muted">{a.timesRated > 1 ? `${a.timesRated}×` : ''}</span>
               </div>
