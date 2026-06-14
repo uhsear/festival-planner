@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { X } from 'lucide-react';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import type { FailedSyncItem } from '@festie/shared/stores/uiStore';
 import { timeAgo } from '@festie/shared/utils';
+import { useKeyboardTrap } from '../../hooks/useKeyboardTrap';
 import { cn } from '../../lib/utils';
 
 /**
@@ -50,6 +52,11 @@ export default function PendingSyncSheet({ onClose }: PendingSyncSheetProps) {
     if (failedSync.length === 0) onClose();
   }, [failedSync.length, onClose]);
 
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Focus-trap + Escape-to-close: this is the primary sync-recovery surface, so
+  // keyboard users must be able to operate and dismiss it.
+  useKeyboardTrap(panelRef, failedSync.length > 0, onClose);
+
   const handleRetryAll = () => {
     // Snapshot before mutating the store as we iterate.
     [...failedSync].forEach(retryItem);
@@ -59,13 +66,14 @@ export default function PendingSyncSheet({ onClose }: PendingSyncSheetProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[var(--z-modal)] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label="Changes that couldn't sync"
       onClick={onClose}
     >
       <div
+        ref={panelRef}
         className="w-full sm:max-w-md max-h-[80vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-bg-secondary border border-border-default shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -75,10 +83,10 @@ export default function PendingSyncSheet({ onClose }: PendingSyncSheetProps) {
           </h2>
           <button
             onClick={onClose}
-            className="text-text-secondary hover:text-text-primary transition-colors p-1"
+            className="text-text-secondary hover:text-text-primary transition-colors inline-flex items-center justify-center min-h-11 min-w-11 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
             aria-label="Close"
           >
-            ×
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -88,7 +96,7 @@ export default function PendingSyncSheet({ onClose }: PendingSyncSheetProps) {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-text-primary truncate">{item.label}</p>
                 <p className="text-xs text-text-secondary mt-0.5">
-                  <span className="text-accent-coral">{item.error}</span>
+                  <span className="text-[var(--color-text-danger)]">{item.error}</span>
                   <span className="mx-1">·</span>
                   {timeAgo(item.at)}
                 </p>
@@ -96,13 +104,13 @@ export default function PendingSyncSheet({ onClose }: PendingSyncSheetProps) {
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={() => retryItem(item)}
-                  className="text-xs font-bold px-2 py-1 rounded bg-accent-aqua/15 text-accent-aqua hover:bg-accent-aqua/25 min-h-[36px]"
+                  className="text-xs font-bold px-3 rounded bg-accent-aqua/15 text-accent-aqua hover:bg-accent-aqua/25 min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
                 >
                   Retry
                 </button>
                 <button
                   onClick={() => dismissFailedSync(item.clientId)}
-                  className="text-xs font-medium px-2 py-1 rounded text-text-secondary hover:text-text-primary min-h-[36px]"
+                  className="text-xs font-medium px-3 rounded text-text-secondary hover:text-text-primary min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
                 >
                   Dismiss
                 </button>
@@ -119,13 +127,13 @@ export default function PendingSyncSheet({ onClose }: PendingSyncSheetProps) {
         >
           <button
             onClick={() => clearFailedSync()}
-            className="text-xs font-medium px-3 py-2 rounded text-text-secondary hover:text-text-primary"
+            className="text-xs font-medium px-3 min-h-11 rounded text-text-secondary hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
           >
             Dismiss all
           </button>
           <button
             onClick={handleRetryAll}
-            className="text-xs font-bold px-3 py-2 rounded bg-accent-aqua/15 text-accent-aqua hover:bg-accent-aqua/25"
+            className="text-xs font-bold px-3 min-h-11 rounded bg-accent-aqua/15 text-accent-aqua hover:bg-accent-aqua/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua"
           >
             Retry all
           </button>
