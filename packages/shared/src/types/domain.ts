@@ -273,6 +273,18 @@ export interface CrewMeetingPoint {
   /** F4: captured GPS coords; null for legacy free-text meeting points. */
   latitude?: number | null;
   longitude?: number | null;
+  /**
+   * 055: when true the point repeats every festival day at `meet_at`'s
+   * time-of-day ("daily 3:00 PM"). Defaults false (one-shot). Optional because
+   * legacy list/create payloads predate the column. See utils/meetingTime.ts for
+   * resolving the next/each concrete occurrence for display.
+   */
+  recurs_daily?: boolean;
+  /** 055: backend also serializes expiry/update timestamps on the row. */
+  expires_at?: string | null;
+  updated_at?: string;
+  /** Joined creator username (present on the list endpoint, not on create/update). */
+  creator_name?: string;
   active: boolean;
   created_at: string;
   /** Client-only optimistic-offline flag (see CrewPoll._optimistic). */
@@ -287,6 +299,8 @@ export interface CreateCrewMeetingPointRequest {
   stageReference?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  /** 055: optional daily recurrence; omitted ⇒ server defaults to false (one-shot). */
+  recursDaily?: boolean;
 }
 
 export interface UpdateCrewMeetingPointRequest {
@@ -297,6 +311,8 @@ export interface UpdateCrewMeetingPointRequest {
   stageReference?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  /** 055: toggle daily recurrence on an existing point. */
+  recursDaily?: boolean;
 }
 
 /**
@@ -387,6 +403,16 @@ export interface CrewMemberStatus {
   target_meeting_point_id: string | null;
   eta_minutes: number | null;
   note: string | null;
+  /**
+   * 055: last-known OFFLINE presence breadcrumb (DOUBLE PRECISION) — NOT live
+   * GPS. Null when the member never captured a fix. Render with HONEST staleness
+   * derived from `location_captured_at` ("last seen near X, as of N ago"), never
+   * "live". `location_captured_at` is when the device stamped the fix (offline),
+   * distinct from `updated_at` (when the row last synced).
+   */
+  latitude?: number | null;
+  longitude?: number | null;
+  location_captured_at?: string | null;
   updated_at: string;
   // Joined member display fields (from the users table in listByCrew).
   username?: string;
@@ -406,6 +432,13 @@ export interface UpdateCrewMemberStatusRequest {
   targetMeetingPointId?: string | null;
   etaMinutes?: number | null;
   note?: string | null;
+  /**
+   * 055: optional last-known OFFLINE breadcrumb to persist with this status.
+   * OMIT entirely to leave the prior breadcrumb untouched (server COALESCEs).
+   * When `capturedAt` is omitted the server stamps `location_captured_at = now()`.
+   * NOT live GPS — captured (often offline) and delivered on the next signal blip.
+   */
+  position?: { lat: number; lng: number; capturedAt?: string } | null;
 }
 
 /**

@@ -377,6 +377,9 @@ export const meetingPointCreateSchema = z.object({
   // legacy free-text points omit these and keep NULL coords server-side.
   latitude: z.number().min(-90).max(90).optional().nullable(),
   longitude: z.number().min(-180).max(180).optional().nullable(),
+  // 055: optional daily recurrence — "regroup 3pm & 9pm at the tree" repeats each
+  // festival day. Omitted ⇒ a one-shot point (recurs_daily defaults FALSE).
+  recursDaily: z.boolean().optional(),
 });
 export type MeetingPointCreateInput = z.infer<typeof meetingPointCreateSchema>;
 
@@ -389,6 +392,8 @@ export const meetingPointUpdateSchema = z
     stageReference: z.string().max(100).optional().nullable(),
     latitude: z.number().min(-90).max(90).optional().nullable(),
     longitude: z.number().min(-180).max(180).optional().nullable(),
+    // 055: toggle daily recurrence on an existing point.
+    recursDaily: z.boolean().optional(),
   })
   .refine((d) => Object.keys(d).some((k) => (d as any)[k] !== undefined), {
     message: 'At least one field required',
@@ -667,12 +672,27 @@ export type PackingUpdateInput = z.infer<typeof packingUpdateSchema>;
 // live GPS. All fields optional/nullable so a member can post just a status,
 // just an ETA, or clear it. `status` is a small enum: 'on-my-way' | 'here' |
 // 'delayed' | null (clear). etaMinutes is bounded (0–1440 = up to a day).
+// 055: optional last-known LOCATION breadcrumb the member captured (often
+// OFFLINE) and that delivers on the next signal blip. NOT live GPS — the UI
+// renders it with honest staleness ("last seen near X, as of N ago"). lat/lng
+// are finite + hard-bounded; capturedAt is the ISO time the device stamped the
+// fix offline (the route defaults it to now() when a position arrives without
+// one). `.strip()` drops unknown keys a client tacks on.
+const crewStatusPosition = z
+  .object({
+    lat: z.number().finite().min(-90).max(90),
+    lng: z.number().finite().min(-180).max(180),
+    capturedAt: z.string().datetime().optional(),
+  })
+  .strip();
+
 export const crewStatusSchema = z
   .object({
     status: z.enum(['on-my-way', 'here', 'delayed']).optional().nullable(),
     targetMeetingPointId: z.string().trim().max(100).optional().nullable(),
     etaMinutes: z.number().int().min(0).max(1440).optional().nullable(),
     note: z.string().trim().max(280).optional().nullable(),
+    position: crewStatusPosition.optional().nullable(),
   })
   .refine((d) => Object.keys(d).length > 0, { message: 'At least one field required' });
 export type CrewStatusInput = z.infer<typeof crewStatusSchema>;

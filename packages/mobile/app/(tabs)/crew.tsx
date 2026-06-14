@@ -123,6 +123,7 @@ export default function CrewScreen() {
   const reformCrew = useCrewStore((s) => s.reformCrew);
 
   const currentFestival = useFestivalStore((s) => s.currentFestival);
+  const festivalDays = useFestivalStore((s) => s.days);
   const sets = useFestivalStore((s) => s.sets) as FestivalSet[];
   const festivals = useFestivalStore((s) => s.festivals);
   const loadFestivals = useFestivalStore((s) => s.loadFestivals);
@@ -1042,7 +1043,13 @@ export default function CrewScreen() {
 
           <SectionLabel>Meeting points</SectionLabel>
           <CrewStatus crewId={crew.id} currentUserId={user.id} />
-          <CrewMeetingPoints crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
+          <CrewMeetingPoints
+            crewId={crew.id}
+            currentUserId={user.id}
+            isOwner={isOwner}
+            festival={currentFestival}
+            days={festivalDays}
+          />
 
           <CrewHomeBase crewId={crew.id} location={crew.homeBaseLocation} time={crew.homeBaseTime} isOwner={isOwner} />
 

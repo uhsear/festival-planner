@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useCrewStore } from '@festie/shared/stores';
@@ -133,6 +133,10 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
           targetMeetingPointId: targetId || null,
           etaMinutes: eta != null && eta >= 0 ? Math.min(eta, 1440) : null,
           note: note.trim() || null,
+          // 055: persist the captured device fix as an OFFLINE presence breadcrumb
+          // (NOT live GPS). Omit when no fix was captured so the server COALESCEs —
+          // leaving any prior breadcrumb untouched.
+          ...(coords ? { position: { lat: coords.lat, lng: coords.lng } } : {}),
         },
         currentUserId,
       );
@@ -159,6 +163,12 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
     } finally {
       setBusy(false);
     }
+  };
+
+  // Open a crewmate's last-known breadcrumb in the device's maps app. This is
+  // the OFFLINE last-synced fix (never live), so it's an approximate pin only.
+  const openBreadcrumb = (lat: number, lng: number) => {
+    Linking.openURL(`https://maps.google.com/?q=${lat},${lng}`).catch(() => {});
   };
 
   const mine = statuses.find((s) => s.user_id === currentUserId && s.status);
@@ -358,6 +368,23 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
                   ) : null}
                   {/* Honest staleness — the cardinal rule. */}
                   <Text style={styles.staleness}>{formatStaleness(s.updated_at)}</Text>
+                  {/* 055: last-known OFFLINE breadcrumb (NOT live). Staleness is
+                      derived from location_captured_at, with an open-in-maps tap. */}
+                  {typeof s.latitude === 'number' && typeof s.longitude === 'number' ? (
+                    <TouchableOpacity
+                      style={styles.lastSeenRow}
+                      onPress={() => openBreadcrumb(s.latitude as number, s.longitude as number)}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Open ${isMe ? 'your' : s.name || s.username || 'crewmate'} last seen location in maps`}
+                    >
+                      <Ionicons name="location-outline" size={12} color={t.colors.accent.aqua} />
+                      <Text style={styles.lastSeenText} numberOfLines={1}>
+                        Last seen {formatStaleness(s.location_captured_at ?? s.updated_at).replace(/^as of /, '~')}
+                      </Text>
+                      <Ionicons name="open-outline" size={12} color={t.colors.accent.aqua} />
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
                 {isMe ? (
                   <TouchableOpacity
@@ -591,6 +618,17 @@ const useStyles = makeStyles((t) => ({
   staleness: {
     ...typeStyle('micro'),
     color: t.colors.text.muted,
+  },
+  lastSeenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    minHeight: 44, // WCAG 2.5.5 / Apple HIG tap target for the open-in-maps affordance
+  },
+  lastSeenText: {
+    ...typeStyle('micro'),
+    color: t.colors.accent.aqua,
+    flexShrink: 1,
   },
   clearText: {
     ...typeStyle('micro'),

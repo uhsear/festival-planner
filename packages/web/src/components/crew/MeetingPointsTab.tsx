@@ -1,13 +1,25 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@festie/shared';
+import { api, meetingTimeDisplay } from '@festie/shared';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useLiveLocationStore } from '@festie/shared/stores/liveLocationStore';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
 import Skeleton from '../ui/Skeleton';
-import { MapPin, Plus, Trash2, X, Navigation, Pencil, LocateFixed, Check, Map as MapIcon, List } from 'lucide-react';
+import {
+  MapPin,
+  Plus,
+  Trash2,
+  X,
+  Navigation,
+  Pencil,
+  LocateFixed,
+  Check,
+  Map as MapIcon,
+  List,
+  Repeat,
+} from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import { inputBase } from '../../lib/styles';
 import CrewStatus from './CrewStatus';
@@ -48,6 +60,7 @@ interface MeetingPointPayload {
   stageReference?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  recursDaily?: boolean;
 }
 
 interface Props {
@@ -65,6 +78,8 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   const [stageRef, setStageRef] = useState('');
   const [type, setType] = useState<TypeKey>('during');
   const [meetAt, setMeetAt] = useState('');
+  // 055: repeat this timed point every festival day at meet_at's time-of-day.
+  const [recursDaily, setRecursDaily] = useState(false);
   // F4: optional captured GPS coords. null = no coord (free-text only).
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
@@ -145,6 +160,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
     setStageRef('');
     setType('during');
     setMeetAt('');
+    setRecursDaily(false);
     setCoords(null);
     setLocating(false);
     setEditingId(null);
@@ -159,6 +175,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
     setType(p.type);
     // datetime-local wants "YYYY-MM-DDTHH:mm" in local time.
     setMeetAt(p.meet_at ? toLocalInput(p.meet_at) : '');
+    setRecursDaily(!!p.recurs_daily);
     setCoords(
       typeof p.latitude === 'number' && typeof p.longitude === 'number' ? { lat: p.latitude, lng: p.longitude } : null,
     );
@@ -209,6 +226,8 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
       // F4: send captured coords, or null to clear them on edit.
       latitude: coords ? coords.lat : null,
       longitude: coords ? coords.lng : null,
+      // 055: recurrence only applies to a timed point; clear it when no meet_at.
+      recursDaily: meetAt ? recursDaily : false,
     };
     if (editingId) {
       updatePoint.mutate({ id: editingId, payload });
@@ -366,6 +385,26 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
                 onChange={(e) => setMeetAt(e.target.value)}
               />
 
+              {/* 055: daily-recurrence toggle — only meaningful for a timed point.
+                  Aqua = selected (accent discipline); 44px target. */}
+              {meetAt && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={recursDaily}
+                  onClick={() => setRecursDaily((v) => !v)}
+                  className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium min-h-11 transition-colors ${
+                    recursDaily
+                      ? 'bg-accent-aqua/15 border-accent-aqua text-accent-aqua'
+                      : 'bg-bg-card border-border text-text-secondary hover:border-border-light'
+                  }`}
+                >
+                  <Repeat className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span className="flex-1 text-left">Repeats daily</span>
+                  {recursDaily && <Check className="w-4 h-4 shrink-0" aria-hidden="true" />}
+                </button>
+              )}
+
               {/* F4: optional GPS capture. Falls back to free-text on denial. */}
               <div className="flex items-center gap-2">
                 <Button
@@ -438,11 +477,19 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
                         {p.stage_reference && (
                           <div className="text-xs text-accent-aqua mt-0.5">Near {p.stage_reference}</div>
                         )}
-                        {p.meet_at && (
-                          <div className="text-xs text-accent-aqua mt-1">
-                            ⏰ {new Date(p.meet_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                          </div>
-                        )}
+                        {p.meet_at &&
+                          (p.recurs_daily ? (
+                            // 055: recurring point — show the daily time-of-day badge
+                            // ("Daily · 3:00 PM") from the shared meetingTime helper.
+                            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-accent-aqua/15 px-2 py-0.5 text-xs font-medium text-accent-aqua">
+                              <Repeat className="w-3 h-3" aria-hidden="true" />
+                              {`Daily · ${meetingTimeDisplay(p.meet_at, true).label.replace(/^daily /, '')}`}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-accent-aqua mt-1">
+                              ⏰ {new Date(p.meet_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                            </div>
+                          ))}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <IconButton

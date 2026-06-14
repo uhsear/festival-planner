@@ -718,6 +718,9 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
             // since the queued POST replays the same lat/lng (no reconciler change).
             latitude: request.latitude ?? null,
             longitude: request.longitude ?? null,
+            // 055: render recurrence immediately; the queued POST replays the same
+            // recursDaily so the reconciled server row matches (server defaults false).
+            recurs_daily: request.recursDaily ?? false,
             active: true,
             created_at: new Date().toISOString(),
             _optimistic: true,
@@ -781,6 +784,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
               ...(request.stageReference !== undefined ? { stage_reference: request.stageReference } : {}),
               ...(request.latitude !== undefined ? { latitude: request.latitude } : {}),
               ...(request.longitude !== undefined ? { longitude: request.longitude } : {}),
+              ...(request.recursDaily !== undefined ? { recurs_daily: request.recursDaily } : {}),
             };
             return merged;
           }),
@@ -799,6 +803,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
             stage_reference: request.stageReference ?? null,
             latitude: request.latitude ?? null,
             longitude: request.longitude ?? null,
+            recurs_daily: request.recursDaily ?? false,
             active: true,
             created_at: new Date().toISOString(),
             _optimistic: true,
@@ -1136,6 +1141,10 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     set((state) => {
       prevStatuses = state.crewStatuses;
       const mine = state.crewStatuses.find((s) => s.user_id === myUserId);
+      // 055: optimistically reflect the breadcrumb only when a position is
+      // supplied. Omitting `position` must leave the prior coords untouched
+      // (mirrors the server COALESCE) — so fall back to my existing row's values.
+      const pos = request.position;
       const merged: CrewMemberStatus = {
         crew_id: crewId,
         user_id: myUserId,
@@ -1143,6 +1152,9 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         target_meeting_point_id: request.targetMeetingPointId ?? null,
         eta_minutes: request.etaMinutes ?? null,
         note: request.note ?? null,
+        latitude: pos ? pos.lat : (mine?.latitude ?? null),
+        longitude: pos ? pos.lng : (mine?.longitude ?? null),
+        location_captured_at: pos ? (pos.capturedAt ?? nowIso) : (mine?.location_captured_at ?? null),
         updated_at: nowIso,
         // Preserve my joined display fields if I already had a row.
         username: mine?.username,
