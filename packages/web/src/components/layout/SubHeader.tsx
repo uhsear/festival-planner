@@ -127,7 +127,9 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           id="festival-select-input"
           className={cn(
             'festival-select',
-            'py-2 px-3.5 bg-bg-card border border-border rounded-full',
+            // min-h-[44px] guarantees the WCAG 2.5.5 / iOS 44px tap target on
+            // the trigger (the native option-row height stays UA-controlled).
+            'min-h-[44px] py-2 px-3.5 bg-bg-card border border-border rounded-full',
             'text-text-primary text-sm font-semibold cursor-pointer',
             // Responsive cap: reserve room for the label + sibling controls on
             // narrow phones (down to 320px) instead of a hard 220px that could
