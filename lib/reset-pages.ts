@@ -209,8 +209,8 @@ export function renderResetFormPage(token: any, origin: any, nonce: any) {
 
         // Success — redirect to login
         window.location.href = origin + '/login';
-      } catch (error) {
-        errorDiv.textContent = 'Network error: ' + error.message;
+      } catch {
+        errorDiv.textContent = 'Connection failed. Check your network and try again.';
         errorDiv.classList.add('show');
         submitBtn.disabled = false;
       }
@@ -287,7 +287,7 @@ export function renderResetErrorPage(message: any, nonce: any) {
   <div class="error-container">
     <div class="error-card">
       <div class="error-icon">❌</div>
-      <h1 class="error-title">Invalid Reset Link</h1>
+      <h1 class="error-title">Reset link invalid or expired</h1>
       <p class="error-message">${escapeHtml(message)}</p>
       <a href="/" class="error-link">Return to Festie</a>
     </div>

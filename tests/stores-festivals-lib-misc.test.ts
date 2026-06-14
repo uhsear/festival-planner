@@ -55,9 +55,7 @@ describe('lib/db/stores/festivals.js', () => {
       b2bSeparator: 'b2b',
       latitude: 25.76,
       longitude: -80.19,
-      stages: [
-        { id: 'stage-1', name: 'Main Stage', color: '#ff0000' },
-      ],
+      stages: [{ id: 'stage-1', name: 'Main Stage', color: '#ff0000' }],
       days: [
         {
           label: 'Day 1',
@@ -160,7 +158,13 @@ describe('lib/db/stores/festivals.js', () => {
 
   describe('create', () => {
     it('inserts festival with stages, days, and sets via transaction', async () => {
-      const festRow = { id: 'fest-1', name: 'Test Festival', location: 'Miami', createdAt: '2026-01-01', updatedAt: '2026-01-02' };
+      const festRow = {
+        id: 'fest-1',
+        name: 'Test Festival',
+        location: 'Miami',
+        createdAt: '2026-01-01',
+        updatedAt: '2026-01-02',
+      };
       // Transaction calls: BEGIN, INSERT festival, INSERT stages, INSERT days, INSERT sets, SELECT, COMMIT
       const { pool, client } = makeTransactionPool([
         { rows: [] }, // BEGIN
@@ -293,27 +297,29 @@ describe('lib/db/stores/festivals.js', () => {
 
     it('updates days (with pick/rating preservation) when provided', async () => {
       const { pool, client } = makeTransactionPool([
-        { rows: [] },  // BEGIN
-        { rows: [] },  // UPDATE festivals
-        { rows: [] },  // SELECT existing picks
-        { rows: [] },  // SELECT existing ratings
-        { rows: [] },  // DELETE ratings
-        { rows: [] },  // DELETE picks
-        { rows: [] },  // DELETE sets
-        { rows: [] },  // DELETE days
-        { rows: [] },  // INSERT days
-        { rows: [] },  // INSERT sets
+        { rows: [] }, // BEGIN
+        { rows: [] }, // UPDATE festivals
+        { rows: [] }, // SELECT existing picks
+        { rows: [] }, // SELECT existing ratings
+        { rows: [] }, // DELETE ratings
+        { rows: [] }, // DELETE picks
+        { rows: [] }, // DELETE sets
+        { rows: [] }, // DELETE days
+        { rows: [] }, // INSERT days
+        { rows: [] }, // INSERT sets
         { rows: [{ id: 'f1' }] }, // SELECT
-        { rows: [] },  // COMMIT
+        { rows: [] }, // COMMIT
       ]);
       const utils = { buildFestivalRecords: mock.fn() };
       const store = createFestivalsStore(pool, utils);
       await store.update('f1', {
-        days: [{
-          label: 'Day 1',
-          date: '2026-06-01',
-          sets: [{ id: 'set-1', artist: 'A', stageId: 's1', startTime: '14:00', endTime: '15:00' }],
-        }],
+        days: [
+          {
+            label: 'Day 1',
+            date: '2026-06-01',
+            sets: [{ id: 'set-1', artist: 'A', stageId: 's1', startTime: '14:00', endTime: '15:00' }],
+          },
+        ],
       });
       assert.ok(client.query.mock.calls.length >= 6, 'should have multiple queries for day replacement');
     });
@@ -350,20 +356,20 @@ describe('lib/db/stores/festivals.js', () => {
 
     it('replaces festivals with upserts', async () => {
       const { pool, client } = makeTransactionPool([
-        { rows: [] },  // BEGIN
-        { rows: [] },  // DELETE WHERE id NOT IN
-        { rows: [] },  // INSERT/upsert festival
-        { rows: [] },  // DELETE stages
-        { rows: [] },  // INSERT stages
-        { rows: [] },  // SELECT picks
-        { rows: [] },  // SELECT ratings
-        { rows: [] },  // DELETE ratings
-        { rows: [] },  // DELETE picks
-        { rows: [] },  // DELETE sets
-        { rows: [] },  // DELETE days
-        { rows: [] },  // INSERT days
-        { rows: [] },  // INSERT sets
-        { rows: [] },  // COMMIT
+        { rows: [] }, // BEGIN
+        { rows: [] }, // DELETE WHERE id NOT IN
+        { rows: [] }, // INSERT/upsert festival
+        { rows: [] }, // DELETE stages
+        { rows: [] }, // INSERT stages
+        { rows: [] }, // SELECT picks
+        { rows: [] }, // SELECT ratings
+        { rows: [] }, // DELETE ratings
+        { rows: [] }, // DELETE picks
+        { rows: [] }, // DELETE sets
+        { rows: [] }, // DELETE days
+        { rows: [] }, // INSERT days
+        { rows: [] }, // INSERT sets
+        { rows: [] }, // COMMIT
       ]);
       const utils = { buildFestivalRecords: mock.fn() };
       const store = createFestivalsStore(pool, utils);
@@ -388,12 +394,14 @@ describe('lib/db/stores/festivals.js', () => {
       ]);
       const utils = { buildFestivalRecords: mock.fn() };
       const store = createFestivalsStore(pool, utils);
-      await store.replaceAll([{
-        id: 'f1',
-        name: 'Fest',
-        stages: [],
-        days: [],
-      }]);
+      await store.replaceAll([
+        {
+          id: 'f1',
+          name: 'Fest',
+          stages: [],
+          days: [],
+        },
+      ]);
       // The upsert call should have auto-generated timestamps
       const upsertCall = client.query.mock.calls.find(
         (c: any) => typeof c.arguments[0] === 'string' && c.arguments[0].includes('INSERT INTO festivals'),
@@ -576,8 +584,16 @@ describe('lib/socket-setup.js — allowRequest coverage', async () => {
   const toClose: any[] = [];
   afterEach(() => {
     for (const r of toClose) {
-      try { r.io.close(); } catch { /* ignore */ }
-      try { r.server.close(); } catch { /* ignore */ }
+      try {
+        r.io.close();
+      } catch {
+        /* ignore */
+      }
+      try {
+        r.server.close();
+      } catch {
+        /* ignore */
+      }
     }
     toClose.length = 0;
   });
@@ -860,11 +876,7 @@ describe('lib/sentry.js — additional coverage', () => {
 // 5. lib/reset-pages.js — full coverage
 // ---------------------------------------------------------------------------
 describe('lib/reset-pages.js', async () => {
-  const {
-    renderResetFormPage,
-    renderResetErrorPage,
-    escapeHtml,
-  } = await import('../lib/reset-pages.js');
+  const { renderResetFormPage, renderResetErrorPage, escapeHtml } = await import('../lib/reset-pages.js');
 
   describe('escapeHtml (re-exported from sanitize)', () => {
     it('escapes ampersands', () => {
@@ -971,9 +983,9 @@ describe('lib/reset-pages.js', async () => {
       assert.ok(html.includes('Token &lt;expired&gt; &amp; invalid'));
     });
 
-    it('includes title "Invalid Reset Link"', () => {
+    it('includes title "Reset link invalid or expired"', () => {
       const html = renderResetErrorPage('msg', 'nonce');
-      assert.ok(html.includes('Invalid Reset Link'));
+      assert.ok(html.includes('Reset link invalid or expired'));
     });
 
     it('includes a return link', () => {
@@ -1074,8 +1086,12 @@ describe('lib/swagger-ui-setup.js', () => {
     // Simulate Express res
     let sentHtml = '';
     const res = {
-      type: mock.fn(function (this: any) { return this; }),
-      send: mock.fn((html: any) => { sentHtml = html; }),
+      type: mock.fn(function (this: any) {
+        return this;
+      }),
+      send: mock.fn((html: any) => {
+        sentHtml = html;
+      }),
     };
 
     handler({}, res);
@@ -1111,7 +1127,9 @@ describe('routes/spotify.js', () => {
       log: { info: mock.fn(), warn: mock.fn(), error: mock.fn(), debug: mock.fn() },
       rateLimit: () => (req: any, res: any, next: any) => next(),
       sendSuccess: mock.fn((res: any, data: any) => res.json({ data, error: null })),
-      sendError: mock.fn((res: any, status: any, message: any, code: any) => res.status(status).json({ data: null, error: { message, status, code: code || 'ERROR' } })),
+      sendError: mock.fn((res: any, status: any, message: any, code: any) =>
+        res.status(status).json({ data: null, error: { message, status, code: code || 'ERROR' } }),
+      ),
       ErrorCodes: { NOT_FOUND: 'NOT_FOUND', INTERNAL_ERROR: 'INTERNAL_ERROR' },
       stores: {
         pool: makePool(),
@@ -1131,7 +1149,14 @@ describe('routes/spotify.js', () => {
     const deps = makeDeps({
       stores: {
         pool: makePool([
-          { rows: [{ id: 'set-1', artists: [{ name: 'Artist', links: { spotify: 'https://open.spotify.com/artist/abc123' } }] }] },
+          {
+            rows: [
+              {
+                id: 'set-1',
+                artists: [{ name: 'Artist', links: { spotify: 'https://open.spotify.com/artist/abc123' } }],
+              },
+            ],
+          },
         ]),
       },
     });
@@ -1142,13 +1167,15 @@ describe('routes/spotify.js', () => {
       ok: true,
       json: async () => ({
         tracks: {
-          items: [{
-            id: 't1',
-            name: 'Track 1',
-            preview_url: 'https://preview.url',
-            album: { images: [{ url: 'https://album.art' }] },
-            artists: [{ id: 'abc123', name: 'Artist' }],
-          }],
+          items: [
+            {
+              id: 't1',
+              name: 'Track 1',
+              preview_url: 'https://preview.url',
+              album: { images: [{ url: 'https://album.art' }] },
+              artists: [{ id: 'abc123', name: 'Artist' }],
+            },
+          ],
         },
       }),
     })) as any;
@@ -1160,13 +1187,15 @@ describe('routes/spotify.js', () => {
       const req1 = { params: { setId: 'set-1' } };
       let sentData1: any;
       const res1 = {
-        json: mock.fn((d: any) => { sentData1 = d; }),
-        status: mock.fn(function (this: any) { return this; }),
+        json: mock.fn((d: any) => {
+          sentData1 = d;
+        }),
+        status: mock.fn(function (this: any) {
+          return this;
+        }),
       };
       // Find the route handler
-      const layer = router.stack.find(
-        (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-      );
+      const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
       assert.ok(layer, 'should have /spotify/preview/:setId route');
 
       const handler = layer.route.stack[layer.route.stack.length - 1].handle;
@@ -1177,8 +1206,12 @@ describe('routes/spotify.js', () => {
       const req2 = { params: { setId: 'set-1' } };
       let sentData2: any;
       const res2 = {
-        json: mock.fn((d: any) => { sentData2 = d; }),
-        status: mock.fn(function (this: any) { return this; }),
+        json: mock.fn((d: any) => {
+          sentData2 = d;
+        }),
+        status: mock.fn(function (this: any) {
+          return this;
+        }),
       };
       await handler(req2, res2);
       assert.equal(deps.sendSuccess.mock.calls.length, 2);
@@ -1195,15 +1228,15 @@ describe('routes/spotify.js', () => {
     });
     const router = createSpotifyRoutes(deps);
 
-    const layer = router.stack.find(
-      (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-    );
+    const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
     const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
     const req = { params: { setId: 'nonexistent' } };
     const res = {
       json: mock.fn(),
-      status: mock.fn(function (this: any) { return this; }),
+      status: mock.fn(function (this: any) {
+        return this;
+      }),
     };
     await handler(req, res);
     assert.equal(deps.sendError.mock.calls.length, 1);
@@ -1218,15 +1251,15 @@ describe('routes/spotify.js', () => {
     });
     const router = createSpotifyRoutes(deps);
 
-    const layer = router.stack.find(
-      (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-    );
+    const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
     const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
     const req = { params: { setId: 'set-no-artists' } };
     const res = {
       json: mock.fn(),
-      status: mock.fn(function (this: any) { return this; }),
+      status: mock.fn(function (this: any) {
+        return this;
+      }),
     };
     await handler(req, res);
     assert.equal(deps.sendSuccess.mock.calls.length, 1);
@@ -1237,22 +1270,24 @@ describe('routes/spotify.js', () => {
   it('returns embedType null when no artist has spotify link', async () => {
     const deps = makeDeps({
       stores: {
-        pool: makePool([{
-          rows: [{ id: 'set-1', artists: [{ name: 'No Spotify', links: {} }] }],
-        }]),
+        pool: makePool([
+          {
+            rows: [{ id: 'set-1', artists: [{ name: 'No Spotify', links: {} }] }],
+          },
+        ]),
       },
     });
     const router = createSpotifyRoutes(deps);
 
-    const layer = router.stack.find(
-      (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-    );
+    const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
     const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
     const req = { params: { setId: 'set-no-spotify' } };
     const res = {
       json: mock.fn(),
-      status: mock.fn(function (this: any) { return this; }),
+      status: mock.fn(function (this: any) {
+        return this;
+      }),
     };
     await handler(req, res);
     assert.equal(deps.sendSuccess.mock.calls.length, 1);
@@ -1263,12 +1298,16 @@ describe('routes/spotify.js', () => {
   it('falls back to artist embed when search returns no tracks', async () => {
     const deps = makeDeps({
       stores: {
-        pool: makePool([{
-          rows: [{
-            id: 'set-fb',
-            artists: [{ name: 'Fallback Artist', links: { spotify: 'https://open.spotify.com/artist/xyz789' } }],
-          }],
-        }]),
+        pool: makePool([
+          {
+            rows: [
+              {
+                id: 'set-fb',
+                artists: [{ name: 'Fallback Artist', links: { spotify: 'https://open.spotify.com/artist/xyz789' } }],
+              },
+            ],
+          },
+        ]),
       },
     });
 
@@ -1280,15 +1319,15 @@ describe('routes/spotify.js', () => {
 
     try {
       const router = createSpotifyRoutes(deps);
-      const layer = router.stack.find(
-        (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-      );
+      const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
       const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
       const req = { params: { setId: 'set-fb' } };
       const res = {
         json: mock.fn(),
-        status: mock.fn(function (this: any) { return this; }),
+        status: mock.fn(function (this: any) {
+          return this;
+        }),
       };
       await handler(req, res);
       assert.equal(deps.sendSuccess.mock.calls.length, 1);
@@ -1303,12 +1342,16 @@ describe('routes/spotify.js', () => {
   it('falls back to artist embed when search response is not ok', async () => {
     const deps = makeDeps({
       stores: {
-        pool: makePool([{
-          rows: [{
-            id: 'set-err',
-            artists: [{ name: 'Err Artist', links: { spotify: 'https://open.spotify.com/artist/err123' } }],
-          }],
-        }]),
+        pool: makePool([
+          {
+            rows: [
+              {
+                id: 'set-err',
+                artists: [{ name: 'Err Artist', links: { spotify: 'https://open.spotify.com/artist/err123' } }],
+              },
+            ],
+          },
+        ]),
       },
     });
 
@@ -1324,15 +1367,15 @@ describe('routes/spotify.js', () => {
 
     try {
       const router = createSpotifyRoutes(deps);
-      const layer = router.stack.find(
-        (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-      );
+      const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
       const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
       const req = { params: { setId: 'set-err' } };
       const res = {
         json: mock.fn(),
-        status: mock.fn(function (this: any) { return this; }),
+        status: mock.fn(function (this: any) {
+          return this;
+        }),
       };
       await handler(req, res);
       assert.equal(deps.sendSuccess.mock.calls.length, 1);
@@ -1347,20 +1390,22 @@ describe('routes/spotify.js', () => {
     const deps = makeDeps({
       stores: {
         pool: {
-          query: mock.fn(async () => { throw new Error('db fail'); }),
+          query: mock.fn(async () => {
+            throw new Error('db fail');
+          }),
         },
       },
     });
     const router = createSpotifyRoutes(deps);
-    const layer = router.stack.find(
-      (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-    );
+    const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
     const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
     const req = { params: { setId: 'set-fail' } };
     const res = {
       json: mock.fn(),
-      status: mock.fn(function (this: any) { return this; }),
+      status: mock.fn(function (this: any) {
+        return this;
+      }),
     };
     await handler(req, res);
     assert.equal(deps.sendError.mock.calls.length, 1);
@@ -1378,15 +1423,15 @@ describe('routes/spotify.js', () => {
       },
     });
     const router = createSpotifyRoutes(deps);
-    const layer = router.stack.find(
-      (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-    );
+    const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
     const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
     const req = { params: { setId: 'set-evict' } };
     const res = {
       json: mock.fn(),
-      status: mock.fn(function (this: any) { return this; }),
+      status: mock.fn(function (this: any) {
+        return this;
+      }),
     };
     await handler(req, res);
     assert.equal(deps.sendSuccess.mock.calls.length, 1);
@@ -1395,12 +1440,16 @@ describe('routes/spotify.js', () => {
   it('track embed includes all expected fields', async () => {
     const deps = makeDeps({
       stores: {
-        pool: makePool([{
-          rows: [{
-            id: 'set-track',
-            artists: [{ name: 'Track Artist', links: { spotify: 'https://open.spotify.com/artist/trk456' } }],
-          }],
-        }]),
+        pool: makePool([
+          {
+            rows: [
+              {
+                id: 'set-track',
+                artists: [{ name: 'Track Artist', links: { spotify: 'https://open.spotify.com/artist/trk456' } }],
+              },
+            ],
+          },
+        ]),
       },
     });
 
@@ -1409,28 +1458,30 @@ describe('routes/spotify.js', () => {
       ok: true,
       json: async () => ({
         tracks: {
-          items: [{
-            id: 'track-1',
-            name: 'Great Track',
-            preview_url: 'https://p.scdn.co/preview.mp3',
-            album: { images: [{ url: 'https://art.jpg' }] },
-            artists: [{ id: 'trk456', name: 'Track Artist' }],
-          }],
+          items: [
+            {
+              id: 'track-1',
+              name: 'Great Track',
+              preview_url: 'https://p.scdn.co/preview.mp3',
+              album: { images: [{ url: 'https://art.jpg' }] },
+              artists: [{ id: 'trk456', name: 'Track Artist' }],
+            },
+          ],
         },
       }),
     })) as any;
 
     try {
       const router = createSpotifyRoutes(deps);
-      const layer = router.stack.find(
-        (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-      );
+      const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
       const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
       const req = { params: { setId: 'set-track' } };
       const res = {
         json: mock.fn(),
-        status: mock.fn(function (this: any) { return this; }),
+        status: mock.fn(function (this: any) {
+          return this;
+        }),
       };
       await handler(req, res);
       assert.equal(deps.sendSuccess.mock.calls.length, 1);
@@ -1448,12 +1499,16 @@ describe('routes/spotify.js', () => {
   it('track embed falls back when track has no album art', async () => {
     const deps = makeDeps({
       stores: {
-        pool: makePool([{
-          rows: [{
-            id: 'set-noart',
-            artists: [{ name: 'No Art', links: { spotify: 'https://open.spotify.com/artist/na789' } }],
-          }],
-        }]),
+        pool: makePool([
+          {
+            rows: [
+              {
+                id: 'set-noart',
+                artists: [{ name: 'No Art', links: { spotify: 'https://open.spotify.com/artist/na789' } }],
+              },
+            ],
+          },
+        ]),
       },
     });
 
@@ -1462,28 +1517,30 @@ describe('routes/spotify.js', () => {
       ok: true,
       json: async () => ({
         tracks: {
-          items: [{
-            id: 'track-noart',
-            name: 'No Art Track',
-            preview_url: null,
-            album: { images: [] },
-            artists: [{ id: 'na789', name: 'No Art' }],
-          }],
+          items: [
+            {
+              id: 'track-noart',
+              name: 'No Art Track',
+              preview_url: null,
+              album: { images: [] },
+              artists: [{ id: 'na789', name: 'No Art' }],
+            },
+          ],
         },
       }),
     })) as any;
 
     try {
       const router = createSpotifyRoutes(deps);
-      const layer = router.stack.find(
-        (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-      );
+      const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
       const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
       const req = { params: { setId: 'set-noart' } };
       const res = {
         json: mock.fn(),
-        status: mock.fn(function (this: any) { return this; }),
+        status: mock.fn(function (this: any) {
+          return this;
+        }),
       };
       await handler(req, res);
       assert.equal(deps.sendSuccess.mock.calls.length, 1);
@@ -1498,12 +1555,16 @@ describe('routes/spotify.js', () => {
   it('prefers track with preview_url over one without', async () => {
     const deps = makeDeps({
       stores: {
-        pool: makePool([{
-          rows: [{
-            id: 'set-pref',
-            artists: [{ name: 'Pref', links: { spotify: 'https://open.spotify.com/artist/pref1' } }],
-          }],
-        }]),
+        pool: makePool([
+          {
+            rows: [
+              {
+                id: 'set-pref',
+                artists: [{ name: 'Pref', links: { spotify: 'https://open.spotify.com/artist/pref1' } }],
+              },
+            ],
+          },
+        ]),
       },
     });
 
@@ -1534,15 +1595,15 @@ describe('routes/spotify.js', () => {
 
     try {
       const router = createSpotifyRoutes(deps);
-      const layer = router.stack.find(
-        (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-      );
+      const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
       const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
       const req = { params: { setId: 'set-pref' } };
       const res = {
         json: mock.fn(),
-        status: mock.fn(function (this: any) { return this; }),
+        status: mock.fn(function (this: any) {
+          return this;
+        }),
       };
       await handler(req, res);
       const data = (deps.sendSuccess.mock.calls[0]! as any).arguments[1];
@@ -1555,12 +1616,16 @@ describe('routes/spotify.js', () => {
   it('filters tracks by matching artist name (case insensitive)', async () => {
     const deps = makeDeps({
       stores: {
-        pool: makePool([{
-          rows: [{
-            id: 'set-filter',
-            artists: [{ name: 'Correct Artist', links: { spotify: 'https://open.spotify.com/artist/ca1' } }],
-          }],
-        }]),
+        pool: makePool([
+          {
+            rows: [
+              {
+                id: 'set-filter',
+                artists: [{ name: 'Correct Artist', links: { spotify: 'https://open.spotify.com/artist/ca1' } }],
+              },
+            ],
+          },
+        ]),
       },
     });
 
@@ -1591,15 +1656,15 @@ describe('routes/spotify.js', () => {
 
     try {
       const router = createSpotifyRoutes(deps);
-      const layer = router.stack.find(
-        (l: any) => l.route && l.route.path === '/spotify/preview/:setId',
-      );
+      const layer = router.stack.find((l: any) => l.route && l.route.path === '/spotify/preview/:setId');
       const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
       const req = { params: { setId: 'set-filter' } };
       const res = {
         json: mock.fn(),
-        status: mock.fn(function (this: any) { return this; }),
+        status: mock.fn(function (this: any) {
+          return this;
+        }),
       };
       await handler(req, res);
       const data = (deps.sendSuccess.mock.calls[0]! as any).arguments[1];
