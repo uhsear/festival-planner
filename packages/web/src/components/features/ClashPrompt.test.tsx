@@ -34,7 +34,7 @@ describe('ClashPrompt', () => {
     const conflict = makeSet({ id: 'c1', artist: 'DJ Snake', startTime: '20:30', endTime: '21:30' });
     render(<ClashPrompt currentSet={current} conflicts={[conflict]} onClear={vi.fn()} />);
     // Anchors on the later start (20:30 -> 8:30 PM).
-    expect(screen.getByText(/2 acts at 8:30 PM — keep one/)).toBeInTheDocument();
+    expect(screen.getByText(/2 acts at 8:30 PM: keep one/)).toBeInTheDocument();
     expect(screen.getByText(/Headliner and DJ Snake overlap/)).toBeInTheDocument();
   });
 
