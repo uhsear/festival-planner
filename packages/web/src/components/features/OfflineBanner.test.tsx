@@ -70,7 +70,7 @@ describe('OfflineBanner', () => {
   it('renders offline banner when offlineMode is true', () => {
     setStoreState({ offlineMode: true });
     render(<OfflineBanner />);
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeInTheDocument();
     expect(screen.getByText(/offline/i)).toBeInTheDocument();
   });
 
@@ -103,7 +103,7 @@ describe('OfflineBanner', () => {
     setStoreState({ offlineMode: true });
     render(<OfflineBanner />);
     await user.click(screen.getByLabelText('Dismiss offline notice'));
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('shows Flush Now button during syncing state', () => {
@@ -118,11 +118,11 @@ describe('OfflineBanner', () => {
     expect(screen.queryByLabelText('Dismiss offline notice')).not.toBeInTheDocument();
   });
 
-  it('has role=alert and aria-live=polite', () => {
+  it('has role=status and aria-live=polite (polite connectivity banner, not an assertive alert)', () => {
     setStoreState({ offlineMode: true });
     render(<OfflineBanner />);
-    const alert = screen.getByRole('alert');
-    expect(alert).toHaveAttribute('aria-live', 'polite');
+    const banner = screen.getByRole('status');
+    expect(banner).toHaveAttribute('aria-live', 'polite');
   });
 
   // ── FAILED state ────────────────────────────────────────────────

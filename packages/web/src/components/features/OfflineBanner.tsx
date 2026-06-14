@@ -89,7 +89,7 @@ export default function OfflineBanner() {
           tone,
           'backdrop-blur-xl',
         )}
-        role="alert"
+        role="status"
         aria-live="polite"
       >
         <div className="flex items-center gap-3 min-w-0">

@@ -112,7 +112,9 @@ function CompareViewInner() {
           <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-text-muted">
-                <th className="sticky left-0 bg-bg-primary z-10 py-2 pr-3 min-w-[180px]">Set</th>
+                <th scope="col" className="sticky left-0 bg-bg-primary z-10 py-2 pr-3 min-w-[180px]">
+                  Set
+                </th>
                 {columns.map((c) => (
                   <CompareColumn key={c.id} id={c.id} name={c.name} isMe={c.isMe} />
                 ))}
