@@ -45,19 +45,19 @@ describe('GuestTeaser', () => {
 
     it('renders the crew description', () => {
       render(<GuestTeaser mode="crew" />);
-      expect(screen.getByText(/Create a crew, invite friends/)).toBeInTheDocument();
+      expect(screen.getByText(/Invite friends, compare picks/)).toBeInTheDocument();
     });
   });
 
   describe('grid mode', () => {
     it('renders the grid title', () => {
       render(<GuestTeaser mode="grid" />);
-      expect(screen.getByText('See the whole schedule at a glance')).toBeInTheDocument();
+      expect(screen.getByText('See every stage at once')).toBeInTheDocument();
     });
 
     it('renders the grid description', () => {
       render(<GuestTeaser mode="grid" />);
-      expect(screen.getByText(/Grid view shows every stage/)).toBeInTheDocument();
+      expect(screen.getByText(/The grid shows every stage/)).toBeInTheDocument();
     });
   });
 

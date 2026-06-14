@@ -13,22 +13,20 @@ const CONFIG: Record<GuestTeaserProps['mode'], { Icon: LucideIcon; title: string
     picks: {
       Icon: Star,
       title: 'Save your festival picks',
-      description:
-        'Sign in to mark artists as Must See, Want to See, or Maybe — sync across devices and share with your crew.',
+      description: 'Sign in to mark Must See, Want to See, or Maybe picks and share them with your crew.',
       cta: 'Sign Up Free',
     },
     crew: {
       Icon: Users,
       title: 'Plan with your crew',
-      description:
-        'Create a crew, invite friends, compare picks, and find sets you all want to see. Sign up to get started.',
+      description: 'Invite friends, compare picks, and find sets you all want to see.',
       cta: 'Sign Up Free',
     },
     grid: {
       Icon: Clock,
-      title: 'See the whole schedule at a glance',
+      title: 'See every stage at once',
       description:
-        'Grid view shows every stage and set across the festival. Sign in to track conflicts and plan your day.',
+        'The grid shows every stage and set across the festival. Sign in to track conflicts and plan your day.',
       cta: 'Sign Up Free',
     },
   };
