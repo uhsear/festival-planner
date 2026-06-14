@@ -54,6 +54,18 @@ describe('getAvatarColor', () => {
     expect(light).toBeGreaterThanOrEqual(46);
     expect(light).toBeLessThanOrEqual(55);
   });
+
+  it('never lands in the brand-accent hue bands (aqua ~160-205, coral ~335-20)', () => {
+    // Exhaustive sweep over many names; no generated hue may collide with the
+    // aqua primary or coral danger accent, so avatars never compete with them.
+    for (let i = 0; i < 2000; i++) {
+      const color = getAvatarColor(`sweep-${i}-user`);
+      const hue = parseInt(color.match(/hsl\((\d+) /)![1]!, 10);
+      expect(hue).toBeGreaterThanOrEqual(21);
+      expect(hue).toBeLessThanOrEqual(334);
+      expect(hue < 160 || hue > 205, `hue ${hue} fell in the aqua band`).toBe(true);
+    }
+  });
 });
 
 describe('getInitials', () => {

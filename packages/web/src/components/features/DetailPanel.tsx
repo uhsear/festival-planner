@@ -235,14 +235,14 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     >
       <Drawer.Portal>
         {/* R4: scrim rgba(0,0,0,0.6) per spec (was bg-black/50 = 0.5) */}
-        <Drawer.Overlay className="fixed inset-0 z-[999] bg-[rgba(0,0,0,0.6)]" />
+        <Drawer.Overlay className="fixed inset-0 z-[var(--z-overlay)] bg-[rgba(0,0,0,0.6)]" />
         {/* R4: glassmorphic surface — rgba(29,29,29,0.82) + blur(20px) +
             1px rgba(255,255,255,0.08) border + inset top highlight.
             Radii: 24px top-corners on mobile sheet, 16px full on lg dialog.
             detail-glass utility owns all four glass properties; rounded-* owns radii. */}
         <Drawer.Content
           aria-label="Set detail panel"
-          className="fixed bottom-0 inset-x-0 z-[1000] max-h-[min(90dvh,calc(100dvh-32px))] flex flex-col
+          className="fixed bottom-0 inset-x-0 z-[var(--z-modal)] max-h-[min(90dvh,calc(100dvh-32px))] flex flex-col
                      rounded-tl-[24px] rounded-tr-[24px] detail-glass outline-none
                      lg:bottom-auto lg:inset-x-auto lg:top-1/2 lg:left-1/2
                      lg:-translate-x-1/2 lg:-translate-y-1/2
@@ -271,7 +271,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
             </button>
           )}
           <button
-            className="absolute top-4 right-4 w-11 h-11 min-w-11 min-h-11 rounded-full bg-bg-card border border-border-light flex items-center justify-center text-text-secondary text-lg cursor-pointer transition-[background-color,color,border-color] duration-200 ease-[var(--ease-standard)] hover:bg-accent-coral hover:text-text-on-accent hover:border-accent-coral focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua z-10"
+            className="absolute top-4 right-4 w-11 h-11 min-w-11 min-h-11 rounded-full bg-bg-card border border-border-light flex items-center justify-center text-text-secondary text-lg cursor-pointer transition-[background-color,color,border-color] duration-200 ease-[var(--ease-standard)] hover:bg-accent-coral-strong hover:text-text-on-accent hover:border-accent-coral-strong focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua z-10"
             type="button"
             aria-label="Close detail panel"
             onClick={onClose}

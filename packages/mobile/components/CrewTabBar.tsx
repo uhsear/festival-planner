@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { duration, easing } from '@festie/shared/tokens';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 
@@ -36,8 +37,9 @@ interface CrewTabBarProps {
  * the badges (open polls / unsettled balance), matching the web pattern.
  *
  * R14: A 2px aqua sliding indicator bar sits above the active tab pill.
- * Reanimated withSpring/withTiming drives translateX + width on the UI thread
- * at 60/120 FPS. Under reduce-motion both values jump instantly (duration 0).
+ * Reanimated withTiming (exponential ease-out, no spring overshoot) drives
+ * translateX + width on the UI thread. Under reduce-motion both values jump
+ * instantly (duration 0).
  * Tab x/width are measured via onLayout callbacks so the indicator is accurate
  * regardless of label length or badge presence.
  */
@@ -61,8 +63,9 @@ export default function CrewTabBar({ activeTab, onTabChange, badges }: CrewTabBa
       indicatorX.value = withTiming(layout.x, { duration: 0 });
       indicatorW.value = withTiming(layout.width, { duration: 0 });
     } else {
-      indicatorX.value = withSpring(layout.x, { stiffness: 180, damping: 20 });
-      indicatorW.value = withSpring(layout.width, { stiffness: 180, damping: 20 });
+      const cfg = { duration: duration.med, easing: Easing.bezier(...easing.out.bezier) };
+      indicatorX.value = withTiming(layout.x, cfg);
+      indicatorW.value = withTiming(layout.width, cfg);
     }
   }, [activeTab, tabLayouts, reduceMotion, indicatorX, indicatorW]);
 

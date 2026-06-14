@@ -4,9 +4,22 @@
  * Line heights as unitless ratios. Letter spacing in em (as numbers).
  */
 
+/**
+ * Font families. NOTE the deliberate web/native display split:
+ *   - `display` ('Syncopate') is the display face on React Native (mobile),
+ *     mapped to the bundled Syncopate weights in `useTokens.ts`. The shared
+ *     `typeRoles` below reference it, so mobile renders Syncopate.
+ *   - `displayWeb` ('Clash Display') is what the WEB renders. The web SPA does
+ *     NOT consume these tokens for the display face; it reads the CSS custom
+ *     property `--font-family-display` (= Clash Display) from theme.css. This
+ *     field documents that so an audit of the token doesn't wrongly conclude
+ *     web uses Syncopate.
+ * Unify the two faces later once Clash Display .otf/.ttf is bundled for RN.
+ */
 export const fontFamily = {
   body: "'Space Grotesk', system-ui, sans-serif",
   display: "'Syncopate', sans-serif",
+  displayWeb: "'Clash Display', 'Clash Display Fallback', sans-serif",
 } as const;
 
 /** Font size ramp in pixels (numbers). */

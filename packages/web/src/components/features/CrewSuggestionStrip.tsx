@@ -109,7 +109,7 @@ export default function CrewSuggestionStrip() {
                 type="button"
                 className={cn(
                   'shrink-0 rounded-full px-4 py-2 text-sm font-bold',
-                  'bg-accent-coral text-text-on-accent',
+                  'bg-accent-aqua text-bg-primary',
                   'transition-[transform,box-shadow] duration-150 active:scale-[0.96] motion-reduce:transform-none',
                   'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2',
                 )}

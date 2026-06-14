@@ -88,7 +88,7 @@ export default function ChangePasswordModal({ onClose, onSubmit }: ChangePasswor
           {error && (
             <div
               role="alert"
-              className="text-[13px] text-[var(--color-accent-coral)] overflow-hidden text-ellipsis whitespace-nowrap flex items-center gap-[var(--space-3)]"
+              className="text-[13px] text-[var(--color-text-danger)] overflow-hidden text-ellipsis whitespace-nowrap flex items-center gap-[var(--space-3)]"
             >
               {error}
             </div>

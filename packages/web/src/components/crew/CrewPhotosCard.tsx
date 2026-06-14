@@ -75,7 +75,7 @@ export default function CrewPhotosCard({ crewId, currentUrl, onSaved }: Props) {
           onChange={(e) => setUrl(e.target.value)}
           maxLength={2048}
         />
-        {!isValid && <p className="text-xs text-accent-coral">Link must start with https://</p>}
+        {!isValid && <p className="text-xs text-[var(--color-text-danger)]">Link must start with https://</p>}
         <div className="flex gap-2">
           <Button
             variant="primary"

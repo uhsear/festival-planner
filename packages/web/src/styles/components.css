@@ -227,7 +227,7 @@ a:focus-visible,
 
 /* Dialog */
 [role='dialog'] {
-  z-index: 10100;
+  z-index: var(--z-modal);
   outline: none;
 }
 [role='dialog']:focus-visible {
