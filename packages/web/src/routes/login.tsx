@@ -3,9 +3,8 @@ import { useNavigate, Link } from '@tanstack/react-router';
 import { useAuth } from '@festie/shared';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import Button from '../components/ui/Button';
-import IconButton from '../components/ui/IconButton';
+import Input from '../components/ui/Input';
 import AuthTabs from '../components/ui/AuthTabs';
-import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function LoginPage() {
@@ -22,19 +21,22 @@ function LoginPageInner() {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPw, setShowPw] = useState(false);
+  const [usernameErr, setUsernameErr] = useState('');
+  const [passwordErr, setPasswordErr] = useState('');
   const [formError, setFormError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
+    setUsernameErr('');
+    setPasswordErr('');
 
     if (!username) {
-      setFormError('Username is required');
+      setUsernameErr('Username is required');
       return;
     }
     if (!password) {
-      setFormError('Password is required');
+      setPasswordErr('Password is required');
       return;
     }
 
@@ -42,7 +44,7 @@ function LoginPageInner() {
       await login({ username, password });
       await navigate({ to: '/cards' });
     } catch {
-      setFormError(error || 'Login failed');
+      setFormError(error || 'Sign-in failed. Check your username and password and try again.');
     }
   };
 
@@ -69,75 +71,39 @@ function LoginPageInner() {
         noValidate
         {...(isLoading ? { 'aria-busy': true } : {})}
       >
-        <div
-          id="authFormError"
-          className="text-accent-coral text-[13px] mb-3 min-h-[18px] text-center"
-          role="alert"
-          aria-live="assertive"
-        >
-          {formError || '\u00A0'}
+        {formError && (
+          <div
+            className="text-[var(--color-text-danger)] text-[13px] mb-3 text-center"
+            role="alert"
+            aria-live="assertive"
+          >
+            {formError}
+          </div>
+        )}
+
+        <div className="mb-3">
+          <Input
+            aria-label="Username"
+            placeholder="Username"
+            autoComplete="username"
+            maxLength={30}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            disabled={isLoading}
+            error={usernameErr}
+          />
         </div>
 
-        <label htmlFor="authUsername" className="sr-only">
-          Username
-        </label>
-        <input
-          type="text"
-          id="authUsername"
-          placeholder="Username"
-          autoComplete="username"
-          maxLength={30}
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              document.getElementById('authPassword')?.focus();
-            }
-          }}
-          disabled={isLoading}
-          aria-invalid={Boolean(formError && !username)}
-          aria-describedby={formError ? 'authFormError' : undefined}
-          className={cn(
-            'w-full py-3.5 px-[18px] text-[16px] text-left mb-3 min-h-11',
-            'rounded-xl bg-bg-card border border-border text-text-primary',
-            'placeholder:text-text-placeholder',
-            'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
-            'focus:outline-none focus:border-accent-aqua',
-            'focus:shadow-[0_0_0_4px_var(--color-aqua-a1),0_0_24px_var(--color-aqua-a06)]',
-          )}
-        />
-
-        <label htmlFor="authPassword" className="sr-only">
-          Password
-        </label>
-        <div className="relative mb-3">
-          <input
-            type={showPw ? 'text' : 'password'}
-            id="authPassword"
+        <div className="mb-3">
+          <Input
+            aria-label="Password"
             placeholder="Password"
+            isPassword
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSubmit(e);
-            }}
             disabled={isLoading}
-            aria-invalid={Boolean(formError && !password)}
-            aria-describedby={formError ? 'authFormError' : undefined}
-            className={cn(
-              'w-full py-3.5 pl-[18px] pr-11 text-[16px] text-left min-h-11',
-              'rounded-xl bg-bg-card border border-border text-text-primary',
-              'placeholder:text-text-placeholder',
-              'transition-[border-color,box-shadow,background] duration-200 ease-[var(--ease-out)]',
-              'focus:outline-none focus:border-accent-aqua',
-              'focus:shadow-[0_0_0_4px_var(--color-aqua-a1),0_0_24px_var(--color-aqua-a06)]',
-            )}
-          />
-          <IconButton
-            onClick={() => setShowPw((v) => !v)}
-            label={showPw ? 'Hide password' : 'Show password'}
-            icon={showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            className="absolute right-0 top-1/2 -translate-y-1/2"
+            error={passwordErr}
           />
         </div>
 
