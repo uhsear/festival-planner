@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Users, MapPin, BarChart3, Backpack, Car, DollarSign, Activity } from 'lucide-react';
+import { useRovingTabs } from '@/hooks/useRovingTabs';
 import { cn } from '@/lib/utils';
 
 export type TabKey = 'members' | 'meeting' | 'polls' | 'packing' | 'rides' | 'expenses' | 'activity';
@@ -25,8 +26,11 @@ interface CrewTabBarProps {
 }
 
 export default function CrewTabBar({ activeTab, onTabChange, badges }: CrewTabBarProps) {
+  const tablistRef = useRef<HTMLDivElement>(null);
+  useRovingTabs(tablistRef);
   return (
     <div
+      ref={tablistRef}
       className="flex gap-1 overflow-x-auto px-3 scrollbar-hide min-w-0 max-w-full snap-x snap-mandatory [scroll-padding-inline:0.75rem] [mask-image:linear-gradient(to_right,transparent,black_0.75rem,black_calc(100%-0.75rem),transparent)]"
       role="tablist"
       aria-label="Crew tabs"
