@@ -1,6 +1,6 @@
 import React from 'react';
 import { FestivalSet, Priority, Stage, Profile, Festival } from '@festie/shared/types';
-import { artistDisplayName } from '@festie/shared/utils';
+import { artistDisplayName, getAvatarColor, getInitials } from '@festie/shared/utils';
 import StageBadge from '../ui/StageBadge';
 import { cn } from '../../lib/utils';
 
@@ -154,19 +154,35 @@ export default function TBASection({
 
               {/* Crew overlap */}
               {others.length > 0 && (
-                <div className="relative z-[2] mt-1">
-                  {others.slice(0, 3).map((o) => (
-                    <div
-                      key={o.profileId}
-                      className={cn(
-                        'inline-flex items-center justify-center',
-                        'rounded-full font-bold',
-                        'text-[var(--color-text-on-accent)] shrink-0',
-                        'h-4 w-4 text-[7px]',
-                      )}
-                      title={`${o.name || 'Crew member'} (${o.priority})`}
-                    />
-                  ))}
+                <div
+                  className="relative z-[2] mt-1 flex items-center gap-0.5"
+                  role="list"
+                  aria-label={`${others.length} crew member${others.length === 1 ? '' : 's'} also picked this`}
+                >
+                  {others.slice(0, 3).map((o) => {
+                    const name = o.name || 'Crew member';
+                    return (
+                      <div
+                        key={o.profileId}
+                        role="listitem"
+                        aria-label={`${name} (${o.priority})`}
+                        className={cn(
+                          'inline-flex items-center justify-center',
+                          'rounded-full font-bold',
+                          'text-[var(--color-text-on-accent)] shrink-0',
+                          'h-4 w-4 text-[7px]',
+                        )}
+                        style={{ backgroundColor: getAvatarColor(name) }}
+                      >
+                        {getInitials(name)}
+                      </div>
+                    );
+                  })}
+                  {others.length > 3 && (
+                    <span className="text-[7px] text-text-secondary ml-0.5" aria-hidden="true">
+                      +{others.length - 3}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
