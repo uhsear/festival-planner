@@ -18,6 +18,14 @@ vi.mock('lucide-react', () => ({
   List: () => <span data-testid="list-icon" />,
   // 055: daily-recurrence toggle + badge.
   Repeat: () => <span data-testid="repeat-icon" />,
+  // Meeting-point category icons (replaced emoji).
+  Tent: () => <span data-testid="tent-icon" />,
+  Crosshair: () => <span data-testid="crosshair-icon" />,
+  Flag: () => <span data-testid="flag-icon" />,
+  Moon: () => <span data-testid="moon-icon" />,
+  AlertTriangle: () => <span data-testid="alert-triangle-icon" />,
+  Bookmark: () => <span data-testid="bookmark-icon" />,
+  Clock: () => <span data-testid="clock-icon" />,
   // CrewStatus (rendered by MeetingPointsTab) pulls these too.
   LocateFixed: () => <span data-testid="locate-fixed-icon" />,
   Footprints: () => <span data-testid="footprints-icon" />,

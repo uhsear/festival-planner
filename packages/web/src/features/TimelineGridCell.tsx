@@ -1,6 +1,7 @@
 import React from 'react';
 import { FestivalSet, Priority, Festival } from '@festie/shared/types';
 import { formatTime, artistDisplayName } from '@festie/shared/utils';
+import { AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface PickButtonDef {
@@ -120,7 +121,7 @@ function TimelineGridCell({
           aria-hidden="true"
           title="Schedule conflict with another of your picks"
         >
-          {'⚠'}
+          <AlertTriangle className="w-3 h-3" aria-hidden="true" />
         </span>
       )}
 

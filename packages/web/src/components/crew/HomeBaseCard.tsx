@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
-import { MapPin, X } from 'lucide-react';
+import { MapPin, X, Clock } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import { inputBase } from '../../lib/styles';
 
@@ -115,7 +115,12 @@ export default function HomeBaseCard({ crewId, currentLocation, currentTime, isO
           {hasHomeBase ? (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-text-primary truncate">{currentLocation}</span>
-              {currentTime && <span className="text-xs text-accent-aqua flex-shrink-0">⏰ {currentTime}</span>}
+              {currentTime && (
+                <span className="text-xs text-accent-aqua flex-shrink-0 inline-flex items-center gap-1">
+                  <Clock className="w-3 h-3" aria-hidden="true" />
+                  {currentTime}
+                </span>
+              )}
             </div>
           ) : (
             <span className="text-xs text-text-secondary">Tap to set a meeting point</span>

@@ -58,7 +58,11 @@ export default function MembersTab({
                 <Avatar name={displayName} size="sm" />
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-text-primary truncate">{m.name || m.username}</div>
-                  {memberIsOwner && <div className="text-xs text-accent-amber">{'👑'} Owner</div>}
+                  {memberIsOwner && (
+                    <div className="text-xs text-accent-amber inline-flex items-center gap-1">
+                      <Crown className="w-3 h-3" aria-hidden="true" /> Owner
+                    </div>
+                  )}
                 </div>
                 {canManage && (
                   <Button
