@@ -55,7 +55,7 @@ export default function DetailArtistHeader({
 
       {/* Artist name */}
       <div
-        className="text-[26px] font-bold mb-1 tracking-[-0.5px] leading-[1.1] bg-gradient-to-br from-text-primary to-[rgba(234,234,242,0.9)] bg-clip-text"
+        className="text-[26px] font-bold mb-1 tracking-[-0.5px] leading-[1.1] text-text-primary"
         id="detail-panel-title"
       >
         {artistName}
@@ -74,7 +74,7 @@ export default function DetailArtistHeader({
           {genres.map((g) => (
             <span
               key={g}
-              className="px-2.5 py-0.5 rounded-DEFAULT bg-[rgba(155,114,255,0.18)] border border-[rgba(155,114,255,0.35)] text-[rgba(155,114,255,0.9)] text-[11px] font-semibold capitalize tracking-[0.02em]"
+              className="px-2.5 py-0.5 rounded-DEFAULT bg-[var(--color-overlay-2)] border border-border text-text-secondary text-[11px] font-semibold capitalize tracking-[0.02em]"
             >
               {g}
             </span>
