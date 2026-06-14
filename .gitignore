@@ -81,6 +81,10 @@ tests/e2e/.auth/
 # NOTE: do NOT ignore /context.md — that case-collides with the tracked public CONTEXT.md on Windows.
 /SESSION.md
 
+# Local session-bootstrap docs (SESSION/ARCHITECTURE/DEPENDENCIES/CONTEXT copies +
+# prompt). Holds operational metadata (prod host, deploy paths) — never publish.
+/projectstate/
+
 logs/.alert-state.json
 
 scripts/deploy/__pycache__/
