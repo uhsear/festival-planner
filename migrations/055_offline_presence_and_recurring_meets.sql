@@ -22,9 +22,9 @@
 --     no-signal answer. recurs_daily defaults FALSE so every existing point keeps
 --     its current one-shot behavior unchanged.
 --
--- Additive + idempotent per the repo migration convention (ADD COLUMN IF NOT
--- EXISTS). The app-managed runner in lib/planner-db-pg.ts records the version —
--- no manual footer.
+-- Additive + idempotent per the repo migration convention (every statement is
+-- guarded with IF NOT EXISTS). The app-managed runner in lib/planner-db-pg.ts
+-- records the version — no manual footer.
 
 ALTER TABLE crew_member_status ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
 ALTER TABLE crew_member_status ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
