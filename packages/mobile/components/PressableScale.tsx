@@ -58,7 +58,7 @@ export default function PressableScale({
         // eslint-disable-next-line react-hooks/immutability -- imperative Reanimated shared-value write in an event handler; .value mutation is the animation API and has no derived-state equivalent
         pressed.value = withTiming(0, {
           duration: duration.med,
-          easing: Easing.bezier(...easing.spring.bezier),
+          easing: Easing.bezier(...easing.out.bezier),
         });
       }
       onPressOut?.(e);

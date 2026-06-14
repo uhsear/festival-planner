@@ -230,9 +230,9 @@ function TimelineViewInner() {
                 aria-live="polite"
                 data-testid="next-pick-countdown"
               >
-                <Music aria-hidden="true" className="w-3.5 h-3.5 text-[var(--color-accent-coral)]" />
+                <Music aria-hidden="true" className="w-3.5 h-3.5 text-[var(--color-text-danger)]" />
                 <span>
-                  Up next in <span className="text-[var(--color-accent-coral)]">{nextPickLabel.eta}</span>
+                  Up next in <span className="text-[var(--color-text-danger)]">{nextPickLabel.eta}</span>
                   {' · '}
                   <span className="text-text-primary">{nextPickLabel.name}</span>
                 </span>

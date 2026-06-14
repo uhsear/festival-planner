@@ -33,7 +33,7 @@ export default function Toast() {
 
   return (
     <div
-      className="fixed bottom-24 right-4 left-4 z-50 flex flex-col gap-2 pointer-events-none sm:left-auto sm:max-w-sm"
+      className="fixed bottom-24 right-4 left-4 z-[var(--z-toast)] flex flex-col gap-2 pointer-events-none sm:left-auto sm:max-w-sm"
       aria-live="polite"
       aria-atomic="false"
     >

@@ -18,7 +18,12 @@ export function getAvatarColor(name: string): string {
   }
 
   const hash = getIdentityHash(name);
-  const hue = hash % 360;
+  // Clamp the generated hue out of the brand-accent bands so a random avatar
+  // never collides with the aqua primary (~160-205deg) or the coral danger
+  // accent (~335-360 / 0-20deg). Allowed span = 268deg across two arcs:
+  // [21,159] (139deg) and [206,334] (129deg). Deterministic on the hash.
+  const h = hash % 268;
+  const hue = h < 139 ? 21 + h : 206 + (h - 139);
   const saturation = 62 + (hash % 12);
   const lightness = 46 + (hash % 10);
   const color = `hsl(${hue} ${saturation}% ${lightness}%)`;

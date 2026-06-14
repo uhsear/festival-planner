@@ -43,9 +43,14 @@ export const colors = {
     coral: '#ff3366',
     coralStrong: '#c01d3a',
     aqua: '#00e8d0',
+    // Functional (semantic) colors — NOT free accents. Each has one role:
+    //   amber = warning / offline / low-power / pending state.
+    //   green = success / online / verified state.
+    // The one-accent rule still holds: aqua is the only brand accent; coral is
+    // danger-only. Do not introduce a new hue here without a documented role.
+    // (`blue` #4488ff was an unused rogue accent with no role — removed 2026-06-14.)
     amber: '#ffb020',
     green: '#39ff14',
-    blue: '#4488ff',
   },
   border: {
     default: 'rgba(255, 255, 255, 0.06)',

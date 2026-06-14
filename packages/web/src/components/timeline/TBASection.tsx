@@ -128,7 +128,7 @@ export default function TBASection({
                           // Active priority states
                           active &&
                             p === 'must' &&
-                            'bg-[var(--color-priority-must)] text-[var(--color-text-on-accent)] border-[var(--color-priority-must)] opacity-100',
+                            'bg-[var(--color-accent-coral-strong)] text-[var(--color-text-on-accent)] border-[var(--color-accent-coral-strong)] opacity-100',
                           active &&
                             p === 'want-to-see' &&
                             'bg-[var(--color-priority-want)] text-[var(--color-text-on-dark)] border-[var(--color-priority-want)] opacity-100',

@@ -62,7 +62,7 @@ function formatBalance(value: number): string {
 
 function balanceColor(value: number): string {
   if (value > 0.01) return 'text-accent-aqua';
-  if (value < -0.01) return 'text-accent-coral';
+  if (value < -0.01) return 'text-[var(--color-text-danger)]';
   return 'text-text-primary';
 }
 
@@ -320,7 +320,9 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm text-text-primary">
                           You owe <span className="font-medium">{s.toName}</span>{' '}
-                          <span className="text-accent-coral font-semibold tabular-nums">${s.amount.toFixed(2)}</span>
+                          <span className="text-[var(--color-text-danger)] font-semibold tabular-nums">
+                            ${s.amount.toFixed(2)}
+                          </span>
                         </span>
                         <Button
                           variant="outline"
@@ -385,7 +387,12 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
                 <div key={b.userId} className="flex items-center justify-between gap-2">
                   <span className="text-sm text-text-primary">
                     {b.userId === currentUserId ? 'You' : b.username}{' '}
-                    <span className={cn('tabular-nums', b.balance > 0 ? 'text-accent-aqua' : 'text-accent-coral')}>
+                    <span
+                      className={cn(
+                        'tabular-nums',
+                        b.balance > 0 ? 'text-accent-aqua' : 'text-[var(--color-text-danger)]',
+                      )}
+                    >
                       {formatBalance(b.balance)}
                     </span>
                   </span>

@@ -111,7 +111,7 @@ export default function AppShell() {
           href="#main-content"
           className={cn(
             'skip-link',
-            'absolute left-[-9999px] top-0 z-[10000]',
+            'absolute left-[-9999px] top-0 z-[var(--z-top)]',
             'bg-bg-primary text-accent-aqua px-4 py-2 underline font-semibold',
             'focus:left-[var(--space-4)] focus:top-[var(--space-4)]',
           )}

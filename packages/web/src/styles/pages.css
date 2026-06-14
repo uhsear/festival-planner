@@ -82,7 +82,7 @@
   }
 }
 .card-grid .card-priority-btn[aria-pressed='true'] {
-  animation: card-priority-pop 260ms var(--ease-spring);
+  animation: card-priority-pop 260ms var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
   .card-grid .card-priority-btn:hover {

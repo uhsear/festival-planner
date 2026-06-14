@@ -2,9 +2,9 @@ import React, { memo } from 'react';
 import type { Priority } from '@festie/shared/types';
 
 const PRIORITY_STYLE: Record<Priority, { label: string; bg: string; fg: string }> = {
-  'must':         { label: 'Must',  bg: 'var(--color-priority-must)',  fg: 'var(--color-text-primary)' },
-  'want-to-see':  { label: 'Want',  bg: 'var(--color-priority-want)',  fg: 'var(--color-bg-primary)' },
-  'maybe':        { label: 'Maybe', bg: 'var(--color-priority-maybe)', fg: 'var(--color-bg-primary)' },
+  must: { label: 'Must', bg: 'var(--color-accent-coral-strong)', fg: 'var(--color-text-primary)' },
+  'want-to-see': { label: 'Want', bg: 'var(--color-priority-want)', fg: 'var(--color-bg-primary)' },
+  maybe: { label: 'Maybe', bg: 'var(--color-priority-maybe)', fg: 'var(--color-bg-primary)' },
 };
 
 interface CompareCellProps {
