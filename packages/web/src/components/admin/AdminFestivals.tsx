@@ -5,6 +5,7 @@ import LineupImport from './LineupImport';
 import FestivalEditForm, { Festival as FormFestival } from './FestivalEditForm';
 import { cn } from '../../lib/utils';
 import EmptyState from '../ui/EmptyState';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import { SearchX } from 'lucide-react';
 import type { SetRow } from './SetEditor';
 
@@ -35,6 +36,8 @@ export default function AdminFestivals() {
   const [formData, setFormData] = useState<Partial<FormFestival>>({});
   const [initialExpandedDays, setInitialExpandedDays] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string; description: string } | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -77,23 +80,30 @@ export default function AdminFestivals() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     const festival = festivals.find((f) => f.id === id);
     const name = festival?.name || 'this festival';
-    if (
-      !confirm(
-        `Delete ${name}?\n\nThis soft-deletes the festival and hides it from users. Users with picks for this festival will lose access.`,
-      )
-    ) {
-      return;
-    }
+    setConfirmDelete({
+      id,
+      title: `Delete ${name}?`,
+      description: 'This soft-deletes the festival and hides it from users. Users with picks for it will lose access.',
+    });
+  };
 
+  const doDelete = async () => {
+    if (!confirmDelete) return;
+    const { id } = confirmDelete;
+    const name = festivals.find((f) => f.id === id)?.name || 'this festival';
+    setDeleteBusy(true);
     try {
       await api.delete<void>(`/admin/festivals/${id}`);
       toast(`Deleted ${name}`, 'success');
+      setConfirmDelete(null);
       await loadFestivals();
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Couldn't delete festival. Try again.", 'error');
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -253,6 +263,16 @@ export default function AdminFestivals() {
       {tab === 'import' && !editingId && (
         <p className="text-center text-[var(--color-text-muted)] py-8">Select a festival to import a lineup.</p>
       )}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onOpenChange={(o) => !o && setConfirmDelete(null)}
+        title={confirmDelete?.title || ''}
+        description={confirmDelete?.description}
+        confirmLabel="Delete"
+        destructive
+        busy={deleteBusy}
+        onConfirm={doDelete}
+      />
     </div>
   );
 }

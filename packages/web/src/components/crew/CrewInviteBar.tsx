@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Copy, RefreshCw, Share2 } from 'lucide-react';
 import { useCrewStore } from '@festie/shared/stores';
 import Button from '../ui/Button';
+import ConfirmDialog from '../ui/ConfirmDialog';
 import { useToast } from '../../lib/toastContext';
 
 interface CrewInviteBarProps {
@@ -15,6 +16,7 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
   const regenerateInvite = useCrewStore((s) => s.regenerateInvite);
   const [copiedCode, setCopiedCode] = useState(false);
   const [regenBusy, setRegenBusy] = useState(false);
+  const [confirmRegen, setConfirmRegen] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -49,11 +51,11 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
 
   const handleRegenerate = useCallback(async () => {
     if (regenBusy) return;
-    if (!window.confirm('Regenerate invite code? The current code will stop working.')) return;
     setRegenBusy(true);
     try {
       await regenerateInvite(crewId);
       toast('Invite code regenerated', 'success');
+      setConfirmRegen(false);
     } catch (e) {
       toast(e instanceof Error ? e.message : "Couldn't regenerate the invite code. Try again.", 'error');
     } finally {
@@ -71,10 +73,10 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
         {isOwner && (
           <Button
             variant="outline"
-            onClick={handleRegenerate}
+            onClick={() => setConfirmRegen(true)}
             isLoading={regenBusy}
             aria-label="Regenerate invite code"
-            className="!py-1 !px-2.5 text-xs"
+            className="!py-1 !px-2.5 min-w-11 text-xs"
           >
             <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
           </Button>
@@ -84,7 +86,7 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
             variant="outline"
             onClick={handleShare}
             aria-label="Share invite link"
-            className="!py-1 !px-2.5 text-xs"
+            className="!py-1 !px-2.5 min-w-11 text-xs"
           >
             <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
           </Button>
@@ -97,6 +99,16 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
           {copiedCode ? '✓' : 'Copy'}
         </Button>
       </div>
+      <ConfirmDialog
+        open={confirmRegen}
+        onOpenChange={setConfirmRegen}
+        title="Regenerate invite code?"
+        description="The current code stops working. Anyone with the old link will need the new one."
+        confirmLabel="Regenerate"
+        destructive
+        busy={regenBusy}
+        onConfirm={handleRegenerate}
+      />
     </div>
   );
 }
