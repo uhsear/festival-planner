@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName, timeToMinutes } from '@festie/shared/utils';
+import { AlertTriangle } from 'lucide-react';
 import Button from '../ui/Button';
 
 interface Props {
@@ -97,8 +98,8 @@ export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, getPr
         // Both sides a must-see → escalate to an explicit conflict.
         const hard = getPriority?.(currentSet.id) === 'must' && getPriority?.(c.id) === 'must';
         const title = hard
-          ? `⚠ You have a conflict${at ? ` at ${at}` : ''} — keep one`
-          : `⚠ 2 acts${at ? ` at ${at}` : ''} — keep one`;
+          ? `You have a conflict${at ? ` at ${at}` : ''}: keep one`
+          : `2 acts${at ? ` at ${at}` : ''}: keep one`;
         const body = hard
           ? `Both ${currentName} and ${otherName} are must-sees but overlap. Keep one and we'll clear the other.`
           : `${currentName} and ${otherName} overlap. Keep one and we'll clear the other.`;
@@ -108,7 +109,10 @@ export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, getPr
             role="alert"
             className="rounded-DEFAULT border border-accent-coral/40 bg-accent-coral/[0.1] p-4"
           >
-            <div className="text-sm font-bold text-accent-coral">{title}</div>
+            <div className="flex items-center gap-1.5 text-sm font-bold text-[var(--color-text-danger)]">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+              <span>{title}</span>
+            </div>
             <div className="mt-1 text-[13px] text-text-secondary">{body}</div>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
