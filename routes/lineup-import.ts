@@ -309,8 +309,9 @@ export default function createLineupImportRoute(deps: any) {
 
       // M3 re-engagement: a recurring festival just published its lineup → notify
       // prior-year attendees of the same-named festival (handled in the trigger:
-      // event-gated, per-type opt-out + DND + deduped, capped fan-out). Fire-and-forget
-      // notification; durable job-queue for reliable delivery is deferred future work.
+      // event-gated, per-type opt-out + DND + deduped, full fan-out). When Redis is
+      // up this enqueues onto the durable re-engagement queue (issue #20) so delivery
+      // survives restarts + retries; otherwise it runs inline. Fire-and-forget here.
       if (reengagement?.sendLineupDrop) {
         reengagement
           .sendLineupDrop(festivalId)

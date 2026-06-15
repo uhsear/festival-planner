@@ -80,6 +80,7 @@ import { configureSocketIO } from './lib/socket-setup';
 import { createBackgroundTasks, createCloseHandler } from './lib/shutdown';
 import { createReminderScheduler } from './lib/reminder-scheduler';
 import { createReengagementTriggers } from './lib/notifications/reengagement';
+import { createReengagementQueue } from './lib/notifications/reengagement-queue';
 import createPageRoutes from './routes/pages';
 import { createLogger } from './lib/logger';
 import {
@@ -164,14 +165,29 @@ async function createFestieApp(overrides: any = {}) {
   deps.notificationService = notificationService;
 
   // M3 re-engagement triggers (event-gated push+email): lineup_drop / crew_reformed / wrap_ready.
-  const reengagement = createReengagementTriggers({
+  // The executor does the real fan-out (deduped, opt-out/DND-respecting). When Redis
+  // is up it's wrapped by a durable BullMQ queue (issue #20) so triggers enqueue and
+  // an in-process worker drains them in the background with retries + restart survival;
+  // when Redis is down the dispatcher falls back to running the executor inline.
+  const reengagementExecutor = createReengagementTriggers({
     stores: ctx.stores,
     config,
     log,
     notificationService,
   });
+  const reengagementQueue = createReengagementQueue({
+    executor: reengagementExecutor,
+    log,
+    redisUrl: config.REDIS_URL,
+    enabled: config.REDIS_ENABLED,
+    bullPrefix: `${config.REDIS_PREFIX || ''}bull`,
+  });
+  if (reengagementQueue) log.info('reengagement: durable queue active (in-process worker)');
+  const reengagement = reengagementQueue || reengagementExecutor;
   deps.reengagement = reengagement;
   ctx.reengagement = reengagement; // also exposed to background tasks (wrap_ready sweep)
+  ctx.reengagementQueue = reengagementQueue; // for graceful shutdown
+  ctx.reengagementExecutor = reengagementExecutor; // inline path for the shutdown sweep
 
   // Phase 1A: Reminder scheduler for set notifications
   const reminderScheduler = createReminderScheduler({
@@ -387,6 +403,7 @@ async function createFestieApp(overrides: any = {}) {
     avatarPool,
     inFlightRequests,
     sentry,
+    reengagementQueue,
   });
 
   return { app, server, io, config, state, close, setHealthReady };
