@@ -128,7 +128,10 @@ jobs:
             echo "::error::ANDROID_KEYSTORE_BASE64 secret is empty — release would be signed with the debug key. Aborting. See packages/mobile/.github-android-release-SETUP.md"
             exit 1
           fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/upload.keystore
+          # Strip any CR/LF/whitespace before decoding: GNU `base64 -d` rejects a
+          # stray carriage return (e.g. a secret set from a CRLF-encoded file), so
+          # normalise to a clean single-line payload first.
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > app/upload.keystore
           {
             echo ""
             echo "MYAPP_UPLOAD_STORE_FILE=upload.keystore"
