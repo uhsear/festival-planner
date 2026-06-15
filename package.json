@@ -42,6 +42,7 @@
   "dependencies": {
     "@sentry/node": "^10.48.0",
     "@socket.io/redis-adapter": "^8.3.0",
+    "bullmq": "^5.78.1",
     "compression": "^1.8.1",
     "dotenv": "^17.4.0",
     "express": "^5.2.1",

@@ -196,8 +196,9 @@ function createBackgroundTasks(ctx: any, { io }: any) {
   // window (cheap) and call sendWrapReady per festival; the trigger's
   // once-per-event-per-user dedup (notification_log eventKey) makes repeated
   // sweeps idempotent, so an exact transition moment isn't required.
-  // NOTE: a dedicated scheduler/queue would be better at scale (this is a simple
-  // hourly interval, leader-gated); kept minimal per the additive M3 scope.
+  // When the durable queue is active (issue #20), each sweep ENQUEUES a
+  // wrap_ready job and the in-process worker drains it with retries; the sweep
+  // itself stays a simple hourly leader-gated interval (no in-request "over" event).
   if (ctx.reengagement?.sendWrapReady) {
     const WRAP_SWEEP_INTERVAL_MS = 60 * 60 * 1000; // hourly
     const runWrapSweep = async () => {
@@ -247,6 +248,7 @@ function createCloseHandler({
   avatarPool,
   inFlightRequests,
   sentry,
+  reengagementQueue,
 }: any) {
   return async function close() {
     const closeStart = Date.now();
@@ -325,6 +327,15 @@ function createCloseHandler({
     if (cacheBus) {
       try {
         await cacheBus.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    // Close the re-engagement worker/queue (drains the active job, releases its
+    // own Redis connections) before tearing down the shared redis client.
+    if (reengagementQueue?.close) {
+      try {
+        await reengagementQueue.close();
       } catch {
         /* ignore */
       }
