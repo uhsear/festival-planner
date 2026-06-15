@@ -415,20 +415,24 @@ describe('redis: createRedisCircuitBreaker', () => {
   it('circuit resets after resetTimeMs', async () => {
     const redis = fakeRedis();
     const log = { info() {}, warn() {} };
-    const cb = createRedisCircuitBreaker(redis, { maxFailures: 1, resetTimeMs: 1, log })!;
+    // resetTimeMs must be comfortably larger than the time it takes to reach the
+    // first isOpen() assertion — with resetTimeMs:1 a slow CI runner can let >1ms
+    // elapse so the breaker auto-resets before we check it (flaky). 50ms gives a
+    // wide margin for "still open", and the wait below (100ms) reliably exceeds it.
+    const cb = createRedisCircuitBreaker(redis, { maxFailures: 1, resetTimeMs: 50, log })!;
     await cb.exec(() => Promise.reject(new Error('fail')), null);
     assert.equal(cb.isOpen(), true);
-    // Wait just enough for the reset
-    await new Promise((r) => setTimeout(r, 10));
+    // Wait past resetTimeMs for the auto-reset (half-open probe).
+    await new Promise((r) => setTimeout(r, 100));
     assert.equal(cb.isOpen(), false);
   });
 
   it('successful exec after open resets failure count', async () => {
     const redis = fakeRedis();
     const log = { info() {}, warn() {} };
-    const cb = createRedisCircuitBreaker(redis, { maxFailures: 1, resetTimeMs: 1, log })!;
+    const cb = createRedisCircuitBreaker(redis, { maxFailures: 1, resetTimeMs: 50, log })!;
     await cb.exec(() => Promise.reject(new Error('fail')), null);
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 100));
     await cb.exec(() => Promise.resolve('ok'));
     assert.equal(cb.getState().failures, 0);
     assert.equal(cb.getState().circuitOpen, false);
