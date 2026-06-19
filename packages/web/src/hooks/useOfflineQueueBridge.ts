@@ -12,13 +12,17 @@ export function useOfflineQueueBridge() {
 
   useEffect(() => {
     // Adapter: api.* helpers take (path, body) not (path, {method, body}).
-    const adapter = async (url: string, init: { method?: string; body?: unknown } = {}) => {
+    const adapter = async (
+      url: string,
+      init: { method?: string; body?: unknown; idempotencyKey?: string } = {},
+    ) => {
       const m = (init.method || 'POST').toUpperCase();
-      if (m === 'GET')    return api.get(url);
-      if (m === 'PUT')    return api.put(url, init.body);
-      if (m === 'PATCH')  return api.patch(url, init.body);
-      if (m === 'DELETE') return api.delete(url);
-      return api.post(url, init.body);
+      const opts = init.idempotencyKey ? { headers: { 'Idempotency-Key': init.idempotencyKey } } : {};
+      if (m === 'GET')    return api.get(url, opts);
+      if (m === 'PUT')    return api.put(url, init.body, opts);
+      if (m === 'PATCH')  return api.patch(url, init.body, opts);
+      if (m === 'DELETE') return api.delete(url, opts);
+      return api.post(url, init.body, opts);
     };
     window.__festieQueue = {
       queueMutation: queueMutation as (args: unknown) => Promise<unknown>,

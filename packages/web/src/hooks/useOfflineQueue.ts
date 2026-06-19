@@ -26,7 +26,7 @@ export interface UseOfflineQueueReturn {
   queueMutation: (mutation: Omit<QueuedMutation, 'status' | 'retries' | 'createdAt'>) => Promise<string>;
   pendingCount: number;
   processQueue: (
-    apiFn: (url: string, opts: { method: string; body?: Record<string, unknown> }) => Promise<unknown>,
+    apiFn: (url: string, opts: { method: string; body?: Record<string, unknown>; idempotencyKey?: string }) => Promise<unknown>,
     socketEmitFn?: (
       event: string,
       data: Record<string, unknown>,
@@ -447,7 +447,7 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
 
   const processQueue = useCallback(
     async (
-      apiFn: (url: string, opts: { method: string; body?: Record<string, unknown> }) => Promise<unknown>,
+      apiFn: (url: string, opts: { method: string; body?: Record<string, unknown>; idempotencyKey?: string }) => Promise<unknown>,
       socketEmitFn?: (
         event: string,
         data: Record<string, unknown>,
@@ -470,6 +470,9 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
               await apiFn(mutation.url, {
                 method: mutation.method || 'POST',
                 body: mutation.body,
+                // Dedup a replay across tabs: same clientId → server no-ops the
+                // duplicate instead of double-writing (e.g. two expense POSTs).
+                idempotencyKey: mutation.clientId,
               });
               // Remove on success — use IDB path if the entry has a numeric id,
               // otherwise fall back to clientId-based localStorage removal so that

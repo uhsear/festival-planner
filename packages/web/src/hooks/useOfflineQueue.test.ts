@@ -108,6 +108,7 @@ describe('useOfflineQueue — localStorage fallback', () => {
     expect(apiFn).toHaveBeenCalledWith('/api/crews/abc/members', {
       method: 'POST',
       body: { userId: 'u1' },
+      idempotencyKey: 'test-client-success',
     });
 
     // Entry must be gone — not re-queued for the next drain

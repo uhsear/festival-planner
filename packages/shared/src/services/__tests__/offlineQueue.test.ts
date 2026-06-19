@@ -65,6 +65,19 @@ describe('offlineQueue', () => {
     });
   });
 
+  describe('idempotency on replay', () => {
+    it('sends the clientId as an Idempotency-Key header so duplicate replays dedup server-side', async () => {
+      vi.mocked(api.post).mockResolvedValue({ id: 'srv1' });
+      await enqueueMutation({ clientId: 'POST:/crews/c1/expenses:k', url: '/crews/c1/expenses', method: 'POST', body: { amount: 5 } });
+      await drainQueue();
+      expect(api.post).toHaveBeenCalledWith(
+        '/crews/c1/expenses',
+        { amount: 5 },
+        expect.objectContaining({ headers: { 'Idempotency-Key': 'POST:/crews/c1/expenses:k' } }),
+      );
+    });
+  });
+
   describe('enqueueMutation', () => {
     it('enqueues all methods and stamps createdAt when absent', async () => {
       for (const method of ['POST', 'PUT', 'PATCH', 'DELETE'] as const) {

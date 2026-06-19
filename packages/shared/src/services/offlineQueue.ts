@@ -253,17 +253,22 @@ export function registerCreateReconciler(fn: CreateReconciler | null): void {
 const BYPASS = { _bypassOfflineQueue: true } as const;
 
 async function replay(m: QueuedMutation): Promise<unknown> {
+  // Send the deterministic clientId as the Idempotency-Key so the server dedups
+  // a write that gets replayed more than once (e.g. two clients draining the
+  // same queue) instead of double-applying it. Server honors this on all
+  // non-GET /api/v1 routes (lib/middleware.ts idempotency middleware).
+  const opts = { ...BYPASS, headers: { 'Idempotency-Key': m.clientId } };
   switch (m.method) {
     case 'POST':
-      return api.post(m.url, m.body, BYPASS);
+      return api.post(m.url, m.body, opts);
     case 'PUT':
-      await api.put(m.url, m.body, BYPASS);
+      await api.put(m.url, m.body, opts);
       return undefined;
     case 'PATCH':
-      await api.patch(m.url, m.body, BYPASS);
+      await api.patch(m.url, m.body, opts);
       return undefined;
     case 'DELETE':
-      await api.delete(m.url, BYPASS);
+      await api.delete(m.url, opts);
       return undefined;
   }
 }
