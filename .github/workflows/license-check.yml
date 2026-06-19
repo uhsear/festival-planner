@@ -1,0 +1,55 @@
+name: License Check
+
+# Blocking copyleft gate. Fails the push path on AGPL/SSPL in production deps
+# across all four package trees; warns (non-failing) on GPL/LGPL/MPL for review.
+# Gate logic + self-test live in scripts/ci/check-licenses.mjs.
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'packages/**/package.json'
+      - 'packages/pnpm-lock.yaml'
+      - 'scripts/ci/check-licenses.mjs'
+      - '.github/workflows/license-check.yml'
+  push:
+    branches: [main, master]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'packages/**/package.json'
+      - 'packages/pnpm-lock.yaml'
+      - 'scripts/ci/check-licenses.mjs'
+      - '.github/workflows/license-check.yml'
+  workflow_dispatch: {}
+
+# Match ci.yml: opt JS actions into the Node 24 runtime ahead of GitHub's
+# forced migration.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+permissions:
+  contents: read
+
+jobs:
+  licenses:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Gate self-test
+        run: node scripts/ci/check-licenses.mjs --selftest
+      - run: npm ci
+      - name: Backend (npm) license gate
+        run: npx --yes license-checker-rseidelsohn --production --excludePrivatePackages --json | node scripts/ci/check-licenses.mjs
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - name: Install workspace
+        run: cd packages && pnpm install --frozen-lockfile
+      - name: Packages (pnpm) license gate
+        run: cd packages && pnpm licenses list --prod --json | node ../scripts/ci/check-licenses.mjs
