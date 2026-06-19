@@ -226,6 +226,38 @@ async function removeMutation(id: number): Promise<void> {
   }
 }
 
+/**
+ * Remove a mutation from the localStorage fallback queue by clientId.
+ * Called on the localStorage path when IDB is unavailable, since entries
+ * there have no numeric `id` (autoIncrement is IDB-only).
+ */
+function removeMutationByClientId(clientId: string): void {
+  try {
+    const queue: QueuedMutation[] = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
+    const filtered = queue.filter((m) => m.clientId !== clientId);
+    localStorage.setItem('festie-offline-queue', JSON.stringify(filtered));
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+/**
+ * Update a mutation in the localStorage fallback queue by clientId.
+ * Called on the localStorage path when IDB is unavailable.
+ */
+function updateMutationByClientId(clientId: string, updates: Partial<QueuedMutation>): void {
+  try {
+    const queue: QueuedMutation[] = JSON.parse(localStorage.getItem('festie-offline-queue') || '[]');
+    const idx = queue.findIndex((m) => m.clientId === clientId);
+    if (idx >= 0) {
+      queue[idx] = { ...queue[idx]!, ...updates };
+      localStorage.setItem('festie-offline-queue', JSON.stringify(queue));
+    }
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
 async function updateMutation(id: number, updates: Partial<QueuedMutation>): Promise<void> {
   try {
     const { tx, store } = openTx('readwrite');
@@ -423,9 +455,13 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
                 method: mutation.method || 'POST',
                 body: mutation.body,
               });
-              // Remove on success
+              // Remove on success — use IDB path if the entry has a numeric id,
+              // otherwise fall back to clientId-based localStorage removal so that
+              // successfully replayed entries are never re-sent.
               if (mutation.id) {
                 await removeMutation(mutation.id);
+              } else {
+                removeMutationByClientId(mutation.clientId);
               }
             } else if (mutation.type === 'socket' && mutation.event) {
               if (!socketEmitFn || typeof socketEmitFn !== 'function') {
@@ -450,9 +486,11 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
                 }
               });
 
-              // Remove on success
+              // Remove on success — same IDB-or-localStorage fallback as above.
               if (mutation.id) {
                 await removeMutation(mutation.id);
+              } else {
+                removeMutationByClientId(mutation.clientId);
               }
             }
           } catch (err: unknown) {
@@ -486,13 +524,19 @@ export function useOfflineQueue(): UseOfflineQueueReturn {
               } catch {
                 /* store unavailable (e.g. SSR) — fall through to removal */
               }
+              // Remove — IDB by numeric id; localStorage fallback by clientId.
               if (mutation.id) {
                 await removeMutation(mutation.id);
+              } else {
+                removeMutationByClientId(mutation.clientId);
               }
             } else {
-              // Temporary failure: retry with backoff
+              // Temporary failure: retry with backoff — bump retries in whichever
+              // backend holds this entry.
               if (mutation.id) {
                 await updateMutation(mutation.id, { retries, status: 'pending' });
+              } else {
+                updateMutationByClientId(mutation.clientId, { retries, status: 'pending' });
               }
               // Wait before next attempt
               await new Promise((r) => setTimeout(r, RETRY_BACKOFF_BASE * Math.pow(2, retries - 1)));

@@ -95,6 +95,10 @@ const useStyles = makeStyles((t) => ({
   },
   eyeButton: {
     padding: t.spacing[2],
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   hint: {
     ...typeStyle('caption'),
