@@ -107,13 +107,30 @@ def main():
             rollback_hint()
             raise SystemExit("git sync failed")
 
-        # 2. Migrations are APP-MANAGED: lib/planner-db-pg.ts owns a version-keyed
+        # 2. Install deps. The backend runs via tsx straight from source, so any
+        # new RUNTIME dependency (e.g. bullmq) must be present in the root
+        # node_modules or the app crash-loops on boot with ERR_MODULE_NOT_FOUND.
+        # The root is an npm project; packages/ is a pnpm workspace. Install both
+        # so a deploy that adds a backend or frontend dep doesn't take prod down.
+        # (login shell so npm/pnpm are on PATH).
+        code, out, err = run(
+            client,
+            f"bash -lc 'cd {APP} && npm install --omit=dev --no-audit --no-fund "
+            f"&& cd {APP}/packages && pnpm install --frozen-lockfile' 2>&1 | tail -10",
+            timeout=600,
+        )
+        print(f"[deps] exit={code}\n{out}{err}")
+        if code != 0:
+            rollback_hint()
+            raise SystemExit("dependency install failed")
+
+        # 3. Migrations are APP-MANAGED: lib/planner-db-pg.ts owns a version-keyed
         # `schema_migrations` ledger and applies any pending migrations/*.sql once
         # per Postgres URL on backend boot (the pm2 reload below triggers it). There
         # is no separate migration step in the deploy — adding one would double-run
         # and conflict with that ledger.
 
-        # 3. Build the web bundle (login shell so pnpm is on PATH)
+        # 4. Build the web bundle (login shell so pnpm is on PATH)
         code, out, err = run(
             client,
             f"bash -lc 'cd {APP}/packages && pnpm --filter @festie/web build' 2>&1 | tail -8",
