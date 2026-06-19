@@ -310,8 +310,12 @@ export async function drainQueue(): Promise<void> {
         if (m.method === 'POST' && _createReconciler) {
           try {
             _createReconciler(m.clientId, serverResponse);
-          } catch {
-            /* reload-dedup safety net still removes stale _optimistic entities */
+          } catch (reconErr) {
+            // Never let a reconciler error break the drain / no-silent-drops
+            // contract — the reload-dedup safety net still clears stale
+            // _optimistic entities. Warn so the ghost-entity case is observable
+            // instead of fully silent.
+            console.warn('offlineQueue: create reconciler failed', reconErr);
           }
           const realId = extractRealId(serverResponse);
           if (realId && realId !== m.clientId) {
