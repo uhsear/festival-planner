@@ -26,21 +26,43 @@
 
 import crypto from 'crypto';
 import { sendWrapReadyEmail, sendLineupDropEmail, sendCrewReformEmail } from '../email.js';
+import { zonedWallTimeToMs } from '../time-zone.js';
 
 /**
- * Backend mirror of `@festie/shared` `isFestivalOver` (the SAME logic that gates
- * wrap.tsx): true once the festival's last day's 23:59 local has passed. Kept
- * inline rather than importing shared runtime code across the package boundary
- * (the backend runs via tsx and shared ships ESM with .js specifiers). `days`
- * is the festival's day array ([{date}], from festivals.getById).
+ * Backend mirror of `@festie/shared` `isFestivalOver`: true once the festival's
+ * last day's 23:59 has passed. Kept inline rather than importing shared runtime
+ * code across the package boundary (the backend runs via tsx and shared ships
+ * ESM with .js specifiers). `days` is the festival's day array ([{date}], from
+ * festivals.getById).
+ *
+ * The end-of-day cutoff is anchored in the festival's IANA `timeZone` (the same
+ * `zonedWallTimeToMs` the reminder scheduler uses) so "over" reflects the
+ * festival's actual local end-of-day, not the server's zone. When `timeZone` is
+ * null/absent — or invalid — it falls back to UTC (NOT server-local), so the
+ * cutoff is deterministic across deployments.
  */
-function isFestivalOver(days: Array<{ date?: string | null }> | null | undefined): boolean {
+function isFestivalOver(days: Array<{ date?: string | null }> | null | undefined, timeZone?: string | null): boolean {
   const arr = days || [];
   if (!arr.length) return false;
   const last = arr[arr.length - 1];
   if (!last?.date) return false;
-  const endDt = new Date(last.date + 'T23:59:59');
-  return endDt < new Date();
+  const parts = String(last.date).split('-');
+  const y = Number(parts[0]);
+  const mo = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (Number.isNaN(y) || Number.isNaN(mo) || Number.isNaN(d)) return false;
+  let cutoffMs: number;
+  if (timeZone) {
+    cutoffMs = zonedWallTimeToMs(y, mo, d, 23, 59, timeZone);
+    if (Number.isNaN(cutoffMs)) {
+      // Invalid zone → fall back to UTC end-of-day.
+      cutoffMs = Date.UTC(y, mo - 1, d, 23, 59, 59);
+    }
+  } else {
+    // No festival zone → UTC end-of-day (deterministic, not server-local).
+    cutoffMs = Date.UTC(y, mo - 1, d, 23, 59, 59);
+  }
+  return cutoffMs < Date.now();
 }
 
 /**
@@ -67,15 +89,19 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
     }
   }
 
-  /** Per-user dedup guard — true if this user has already seen this event. */
-  async function alreadyNotified(userId: string, type: string, eventKey: string) {
-    if (!stores?.notificationLog?.existsForEvent) return false;
-    try {
-      return await stores.notificationLog.existsForEvent(userId, type, eventKey);
-    } catch (err: any) {
-      log?.debug?.('reengagement: dedup check failed (treating as not-seen)', { error: err?.message });
-      return false;
-    }
+  /**
+   * Batch dedup: return ONLY the user ids that have NOT already seen this event,
+   * using a single existsForEvents query (no N+1). Intentionally does NOT
+   * fail-open — if the dedup read throws it PROPAGATES so the BullMQ worker marks
+   * the job failed and retries later (safe: retries are idempotent), rather than
+   * re-blasting every recipient on a transient DB blip. Falls back to "all
+   * fresh" only when the store doesn't expose existsForEvents at all.
+   */
+  async function filterFresh(userIds: string[], type: string, eventKey: string): Promise<string[]> {
+    if (!userIds.length) return [];
+    if (!stores?.notificationLog?.existsForEvents) return [...userIds];
+    const seen: Set<string> = await stores.notificationLog.existsForEvents(userIds, type, eventKey);
+    return userIds.filter((uid) => !seen.has(uid));
   }
 
   // ── wrap_ready ──────────────────────────────────────────────────────────
@@ -95,7 +121,7 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
       log?.warn?.('sendWrapReady: festival load failed', { festivalId, error: err?.message });
     }
     if (!festival) return { sent: 0, reason: 'festival_not_found' };
-    if (!isFestivalOver(festival.days)) {
+    if (!isFestivalOver(festival.days, festival.timeZone)) {
       log?.debug?.('sendWrapReady: festival not over yet — skipping', { festivalId });
       return { sent: 0, reason: 'not_over' };
     }
@@ -112,11 +138,9 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
     }
 
     // Push (deduped per user). sendToOfflineUsers itself enforces pref+DND+cap.
-    // We pre-filter dedup'd users so a re-run never re-pushes.
-    const fresh: string[] = [];
-    for (const uid of attendeeIds) {
-      if (!(await alreadyNotified(uid, 'wrap_ready', eventKey))) fresh.push(uid);
-    }
+    // ONE batch dedup query pre-filters already-notified users so a re-run never
+    // re-pushes; a dedup read failure propagates (no fail-open re-blast).
+    const fresh = await filterFresh(attendeeIds, 'wrap_ready', eventKey);
 
     // Push to ALL fresh attendees in bounded chunks (no MAX_PUSH_BATCH drop).
     const deepLink = `${origin()}/wrap?festival=${encodeURIComponent(festivalId)}`;
@@ -190,10 +214,7 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
     if (priorIds.length === 0) return { sent: 0, reason: 'no_prior_attendees' };
 
     const eventKey = `lineup:${festivalId}`;
-    const fresh: string[] = [];
-    for (const uid of priorIds) {
-      if (!(await alreadyNotified(uid, 'lineup_drop', eventKey))) fresh.push(uid);
-    }
+    const fresh = await filterFresh(priorIds, 'lineup_drop', eventKey);
     if (fresh.length === 0) return { sent: 0, reason: 'all_deduped' };
 
     // Prior-year attendees are NOT in the new festival, so we push per-user
@@ -225,10 +246,7 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
     if (!newCrewId || invited.length === 0) return { sent: 0, reason: 'no_invitees' };
 
     const eventKey = `reform:${newCrewId}`;
-    const fresh: string[] = [];
-    for (const uid of invited) {
-      if (!(await alreadyNotified(uid, 'crew_reformed', eventKey))) fresh.push(uid);
-    }
+    const fresh = await filterFresh(invited, 'crew_reformed', eventKey);
     if (fresh.length === 0) return { sent: 0, reason: 'all_deduped' };
 
     const reformDeepLink = inviteUrl || `${origin()}/crew/${encodeURIComponent(newCrewId)}`;
@@ -304,33 +322,47 @@ export function createReengagementTriggers({ stores, config, log, notificationSe
   ): Promise<number> {
     if (!userIds.length) return 0;
     const users = await loadUsers(userIds);
+    // Email dedup shares the eventKey but uses a distinct type suffix so a push
+    // log row does not suppress the email (and vice-versa). ONE batch dedup
+    // query for the whole fan-out (no N+1); a read failure propagates rather
+    // than fail-open re-blasting every address.
+    const emailEventKey = `${eventKey}#email`;
+    const fresh = await filterFresh(userIds, type, emailEventKey);
     let sent = 0;
-    for (const uid of userIds) {
+    for (const uid of fresh) {
       const user = users.get(uid);
       if (!user?.email) continue;
-      // Email dedup shares the eventKey but uses a distinct type suffix so a push
-      // log row does not suppress the email (and vice-versa).
-      const emailEventKey = `${eventKey}#email`;
-      if (await alreadyNotified(uid, type, emailEventKey)) continue;
+      let ok: boolean;
       try {
-        const ok = await sendFn(user);
-        if (ok) {
-          sent += 1;
-          // Record an email-channel log row for dedup on re-runs.
-          await stores?.notificationLog?.insert?.({
-            id: crypto.randomUUID(),
-            userId: uid,
-            type,
-            title: `${type} email`,
-            body: '',
-            dataJson: JSON.stringify({ eventKey: emailEventKey, channel: 'email' }),
-            status: 'sent',
-            platform: 'email',
-            errorMessage: null,
-          });
-        }
+        ok = await sendFn(user);
       } catch (err: any) {
         log?.debug?.('reengagement: email send failed', { userId: uid, type, error: err?.message });
+        continue;
+      }
+      if (!ok) continue;
+      sent += 1;
+      // Record an email-channel log row for dedup on re-runs. A failed insert
+      // here means the NEXT run will re-send this email (no dedup row), so it
+      // must be visible in prod — log at warn, not debug.
+      try {
+        await stores?.notificationLog?.insert?.({
+          id: crypto.randomUUID(),
+          userId: uid,
+          type,
+          title: `${type} email`,
+          body: '',
+          dataJson: JSON.stringify({ eventKey: emailEventKey, channel: 'email' }),
+          status: 'sent',
+          platform: 'email',
+          errorMessage: null,
+        });
+      } catch (err: any) {
+        log?.warn?.('reengagement: email dedup-row insert failed (may re-send on next run)', {
+          userId: uid,
+          eventKey: emailEventKey,
+          type,
+          error: err?.message,
+        });
       }
     }
     return sent;

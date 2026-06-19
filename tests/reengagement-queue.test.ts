@@ -28,8 +28,9 @@ function makeExecutor() {
   };
 }
 
-function makeFakes(opts: { addThrows?: boolean } = {}) {
+function makeFakes(opts: { addThrows?: boolean; modelJobIdNoop?: boolean } = {}) {
   const added: any[] = [];
+  const byJobId = new Map<string, any>();
   let processor: any = null;
   let closed = { queue: false, worker: false };
 
@@ -40,8 +41,17 @@ function makeFakes(opts: { addThrows?: boolean } = {}) {
     ) {}
     async add(name: string, data: any, jobOpts: any) {
       if (opts.addThrows) throw new Error('redis down');
+      const jobId = jobOpts?.jobId;
+      // Model BullMQ's existing-jobId behavior: queue.add with a jobId that
+      // still exists is a NO-OP — it returns the existing job WITHOUT appending
+      // a new one (and without throwing).
+      if (opts.modelJobIdNoop && jobId != null && byJobId.has(jobId)) {
+        return byJobId.get(jobId);
+      }
+      const job = { id: jobId };
       added.push({ name, data, jobOpts });
-      return { id: jobOpts?.jobId };
+      if (jobId != null) byJobId.set(jobId, job);
+      return job;
     }
     async close() {
       closed.queue = true;
@@ -65,6 +75,7 @@ function makeFakes(opts: { addThrows?: boolean } = {}) {
   }
   return {
     added,
+    byJobId,
     closed,
     getProcessor: () => processor,
     _Queue: FakeQueue as any,
@@ -107,6 +118,45 @@ describe('createReengagementQueue', () => {
     assert.equal(fakes.added[2].name, 'crew_reformed');
     assert.equal(fakes.added[2].jobOpts.jobId, 'reform:crew-9');
     assert.equal(fakes.added[2].data.crewName, 'Wolves');
+  });
+
+  it('a duplicate enqueue with an existing jobId is a no-op (BullMQ existing-jobId semantics)', async () => {
+    // FIX 3 documents that the stable jobId only suppresses a duplicate enqueue
+    // WHILE a job with that id still exists; queue.add with an existing jobId is
+    // a silent no-op (returns the existing job, does not append, does not throw).
+    // removeOnComplete:true frees the key after completion so a LATER re-trigger
+    // re-enqueues — the notification_log per-user dedup is the real backstop.
+    const fakes = makeFakes({ modelJobIdNoop: true });
+    const q = createReengagementQueue({ executor: makeExecutor() as any, log, ...fakes });
+    assert.ok(q);
+
+    const r1 = await q!.sendWrapReady('fk-2026');
+    const r2 = await q!.sendWrapReady('fk-2026'); // same jobId, still present
+
+    // Only ONE job was actually appended; the second add was a no-op.
+    assert.equal(fakes.added.length, 1);
+    assert.equal(fakes.added[0].jobOpts.jobId, 'wrap:fk-2026');
+    // Both calls report queued against the same stable jobId.
+    assert.equal(r1.queued, true);
+    assert.equal(r1.jobId, 'wrap:fk-2026');
+    assert.equal(r2.queued, true);
+    assert.equal(r2.jobId, 'wrap:fk-2026');
+
+    // After the key is freed (removeOnComplete:true frees it post-completion),
+    // a later re-trigger re-enqueues. Simulate the key being gone:
+    fakes.byJobId.delete('wrap:fk-2026');
+    await q!.sendWrapReady('fk-2026');
+    assert.equal(fakes.added.length, 2);
+  });
+
+  it('defaultJobOptions: removeOnComplete frees the key immediately, removeOnFail is short', () => {
+    const fakes = makeFakes();
+    const q = createReengagementQueue({ executor: makeExecutor() as any, log, ...fakes });
+    assert.ok(q);
+    // FakeQueue stores its config (2nd ctor arg) on `cfg`.
+    const opts = (q as any)._queue.cfg.defaultJobOptions;
+    assert.equal(opts.removeOnComplete, true);
+    assert.deepEqual(opts.removeOnFail, { age: 600 });
   });
 
   it('worker routes job.name to the matching executor method', async () => {

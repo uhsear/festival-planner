@@ -318,6 +318,18 @@ function createCloseHandler({
     }
 
     if (sentry?.close) await sentry.close(2000);
+    // Close the re-engagement worker/queue BEFORE the pg pool: the worker may
+    // have an in-flight job whose executor still queries `pool`, so ending the
+    // pool first triggers "Cannot use a pool after calling end on the pool".
+    // Draining the worker first lets that job finish (or be force-closed) before
+    // the pool — and the shared redis client — go away.
+    if (reengagementQueue?.close) {
+      try {
+        await reengagementQueue.close();
+      } catch {
+        /* ignore */
+      }
+    }
     await pool.end();
     try {
       await avatarPool.terminate();
@@ -327,15 +339,6 @@ function createCloseHandler({
     if (cacheBus) {
       try {
         await cacheBus.close();
-      } catch {
-        /* ignore */
-      }
-    }
-    // Close the re-engagement worker/queue (drains the active job, releases its
-    // own Redis connections) before tearing down the shared redis client.
-    if (reengagementQueue?.close) {
-      try {
-        await reengagementQueue.close();
       } catch {
         /* ignore */
       }

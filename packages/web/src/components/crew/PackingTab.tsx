@@ -140,7 +140,7 @@ export default function PackingTab({ crewId, currentUserId, isOwner }: Props) {
                   disabled={busyId === item.id}
                   aria-pressed={item.claimed}
                   aria-label={item.claimed ? `Unclaim ${item.label}` : `Claim ${item.label}`}
-                  className={`flex-shrink-0 w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${
+                  className={`flex-shrink-0 w-6 h-6 min-h-11 min-w-11 rounded-md border flex items-center justify-center transition-colors ${
                     item.claimed
                       ? 'bg-accent-aqua/20 border-accent-aqua/40 text-accent-aqua'
                       : 'bg-bg-input border-border text-transparent'

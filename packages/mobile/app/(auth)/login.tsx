@@ -82,6 +82,10 @@ const useStyles = makeStyles((t) => ({
   eyeButton: {
     paddingVertical: t.spacing[2],
     paddingHorizontal: t.spacing[3],
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   guestButton: {
     marginTop: t.spacing[5],

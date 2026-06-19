@@ -226,6 +226,24 @@ export default function createNotificationsStore(pool: Pool, _utils: any) {
       );
       return result.rows.length > 0;
     },
+
+    /**
+     * Batched form of existsForEvent: given many user ids, return the SET of
+     * those already logged a notification of `type` carrying
+     * `data_json.eventKey === eventKey`. Lets the re-engagement fan-out do ONE
+     * dedup query per event instead of one per recipient (N+1). Callers should
+     * NOT swallow a throw here — a failed read must propagate so the worker
+     * retries rather than fail-open and re-blast everyone.
+     */
+    async existsForEvents(userIds: string[], type: string, eventKey: string): Promise<Set<string>> {
+      if (!userIds || userIds.length === 0) return new Set();
+      const result = await pool.query(
+        `SELECT DISTINCT user_id AS "userId" FROM notification_log
+         WHERE user_id = ANY($1) AND type = $2 AND data_json->>'eventKey' = $3`,
+        [userIds, type, eventKey],
+      );
+      return new Set(result.rows.map((r: any) => r.userId));
+    },
   };
 
   const notificationCounts = {

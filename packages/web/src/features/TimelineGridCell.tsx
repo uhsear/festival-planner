@@ -211,7 +211,12 @@ function TimelineGridCell({
                 'border-[1.5px] border-[var(--color-bg-primary)]',
               )}
               title={`${o.name || 'Crew member'} (${o.priority})`}
-            />
+              aria-label={`${o.name || 'Crew member'} (${o.priority})`}
+            >
+              <span className="sr-only">
+                {o.name || 'Crew member'} ({o.priority})
+              </span>
+            </div>
           ))}
         </div>
       )}

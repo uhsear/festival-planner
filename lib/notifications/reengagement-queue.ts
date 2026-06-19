@@ -35,8 +35,18 @@ import Redis from 'ioredis';
 const QUEUE_NAME = 'reengagement';
 
 // Map BullMQ job name -> executor method + the stable per-event dedup key used as
-// the BullMQ jobId (so the same event isn't queued twice while one is pending).
+// the BullMQ jobId. The jobId only suppresses a duplicate enqueue while a job
+// with that id still exists in Redis; we free completed jobs immediately
+// (removeOnComplete: true) so a LATER legitimate re-trigger of the same event
+// re-enqueues. Note BullMQ's queue.add with an already-present jobId is a silent
+// no-op (it returns the existing job, doesn't throw and doesn't re-run) — the
+// real double-send backstop is notification_log's per-user eventKey dedup, not
+// the jobId.
 type JobName = 'wrap_ready' | 'lineup_drop' | 'crew_reformed';
+
+// Bound worker.close() so a long-running fan-out job can't hold up shutdown past
+// the process shutdown timeout; on timeout we force-close.
+const WORKER_CLOSE_TIMEOUT_MS = 10_000;
 
 export interface ReengagementExecutor {
   sendWrapReady: (festivalId: string) => Promise<any>;
@@ -107,10 +117,15 @@ export function createReengagementQueue(deps: ReengagementQueueDeps) {
       defaultJobOptions: {
         attempts: 4,
         backoff: { type: 'exponential', delay: 5000 },
-        // Free completed/failed jobs so a later re-trigger of the same event
-        // (same jobId) can enqueue again; the dedup guard prevents double-sends.
-        removeOnComplete: { age: 3600, count: 1000 },
-        removeOnFail: { age: 24 * 3600, count: 1000 },
+        // Free the completed job's key IMMEDIATELY so a later legitimate
+        // re-trigger of the same event (same stable jobId) is not silently
+        // swallowed by BullMQ's existing-jobId no-op during a retention window.
+        // The notification_log per-user eventKey dedup is the real double-send
+        // backstop, so removing the key early can't cause duplicate sends.
+        removeOnComplete: true,
+        // Keep failed jobs briefly (for visibility/retry) but short, so a failed
+        // job's key doesn't block a re-trigger for long.
+        removeOnFail: { age: 600 },
       },
     });
 
@@ -173,10 +188,29 @@ export function createReengagementQueue(deps: ReengagementQueueDeps) {
     sendCrewReformed: (args: any) =>
       enqueue('crew_reformed', `reform:${args?.newCrewId}`, args, () => executor.sendCrewReformed(args)),
     async close() {
-      try {
-        await worker?.close();
-      } catch {
-        /* ignore */
+      // worker.close() waits for in-flight jobs to finish, which is unbounded —
+      // a large fan-out can keep one job busy for minutes. Bound it and force a
+      // close (worker.close(true)) if the graceful drain doesn't land in time.
+      if (worker) {
+        try {
+          let timedOut = false;
+          const timer = new Promise<void>((resolve) => {
+            setTimeout(() => {
+              timedOut = true;
+              resolve();
+            }, WORKER_CLOSE_TIMEOUT_MS);
+          });
+          await Promise.race([worker.close(), timer]);
+          if (timedOut) {
+            try {
+              await worker.close(true); // force
+            } catch {
+              /* ignore */
+            }
+          }
+        } catch {
+          /* ignore */
+        }
       }
       try {
         await queue?.close();
