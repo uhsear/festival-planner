@@ -4,7 +4,7 @@ import { useFestivalDataStore } from './festivalDataStore';
 import { useFestivalUIStore } from './festivalUIStore';
 import { useFestivalModeStore } from './festivalModeStore';
 import { useLiveLocationStore } from './liveLocationStore';
-import { clearPersistedFailed } from '../services/offlineQueue';
+import { clearPersistedFailed, clearQueue } from '../services/offlineQueue';
 
 export function resetAllStores(): void {
   useFestivalDataStore.setState({
@@ -59,7 +59,12 @@ export function resetAllStores(): void {
     showPastSets: true,
     autoScrollToNow: false,
     manuallyDisabled: false,
+    lowPowerMode: false,
   });
   useLiveLocationStore.getState().reset();
   void clearPersistedFailed();
+  // Drop any pending offline writes so user A's unsynced mutations can't replay
+  // under user B's session on a shared device (the RN queue; web clears its own
+  // IndexedDB queue on auth change in main.tsx).
+  void clearQueue();
 }

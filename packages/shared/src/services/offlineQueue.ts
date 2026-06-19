@@ -173,6 +173,18 @@ export async function clearPersistedFailed(): Promise<void> {
   }
 }
 
+/**
+ * Drop every pending mutation. Called on logout so a previous user's unsynced
+ * writes can never replay under the next user's session on a shared device.
+ * Goes through the queue lock + writeQueue([]) so an in-flight drain/enqueue
+ * can't resurrect a half-cleared queue, and the pending count resets to 0.
+ */
+export async function clearQueue(): Promise<void> {
+  await withQueueLock(async () => {
+    await writeQueue([]);
+  });
+}
+
 // Simple async mutex to serialize read-modify-write cycles on the queue so
 // a concurrent enqueueMutation during drainQueue cannot be clobbered.
 let _queueMutex: Promise<void> = Promise.resolve();

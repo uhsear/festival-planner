@@ -19,7 +19,7 @@ vi.mock('../api', () => {
 });
 
 import { api, ApiClientError } from '../api';
-import { enqueueMutation, drainQueue, refreshPendingCount, retryFailed, type QueuedMutation } from '../offlineQueue';
+import { enqueueMutation, drainQueue, refreshPendingCount, retryFailed, clearQueue, type QueuedMutation } from '../offlineQueue';
 import { useUIStore } from '../../stores/uiStore';
 import { getStorage } from '../../platform/storage';
 
@@ -50,6 +50,19 @@ describe('offlineQueue', () => {
     getStorage().removeItem(QUEUE_KEY);
     vi.clearAllMocks();
     useUIStore.setState({ offlineMode: false, pendingSync: 0, failedSync: [] });
+  });
+
+  describe('clearQueue', () => {
+    it('drops all pending mutations and zeroes the pending count (logout safety)', async () => {
+      await enqueueMutation({ clientId: 'a', url: '/crews/c1/expenses', method: 'POST', body: { amount: 10 } });
+      await enqueueMutation({ clientId: 'b', url: '/profiles/p1', method: 'PUT', body: { picks: {} } });
+      expect(readPersisted()).toHaveLength(2);
+
+      await clearQueue();
+
+      expect(readPersisted()).toEqual([]);
+      expect(useUIStore.getState().pendingSync).toBe(0);
+    });
   });
 
   describe('enqueueMutation', () => {
