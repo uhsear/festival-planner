@@ -25,14 +25,23 @@ function RegisterPageInner() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [tosAccepted, setTosAccepted] = useState(false);
   const [usernameErr, setUsernameErr] = useState('');
   const [passwordErr, setPasswordErr] = useState('');
   const [confirmErr, setConfirmErr] = useState('');
   const [emailErr, setEmailErr] = useState('');
+  const [dobErr, setDobErr] = useState('');
   const [formError, setFormError] = useState('');
 
   const isValidEmail = (value: string) => /^\S+@\S+\.\w{2,}$/.test(value);
+  // UX-only check; the backend Zod schema is the authoritative 18+ gate.
+  const isAtLeast18 = (iso: string) => {
+    const d = new Date(`${iso}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) return false;
+    const t = new Date(Date.UTC(d.getUTCFullYear() + 18, d.getUTCMonth(), d.getUTCDate()));
+    return t.getTime() <= Date.now();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +50,7 @@ function RegisterPageInner() {
     setPasswordErr('');
     setConfirmErr('');
     setEmailErr('');
+    setDobErr('');
 
     if (!username) {
       setUsernameErr('Username is required');
@@ -66,12 +76,21 @@ function RegisterPageInner() {
       setFormError('You must accept the Terms of Service');
       return;
     }
+    if (!dateOfBirth) {
+      setDobErr('Date of birth is required');
+      return;
+    }
+    if (!isAtLeast18(dateOfBirth)) {
+      setDobErr('You must be at least 18 to use Festie');
+      return;
+    }
 
     try {
       await register({
         username,
         password,
         confirmPassword,
+        dateOfBirth,
         tosAccepted,
         email: email || undefined,
       });
@@ -152,6 +171,18 @@ function RegisterPageInner() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             disabled={isLoading}
             error={confirmErr}
+          />
+        </div>
+
+        <div className="mb-3">
+          <Input
+            aria-label="Date of birth"
+            type="date"
+            helperText="You must be 18 or older"
+            value={dateOfBirth}
+            onChange={(e) => setDateOfBirth(e.target.value)}
+            disabled={isLoading}
+            error={dobErr}
           />
         </div>
 

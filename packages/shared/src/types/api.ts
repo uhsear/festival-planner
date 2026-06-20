@@ -22,6 +22,8 @@ export interface RegisterRequest {
   username: string;
   password: string;
   confirmPassword: string;
+  /** YYYY-MM-DD. Required by the backend 18+ age gate at registration. */
+  dateOfBirth?: string;
   tosAccepted: boolean;
   email?: string;
 }

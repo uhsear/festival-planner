@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Mock dependencies
@@ -165,12 +165,14 @@ describe('RegisterPage', () => {
     await user.type(screen.getByPlaceholderText('Username'), 'alice');
     await user.type(screen.getByPlaceholderText('Password'), 'password123');
     await user.type(screen.getByPlaceholderText('Confirm Password'), 'password123');
+    fireEvent.change(screen.getByLabelText('Date of birth'), { target: { value: '1995-01-01' } });
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
     expect(mockRegister).toHaveBeenCalledWith({
       username: 'alice',
       password: 'password123',
       confirmPassword: 'password123',
+      dateOfBirth: '1995-01-01',
       tosAccepted: true,
       email: undefined,
     });
