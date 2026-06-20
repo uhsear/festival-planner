@@ -118,13 +118,26 @@ function GridViewInner() {
     return out;
   }, [bounds, PX_PER_MIN]);
 
+  // Tick the "now" minute every 60 s so the indicator stays accurate. Reduced-
+  // motion: still ticks (positional accuracy isn't animation), but the bar's CSS
+  // pulse is already suppressed via motion-reduce:animate-none in the markup.
+  const [nowMin, setNowMin] = useState(() => {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  });
+  useEffect(() => {
+    const id = setInterval(() => {
+      const d = new Date();
+      setNowMin(d.getHours() * 60 + d.getMinutes());
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const nowPx = useMemo(() => {
     if (!bounds) return null;
-    const now = new Date();
-    const nm = now.getHours() * 60 + now.getMinutes();
-    if (nm < bounds.lo || nm > bounds.hi) return null;
-    return (nm - bounds.lo) * PX_PER_MIN;
-  }, [bounds, PX_PER_MIN]);
+    if (nowMin < bounds.lo || nowMin > bounds.hi) return null;
+    return (nowMin - bounds.lo) * PX_PER_MIN;
+  }, [bounds, PX_PER_MIN, nowMin]);
 
   // Auto-scroll to NOW on mount (only when NOW is within the day's bounds).
   const didAutoScroll = useRef(false);

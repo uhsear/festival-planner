@@ -1204,6 +1204,30 @@ export default function createCrewsStore(pool: Pool, _utils: any) {
       );
       return result.rows;
     },
+
+    // GDPR export: return all status snapshots the given user has authored
+    // across all their crews. Excludes location breadcrumbs (NOT live GPS).
+    async listByUser(userId: string) {
+      const result = await pool.query(
+        `
+        SELECT
+          s.crew_id,
+          s.status,
+          s.target_meeting_point_id,
+          s.eta_minutes,
+          s.note,
+          s.updated_at
+        FROM
+          crew_member_status s
+        WHERE
+          s.user_id = $1
+        ORDER BY
+          s.updated_at DESC
+      `,
+        [userId],
+      );
+      return result.rows;
+    },
   };
 
   return { crews, topicSubscriptions, meetingPoints, crewPacking, crewRides, crewStatus };

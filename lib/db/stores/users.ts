@@ -45,6 +45,7 @@ export default function createUsersStore(pool: Pool, utils: any) {
     venmo_handle AS "venmoHandle",
     cashapp_cashtag AS "cashappCashtag",
     paypal_handle AS "paypalHandle",
+    date_of_birth AS "dateOfBirth",
     created_at AS "createdAt",
     updated_at AS "updatedAt",
     deleted_at AS "deletedAt"
@@ -68,6 +69,7 @@ export default function createUsersStore(pool: Pool, utils: any) {
       venmoHandle: row.venmoHandle || null,
       cashappCashtag: row.cashappCashtag || null,
       paypalHandle: row.paypalHandle || null,
+      dateOfBirth: row.dateOfBirth || null,
     };
   }
 

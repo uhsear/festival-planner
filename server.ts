@@ -89,6 +89,7 @@ import {
   metricsHandler,
   startMetricsSampler,
   startMetricsListener,
+  startReengagementQueueSampler,
 } from './lib/metrics';
 import express from 'express';
 import createAuthRoutes from './routes/auth';
@@ -181,8 +182,14 @@ async function createFestieApp(overrides: any = {}) {
     redisUrl: config.REDIS_URL,
     enabled: config.REDIS_ENABLED,
     bullPrefix: `${config.REDIS_PREFIX || ''}bull`,
+    promMetrics: metrics,
   });
-  if (reengagementQueue) log.info('reengagement: durable queue active (in-process worker)');
+  if (reengagementQueue) {
+    log.info('reengagement: durable queue active (in-process worker)');
+    // Start periodic queue-depth sampling (fp_reengagement_queue_depth gauge).
+    // _queue is the raw BullMQ Queue instance exposed for instrumentation.
+    startReengagementQueueSampler(metrics, reengagementQueue._queue).catch(() => {});
+  }
   const reengagement = reengagementQueue || reengagementExecutor;
   deps.reengagement = reengagement;
   ctx.reengagement = reengagement; // also exposed to background tasks (wrap_ready sweep)

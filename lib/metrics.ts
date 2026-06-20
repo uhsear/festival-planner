@@ -35,6 +35,9 @@ function createMetrics() {
       authFailuresCounter: null,
       dbQueryHistogram: null,
       rateLimitHitsCounter: null,
+      pushProviderOutageCounter: null,
+      reengagementWorkerErrorsCounter: null,
+      reengagementQueueDepthGauge: null,
     };
   }
 
@@ -129,6 +132,40 @@ function createMetrics() {
   });
   registry.registerMetric(rateLimitHitsCounter);
 
+  // --- push / re-engagement observability ---
+
+  /**
+   * Incremented when a push-provider batch has a high failure ratio that signals
+   * a provider outage rather than benign all-opt-out or zero-recipient conditions.
+   * Labels: provider (fcm | apns).
+   */
+  const pushProviderOutageCounter = new client.Counter({
+    name: 'fp_push_provider_outage_total',
+    help: 'Push batches where send-errors dominate (>50% of attempted sends failed), indicating a provider outage',
+    labelNames: ['provider'],
+  });
+  registry.registerMetric(pushProviderOutageCounter);
+
+  /**
+   * Incremented each time the BullMQ re-engagement worker marks a job as failed
+   * (after all retry attempts are exhausted or an unrecoverable error occurs).
+   */
+  const reengagementWorkerErrorsCounter = new client.Counter({
+    name: 'fp_reengagement_queue_worker_errors_total',
+    help: 'BullMQ re-engagement worker job failures (all attempts exhausted)',
+  });
+  registry.registerMetric(reengagementWorkerErrorsCounter);
+
+  /**
+   * Current number of jobs waiting in the re-engagement queue (waiting + delayed).
+   * Sampled periodically by startReengagementQueueSampler.
+   */
+  const reengagementQueueDepthGauge = new client.Gauge({
+    name: 'fp_reengagement_queue_depth',
+    help: 'Number of jobs currently waiting or delayed in the re-engagement BullMQ queue',
+  });
+  registry.registerMetric(reengagementQueueDepthGauge);
+
   return {
     available: true,
     client,
@@ -145,6 +182,9 @@ function createMetrics() {
     authFailuresCounter,
     dbQueryHistogram,
     rateLimitHitsCounter,
+    pushProviderOutageCounter,
+    reengagementWorkerErrorsCounter,
+    reengagementQueueDepthGauge,
   };
 }
 
@@ -258,11 +298,38 @@ function startMetricsListener(metrics: any, { basePort = 9400, workerId = 0 }: a
   return () => new Promise<void>((resolve) => srv.close(() => resolve()));
 }
 
+/**
+ * Periodically sample the re-engagement BullMQ queue depth (waiting + delayed).
+ * Call this after the queue is created; returns a stop() function.
+ * `bullQueue` must expose `.getWaitingCount()` and `.getDelayedCount()` (standard BullMQ Queue API).
+ */
+async function startReengagementQueueSampler(
+  metrics: any,
+  bullQueue: any,
+  intervalMs = 15_000,
+): Promise<() => void> {
+  if (!metrics || !metrics.available || !bullQueue) return () => {};
+  const sample = async () => {
+    try {
+      const [waiting, delayed] = await Promise.all([
+        bullQueue.getWaitingCount(),
+        bullQueue.getDelayedCount(),
+      ]);
+      metrics.reengagementQueueDepthGauge.set(waiting + delayed);
+    } catch { /* ignore sampler errors */ }
+  };
+  await sample();
+  const handle = setInterval(sample, intervalMs);
+  if (typeof handle.unref === 'function') handle.unref();
+  return () => clearInterval(handle);
+}
+
 export {
   createMetrics,
   metricsMiddleware,
   metricsHandler,
   startMetricsSampler,
+  startReengagementQueueSampler,
   available,
   startMetricsListener,
 };

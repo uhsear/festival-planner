@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import Button from './Button';
@@ -44,7 +44,8 @@ export default function PromptDialog({
 }: Props) {
   const [value, setValue] = useState(defaultValue);
   useEffect(() => { if (open) setValue(defaultValue); }, [open, defaultValue]);
-  const errorId = error ? 'prompt-dialog-error' : undefined;
+  const uid = useId();
+  const errorId = error ? `${uid}-error` : undefined;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

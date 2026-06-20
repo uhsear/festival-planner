@@ -185,6 +185,7 @@ function WrapPageInner() {
         <button
           role="tab"
           aria-selected={tab === 'me'}
+          aria-controls="wrap-tab-panel"
           onClick={() => setTab('me')}
           className={`min-h-[40px] rounded-lg text-sm font-medium transition-colors ${
             tab === 'me' ? 'bg-accent-aqua text-bg-primary' : 'text-text-secondary hover:text-text-primary'
@@ -195,6 +196,7 @@ function WrapPageInner() {
         <button
           role="tab"
           aria-selected={tab === 'crew'}
+          aria-controls="wrap-tab-panel"
           onClick={() => setTab('crew')}
           className={`min-h-[40px] rounded-lg text-sm font-medium transition-colors ${
             tab === 'crew' ? 'bg-accent-aqua text-bg-primary' : 'text-text-secondary hover:text-text-primary'
@@ -210,12 +212,14 @@ function WrapPageInner() {
     return (
       <div>
         {tabBar}
-        <CrewWrapTab
-          crewId={activeCrew?.id ?? null}
-          crewName={activeCrew?.name ?? 'Your crew'}
-          festivalId={currentFestival.id}
-          festivalName={currentFestival.name}
-        />
+        <div id="wrap-tab-panel">
+          <CrewWrapTab
+            crewId={activeCrew?.id ?? null}
+            crewName={activeCrew?.name ?? 'Your crew'}
+            festivalId={currentFestival.id}
+            festivalName={currentFestival.name}
+          />
+        </div>
       </div>
     );
   }
@@ -256,7 +260,7 @@ function WrapPageInner() {
           reading as sparse placeholder chrome rather than a dense highlight page).
           No own top/side pad — the shell `px-6 py-4` owns it; the tab bar above
           already added the top band, so the body keeps just inter-section rhythm. */}
-      <div className="max-w-lg mx-auto space-y-4 pt-4 pb-6">
+      <div id="wrap-tab-panel" className="max-w-lg mx-auto space-y-4 pt-4 pb-6">
         <header className="text-center space-y-1">
           <div className="inline-flex items-center gap-2 text-accent-aqua text-xs uppercase tracking-widest">
             <Sparkles className="w-4 h-4" aria-hidden="true" />

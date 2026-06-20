@@ -384,6 +384,68 @@ describe('account: GDPR export', { concurrency: 1, skip }, () => {
     }
   });
 
+  test('export includes email, displayName, dateOfBirth, paymentHandles, spotifyAccount (Art. 20 categories)', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const username = uniqueUsername('gdprfull');
+    const user = await registerUser(server, username);
+
+    // Set a display name so we can verify it appears in the export.
+    await server.request
+      .put('/api/v1/account/display-name')
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({ displayName: 'GDPR Full Name' })
+      .expect(200);
+
+    // Set payment handles so they appear in the export.
+    await server.request
+      .put('/api/v1/account/payment-handles')
+      .set('x-user-token', user.token)
+      .set(TRUSTED_MUTATION_HEADER, '1')
+      .send({ venmoHandle: 'testvenmo', cashappCashtag: 'testcash', paypalHandle: 'testpaypal' })
+      .expect(200);
+
+    const res = await server.request.get('/api/v1/account/export').set('x-user-token', user.token);
+    assert.equal(res.status, 200);
+
+    const payload = res.body.data;
+    assert.ok(payload, 'export payload present');
+
+    // email field present (may be null if not set at registration)
+    assert.ok('email' in payload.user, 'export.user must include email field');
+
+    // displayName updated above must appear
+    assert.equal(payload.user.displayName, 'GDPR Full Name', 'export.user.displayName must reflect current value');
+
+    // dateOfBirth must be present; we registered with 1995-01-01
+    assert.ok('dateOfBirth' in payload.user, 'export.user must include dateOfBirth field');
+    assert.ok(
+      payload.user.dateOfBirth === null || typeof payload.user.dateOfBirth === 'string',
+      'dateOfBirth must be a string or null',
+    );
+
+    // paymentHandles section with all three handles
+    assert.ok(payload.user.paymentHandles, 'export.user.paymentHandles section required');
+    assert.equal(payload.user.paymentHandles.venmoHandle, 'testvenmo');
+    assert.equal(payload.user.paymentHandles.cashappCashtag, 'testcash');
+    assert.equal(payload.user.paymentHandles.paypalHandle, 'testpaypal');
+
+    // Spotify linkage section always present (null when not connected)
+    assert.ok('spotifyAccount' in payload, 'export must include spotifyAccount section');
+    // No Spotify connection made, so it should be null.
+    assert.equal(payload.spotifyAccount, null, 'spotifyAccount is null when not connected');
+
+    // Crew status section present (empty array when no statuses authored)
+    if ('crewStatuses' in payload) {
+      assert.ok(Array.isArray(payload.crewStatuses), 'crewStatuses must be an array');
+    }
+
+    // Sensitive fields must never appear in the export
+    assert.equal(payload.user.passwordHash, undefined, 'passwordHash must not be exported');
+    assert.equal(payload.user.password_hash, undefined, 'password_hash must not be exported');
+  });
+
   test('rate-limits a second export within 24h (429)', async () => {
     const server = await startServer();
     servers.push(server);

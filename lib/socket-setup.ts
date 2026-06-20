@@ -20,6 +20,7 @@ function configureSocketIO(app: Application, ctx: any) {
     consumeSocketConnectRateLimitAsync,
     buildAvatarUrl, getUserById,
     hashSessionToken,
+    promMetrics,
   } = ctx;
 
   const server = http.createServer(app);
@@ -100,7 +101,7 @@ function configureSocketIO(app: Application, ctx: any) {
   }
 
   // Initialize push notification service (no-op if FIREBASE_CREDENTIALS_PATH is unset)
-  const notificationService = createNotificationService({ stores, config, log, io });
+  const notificationService = createNotificationService({ stores, config, log, io, promMetrics });
 
   // Centralized event emitter for Socket.IO + push notifications
   const emitter = createSocketEmitter({

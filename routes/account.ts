@@ -11,11 +11,24 @@ import type { displayNameChangeSchema, accountDeleteSchema, paymentHandlesSchema
 
 /**
  * Collect all user data for GDPR export. Gathers profiles, device tokens,
- * crews, sessions, notification preferences, and topic subscriptions.
+ * crews, sessions, notification preferences, topic subscriptions, Spotify
+ * linkage, payment handles, email, display name, date of birth, and any
+ * crew status/location snapshots the user has authored.
  */
 async function collectGdprData(
   userId: string,
-  currentUser: { id: string; username: string; createdAt?: string; updatedAt?: string },
+  currentUser: {
+    id: string;
+    username: string;
+    email?: string | null;
+    displayName?: string | null;
+    dateOfBirth?: string | null;
+    venmoHandle?: string | null;
+    cashappCashtag?: string | null;
+    paypalHandle?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
+  },
   deps: RouteDeps,
 ) {
   const { stores, getProfiles, log } = deps;
@@ -25,10 +38,20 @@ async function collectGdprData(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const exportData: any = {
     exportDate: new Date().toISOString(),
-    exportVersion: '1.0',
+    exportVersion: '1.1',
     user: {
       id: currentUser.id,
       username: currentUser.username,
+      // Art. 20 required fields — personal identifiers
+      email: currentUser.email ?? null,
+      displayName: currentUser.displayName ?? null,
+      dateOfBirth: currentUser.dateOfBirth ?? null,
+      // Payment handles — user-authored, exported as-is (never tokenized)
+      paymentHandles: {
+        venmoHandle: currentUser.venmoHandle ?? null,
+        cashappCashtag: currentUser.cashappCashtag ?? null,
+        paypalHandle: currentUser.paypalHandle ?? null,
+      },
       createdAt: currentUser.createdAt,
       updatedAt: currentUser.updatedAt,
     },
@@ -114,6 +137,60 @@ async function collectGdprData(
       }),
     );
     exportData.topicSubscriptions = results.filter(Boolean);
+  }
+
+  // Get Spotify linked-account status (Art. 20: linked third-party identity).
+  // Export spotify_user_id and connection metadata only — NEVER the encrypted
+  // refresh token (that is a credential, not personal data in scope of Art. 20).
+  try {
+    const spotifyRow = await stores.pool.query(
+      `
+      SELECT
+        spotify_user_id,
+        scopes,
+        connected_at,
+        updated_at
+      FROM
+        spotify_accounts
+      WHERE
+        user_id = $1
+    `,
+      [userId],
+    );
+    if (spotifyRow.rows.length > 0) {
+      const r = spotifyRow.rows[0];
+      exportData.spotifyAccount = {
+        spotifyUserId: r.spotify_user_id ?? null,
+        scopes: r.scopes ?? null,
+        connectedAt: r.connected_at ? new Date(r.connected_at).toISOString() : null,
+        updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : null,
+      };
+    } else {
+      exportData.spotifyAccount = null;
+    }
+  } catch (error) {
+    log.warn('gdpr-export:partial-failure', { section: 'spotifyAccount', userId, error: (error as Error).message });
+    exportData.spotifyAccount = null;
+  }
+
+  // Get crew status snapshots the user has authored (M5 offline-sync snapshots).
+  // Location breadcrumbs (latitude/longitude) are excluded — they are ephemeral
+  // device-captured offsets, not stored personal location history.
+  if (stores?.crewStatus?.listByUser) {
+    try {
+      const statuses = await stores.crewStatus.listByUser(userId);
+      exportData.crewStatuses = (statuses || []).map((s: Record<string, unknown>) => ({
+        crewId: s.crew_id,
+        status: s.status ?? null,
+        targetMeetingPointId: s.target_meeting_point_id ?? null,
+        etaMinutes: s.eta_minutes ?? null,
+        note: s.note ?? null,
+        updatedAt: s.updated_at ? new Date(s.updated_at as string).toISOString() : null,
+      }));
+    } catch (error) {
+      log.warn('gdpr-export:partial-failure', { section: 'crewStatuses', userId, error: (error as Error).message });
+      exportData.crewStatuses = [];
+    }
   }
 
   return exportData;

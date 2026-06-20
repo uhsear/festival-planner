@@ -63,6 +63,13 @@ export interface ReengagementQueueDeps {
   bullPrefix?: string;
   /** Worker concurrency — each job itself fans out in chunks, so keep this low. */
   concurrency?: number;
+  /**
+   * Prometheus metrics object from lib/metrics.ts createMetrics(). Optional —
+   * when present, worker failures increment fp_reengagement_queue_worker_errors_total.
+   * Queue depth (fp_reengagement_queue_depth) is sampled separately via
+   * startReengagementQueueSampler (lib/metrics.ts), which requires the _queue handle.
+   */
+  promMetrics?: any;
   // ── test seams (default to the real bullmq/ioredis implementations) ──
   _Queue?: typeof Queue;
   _Worker?: typeof Worker;
@@ -83,6 +90,7 @@ export function createReengagementQueue(deps: ReengagementQueueDeps) {
     enabled = true,
     bullPrefix = 'bull',
     concurrency = 2,
+    promMetrics,
     _Queue = Queue,
     _Worker = Worker,
     _makeConnection,
@@ -143,14 +151,17 @@ export function createReengagementQueue(deps: ReengagementQueueDeps) {
       { connection: workerConn, prefix: bullPrefix, concurrency },
     );
 
-    worker.on('failed', (job: any, err: any) =>
+    worker.on('failed', (job: any, err: any) => {
       log?.warn?.('reengagement-queue: job failed', {
         name: job?.name,
         jobId: job?.id,
         attempt: job?.attemptsMade,
         error: err?.message,
-      }),
-    );
+      });
+      try {
+        promMetrics?.reengagementWorkerErrorsCounter?.inc();
+      } catch { /* ignore metric errors */ }
+    });
     worker.on('completed', (job: any, result: any) =>
       log?.info?.('reengagement-queue: job completed', {
         name: job?.name,
