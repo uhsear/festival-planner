@@ -130,7 +130,7 @@ describe('POST /api/v1/auth/register — ToS', () => {
     assert.equal(res.status, 400);
   });
 
-  test('accepts registration with dateOfBirth: '1995-01-01', tosAccepted: true', async () => {
+  test('accepts registration with tosAccepted: true', async () => {
     const server = await startServer(); servers.push(server);
     const res = await server.request
       .post('/api/v1/auth/register')
