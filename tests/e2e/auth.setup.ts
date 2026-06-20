@@ -19,7 +19,7 @@ setup('register shared visreg user', async ({ request }: any) => {
   const username = 'pwvisreg_shared_' + Date.now();
   const res = await request.post(`${BASE_URL}/api/v1/auth/register`, {
     headers: { 'content-type': 'application/json', 'x-trusted-mutation': '1' },
-    data: { username, password: PASSWORD, confirmPassword: PASSWORD, tosAccepted: true },
+    data: { username, password: PASSWORD, confirmPassword: PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true },
   });
   expect(res.ok(), 'register failed: ' + res.status() + ' ' + (res.ok() ? '' : await res.text())).toBeTruthy();
   await request.storageState({ path: STATE_FILE });

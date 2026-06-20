@@ -27,7 +27,7 @@ import type {} from '../lib/types';
  * Callers are responsible for session creation and HTTP response.
  */
 async function createUserWithProfile(userData: any, deps: any) {
-  const { cleanUsername, passwordHash, newUserId, cleanEmail } = userData;
+  const { cleanUsername, passwordHash, newUserId, cleanEmail, dateOfBirth } = userData;
   const { stores, config, log, invalidateUserCache } = deps;
 
   // Create user in database
@@ -36,6 +36,7 @@ async function createUserWithProfile(userData: any, deps: any) {
     username: cleanUsername,
     passwordHash,
     email: cleanEmail || null,
+    dateOfBirth: dateOfBirth || null,
     createdAt: new Date().toISOString(),
     tosAcceptedAt: new Date().toISOString(),
     tosVersion: 1,
@@ -221,7 +222,8 @@ export default function createAuthRoutes(deps: any): Router {
 
         const passwordHash = await hashPassword((req.validatedBody as any).password);
         const newUserId = createOpaqueId('user');
-        const user = await createUserWithProfile({ cleanUsername, passwordHash, newUserId, cleanEmail }, deps);
+        const dateOfBirth = (req.validatedBody as any).dateOfBirth;
+        const user = await createUserWithProfile({ cleanUsername, passwordHash, newUserId, cleanEmail, dateOfBirth }, deps);
 
         const token = await createUserSession(user.id, user.username);
         setNoStore(res);

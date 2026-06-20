@@ -172,14 +172,15 @@ export default function createUsersStore(pool: Pool, utils: any) {
       );
     },
 
-    async create({ id, username, passwordHash, email, createdAt, tosAcceptedAt, tosVersion }: any) {
+    async create({ id, username, passwordHash, email, dateOfBirth, createdAt, tosAcceptedAt, tosVersion }: any) {
       await pool.query(
-        'INSERT INTO users (id, username, password_hash, email, created_at, tos_accepted_at, tos_version) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        'INSERT INTO users (id, username, password_hash, email, date_of_birth, created_at, tos_accepted_at, tos_version) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
         [
           id,
           username,
           passwordHash,
           email || null,
+          dateOfBirth || null,
           createdAt || new Date().toISOString(),
           tosAcceptedAt || null,
           tosVersion || null,

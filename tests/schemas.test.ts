@@ -14,11 +14,14 @@ import {
 // ── Authentication schemas ──────────────────────────────────────────────
 
 describe('schemas: register', () => {
+  const DOB = '1995-01-01'; // an adult DOB that clears the 18+ gate
+
   it('accepts valid registration', () => {
     const result = schemas.register.safeParse({
       username: 'testuser',
       password: 'Str0ngTest!Pw',
       confirmPassword: 'Str0ngTest!Pw',
+      dateOfBirth: DOB,
       tosAccepted: true,
     });
     assert.ok(result.success);
@@ -29,6 +32,7 @@ describe('schemas: register', () => {
       username: '',
       password: 'Str0ngTest!Pw',
       confirmPassword: 'Str0ngTest!Pw',
+      dateOfBirth: DOB,
       tosAccepted: true,
     });
     assert.ok(!result.success);
@@ -39,6 +43,7 @@ describe('schemas: register', () => {
       username: 'user',
       password: 'short',
       confirmPassword: 'short',
+      dateOfBirth: DOB,
       tosAccepted: true,
     });
     assert.ok(!result.success);
@@ -49,6 +54,7 @@ describe('schemas: register', () => {
       username: 'user',
       password: 'Str0ngTest!Pw',
       confirmPassword: 'different123',
+      dateOfBirth: DOB,
       tosAccepted: true,
     });
     assert.ok(!result.success);
@@ -59,7 +65,31 @@ describe('schemas: register', () => {
       username: 'user',
       password: 'Str0ngTest!Pw',
       confirmPassword: 'Str0ngTest!Pw',
+      dateOfBirth: DOB,
       tosAccepted: false,
+    });
+    assert.ok(!result.success);
+  });
+
+  it('rejects a registrant under 18', () => {
+    const tenYearsAgo = `${new Date().getUTCFullYear() - 10}-01-01`;
+    const result = schemas.register.safeParse({
+      username: 'kiddo',
+      password: 'Str0ngTest!Pw',
+      confirmPassword: 'Str0ngTest!Pw',
+      dateOfBirth: tenYearsAgo,
+      tosAccepted: true,
+    });
+    assert.ok(!result.success);
+  });
+
+  it('rejects a missing/malformed date of birth', () => {
+    const result = schemas.register.safeParse({
+      username: 'user',
+      password: 'Str0ngTest!Pw',
+      confirmPassword: 'Str0ngTest!Pw',
+      dateOfBirth: 'not-a-date',
+      tosAccepted: true,
     });
     assert.ok(!result.success);
   });
@@ -69,6 +99,7 @@ describe('schemas: register', () => {
       username: 'user',
       password: 'Str0ngTest!Pw',
       confirmPassword: 'Str0ngTest!Pw',
+      dateOfBirth: DOB,
       tosAccepted: true,
       email: 'test@example.com',
     });
@@ -80,6 +111,7 @@ describe('schemas: register', () => {
       username: 'user',
       password: 'Str0ngTest!Pw',
       confirmPassword: 'Str0ngTest!Pw',
+      dateOfBirth: DOB,
       tosAccepted: true,
       email: '',
     });
