@@ -262,7 +262,9 @@ function TimelineViewInner() {
             <button
               type="button"
               className={cn(
-                'fixed right-4 bottom-[calc(88px+env(safe-area-inset-bottom,0px))]',
+                'fixed right-4',
+                'bottom-[calc(var(--bottom-nav-h,88px)+8px+env(safe-area-inset-bottom,0px))]',
+                'lg:bottom-6',
                 'inline-flex items-center gap-1.5',
                 'px-3.5 py-2.5 rounded-full',
                 'bg-[var(--color-accent-coral)]',
