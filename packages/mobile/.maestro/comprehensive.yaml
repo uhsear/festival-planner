@@ -14,8 +14,8 @@ env:
 - takeScreenshot: c01-login
 - tapOn: "Username"
 - inputText: "asir"
-***REDACTED-CREDENTIAL***
-***REDACTED-CREDENTIAL***
+- tapOn: "Password"
+- inputText: "${TEST_PASSWORD}"
 - hideKeyboard
 - tapOn: "Sign In"
 - extendedWaitUntil:

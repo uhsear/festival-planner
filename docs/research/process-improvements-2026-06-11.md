@@ -59,7 +59,7 @@ concurrency:
 
 ### Release / OTA
 
-**P12 — Commit the deploy script and strip the ***REDACTED-CREDENTIAL*** *What:* move `festie-deploy.py`/`festie-verify.py` into `scripts/deploy/`, read creds from env / a gitignored `.env.deploy`, document the runbook. *Evidence:* both live in `%TEMP%`, uncommitted, with a plaintext SSH password and prod login hardcoded (redacted here). *Effort:* M. *Impact:* high. *First step:* `mkdir scripts/deploy`, move + parametrize with `os.environ[...]`, add `.env.deploy` to `.gitignore`, **rotate both leaked passwords ***REDACTED-CREDENTIAL***
+**P12 — Commit the deploy script and strip the hardcoded creds.** *What:* move `festie-deploy.py`/`festie-verify.py` into `scripts/deploy/`, read creds from env / a gitignored `.env.deploy`, document the runbook. *Evidence:* both live in `%TEMP%`, uncommitted, with a plaintext SSH password and prod login hardcoded (redacted here). *Effort:* M. *Impact:* high. *First step:* `mkdir scripts/deploy`, move + parametrize with `os.environ[...]`, add `.env.deploy` to `.gitignore`, **rotate both leaked passwords afterward.**
 
 **P13 — ~~Add a production migration runner + `schema_migrations` table.~~ [WITHDRAWN — false premise]** The original evidence ("no schema_migrations tracking table") was wrong: the app ALREADY owns a migration system in `lib/planner-db-pg.ts` — a version-keyed `schema_migrations` ledger that auto-applies pending `migrations/*.sql` on backend boot, with drift detection. A second `scripts/migrate.mjs` (filename-keyed) was added, then REMOVED after it collided with the app's version-keyed ledger on prod (Postgres 42703). Migrations are app-managed; the deploy's `pm2 reload` triggers them. No separate runner needed — see `docs/runbooks/deploy.md` §3.
 

@@ -4,7 +4,7 @@ appId: us.festie.app
 # commit a live account secret to a public repo.
 env:
   TEST_USERNAME: ${TEST_USERNAME}
-***REDACTED-CREDENTIAL***
+  TEST_PASSWORD: ${TEST_PASSWORD}
 ---
 - clearState
 - launchApp
@@ -28,7 +28,7 @@ env:
 - inputText: ${TEST_USERNAME}
 - hideKeyboard
 - tapOn: 'Password'
-***REDACTED-CREDENTIAL***
+- inputText: '${TEST_PASSWORD}'
 - hideKeyboard
 - tapOn: 'Sign in'
 - extendedWaitUntil:

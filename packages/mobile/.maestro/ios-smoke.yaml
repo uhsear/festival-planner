@@ -10,7 +10,7 @@
 appId: us.festie.app
 env:
   TEST_USERNAME: ${TEST_USERNAME}
-***REDACTED-CREDENTIAL***
+  TEST_PASSWORD: ${TEST_PASSWORD}
 ---
 - launchApp:
     clearState: true
@@ -48,8 +48,8 @@ env:
       - tapOn: "Username"
       - inputText: "${TEST_USERNAME}"
       - hideKeyboard
-***REDACTED-CREDENTIAL***
-***REDACTED-CREDENTIAL***
+      - tapOn: "Password"
+      - inputText: "${TEST_PASSWORD}"
       - hideKeyboard
       - tapOn: "Sign in"
       - tapOn:
