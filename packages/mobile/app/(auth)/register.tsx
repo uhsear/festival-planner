@@ -9,11 +9,14 @@ import {
   Platform,
   Keyboard,
   Linking,
+  Modal,
+  Pressable,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useAuthStore } from '@festie/shared/stores';
 import Button from '../../components/Button';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
@@ -147,6 +150,63 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('label', 600),
     color: t.colors.accent.aqua,
   },
+  // DOB pressable — shares the same visual treatment as TextInput fields so the
+  // form reads as one cohesive set of inputs.
+  dobPressable: {
+    backgroundColor: t.colors.bg.input,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    borderRadius: t.radii.default,
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    marginBottom: t.spacing[3],
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  dobPressableError: {
+    borderColor: t.colors.text.danger,
+  },
+  dobPressableFocused: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
+  },
+  dobText: {
+    ...typeStyle('body'),
+    color: t.colors.text.primary,
+  },
+  dobPlaceholder: {
+    ...typeStyle('body'),
+    color: t.colors.text.placeholder,
+  },
+  // iOS modal overlay + picker card
+  iosModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end' as const,
+  },
+  iosPickerCard: {
+    backgroundColor: t.colors.bg.input,
+    borderTopLeftRadius: t.radii.default,
+    borderTopRightRadius: t.radii.default,
+    paddingBottom: t.spacing[6],
+  },
+  iosPickerHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: t.spacing[4],
+    paddingTop: t.spacing[4],
+    paddingBottom: t.spacing[2],
+  },
+  iosPickerLabel: {
+    ...typeStyle('label', 600),
+    color: t.colors.text.primary,
+  },
+  iosPickerDone: {
+    ...typeStyle('label', 600),
+    color: t.colors.accent.aqua,
+  },
 }));
 
 export default function RegisterScreen() {
@@ -158,6 +218,10 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [tosAccepted, setTosAccepted] = useState(false);
+  // null = not yet chosen; Date = the user's selection
+  const [dob, setDob] = useState<Date | null>(null);
+  const [dobError, setDobError] = useState('');
+  const [showIosPicker, setShowIosPicker] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -177,6 +241,41 @@ export default function RegisterScreen() {
   const [focusedField, setFocusedField] = useState<'username' | 'email' | 'password' | 'confirm' | null>(null);
   const onFocusOf = (field: NonNullable<typeof focusedField>) => () => setFocusedField(field);
   const onBlurOf = (field: NonNullable<typeof focusedField>) => () => setFocusedField((f) => (f === field ? null : f));
+
+  // UX-only 18+ guard — backend Zod schema is authoritative.
+  const isAtLeast18 = (d: Date): boolean => {
+    const cutoff = new Date(Date.UTC(d.getUTCFullYear() + 18, d.getUTCMonth(), d.getUTCDate()));
+    return cutoff.getTime() <= Date.now();
+  };
+
+  /** Format a Date to the 'YYYY-MM-DD' string the backend expects. */
+  const toIso = (d: Date): string => {
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  /** Display label shown in the pressable field once a date is selected. */
+  const dobLabel = dob
+    ? dob.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    : null;
+
+  const today = new Date();
+
+  const openAndroidPicker = () => {
+    DateTimePickerAndroid.open({
+      value: dob ?? new Date(today.getFullYear() - 18, today.getMonth(), today.getDate()),
+      mode: 'date',
+      maximumDate: today,
+      onChange: (_evt, selected) => {
+        if (selected) {
+          setDob(selected);
+          if (dobError) setDobError('');
+        }
+      },
+    });
+  };
 
   const handleRegister = async () => {
     Keyboard.dismiss();
@@ -199,7 +298,17 @@ export default function RegisterScreen() {
       setError('Please accept the Terms of Service & Privacy Policy to continue');
       return;
     }
+    // DOB checks mirror web ordering: required first, then 18+ gate.
+    if (!dob) {
+      setDobError('Date of birth is required');
+      return;
+    }
+    if (!isAtLeast18(dob)) {
+      setDobError('You must be at least 18 to use Festie');
+      return;
+    }
     setEmailError('');
+    setDobError('');
     setError(null);
     try {
       await register({
@@ -208,6 +317,7 @@ export default function RegisterScreen() {
         password,
         confirmPassword,
         tosAccepted,
+        dateOfBirth: toIso(dob),
       });
     } catch {
       // Error is set in the store.
@@ -334,6 +444,30 @@ export default function RegisterScreen() {
           onSubmitEditing={handleRegister}
         />
 
+        {/* DOB — Android opens the system date picker imperatively; iOS renders
+            a spinner inside a bottom-sheet modal to avoid the inline-picker
+            height collapse issue on Expo SDK 56. */}
+        <Pressable
+          onPress={Platform.OS === 'android' ? openAndroidPicker : () => setShowIosPicker(true)}
+          style={[
+            styles.dobPressable,
+            dobError ? styles.dobPressableError : undefined,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={dobLabel ? `Date of birth: ${dobLabel}` : 'Date of birth, required'}
+          accessibilityHint="Opens a date picker. You must be 18 or older."
+        >
+          <Text style={dobLabel ? styles.dobText : styles.dobPlaceholder}>
+            {dobLabel ?? 'Date of birth'}
+          </Text>
+          <Ionicons name="calendar-outline" size={20} color={t.colors.text.secondary} />
+        </Pressable>
+        {dobError ? (
+          <Text style={styles.fieldError} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+            {dobError}
+          </Text>
+        ) : null}
+
         <View style={styles.tosRow}>
           <TouchableOpacity
             onPress={() => setTosAccepted((v) => !v)}
@@ -400,6 +534,51 @@ export default function RegisterScreen() {
           <Text style={styles.linkText}>Browse without an account</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* iOS bottom-sheet date picker — only rendered on iOS */}
+      {Platform.OS === 'ios' && (
+        <Modal
+          visible={showIosPicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowIosPicker(false)}
+          accessibilityViewIsModal
+        >
+          <Pressable style={styles.iosModalOverlay} onPress={() => setShowIosPicker(false)}>
+            <Pressable
+              style={styles.iosPickerCard}
+              // Prevent overlay tap-through closing when tapping the card itself.
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={styles.iosPickerHeader}>
+                <Text style={styles.iosPickerLabel}>Date of birth</Text>
+                <TouchableOpacity
+                  onPress={() => setShowIosPicker(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Done"
+                >
+                  <Text style={styles.iosPickerDone}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={dob ?? new Date(today.getFullYear() - 18, today.getMonth(), today.getDate())}
+                mode="date"
+                display="spinner"
+                maximumDate={today}
+                onChange={(_evt, selected) => {
+                  if (selected) {
+                    setDob(selected);
+                    if (dobError) setDobError('');
+                  }
+                }}
+                // Ensure the spinner respects the dark background.
+                themeVariant="dark"
+                textColor={t.colors.text.primary}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </KeyboardAvoidingView>
   );
 }
