@@ -1,8 +1,26 @@
 # Security Policy
 
-## Reporting
+## Reporting a Vulnerability
 
-Email security@festie.us with reproduction steps. We aim to acknowledge within 48 hours.
+Email **security@festie.us** with reproduction steps. We aim to acknowledge
+within 48 hours and provide a resolution timeline within 5 business days.
+
+If email is unavailable, open a **private security advisory** on GitHub
+(Security tab → "Report a vulnerability").
+
+**Do not** open a public GitHub issue for security-sensitive reports.
+
+## Privacy / Data-Breach Contact
+
+For personal-data concerns or GDPR-related enquiries:
+**privacy@festie.us**
+
+## Incident Response
+
+A full incident-response plan — including severity classes, the
+identify → contain → eradicate → recover → postmortem runbook, GDPR Art. 33
+72-hour breach-notification procedure, and credential-rotation steps — is
+maintained at [`docs/INCIDENT_RESPONSE.md`](docs/INCIDENT_RESPONSE.md).
 
 ## Production Hardening Snapshot
 
@@ -34,5 +52,5 @@ Email security@festie.us with reproduction steps. We aim to acknowledge within 4
 
 ## Reporting Channels
 
-- security@festie.us — primary
-- Open a private security advisory on GitHub if email is unavailable.
+See the "Reporting a Vulnerability" section above. Primary alias is
+security@festie.us; GitHub private advisory is the fallback.

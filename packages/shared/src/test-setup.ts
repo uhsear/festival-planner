@@ -30,12 +30,6 @@ Object.defineProperty(globalThis.navigator, 'onLine', {
 });
 
 // Stub window properties used by services
-Object.defineProperty(globalThis, '__FP_BEARER_TOKEN', {
-  writable: true,
-  configurable: true,
-  value: undefined,
-});
-
 Object.defineProperty(globalThis, '__FP_API_BASE', {
   writable: true,
   configurable: true,

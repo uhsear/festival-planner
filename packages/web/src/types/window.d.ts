@@ -6,7 +6,6 @@ declare global {
   }
 
   interface Window {
-    __FP_BEARER_TOKEN?: string;
     __FP_API_BASE?: string;
     __festieInstallPrompt?: BeforeInstallPromptEvent | null;
   }

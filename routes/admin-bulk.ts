@@ -19,8 +19,45 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
     schemas,
     validate,
     validateParams,
+    io,
   } = deps;
   const { adminWriteLimit } = ctx;
+
+  /**
+   * H1 (admin path): evict an admin-removed user's live socket(s) from the crew
+   * room server-side. Mirrors evictUserFromCrewRoom in routes/crew-members.ts —
+   * Socket.IO only drops a socket from a room on disconnect, never on an
+   * application-level authz change, so without this an admin-removed member
+   * keeps receiving every sos:raised / crew:status-updated / location:peer-update
+   * broadcast (a cross-tenant privacy leak) and keeps a stamped sharingCrewId it
+   * could inject from. Best-effort: a failure must never fail the HTTP removal
+   * (the DB row is already gone); io may be absent in some test/CLI contexts.
+   */
+  async function evictUserFromCrewRoom(crewId: string, removedUserId: string) {
+    if (!io || typeof io.in !== 'function') return;
+    const room = `crew:${crewId}`;
+    try {
+      const sockets = await io.in(room).fetchSockets();
+      for (const s of sockets) {
+        if (s.data?.userId !== removedUserId) continue;
+        if (s.data?.sharingCrewId === crewId) {
+          s.to(room).emit('location:peer-stopped', {
+            _v: 1,
+            crewId,
+            userId: removedUserId,
+            reason: 'revoked',
+          });
+        }
+        s.emit('crew:access-revoked', { crewId });
+        delete s.data.sharingCrewId;
+        delete s.data.crewMembershipCheckedAt;
+        delete s.data.crewMembershipUpdateCount;
+        s.leave(room);
+      }
+    } catch (error: any) {
+      log.warn('admin crew room eviction failed', { error: error?.message, crewId, removedUserId });
+    }
+  }
 
   // ── POST /bulk/deactivate — force-logout multiple users ──────────
   // NOTE (M1, security-review-2026-06-06): this endpoint's only effect is
@@ -198,6 +235,17 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
         if (!member) return sendError(res, 404, 'Member not found', ErrorCodes.NOT_FOUND);
 
         await stores.crews.removeMember(crewId, targetUserId);
+
+        if (io) {
+          io.to(`crew:${crewId}`).emit('crew:member-kicked', {
+            crewId,
+            userId: targetUserId,
+          });
+        }
+        // H1: force the admin-removed member's still-connected socket(s) out of
+        // the crew room so they stop receiving live SOS/status/location and
+        // can't keep injecting. Mirrors the owner-kick path in crew-members.ts.
+        await evictUserFromCrewRoom(crewId, targetUserId);
 
         if (stores.auditLog) {
           await stores.auditLog.insert({
