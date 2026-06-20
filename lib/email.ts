@@ -46,7 +46,7 @@ function _recordSend(to: any, subject: any) {
  * Gracefully degrades if RESEND_API_KEY is not set (logs warning, returns false).
  * Idempotent: suppresses duplicate sends to the same address+subject within 5 minutes.
  */
-export async function sendEmail({ to, subject, html, text, config, log, _client }: any) {
+export async function sendEmail({ to, subject, html, text, headers, config, log, _client }: any) {
   const apiKey = config.RESEND_API_KEY;
   if (!apiKey) {
     log.warn('email:skip', { reason: 'RESEND_API_KEY not configured' });
@@ -59,7 +59,7 @@ export async function sendEmail({ to, subject, html, text, config, log, _client 
   const from = config.EMAIL_FROM || 'Festie <no-reply@festie.us>';
 
   try {
-    const result = await client.emails.send({ from, to: [to], subject, html, text });
+    const result = await client.emails.send({ from, to: [to], subject, html, text, ...(headers ? { headers } : {}) });
     if (result.error) {
       log.error('email:send-error', { to, subject, error: result.error.message });
       return false;
@@ -148,6 +148,13 @@ function _origin(config: any) {
   return (config?.PUBLIC_ORIGIN || 'https://festie.us').replace(/\/+$/, '');
 }
 
+// CAN-SPAM / RFC 8058: re-engagement (marketing) mail carries an unsubscribe
+// affordance via the List-Unsubscribe header. Transactional mail (password
+// reset, email verification) is exempt and does NOT set this. The server-side
+// opt-out + DND checks in lib/notifications/reengagement.ts are the enforcement
+// layer; this header is the inbox-client one-tap surface.
+const REENGAGEMENT_HEADERS = { 'List-Unsubscribe': '<mailto:unsubscribe@festie.us?subject=unsubscribe>' };
+
 /**
  * "Your wrap-up is ready" — deep-links to /wrap for the finished festival.
  */
@@ -162,7 +169,7 @@ export async function sendWrapReadyEmail({ to, username, festivalName, festivalI
     ${_urlFallback(wrapUrl)}`;
   const html = _wrapTemplate('Your Festival Wrap-Up', bodyHtml);
   const text = `Hey ${username || 'there'},\n\n${name} wrapped up. Your recap is ready.\n\nSee your wrap-up: ${wrapUrl}`;
-  return sendEmail({ to, subject: `Your ${name} wrap-up is ready`, html, text, config, log, _client });
+  return sendEmail({ to, subject: `Your ${name} wrap-up is ready`, html, text, headers: REENGAGEMENT_HEADERS, config, log, _client });
 }
 
 /**
@@ -179,7 +186,7 @@ export async function sendLineupDropEmail({ to, username, festivalName, festival
     ${_urlFallback(festivalUrl)}`;
   const html = _wrapTemplate('New Lineup', bodyHtml);
   const text = `Hey ${username || 'there'},\n\nThe lineup for ${name} just dropped.\n\nSee the lineup: ${festivalUrl}`;
-  return sendEmail({ to, subject: `${name} lineup just dropped`, html, text, config, log, _client });
+  return sendEmail({ to, subject: `${name} lineup just dropped`, html, text, headers: REENGAGEMENT_HEADERS, config, log, _client });
 }
 
 /**
@@ -209,5 +216,5 @@ export async function sendCrewReformEmail({
     ${_urlFallback(url)}`;
   const html = _wrapTemplate('Your Crew Reformed', bodyHtml);
   const text = `Hey ${username || 'there'},\n\n${crew} is getting back together${fest}.\n\nJoin the crew: ${url}`;
-  return sendEmail({ to, subject: `${crew} reformed${fest}`, html, text, config, log, _client });
+  return sendEmail({ to, subject: `${crew} reformed${fest}`, html, text, headers: REENGAGEMENT_HEADERS, config, log, _client });
 }
