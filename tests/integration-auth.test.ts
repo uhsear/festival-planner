@@ -87,7 +87,7 @@ describe('Integration — Auth', { concurrency: 1 }, () => {
     const userAgent = request.agent(server.planner.app);
     const registration = await markTrustedMutation(userAgent
       .post('/api/v1/auth/register'))
-      .send({ username: 'cookie-user', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true })
+      .send({ username: 'cookie-user', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true })
       .expect(201);
 
     assert.match(registration.headers['set-cookie'].join('; '), /festie_session=/);
@@ -118,7 +118,7 @@ describe('Integration — Auth', { concurrency: 1 }, () => {
     const adminUser = 'testadmin-' + Date.now();
     const adminReg = await server.request
       .post('/api/v1/auth/register')
-      .send({ username: adminUser, password: 'test-admin-password', confirmPassword: 'test-admin-password', tosAccepted: true })
+      .send({ username: adminUser, password: 'test-admin-password', confirmPassword: 'test-admin-password', dateOfBirth: '1995-01-01', tosAccepted: true })
       .expect(201);
 
     // Grant admin role via DB
@@ -195,7 +195,7 @@ describe('Integration — Auth', { concurrency: 1 }, () => {
     const userAgent = request.agent(server.planner.app);
     const registration = await markTrustedMutation(userAgent
       .post('/api/v1/auth/register'))
-      .send({ username: 'csrf-user', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true })
+      .send({ username: 'csrf-user', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true })
       .expect(201);
 
     await userAgent
@@ -292,7 +292,7 @@ describe('Integration — Auth', { concurrency: 1 }, () => {
     await registerUser(server, 'unique-user');
     const res = await server.request
       .post('/api/v1/auth/register')
-      .send({ username: 'unique-user', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true });
+      .send({ username: 'unique-user', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true });
     // Should be rejected — either 400 or 409
     assert.ok(res.status >= 400);
   });
@@ -310,7 +310,7 @@ describe('Password Boundary Validation', { concurrency: 1 }, () => {
     server = await startServer();
     const res = await server.request
       .post('/api/v1/auth/register')
-      .send({ username: 'shortpw', password: 'abc1234', confirmPassword: 'abc1234', tosAccepted: true });
+      .send({ username: 'shortpw', password: 'abc1234', confirmPassword: 'abc1234', dateOfBirth: '1995-01-01', tosAccepted: true });
     assert.equal(res.status, 400);
     assert.ok(res.body.error);
   });
@@ -319,7 +319,7 @@ describe('Password Boundary Validation', { concurrency: 1 }, () => {
     server = await startServer();
     const res = await server.request
       .post('/api/v1/auth/register')
-      .send({ username: 'minpw', password: 'Zx9qmp4w', confirmPassword: 'Zx9qmp4w', tosAccepted: true });
+      .send({ username: 'minpw', password: 'Zx9qmp4w', confirmPassword: 'Zx9qmp4w', dateOfBirth: '1995-01-01', tosAccepted: true });
     assert.equal(res.status, 201);
     assert.ok(res.body.data);
   });
@@ -329,7 +329,7 @@ describe('Password Boundary Validation', { concurrency: 1 }, () => {
     const longPw = 'a'.repeat(100);
     const res = await server.request
       .post('/api/v1/auth/register')
-      .send({ username: 'maxpw', password: longPw, confirmPassword: longPw, tosAccepted: true });
+      .send({ username: 'maxpw', password: longPw, confirmPassword: longPw, dateOfBirth: '1995-01-01', tosAccepted: true });
     assert.equal(res.status, 201);
     assert.ok(res.body.data);
   });
@@ -339,7 +339,7 @@ describe('Password Boundary Validation', { concurrency: 1 }, () => {
     const tooLong = 'a'.repeat(101);
     const res = await server.request
       .post('/api/v1/auth/register')
-      .send({ username: 'overlongpw', password: tooLong, confirmPassword: tooLong, tosAccepted: true });
+      .send({ username: 'overlongpw', password: tooLong, confirmPassword: tooLong, dateOfBirth: '1995-01-01', tosAccepted: true });
     assert.equal(res.status, 400);
     assert.ok(res.body.error);
   });

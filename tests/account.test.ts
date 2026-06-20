@@ -126,7 +126,7 @@ async function registerUser(server: any, username: any, password = DEFAULT_PASSW
   const res = await server.request
     .post('/api/v1/auth/register')
     .set(TRUSTED_MUTATION_HEADER, '1')
-    .send({ username, password, confirmPassword: password, tosAccepted: true });
+    .send({ username, password, confirmPassword: password, dateOfBirth: '1995-01-01', tosAccepted: true });
   assert.ok(res.status === 201 || res.status === 200, `register failed: ${res.status} ${JSON.stringify(res.body)}`);
   // Response shape: { user: { id, username, ... }, token, refreshToken }
   // Flatten so callers can use user.id + user.token uniformly.

@@ -101,7 +101,7 @@ async function startServer(overrides: any = {}) {
 }
 
 async function registerUser(server: any, username: any, password = DEFAULT_PASSWORD, email?: any) {
-  const body: any = { username, password, confirmPassword: password, tosAccepted: true };
+  const body: any = { username, password, confirmPassword: password, dateOfBirth: '1995-01-01', tosAccepted: true };
   if (email) body.email = email;
   const res = await server.request.post('/api/v1/auth/register').set(TRUSTED_MUTATION_HEADER, '1').send(body);
   assert.ok(res.status === 201 || res.status === 200, `register failed: ${res.status} ${JSON.stringify(res.body)}`);

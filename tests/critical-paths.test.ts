@@ -174,7 +174,7 @@ async function registerUser(server: any, username: string, password: string = DE
   const res = await server.request
     .post('/api/v1/auth/register')
     .set(TRUSTED_MUTATION_HEADER, '1')
-    .send({ username, password, confirmPassword: password, tosAccepted: true })
+    .send({ username, password, confirmPassword: password, dateOfBirth: '1995-01-01', tosAccepted: true })
     .expect(201);
   return res.body.data;
 }
@@ -202,7 +202,7 @@ async function loginAdmin(server: any) {
   await server.request
     .post('/api/v1/auth/register')
     .set(TRUSTED_MUTATION_HEADER, '1')
-    .send({ username: adminUsername, password: 'test-admin-password-pass', confirmPassword: 'test-admin-password-pass', tosAccepted: true })
+    .send({ username: adminUsername, password: 'test-admin-password-pass', confirmPassword: 'test-admin-password-pass', dateOfBirth: '1995-01-01', tosAccepted: true })
     .expect(201);
   
   const pool = new Pool({ connectionString: server.databaseUrl, statement_timeout: 5000 });
