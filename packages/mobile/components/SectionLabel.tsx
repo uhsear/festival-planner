@@ -34,6 +34,10 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.secondary,
     marginTop: t.spacing[3],
     marginBottom: t.spacing[1],
+    // Android's text-measure slightly under-counts the trailing letter-spacing
+    // on uppercase caps-tracked text, clipping the last glyph. A small right
+    // padding absorbs the measurement rounding without affecting visual layout.
+    paddingRight: t.spacing[1],
   },
   muted: {
     color: t.colors.text.muted,

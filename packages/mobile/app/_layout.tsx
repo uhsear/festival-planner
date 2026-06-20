@@ -25,6 +25,7 @@ import { UIProvider } from '../contexts/UIContext';
 import OfflineBanner from '../components/OfflineBanner';
 import FirstRunIntro from '../components/FirstRunIntro';
 import ErrorBoundary from '../components/ErrorBoundary';
+import HeaderTitle from '../components/HeaderTitle';
 import { useLocalReminders } from '../hooks/useLocalReminders';
 import { ensureAndroidChannels } from '../hooks/useMobilePush';
 
@@ -275,11 +276,20 @@ function AuthGate() {
               headerShown: false,
               headerStyle: { backgroundColor: colors.bg.secondary },
               headerTintColor: colors.text.primary,
+              // headerTitleStyle cannot set fontFamily on Android (the native
+              // header ignores it), so a raw fontWeight here would trigger
+              // synthetic bold and clip trailing glyphs. Use the HeaderTitle
+              // component below instead — it resolves SpaceGrotesk_600SemiBold
+              // via typeStyle and renders with adjustsFontSizeToFit for long names.
               headerTitleStyle: {
                 color: colors.text.primary,
-                fontWeight: '600',
                 fontSize: fontSize[18],
               },
+              // Custom title node: sets the weighted font family correctly on
+              // both platforms (Android can't inherit fontFamily from headerTitleStyle).
+              headerTitle: ({ children }: { children: string }) => (
+                <HeaderTitle>{children}</HeaderTitle>
+              ),
               headerShadowVisible: false,
               contentStyle: { backgroundColor: colors.bg.primary },
               // Enable the iOS left-edge swipe-back gesture on every pushed
