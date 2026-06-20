@@ -126,7 +126,7 @@ function RegisterPageInner() {
       >
         {formError && (
           <div
-            className="text-[var(--color-text-danger)] text-[13px] mb-3 text-center"
+            className="text-[var(--color-text-danger)] text-[length:var(--font-size-13)] mb-3 text-center"
             role="alert"
             aria-live="assertive"
           >
@@ -202,7 +202,7 @@ function RegisterPageInner() {
         </div>
 
         {/* TOS checkbox */}
-        <label className="my-2.5 flex min-h-11 cursor-pointer items-start gap-2 text-[13px] text-[var(--color-text-secondary)]">
+        <label className="my-2.5 flex min-h-11 cursor-pointer items-start gap-2 text-[length:var(--font-size-13)] text-[var(--color-text-secondary)]">
           <input
             type="checkbox"
             id="authTos"

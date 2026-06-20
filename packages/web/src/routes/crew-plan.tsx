@@ -225,7 +225,7 @@ function CrewPlanInner() {
           ) : (
             slotsWithPicks.map((slot) => (
               <div key={slot.startMs} className="space-y-2">
-                <p className="text-xs uppercase tracking-wide text-text-secondary font-semibold">
+                <p className="text-xs uppercase tracking-[var(--letter-spacing-caps)] text-text-secondary font-semibold">
                   {slot.startTime ? formatTime(slot.startTime) : 'Soon'}
                 </p>
                 <ul className="space-y-1.5">

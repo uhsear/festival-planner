@@ -170,7 +170,7 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
                   key={day.id || i}
                   className={cn(
                     'day-tab-underline',
-                    'py-2 px-4 rounded-full text-[13px] font-semibold cursor-pointer',
+                    'py-2 px-4 rounded-full text-[length:var(--font-size-13)] font-semibold cursor-pointer',
                     'whitespace-nowrap snap-center min-h-[44px] inline-flex items-center gap-1.5',
                     'transition-[background,color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)]',
                     'active:scale-[0.96]',
@@ -274,10 +274,10 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
 
         {/* Artist search */}
         {showSearch && (
-          <div className="search-box ml-auto" role="search">
+          <div className="search-box ml-auto flex-1 min-w-0" role="search">
             <Input
               variant="search"
-              className="min-h-[44px] w-[clamp(80px,25vw,140px)] text-[13px] sm:w-[clamp(100px,30vw,180px)]"
+              className="min-h-[44px] w-full max-w-[clamp(80px,25vw,140px)] text-[length:var(--font-size-13)] sm:max-w-[clamp(100px,30vw,180px)]"
               placeholder="Search artist…"
               value={searchQuery}
               aria-label="Search festival artists"

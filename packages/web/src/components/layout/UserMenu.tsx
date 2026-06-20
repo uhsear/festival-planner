@@ -64,7 +64,7 @@ export default function UserMenu({ user }: UserMenuProps) {
     <>
       {/* Trigger -- profile badge in the header */}
       <button
-        className="profile-badge flex items-center gap-[var(--space-5)] px-3 py-2 bg-bg-card backdrop-blur-[8px] border border-border-light rounded-3xl text-[13px] font-semibold cursor-pointer text-text-primary text-left min-h-11 transition-[border-color,box-shadow,background] duration-200 ease-out hover:border-[rgba(0,232,208,.35)] hover:shadow-[0_0_20px_var(--color-aqua-a12),0_4px_12px_var(--color-shade-7)] hover:bg-[var(--color-overlay-3)] max-md:py-[3px] max-md:px-1.5 max-md:pr-[3px] max-md:gap-[5px] max-md:shrink-0 max-sm:w-11 max-sm:h-11 max-sm:min-w-11 max-sm:p-[7px] max-sm:justify-center max-sm:gap-0"
+        className="profile-badge flex items-center gap-[var(--space-5)] px-3 py-2 bg-bg-card backdrop-blur-[8px] border border-border-light rounded-3xl text-[length:var(--font-size-13)] font-semibold cursor-pointer text-text-primary text-left min-h-11 transition-[border-color,box-shadow,background] duration-200 ease-out hover:border-[rgba(0,232,208,.35)] hover:shadow-[0_0_20px_var(--color-aqua-a12),0_4px_12px_var(--color-shade-7)] hover:bg-[var(--color-overlay-3)] max-md:py-[3px] max-md:px-1.5 max-md:pr-[3px] max-md:gap-[5px] max-md:shrink-0 max-sm:w-11 max-sm:h-11 max-sm:min-w-11 max-sm:p-[7px] max-sm:justify-center max-sm:gap-0"
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen ? 'true' : 'false'}
@@ -84,7 +84,7 @@ export default function UserMenu({ user }: UserMenuProps) {
           />
         ) : (
           <div
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[13px] font-semibold text-white max-sm:h-[30px] max-sm:w-[30px] max-sm:text-xs"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-[length:var(--font-size-13)] font-semibold text-white max-sm:h-[30px] max-sm:w-[30px] max-sm:text-xs"
             style={{ backgroundColor: getAvatarColor(avatarName) }}
           >
             {getInitials(avatarName)}

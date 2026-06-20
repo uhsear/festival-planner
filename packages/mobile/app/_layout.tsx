@@ -18,6 +18,7 @@ import {
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,6 +35,12 @@ import { ensureAndroidChannels } from '../hooks/useMobilePush';
 // 4-second bootTimedOut ceiling is the forced-hide backstop so the app never
 // wedges. preventAutoHideAsync must run at module scope (before any render).
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Set the root view background so Android gesture-nav's system navigation bar
+// inherits the dark app background (#0a0a0a) instead of defaulting to white
+// (which flashes behind the bottom edge on edge-to-edge Android 10+ devices).
+// This is a runtime companion to the androidNavigationBar config in app.json.
+SystemUI.setBackgroundColorAsync('#0a0a0a').catch(() => {});
 
 // First-run intro flag — mirrors the web key for parity.
 const INTRO_KEY = 'festie_onboarding_completed';
@@ -299,7 +306,17 @@ function AuthGate() {
               gestureEnabled: true,
             }}
           >
-            <Stack.Screen name="(tabs)" />
+            {/*
+              H9 — Tighten the iOS swipe-back recognition zone for the tabs
+              screen. The Schedule tab's horizontal stage carousel (TimelineView)
+              has its first column starting at ~12pt from the left edge, which
+              falls inside iOS's default ~20pt pop-gesture recognition area.
+              Narrowing gestureResponseDistance to 8pt means the pop gesture only
+              activates from the extreme edge; the FlatList handles everything
+              else. Back navigation is NOT disabled — a hard left-edge swipe still
+              works normally. No-op on Android (predictive back is unaffected).
+            */}
+            <Stack.Screen name="(tabs)" options={{ gestureResponseDistance: { start: 8 } }} />
             <Stack.Screen name="(auth)" />
             <Stack.Screen
               name="set/[setId]"

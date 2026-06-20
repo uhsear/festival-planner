@@ -76,7 +76,7 @@ export default function DetailCrewSection({ title, others, crewNotes }: Props) {
         <div className="border-t border-glass-border py-2">
           <div className="mb-1.5 text-xs font-semibold text-accent-aqua">Crew Notes</div>
           {crewNotes.map((cn) => (
-            <div key={cn.name} className="py-1 text-[13px]">
+            <div key={cn.name} className="py-1 text-[length:var(--font-size-13)]">
               <strong className="text-text-secondary">{cn.name + ': '}</strong>
               {cn.note}
             </div>

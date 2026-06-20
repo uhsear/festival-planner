@@ -80,7 +80,7 @@ export default function ScheduleViewSwitcher() {
               aria-label={`${label} view`}
               onClick={() => navigate({ to: key })}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-full px-3.5 min-h-11 text-[13px] font-semibold',
+                'inline-flex items-center gap-1.5 rounded-full px-3.5 min-h-11 text-[length:var(--font-size-13)] font-semibold',
                 'cursor-pointer transition-colors duration-[var(--duration-med)] ease-[var(--ease-out)]',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua',
                 '[&_svg]:w-4 [&_svg]:h-4',
