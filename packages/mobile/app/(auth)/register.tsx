@@ -189,7 +189,8 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.bg.input,
     borderTopLeftRadius: t.radii.default,
     borderTopRightRadius: t.radii.default,
-    paddingBottom: t.spacing[6],
+    // paddingBottom is applied inline (styles.iosPickerCard + runtime insets.bottom)
+    // so the spinner isn't clipped behind the iPhone home indicator.
   },
   iosPickerHeader: {
     flexDirection: 'row' as const,
@@ -546,7 +547,7 @@ export default function RegisterScreen() {
         >
           <Pressable style={styles.iosModalOverlay} onPress={() => setShowIosPicker(false)}>
             <Pressable
-              style={styles.iosPickerCard}
+              style={[styles.iosPickerCard, { paddingBottom: t.spacing[6] + insets.bottom }]}
               // Prevent overlay tap-through closing when tapping the card itself.
               onPress={(e) => e.stopPropagation()}
             >

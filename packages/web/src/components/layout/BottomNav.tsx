@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared';
 import { useFestivalStore } from '@festie/shared/stores';
@@ -93,6 +93,26 @@ export default function BottomNav() {
   const user = useAuthStore((state) => state.user);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
   const days = useFestivalStore((state) => state.days);
+  const footerRef = useRef<HTMLElement>(null);
+
+  // Drive --bottom-nav-h on :root so floating elements (e.g. the Timeline "Now"
+  // FAB) can position themselves above the nav without hard-coding 88px. The
+  // ResizeObserver fires whenever the nav height changes (safe-area insets shift
+  // on orientation change, font-size zoom, etc.). Set to 0 on desktop where
+  // BottomNav is hidden (lg+) so FABs fall back to their own lg: overrides.
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.borderBoxSize?.[0]?.blockSize ?? entries[0]?.contentRect?.height ?? 0;
+      document.documentElement.style.setProperty('--bottom-nav-h', `${h}px`);
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty('--bottom-nav-h');
+    };
+  }, []);
 
   // Show picks/crew tabs when user is logged in. Show Wrap tab ONLY after
   // the festival has ended — otherwise it's noise. Empty-state inside /wrap
@@ -110,6 +130,7 @@ export default function BottomNav() {
 
   return (
     <footer
+      ref={footerRef}
       className={cn(
         // Shown on mobile AND tablet (<lg). Desktop (lg+) uses the header tabs
         // instead. Clean single handoff at lg — see Header's nav comment.

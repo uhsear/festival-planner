@@ -71,7 +71,7 @@ export default function OfflineBanner() {
   let tone: string;
   let message: string;
   if (showFailed) {
-    tone = 'bg-accent-coral/90 border-b border-accent-coral/20 text-bg-primary';
+    tone = 'bg-[var(--color-accent-coral-strong)] border-b border-[var(--color-accent-coral-strong-hover)] text-[var(--color-text-on-accent)]';
     message = `${failedCount} change${failedCount === 1 ? '' : 's'} couldn't sync`;
   } else if (showOffline) {
     tone = 'bg-accent-amber/90 border-b border-accent-amber/20 text-bg-primary';

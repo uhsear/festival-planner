@@ -258,13 +258,13 @@ function PicksViewInner() {
             <div key={pri} className="mb-4">
               {/* Mobile section-header pattern: round accent dot + label role text +
                 tint-ring count pill, separated from the rows by a hairline divider. */}
-              <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-border" role="heading" aria-level={3}>
+              <h3 className="flex items-center gap-2 mb-3 pb-2.5 border-b border-border">
                 <div className="w-2.5 h-2.5 rounded-full" style={{ background: accent }} aria-hidden="true" />
                 <span className="text-sm font-medium text-text-secondary">{label}</span>
                 <Badge variant={badge} className="ml-auto">
                   {items.length}
                 </Badge>
-              </div>
+              </h3>
 
               {items.map((set) => {
                 const sc = getStageColor(set.stageId);

@@ -7,8 +7,6 @@ import {
   Image,
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -97,7 +95,11 @@ export default function AccountScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    // KAV is dropped: behavior='padding' is a no-op on Android, and on iOS it
+    // doesn't scroll the focused field into view when it's deep in the list.
+    // automaticallyAdjustKeyboardInsets on the ScrollView handles both platforms
+    // correctly (same pattern as app/set/[setId].tsx).
+    <View style={styles.container}>
       <ScreenHeader title="Account" subtitle="Settings & preferences" icon="person-circle-outline" />
 
       <ScrollView
@@ -105,6 +107,7 @@ export default function AccountScreen() {
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
       >
         {/* Identity */}
         <View style={styles.identity}>
@@ -287,7 +290,7 @@ export default function AccountScreen() {
         <SectionLabel>Danger Zone</SectionLabel>
         <AccountDangerSection onDeleted={() => router.replace('/(auth)/login')} />
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
