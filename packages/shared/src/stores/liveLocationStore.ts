@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 
 /**
  * liveLocationStore — ephemeral Live Location + SOS state for the active crew.

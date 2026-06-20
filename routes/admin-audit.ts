@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 /**
  * Admin audit-log query routes
  * Extracted from routes/admin.js during the 2026-04-14 file-size split.

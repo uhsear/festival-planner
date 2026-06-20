@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 
 // Cursor-based pagination utilities for API endpoints
 // Cursors are opaque base64-encoded JSON: {field, value, id}

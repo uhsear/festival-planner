@@ -1,6 +1,6 @@
 #!/bin/bash
 # Copyright (c) 2026 Asir Khan. All rights reserved.
-# Licensed under the Business Source License 1.1. See LICENSE file for details.
+# All Rights Reserved. See the LICENSE file.
 
 # Cron Job Installation for Festie
 # Sets up automated health monitoring, error tracking, and deployment tasks

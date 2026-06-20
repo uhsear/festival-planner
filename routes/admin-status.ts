@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 //
 // Admin status & analytics routes (split from routes/health.js on 2026-04-14):
 //   GET /admin/health              — JSON system status (admin-auth)
