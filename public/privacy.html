@@ -112,16 +112,28 @@
                 <li><strong>Password Hash:</strong> Passwords are hashed using Scrypt before storage and are never accessible to us or stored in plaintext</li>
                 <li><strong>Avatar Image:</strong> Optional profile picture uploaded by the user in WebP format for display in the app</li>
                 <li><strong>Email Address:</strong> Optional email provided during registration, used for password recovery and account verification</li>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>Date of Birth [DRAFT — pending legal review]:</strong> Date of birth collected at registration to enforce the minimum-age requirement (18+ gate). Counsel to confirm: (a) whether date of birth must be retained or may be discarded after the age check; (b) applicable lawful basis under GDPR Art. 6 / Art. 9 and CCPA sensitive-data classification; (c) whether a self-declaration is sufficient or verifiable DOB is required in target markets.</li>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>Payment Handles [DRAFT — pending legal review]:</strong> Optional peer-payment identifiers that users may add to their profile: Venmo handle, CashApp cashtag, and PayPal handle (stored in <code>users.venmo_handle</code>, <code>users.cashapp_cashtag</code>, <code>users.paypal_handle</code>). These identifiers are visible to crew members and are used solely to facilitate peer payment coordination within crews. Festie does not transmit these handles to payment processors or initiate payment transactions. Counsel to confirm: purpose/lawful basis, CCPA financial-information category applicability, and whether any data minimisation obligation applies.</li>
             </ul>
             <h3>Festival Coordination Data</h3>
             <ul>
                 <li><strong>Festival Picks:</strong> Musical acts, performances, or attractions selected and saved by the user</li>
                 <li><strong>Personal Notes:</strong> User-generated notes and scheduling information associated with selected acts</li>
                 <li><strong>Crew Memberships:</strong> Groups or crews the user is a member of and their associated role or permissions within those groups</li>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>Location / GPS Data [DRAFT — pending legal review]:</strong> Festie stores two categories of geospatial coordinates associated with your account: (1) <em>Crew member location snapshot</em> — when you report your status while offline, your device's last-known latitude and longitude are captured as a degraded-sync breadcrumb (<code>crew_member_status.latitude</code>, <code>crew_member_status.longitude</code>, <code>crew_member_status.location_captured_at</code>) and are visible to all members of your crew; (2) <em>Meeting point coordinates</em> — latitude and longitude of crew meeting points you create (<code>crew_meeting_points.latitude</code>, <code>crew_meeting_points.longitude</code>). Location data is used for crew safety and real-time coordination. These coordinates are precision geospatial data linked to your user ID and a capture timestamp. Counsel to confirm: lawful basis (likely legitimate interest with LIA, or consent); GDPR Recital 75 elevated-risk assessment; CCPA sensitive geolocation category and consent obligation; SOS notification opt-out scope; and retention / cascade-deletion of <code>crew_member_status</code> rows on account deletion.</li>
             </ul>
             <h3>Communication Data</h3>
             <ul>
                 <li><strong>Device Tokens:</strong> Push notification tokens used exclusively for sending festival-related notifications and schedule updates</li>
+            </ul>
+            <!-- DRAFT: pending legal review -->
+            <h3>Third-Party Account Linkage [DRAFT — pending legal review]</h3>
+            <ul>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>Spotify Account Linkage [DRAFT — pending legal review]:</strong> If you choose to connect your Spotify account, Festie stores your Spotify user ID (<code>spotify_accounts.spotify_user_id</code>), an AES-256-GCM encrypted OAuth refresh token (<code>spotify_accounts.refresh_token_encrypted</code>), the OAuth scopes you granted, and linkage timestamps. Spotify access tokens are not persisted. This data is used to personalise artist and lineup content within the app. Counsel to confirm: Spotify Developer Policy compliance, disclosure language required by Spotify's platform rules, lawful basis (consent), and whether Spotify must be listed as a controller (not merely a processor) for the OAuth exchange.</li>
             </ul>
             <h3>Technical Data</h3>
             <ul>
@@ -221,7 +233,41 @@
                 <li><strong>Data Processed:</strong> Error and exception details, stack traces, and request metadata (sensitive headers such as cookies and authorization tokens are filtered out before transmission)</li>
                 <li><strong>Privacy Policy:</strong> <a href="https://sentry.io/privacy/" target="_blank">https://sentry.io/privacy/</a></li>
             </ul>
+            <!-- DRAFT: pending legal review -->
+            <h3>Resend [DRAFT — pending legal review]</h3>
+            <ul>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>Purpose [DRAFT — pending legal review]:</strong> Transactional and re-engagement email delivery — password reset, email verification, lineup-drop alerts, wrap-ready notifications, and crew-reform notifications</li>
+                <li><strong>Data Processed:</strong> Recipient email address, username, and notification content (festival name, crew name, invitation URLs) as required to compose and deliver each message</li>
+                <li><strong>Privacy Policy:</strong> <a href="https://resend.com/legal/privacy-policy" target="_blank">https://resend.com/legal/privacy-policy</a></li>
+            </ul>
+            <!-- DRAFT: pending legal review -->
+            <h3>Apple Push Notification service (APNs) [DRAFT — pending legal review]</h3>
+            <ul>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>Purpose [DRAFT — pending legal review]:</strong> Push notification delivery to iOS devices; Festie connects directly to Apple's HTTP/2 APNs gateway (<code>api.push.apple.com</code>) independently of Firebase Cloud Messaging</li>
+                <li><strong>Data Processed:</strong> APNs device token (iOS devices only), notification payload (title, body, category, badge count, sound)</li>
+                <li><strong>Privacy Policy:</strong> <a href="https://www.apple.com/legal/privacy/" target="_blank">https://www.apple.com/legal/privacy/</a></li>
+            </ul>
+            <!-- DRAFT: pending legal review -->
+            <h3>Spotify [DRAFT — pending legal review]</h3>
+            <ul>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>Purpose [DRAFT — pending legal review]:</strong> Artist metadata retrieval for lineup display (via Spotify Client Credentials / server-side only) and user OAuth account linkage to personalise content</li>
+                <li><strong>Data Processed:</strong> For admin lineup import: artist metadata (names, images, genres) retrieved server-side with no user data transmitted. For user OAuth: Spotify user ID and granted OAuth scopes exchanged during the OAuth flow; Festie retains the encrypted refresh token and Spotify user ID as described in §2</li>
+                <li><strong>Privacy Policy:</strong> <a href="https://www.spotify.com/legal/privacy-policy/" target="_blank">https://www.spotify.com/legal/privacy-policy/</a></li>
+            </ul>
+            <!-- DRAFT: pending legal review -->
+            <h3>GitHub / Microsoft (encrypted off-site backup) [DRAFT — pending legal review]</h3>
+            <ul>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>Purpose [DRAFT — pending legal review]:</strong> Off-site encrypted backup storage — full PostgreSQL database dumps are encrypted with AES-256 (GPG symmetric encryption) before transmission and are stored in a private GitHub repository (<code>github.com/uhsear/festie-backups</code>). Up to 14 encrypted dumps are retained. GitHub is operated by GitHub, Inc., a subsidiary of Microsoft Corporation, headquartered in the United States</li>
+                <li><strong>Data Processed:</strong> AES-256-encrypted PostgreSQL dump files containing all personal data described in §2. Backups are encrypted before leaving on-premise infrastructure; GitHub receives only ciphertext and cannot access plaintext personal data without the encryption key</li>
+                <li><strong>Privacy Policy:</strong> <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank">https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement</a></li>
+            </ul>
             <p>We have entered into data processing agreements with these sub-processors to ensure appropriate safeguards. These services may process your data in the United States under standard contractual clauses. You may review our processing agreements upon request.</p>
+            <!-- DRAFT: pending legal review -->
+            <p><em>[DRAFT — pending legal review: Counsel to confirm (a) DPAs are executed with Resend, Apple, Spotify, and GitHub/Microsoft; (b) SCCs or UK IDTA addenda are in place for each international transfer; (c) whether Spotify is a controller or processor for the OAuth exchange; (d) FCM retry webhook (<code>FCM_RETRY_WEBHOOK_URL</code>) destination — if active in production, the receiving service must also be listed here.]</em></p>
         </section>
 
         <section class="section">
@@ -231,8 +277,18 @@
                 <li><strong>Cloudflare:</strong> May process data in the United States and other countries</li>
                 <li><strong>Firebase Cloud Messaging:</strong> Operated by Google, may process data in the United States and other locations</li>
                 <li><strong>Sentry:</strong> Operated by Functional Software, Inc., may process error and performance data in the United States</li>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>Resend [DRAFT — pending legal review]:</strong> Resend, Inc. may process email addresses and notification content in the United States</li>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>Apple Push Notification service [DRAFT — pending legal review]:</strong> Apple Inc. may process iOS device tokens and notification payloads in the United States and other countries where Apple operates infrastructure</li>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>Spotify [DRAFT — pending legal review]:</strong> Spotify AB (Sweden) and its group companies may process Spotify user IDs and OAuth scope data in the European Economic Area and the United States</li>
+                <!-- DRAFT: pending legal review -->
+                <li><strong>GitHub / Microsoft (encrypted backup) [DRAFT — pending legal review]:</strong> Encrypted PostgreSQL backup dumps are stored on GitHub infrastructure (GitHub, Inc. / Microsoft Corporation, United States). All data is AES-256 encrypted before transmission and GitHub receives only ciphertext. Counsel to confirm applicable transfer mechanism (SCCs with Microsoft under GDPR Chapter V) and whether the encryption standard satisfies any supplementary measure requirement under EDPB Recommendations 01/2020</li>
             </ul>
             <p>Where data is transferred to countries outside your country of residence, including the United States, we rely on <strong>Standard Contractual Clauses (SCCs)</strong> to ensure adequate safeguards for your data protection rights. We have implemented appropriate technical and organizational measures to protect your data during international transfers.</p>
+            <!-- DRAFT: pending legal review -->
+            <p><em>[DRAFT — pending legal review: Counsel to confirm SCCs / UK IDTA addenda are executed for Resend, Apple, Spotify, and GitHub/Microsoft before this section is finalised.]</em></p>
         </section>
 
         <section class="section">
