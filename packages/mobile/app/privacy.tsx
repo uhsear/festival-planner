@@ -94,6 +94,8 @@ const SECTIONS: PolicySection[] = [
         heading: 'Technical Data',
         bullets: [
           'IP Address: Your IP address is collected for security purposes, rate limiting, and abuse prevention',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] Audit Log IP Address: The security audit log retains the full, unmasked client IP address for each security-relevant event (login, logout, account changes, and similar actions). The full IP is retained — rather than a pseudonymised or truncated form — for security monitoring, fraud and abuse prevention, and incident investigation under GDPR Art. 6(1)(f) (legitimate interest). Retention period: [counsel to confirm — suggested 12 months per automated cleanup, pending legal sign-off]. Audit log data may be used as part of our incident-response process and may be disclosed to law enforcement where required by law.',
           'Session Data: Session identifiers and authentication tokens to maintain your logged-in state',
         ],
       },
@@ -119,6 +121,8 @@ const SECTIONS: PolicySection[] = [
         heading: 'Legitimate Interest',
         paragraphs: [
           'We process IP addresses and session data based on our legitimate interest in maintaining service security, preventing fraud and abuse, enforcing our terms of service, and monitoring and improving platform performance and reliability. We have balanced these interests against your privacy rights and have implemented appropriate safeguards.',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] Specifically, the security audit log retains the full, unmasked client IP address for each security-relevant event under GDPR Art. 6(1)(f) (legitimate interest). Purposes: (a) security monitoring and threat detection; (b) fraud and abuse prevention; (c) incident investigation and forensic analysis. A pseudonymised or truncated IP would materially impair our ability to correlate attack patterns and respond to incidents; the full IP is therefore necessary and proportionate. Retention period: [counsel to confirm — current automated cleanup suggests 12 months]. Audit log data may be disclosed to law enforcement in connection with our incident-response process where required or permitted by law.',
         ],
       },
     ],

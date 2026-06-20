@@ -1,6 +1,7 @@
 import { create, StateCreator } from 'zustand';
 import { persist, PersistStorage, StorageValue } from 'zustand/middleware';
 import { api, setAuthToken, clearAuthToken, getApiBase, getAuthToken } from '../services/api';
+import { analytics } from '../services/analytics';
 import { mapErrorToUserMessage } from '../services/errors';
 import { TRUSTED_MUTATION_HEADER } from '../constants/config';
 import { getStorage, getSecureStorage, hasSecureStorage } from '../platform/storage';
@@ -217,6 +218,8 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
         userToken: token || null,
         isLoading: false,
       });
+      analytics.identify(user.id);
+      analytics.capture('user_registered');
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Registration failed');
       set({ error: message, isLoading: false });

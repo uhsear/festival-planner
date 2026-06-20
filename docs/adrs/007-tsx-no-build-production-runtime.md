@@ -44,3 +44,30 @@ the same tsx loader: `node --import tsx/esm --test ...`.
   paths; the ecosystem config comment documents that the `--import` flag form caused PM2 to SIGKILL
   the process ~3 seconds after start due to supervisor timing conflicts. Running tsx directly as
   the interpreter in fork mode is the stable path.
+
+## Addendum (2026-06-20): build-readiness artifact
+
+The no-build **runtime** above stays unchanged — tsx remains the dev and prod execution path, and
+`ecosystem.config.cjs` / `Dockerfile` / the deploy pipeline are untouched. As a readiness step
+toward the horizontal-scaling option called out in the "Consequences" above (PM2 cluster mode and
+multi-instance deploys both want a compiled JS entry), an `npm run build` script now exists that
+proves the backend compiles to a single runnable ESM bundle:
+
+```
+esbuild server.ts --bundle --platform=node --format=esm --target=node22 \
+  --packages=external --outfile=dist/server.js --sourcemap
+```
+
+`--packages=external` keeps `node_modules` (pg, sharp, bullmq, firebase-admin, etc.) out of the
+bundle and lets esbuild resolve the codebase's extensionless relative imports. `import.meta`
+(`.url` / `.dirname` / `.filename`), `createRequire(import.meta.url)`, and the dynamic
+`require()`s in `lib/config.ts`, `lib/sentry.ts`, `lib/swagger-ui-setup.ts`, and
+`lib/notifications/send.ts` are preserved natively by the ESM target — no `__dirname` banner is
+needed because the source already uses `import.meta` forms. `dist/` is gitignored.
+
+This is a **build-readiness artifact only**: the bundle is verified with `esbuild` exit 0 plus
+`node --check dist/server.js` (syntax smoke), not a full boot. The actual switch of the prod
+runtime to compiled JS — including a real boot test against DB/Redis and a worker-thread path
+check (the `new URL('./avatar-worker.ts', import.meta.url)` and `'../lib/export-worker.ts'` paths
+in `lib/avatar-pool.ts` / `routes/export.ts` resolve next to the bundle and must be handled at
+that time) — happens during the actual infra migration, not here.
