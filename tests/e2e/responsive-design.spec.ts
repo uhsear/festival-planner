@@ -150,9 +150,8 @@ test('priority buttons meet 44px minimum', async () => {
   for (let i = 0; i < Math.min(count, 6); i++) {
     const box = await buttons.nth(i).boundingBox();
     expect(box).toBeTruthy();
-    // Production still has old CSS with 36px buttons — after deploy, tighten to 44
-    expect(box!.width).toBeGreaterThanOrEqual(34);
-    expect(box!.height).toBeGreaterThanOrEqual(34);
+    expect(box!.width).toBeGreaterThanOrEqual(44);
+    expect(box!.height).toBeGreaterThanOrEqual(44);
   }
 });
 

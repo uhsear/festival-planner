@@ -159,7 +159,7 @@ function WrapPageInner() {
 
   if (!over) {
     return (
-      <div className="max-w-lg mx-auto min-h-[calc(100vh-200px)] flex items-center justify-center">
+      <div className="max-w-lg mx-auto min-h-[calc(100dvh-200px)] flex items-center justify-center">
         <Card padding="lg">
           <EmptyState
             icon={<Sparkles className="w-12 h-12 text-accent-aqua" aria-hidden="true" />}
@@ -262,7 +262,7 @@ function WrapPageInner() {
           already added the top band, so the body keeps just inter-section rhythm. */}
       <div id="wrap-tab-panel" className="max-w-lg mx-auto space-y-4 pt-4 pb-6">
         <header className="text-center space-y-1">
-          <div className="inline-flex items-center gap-2 text-accent-aqua text-xs uppercase tracking-widest">
+          <div className="inline-flex items-center gap-2 text-accent-aqua text-xs uppercase tracking-[var(--letter-spacing-caps)]">
             <Sparkles className="w-4 h-4" aria-hidden="true" />
             Your Festival Wrap
           </div>
@@ -313,7 +313,7 @@ function WrapPageInner() {
         {/* Top sets */}
         {topSets.length > 0 ? (
           <section>
-            <h2 className="flex items-center gap-2 text-xs uppercase tracking-widest text-text-secondary mb-3">
+            <h2 className="flex items-center gap-2 text-xs uppercase tracking-[var(--letter-spacing-caps)] text-text-secondary mb-3">
               <span className="w-2 h-2 rounded-full bg-accent-aqua" aria-hidden="true" />
               Your top picks
             </h2>
@@ -348,7 +348,7 @@ function WrapPageInner() {
         {/* Full list */}
         {allSorted.length > 0 && (
           <section>
-            <h2 className="flex items-center gap-2 text-xs uppercase tracking-widest text-text-secondary mb-3">
+            <h2 className="flex items-center gap-2 text-xs uppercase tracking-[var(--letter-spacing-caps)] text-text-secondary mb-3">
               <span className="w-2 h-2 rounded-full bg-accent-coral" aria-hidden="true" />
               Everything you rated
             </h2>
@@ -516,7 +516,7 @@ function CrewWrapTab({
   return (
     <div className="max-w-lg mx-auto space-y-4 pt-4 pb-6">
       <header className="text-center space-y-1">
-        <div className="inline-flex items-center gap-2 text-accent-aqua text-xs uppercase tracking-widest">
+        <div className="inline-flex items-center gap-2 text-accent-aqua text-xs uppercase tracking-[var(--letter-spacing-caps)]">
           <Users className="w-4 h-4" aria-hidden="true" />
           Crew Wrap
         </div>
@@ -578,7 +578,7 @@ function CrewWrapTab({
       {/* Sets seen together */}
       {wrap.setsSeenTogether.length > 0 && (
         <section>
-          <h2 className="flex items-center gap-2 text-xs uppercase tracking-widest text-text-secondary mb-3">
+          <h2 className="flex items-center gap-2 text-xs uppercase tracking-[var(--letter-spacing-caps)] text-text-secondary mb-3">
             <span className="w-2 h-2 rounded-full bg-accent-aqua" aria-hidden="true" />
             Sets you saw together
           </h2>
@@ -596,7 +596,7 @@ function CrewWrapTab({
       {/* Per-member top picks */}
       {wrap.perMember.some((m) => m.topSets.length > 0) && (
         <section>
-          <h2 className="flex items-center gap-2 text-xs uppercase tracking-widest text-text-secondary mb-3">
+          <h2 className="flex items-center gap-2 text-xs uppercase tracking-[var(--letter-spacing-caps)] text-text-secondary mb-3">
             <span className="w-2 h-2 rounded-full bg-accent-coral" aria-hidden="true" />
             Everyone's top picks
           </h2>
@@ -658,7 +658,7 @@ function CrewWrapTab({
 function Superlative({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-xl bg-bg-card border border-border p-4">
-      <div className="text-xs uppercase tracking-widest text-text-muted">{label}</div>
+      <div className="text-xs uppercase tracking-[var(--letter-spacing-caps)] text-text-muted">{label}</div>
       <div className="text-base font-bold text-text-primary mt-1">{value}</div>
       {sub && <div className="text-xs text-text-secondary mt-0.5">{sub}</div>}
     </div>
@@ -703,17 +703,17 @@ function Stat({
       style={dividerRight ? { borderRight: '1px solid rgba(0,232,208,0.12)' } : undefined}
     >
       {icon ? (
-        <div className="flex items-center gap-1.5 text-xs text-text-muted uppercase tracking-wide">
+        <div className="flex items-center gap-1.5 text-xs text-text-muted uppercase tracking-[var(--letter-spacing-caps)]">
           {icon}
           <span>{label}</span>
         </div>
       ) : (
-        <div className="text-xs text-text-muted uppercase tracking-wide">{label}</div>
+        <div className="text-xs text-text-muted uppercase tracking-[var(--letter-spacing-caps)]">{label}</div>
       )}
       <div
         className={
           featured
-            ? 'font-bold font-display text-text-primary text-4xl tracking-[-0.02em]'
+            ? 'font-bold font-display text-text-primary text-4xl tracking-[var(--letter-spacing-display)]'
             : 'text-xl font-bold font-display text-text-primary'
         }
         aria-label={value}

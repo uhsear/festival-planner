@@ -84,6 +84,10 @@
         }
       ]
     },
+    "androidNavigationBar": {
+      "backgroundColor": "#0a0a0a",
+      "barStyle": "light-content"
+    },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"

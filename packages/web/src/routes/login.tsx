@@ -73,7 +73,7 @@ function LoginPageInner() {
       >
         {formError && (
           <div
-            className="text-[var(--color-text-danger)] text-[13px] mb-3 text-center"
+            className="text-[var(--color-text-danger)] text-[length:var(--font-size-13)] mb-3 text-center"
             role="alert"
             aria-live="assertive"
           >
@@ -115,7 +115,7 @@ function LoginPageInner() {
           <Link
             to="/forgot-password"
             className={cn(
-              'text-[13px] text-accent-aqua underline underline-offset-2',
+              'text-[length:var(--font-size-13)] text-accent-aqua underline underline-offset-2',
               'hover:text-[var(--color-accent-aqua-hover)]',
               'inline-flex items-center min-h-11 px-0 py-2.5',
               'rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua',

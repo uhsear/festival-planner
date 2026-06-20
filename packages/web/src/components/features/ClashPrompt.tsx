@@ -113,7 +113,7 @@ export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, getPr
               <AlertTriangle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <span>{title}</span>
             </div>
-            <div className="mt-1 text-[13px] text-text-secondary">{body}</div>
+            <div className="mt-1 text-[length:var(--font-size-13)] text-text-secondary">{body}</div>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 variant="secondary"

@@ -171,7 +171,7 @@ function GridViewInner() {
 
   return (
     <div
-      className={cn('fk-grid flex flex-col h-full min-h-0 overflow-hidden bg-bg-primary')}
+      className={cn('fk-grid flex flex-col h-full min-h-0 overflow-hidden bg-bg-primary max-w-[1600px] mx-auto w-full')}
       ref={gridRef}
       role="grid"
       aria-label="Festival schedule grid — stages as columns, time as rows"

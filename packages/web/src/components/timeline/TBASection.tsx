@@ -40,7 +40,7 @@ export default function TBASection({
         'motion-reduce:!animate-none',
       )}
     >
-      <div className="text-[13px] font-bold text-[var(--color-text-muted)] uppercase tracking-[0.5px] mb-3">
+      <div className="text-[length:var(--font-size-13)] font-bold text-[var(--color-text-muted)] uppercase tracking-[0.5px] mb-3">
         TBA — Times Not Yet Announced
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-[var(--space-4)]">
