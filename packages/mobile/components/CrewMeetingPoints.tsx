@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, Linking, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -23,6 +23,12 @@ interface CrewMeetingPointsProps {
   festival?: Festival | null;
   /** Festival days — a recurring point resolves to one occurrence per day. */
   days?: readonly FestivalDay[];
+  /**
+   * Tap-to-create coords from the map's long-press (deep-linked here). When a new
+   * pair arrives, the create form opens prefilled with these coords — the user
+   * still fills the label and confirms "Add", so no write happens automatically.
+   */
+  prefillCoords?: { lat: number; lng: number } | null;
 }
 
 // Server enum (lib/constants MEETING_POINT_TYPES) with mobile-facing labels.
@@ -50,6 +56,7 @@ export default function CrewMeetingPoints({
   isOwner,
   festival,
   days = [],
+  prefillCoords = null,
 }: CrewMeetingPointsProps) {
   const t = useTokens();
   const styles = useStyles();
@@ -104,6 +111,27 @@ export default function CrewMeetingPoints({
     );
     setShowForm(true);
   };
+
+  // Tap-to-create: when the map deep-links a new long-press coordinate, open a
+  // fresh create form prefilled with those coords. Keyed off the lat,lng string
+  // so the same pair only applies once (a re-render with unchanged params is a
+  // no-op); a new tap re-opens. The user still types a label and taps "Add" —
+  // the write stays user-gated.
+  const lastPrefillRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!prefillCoords) return;
+    const key = `${prefillCoords.lat},${prefillCoords.lng}`;
+    if (lastPrefillRef.current === key) return;
+    lastPrefillRef.current = key;
+    setEditingId(null);
+    setLabel('');
+    setLocation('');
+    setStageRef('');
+    setType('during');
+    setRecursDaily(false);
+    setCoords({ lat: prefillCoords.lat, lng: prefillCoords.lng });
+    setShowForm(true);
+  }, [prefillCoords]);
 
   // F4: capture the device's current position via expo-location. Requests
   // foreground permission; graceful denial keeps the typed free-text location

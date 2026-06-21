@@ -1,27 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, RefreshControl } from 'react-native';
-import { Stack } from 'expo-router';
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '@festie/shared/services';
 import { useAuthStore } from '@festie/shared/stores';
 import type { Festival } from '@festie/shared/types';
-import ScreenHeader from '../components/ScreenHeader';
-import SectionLabel from '../components/SectionLabel';
-import EmptyState from '../components/EmptyState';
-import LoadingState from '../components/LoadingState';
-import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import ScreenHeader from '../../components/ScreenHeader';
+import SectionLabel from '../../components/SectionLabel';
+import EmptyState from '../../components/EmptyState';
+import LoadingState from '../../components/LoadingState';
+import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
 
 /**
- * Admin — a read-mostly mobile mirror of the web admin console
- * (packages/web/src/components/admin). Surfaces the same dashboard stats,
- * recent activity feed, and festival list, but intentionally omits every
- * destructive affordance the web console carries (user/crew deletion, role
- * edits, bulk archive, lineup/Spotify backfill). The mobile surface is a
- * glanceable, read-only window — write operations stay on the desktop console.
+ * Admin home — the hub of the mobile admin console
+ * (packages/web/src/components/admin). Surfaces dashboard stats, a System
+ * Health card (uptime / memory / connections / DB pool, straight from the
+ * dashboard.health object), the recent activity feed, the audit log, and the
+ * festival list. This screen itself stays read-only; every destructive write
+ * lives behind a dedicated, ConfirmDialog-gated sub-screen reached from the
+ * "Admin actions" section or the per-festival row actions below.
+ *
+ * Navigation (router.push, exact route strings — the screens exist so
+ * expo-router typed routes resolve):
+ *   /admin/users          — manage users
+ *   /admin/crews          — manage crews
+ *   /admin/analytics      — analytics
+ *   /admin/audit          — full audit log
+ *   /admin/festival-edit  — create (no id) or edit (?id=) a festival
+ *   /admin/lineup-import?id=  — CSV lineup import for a festival
  *
  * Gated on useAuthStore isAdmin; a non-admin sees an "Admins only" EmptyState.
  * Pull-to-refresh re-runs the three GETs. Endpoints resolve under /api/v1:
- *   GET /admin/dashboard → { stats, recentActivity (enriched) }
+ *   GET /admin/dashboard → { stats, health, recentActivity (enriched) }
  *   GET /admin/audit     → recent audit entries (array; wrapper strips meta)
  *   GET /festivals       → Festival[]
  */
@@ -39,8 +50,16 @@ interface ActivityEntry {
   actorUsername?: string;
   createdAt: string;
 }
+interface HealthData {
+  uptime: number;
+  memory: { rss: number; heapUsed: number; heapTotal: number };
+  connections: number;
+  onlineRooms: number;
+  database?: { totalCount: number; idleCount: number; waitingCount: number } | null;
+}
 interface DashboardResponse {
   stats: DashboardStats;
+  health?: HealthData;
   recentActivity: ActivityEntry[];
 }
 interface AuditEntry {
@@ -61,13 +80,26 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+// Uptime formatter — mirrors the web admin console's formatUptime so the
+// System Health card reads identically.
+function formatUptime(seconds: number): string {
+  const d = Math.floor(seconds / 86400);
+  const hr = Math.floor((seconds % 86400) / 3600);
+  const mn = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}d ${hr}h ${mn}m`;
+  if (hr > 0) return `${hr}h ${mn}m`;
+  return `${mn}m`;
+}
+
 export default function AdminScreen() {
   const t = useTokens();
   const styles = useStyles();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const isAdmin = useAuthStore((s) => s.isAdmin);
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [health, setHealth] = useState<HealthData | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [festivals, setFestivals] = useState<Festival[]>([]);
@@ -84,6 +116,7 @@ export default function AdminScreen() {
         api.get<Festival[]>('/festivals'),
       ]);
       setStats(dashboard?.stats ?? null);
+      setHealth(dashboard?.health ?? null);
       setActivity(Array.isArray(dashboard?.recentActivity) ? dashboard.recentActivity : []);
       setAudit(Array.isArray(auditRows) ? auditRows : []);
       setFestivals(Array.isArray(festivalList) ? festivalList : []);
@@ -135,6 +168,36 @@ export default function AdminScreen() {
         { label: 'Picks', value: stats.picks },
       ]
     : [];
+
+  // System Health rows — mirrors the web console's System Health card, built
+  // from the dashboard.health object (uptime / memory / connections / DB pool).
+  const healthRows: { label: string; value: string }[] = health
+    ? [
+        { label: 'Uptime', value: formatUptime(health.uptime) },
+        { label: 'Memory (RSS)', value: `${health.memory.rss} MB` },
+        { label: 'Heap usage', value: `${health.memory.heapUsed} / ${health.memory.heapTotal} MB` },
+        { label: 'WebSocket connections', value: String(health.connections) },
+        { label: 'Online rooms', value: String(health.onlineRooms) },
+        ...(health.database
+          ? [
+              {
+                label: 'DB pool (A / I / W)',
+                value: `${health.database.totalCount - health.database.idleCount}A / ${health.database.idleCount}I / ${health.database.waitingCount}W`,
+              },
+            ]
+          : []),
+      ]
+    : [];
+
+  // Admin actions — read-only home links into the destructive sub-screens.
+  // Each sub-screen exists under app/admin/, so AuthGate (seg[0]==='admin')
+  // already guards them and expo-router typed routes resolve.
+  const adminActions: { label: string; icon: keyof typeof Ionicons.glyphMap; route: string }[] = [
+    { label: 'Manage users', icon: 'people-outline', route: '/admin/users' },
+    { label: 'Manage crews', icon: 'people-circle-outline', route: '/admin/crews' },
+    { label: 'Analytics', icon: 'bar-chart-outline', route: '/admin/analytics' },
+    { label: 'Audit log', icon: 'document-text-outline', route: '/admin/audit' },
+  ];
 
   return (
     <View style={styles.screen}>
@@ -191,6 +254,65 @@ export default function AdminScreen() {
             )}
           </View>
 
+          {/* System Health — uptime / memory / connections / DB pool, from
+              the dashboard.health object (read-only). */}
+          {healthRows.length > 0 ? (
+            <>
+              <SectionLabel>System health</SectionLabel>
+              <View style={styles.card}>
+                {healthRows.map((row, i) => (
+                  <View
+                    key={row.label}
+                    style={[styles.row, i < healthRows.length - 1 && styles.rowDivider]}
+                    accessibilityRole="text"
+                    accessibilityLabel={`${row.label}: ${row.value}`}
+                  >
+                    <View style={styles.rowBody}>
+                      <Text style={styles.rowTitle}>{row.label}</Text>
+                    </View>
+                    <View style={styles.statusPill}>
+                      <Text style={styles.statusText}>{row.value}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          {/* Admin actions — navigation into the destructive sub-screens. */}
+          <SectionLabel>Admin actions</SectionLabel>
+          <View style={styles.card}>
+            {adminActions.map((act, i) => (
+              <TouchableOpacity
+                key={act.route}
+                style={[styles.row, i < adminActions.length - 1 && styles.rowDivider]}
+                activeOpacity={0.7}
+                onPress={() => router.push(act.route)}
+                accessibilityRole="button"
+                accessibilityLabel={act.label}
+              >
+                <Ionicons name={act.icon} size={t.iconSize.md} color={t.colors.accent.aqua} />
+                <View style={styles.rowBody}>
+                  <Text style={styles.rowTitle}>{act.label}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={t.iconSize.sm} color={t.colors.text.secondary} />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.row}
+              activeOpacity={0.7}
+              onPress={() => router.push('/admin/festival-edit')}
+              accessibilityRole="button"
+              accessibilityLabel="New festival"
+            >
+              <Ionicons name="add-circle-outline" size={t.iconSize.md} color={t.colors.accent.aqua} />
+              <View style={styles.rowBody}>
+                <Text style={styles.rowTitle}>New festival</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={t.iconSize.sm} color={t.colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
+
           {/* Recent activity */}
           <SectionLabel>Recent activity</SectionLabel>
           <View style={styles.card}>
@@ -245,7 +367,7 @@ export default function AdminScreen() {
             </>
           ) : null}
 
-          {/* Festivals — read-only listing (no edit) */}
+          {/* Festivals — each row links to edit + lineup import. */}
           <SectionLabel>Festivals</SectionLabel>
           <View style={styles.card}>
             {festivals.length > 0 ? (
@@ -253,13 +375,32 @@ export default function AdminScreen() {
                 <View
                   key={f.id}
                   style={[styles.row, i < festivals.length - 1 && styles.rowDivider]}
-                  accessibilityRole="text"
                   accessibilityLabel={`Festival: ${f.name}`}
                 >
                   <View style={styles.rowBody}>
                     <Text style={styles.rowTitle} numberOfLines={1}>
                       {f.name}
                     </Text>
+                  </View>
+                  <View style={styles.rowActions}>
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      activeOpacity={0.7}
+                      onPress={() => router.push(`/admin/festival-edit?id=${f.id}`)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Edit ${f.name}`}
+                    >
+                      <Ionicons name="create-outline" size={t.iconSize.md} color={t.colors.accent.aqua} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.iconBtn}
+                      activeOpacity={0.7}
+                      onPress={() => router.push(`/admin/lineup-import?id=${f.id}`)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Import lineup for ${f.name}`}
+                    >
+                      <Ionicons name="cloud-upload-outline" size={t.iconSize.md} color={t.colors.accent.aqua} />
+                    </TouchableOpacity>
                   </View>
                 </View>
               ))
@@ -312,6 +453,21 @@ const useStyles = makeStyles((t) => ({
   rowBody: {
     flex: 1,
     gap: t.spacing[1],
+  },
+  rowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: t.radii.default,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: t.colors.bg.primary,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
   },
   rowTitle: {
     ...typeStyle('body'),

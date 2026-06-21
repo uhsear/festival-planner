@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,6 +75,20 @@ export default function MapScreen() {
     return () => clearInterval(id);
   }, [sweepStale]);
 
+  // Tap-to-create: a long-press on the map deep-links into the crew Logistics
+  // tab with the pressed coords, where CrewMeetingPoints opens its create form
+  // prefilled with them. No write happens here — the user still confirms "Add".
+  const handleMapPress = useCallback((coord: { latitude: number; longitude: number }) => {
+    router.push({
+      pathname: '/(tabs)/crew',
+      params: {
+        tab: 'logistics',
+        mpLat: String(coord.latitude),
+        mpLng: String(coord.longitude),
+      },
+    });
+  }, []);
+
   if (!user) {
     return (
       <View style={styles.screen}>
@@ -106,7 +120,7 @@ export default function MapScreen() {
       <View style={styles.chipBar}>
         <FreshnessChip surface="crew" />
       </View>
-      <OfflineMap meetingPoints={meetingPoints} peers={peers} sos={sos} />
+      <OfflineMap meetingPoints={meetingPoints} peers={peers} sos={sos} onMapPress={handleMapPress} />
 
       {/* DC2 + R24: raise-SOS shortcut on the map. The FAB lives in an outer
           absolutely-positioned wrapper so its placement never depends on the

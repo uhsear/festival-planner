@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
@@ -146,6 +147,12 @@ interface OfflineMapProps {
   peers?: PeerLocation[];
   /** Active crew SOS, if any (ephemeral; from liveLocationStore). */
   sos?: SosEntry | null;
+  /**
+   * Tap-to-create: fired when the user long-presses the interactive map, with
+   * the pressed coordinate. The screen wires this to the existing meeting-point
+   * create flow (prefilled with these coords). Omit to disable the affordance.
+   */
+  onMapPress?: (coord: { latitude: number; longitude: number }) => void;
 }
 
 /**
@@ -369,6 +376,23 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
         });
         map.on('error', function (e) { post({ type: 'error', reason: 'map-error' }); });
 
+        // Tap-to-create: a long-press (contextmenu on touch) drops a meeting
+        // point at that coordinate. RN opens the existing create flow prefilled
+        // with the lng/lat — no write happens here, only the gesture is relayed.
+        map.on('contextmenu', function (e) {
+          if (!e || !e.lngLat) return;
+          post({ type: 'map-longpress', longitude: e.lngLat.lng, latitude: e.lngLat.lat });
+        });
+
+        // RN-driven recenter ("find me"): smoothly fly the map to a coordinate.
+        // Coords are numeric + range-checked on the RN side before injection.
+        window.__festieFlyTo = function (lng, lat, zoom) {
+          try {
+            map.flyTo({ center: [lng, lat], zoom: zoom || 16, duration: 600 });
+            post({ type: 'recentered' });
+          } catch (err) { post({ type: 'error', reason: 'flyto' }); }
+        };
+
         // RN pushes meeting-point pins here (after 'ready', and on any change).
         // This is the ONLY way pin data enters the document — never templated.
         window.__festieSetPins = function (next) {
@@ -402,11 +426,14 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
 </html>`;
 }
 
-export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProps) {
+export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: OfflineMapProps) {
   const t = useTokens();
   const styles = useStyles();
   const bottomPad = useListBottomInset();
   const webRef = useRef<WebView>(null);
+  // Guards a single in-flight "find me" GPS request so a double-tap can't stack
+  // permission prompts / location fixes.
+  const [locating, setLocating] = useState(false);
 
   const pins = useMemo(() => extractMeetingPointPins(meetingPoints), [meetingPoints]);
   const stagePins = useMemo(() => extractStagePins(), []); // [] today — see mapPins TODO
@@ -484,7 +511,7 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
 
   const onMessage = useCallback(
     (e: WebViewMessageEvent) => {
-      let msg: { type?: string; reason?: string } = {};
+      let msg: { type?: string; reason?: string; latitude?: number; longitude?: number } = {};
       try {
         msg = JSON.parse(e.nativeEvent.data);
       } catch {
@@ -492,13 +519,27 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
       }
       if (msg.type === 'ready') {
         if (!fellBackRef.current) setPhase('map');
+      } else if (msg.type === 'map-longpress') {
+        // Tap-to-create: relay the pressed coord to the screen, which opens the
+        // existing meeting-point form prefilled with it. Range-check so a bad
+        // payload can't propagate non-finite coords into the create flow.
+        const { latitude, longitude } = msg;
+        if (
+          onMapPress &&
+          typeof latitude === 'number' &&
+          typeof longitude === 'number' &&
+          Number.isFinite(latitude) &&
+          Number.isFinite(longitude)
+        ) {
+          onMapPress({ latitude, longitude });
+        }
       } else if (msg.type === 'error') {
         // Only a load/init failure means "no map" → fall back. A transient
-        // pin/peer re-render glitch must NOT tear the whole map down.
-        if (msg.reason !== 'pin-update' && msg.reason !== 'peer-update') fallBack();
+        // pin/peer/recenter glitch must NOT tear the whole map down.
+        if (msg.reason !== 'pin-update' && msg.reason !== 'peer-update' && msg.reason !== 'flyto') fallBack();
       }
     },
-    [fallBack],
+    [fallBack, onMapPress],
   );
 
   // Arm an offline timeout on load start: if MapLibre never signals 'ready'
@@ -550,6 +591,31 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
     if (phase !== 'map' || !webRef.current) return;
     webRef.current.injectJavaScript(`window.__festieSetPeers && window.__festieSetPeers(${liveJson}); true;`);
   }, [phase, liveJson]);
+
+  // "Find me": fetch the device position via expo-location (already a dep) and
+  // fly the WebView map to it. Permission denial / GPS failure is silent — the
+  // map simply stays put (no destructive effect, so no alert needed here).
+  const recenterToMe = useCallback(async () => {
+    if (locating) return;
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const { latitude, longitude } = pos.coords;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+      if (phase === 'map' && webRef.current) {
+        // Numeric, range-checked coords — safe to splice into the inject call.
+        webRef.current.injectJavaScript(
+          `window.__festieFlyTo && window.__festieFlyTo(${longitude}, ${latitude}, 16); true;`,
+        );
+      }
+    } catch {
+      // Best-effort: leave the map where it is on any failure.
+    } finally {
+      setLocating(false);
+    }
+  }, [locating, phase]);
 
   // ── Fallback list (offline-honest) ─────────────────────────────────────────
   if (phase === 'fallback') {
@@ -697,6 +763,38 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
           <Text style={styles.loadingText}>Loading map…</Text>
         </View>
       ) : null}
+
+      {/* On-map controls (map phase only). "Find me" recenters to the device's
+          GPS fix; the tap-to-create hint tells users the long-press gesture
+          drops a meeting point. */}
+      {phase === 'map' ? (
+        <>
+          {onMapPress ? (
+            <View style={styles.mapHint} pointerEvents="none">
+              <Ionicons name="add-circle-outline" size={14} color={t.colors.text.onAccent} />
+              <Text style={styles.mapHintText} numberOfLines={1}>
+                Long-press the map to drop a meeting point
+              </Text>
+            </View>
+          ) : null}
+          <TouchableOpacity
+            testID="map-recenter-fab"
+            style={styles.recenterFab}
+            onPress={recenterToMe}
+            disabled={locating}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Recenter the map on my location"
+            accessibilityState={{ disabled: locating }}
+          >
+            {locating ? (
+              <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+            ) : (
+              <Ionicons name="locate" size={20} color={t.colors.accent.aqua} />
+            )}
+          </TouchableOpacity>
+        </>
+      ) : null}
     </View>
   );
 }
@@ -724,6 +822,43 @@ const useStyles = makeStyles((t) => ({
   loadingText: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
+  },
+  // Round "find me" control, pinned bottom-right above the SOS FAB's row so the
+  // two don't collide (SOS sits lower-right via the map screen's own wrapper).
+  recenterFab: {
+    position: 'absolute',
+    right: t.spacing[4],
+    bottom: t.spacing[5] + 64,
+    width: 48,
+    height: 48,
+    borderRadius: t.radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+  },
+  // Floating tap-to-create hint, top-centered, non-interactive.
+  mapHint: {
+    position: 'absolute',
+    top: t.spacing[3],
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.shade[10],
+  },
+  mapHintText: {
+    ...typeStyle('micro'),
+    color: t.colors.text.onAccent,
   },
   fallbackContent: {
     padding: t.spacing[4],

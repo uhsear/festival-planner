@@ -167,7 +167,18 @@ export default function CrewScreen() {
 
   // DC2: a raise-SOS affordance on /find and /map deep-links here with
   // ?tab=logistics so the user lands on the Find pane where CrewSos lives.
-  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  // mpLat/mpLng: tap-to-create coords deep-linked from the map's long-press —
+  // forwarded to CrewMeetingPoints to prefill+open its create form.
+  const {
+    tab: tabParam,
+    mpLat: mpLatParam,
+    mpLng: mpLngParam,
+  } = useLocalSearchParams<{ tab?: string; mpLat?: string; mpLng?: string }>();
+  const prefillCoords = useMemo(() => {
+    const lat = mpLatParam != null ? Number(mpLatParam) : NaN;
+    const lng = mpLngParam != null ? Number(mpLngParam) : NaN;
+    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  }, [mpLatParam, mpLngParam]);
 
   // Load the user's crews once on mount.
   useEffect(() => {
@@ -1225,6 +1236,7 @@ export default function CrewScreen() {
             isOwner={isOwner}
             festival={currentFestival}
             days={festivalDays}
+            prefillCoords={prefillCoords}
           />
 
           <CrewHomeBase crewId={crew.id} location={crew.homeBaseLocation} time={crew.homeBaseTime} isOwner={isOwner} />
