@@ -56,6 +56,7 @@ export default function AdminUsersScreen() {
   const styles = useStyles();
   const insets = useSafeAreaInsets();
   const isAdmin = useAuthStore((s) => s.isAdmin);
+  const currentUserId = useAuthStore((s) => s.user?.id);
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -281,6 +282,7 @@ export default function AdminUsersScreen() {
               {filtered.map((user, i) => {
                 const isUserAdmin = user.roles.includes('admin');
                 const expanded = expandedId === user.id;
+                const isSelf = user.id === currentUserId;
                 return (
                   <View key={user.id} style={[i < filtered.length - 1 && styles.rowDivider]}>
                     <View style={styles.row}>
@@ -317,14 +319,16 @@ export default function AdminUsersScreen() {
 
                     {expanded ? (
                       <View style={styles.actions}>
-                        <Button
-                          label={isUserAdmin ? 'Revoke Admin' : 'Grant Admin'}
-                          variant="secondary"
-                          size="sm"
-                          icon="shield-checkmark-outline"
-                          onPress={() => requestToggleAdmin(user)}
-                          accessibilityLabel={isUserAdmin ? `Revoke admin from ${user.username}` : `Grant admin to ${user.username}`}
-                        />
+                        {!isSelf ? (
+                          <Button
+                            label={isUserAdmin ? 'Revoke Admin' : 'Grant Admin'}
+                            variant="secondary"
+                            size="sm"
+                            icon="shield-checkmark-outline"
+                            onPress={() => requestToggleAdmin(user)}
+                            accessibilityLabel={isUserAdmin ? `Revoke admin from ${user.username}` : `Grant admin to ${user.username}`}
+                          />
+                        ) : null}
 
                         <View style={styles.resetBlock}>
                           <LabeledTextInput
@@ -351,14 +355,16 @@ export default function AdminUsersScreen() {
                           />
                         </View>
 
-                        <Button
-                          label="Delete User"
-                          variant="danger"
-                          size="sm"
-                          icon="trash-outline"
-                          onPress={() => requestDelete(user)}
-                          accessibilityLabel={`Delete ${user.username}`}
-                        />
+                        {!isSelf ? (
+                          <Button
+                            label="Delete User"
+                            variant="danger"
+                            size="sm"
+                            icon="trash-outline"
+                            onPress={() => requestDelete(user)}
+                            accessibilityLabel={`Delete ${user.username}`}
+                          />
+                        ) : null}
                       </View>
                     ) : null}
                   </View>

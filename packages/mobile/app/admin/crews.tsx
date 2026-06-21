@@ -83,6 +83,7 @@ export default function AdminCrewsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const isAdmin = useAuthStore((s) => s.isAdmin);
+  const currentUserId = useAuthStore((s) => s.user?.id);
 
   const [crews, setCrews] = useState<Crew[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -465,25 +466,28 @@ export default function AdminCrewsScreen() {
                   ) : (
                     users.map((u, i) => {
                       const selected = selectedUserIds.has(u.id);
+                      const isSelf = u.id === currentUserId;
                       return (
                         <TouchableOpacity
                           key={u.id}
                           style={[styles.selectRow, i < users.length - 1 && styles.selectDivider]}
-                          onPress={() => toggleSelect(selectedUserIds, setSelectedUserIds, u.id)}
-                          activeOpacity={0.7}
+                          onPress={isSelf ? undefined : () => toggleSelect(selectedUserIds, setSelectedUserIds, u.id)}
+                          disabled={isSelf}
+                          activeOpacity={isSelf ? 1 : 0.7}
                           accessibilityRole="checkbox"
-                          accessibilityState={{ checked: selected }}
-                          accessibilityLabel={`${u.username}${u.roles.includes('admin') ? ', admin' : ''}`}
+                          accessibilityState={{ checked: selected, disabled: isSelf }}
+                          accessibilityLabel={`${u.username}${u.roles.includes('admin') ? ', admin' : ''}${isSelf ? ' (you — cannot force-logout yourself)' : ''}`}
                         >
                           <Ionicons
                             name={selected ? 'checkbox' : 'square-outline'}
                             size={t.iconSize.md}
-                            color={selected ? t.colors.accent.aqua : t.colors.text.muted}
+                            color={isSelf ? t.colors.text.placeholder : selected ? t.colors.accent.aqua : t.colors.text.muted}
                           />
                           <View style={styles.selectMeta}>
-                            <Text style={styles.selectName} numberOfLines={1}>
+                            <Text style={[styles.selectName, isSelf && styles.selectNameMuted]} numberOfLines={1}>
                               {u.username}
                               {u.roles.includes('admin') ? ' · admin' : ''}
+                              {isSelf ? ' (you)' : ''}
                             </Text>
                             <Text style={styles.selectSub} numberOfLines={1}>
                               {u.email}
@@ -752,6 +756,9 @@ const useStyles = makeStyles((t) => ({
   selectName: {
     ...typeStyle('body'),
     color: t.colors.text.primary,
+  },
+  selectNameMuted: {
+    color: t.colors.text.muted,
   },
   selectSub: {
     ...typeStyle('caption'),
