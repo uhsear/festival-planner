@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '@festie/shared/services/api';
+import { parseLineupCsv, type LineupRow } from '@festie/shared/utils';
 import { useToast } from '../../lib/toastContext';
 
 interface LineupImportProps {
@@ -7,127 +8,20 @@ interface LineupImportProps {
   onSuccess?: () => void;
 }
 
-interface ParsedSet {
-  dayLabel: string;
-  date: string;
-  artist: string;
-  stage: string;
-  startTime?: string;
-  endTime?: string;
-  stageColor?: string;
-}
-
 /**
  * CSV/TSV lineup import component with preview and error handling
  */
 export default function LineupImport({ festivalId, onSuccess }: LineupImportProps) {
   const [importText, setImportText] = useState('');
-  const [preview, setPreview] = useState<ParsedSet[]>([]);
+  const [preview, setPreview] = useState<LineupRow[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const parseCsvLine = (line: string): string[] => {
-    const values: string[] = [];
-    let current = '';
-    let quoted = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const next = line[i + 1];
-
-      if (char === '"') {
-        if (quoted && next === '"') {
-          current += '"';
-          i++;
-        } else {
-          quoted = !quoted;
-        }
-        continue;
-      }
-
-      if (char === ',' && !quoted) {
-        values.push(current);
-        current = '';
-        continue;
-      }
-
-      current += char;
-    }
-
-    values.push(current);
-    return values;
-  };
-
   const handleParse = () => {
-    setErrors([]);
-    setPreview([]);
-
-    const lines = importText
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean);
-
-    if (lines.length < 2) {
-      setErrors(['CSV must include a header and at least one set row']);
-      return;
-    }
-
-    const header = parseCsvLine(lines[0]!).map((h) => h.trim());
-    const required = ['dayLabel', 'date', 'artist', 'stage'];
-
-    const missingColumns = required.filter((col) => !header.includes(col));
-    if (missingColumns.length > 0) {
-      setErrors([`Missing required columns: ${missingColumns.join(', ')}`]);
-      return;
-    }
-
-    const indexes: Record<string, number> = {};
-    header.forEach((col, i) => {
-      indexes[col] = i;
-    });
-
-    const parsedSets: ParsedSet[] = [];
-    const newErrors: string[] = [];
-    let skippedCount = 0;
-
-    lines.slice(1).forEach((line, lineNum) => {
-      const values = parseCsvLine(line);
-
-      const dayLabel = (values[indexes['dayLabel']!] || '').trim();
-      const date = (values[indexes['date']!] || '').trim();
-      const artist = (values[indexes['artist']!] || '').trim();
-      const stage = (values[indexes['stage']!] || '').trim();
-
-      if (!artist) {
-        skippedCount++;
-        return;
-      }
-
-      if (!dayLabel || !date) {
-        newErrors.push(`Row ${lineNum + 2}: Missing day label or date`);
-        return;
-      }
-
-      parsedSets.push({
-        dayLabel,
-        date,
-        artist,
-        stage: stage || 'Main Stage',
-        startTime: indexes.startTime !== undefined ? (values[indexes.startTime] || '').trim() : undefined,
-        endTime: indexes.endTime !== undefined ? (values[indexes.endTime] || '').trim() : undefined,
-        stageColor: indexes.stageColor !== undefined ? (values[indexes.stageColor] || '').trim() : undefined,
-      });
-    });
-
-    if (skippedCount > 0) {
-      newErrors.push(`${skippedCount} rows skipped (missing required field: artist)`);
-    }
-
-    setPreview(parsedSets);
-    if (newErrors.length > 0) {
-      setErrors(newErrors);
-    }
+    const { rows, errors: newErrors } = parseLineupCsv(importText);
+    setPreview(rows);
+    setErrors(newErrors);
   };
 
   const handleImport = async () => {
