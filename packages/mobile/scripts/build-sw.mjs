@@ -122,6 +122,14 @@ const { count, size, warnings } = await generateSW({
   clientsClaim: true,
   cleanupOutdatedCaches: true,
 
+  // Expo's Metro web export emits a single monolithic entry bundle (~5 MB
+  // measured in the Phase 0 spike) rather than Vite's code-split chunks. The
+  // workbox default cap (2 MB) would skip precaching the app shell, breaking
+  // offline schedule viewing — the core PWA value. Raise the cap so the shell
+  // precaches. Shrinking this bundle via expo-router lazy routes is a Phase 2
+  // perf follow-up that would let this drop back toward the default.
+  maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+
   navigateFallback: 'index.html',
   navigateFallbackDenylist: [
     /^\/privacy/,
