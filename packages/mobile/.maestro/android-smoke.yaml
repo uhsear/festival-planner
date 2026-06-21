@@ -97,16 +97,15 @@ env:
 # ── Tab-bar interactivity gate (NON-optional, always runs) ──
 # Regression guard for the build-#15 bug where the Schedule body's timeline
 # carousel sized to its content, overflowed the frame, and painted/intercepted
-# touches over the bottom tab bar — leaving every tab untappable. These taps are
-# deliberately NOT optional and each asserts the destination rendered, so a dead
-# tab bar fails the flow instead of silently passing the chrome check below.
+# touches over the bottom tab bar — leaving every tab untappable.
+# Picks is now AuthGate-guarded (P1 security fix): tapping it as a GUEST must
+# bounce to login. This single non-optional tap proves BOTH that the Picks tab
+# is tappable (dead-tab-bar guard) AND that the guard fires — and it lands us on
+# the login screen, flowing straight into the authed phase below. The authed
+# tab-bar walk (Picks -> My Picks, Schedule) runs post-login further down.
 - tapOn:
     text: "Picks"
-- assertVisible: "My Picks"
-- tapOn:
-    text: "Schedule"
-- assertVisible:
-    text: "North Coast Festival 2026|Select a Festival|Timeline|Cards"
+- assertVisible: "Sign in to your account"
 # ── Guarded login (runs only when creds are passed) ──
 - tapOn:
     text: "Account"
@@ -131,6 +130,21 @@ env:
           notVisible: "Username"
           timeout: 25000
 - takeScreenshot: 06-account
+# ── Authed tab-bar interactivity gate (the real dead-tab-bar guard, post-login) ──
+# Runs only when login succeeded (Picks is now reachable as an authed user). If
+# creds were skipped we're still a guest on login here, so guard the authed walk.
+- runFlow:
+    when:
+      notVisible: "Username"
+      visible: "Picks"
+    commands:
+      - tapOn:
+          text: "Picks"
+      - assertVisible: "My Picks"
+      - tapOn:
+          text: "Schedule"
+      - assertVisible:
+          text: "North Coast Festival 2026|Select a Festival|Timeline|Cards"
 # ── Crew + Live Location + SOS (authed; guarded by the login runFlow above) ──
 # The entire crew walk is wrapped in a runFlow:when guard: if login was skipped
 # (no creds supplied) or the account has no crew, the outer tap on "Crew" won't
