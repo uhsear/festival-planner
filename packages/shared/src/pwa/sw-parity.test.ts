@@ -43,6 +43,45 @@ describe('SW cache boundary — weather regex', () => {
   });
 });
 
+describe('SW cache boundary — the SHIPPED matcher functions (not just the consts)', () => {
+  // Exercise the actual urlPattern callables that workbox routes against, so a
+  // matcher that referenced the wrong const, dropped the GET check, or inverted
+  // the logic is caught — the consts above could be correct while the shipped
+  // matcher is not.
+  const m = (i: number) => FESTIE_RUNTIME_CACHING[i].urlPattern as (o: {
+    url: URL;
+    request: Request;
+  }) => boolean;
+  const call = (i: number, path: string, method = 'GET') =>
+    m(i)({
+      url: new URL(`https://festie.us${path}`),
+      request: { method } as Request,
+    });
+
+  it('api-cache matcher caches the catalog, never per-user paths', () => {
+    expect(call(0, '/api/v1/festivals')).toBe(true);
+    expect(call(0, '/api/v1/festivals/abc')).toBe(true);
+    expect(call(0, '/api/v1/festivals/abc/picks')).toBe(false);
+    expect(call(0, '/api/v1/profiles/me')).toBe(false);
+    expect(call(0, '/api/v1/crews')).toBe(false);
+    // Non-GET (e.g. a pick mutation) must never hit the cache route.
+    expect(call(0, '/api/v1/festivals', 'POST')).toBe(false);
+  });
+
+  it('weather-cache matcher matches per-festival weather GETs only', () => {
+    expect(call(1, '/api/v1/weather/abc')).toBe(true);
+    expect(call(1, '/api/v1/weather')).toBe(false);
+    expect(call(1, '/api/v1/weather/abc', 'POST')).toBe(false);
+  });
+
+  it('art-cache matcher matches the public art hosts', () => {
+    const art = FESTIE_RUNTIME_CACHING[2].urlPattern as (o: { url: URL }) => boolean;
+    expect(art({ url: new URL('https://i.scdn.co/image/abc') })).toBe(true);
+    expect(art({ url: new URL('https://art.festie.us/x.png') })).toBe(true);
+    expect(art({ url: new URL('https://evil.example.com/x.png') })).toBe(false);
+  });
+});
+
 describe('runtimeCaching config parity (vite.config.ts ↔ shared)', () => {
   it('has exactly four rules', () => {
     expect(FESTIE_RUNTIME_CACHING).toHaveLength(4);
