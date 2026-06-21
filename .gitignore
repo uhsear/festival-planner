@@ -60,11 +60,6 @@ mobile-loop-capture.js
 !packages/mobile/assets/*.png
 # and DO track the Play Store listing assets (icon, feature graphic, screenshots)
 !packages/mobile/store/play/images/**/*.png
-# and DO track the web PWA install icons + apple-touch-icon (referenced by the
-# manifest/index.html — the global *.png ignore was silently dropping these,
-# which is why the installed PWA showed a blank icon)
-!packages/web/public/icons/*.png
-!packages/web/public/apple-touch-icon.png
 
 # Session logs and loop captures
 docs/session-logs/

@@ -10,7 +10,7 @@
 #   1. SSHes to the prod box (KEY AUTH ONLY — no password support).
 #   2. git fetch + reset --hard origin/main.
 #   3. Migrations are app-managed (applied on backend boot); no deploy step.
-#   4. Builds the web bundle.
+#   4. Builds the Expo-web bundle (the only web surface; the Vite SPA is retired).
 #   5. Restarts the PM2 app ("festie").
 #   6. Tags the deploy `deploy-<UTC timestamp>` and pushes the tag (P14).
 #   7. Health-gates on /api/ready; if it is non-200, ABORTS and prints the
@@ -130,23 +130,11 @@ def main():
         # is no separate migration step in the deploy — adding one would double-run
         # and conflict with that ledger.
 
-        # 4. Build the web bundle (login shell so pnpm is on PATH)
-        code, out, err = run(
-            client,
-            f"bash -lc 'cd {APP}/packages && pnpm --filter @festie/web build' 2>&1 | tail -8",
-            timeout=600,
-        )
-        print(f"[build] exit={code}\n{out}{err}")
-        if code != 0:
-            rollback_hint()
-            raise SystemExit("web build failed")
-
-        # 4b. Build the Expo-web surface (react-native-web). Served when WEB_DIST
-        # points at packages/mobile/dist (the prod cutover). build:web =
+        # 4. Build the Expo-web surface (react-native-web). Served when WEB_DIST
+        # points at packages/mobile/dist (the prod cutover, now the only web
+        # surface — the Vite SPA at packages/web was retired). build:web =
         # `expo export -p web` + manifest + Workbox SW. Rebuilt fresh each deploy
-        # so the served bundle never goes stale. Kept ALONGSIDE the Vite build
-        # above until packages/web is retired — unsetting WEB_DIST is an instant
-        # revert to the Vite SPA.
+        # so the served bundle never goes stale.
         code, out, err = run(
             client,
             f"bash -lc 'cd {APP}/packages/mobile && rm -rf dist && pnpm run build:web' 2>&1 | tail -10",
