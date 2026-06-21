@@ -183,7 +183,10 @@ function configureMiddleware(app: Application, ctx: any) {
 
   // ── Service worker (no-cache) ─────────────────────────────────────────
   // Serve the Workbox-generated SW from the React dist/ build.
-  const _reactSwPath = path.join(config.PUBLIC_DIR, '..', 'packages', 'web', 'dist', 'sw.js');
+  // ponytail: config.WEB_DIST is the prod source (set by loadConfig); the || keeps
+  // partial/test configs from throwing on path.join(undefined).
+  const webDist = config.WEB_DIST || path.join(config.PUBLIC_DIR, '..', 'packages', 'web', 'dist');
+  const _reactSwPath = path.join(webDist, 'sw.js');
   app.get('/sw.js', (req: any, res: any) => {
     setNoStore(res);
     res.sendFile(_reactSwPath, (err: any) => {
@@ -196,7 +199,7 @@ function configureMiddleware(app: Application, ctx: any) {
       }
     });
   });
-  const _reactManifestPath = path.join(config.PUBLIC_DIR, '..', 'packages', 'web', 'dist', 'manifest.webmanifest');
+  const _reactManifestPath = path.join(webDist, 'manifest.webmanifest');
   app.get('/manifest.json', (req: any, res: any, next: any) => {
     res.sendFile(_reactManifestPath, (err: any) => {
       if (err && !res.headersSent) next(err);
@@ -207,7 +210,7 @@ function configureMiddleware(app: Application, ctx: any) {
   // Serve the Vite build output. Hashed filenames (e.g. index-DG3A0cK-.js)
   // get immutable caching. Falls through to public/ for static assets
   // (icons, legal pages, screenshots, etc.).
-  const reactDistDir = path.join(config.PUBLIC_DIR, '..', 'packages', 'web', 'dist');
+  const reactDistDir = webDist;
   if (fs.existsSync(reactDistDir)) {
     app.use(
       express.static(reactDistDir, {

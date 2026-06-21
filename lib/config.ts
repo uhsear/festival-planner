@@ -165,6 +165,7 @@ export function loadConfig(overrides: Record<string, any> = {}): {
   DATA_DIR: string;
   DATABASE_URL: string;
   PUBLIC_DIR: string;
+  WEB_DIST: string;
   PUBLIC_ORIGIN: string;
   ALLOWED_ORIGINS: string[];
   USER_SESSION_COOKIE: string;
@@ -286,6 +287,9 @@ export function loadConfig(overrides: Record<string, any> = {}): {
   const publicDir = path.resolve(
     overrides.PUBLIC_DIR || process.env.PUBLIC_DIR || path.join(import.meta.dirname, '..', 'public'),
   );
+  const webDist = path.resolve(
+    overrides.WEB_DIST || process.env.WEB_DIST || path.join(publicDir, '..', 'packages', 'web', 'dist'),
+  );
   const dataDir = path.resolve(overrides.DATA_DIR || process.env.DATA_DIR || path.join(import.meta.dirname, 'data'));
   const databaseUrl = overrides.DATABASE_URL || process.env.DATABASE_URL || 'postgresql://localhost/festival_planner';
   if (!process.env.DATABASE_URL && !overrides.DATABASE_URL && process.env.NODE_ENV === 'production') {
@@ -309,6 +313,7 @@ export function loadConfig(overrides: Record<string, any> = {}): {
     DATA_DIR: dataDir,
     DATABASE_URL: databaseUrl,
     PUBLIC_DIR: publicDir,
+    WEB_DIST: webDist,
     PUBLIC_ORIGIN: publicOrigin,
     ALLOWED_ORIGINS: [...allowedOrigins],
     USER_SESSION_COOKIE: overrides.USER_SESSION_COOKIE || process.env.USER_SESSION_COOKIE || 'festie_session',
