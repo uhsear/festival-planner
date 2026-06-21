@@ -29,7 +29,7 @@ describe('Integration — Sockets', { concurrency: 1 }, () => {
 
     const registration = await markTrustedMutation(server.request
       .post('/api/v1/auth/register'))
-      .send({ username: 'socket-cookie-user', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true })
+      .send({ username: 'socket-cookie-user', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true })
       .expect(201);
 
     await server.request

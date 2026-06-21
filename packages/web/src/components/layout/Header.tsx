@@ -212,7 +212,7 @@ export default function Header() {
                   type="button"
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'px-4 py-2 bg-transparent text-text-secondary text-[13px] font-semibold rounded-sm',
+                    'px-4 py-2 bg-transparent text-text-secondary text-[length:var(--font-size-13)] font-semibold rounded-sm',
                     'transition-colors duration-[250ms] ease-standard tracking-[0.3px]',
                     'hover:text-text-primary',
                     'border border-transparent',

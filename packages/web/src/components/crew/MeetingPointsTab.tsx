@@ -294,8 +294,9 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
           type="button"
           role="tab"
           aria-selected={view === 'list'}
+          aria-controls="meeting-points-panel"
           onClick={() => setView('list')}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium min-h-9 transition-colors ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium min-h-11 transition-colors ${
             view === 'list' ? 'bg-accent-aqua/15 text-accent-aqua' : 'text-text-secondary hover:text-text-primary'
           }`}
         >
@@ -305,8 +306,9 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
           type="button"
           role="tab"
           aria-selected={view === 'map'}
+          aria-controls="meeting-points-panel"
           onClick={() => setView('map')}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium min-h-9 transition-colors ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium min-h-11 transition-colors ${
             view === 'map' ? 'bg-accent-aqua/15 text-accent-aqua' : 'text-text-secondary hover:text-text-primary'
           }`}
         >
@@ -314,6 +316,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
         </button>
       </div>
 
+      <div id="meeting-points-panel">
       {view === 'map' && (
         <Suspense
           fallback={
@@ -535,6 +538,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

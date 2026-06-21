@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2026 Asir Khan. All rights reserved.
- * Licensed under the Business Source License 1.1. See LICENSE file for details.
+ * All Rights Reserved. See the LICENSE file.
  */
 /**
  * Export routes: HTML/ICS/image generation and presence.
@@ -45,7 +45,13 @@ export default function createExportRoutes(deps: any) {
     ? fs.readFileSync(templatePath, 'utf8')
     : '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Festie Export</title></head><body>__SECTIONS__</body></html>';
 
-  const EXPORT_WORKER_PATH = new URL('../lib/export-worker.ts', import.meta.url);
+  // Dual-mode resolution: under tsx (dev) import.meta.url ends in `.ts` and the
+  // worker lives at ../lib/export-worker.ts; in the esbuild bundle every entry is
+  // flattened into dist/, so import.meta.url ends in `.js` and the worker is the
+  // sibling ./export-worker.js next to dist/server.js.
+  const EXPORT_WORKER_PATH = import.meta.url.endsWith('.ts')
+    ? new URL('../lib/export-worker.ts', import.meta.url)
+    : new URL('./export-worker.js', import.meta.url);
   const EXPORT_TIMEOUT_MS = config.EXPORT_TIMEOUT_MS || 10_000;
   const MAX_CONCURRENT_EXPORTS = config.MAX_CONCURRENT_EXPORTS || 4;
   const MAX_CREW_IN_EXPORT = config.MAX_CREW_IN_EXPORT || 20;

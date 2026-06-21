@@ -108,7 +108,7 @@ function AccountPageInner() {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
-      <p className="px-1 text-xs font-semibold text-text-secondary uppercase tracking-[.8px]">{label}</p>
+      <h2 className="px-1 text-xs font-semibold text-text-secondary uppercase tracking-[.8px]">{label}</h2>
       {children}
     </div>
   );

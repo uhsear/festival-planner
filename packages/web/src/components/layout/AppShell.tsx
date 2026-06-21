@@ -91,8 +91,10 @@ export default function AppShell() {
       <main
         className={cn(
           'auth-screen',
-          'flex flex-col items-center justify-center h-full text-center',
-          'px-5 py-10 relative',
+          'flex flex-col items-center min-h-full overflow-y-auto text-center',
+          'px-5 relative',
+          '[padding-top:max(2.5rem,env(safe-area-inset-top,0px))]',
+          'pb-10',
         )}
         aria-label="Authentication"
       >

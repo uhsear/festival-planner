@@ -256,6 +256,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
               type="button"
               role="tab"
               aria-selected={view === v}
+              aria-controls="expenses-list-panel"
               onClick={() => setView(v)}
               className={cn(
                 'flex-1 min-h-11 rounded-md text-xs font-medium capitalize',
@@ -287,6 +288,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
                   type="button"
                   role="tab"
                   aria-selected={settleView === v}
+                  aria-controls="settle-view-panel"
                   onClick={() => setSettleView(v)}
                   className={cn(
                     'px-2.5 py-1 rounded text-[11px] font-medium capitalize',
@@ -301,6 +303,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
             </div>
           </div>
 
+          <div id="settle-view-panel">
           {settleView === 'simplified' ? (
             myPayments.length === 0 && myReceipts.length === 0 ? (
               <div className="text-sm text-text-secondary">You're all settled up.</div>
@@ -402,6 +405,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
           ) : (
             <div className="text-sm text-text-secondary">Everyone's balance is zero.</div>
           )}
+          </div>
         </div>
       )}
 
@@ -511,6 +515,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
       )}
 
       {/* Expense list (filtered by the planned-vs-actual view) */}
+      <div id="expenses-list-panel">
       {expenses.length === 0 ? (
         <EmptyState
           icon={<DollarSign className="w-12 h-12" aria-hidden="true" />}
@@ -550,6 +555,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

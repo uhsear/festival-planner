@@ -250,7 +250,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
         username: 'sessionuser',
         password: DEFAULT_PASSWORD,
         confirmPassword: DEFAULT_PASSWORD,
-        tosAccepted: true,
+        dateOfBirth: '1995-01-01', tosAccepted: true,
       });
       assert.equal(registerRes.status, 201);
       const token = registerRes.body.data.token;
@@ -281,7 +281,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
         username: 'revokeuser',
         password: DEFAULT_PASSWORD,
         confirmPassword: DEFAULT_PASSWORD,
-        tosAccepted: true,
+        dateOfBirth: '1995-01-01', tosAccepted: true,
       });
       const token = registerRes.body.data.token;
 
@@ -326,7 +326,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
         username: 'testuser',
         password: DEFAULT_PASSWORD,
         confirmPassword: DEFAULT_PASSWORD,
-        tosAccepted: true,
+        dateOfBirth: '1995-01-01', tosAccepted: true,
       });
       const token = registerRes.body.data.token;
 
@@ -354,7 +354,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
         username: 'currentuser',
         password: DEFAULT_PASSWORD,
         confirmPassword: DEFAULT_PASSWORD,
-        tosAccepted: true,
+        dateOfBirth: '1995-01-01', tosAccepted: true,
       });
       const token = registerRes.body.data.token;
 
@@ -389,7 +389,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
       // Register admin user and grant admin role via DB
       const adminUsername = 'testadmin-share-' + Date.now();
       await request(app).post('/api/v1/auth/register').set(TRUSTED_MUTATION_HEADER, '1')
-        .send({ username: adminUsername, password: 'test-admin-password-pass', confirmPassword: 'test-admin-password-pass', tosAccepted: true });
+        .send({ username: adminUsername, password: 'test-admin-password-pass', confirmPassword: 'test-admin-password-pass', dateOfBirth: '1995-01-01', tosAccepted: true });
       const adminPool = new Pool({ connectionString: TEST_DATABASE_URL, statement_timeout: 5000 });
       try {
         await adminPool.query(
@@ -405,7 +405,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
         username: 'shareuser',
         password: DEFAULT_PASSWORD,
         confirmPassword: DEFAULT_PASSWORD,
-        tosAccepted: true,
+        dateOfBirth: '1995-01-01', tosAccepted: true,
       });
       const token = registerRes.body.data.token;
 
@@ -463,7 +463,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
       // Register admin user and grant admin role via DB
       const adminUsername2 = 'testadmin-json-' + Date.now();
       await request(app).post('/api/v1/auth/register').set(TRUSTED_MUTATION_HEADER, '1')
-        .send({ username: adminUsername2, password: 'test-admin-password-pass', confirmPassword: 'test-admin-password-pass', tosAccepted: true });
+        .send({ username: adminUsername2, password: 'test-admin-password-pass', confirmPassword: 'test-admin-password-pass', dateOfBirth: '1995-01-01', tosAccepted: true });
       const adminPool2 = new Pool({ connectionString: TEST_DATABASE_URL, statement_timeout: 5000 });
       try {
         await adminPool2.query(
@@ -479,7 +479,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
         username: 'jsonshareuser',
         password: DEFAULT_PASSWORD,
         confirmPassword: DEFAULT_PASSWORD,
-        tosAccepted: true,
+        dateOfBirth: '1995-01-01', tosAccepted: true,
       });
       const token = registerRes.body.data.token;
 
@@ -601,7 +601,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
         username: 'crewuser',
         password: DEFAULT_PASSWORD,
         confirmPassword: DEFAULT_PASSWORD,
-        tosAccepted: true,
+        dateOfBirth: '1995-01-01', tosAccepted: true,
       });
       const token = registerRes.body.data.token;
 
@@ -703,7 +703,7 @@ describe('Hardening Tests', { concurrency: 1 }, () => {
         username: 'leavecrewuser',
         password: DEFAULT_PASSWORD,
         confirmPassword: DEFAULT_PASSWORD,
-        tosAccepted: true,
+        dateOfBirth: '1995-01-01', tosAccepted: true,
       });
       const token = registerRes.body.data.token;
 

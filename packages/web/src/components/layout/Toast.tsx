@@ -57,9 +57,10 @@ export default function Toast() {
                   <button
                     type="button"
                     onClick={t.onUndo}
+                    aria-label={`Undo: ${t.message}`}
                     className="text-xs mt-1 opacity-75 hover:opacity-100 flex items-center gap-1 transition-opacity min-h-11 min-w-11"
                   >
-                    <RotateCcw className="w-3 h-3" />
+                    <RotateCcw className="w-3 h-3" aria-hidden="true" />
                     Undo
                   </button>
                 )}

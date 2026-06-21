@@ -53,14 +53,16 @@ export default function MapScreen() {
     }
     sosFabGlow.value = withRepeat(withTiming(1, { duration: 750, easing: Easing.out(Easing.cubic) }), -1, true);
   }, [sosActive, reduceMotion, sosFabGlow]);
-  const sosFabPulseStyle = useAnimatedStyle(() => ({
-    shadowColor: '#ff3366',
-    shadowOpacity: sosCurrent ? sosFabGlow.value * 0.7 : 0,
-    shadowRadius: 4 + sosFabGlow.value * 12,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: sosCurrent ? 8 : 6,
-    ...(sosCurrent && reduceMotion ? { borderWidth: 2, borderColor: 'rgba(255,51,102,0.6)' } : {}),
-  }));
+  // Cross-platform pulse: an actual coral ring View whose opacity/scale animate
+  // (works on Android, unlike shadow* which is iOS-only). Reduce-motion: static
+  // ring at a fixed mid value, no animation.
+  const sosRingStyle = useAnimatedStyle(() => {
+    const v = reduceMotion ? 0.5 : sosFabGlow.value;
+    return {
+      opacity: 0.15 + v * 0.35,
+      transform: [{ scale: 1 + v * 0.18 }],
+    };
+  });
 
   // Scope the live store to this crew on mount/crew change.
   useEffect(() => {
@@ -106,10 +108,14 @@ export default function MapScreen() {
       </View>
       <OfflineMap meetingPoints={meetingPoints} peers={peers} sos={sos} />
 
-      {/* DC2 + R24: raise-SOS shortcut on the map. Pulsing coral ring while an
-          active SOS exists for this crew (emergency � continuous animation
-          justified). Reduce-motion: static coral ring border, no animation. */}
-      <Animated.View style={sosFabPulseStyle}>
+      {/* DC2 + R24: raise-SOS shortcut on the map. The FAB lives in an outer
+          absolutely-positioned wrapper so its placement never depends on the
+          parent's flex flow — an absolute child of a relative-flow parent
+          collapses to 0x0 on Android New Arch. Pulsing coral RING (a real View,
+          not shadow*) while an active SOS exists for this crew; reduce-motion
+          shows a static ring. */}
+      <View style={styles.sosFabWrap} pointerEvents="box-none">
+        {sosActive ? <Animated.View pointerEvents="none" style={[styles.sosRing, sosRingStyle]} /> : null}
         <TouchableOpacity
           testID="map-sos-fab"
           style={styles.sosFab}
@@ -122,7 +128,7 @@ export default function MapScreen() {
           <Ionicons name="alert-circle" size={20} color={t.colors.text.onAccent} />
           <Text style={styles.sosFabText}>SOS</Text>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
     </View>
   );
 }
@@ -136,10 +142,27 @@ const useStyles = makeStyles((t) => ({
     paddingHorizontal: t.spacing[4],
     paddingVertical: t.spacing[2],
   },
-  sosFab: {
+  // Outer wrapper is the only absolutely-positioned node — pins the FAB to the
+  // bottom-right regardless of parent flow so it reliably renders on Android.
+  sosFabWrap: {
     position: 'absolute',
     right: t.spacing[4],
     bottom: t.spacing[5],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Coral pulse ring behind the FAB. Centered absolutely on the wrapper and
+  // sized to overhang the pill; animated opacity/scale carry the pulse.
+  sosRing: {
+    position: 'absolute',
+    top: -8,
+    bottom: -8,
+    left: -8,
+    right: -8,
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.accent.coralStrong,
+  },
+  sosFab: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: t.spacing[2],

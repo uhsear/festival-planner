@@ -103,7 +103,7 @@ async function registerUser(server: any, username: any, password = DEFAULT_PASSW
   const res = await server.request
     .post('/api/v1/auth/register')
     .set(TRUSTED_MUTATION_HEADER, '1')
-    .send({ username, password, confirmPassword: password, tosAccepted: true, ...extra })
+    .send({ username, password, confirmPassword: password, dateOfBirth: '1995-01-01', tosAccepted: true, ...extra })
     .expect(201);
   return res.body.data;
 }
@@ -126,7 +126,7 @@ describe('POST /api/v1/auth/register — ToS', () => {
     const res = await server.request
       .post('/api/v1/auth/register')
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: 'notos_' + crypto.randomBytes(4).toString('hex'), password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: false });
+      .send({ username: 'notos_' + crypto.randomBytes(4).toString('hex'), password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: false });
     assert.equal(res.status, 400);
   });
 
@@ -135,7 +135,7 @@ describe('POST /api/v1/auth/register — ToS', () => {
     const res = await server.request
       .post('/api/v1/auth/register')
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: 'tos_' + crypto.randomBytes(4).toString('hex'), password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true });
+      .send({ username: 'tos_' + crypto.randomBytes(4).toString('hex'), password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true });
     assert.equal(res.status, 201);
     assert.ok(res.body.data.user);
     assert.ok(res.body.data.user.username);
@@ -146,7 +146,7 @@ describe('POST /api/v1/auth/register — ToS', () => {
     const res = await server.request
       .post('/api/v1/auth/register')
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: '', password: 'short', confirmPassword: 'mismatch', tosAccepted: false });
+      .send({ username: '', password: 'short', confirmPassword: 'mismatch', dateOfBirth: '1995-01-01', tosAccepted: false });
     if (res.status === 400) {
       assert.ok(res.body.error || res.body.message || res.body.errors);
     }
@@ -157,7 +157,7 @@ describe('POST /api/v1/auth/register — ToS', () => {
     const res = await server.request
       .post('/api/v1/auth/register')
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: 'withheader', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true })
+      .send({ username: 'withheader', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true })
       .expect(201);
     assert.ok(res.body.data.user || res.body.data.username);
   });
@@ -191,7 +191,7 @@ describe('POST /api/v1/auth/forgot-password', () => {
     const reg = await server.request
       .post('/api/v1/auth/register')
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: 'emailuser1', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true, email: 'test@example.com' })
+      .send({ username: 'emailuser1', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true, email: 'test@example.com' })
       .expect(201);
 
     const res = await server.request
@@ -255,7 +255,7 @@ describe('GET /api/v1/auth/verify-email', () => {
     const reg = await server.request
       .post('/api/v1/auth/register')
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: 'verifyuser', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true, email: 'verify@example.com' })
+      .send({ username: 'verifyuser', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true, email: 'verify@example.com' })
       .expect(201);
 
     const pool = new Pool({ connectionString: TEST_DATABASE_URL });
@@ -307,7 +307,7 @@ describe('POST /api/v1/auth/reset-password', () => {
     const reg = await server.request
       .post('/api/v1/auth/register')
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: 'resetuser', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true, email: 'reset@example.com' })
+      .send({ username: 'resetuser', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true, email: 'reset@example.com' })
       .expect(201);
 
     const pool = new Pool({ connectionString: TEST_DATABASE_URL });
@@ -344,7 +344,7 @@ describe('POST /api/v1/auth/reset-password', () => {
     const reg = await server.request
       .post('/api/v1/auth/register')
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username: 'resetuser2', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true, email: 'reset2@example.com' })
+      .send({ username: 'resetuser2', password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true, email: 'reset2@example.com' })
       .expect(201);
 
     const pool = new Pool({ connectionString: TEST_DATABASE_URL });
@@ -453,7 +453,7 @@ describe('POST /api/v1/auth/update-email', () => {
     const reg = await server.request
       .post('/api/v1/auth/register')
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username, password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true, email: `${username}@example.com` });
+      .send({ username, password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true, email: `${username}@example.com` });
     const userToken = reg.body.data.token;
 
     const res = await server.request

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 
 /**
  * Public entry point for the PostgreSQL data layer.
@@ -63,6 +63,33 @@ import {
 // ── Migration runner ─────────────────────────────────────────────────────
 
 const MIGRATIONS_DIR = path.join(import.meta.dirname, '..', 'migrations');
+
+/**
+ * Fixed application-specific key for the Postgres session advisory lock
+ * that serializes the migration-apply critical section across instances.
+ *
+ * Under a multi-instance deploy (e.g. PM2 cluster x4, or N rolling
+ * pods), every worker boots and races to apply the same pending
+ * migrations. While each apply is individually safe (single-txn for
+ * normal migrations, idempotent IF [NOT] EXISTS for CONCURRENTLY ones),
+ * concurrent appliers still cause avoidable lock contention, duplicate
+ * work, and noisy "already recorded by concurrent runner" churn. A
+ * single session advisory lock makes exactly one instance apply at a
+ * time; the others block on the lock, then wake to find the ledger
+ * already advanced and no-op through the `pending` filter.
+ *
+ * `pg_advisory_lock(bigint)` takes one 64-bit key. The constant below is
+ * an arbitrary fixed value unique to Festie's migration runner; it must
+ * never change once deployed (changing it would let an old and a new
+ * runner hold two different locks and apply concurrently). Chosen to be
+ * obviously app-specific and unlikely to collide with any other
+ * advisory-lock user in the same database.
+ *
+ * Passed to pg as a decimal string (not a JS BigInt) so node-postgres
+ * serializes it unambiguously; Postgres coerces the text to bigint. The
+ * value 5063544977519632205 fits in a signed 64-bit integer.
+ */
+const MIGRATION_ADVISORY_LOCK_KEY = '5063544977519632205'; // 0x4645535449455f4d — "FEST"/"IE_M", Festie migrations
 
 // Filenames we accept: NNN_name.sql or NNNb_name.sql (the `b` suffix
 // exists because 019_expense_categories.sql and 019_reminder_index.sql
@@ -282,53 +309,87 @@ async function runPostgresMigrations(pool: any, opts: any = {}) {
   const log = opts.log || (() => {});
   const client = await pool.connect();
   try {
-    await ensureSchemaMigrationsTable(client);
-    const applied = await loadAppliedVersions(client);
-    const onDisk = discoverMigrationsOnDisk();
+    // ── Cross-instance serialization ────────────────────────────────────
+    // Acquire a session advisory lock on THIS client before touching the
+    // ledger. Under a multi-instance deploy, N workers boot at once and
+    // race to apply the same pending migrations. The lock makes exactly
+    // one instance apply at a time; the others block here, then wake once
+    // the holder releases and find the ledger already advanced — the
+    // `pending` filter below comes back empty and they no-op.
+    //
+    // The lock is held on the session (client), so it covers both the
+    // transactional apply path and the autocommit CONCURRENTLY path. It
+    // is released in the inner `finally` (always on the same client),
+    // then the client is returned to the pool in the outer `finally`.
+    //
+    // Single-instance behaviour is unchanged: with no contender, the lock
+    // is granted immediately and released at the end of this call.
+    log('info', 'acquiring migration advisory lock', { key: String(MIGRATION_ADVISORY_LOCK_KEY) });
+    await client.query('SELECT pg_advisory_lock($1)', [MIGRATION_ADVISORY_LOCK_KEY]);
+    log('info', 'migration advisory lock acquired', { key: String(MIGRATION_ADVISORY_LOCK_KEY) });
+    try {
+      await ensureSchemaMigrationsTable(client);
+      const applied = await loadAppliedVersions(client);
+      const onDisk = discoverMigrationsOnDisk();
 
-    if (onDisk.length === 0) {
-      const current = applied.size ? Math.max(...applied) : 0;
-      log('info', 'no migrations on disk', { current, totalApplied: applied.size });
-      return { applied: [], current, gap: [] };
-    }
+      if (onDisk.length === 0) {
+        const current = applied.size ? Math.max(...applied) : 0;
+        log('info', 'no migrations on disk', { current, totalApplied: applied.size });
+        return { applied: [], current, gap: [] };
+      }
 
-    const pending = onDisk.filter((m: any) => !applied.has(m.version));
-    const appliedVersions: number[] = [];
+      const pending = onDisk.filter((m: any) => !applied.has(m.version));
+      const appliedVersions: number[] = [];
 
-    for (const migration of pending) {
-      const didApply = await applyOneMigration(client, migration, log);
-      if (didApply) appliedVersions.push(migration.version);
-    }
+      for (const migration of pending) {
+        const didApply = await applyOneMigration(client, migration, log);
+        if (didApply) appliedVersions.push(migration.version);
+      }
 
-    // Startup gap check — runs every time but only logs WARN if there
-    // is actual drift (disk > recorded). The caller de-dupes via
-    // MIGRATED_URLS so the WARN fires at most once per boot.
-    const finalApplied = await loadAppliedVersions(client);
-    const diskVersions = new Set(onDisk.map((m: any) => m.version));
-    const gap = [...diskVersions].filter((v) => !finalApplied.has(v)).sort((a, b) => a - b);
-    if (gap.length > 0) {
-      log('warn', 'schema_migrations has recorded-row gaps vs migrations/ on disk', {
-        diskCount: diskVersions.size,
-        recordedCount: finalApplied.size,
-        missingVersions: gap,
-        hint: 'Backfill via scripts/backfill-schema-migrations.sql; see docs/plans/schema-migration-reconciliation-2026-04.md',
+      // Startup gap check — runs every time but only logs WARN if there
+      // is actual drift (disk > recorded). The caller de-dupes via
+      // MIGRATED_URLS so the WARN fires at most once per boot.
+      const finalApplied = await loadAppliedVersions(client);
+      const diskVersions = new Set(onDisk.map((m: any) => m.version));
+      const gap = [...diskVersions].filter((v) => !finalApplied.has(v)).sort((a, b) => a - b);
+      if (gap.length > 0) {
+        log('warn', 'schema_migrations has recorded-row gaps vs migrations/ on disk', {
+          diskCount: diskVersions.size,
+          recordedCount: finalApplied.size,
+          missingVersions: gap,
+          hint: 'Backfill via scripts/backfill-schema-migrations.sql; see docs/plans/schema-migration-reconciliation-2026-04.md',
+        });
+      } else {
+        log('info', 'schema_migrations consistent with migrations/ on disk', {
+          diskCount: diskVersions.size,
+          recordedCount: finalApplied.size,
+        });
+      }
+
+      const current = finalApplied.size ? Math.max(...finalApplied) : 0;
+      log('info', 'migrations complete', {
+        applied: appliedVersions.length,
+        current,
+        totalRecorded: finalApplied.size,
       });
-    } else {
-      log('info', 'schema_migrations consistent with migrations/ on disk', {
-        diskCount: diskVersions.size,
-        recordedCount: finalApplied.size,
-      });
+      const result = { applied: appliedVersions, current, gap };
+      _migrationsRan = true; // eslint-disable-line require-atomic-updates
+      return result;
+    } finally {
+      // Always release the advisory lock on the SAME client that acquired
+      // it, before that client is returned to the pool. Best-effort: a
+      // failed unlock must not mask an in-flight apply error, and the lock
+      // is in any case auto-released when the session ends.
+      try {
+        await client.query('SELECT pg_advisory_unlock($1)', [MIGRATION_ADVISORY_LOCK_KEY]);
+        log('info', 'migration advisory lock released', { key: String(MIGRATION_ADVISORY_LOCK_KEY) });
+      } catch (unlockErr: any) {
+        log('warn', 'failed to release migration advisory lock (will auto-release on session end)', {
+          key: String(MIGRATION_ADVISORY_LOCK_KEY),
+          error: unlockErr && unlockErr.message,
+        });
+      }
     }
-
-    const current = finalApplied.size ? Math.max(...finalApplied) : 0;
-    log('info', 'migrations complete', {
-      applied: appliedVersions.length,
-      current,
-      totalRecorded: finalApplied.size,
-    });
-    const result = { applied: appliedVersions, current, gap };
-    _migrationsRan = true; // eslint-disable-line require-atomic-updates
-    return result;
   } finally {
     client.release();
   }

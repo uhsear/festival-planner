@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 
 /**
  * Zod Validation Schemas for All API Endpoints
@@ -54,17 +54,33 @@ const shortText = z.string().max(1000);
 // ════════════════════════════════════════════════════════════════════════════════
 const email = z.string().email('Invalid email address').max(254).optional().or(z.literal(''));
 
+/** True if `iso` (YYYY-MM-DD) is a date at least `years` years before today. */
+export function isAtLeastYearsOld(iso: string, years: number): boolean {
+  const dob = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(dob.getTime())) return false;
+  const threshold = new Date(Date.UTC(dob.getUTCFullYear() + years, dob.getUTCMonth(), dob.getUTCDate()));
+  return threshold.getTime() <= Date.now();
+}
+
 export const registerSchema = z
   .object({
     username,
     password,
     confirmPassword: z.string(),
     email: email.optional(),
+    dateOfBirth: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter your date of birth')
+      .refine((s) => !Number.isNaN(Date.parse(s)), 'Invalid date of birth'),
     tosAccepted: z.literal(true, { error: 'You must accept the Terms of Service' }),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: 'Passwords do not match',
     path: ['confirmPassword'],
+  })
+  .refine((d) => isAtLeastYearsOld(d.dateOfBirth, 18), {
+    message: 'You must be at least 18 to use Festie',
+    path: ['dateOfBirth'],
   });
 export type RegisterInput = z.infer<typeof registerSchema>;
 

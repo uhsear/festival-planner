@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { View, Text, Image } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { getAvatarColor, getInitials, normalizeIdentityName } from '@festie/shared/utils';
-import { makeStyles, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 
 /** Avatar diameters (px) -- mirror the web Avatar's xs/sm/md sizes. */
@@ -161,7 +161,12 @@ const useStyles = makeStyles((t) => ({
     overflow: 'hidden',
   },
   initials: {
-    fontWeight: '700',
+    // Use the weighted family (SpaceGrotesk_700Bold) rather than a raw
+    // fontWeight — Android applies synthetic bold on top of an already-loaded
+    // face which widens glyphs and clips the trailing character.
+    // fontSize is set inline per avatar size; lineHeight is cleared so React
+    // Native auto-sizes the line to the actual rendered fontSize.
+    fontFamily: typeStyle('caption', 700).fontFamily,
     color: t.colors.text.onAccent,
   },
   dotWrapper: {

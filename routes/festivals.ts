@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 
 import crypto from 'crypto';
 
@@ -39,6 +39,40 @@ export default function createFestivalsRoutes(deps: any) {
     _festivalListCache = null;
     _festivalListETag = null;
     _festivalListVersion = null;
+  }
+
+  /**
+   * H1 (festival delete): evict members from every `crew:${crewId}` room under a
+   * festival before its crews are cascaded away. removeFestivalSockets only
+   * drops sockets from the festival-presence room (socket.leave(festivalId)) —
+   * it does NOT touch the crew rooms, so without this every connected crew
+   * member keeps receiving live location/SOS/status broadcasts for a crew whose
+   * festival no longer exists, and keeps a stamped sharingCrewId, until they
+   * disconnect. Mirrors the whole-crew-delete eviction in routes/admin-bulk.ts.
+   *
+   * Best-effort: a failure must never fail the HTTP delete (DB rows are already
+   * gone / about to go); io may be absent in some test/CLI contexts.
+   */
+  async function evictFestivalCrewRooms(festivalId: string) {
+    if (!io || typeof io.in !== 'function' || !stores.crews?.listByFestival) return;
+    try {
+      const crews = await stores.crews.listByFestival(festivalId);
+      for (const crew of crews) {
+        const crewId = crew?.id;
+        if (!crewId) continue;
+        const room = `crew:${crewId}`;
+        io.to(room).emit('crew:deleted', { crewId });
+        const sockets = await io.in(room).fetchSockets();
+        for (const s of sockets) {
+          if (s.data?.sharingCrewId === crewId) delete s.data.sharingCrewId;
+          delete s.data.crewMembershipCheckedAt;
+          delete s.data.crewMembershipUpdateCount;
+          s.leave(room);
+        }
+      }
+    } catch (error: any) {
+      log.warn('festival crew room eviction failed', { error: error?.message, festivalId });
+    }
   }
 
   // Audit log helper — writes to audit_log table if available (async, fire-and-forget with error handling)
@@ -251,6 +285,12 @@ export default function createFestivalsRoutes(deps: any) {
         if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
         const festivalId = festival.id;
         const hardDelete = req.validatedQuery.hard === 'true';
+
+        // H1: evict crew-room sockets BEFORE the delete (hard-delete cascades the
+        // crews away; soft-delete makes them inaccessible) while listByFestival
+        // can still resolve them. removeFestivalSockets below only clears the
+        // festival-presence room, not the per-crew rooms.
+        await evictFestivalCrewRooms(festivalId);
 
         if (!hardDelete && stores.festivals?.softDelete) {
           // Soft-delete: mark as deleted, preserve data for potential restore

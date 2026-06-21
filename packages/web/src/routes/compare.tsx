@@ -92,6 +92,7 @@ function CompareViewInner() {
                 type="button"
                 role="tab"
                 aria-selected={selectedDay === idx}
+                aria-controls="compare-panel"
                 tabIndex={selectedDay === idx ? 0 : -1}
                 onClick={() => setSelectedDay(idx)}
                 className={`flex-shrink-0 min-h-11 px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
@@ -107,6 +108,7 @@ function CompareViewInner() {
         </div>
       )}
 
+      <div id="compare-panel">
       {rows.length === 0 ? (
         <div className="max-w-2xl mx-auto mt-6">
           <EmptyState
@@ -119,7 +121,7 @@ function CompareViewInner() {
         <div className="max-w-6xl mx-auto mt-2 overflow-x-auto">
           <table className="w-full border-separate border-spacing-0">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-text-muted">
+              <tr className="text-left text-xs uppercase tracking-[var(--letter-spacing-caps)] text-text-muted">
                 <th scope="col" className="sticky left-0 bg-bg-primary z-10 py-2 pr-3 min-w-[180px]">
                   Set
                 </th>
@@ -145,6 +147,7 @@ function CompareViewInner() {
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

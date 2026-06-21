@@ -61,6 +61,10 @@ const SECTIONS: PolicySection[] = [
           'Password Hash: Passwords are hashed using Scrypt before storage and are never accessible to us or stored in plaintext',
           'Avatar Image: Optional profile picture uploaded by the user in WebP format for display in the app',
           'Email Address: Optional email provided during registration, used for password recovery and account verification',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] Date of Birth: Collected at registration to enforce the minimum-age requirement (18+ gate). Counsel to confirm: lawful basis; whether DOB must be retained post-verification or deleted; CCPA classification; and whether self-declaration satisfies applicable standard in target markets.',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] Payment Handles: Optional peer-payment identifiers — Venmo handle, CashApp cashtag, and PayPal handle — that users may add to their profile. Visible to crew members. Used solely for peer payment coordination within crews. Festie does not transmit these to payment processors or initiate transactions. Counsel to confirm lawful basis and CCPA financial-information category applicability.',
         ],
       },
       {
@@ -69,6 +73,8 @@ const SECTIONS: PolicySection[] = [
           'Festival Picks: Musical acts, performances, or attractions selected and saved by the user',
           'Personal Notes: User-generated notes and scheduling information associated with selected acts',
           'Crew Memberships: Groups or crews the user is a member of and their associated role or permissions within those groups',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] Location / GPS Data: Festie stores two categories of geospatial coordinates. (1) Crew member location snapshot — your device\'s last-known latitude and longitude captured as a degraded-sync breadcrumb when you report status while offline; visible to all crew members. (2) Meeting point coordinates — latitude and longitude of crew meeting points you create. Both are precision geospatial data linked to your user ID and a capture timestamp. Purpose: crew safety and coordination. Counsel to confirm: lawful basis (LIA or consent); GDPR Recital 75 risk assessment; CCPA sensitive geolocation category; SOS opt-out scope; and deletion cascade on account removal.',
         ],
       },
       {
@@ -77,10 +83,19 @@ const SECTIONS: PolicySection[] = [
           'Device Tokens: Push notification tokens used exclusively for sending festival-related notifications and schedule updates',
         ],
       },
+      // DRAFT: pending legal review
+      {
+        heading: '[DRAFT — pending legal review] Third-Party Account Linkage',
+        bullets: [
+          '[DRAFT — pending legal review] Spotify Account Linkage: If you connect your Spotify account, Festie stores your Spotify user ID, an AES-256-GCM encrypted OAuth refresh token, the OAuth scopes you granted, and linkage timestamps. Spotify access tokens are not persisted. Used to personalise artist and lineup content. Counsel to confirm: Spotify Developer Policy compliance; lawful basis (consent); whether Spotify is a controller or processor for the OAuth exchange.',
+        ],
+      },
       {
         heading: 'Technical Data',
         bullets: [
           'IP Address: Your IP address is collected for security purposes, rate limiting, and abuse prevention',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] Audit Log IP Address: The security audit log retains the full, unmasked client IP address for each security-relevant event (login, logout, account changes, and similar actions). The full IP is retained — rather than a pseudonymised or truncated form — for security monitoring, fraud and abuse prevention, and incident investigation under GDPR Art. 6(1)(f) (legitimate interest). Retention period: [counsel to confirm — suggested 12 months per automated cleanup, pending legal sign-off]. Audit log data may be used as part of our incident-response process and may be disclosed to law enforcement where required by law.',
           'Session Data: Session identifiers and authentication tokens to maintain your logged-in state',
         ],
       },
@@ -106,6 +121,8 @@ const SECTIONS: PolicySection[] = [
         heading: 'Legitimate Interest',
         paragraphs: [
           'We process IP addresses and session data based on our legitimate interest in maintaining service security, preventing fraud and abuse, enforcing our terms of service, and monitoring and improving platform performance and reliability. We have balanced these interests against your privacy rights and have implemented appropriate safeguards.',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] Specifically, the security audit log retains the full, unmasked client IP address for each security-relevant event under GDPR Art. 6(1)(f) (legitimate interest). Purposes: (a) security monitoring and threat detection; (b) fraud and abuse prevention; (c) incident investigation and forensic analysis. A pseudonymised or truncated IP would materially impair our ability to correlate attack patterns and respond to incidents; the full IP is therefore necessary and proportionate. Retention period: [counsel to confirm — current automated cleanup suggests 12 months]. Audit log data may be disclosed to law enforcement in connection with our incident-response process where required or permitted by law.',
         ],
       },
     ],
@@ -248,6 +265,42 @@ const SECTIONS: PolicySection[] = [
           'Privacy Policy: https://sentry.io/privacy/',
         ],
       },
+      // DRAFT: pending legal review
+      {
+        heading: '[DRAFT — pending legal review] Resend',
+        bullets: [
+          '[DRAFT — pending legal review] Purpose: Transactional and re-engagement email delivery — password reset, email verification, lineup-drop alerts, wrap-ready notifications, and crew-reform notifications',
+          'Data Processed: Recipient email address, username, and notification content (festival name, crew name, invitation URLs)',
+          'Privacy Policy: https://resend.com/legal/privacy-policy',
+        ],
+      },
+      // DRAFT: pending legal review
+      {
+        heading: '[DRAFT — pending legal review] Apple Push Notification service (APNs)',
+        bullets: [
+          '[DRAFT — pending legal review] Purpose: Push notification delivery to iOS devices via a direct HTTP/2 connection to Apple\'s APNs gateway (api.push.apple.com), independently of Firebase Cloud Messaging',
+          'Data Processed: APNs device token (iOS only), notification payload (title, body, category, badge count, sound)',
+          'Privacy Policy: https://www.apple.com/legal/privacy/',
+        ],
+      },
+      // DRAFT: pending legal review
+      {
+        heading: '[DRAFT — pending legal review] Spotify',
+        bullets: [
+          '[DRAFT — pending legal review] Purpose: Artist metadata retrieval for lineup display (server-side, no user data) and user OAuth account linkage to personalise content',
+          'Data Processed: For lineup import: artist metadata only. For user OAuth: Spotify user ID and granted OAuth scopes exchanged during the OAuth flow; Festie retains an encrypted refresh token and Spotify user ID',
+          'Privacy Policy: https://www.spotify.com/legal/privacy-policy/',
+        ],
+      },
+      // DRAFT: pending legal review
+      {
+        heading: '[DRAFT — pending legal review] GitHub / Microsoft (encrypted off-site backup)',
+        bullets: [
+          '[DRAFT — pending legal review] Purpose: Off-site encrypted backup storage. Full PostgreSQL database dumps are encrypted with AES-256 (GPG symmetric encryption) before transmission and stored in a private GitHub repository. Up to 14 encrypted dumps are retained. GitHub is operated by GitHub, Inc., a subsidiary of Microsoft Corporation (United States)',
+          'Data Processed: AES-256-encrypted database dump files. GitHub receives only ciphertext and cannot access plaintext personal data without the encryption key',
+          'Privacy Policy: https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement',
+        ],
+      },
     ],
   },
   {
@@ -262,12 +315,22 @@ const SECTIONS: PolicySection[] = [
           'Cloudflare: May process data in the United States and other countries',
           'Firebase Cloud Messaging: Operated by Google, may process data in the United States and other locations',
           'Sentry: Operated by Functional Software, Inc., may process error and performance data in the United States',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] Resend: Resend, Inc. may process email addresses and notification content in the United States',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] Apple Push Notification service: Apple Inc. may process iOS device tokens and notification payloads in the United States and other countries where Apple operates infrastructure',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] Spotify: Spotify AB (Sweden) and its group companies may process Spotify user IDs and OAuth scope data in the European Economic Area and the United States',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] GitHub / Microsoft (encrypted backup): Encrypted PostgreSQL backup dumps are stored on GitHub infrastructure (GitHub, Inc. / Microsoft Corporation, United States). All data is AES-256 encrypted before transmission; GitHub receives only ciphertext. Counsel to confirm: SCCs with Microsoft under GDPR Chapter V; whether encryption satisfies EDPB supplementary measure requirements',
         ],
       },
       {
         heading: 'Safeguards',
         paragraphs: [
           'Where data is transferred to countries outside your country of residence, including the United States, we rely on Standard Contractual Clauses (SCCs) to ensure adequate safeguards for your data protection rights. We have implemented appropriate technical and organizational measures to protect your data during international transfers.',
+          // DRAFT: pending legal review
+          '[DRAFT — pending legal review] Counsel to confirm SCCs / UK IDTA addenda are executed for Resend, Apple, Spotify, and GitHub/Microsoft before this section is finalised.',
         ],
       },
     ],

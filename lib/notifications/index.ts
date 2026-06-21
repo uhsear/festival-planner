@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 
 import { isInDndWindow } from './dnd.js';
 import { createRetryQueue } from './retry.js';
@@ -19,7 +19,7 @@ import { initFirebase, createSendService } from './send.js';
  *   When NOT provided (production path), behavior is identical to before: initFirebase()
  *   runs, lazily requires firebase-admin, and returns null if FIREBASE_CREDENTIALS_PATH is unset.
  */
-export function createNotificationService({ stores, config, log, _io, pushClient }: any) {
+export function createNotificationService({ stores, config, log, _io, pushClient, promMetrics }: any) {
   // DI: if a pushClient is provided (not null/undefined), use it directly.
   // Otherwise fall back to the original initFirebase() path for production.
   const messaging = (pushClient !== undefined && pushClient !== null)
@@ -29,7 +29,7 @@ export function createNotificationService({ stores, config, log, _io, pushClient
   const retryQueue = createRetryQueue({ log });
 
   const { send, sendToOfflineUsers, sendSilentSync, markRead } =
-    createSendService({ stores, config, log, messaging, retryQueue });
+    createSendService({ stores, config, log, messaging, retryQueue, promMetrics });
 
   return { send, sendToOfflineUsers, sendSilentSync, markRead, retryQueue, isConfigured: !!messaging };
 }

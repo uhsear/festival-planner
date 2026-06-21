@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 //
 // Prometheus-compatible metrics exposition + cert-pin + internal metrics JSON.
 // Split out of routes/health.js on 2026-04-14 to isolate the large

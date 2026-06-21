@@ -178,7 +178,7 @@ async function registerUser(server: any, username: any, password = DEFAULT_PASSW
   const res = await server.request
     .post('/api/v1/auth/register')
     .set(TRUSTED_MUTATION_HEADER, '1')
-    .send({ username, password, confirmPassword: password, tosAccepted: true })
+    .send({ username, password, confirmPassword: password, dateOfBirth: '1995-01-01', tosAccepted: true })
     .expect(201);
   return res.body.data;
 }
@@ -217,7 +217,7 @@ async function loginAdmin(server: any) {
   await server.request
     .post('/api/v1/auth/register')
     .set(TRUSTED_MUTATION_HEADER, '1')
-    .send({ username: adminUsername, password: 'test-admin-password-pass', confirmPassword: 'test-admin-password-pass', tosAccepted: true })
+    .send({ username: adminUsername, password: 'test-admin-password-pass', confirmPassword: 'test-admin-password-pass', dateOfBirth: '1995-01-01', tosAccepted: true })
     .expect(201);
   const pool = new Pool({ connectionString: server.databaseUrl, statement_timeout: 5000 });
   try {
@@ -816,7 +816,7 @@ describe('misc route edges', () => {
       await server.request
         .post('/api/v1/auth/register')
         .set(TRUSTED_MUTATION_HEADER, '1')
-        .send({ username: 'securitytest', password: 'supersecretpassword123', confirmPassword: 'supersecretpassword123', tosAccepted: true })
+        .send({ username: 'securitytest', password: 'supersecretpassword123', confirmPassword: 'supersecretpassword123', dateOfBirth: '1995-01-01', tosAccepted: true })
         .expect(201);
       const logText = captured.join('\n').toLowerCase();
       assert.ok(!logText.includes('supersecretpassword'));
@@ -1207,7 +1207,7 @@ describe('Socket.IO event validation', () => {
     const reg = await server.request
       .post('/api/v1/auth/register')
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ username, password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, tosAccepted: true });
+      .send({ username, password: DEFAULT_PASSWORD, confirmPassword: DEFAULT_PASSWORD, dateOfBirth: '1995-01-01', tosAccepted: true });
     return reg.body.data?.token;
   }
 

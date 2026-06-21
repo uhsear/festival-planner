@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 /**
  * Admin bulk operations + crew moderation routes
  * Extracted from routes/admin.js during the 2026-04-14 file-size split.
@@ -19,8 +19,95 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
     schemas,
     validate,
     validateParams,
+    io,
   } = deps;
   const { adminWriteLimit } = ctx;
+
+  /**
+   * H1 (admin path): evict an admin-removed user's live socket(s) from the crew
+   * room server-side. Mirrors evictUserFromCrewRoom in routes/crew-members.ts —
+   * Socket.IO only drops a socket from a room on disconnect, never on an
+   * application-level authz change, so without this an admin-removed member
+   * keeps receiving every sos:raised / crew:status-updated / location:peer-update
+   * broadcast (a cross-tenant privacy leak) and keeps a stamped sharingCrewId it
+   * could inject from. Best-effort: a failure must never fail the HTTP removal
+   * (the DB row is already gone); io may be absent in some test/CLI contexts.
+   */
+  async function evictUserFromCrewRoom(crewId: string, removedUserId: string) {
+    if (!io || typeof io.in !== 'function') return;
+    const room = `crew:${crewId}`;
+    try {
+      const sockets = await io.in(room).fetchSockets();
+      for (const s of sockets) {
+        if (s.data?.userId !== removedUserId) continue;
+        if (s.data?.sharingCrewId === crewId) {
+          s.to(room).emit('location:peer-stopped', {
+            _v: 1,
+            crewId,
+            userId: removedUserId,
+            reason: 'revoked',
+          });
+        }
+        s.emit('crew:access-revoked', { crewId });
+        delete s.data.sharingCrewId;
+        delete s.data.crewMembershipCheckedAt;
+        delete s.data.crewMembershipUpdateCount;
+        s.leave(room);
+      }
+    } catch (error: any) {
+      log.warn('admin crew room eviction failed', { error: error?.message, crewId, removedUserId });
+    }
+  }
+
+  /**
+   * H1 (whole-crew delete): evict EVERY member's live socket(s) from the crew
+   * room before the crew row + its members are cascaded away. Without this, all
+   * connected members keep receiving live location/SOS/status broadcasts for a
+   * crew that no longer exists, and keep a stamped sharingCrewId they could
+   * inject from, until they happen to disconnect. Mirrors evictUserFromCrewRoom
+   * but applies to all sockets in the room (no per-user filter) and emits a
+   * crew-deleted event so clients tear down the crew + SOS UI immediately.
+   *
+   * Best-effort: a failure must never fail the HTTP delete (the DB rows are
+   * already gone); io may be absent in some test/CLI contexts.
+   */
+  async function evictAllFromCrewRoom(crewId: string) {
+    if (!io || typeof io.in !== 'function') return;
+    const room = `crew:${crewId}`;
+    try {
+      // Tell every client in the room the crew is gone, then drop their stamps
+      // and force their socket(s) out of the room so broadcasts stop.
+      io.to(room).emit('crew:deleted', { crewId });
+      const sockets = await io.in(room).fetchSockets();
+      for (const s of sockets) {
+        if (s.data?.sharingCrewId === crewId) delete s.data.sharingCrewId;
+        delete s.data.crewMembershipCheckedAt;
+        delete s.data.crewMembershipUpdateCount;
+        s.leave(room);
+      }
+    } catch (error: any) {
+      log.warn('admin crew room full eviction failed', { error: error?.message, crewId });
+    }
+  }
+
+  /**
+   * H1 (bulk festival archive): evict members from every crew room under a
+   * festival before it's soft-deleted. Mirrors evictFestivalCrewRooms in
+   * routes/festivals.ts — the bulk archive path here does NOT go through that
+   * route, so without this the crew-room leak persists on bulk archive.
+   * Best-effort; io may be absent in test/CLI contexts.
+   */
+  async function evictFestivalCrewRooms(festivalId: string) {
+    if (!io || typeof io.in !== 'function' || !stores.crews?.listByFestival) return;
+    try {
+      const crews = await stores.crews.listByFestival(festivalId);
+      for (const crew of crews) {
+        if (crew?.id) await evictAllFromCrewRoom(crew.id);
+      }
+    } catch (error: any) {
+      log.warn('admin festival crew room eviction failed', { error: error?.message, festivalId });
+    }
+  }
 
   // ── POST /bulk/deactivate — force-logout multiple users ──────────
   // NOTE (M1, security-review-2026-06-06): this endpoint's only effect is
@@ -90,6 +177,9 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
         const results: any[] = [];
         for (const festivalId of festivalIds) {
           try {
+            // H1: evict crew-room sockets before the festival is archived, while
+            // listByFestival can still resolve its crews.
+            await evictFestivalCrewRooms(festivalId);
             await stores.festivals.softDelete(festivalId);
             results.push({ festivalId, status: 'archived' });
           } catch (err: any) {
@@ -199,6 +289,17 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
 
         await stores.crews.removeMember(crewId, targetUserId);
 
+        if (io) {
+          io.to(`crew:${crewId}`).emit('crew:member-kicked', {
+            crewId,
+            userId: targetUserId,
+          });
+        }
+        // H1: force the admin-removed member's still-connected socket(s) out of
+        // the crew room so they stop receiving live SOS/status/location and
+        // can't keep injecting. Mirrors the owner-kick path in crew-members.ts.
+        await evictUserFromCrewRoom(crewId, targetUserId);
+
         if (stores.auditLog) {
           await stores.auditLog.insert({
             actorType: 'admin',
@@ -233,6 +334,11 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
 
         const crew = await stores.crews.getById(crewId);
         if (!crew) return sendError(res, 404, 'Crew not found', ErrorCodes.NOT_FOUND);
+
+        // H1: evict ALL members from the crew room BEFORE the cascade, while the
+        // room still has its sockets — they stop receiving live data for a crew
+        // that's about to vanish and can no longer inject into it.
+        await evictAllFromCrewRoom(crewId);
 
         await stores.crews.delete(crewId);
 

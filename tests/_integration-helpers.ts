@@ -182,7 +182,7 @@ async function startServer(overrides: Record<string, any> = {}) {
 async function registerUser(server: any, username: string, password: string = DEFAULT_PASSWORD) {
   const response = await server.request
     .post('/api/v1/auth/register')
-    .send({ username, password, confirmPassword: password, tosAccepted: true })
+    .send({ username, password, confirmPassword: password, dateOfBirth: '1995-01-01', tosAccepted: true })
     .expect(201);
   return response.body.data;
 }
@@ -208,7 +208,7 @@ async function loginAdmin(server: any) {
   const adminUsername = 'testadmin-' + Date.now();
   await server.request
     .post('/api/v1/auth/register')
-    .send({ username: adminUsername, password: 'test-admin-password', confirmPassword: 'test-admin-password', tosAccepted: true })
+    .send({ username: adminUsername, password: 'test-admin-password', confirmPassword: 'test-admin-password', dateOfBirth: '1995-01-01', tosAccepted: true })
     .expect(201);
 
   // Grant admin role via DB

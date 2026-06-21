@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 
 import crypto from 'crypto';
 import https from 'https';
@@ -130,7 +130,13 @@ async function resolveFestivalTargets(stores: any, festivalId: any, excludeUserI
  * Takes a resolved `messaging` client (may be null when FCM is not configured) plus
  * the shared deps from the composer.
  */
-export function createSendService({ stores, config, log, messaging, retryQueue, apnsProvider }: any) {
+// Threshold for declaring a provider outage: if more than this fraction of
+// sends in a batch fail (and at least one send was attempted), we emit a WARN
+// and increment the outage counter. Benign zero-recipient / all-opt-out batches
+// are never passed to sendBatch, so they never trigger this check.
+const OUTAGE_ERROR_RATIO = 0.5;
+
+export function createSendService({ stores, config, log, messaging, retryQueue, apnsProvider, promMetrics }: any) {
   // Direct APNs provider for iOS device tokens (raw APNs tokens that firebase-admin
   // cannot send). Guarded entirely by isApnsConfigured: when APNs is NOT configured
   // this stays null and iOS tokens are skipped (NOT deleted as stale).
@@ -502,6 +508,22 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
         failureCount += batch.length;
       }
     }
+    // Provider-outage signal: if errors dominate the batch (high failure ratio,
+    // at least one send attempted) this is likely a FCM-side outage, not benign
+    // per-user opt-outs (those are filtered before buildFcmMessage ever runs).
+    const totalAttempted = successCount + failureCount;
+    if (totalAttempted > 0 && failureCount / totalAttempted > OUTAGE_ERROR_RATIO) {
+      log.warn('push-provider outage suspected: high FCM error ratio', {
+        successCount,
+        failureCount,
+        total: totalAttempted,
+        ratio: (failureCount / totalAttempted).toFixed(2),
+      });
+      try {
+        promMetrics?.pushProviderOutageCounter?.inc({ provider: 'fcm' });
+      } catch { /* ignore metric errors */ }
+    }
+
     return { successCount, failureCount, staleTokens };
   }
 
@@ -612,6 +634,21 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
       });
       if (r.sent) apnsSent += 1;
       if (r.stale) apnsStaleTokens.push(device.token);
+    }
+
+    // APNs provider-outage signal: same ratio check as FCM sendBatch.
+    const apnsAttempted = iosSends.length;
+    const apnsFailed = apnsAttempted - apnsSent;
+    if (apnsAttempted > 0 && apnsFailed / apnsAttempted > OUTAGE_ERROR_RATIO) {
+      log.warn('push-provider outage suspected: high APNs error ratio', {
+        sent: apnsSent,
+        failed: apnsFailed,
+        total: apnsAttempted,
+        ratio: (apnsFailed / apnsAttempted).toFixed(2),
+      });
+      try {
+        promMetrics?.pushProviderOutageCounter?.inc({ provider: 'apns' });
+      } catch { /* ignore metric errors */ }
     }
 
     // Track unread counts for users who received notifications

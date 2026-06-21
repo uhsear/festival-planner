@@ -60,20 +60,12 @@ export function getAuthMode(): AuthMode {
 }
 
 export function setAuthToken(token: string | null): void {
+  // The session bearer token is held ONLY in module-local memory; the
+  // Authorization header (bearer mode) is built from `_bearerToken` alone.
+  // It is deliberately NOT mirrored onto any `window` global — a token
+  // reachable from `window` would be readable by any XSS on the page and is
+  // pure attack surface, since nothing ever reads it back.
   _bearerToken = token;
-  // The window global is ONLY meaningful for bearer-mode (native/Expo) clients.
-  // On the web we run in cookie mode, where the httpOnly cookie is the session
-  // credential; writing a replayable token onto `window` there is pure attack
-  // surface (it's never even read — Authorization is attached only in bearer
-  // mode). So only mirror to the global in bearer mode, and always proactively
-  // clear any stale global otherwise.
-  if (typeof window !== 'undefined') {
-    if (token && _authMode === 'bearer') {
-      window.__FP_BEARER_TOKEN = token;
-    } else {
-      delete window.__FP_BEARER_TOKEN;
-    }
-  }
 }
 
 export function getAuthToken(): string | null {
@@ -82,9 +74,6 @@ export function getAuthToken(): string | null {
 
 export function clearAuthToken(): void {
   _bearerToken = null;
-  if (typeof window !== 'undefined') {
-    delete window.__FP_BEARER_TOKEN;
-  }
 }
 
 function isMutatingMethod(method: string = 'GET'): boolean {

@@ -18,6 +18,7 @@ import {
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,6 +26,7 @@ import { UIProvider } from '../contexts/UIContext';
 import OfflineBanner from '../components/OfflineBanner';
 import FirstRunIntro from '../components/FirstRunIntro';
 import ErrorBoundary from '../components/ErrorBoundary';
+import HeaderTitle from '../components/HeaderTitle';
 import { useLocalReminders } from '../hooks/useLocalReminders';
 import { ensureAndroidChannels } from '../hooks/useMobilePush';
 
@@ -33,6 +35,12 @@ import { ensureAndroidChannels } from '../hooks/useMobilePush';
 // 4-second bootTimedOut ceiling is the forced-hide backstop so the app never
 // wedges. preventAutoHideAsync must run at module scope (before any render).
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Set the root view background so Android gesture-nav's system navigation bar
+// inherits the dark app background (#0a0a0a) instead of defaulting to white
+// (which flashes behind the bottom edge on edge-to-edge Android 10+ devices).
+// This is a runtime companion to the androidNavigationBar config in app.json.
+SystemUI.setBackgroundColorAsync('#0a0a0a').catch(() => {});
 
 // First-run intro flag — mirrors the web key for parity.
 const INTRO_KEY = 'festie_onboarding_completed';
@@ -82,6 +90,7 @@ configureApi({
 
 function AuthGate() {
   const user = useAuthStore((s) => s.user);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   const sessionChecked = useAuthStore((s) => s.sessionChecked);
   const checkSession = useAuthStore((s) => s.checkSession);
   const segments = useSegments();
@@ -214,21 +223,34 @@ function AuthGate() {
 
     const raf = requestAnimationFrame(() => {
       const inAuthGroup = segments[0] === '(auth)';
-      // Guests may browse the schedule, set detail, festival-mode, privacy, and
-      // the picks/crew tabs (which render their own sign-in CTA). Only the
-      // account tab and the full-screen wrap are gated — bounce a signed-out
-      // user to login there; everything else stays mounted so cold deep-links
-      // and casual browsing work without forcing an account first.
+      // Guests may browse the schedule, set detail, festival-mode, map, compass,
+      // find, privacy, and the /cards + /timeline deep-link shims — these stay
+      // open so cold deep-links and casual browsing work without an account.
+      // Everything that exposes another user's data or admin surface is gated to
+      // match the web router's guards: wrap, crew-plan, crew-compare, admin, and
+      // the account/picks/crew tabs. (Web /compare === mobile crew-compare; the
+      // segment is 'crew-compare', not 'compare'.) A signed-in non-admin who
+      // reaches admin is bounced to the tabs, mirroring web bouncing them to /.
       const seg = segments as string[];
-      const guestBlocked = seg[0] === 'wrap' || seg[1] === 'account';
+      const guestBlocked =
+        seg[0] === 'wrap' ||
+        seg[0] === 'crew-plan' ||
+        seg[0] === 'crew-compare' ||
+        seg[0] === 'admin' ||
+        seg[1] === 'account' ||
+        seg[1] === 'picks' ||
+        seg[1] === 'crew';
+      const adminBlocked = seg[0] === 'admin' && !!user && !isAdmin;
       if (!user && guestBlocked && !inAuthGroup) {
         router.replace('/(auth)/login');
+      } else if (adminBlocked) {
+        router.replace('/(tabs)');
       } else if (user && inAuthGroup) {
         router.replace('/(tabs)');
       }
     });
     return () => cancelAnimationFrame(raf);
-  }, [user, sessionChecked, segments, router, navState?.key]);
+  }, [user, isAdmin, sessionChecked, segments, router, navState?.key]);
 
   // The navigator (Stack) MUST be mounted on the very first render so the
   // redirect effect above can navigate safely. So rather than swapping the
@@ -275,11 +297,20 @@ function AuthGate() {
               headerShown: false,
               headerStyle: { backgroundColor: colors.bg.secondary },
               headerTintColor: colors.text.primary,
+              // headerTitleStyle cannot set fontFamily on Android (the native
+              // header ignores it), so a raw fontWeight here would trigger
+              // synthetic bold and clip trailing glyphs. Use the HeaderTitle
+              // component below instead — it resolves SpaceGrotesk_600SemiBold
+              // via typeStyle and renders with adjustsFontSizeToFit for long names.
               headerTitleStyle: {
                 color: colors.text.primary,
-                fontWeight: '600',
                 fontSize: fontSize[18],
               },
+              // Custom title node: sets the weighted font family correctly on
+              // both platforms (Android can't inherit fontFamily from headerTitleStyle).
+              headerTitle: ({ children }: { children: string }) => (
+                <HeaderTitle>{children}</HeaderTitle>
+              ),
               headerShadowVisible: false,
               contentStyle: { backgroundColor: colors.bg.primary },
               // Enable the iOS left-edge swipe-back gesture on every pushed
@@ -289,7 +320,17 @@ function AuthGate() {
               gestureEnabled: true,
             }}
           >
-            <Stack.Screen name="(tabs)" />
+            {/*
+              H9 — Tighten the iOS swipe-back recognition zone for the tabs
+              screen. The Schedule tab's horizontal stage carousel (TimelineView)
+              has its first column starting at ~12pt from the left edge, which
+              falls inside iOS's default ~20pt pop-gesture recognition area.
+              Narrowing gestureResponseDistance to 8pt means the pop gesture only
+              activates from the extreme edge; the FlatList handles everything
+              else. Back navigation is NOT disabled — a hard left-edge swipe still
+              works normally. No-op on Android (predictive back is unaffected).
+            */}
+            <Stack.Screen name="(tabs)" options={{ gestureResponseDistance: { start: 8 } }} />
             <Stack.Screen name="(auth)" />
             <Stack.Screen
               name="set/[setId]"

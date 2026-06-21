@@ -263,7 +263,8 @@ describe('createUsersStore', () => {
         passwordHash: 'h',
         createdAt: specificDate,
       });
-      assert.equal(pool.calls[0].params[4], specificDate);
+      // date_of_birth was inserted at param[4]; createdAt shifted to param[5].
+      assert.equal(pool.calls[0].params[5], specificDate);
     });
 
     it('passes tosAcceptedAt and tosVersion when provided', async () => {
@@ -277,11 +278,14 @@ describe('createUsersStore', () => {
         id: 'u1',
         username: 'alice',
         passwordHash: 'h',
+        dateOfBirth: '1990-05-05',
         tosAcceptedAt: '2026-01-01T00:00:00.000Z',
         tosVersion: '2.0',
       });
-      assert.equal(pool.calls[0].params[5], '2026-01-01T00:00:00.000Z');
-      assert.equal(pool.calls[0].params[6], '2.0');
+      // INSERT order: ...email($4), date_of_birth($5), created_at($6), tos_accepted_at($7), tos_version($8)
+      assert.equal(pool.calls[0].params[4], '1990-05-05');
+      assert.equal(pool.calls[0].params[6], '2026-01-01T00:00:00.000Z');
+      assert.equal(pool.calls[0].params[7], '2.0');
     });
   });
 

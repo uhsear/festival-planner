@@ -1,62 +1,72 @@
 Third-Party Software Licenses
 ============================================================
 
-Festival Planner uses the following open-source packages.
-Each package is listed with its license type.
+Festie backend runtime dependencies and their license types.
+Auto-derived from installed packages on 2026-06-19. Direct production
+dependencies only; a full transitive SBOM (all 4 package trees) is
+maintained separately for due diligence.
 
+All licenses below are permissive (MIT/ISC/BSD/Apache-2.0) or public
+domain. No GPL/AGPL/SSPL copyleft. sharp ships libvips under
+Apache-2.0 AND LGPL-3.0-or-later (dynamically linked, unmodified).
+
+------------------------------------------------------------
+@sentry/node ^10.48.0
+License: MIT
 ------------------------------------------------------------
 @socket.io/redis-adapter ^8.3.0
 License: MIT
-
+------------------------------------------------------------
+bullmq ^5.78.1
+License: MIT
 ------------------------------------------------------------
 compression ^1.8.1
 License: MIT
-
 ------------------------------------------------------------
-dotenv ^17.3.1
+dotenv ^17.4.0
 License: BSD-2-Clause
-
 ------------------------------------------------------------
-express ~4.22.1
+express ^5.2.1
 License: MIT
-
 ------------------------------------------------------------
-firebase-admin ~13.7.0
+firebase-admin ~13.10.0
 License: Apache-2.0
-
 ------------------------------------------------------------
-helmet ~8.1.0
+helmet ^8.1.0
 License: MIT
-
 ------------------------------------------------------------
-ioredis ^5.10.0
+ioredis ^5.11.1
 License: MIT
-
 ------------------------------------------------------------
 multer ^2.1.1
 License: MIT
-
 ------------------------------------------------------------
-pg ~8.20.0
+pg ~8.21.0
 License: MIT
-
 ------------------------------------------------------------
-resend ^6.9.4
-License: See package
-
+pino ^10.3.1
+License: MIT
+------------------------------------------------------------
+pino-pretty ^13.1.3
+License: MIT
+------------------------------------------------------------
+prom-client ^15.1.3
+License: Apache-2.0
+------------------------------------------------------------
+resend ^6.10.0
+License: MIT
 ------------------------------------------------------------
 sharp ^0.34.5
 License: Apache-2.0
-
 ------------------------------------------------------------
 socket.io ~4.8.3
 License: MIT
-
 ------------------------------------------------------------
 swagger-ui-dist ^5.32.5
 License: Apache-2.0
-
 ------------------------------------------------------------
-zod ^4.3.6
+tsx ^4.19.0
 License: MIT
-
+------------------------------------------------------------
+zod ^4.4.3
+License: MIT

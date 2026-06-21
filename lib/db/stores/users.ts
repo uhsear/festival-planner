@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 
 import type { Pool } from 'pg';
 import { withTransaction } from '../connection';
@@ -45,6 +45,7 @@ export default function createUsersStore(pool: Pool, utils: any) {
     venmo_handle AS "venmoHandle",
     cashapp_cashtag AS "cashappCashtag",
     paypal_handle AS "paypalHandle",
+    date_of_birth AS "dateOfBirth",
     created_at AS "createdAt",
     updated_at AS "updatedAt",
     deleted_at AS "deletedAt"
@@ -68,6 +69,7 @@ export default function createUsersStore(pool: Pool, utils: any) {
       venmoHandle: row.venmoHandle || null,
       cashappCashtag: row.cashappCashtag || null,
       paypalHandle: row.paypalHandle || null,
+      dateOfBirth: row.dateOfBirth || null,
     };
   }
 
@@ -172,14 +174,15 @@ export default function createUsersStore(pool: Pool, utils: any) {
       );
     },
 
-    async create({ id, username, passwordHash, email, createdAt, tosAcceptedAt, tosVersion }: any) {
+    async create({ id, username, passwordHash, email, dateOfBirth, createdAt, tosAcceptedAt, tosVersion }: any) {
       await pool.query(
-        'INSERT INTO users (id, username, password_hash, email, created_at, tos_accepted_at, tos_version) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        'INSERT INTO users (id, username, password_hash, email, date_of_birth, created_at, tos_accepted_at, tos_version) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
         [
           id,
           username,
           passwordHash,
           email || null,
+          dateOfBirth || null,
           createdAt || new Date().toISOString(),
           tosAcceptedAt || null,
           tosVersion || null,

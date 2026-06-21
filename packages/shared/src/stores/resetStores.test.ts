@@ -49,6 +49,7 @@ describe('resetAllStores', () => {
       showPastSets: false,
       autoScrollToNow: true,
       manuallyDisabled: true,
+      lowPowerMode: true,
     });
   });
 
@@ -114,5 +115,8 @@ describe('resetAllStores', () => {
     expect(state.showPastSets).toBe(true);
     expect(state.autoScrollToNow).toBe(false);
     expect(state.manuallyDisabled).toBe(false);
+    // lowPowerMode must reset too, or user A's power preference leaks to user B
+    // on a shared device (persisted by festivalModeStore's partialize).
+    expect(state.lowPowerMode).toBe(false);
   });
 });

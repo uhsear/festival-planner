@@ -63,7 +63,7 @@ export default function DetailArtistHeader({
 
       {/* Subtitle (B2B) */}
       {subtitle && (
-        <div className="text-[13px] font-medium leading-[1.35] text-text-muted mt-1 overflow-hidden text-ellipsis [-webkit-line-clamp:4] [-webkit-box-orient:vertical] [display:-webkit-box] break-words">
+        <div className="text-[length:var(--font-size-13)] font-medium leading-[1.35] text-text-muted mt-1 overflow-hidden text-ellipsis [-webkit-line-clamp:4] [-webkit-box-orient:vertical] [display:-webkit-box] break-words">
           {subtitle}
         </div>
       )}
@@ -88,7 +88,7 @@ export default function DetailArtistHeader({
           {artistLinks.map((a, i) => (
             <React.Fragment key={a.name + i}>
               {isB2B && <div className="mt-1.5 text-xs font-semibold text-text-secondary">{a.name}</div>}
-              <div className="py-1 pb-2 text-[13px] flex flex-wrap gap-2.5">
+              <div className="py-1 pb-2 text-[length:var(--font-size-13)] flex flex-wrap gap-2.5">
                 {Object.entries(a.links || {}).map(([platform, url]) => (
                   <a
                     key={platform}
@@ -97,7 +97,7 @@ export default function DetailArtistHeader({
                     href={/^https?:/i.test(url) ? url : undefined}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[13px] text-accent-aqua no-underline hover:underline"
+                    className="text-[length:var(--font-size-13)] text-accent-aqua no-underline hover:underline"
                   >
                     {(PLATFORM_LABELS[platform] || platform) + ' ↗'}
                   </a>

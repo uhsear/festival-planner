@@ -135,7 +135,10 @@ export default function createPageRoutes(deps: any) {
   // SPA fallback - serve index.html for non-API, non-static routes.
   // Prefer React dist/index.html when the Vite build exists; fall back
   // to legacy public/index.html otherwise.
-  const _reactIndex = path.join(config.PUBLIC_DIR, '..', 'packages', 'web', 'dist', 'index.html');
+  // ponytail: config.WEB_DIST is the prod source (set by loadConfig); the || keeps
+  // partial/test configs from throwing on path.join(undefined).
+  const webDist = config.WEB_DIST || path.join(config.PUBLIC_DIR, '..', 'packages', 'web', 'dist');
+  const _reactIndex = path.join(webDist, 'index.html');
   const _spaIndex = fs.existsSync(_reactIndex) ? _reactIndex : path.join(config.PUBLIC_DIR, 'index.html');
   router.get('/{*splat}', (req: any, res: any, next: any) => {
     if (req.path.startsWith('/uploads/')) {

@@ -78,6 +78,18 @@ textarea {
   appearance: none;
 }
 
+/* Force the native date/time picker chrome to render in dark mode so the
+   DOB calendar and other date inputs don't flash a white/light background
+   inside the dark card. The top-level html already sets color-scheme:dark,
+   but the UA-shadow-DOM picker only reads it from the element itself. */
+input[type='date'],
+input[type='datetime-local'],
+input[type='time'],
+input[type='month'],
+input[type='week'] {
+  color-scheme: dark;
+}
+
 /* Custom select arrow. Stroke is the URL-encoded --color-text-muted token
      (%23 = "#"), so a theme retune of the muted gray updates the chevron. */
 select {

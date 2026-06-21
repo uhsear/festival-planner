@@ -173,6 +173,18 @@ export async function clearPersistedFailed(): Promise<void> {
   }
 }
 
+/**
+ * Drop every pending mutation. Called on logout so a previous user's unsynced
+ * writes can never replay under the next user's session on a shared device.
+ * Goes through the queue lock + writeQueue([]) so an in-flight drain/enqueue
+ * can't resurrect a half-cleared queue, and the pending count resets to 0.
+ */
+export async function clearQueue(): Promise<void> {
+  await withQueueLock(async () => {
+    await writeQueue([]);
+  });
+}
+
 // Simple async mutex to serialize read-modify-write cycles on the queue so
 // a concurrent enqueueMutation during drainQueue cannot be clobbered.
 let _queueMutex: Promise<void> = Promise.resolve();
@@ -241,17 +253,22 @@ export function registerCreateReconciler(fn: CreateReconciler | null): void {
 const BYPASS = { _bypassOfflineQueue: true } as const;
 
 async function replay(m: QueuedMutation): Promise<unknown> {
+  // Send the deterministic clientId as the Idempotency-Key so the server dedups
+  // a write that gets replayed more than once (e.g. two clients draining the
+  // same queue) instead of double-applying it. Server honors this on all
+  // non-GET /api/v1 routes (lib/middleware.ts idempotency middleware).
+  const opts = { ...BYPASS, headers: { 'Idempotency-Key': m.clientId } };
   switch (m.method) {
     case 'POST':
-      return api.post(m.url, m.body, BYPASS);
+      return api.post(m.url, m.body, opts);
     case 'PUT':
-      await api.put(m.url, m.body, BYPASS);
+      await api.put(m.url, m.body, opts);
       return undefined;
     case 'PATCH':
-      await api.patch(m.url, m.body, BYPASS);
+      await api.patch(m.url, m.body, opts);
       return undefined;
     case 'DELETE':
-      await api.delete(m.url, BYPASS);
+      await api.delete(m.url, opts);
       return undefined;
   }
 }
@@ -298,8 +315,12 @@ export async function drainQueue(): Promise<void> {
         if (m.method === 'POST' && _createReconciler) {
           try {
             _createReconciler(m.clientId, serverResponse);
-          } catch {
-            /* reload-dedup safety net still removes stale _optimistic entities */
+          } catch (reconErr) {
+            // Never let a reconciler error break the drain / no-silent-drops
+            // contract — the reload-dedup safety net still clears stale
+            // _optimistic entities. Warn so the ghost-entity case is observable
+            // instead of fully silent.
+            console.warn('offlineQueue: create reconciler failed', reconErr);
           }
           const realId = extractRealId(serverResponse);
           if (realId && realId !== m.clientId) {

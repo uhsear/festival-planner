@@ -15,6 +15,13 @@ export interface UsePicksReturn {
 
 export function usePicks(): UsePicksReturn {
   const currentProfile = useFestivalStore((state) => state.currentProfile);
+  // Select picks/notes/reminders sub-maps directly so the getMyPick/getMyNote/
+  // getMyReminder callbacks only get new identity when THEIR slice changes —
+  // not on every write to an unrelated slice (e.g. saving a note doesn't
+  // invalidate getMyPick, preventing needless React.memo busts on grid columns).
+  const myPicks = useFestivalStore((state) => state.currentProfile?.picks ?? null);
+  const myNotes = useFestivalStore((state) => state.currentProfile?.notes ?? null);
+  const myReminders = useFestivalStore((state) => state.currentProfile?.reminders ?? null);
   const allProfiles = useFestivalStore((state) => state.allProfiles);
   const savePick = useFestivalStore((state) => state.savePick);
   const removePick = useFestivalStore((state) => state.removePick);
@@ -63,32 +70,39 @@ export function usePicks(): UsePicksReturn {
   // have occasionally arrived as null when a profile has never had picks/
   // notes written. Bare `currentProfile.picks[setId]` then throws
   // "Cannot read properties of null (reading ...)" inside the /picks render.
+  //
+  // Each callback depends only on its own sub-map so saving a note doesn't
+  // produce a new getMyPick identity (and vice-versa), preventing unnecessary
+  // React.memo cache-busts on grid columns that only consume getMyPick.
   const getMyPick = useCallback(
     (setId: string): Priority | null | undefined => {
       if (!currentProfile) return undefined;
-      const picks = currentProfile.picks || {};
+      const picks = myPicks || {};
       const value = picks[setId];
       return (value as Priority) || null;
     },
-    [currentProfile],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentProfile?.id, myPicks],
   );
 
   const getMyNote = useCallback(
     (setId: string): string | undefined => {
       if (!currentProfile) return undefined;
-      const notes = currentProfile.notes || {};
+      const notes = myNotes || {};
       return notes[setId];
     },
-    [currentProfile],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentProfile?.id, myNotes],
   );
 
   const getMyReminder = useCallback(
     (setId: string): number | undefined => {
       if (!currentProfile) return undefined;
-      const reminders = currentProfile.reminders || {};
+      const reminders = myReminders || {};
       return reminders[setId];
     },
-    [currentProfile],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentProfile?.id, myReminders],
   );
 
   // Depend on the id only (not the whole currentProfile object): toggling your

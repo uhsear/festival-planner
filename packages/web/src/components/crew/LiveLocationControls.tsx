@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Square, Siren, Navigation, ShieldCheck, X, MapPin } from 'lucide-react';
 import { api } from '@festie/shared';
@@ -53,6 +53,18 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
   useEffect(() => {
     if (lowPowerMode && sharing) setSharing(false);
   }, [lowPowerMode, sharing]);
+
+  // Reactively track prefers-reduced-motion so the SOS ring class is always in
+  // sync even if the user changes the OS setting while the component is mounted.
+  const prefersReducedMotion = useSyncExternalStore(
+    (cb) => {
+      const mql = typeof window !== 'undefined' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+      mql?.addEventListener('change', cb);
+      return () => mql?.removeEventListener('change', cb);
+    },
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    () => false,
+  );
 
   const [sosOpen, setSosOpen] = useState(false);
   const [sosMessage, setSosMessage] = useState('');
@@ -303,7 +315,7 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
           onClick={() => setSosOpen(true)}
           className={`w-full min-h-11${
             showSos
-              ? typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+              ? prefersReducedMotion
                 ? ' sos-fab-static-ring'
                 : ' sos-fab-alerting'
               : ''

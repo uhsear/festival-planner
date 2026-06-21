@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
-// Licensed under the Business Source License 1.1. See LICENSE file for details.
+// All Rights Reserved. See the LICENSE file.
 
 /**
  * Avatar worker thread pool (#18).
@@ -10,7 +10,11 @@
 import { Worker } from 'worker_threads';
 
 const POOL_SIZE = 2;
-const WORKER_PATH = new URL('./avatar-worker.ts', import.meta.url);
+// Dual-mode resolution: under tsx (dev) import.meta.url ends in `.ts`, so the
+// worker is `avatar-worker.ts`; in the esbuild bundle it ends in `.js`, so the
+// worker is `dist/avatar-worker.js` (emitted as a sibling of dist/server.js).
+const WORKER_EXT = import.meta.url.endsWith('.ts') ? 'ts' : 'js';
+const WORKER_PATH = new URL(`./avatar-worker.${WORKER_EXT}`, import.meta.url);
 
 export class AvatarPool {
   _workers: Worker[] = [];
