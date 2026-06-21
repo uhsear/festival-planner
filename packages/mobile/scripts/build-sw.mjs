@@ -116,7 +116,14 @@ const { count, size, warnings } = await generateSW({
   swDest: resolve(distDir, 'sw.js'),
   globDirectory: distDir,
   globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-  globIgnores: ['**/admin-*.js'],
+  // Metro's web export does NOT emit admin-prefixed chunks — routes are named
+  // after the route segment (e.g. account-*.js, audit-*.js) and admin screens
+  // are either inlined in the entry bundle or emitted as non-admin filenames.
+  // The original '**/admin-*.js' glob matched nothing in dist/_expo/static/js/web/
+  // (verified June 2026 against the actual dist listing).  Dropped to avoid a
+  // misleading no-op.  If a future refactor extracts admin chunks with a known
+  // naming convention, add a targeted pattern here.
+  globIgnores: [],
 
   skipWaiting: true,
   clientsClaim: true,
@@ -138,6 +145,12 @@ const { count, size, warnings } = await generateSW({
     /\.html$/,
     /^\/api/,
     /^\/\.well-known/,
+    // Server-owned flows: password reset and crew-join links must hit the
+    // network so the server can validate tokens / redirect correctly.
+    // Without these the installed PWA intercepts them and serves index.html,
+    // which means the token never reaches the server and the flow breaks.
+    /^\/reset(\/|-password)/,
+    /^\/join\//,
   ],
 
   runtimeCaching,

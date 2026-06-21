@@ -67,9 +67,19 @@ export default defineConfig({
           /\.html$/,
           /^\/api/,
           /^\/\.well-known/,
+          // Server-owned flows: password reset and crew-join links must hit the
+          // network so the server can validate tokens / redirect correctly.
+          // Without these the installed PWA intercepts them and serves index.html,
+          // which means the token never reaches the server and the flow breaks.
+          /^\/reset(\/|-password)/,
+          /^\/join\//,
         ],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        globIgnores: ['**/admin-*.js'],
+        // Vite's manualChunks does not produce admin-prefixed filenames; the
+        // original '**/admin-*.js' glob matched nothing in practice.  Dropped to
+        // avoid a misleading no-op.  If admin-only chunks are later split out
+        // with a known naming convention, add a targeted pattern here.
+        globIgnores: [],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
