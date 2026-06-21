@@ -1,42 +1,46 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   extractMeetingPointPins,
   extractStagePins,
+  pinsCentroid,
   formatStaleness,
   isPeerStale,
+  getInitials,
+  type MapPin as Pin,
 } from '@festie/shared/utils';
 import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
 import { useNow } from '../hooks/useNow';
 
+// MapLibre's stylesheet is imported for its side effect on the web export (metro
+// injects the CSS). The `maplibre-gl/dist/maplibre-gl.css` side-effect module is
+// typed ambiently in `types/css.d.ts` (web gets the same from vite/client).
+// Native never resolves this `.web.tsx`, so the import never reaches the native
+// bundle.
+
 /**
  * OfflineMap (web platform extension) — `expo export -p web` build.
  *
  * The native OfflineMap (`OfflineMap.tsx`) hosts MapLibre inside a
- * `react-native-webview`. On the web export that dependency resolves to a stub
- * that renders a red "does not support this platform" banner plus a permanent
- * loading spinner — a broken, dishonest UI. This `.web.tsx` is picked up by
- * metro's platform-extension resolution INSTEAD of `OfflineMap.tsx` whenever the
- * bundle target is web (the consumer's `import OfflineMap from
- * '../components/OfflineMap'` is unchanged), so the broken WebView path never
- * ships on web.
+ * `react-native-webview`. That dependency has no web implementation, so on the
+ * web export metro's platform-extension resolution picks up THIS `.web.tsx`
+ * instead (the consumer's `import OfflineMap from '../components/OfflineMap'` is
+ * unchanged). Native therefore never bundles `maplibre-gl` — it lives only in
+ * this file, which native metro never resolves.
  *
- * What it renders: the same offline-honest meeting-points + live-peer + SOS list
- * that the native component falls back to when MapLibre can't load. It reuses the
- * shared pin extractors and staleness helpers so the data shape stays in parity
- * with both native and `packages/web`'s `CrewMap.tsx`. It never shows the red
- * stub or a stuck spinner.
+ * What it renders: a LIVE MapLibre GL JS map (no API key, OSM raster basemap),
+ * the same three marker kinds web's `CrewMap.tsx` plots — meeting-point pins,
+ * live peers, and an emphasized SOS — ported to the OfflineMap props. MapLibre is
+ * heavy and is `import()`-ed dynamically inside an effect (mirroring CrewMap) so
+ * SSR / initial parse stays safe and the GL chunk is split out.
  *
- * Why a list and not a real interactive map: web's `CrewMap.tsx` renders a live
- * MapLibre GL JS map, but `maplibre-gl` is NOT a `@festie/mobile` dependency (it
- * lives under `packages/web/node_modules`), and importing `@festie/web` from
- * mobile violates the package boundary (see packages/mobile/CLAUDE.md). So this
- * file deliberately ships the honest list rather than a broken map or a boundary
- * violation. To upgrade this to a real web map later, add `maplibre-gl` as a
- * mobile dependency and port `CrewMap.tsx`'s dynamic-import GL wrapper here.
+ * HONEST FALLBACK: if the GL library fails to load/init (truly offline, no CDN
+ * tiles) we render the previous offline-honest meeting-points + live-peer + SOS
+ * list — the same data, reusing the shared pin extractors and staleness helpers
+ * so the offline contract is unchanged. We never leave a blank canvas behind.
  */
 
 interface OfflineMapProps {
@@ -47,6 +51,70 @@ interface OfflineMapProps {
   sos?: SosEntry | null;
 }
 
+// A free OpenStreetMap raster style (no API key). Online-only basemap — mirrors
+// CrewMap.tsx so the web map and this map render identically.
+const RASTER_STYLE = {
+  version: 8 as const,
+  sources: {
+    osm: {
+      type: 'raster' as const,
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors',
+    },
+  },
+  layers: [{ id: 'osm', type: 'raster' as const, source: 'osm' }],
+};
+
+// The subset of the maplibre-gl module we use. Loaded via `.default` at runtime
+// (CJS interop); the type-level default member doesn't exist, so model the
+// constructors we touch — same shape as CrewMap.tsx.
+type MapLibre = {
+  Map: typeof import('maplibre-gl').Map;
+  Marker: typeof import('maplibre-gl').Marker;
+  Popup: typeof import('maplibre-gl').Popup;
+  NavigationControl: typeof import('maplibre-gl').NavigationControl;
+  LngLatBounds: typeof import('maplibre-gl').LngLatBounds;
+};
+
+// Popups are built with DOM APIs (createElement + textContent) and handed to
+// MapLibre via `setDOMContent`, so user/server text is never parsed as HTML —
+// the browser escapes it for us (mirrors CrewMap's already-safe path).
+
+/** A <strong> title element with text set safely via textContent. */
+function titleEl(text: string, className?: string): HTMLElement {
+  const strong = document.createElement('strong');
+  if (className) strong.className = className;
+  strong.textContent = text;
+  return strong;
+}
+
+/** A subtitle line: <span class="festie-map-sub">text</span>. */
+function subEl(text: string): HTMLElement {
+  const span = document.createElement('span');
+  span.className = 'festie-map-sub';
+  span.textContent = text;
+  return span;
+}
+
+/** Assemble popup children into a container <div>, <br/>-separated. */
+function popupContent(nodes: (Node | null)[]): HTMLElement {
+  const root = document.createElement('div');
+  let first = true;
+  for (const n of nodes) {
+    if (!n) continue;
+    if (!first) root.appendChild(document.createElement('br'));
+    root.appendChild(n);
+    first = false;
+  }
+  return root;
+}
+
+// "as of 5m ago" → "5m ago" so we can render the honest "Live · 5m ago" copy.
+function relAge(serverAt: string): string {
+  return formatStaleness(serverAt).replace(/^as of /, '');
+}
+
 /** Up-to-two-letter initials for an avatar marker (fallback "?"). */
 function initialsFor(name: string | undefined): string {
   const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -55,7 +123,7 @@ function initialsFor(name: string | undefined): string {
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
 
-/** A peer/SOS row resolved from live-location props (mirrors OfflineMap.tsx). */
+/** A peer/SOS row resolved from live-location props (for the fallback list). */
 interface LivePin {
   id: string;
   label: string;
@@ -73,17 +141,33 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
   const styles = useStyles();
   const bottomPad = useListBottomInset();
 
-  const pins = useMemo(() => extractMeetingPointPins(meetingPoints), [meetingPoints]);
+  // 'pending' until the GL lib mounts; 'ready' once the map's `load` fired
+  // (marker effects gate on it); 'error' on a load/init failure → list fallback.
+  const [status, setStatus] = useState<'pending' | 'ready' | 'error'>('pending');
+
+  // The DOM node MapLibre mounts into. On react-native-web a View renders a div,
+  // and `ref` resolves to that DOM element.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<import('maplibre-gl').Map | null>(null);
+  const glRef = useRef<MapLibre | null>(null);
+  const mpMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
+  const peerMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
+  const sosMarkerRef = useRef<import('maplibre-gl').Marker | null>(null);
+  const fittedRef = useRef(false);
+
+  const pins = useMemo<Pin[]>(() => extractMeetingPointPins(meetingPoints), [meetingPoints]);
   const stagePins = useMemo(() => extractStagePins(), []); // [] today — see mapPins TODO
 
   // `now` ticks via useNow so staleness recomputes without an impure Date.now()
   // in the memo factory (react-hooks/purity) — same pattern as OfflineMap.tsx.
   const now = useNow();
+
+  // Live peer + SOS rows (used by both the GL markers and the fallback list).
   const livePins = useMemo<LivePin[]>(() => {
     const items: LivePin[] = [];
     for (const p of peers ?? []) {
       if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
-      const age = formatStaleness(p.serverAt).replace(/^as of /, '');
+      const age = relAge(p.serverAt);
       const stale = isPeerStale(p.serverAt, now);
       items.push({
         id: `peer:${p.userId}`,
@@ -111,8 +195,7 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
     return items;
   }, [peers, sos, now]);
 
-  // Meeting points present but without coords — listed so they're never lost,
-  // even though they can't be plotted.
+  // Meeting points present but without coords — listed so they're never lost.
   const uncoordedPoints = useMemo(
     () =>
       (meetingPoints ?? []).filter(
@@ -121,16 +204,280 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
     [meetingPoints],
   );
 
+  const peerList = useMemo(() => peers ?? [], [peers]);
+  const hasPins = pins.length > 0;
+  const hasPeers = peerList.length > 0;
+  const hasSos = !!sos?.position;
+  // Render the map when there's ANYTHING to plot (pins, peers, or an SOS coord).
+  const shouldRenderMap = hasPins || hasPeers || hasSos;
+
+  // Initial center: meeting-point centroid, else the first peer, else the SOS.
+  const center = useMemo(() => {
+    const c = pinsCentroid(pins);
+    if (c) return c;
+    if (peerList[0]) return { latitude: peerList[0].lat, longitude: peerList[0].lng };
+    if (sos?.position) return { latitude: sos.position.lat, longitude: sos.position.lng };
+    return null;
+    // Recompute only when the coord sources meaningfully change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pins, peerList.length, sos?.position?.lat, sos?.position?.lng]);
+
+  // Stable keys so marker effects re-run only when their own coords change.
+  const pinsKey = useMemo(() => pins.map((p) => `${p.id}:${p.latitude},${p.longitude}`).join('|'), [pins]);
+  const peersKey = useMemo(
+    () => peerList.map((p) => `${p.userId}:${p.lat},${p.lng}:${p.serverAt}`).join('|'),
+    [peerList],
+  );
+  const sosKey = sos ? `${sos.userId}:${sos.position?.lat},${sos.position?.lng}` : '';
+
+  // Keep the latest center for the (peer-driven) lazy map creation without making
+  // it an effect dep (which would recreate the map on every position tick). The
+  // write lives in an effect (not render) so it never trips the refs-in-render rule.
+  const centerRef = useRef(center);
+  useEffect(() => {
+    centerRef.current = center;
+  }, [center]);
+
+  // ── Map lifecycle: create once when there's content; tear down on unmount ──
+  useEffect(() => {
+    if (!shouldRenderMap || !containerRef.current) return;
+    if (mapRef.current) return; // already created
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const maplibregl = (await import('maplibre-gl')).default as unknown as MapLibre;
+        await import('maplibre-gl/dist/maplibre-gl.css');
+        if (cancelled || !containerRef.current || mapRef.current) return;
+
+        const c = centerRef.current;
+        const map = new maplibregl.Map({
+          container: containerRef.current,
+          style: RASTER_STYLE,
+          center: c ? [c.longitude, c.latitude] : [0, 0],
+          zoom: c ? 14 : 1,
+          attributionControl: { compact: true },
+        });
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+        map.on('error', () => {
+          if (!cancelled) setStatus('error');
+        });
+        map.on('load', () => {
+          if (cancelled) return;
+          setStatus('ready');
+        });
+        glRef.current = maplibregl;
+        mapRef.current = map;
+      } catch {
+        if (!cancelled) setStatus('error');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      mpMarkersRef.current = [];
+      peerMarkersRef.current = [];
+      sosMarkerRef.current = null;
+      fittedRef.current = false;
+      mapRef.current?.remove();
+      mapRef.current = null;
+      glRef.current = null;
+    };
+    // Only (re)create when content first appears / disappears.
+  }, [shouldRenderMap]);
+
+  // ── Meeting-point markers ──────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    for (const m of mpMarkersRef.current) m.remove();
+    mpMarkersRef.current = [];
+
+    for (const p of pins) {
+      const el = document.createElement('div');
+      el.className = 'festie-map-marker';
+      el.setAttribute('aria-label', p.label + (p.sublabel ? ' - ' + p.sublabel : ''));
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      const popupEl = popupContent([titleEl(p.label), p.sublabel ? subEl(p.sublabel) : null]);
+      const marker = new gl.Marker({ element: el })
+        .setLngLat([p.longitude, p.latitude])
+        .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setDOMContent(popupEl))
+        .addTo(map);
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          marker.togglePopup();
+        }
+      });
+      mpMarkersRef.current.push(marker);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, pinsKey]);
+
+  // ── Live peer markers (rebuilt per tick — small N; keeps staleness honest) ──
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    for (const m of peerMarkersRef.current) m.remove();
+    peerMarkersRef.current = [];
+
+    const nowMs = Date.now();
+    for (const peer of peerList) {
+      if (!Number.isFinite(peer.lat) || !Number.isFinite(peer.lng)) continue;
+      const rel = relAge(peer.serverAt);
+      const stale = isPeerStale(peer.serverAt, nowMs);
+      const initials = getInitials(peer.username || 'User') || '?';
+      const el = document.createElement('div');
+      el.className = stale ? 'festie-peer-marker festie-peer-marker--stale' : 'festie-peer-marker';
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', `${peer.username} — ${stale ? `last seen ${rel}` : `live location, ${rel}`}`);
+      const iniEl = document.createElement('span');
+      iniEl.textContent = initials;
+      el.appendChild(iniEl);
+      if (stale) {
+        const chip = document.createElement('span');
+        chip.className = 'festie-peer-chip';
+        chip.textContent = rel;
+        el.appendChild(chip);
+      }
+      const acc =
+        typeof peer.accuracy === 'number' && peer.accuracy > 0 ? subEl(`±${Math.round(peer.accuracy)} m`) : null;
+      const popupEl = popupContent([titleEl(peer.username), subEl(stale ? `Last seen ${rel}` : `Live · ${rel}`), acc]);
+      const marker = new gl.Marker({ element: el })
+        .setLngLat([peer.lng, peer.lat])
+        .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setDOMContent(popupEl))
+        .addTo(map);
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          marker.togglePopup();
+        }
+      });
+      peerMarkersRef.current.push(marker);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, peersKey]);
+
+  // ── SOS marker (emphasized) ────────────────────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    sosMarkerRef.current?.remove();
+    sosMarkerRef.current = null;
+    if (!sos?.position) return;
+
+    const el = document.createElement('div');
+    el.className = 'festie-sos-marker';
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', `SOS from ${sos.username}`);
+    el.textContent = '!';
+    // Coords are numeric (range-checked server-side), so this URL is structurally
+    // safe; assert the https scheme as belt-and-braces (mirrors CrewMap).
+    const dir = `https://maps.google.com/?q=${sos.position.lat},${sos.position.lng}`;
+    const link = document.createElement('a');
+    if (/^https:/i.test(dir)) link.setAttribute('href', dir);
+    link.className = 'festie-sos-link';
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
+    link.textContent = 'Get directions';
+    const popupEl = popupContent([
+      titleEl(`🆘 ${sos.username} needs help`, 'festie-sos-title'),
+      sos.message ? subEl(sos.message) : null,
+      link,
+    ]);
+    const marker = new gl.Marker({ element: el })
+      .setLngLat([sos.position.lng, sos.position.lat])
+      .setPopup(new gl.Popup({ offset: 18, closeButton: false }).setDOMContent(popupEl))
+      .addTo(map);
+    sosMarkerRef.current = marker;
+    // Open the SOS popup immediately so it's impossible to miss.
+    marker.togglePopup();
+    map.flyTo({ center: [sos.position.lng, sos.position.lat], zoom: 15, duration: 600 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, sosKey]);
+
+  // ── Fit bounds once across everything we have when the map first loads ──────
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl || fittedRef.current) return;
+
+    const coords: [number, number][] = [
+      ...pins.map((p) => [p.longitude, p.latitude] as [number, number]),
+      ...peerList
+        .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
+        .map((p) => [p.lng, p.lat] as [number, number]),
+      ...(sos?.position ? [[sos.position.lng, sos.position.lat] as [number, number]] : []),
+    ];
+    if (coords.length > 1) {
+      let bounds = new gl.LngLatBounds(coords[0], coords[0]);
+      for (const c of coords) bounds = bounds.extend(c);
+      map.fitBounds(bounds, { padding: 56, maxZoom: 16, duration: 0 });
+    }
+    fittedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, pinsKey, peersKey, sosKey]);
+
+  // ── Live map (DOM container; markers are mounted via the effects above) ─────
+  // We render the map UNLESS the GL lib errored out — then we drop to the honest
+  // list below. The list is also used as the empty state (nothing to plot).
+  if (shouldRenderMap && status !== 'error') {
+    const peerCount = peerList.length;
+    const countCopy = [
+      pins.length ? (pins.length === 1 ? '1 mapped point' : `${pins.length} mapped points`) : '',
+      peerCount ? (peerCount === 1 ? '1 live crew member' : `${peerCount} live crew members`) : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+    return (
+      <View style={styles.screen}>
+        {/* The map mounts into this DOM node. On react-native-web a View is a div,
+            and the ref resolves to that element MapLibre can attach to. */}
+        <View
+          // @ts-expect-error react-native-web forwards the DOM node to ref; RN's
+          // View ref type doesn't model HTMLDivElement but at runtime it is one.
+          ref={containerRef}
+          style={styles.mapCanvas}
+          accessibilityRole="none"
+          accessibilityLabel="Crew map with meeting points and live locations"
+        />
+        {status === 'pending' ? (
+          <View style={styles.loadingOverlay} pointerEvents="none">
+            <Text style={styles.loadingText}>Loading map…</Text>
+          </View>
+        ) : null}
+        {countCopy ? <Text style={styles.countCopy}>{countCopy}</Text> : null}
+      </View>
+    );
+  }
+
+  // ── Honest fallback list (GL failed, or nothing to plot) ────────────────────
   const coorded = pins;
   const livePeerPins = livePins.filter((p) => p.kind === 'peer');
   const hasAny = coorded.length > 0 || uncoordedPoints.length > 0 || livePins.length > 0;
+  const failed = status === 'error';
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.fallbackContent, { paddingBottom: bottomPad }]}>
-      <View style={styles.banner}>
-        <Ionicons name="map-outline" size={18} color={t.colors.accent.aqua} />
+      <View style={[styles.banner, failed ? styles.bannerOffline : null]}>
+        <Ionicons
+          name={failed ? 'cloud-offline-outline' : 'map-outline'}
+          size={18}
+          color={failed ? t.colors.accent.amber : t.colors.accent.aqua}
+        />
         <Text style={styles.bannerText}>
-          The interactive map is available in the Festie app. Showing your meeting points and live crew here.
+          {failed
+            ? 'Map needs signal to load. Showing your saved meeting points and live crew.'
+            : 'The interactive map is available in the Festie app. Showing your meeting points and live crew here.'}
         </Text>
       </View>
 
@@ -243,6 +590,31 @@ const useStyles = makeStyles((t) => ({
     flex: 1,
     backgroundColor: t.colors.bg.primary,
   },
+  mapCanvas: {
+    flex: 1,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: t.spacing[2],
+    backgroundColor: t.colors.bg.secondary,
+  },
+  loadingText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  countCopy: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+    textAlign: 'center',
+    padding: t.spacing[2],
+  },
   fallbackContent: {
     padding: t.spacing[4],
     gap: t.spacing[3],
@@ -256,6 +628,10 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.border.default,
     backgroundColor: t.colors.bg.secondary,
+  },
+  bannerOffline: {
+    borderColor: t.colors.accent.amber,
+    backgroundColor: t.colors.amberAlpha[12],
   },
   bannerText: {
     ...typeStyle('caption'),

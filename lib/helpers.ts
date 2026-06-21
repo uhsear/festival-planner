@@ -138,6 +138,10 @@ export function buildContentSecurityPolicy(config: any, inlineHashes: any, optio
   // so exported wrap PNGs include the custom Syncopate/Space Grotesk glyphs
   // instead of falling back to system fonts.
   connectParts.push('https://fonts.googleapis.com https://fonts.gstatic.com');
+  // Crew map (MapLibre) raster tiles + Sentry error ingest. The OSM tile host is
+  // also added to img-src (raster tiles load as images); Sentry's RN/web SDK
+  // POSTs envelopes to *.sentry.io.
+  connectParts.push('https://tile.openstreetmap.org https://*.sentry.io');
   const connectSrc = connectParts.join(' ');
 
   const directives = [
@@ -146,7 +150,7 @@ export function buildContentSecurityPolicy(config: any, inlineHashes: any, optio
     "frame-ancestors 'none'",
     "form-action 'self'",
     "object-src 'none'",
-    "img-src 'self' data: blob: https://i.scdn.co",
+    "img-src 'self' data: blob: https://i.scdn.co https://tile.openstreetmap.org",
     "font-src 'self' https://fonts.gstatic.com",
     `style-src ${styleSrc}`,
     `script-src ${scriptSrc}`,
