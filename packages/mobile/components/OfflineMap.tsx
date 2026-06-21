@@ -376,11 +376,23 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
         });
         map.on('error', function (e) { post({ type: 'error', reason: 'map-error' }); });
 
-        // Tap-to-create: a long-press (contextmenu on touch) drops a meeting
-        // point at that coordinate. RN opens the existing create flow prefilled
-        // with the lng/lat — no write happens here, only the gesture is relayed.
-        map.on('contextmenu', function (e) {
-          if (!e || !e.lngLat) return;
+        // Tap-to-create: a long-press (contextmenu) is unreliable on touch, so we
+        // use an explicit "placement mode" instead. RN toggles PLACEMENT via
+        // window.__festieSetPlacement; while it's on, the NEXT single map click
+        // emits the coord and auto-exits placement. Far more reliable than
+        // contextmenu on a finger long-press across iOS/Android WebViews.
+        var PLACEMENT = false;
+        window.__festieSetPlacement = function (on) {
+          PLACEMENT = !!on;
+          try { map.getCanvas().style.cursor = PLACEMENT ? 'crosshair' : ''; } catch (e) {}
+          post({ type: 'placement', on: PLACEMENT });
+        };
+        map.on('click', function (e) {
+          if (!PLACEMENT || !e || !e.lngLat) return;
+          // One-shot: drop the pin, then exit placement so a stray tap can't
+          // keep firing creates.
+          PLACEMENT = false;
+          try { map.getCanvas().style.cursor = ''; } catch (err) {}
           post({ type: 'map-longpress', longitude: e.lngLat.lng, latitude: e.lngLat.lat });
         });
 
@@ -434,6 +446,10 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
   // Guards a single in-flight "find me" GPS request so a double-tap can't stack
   // permission prompts / location fixes.
   const [locating, setLocating] = useState(false);
+  // Placement mode: when on, the next single map tap drops a meeting point at
+  // that coord (replaces the unreliable long-press/contextmenu gesture). The
+  // WebView confirms the actual on/off state back via the 'placement' message.
+  const [placing, setPlacing] = useState(false);
 
   const pins = useMemo(() => extractMeetingPointPins(meetingPoints), [meetingPoints]);
   const stagePins = useMemo(() => extractStagePins(), []); // [] today — see mapPins TODO
@@ -511,7 +527,7 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
 
   const onMessage = useCallback(
     (e: WebViewMessageEvent) => {
-      let msg: { type?: string; reason?: string; latitude?: number; longitude?: number } = {};
+      let msg: { type?: string; reason?: string; latitude?: number; longitude?: number; on?: boolean } = {};
       try {
         msg = JSON.parse(e.nativeEvent.data);
       } catch {
@@ -519,10 +535,16 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
       }
       if (msg.type === 'ready') {
         if (!fellBackRef.current) setPhase('map');
+      } else if (msg.type === 'placement') {
+        // The WebView confirms the true placement state (it auto-exits after a
+        // drop) — mirror it so the toggle button reflects reality.
+        setPlacing(!!msg.on);
       } else if (msg.type === 'map-longpress') {
-        // Tap-to-create: relay the pressed coord to the screen, which opens the
-        // existing meeting-point form prefilled with it. Range-check so a bad
-        // payload can't propagate non-finite coords into the create flow.
+        // Tap-to-create: relay the tapped coord to the screen, which opens the
+        // existing meeting-point form prefilled with it. The WebView has already
+        // exited placement mode (one-shot); clear our local flag to match.
+        // Range-check so a bad payload can't propagate non-finite coords.
+        setPlacing(false);
         const { latitude, longitude } = msg;
         if (
           onMapPress &&
@@ -591,6 +613,18 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
     if (phase !== 'map' || !webRef.current) return;
     webRef.current.injectJavaScript(`window.__festieSetPeers && window.__festieSetPeers(${liveJson}); true;`);
   }, [phase, liveJson]);
+
+  // Toggle placement mode in the WebView. The next single map tap (while on)
+  // drops a meeting point and auto-exits. We optimistically flip local state for
+  // immediate button feedback; the WebView's 'placement' message reconciles it.
+  const togglePlacement = useCallback(() => {
+    if (phase !== 'map' || !webRef.current) return;
+    const next = !placing;
+    setPlacing(next);
+    webRef.current.injectJavaScript(
+      `window.__festieSetPlacement && window.__festieSetPlacement(${next ? 'true' : 'false'}); true;`,
+    );
+  }, [phase, placing]);
 
   // "Find me": fetch the device position via expo-location (already a dep) and
   // fly the WebView map to it. Permission denial / GPS failure is silent — the
@@ -765,17 +799,40 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
       ) : null}
 
       {/* On-map controls (map phase only). "Find me" recenters to the device's
-          GPS fix; the tap-to-create hint tells users the long-press gesture
-          drops a meeting point. */}
+          GPS fix; the "Drop pin" toggle puts the map into placement mode so the
+          next single tap drops a meeting point (reliable on touch, unlike a
+          long-press). When armed, a hint tells the user to tap the map. */}
       {phase === 'map' ? (
         <>
           {onMapPress ? (
-            <View style={styles.mapHint} pointerEvents="none">
-              <Ionicons name="add-circle-outline" size={14} color={t.colors.text.onAccent} />
-              <Text style={styles.mapHintText} numberOfLines={1}>
-                Long-press the map to drop a meeting point
-              </Text>
-            </View>
+            <>
+              {placing ? (
+                <View style={styles.mapHint} pointerEvents="none">
+                  <Ionicons name="locate-outline" size={14} color={t.colors.text.onAccent} />
+                  <Text style={styles.mapHintText} numberOfLines={1}>
+                    Tap the map to drop a meeting point
+                  </Text>
+                </View>
+              ) : null}
+              <TouchableOpacity
+                testID="map-drop-pin-toggle"
+                style={[styles.dropPinButton, placing ? styles.dropPinButtonActive : null]}
+                onPress={togglePlacement}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={placing ? 'Cancel dropping a meeting point' : 'Drop a meeting point on the map'}
+                accessibilityState={{ selected: placing }}
+              >
+                <Ionicons
+                  name={placing ? 'close' : 'add-circle-outline'}
+                  size={16}
+                  color={placing ? t.colors.text.onAccent : t.colors.accent.aqua}
+                />
+                <Text style={[styles.dropPinText, placing ? styles.dropPinTextActive : null]} numberOfLines={1}>
+                  {placing ? 'Cancel' : 'Drop pin'}
+                </Text>
+              </TouchableOpacity>
+            </>
           ) : null}
           <TouchableOpacity
             testID="map-recenter-fab"
@@ -858,6 +915,38 @@ const useStyles = makeStyles((t) => ({
   },
   mapHintText: {
     ...typeStyle('micro'),
+    color: t.colors.text.onAccent,
+  },
+  // "Drop pin" placement toggle, pinned bottom-right just above the "find me"
+  // FAB. Pill shows the idle (aqua icon + label) vs armed (coral fill) state.
+  dropPinButton: {
+    position: 'absolute',
+    right: t.spacing[4],
+    bottom: t.spacing[5] + 64 + 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    minHeight: 40,
+    paddingHorizontal: t.spacing[3],
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+  },
+  dropPinButtonActive: {
+    borderColor: t.colors.accent.coral,
+    backgroundColor: t.colors.accent.coralStrong,
+  },
+  dropPinText: {
+    ...typeStyle('caption', 600),
+    color: t.colors.accent.aqua,
+  },
+  dropPinTextActive: {
     color: t.colors.text.onAccent,
   },
   fallbackContent: {

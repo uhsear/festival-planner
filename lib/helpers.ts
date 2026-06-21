@@ -150,7 +150,12 @@ export function buildContentSecurityPolicy(config: any, inlineHashes: any, optio
     "frame-ancestors 'none'",
     "form-action 'self'",
     "object-src 'none'",
-    "img-src 'self' data: blob: https://i.scdn.co https://tile.openstreetmap.org",
+    // art.festie.us is the documented app art host; *.scdn.co and *.spotifycdn.com
+    // are Spotify's image CDNs.  All three are CacheFirst'd by the SW art-cache rule
+    // (packages/shared/src/pwa/runtimeCaching.ts).  Without these hosts here the
+    // browser blocks the cached images from rendering (CSP violation), defeating the
+    // offline art cache entirely.  Kept tight — no other hosts added.
+    "img-src 'self' data: blob: https://art.festie.us https://*.scdn.co https://*.spotifycdn.com https://tile.openstreetmap.org",
     "font-src 'self' https://fonts.gstatic.com",
     `style-src ${styleSrc}`,
     `script-src ${scriptSrc}`,

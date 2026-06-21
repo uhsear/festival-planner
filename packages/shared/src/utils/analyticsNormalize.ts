@@ -118,3 +118,32 @@ export const ANALYTICS_DEFAULTS: AnalyticsData = {
   festivalStats: [],
   generatedAt: null,
 };
+
+/**
+ * Format an ISO date string as YYYY-MM-DD (first 10 chars).
+ * Returns "—" for empty/invalid input.
+ */
+export function formatDate(s: string): string {
+  if (!s) return '—';
+  try {
+    return new Date(s).toISOString().slice(0, 10);
+  } catch {
+    return s;
+  }
+}
+
+/**
+ * Relative-time label from an ISO date string (e.g. lastActive from the
+ * analytics API). Different from the epoch-ms `timeAgo` in ./timeAgo — this
+ * accepts the ISO strings the server returns and collapses invalid input to "—".
+ */
+export function timeAgoFromIso(s: string): string {
+  if (!s) return '—';
+  const t = new Date(s).getTime();
+  if (!Number.isFinite(t)) return s;
+  const diff = (Date.now() - t) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}

@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@festie/shared/services/api';
 import { useToast } from '../../lib/toastContext';
-import { type AnalyticsData, normalize, ANALYTICS_DEFAULTS, formatDate, timeAgo } from './analyticsTypes';
+import {
+  type AnalyticsData,
+  normalizeAnalytics,
+  ANALYTICS_DEFAULTS,
+  formatDate,
+  timeAgoFromIso,
+} from '@festie/shared/utils';
 import PickDistribution from './PickDistribution';
 import EngagementMetrics from './EngagementMetrics';
 import TopSets from './TopSets';
@@ -23,7 +29,7 @@ export default function AdminAnalytics() {
     try {
       setLoading(true);
       const raw = await api.get<unknown>('/admin/analytics');
-      setData(normalize(raw));
+      setData(normalizeAnalytics(raw));
     } catch (err: unknown) {
       toast(err instanceof Error ? err.message : "Couldn't load analytics. Try again.", 'error');
       setData(ANALYTICS_DEFAULTS);
@@ -98,7 +104,7 @@ export default function AdminAnalytics() {
                     <td className="px-4 py-2 text-text-primary">{u.username}</td>
                     <td className="px-4 py-2 text-right tabular-nums">{u.profileCount}</td>
                     <td className="px-4 py-2 text-right tabular-nums">{u.totalPicks}</td>
-                    <td className="px-4 py-2 text-right text-text-muted">{timeAgo(u.lastActive)}</td>
+                    <td className="px-4 py-2 text-right text-text-muted">{timeAgoFromIso(u.lastActive)}</td>
                   </tr>
                 ))}
               </tbody>

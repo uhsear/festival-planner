@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   extractMeetingPointPins,
@@ -49,6 +49,14 @@ interface OfflineMapProps {
   peers?: PeerLocation[];
   /** Active crew SOS, if any (ephemeral; from liveLocationStore). */
   sos?: SosEntry | null;
+  /**
+   * Tap-to-create: fired when the user drops a pin on the interactive map, with
+   * the chosen coordinate. Web parity with the native OfflineMap — the screen
+   * wires this to the meeting-point create flow. Omit to disable the affordance.
+   * The map enters "placement mode" via the on-map "Drop pin" toggle; the next
+   * single map click emits the coord, matching the native one-tap behavior.
+   */
+  onMapPress?: (coord: { latitude: number; longitude: number }) => void;
 }
 
 // A free OpenStreetMap raster style (no API key). Online-only basemap — mirrors
@@ -136,7 +144,7 @@ interface LivePin {
   age?: string;
 }
 
-export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProps) {
+export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: OfflineMapProps) {
   const t = useTokens();
   const styles = useStyles();
   const bottomPad = useListBottomInset();
@@ -144,6 +152,11 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
   // 'pending' until the GL lib mounts; 'ready' once the map's `load` fired
   // (marker effects gate on it); 'error' on a load/init failure → list fallback.
   const [status, setStatus] = useState<'pending' | 'ready' | 'error'>('pending');
+  // Placement mode (web parity with native): when on, the next single map click
+  // drops a meeting point at that coord and auto-exits.
+  const [placing, setPlacing] = useState(false);
+  // Guards a single in-flight "find me" geolocation request.
+  const [locating, setLocating] = useState(false);
 
   // The DOM node MapLibre mounts into. On react-native-web a View renders a div,
   // and `ref` resolves to that DOM element.
@@ -154,6 +167,10 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
   const peerMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const sosMarkerRef = useRef<import('maplibre-gl').Marker | null>(null);
   const fittedRef = useRef(false);
+  // The map's click handler is bound once at creation, so it reads placement +
+  // the live onMapPress callback through refs rather than stale closure values.
+  const placingRef = useRef(false);
+  const onMapPressRef = useRef<OfflineMapProps['onMapPress']>(onMapPress);
 
   const pins = useMemo<Pin[]>(() => extractMeetingPointPins(meetingPoints), [meetingPoints]);
   const stagePins = useMemo(() => extractStagePins(), []); // [] today — see mapPins TODO
@@ -238,6 +255,22 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
     centerRef.current = center;
   }, [center]);
 
+  // Keep the click-handler refs current without re-binding the map listener.
+  useEffect(() => {
+    onMapPressRef.current = onMapPress;
+  }, [onMapPress]);
+  useEffect(() => {
+    placingRef.current = placing;
+    // Reflect placement mode in the cursor (desktop web) once the map exists.
+    const map = mapRef.current;
+    if (!map) return;
+    try {
+      map.getCanvas().style.cursor = placing ? 'crosshair' : '';
+    } catch {
+      // Canvas not ready yet — the next placement toggle will set it.
+    }
+  }, [placing]);
+
   // ── Map lifecycle: create once when there's content; tear down on unmount ──
   useEffect(() => {
     if (!shouldRenderMap || !containerRef.current) return;
@@ -265,6 +298,20 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
         map.on('load', () => {
           if (cancelled) return;
           setStatus('ready');
+        });
+        // Tap-to-create (web parity): while placement mode is armed, the next
+        // single click drops a meeting point and auto-exits. Reads live values
+        // through refs so the once-bound listener never goes stale.
+        map.on('click', (e) => {
+          if (!placingRef.current) return;
+          const cb = onMapPressRef.current;
+          const { lng, lat } = e.lngLat;
+          // Auto-exit placement (one-shot), mirroring native.
+          placingRef.current = false;
+          setPlacing(false);
+          if (cb && Number.isFinite(lat) && Number.isFinite(lng)) {
+            cb({ latitude: lat, longitude: lng });
+          }
         });
         glRef.current = maplibregl;
         mapRef.current = map;
@@ -426,6 +473,38 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, pinsKey, peersKey, sosKey]);
 
+  // Toggle placement mode: the next single map click drops a meeting point and
+  // auto-exits (web parity with native's "Drop pin"). The click handler reads
+  // placement through placingRef, kept in sync by the effect above.
+  const togglePlacement = useCallback(() => {
+    setPlacing((prev) => !prev);
+  }, []);
+
+  // "Find me": recenter the map to the browser's geolocation fix. Uses the web
+  // navigator.geolocation API (no native module) — permission denial / failure
+  // is silent, leaving the map where it is. Mirrors native recenterToMe.
+  const recenterToMe = useCallback(() => {
+    if (locating) return;
+    const map = mapRef.current;
+    if (status !== 'ready' || !map) return;
+    const geo = typeof navigator !== 'undefined' ? navigator.geolocation : undefined;
+    if (!geo) return;
+    setLocating(true);
+    geo.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        const { latitude, longitude } = pos.coords;
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+        if (mapRef.current) mapRef.current.flyTo({ center: [longitude, latitude], zoom: 16, duration: 600 });
+      },
+      () => {
+        // Best-effort: leave the map where it is on any failure.
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10_000 },
+    );
+  }, [locating, status]);
+
   // ── Live map (DOM container; markers are mounted via the effects above) ─────
   // We render the map UNLESS the GL lib errored out — then we drop to the honest
   // list below. The list is also used as the empty state (nothing to plot).
@@ -455,6 +534,60 @@ export default function OfflineMap({ meetingPoints, peers, sos }: OfflineMapProp
             <Text style={styles.loadingText}>Loading map…</Text>
           </View>
         ) : null}
+
+        {/* On-map controls (parity with native): "Drop pin" placement toggle +
+            "find me" recenter. Shown once the map is interactive. */}
+        {status === 'ready' ? (
+          <>
+            {onMapPress ? (
+              <>
+                {placing ? (
+                  <View style={styles.mapHint} pointerEvents="none">
+                    <Ionicons name="locate-outline" size={14} color={t.colors.text.onAccent} />
+                    <Text style={styles.mapHintText} numberOfLines={1}>
+                      Click the map to drop a meeting point
+                    </Text>
+                  </View>
+                ) : null}
+                <TouchableOpacity
+                  testID="map-drop-pin-toggle"
+                  style={[styles.dropPinButton, placing ? styles.dropPinButtonActive : null]}
+                  onPress={togglePlacement}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={placing ? 'Cancel dropping a meeting point' : 'Drop a meeting point on the map'}
+                  accessibilityState={{ selected: placing }}
+                >
+                  <Ionicons
+                    name={placing ? 'close' : 'add-circle-outline'}
+                    size={16}
+                    color={placing ? t.colors.text.onAccent : t.colors.accent.aqua}
+                  />
+                  <Text style={[styles.dropPinText, placing ? styles.dropPinTextActive : null]} numberOfLines={1}>
+                    {placing ? 'Cancel' : 'Drop pin'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+            <TouchableOpacity
+              testID="map-recenter-fab"
+              style={styles.recenterFab}
+              onPress={recenterToMe}
+              disabled={locating}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Recenter the map on my location"
+              accessibilityState={{ disabled: locating }}
+            >
+              {locating ? (
+                <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+              ) : (
+                <Ionicons name="locate" size={20} color={t.colors.accent.aqua} />
+              )}
+            </TouchableOpacity>
+          </>
+        ) : null}
+
         {countCopy ? <Text style={styles.countCopy}>{countCopy}</Text> : null}
       </View>
     );
@@ -608,6 +741,73 @@ const useStyles = makeStyles((t) => ({
   loadingText: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
+  },
+  // Floating placement hint, top-centered, non-interactive (parity with native).
+  mapHint: {
+    position: 'absolute',
+    top: t.spacing[3],
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.shade[10],
+  },
+  mapHintText: {
+    ...typeStyle('micro'),
+    color: t.colors.text.onAccent,
+  },
+  // "Drop pin" placement toggle, pinned bottom-right just above the "find me" FAB.
+  dropPinButton: {
+    position: 'absolute',
+    right: t.spacing[4],
+    bottom: t.spacing[5] + 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    minHeight: 40,
+    paddingHorizontal: t.spacing[3],
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+  },
+  dropPinButtonActive: {
+    borderColor: t.colors.accent.coral,
+    backgroundColor: t.colors.accent.coralStrong,
+  },
+  dropPinText: {
+    ...typeStyle('caption', 600),
+    color: t.colors.accent.aqua,
+  },
+  dropPinTextActive: {
+    color: t.colors.text.onAccent,
+  },
+  // Round "find me" control, pinned bottom-right (parity with native).
+  recenterFab: {
+    position: 'absolute',
+    right: t.spacing[4],
+    bottom: t.spacing[5],
+    width: 48,
+    height: 48,
+    borderRadius: t.radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
   },
   countCopy: {
     ...typeStyle('caption'),

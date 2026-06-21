@@ -36,7 +36,9 @@ import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
  *   no id            → create
  *
  * Save: POST /admin/festivals (create) or PUT /admin/festivals/:id (edit) with
- *       { name, location, timeZone, startDate, endDate, stages[], days[].sets[] }.
+ *       { name, location, timeZone, stages[], days[].sets[] }. The festival's
+ *       date range is NOT a top-level field — the server derives start/end from
+ *       the day dates (days[].date), matching festivalCreateSchema/festivalUpdateSchema.
  * Delete: DELETE /admin/festivals/:id — gated behind ConfirmDialog.
  * Backfill: POST /admin/festivals/:id/backfill-spotify — gated behind ConfirmDialog.
  *
@@ -86,8 +88,6 @@ interface FormState {
   name: string;
   location: string;
   timeZone: string; // '' = device-local (no festival zone)
-  startDate: string;
-  endDate: string;
   stages: StageRow[];
   days: DayRow[];
 }
@@ -99,8 +99,6 @@ interface FestivalDetail {
   name?: string;
   location?: string;
   timeZone?: string | null;
-  startDate?: string;
-  endDate?: string;
   stages?: { id?: string; name?: string; color?: string }[];
   days?: {
     id?: string;
@@ -124,8 +122,6 @@ const EMPTY_FORM: FormState = {
   name: '',
   location: '',
   timeZone: '',
-  startDate: '',
-  endDate: '',
   stages: [],
   days: [],
 };
@@ -186,8 +182,6 @@ export default function FestivalEditScreen() {
         name: full.name || '',
         location: full.location || '',
         timeZone: full.timeZone || '',
-        startDate: full.startDate || '',
-        endDate: full.endDate || '',
         stages,
         days,
       });
@@ -316,9 +310,7 @@ export default function FestivalEditScreen() {
     }
     // Block obviously-malformed dates/times before hitting the server (the
     // fields show inline errors too; this is the gate before the write fires).
-    const badDate = [form.startDate, form.endDate, ...form.days.map((d) => d.date)].some(
-      (d) => d.trim() !== '' && !isValidDate(d),
-    );
+    const badDate = form.days.map((d) => d.date).some((d) => d.trim() !== '' && !isValidDate(d));
     if (badDate) {
       setFormError('One or more dates are invalid. Use YYYY-MM-DD.');
       return;
@@ -357,8 +349,6 @@ export default function FestivalEditScreen() {
         })),
       })),
     };
-    if (form.startDate.trim()) payload.startDate = form.startDate.trim();
-    if (form.endDate.trim()) payload.endDate = form.endDate.trim();
 
     setSaving(true);
     try {
@@ -486,22 +476,6 @@ export default function FestivalEditScreen() {
               onSelect={(v) => setForm((f) => ({ ...f, timeZone: v }))}
               hint="Anchors set status & reminders in the festival's zone."
             />
-            <View style={styles.datePair}>
-              <View style={styles.flex}>
-                <DateField
-                  label="Start date"
-                  value={form.startDate}
-                  onChangeText={(v) => setForm((f) => ({ ...f, startDate: v }))}
-                />
-              </View>
-              <View style={styles.flex}>
-                <DateField
-                  label="End date"
-                  value={form.endDate}
-                  onChangeText={(v) => setForm((f) => ({ ...f, endDate: v }))}
-                />
-              </View>
-            </View>
           </View>
 
           {/* Stages */}
@@ -782,6 +756,7 @@ export default function FestivalEditScreen() {
         title="Backfill Spotify links?"
         message="Searches Spotify for every artist in this festival and attaches a link where a confident match is found. Existing links are preserved."
         confirmLabel={busy ? 'Working…' : 'Backfill'}
+        destructive
         onConfirm={() => void doBackfill()}
         onCancel={() => !busy && setConfirm(null)}
       />
