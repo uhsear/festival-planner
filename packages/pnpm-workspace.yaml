@@ -1,6 +1,5 @@
 packages:
   - "shared"
-  - "web"
   - "mobile"
 
 # pnpm v10 blocks dependency build scripts by default. Allow @sentry/cli to run

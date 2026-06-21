@@ -7,9 +7,6 @@ const config: KnipConfig = {
       project: ['lib/**/*.ts', 'routes/**/*.ts'],
       ignore: ['tests/**'],
     },
-    'packages/web': {
-      project: ['src/**/*.{ts,tsx}'],
-    },
     'packages/shared': {
       entry: ['src/**/*.ts'],
       project: ['src/**/*.ts'],

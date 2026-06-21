@@ -185,7 +185,7 @@ function configureMiddleware(app: Application, ctx: any) {
   // Serve the Workbox-generated SW from the React dist/ build.
   // ponytail: config.WEB_DIST is the prod source (set by loadConfig); the || keeps
   // partial/test configs from throwing on path.join(undefined).
-  const webDist = config.WEB_DIST || path.join(config.PUBLIC_DIR, '..', 'packages', 'web', 'dist');
+  const webDist = config.WEB_DIST || path.join(config.PUBLIC_DIR, '..', 'packages', 'mobile', 'dist');
   const _reactSwPath = path.join(webDist, 'sw.js');
   app.get('/sw.js', (req: any, res: any) => {
     setNoStore(res);
@@ -194,7 +194,7 @@ function configureMiddleware(app: Application, ctx: any) {
         res.status(404).json({
           ok: false,
           code: 'NOT_FOUND',
-          message: 'Service worker not found — run pnpm build in packages/web/',
+          message: 'Service worker not found — run the Expo web export in packages/mobile/',
         });
       }
     });
@@ -206,8 +206,8 @@ function configureMiddleware(app: Application, ctx: any) {
     });
   });
 
-  // ── React SPA (packages/web/dist) ─────────────────────────────────────
-  // Serve the Vite build output. Hashed filenames (e.g. index-DG3A0cK-.js)
+  // ── Web SPA (packages/mobile/dist) ────────────────────────────────────
+  // Serve the Expo-web export output. Hashed filenames (e.g. index-DG3A0cK-.js)
   // get immutable caching. Falls through to public/ for static assets
   // (icons, legal pages, screenshots, etc.).
   const reactDistDir = webDist;

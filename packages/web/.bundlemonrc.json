@@ -1,8 +1,0 @@
-{
-  "baseDir": "dist",
-  "files": [
-    { "path": "assets/**/*.js", "maxSize": "250kb" },
-    { "path": "assets/**/*.css", "maxSize": "50kb" }
-  ],
-  "defaultCompression": "gzip"
-}
