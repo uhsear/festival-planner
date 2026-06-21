@@ -643,6 +643,18 @@ export default function TimelineScreen() {
         {/* "Live" is reserved for location (P1-2); flash = Now & Next. */}
         <Ionicons name="flash" size={20} color={t.colors.accent.aqua} />
       </TouchableOpacity>
+      {festivalHasTimedSets ? (
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          onPress={() => router.push('/grid')}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Open the schedule grid"
+        >
+          {/* The dense 2D stage×time grid lives on its own full-screen route. */}
+          <Ionicons name="grid-outline" size={20} color={t.colors.text.secondary} />
+        </TouchableOpacity>
+      ) : null}
       {activeCrew ? (
         <TouchableOpacity
           style={styles.headerIconButton}
