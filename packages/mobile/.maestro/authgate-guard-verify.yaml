@@ -1,0 +1,62 @@
+# AuthGate route-guard regression guard (P1 security).
+#
+# Mobile AuthGate (app/_layout.tsx) historically gated only `wrap` + `account`,
+# while web guarded 7 routes — so a signed-OUT guest (or a push-notification
+# deep link) could reach crew-plan, crew-compare, and /admin on mobile. This
+# flow proves a GUEST is bounced to the login screen on every gated route, and
+# is NOT bounced on a public route.
+#
+# GUEST flow — no credentials needed (that is the point). Run on the rig:
+#   maestro --device emulator-5554 test .maestro/authgate-guard-verify.yaml
+# Deep-links past the nav with the `festie` scheme; each `assertVisible:
+# "Sign in to your account"` after a gated openLink is the hard security gate.
+appId: us.festie.app
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      text: "Skip|Select a Festival|Schedule|Festie"
+    timeout: 120000
+- tapOn:
+    text: "Skip"
+    optional: true
+# Guest may browse the schedule (public) — login must NOT be shown here.
+- tapOn:
+    text: "Schedule"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertNotVisible: "Sign in to your account"
+- takeScreenshot: authgate-00-guest-home
+
+# ── GATED: /crew-plan must bounce a guest to login ──
+- openLink: festie:///crew-plan
+- extendedWaitUntil:
+    visible: "Sign in to your account"
+    timeout: 20000
+- takeScreenshot: authgate-01-crewplan-blocked
+- assertVisible: "Sign in to your account"
+
+# ── GATED: /admin must bounce a guest to login (web also requires isAdmin) ──
+- openLink: festie:///admin
+- extendedWaitUntil:
+    visible: "Sign in to your account"
+    timeout: 20000
+- takeScreenshot: authgate-02-admin-blocked
+- assertVisible: "Sign in to your account"
+
+# ── GATED: /crew-compare (== web /compare) must bounce a guest to login ──
+- openLink: festie:///crew-compare
+- extendedWaitUntil:
+    visible: "Sign in to your account"
+    timeout: 20000
+- takeScreenshot: authgate-03-crewcompare-blocked
+- assertVisible: "Sign in to your account"
+
+# ── PUBLIC control: /festival-mode must NOT bounce a guest ──
+- openLink: festie:///festival-mode
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: authgate-04-festivalmode-public
+- assertNotVisible: "Sign in to your account"
