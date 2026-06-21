@@ -90,6 +90,7 @@ configureApi({
 
 function AuthGate() {
   const user = useAuthStore((s) => s.user);
+  const isAdmin = useAuthStore((s) => s.isAdmin);
   const sessionChecked = useAuthStore((s) => s.sessionChecked);
   const checkSession = useAuthStore((s) => s.checkSession);
   const segments = useSegments();
@@ -222,21 +223,34 @@ function AuthGate() {
 
     const raf = requestAnimationFrame(() => {
       const inAuthGroup = segments[0] === '(auth)';
-      // Guests may browse the schedule, set detail, festival-mode, privacy, and
-      // the picks/crew tabs (which render their own sign-in CTA). Only the
-      // account tab and the full-screen wrap are gated — bounce a signed-out
-      // user to login there; everything else stays mounted so cold deep-links
-      // and casual browsing work without forcing an account first.
+      // Guests may browse the schedule, set detail, festival-mode, map, compass,
+      // find, privacy, and the /cards + /timeline deep-link shims — these stay
+      // open so cold deep-links and casual browsing work without an account.
+      // Everything that exposes another user's data or admin surface is gated to
+      // match the web router's guards: wrap, crew-plan, crew-compare, admin, and
+      // the account/picks/crew tabs. (Web /compare === mobile crew-compare; the
+      // segment is 'crew-compare', not 'compare'.) A signed-in non-admin who
+      // reaches admin is bounced to the tabs, mirroring web bouncing them to /.
       const seg = segments as string[];
-      const guestBlocked = seg[0] === 'wrap' || seg[1] === 'account';
+      const guestBlocked =
+        seg[0] === 'wrap' ||
+        seg[0] === 'crew-plan' ||
+        seg[0] === 'crew-compare' ||
+        seg[0] === 'admin' ||
+        seg[1] === 'account' ||
+        seg[1] === 'picks' ||
+        seg[1] === 'crew';
+      const adminBlocked = seg[0] === 'admin' && !!user && !isAdmin;
       if (!user && guestBlocked && !inAuthGroup) {
         router.replace('/(auth)/login');
+      } else if (adminBlocked) {
+        router.replace('/(tabs)');
       } else if (user && inAuthGroup) {
         router.replace('/(tabs)');
       }
     });
     return () => cancelAnimationFrame(raf);
-  }, [user, sessionChecked, segments, router, navState?.key]);
+  }, [user, isAdmin, sessionChecked, segments, router, navState?.key]);
 
   // The navigator (Stack) MUST be mounted on the very first render so the
   // redirect effect above can navigate safely. So rather than swapping the
