@@ -141,6 +141,22 @@ def main():
             rollback_hint()
             raise SystemExit("web build failed")
 
+        # 4b. Build the Expo-web surface (react-native-web). Served when WEB_DIST
+        # points at packages/mobile/dist (the prod cutover). build:web =
+        # `expo export -p web` + manifest + Workbox SW. Rebuilt fresh each deploy
+        # so the served bundle never goes stale. Kept ALONGSIDE the Vite build
+        # above until packages/web is retired — unsetting WEB_DIST is an instant
+        # revert to the Vite SPA.
+        code, out, err = run(
+            client,
+            f"bash -lc 'cd {APP}/packages/mobile && rm -rf dist && pnpm run build:web' 2>&1 | tail -10",
+            timeout=900,
+        )
+        print(f"[build:web] exit={code}\n{out}{err}")
+        if code != 0:
+            rollback_hint()
+            raise SystemExit("expo-web build failed")
+
         # 4. Restart the backend
         code, out, err = run(
             client,
