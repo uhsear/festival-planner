@@ -288,7 +288,7 @@ export function loadConfig(overrides: Record<string, any> = {}): {
     overrides.PUBLIC_DIR || process.env.PUBLIC_DIR || path.join(import.meta.dirname, '..', 'public'),
   );
   const webDist = path.resolve(
-    overrides.WEB_DIST || process.env.WEB_DIST || path.join(publicDir, '..', 'packages', 'mobile', 'dist'),
+    overrides.WEB_DIST || process.env.WEB_DIST || path.join(publicDir, '..', 'packages', 'web', 'dist'),
   );
   const dataDir = path.resolve(overrides.DATA_DIR || process.env.DATA_DIR || path.join(import.meta.dirname, 'data'));
   const databaseUrl = overrides.DATABASE_URL || process.env.DATABASE_URL || 'postgresql://localhost/festival_planner';

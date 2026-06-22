@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#080810" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Preload the Google Fonts CSS so the browser kicks off the font-family
+         fetch on the critical path. Combined with `display=swap` (already in
+         the URL) + size-adjust fallback below, FOUT shifts are eliminated on
+         first paint. -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" />
+    <!-- Load the font CSS. The preload hint above starts the fetch early;
+         size-adjust fallback @font-faces below cover first paint so FOUT is
+         already handled without the media="print"+onload trick (which would
+         violate CSP script-src-attr 'none'). -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    />
+    <!-- Display face (Clash Display) is self-hosted (font-src 'self' — no CDN/CSP
+         change). Preload the Bold weight: it carries the FESTIE wordmark + every
+         heading on first paint. -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/clash-display/clash-display-700.woff2" crossorigin />
+    <!-- app.css migrated to packages/web/src/styles/legacy.css (bundled by Vite) -->
+    <!-- Size-adjust fallback: matches x-height + ascent of Space Grotesk and
+         Clash Display so the system-ui fallback that renders during font swap
+         occupies the same vertical metrics. Prevents text reflow when the
+         web font loads. Values measured empirically against macOS
+         system-ui / Windows Segoe UI. -->
+    <style>
+      @font-face {
+        font-family: 'Space Grotesk Fallback';
+        src: local('Arial');
+        size-adjust: 101%;
+        ascent-override: 95%;
+        descent-override: 25%;
+        line-gap-override: 0%;
+        font-display: swap;
+      }
+      /* Clash Display — self-hosted display face (replaces Syncopate). Heavier
+         Bold cut + tight tracking fixes the thin-on-mobile display headings. */
+      @font-face {
+        font-family: 'Clash Display';
+        src: url('/fonts/clash-display/clash-display-400.woff2') format('woff2');
+        font-weight: 400;
+        font-display: swap;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: 'Clash Display';
+        src: url('/fonts/clash-display/clash-display-500.woff2') format('woff2');
+        font-weight: 500;
+        font-display: swap;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: 'Clash Display';
+        src: url('/fonts/clash-display/clash-display-600.woff2') format('woff2');
+        font-weight: 600;
+        font-display: swap;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: 'Clash Display';
+        src: url('/fonts/clash-display/clash-display-700.woff2') format('woff2');
+        font-weight: 700;
+        font-display: swap;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: 'Clash Display Fallback';
+        src: local('Arial');
+        size-adjust: 100%;
+        ascent-override: 96%;
+        descent-override: 24%;
+        line-gap-override: 0%;
+        font-display: swap;
+      }
+      body {
+        font-family: 'Space Grotesk', 'Space Grotesk Fallback', system-ui, sans-serif;
+      }
+    </style>
+    <title>Festie — Festival Planner</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

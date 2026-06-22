@@ -1,0 +1,388 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { FestivalSet } from '@festie/shared/types';
+
+// Mock dependencies
+vi.mock('@festie/shared/hooks', () => ({
+  usePicks: vi.fn(() => ({
+    getMyPick: vi.fn(() => null),
+    savePick: vi.fn(),
+    getMyNote: vi.fn(() => ''),
+  })),
+}));
+
+// Mutable store snapshots so individual tests can seed allProfiles / crewMembers
+// for the crew-overlap avatar join without re-mocking the module.
+const festivalStoreState: Record<string, unknown> = {
+  currentFestival: { id: 'fest-1' },
+  allProfiles: [],
+};
+const crewStoreState: Record<string, unknown> = {
+  crewMembers: [],
+};
+
+vi.mock('@festie/shared/stores', () => ({
+  useFestivalStore: (selector: (s: Record<string, unknown>) => unknown) => selector(festivalStoreState),
+  useCrewStore: (selector: (s: Record<string, unknown>) => unknown) => selector(crewStoreState),
+}));
+
+vi.mock('@festie/shared/services/api', () => ({
+  api: { get: vi.fn() },
+}));
+
+vi.mock('@/hooks/useSetStatus', () => ({
+  useSetStatus: vi.fn(() => ({ status: 'later', label: '3:00 PM', minutesUntil: 300, progress: 0 })),
+}));
+
+vi.mock('@/lib/toastContext', () => ({
+  useToast: vi.fn(() => ({ toast: vi.fn() })),
+}));
+
+vi.mock('@/hooks/useHaptics', () => ({
+  useHaptics: vi.fn(() => ({ tap: vi.fn(), select: vi.fn(), warning: vi.fn() })),
+}));
+
+vi.mock('./LiveBadge', () => ({
+  default: ({ status: _status, label }: { status: string; label: string }) => (
+    <div data-testid="live-badge">{label}</div>
+  ),
+}));
+
+import SetCard from './SetCard';
+import { useSetStatus } from '@/hooks/useSetStatus';
+import { usePicks } from '@festie/shared/hooks';
+import { ensureWhiteContrast } from '../ui/StageBadge';
+
+function makeSet(overrides: Partial<FestivalSet> = {}): FestivalSet {
+  return {
+    id: 'set-1',
+    festivalId: 'fest-1',
+    stageId: 'stage-1',
+    startTime: '14:00',
+    endTime: '15:00',
+    artist: 'Daft Punk',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+describe('SetCard', () => {
+  const defaultProps = {
+    set: makeSet(),
+    onTap: vi.fn(),
+    stageName: 'Main Stage',
+    stageColor: '#ff3366',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    festivalStoreState.allProfiles = [];
+    crewStoreState.crewMembers = [];
+    vi.mocked(useSetStatus).mockReturnValue({
+      status: 'later',
+      label: '2:00 PM',
+      minutesUntil: 300,
+      progress: 0,
+    });
+    vi.mocked(usePicks).mockReturnValue({
+      getMyPick: vi.fn(() => null),
+      savePick: vi.fn(),
+      getMyNote: vi.fn(() => ''),
+    });
+  });
+
+  it('renders the artist name', () => {
+    render(<SetCard {...defaultProps} />);
+    expect(screen.getByText('Daft Punk')).toBeInTheDocument();
+  });
+
+  it('renders the stage name', () => {
+    render(<SetCard {...defaultProps} />);
+    expect(screen.getByText('Main Stage')).toBeInTheDocument();
+  });
+
+  it('renders the time range', () => {
+    render(<SetCard {...defaultProps} />);
+    expect(screen.getByText('2:00 PM - 3:00 PM')).toBeInTheDocument();
+  });
+
+  it('renders TBA when times are missing', () => {
+    render(
+      <SetCard
+        {...defaultProps}
+        set={makeSet({ startTime: undefined as unknown as string, endTime: undefined as unknown as string })}
+      />,
+    );
+    expect(screen.getByText('TBA')).toBeInTheDocument();
+  });
+
+  it('has data-testid="set-card"', () => {
+    render(<SetCard {...defaultProps} />);
+    expect(screen.getByTestId('set-card')).toBeInTheDocument();
+  });
+
+  it('has data-artist attribute with artist name', () => {
+    render(<SetCard {...defaultProps} />);
+    expect(screen.getByTestId('set-card')).toHaveAttribute('data-artist', 'Daft Punk');
+  });
+
+  it('calls onTap when the card click target is clicked', async () => {
+    const onTap = vi.fn();
+    const user = userEvent.setup();
+    render(<SetCard {...defaultProps} onTap={onTap} />);
+    const clickTarget = screen.getByLabelText(/Daft Punk/);
+    await user.click(clickTarget);
+    expect(onTap).toHaveBeenCalledOnce();
+  });
+
+  it('renders the accessible click target with artist and stage info', () => {
+    render(<SetCard {...defaultProps} />);
+    const btn = screen.getByLabelText(/Daft Punk.*Main Stage.*2:00 PM/);
+    expect(btn).toBeInTheDocument();
+  });
+
+  describe('priority buttons', () => {
+    it('renders 3 priority buttons when showPicks is true', () => {
+      render(<SetCard {...defaultProps} showPicks />);
+      expect(screen.getByLabelText('Must See')).toBeInTheDocument();
+      expect(screen.getByLabelText('Want to See')).toBeInTheDocument();
+      expect(screen.getByLabelText('Maybe')).toBeInTheDocument();
+    });
+
+    it('does not render priority buttons when showPicks is false', () => {
+      render(<SetCard {...defaultProps} showPicks={false} />);
+      expect(screen.queryByLabelText('Must See')).not.toBeInTheDocument();
+    });
+
+    it('marks the active priority with aria-pressed=true', () => {
+      vi.mocked(usePicks).mockReturnValue({
+        getMyPick: vi.fn(() => 'must'),
+        savePick: vi.fn(),
+        getMyNote: vi.fn(() => ''),
+      });
+      render(<SetCard {...defaultProps} />);
+      expect(screen.getByLabelText('Must See (selected)')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByLabelText('Want to See')).toHaveAttribute('aria-pressed', 'false');
+    });
+  });
+
+  describe('priority class', () => {
+    it('adds priority-must class when pick is must', () => {
+      vi.mocked(usePicks).mockReturnValue({
+        getMyPick: vi.fn(() => 'must'),
+        savePick: vi.fn(),
+        getMyNote: vi.fn(() => ''),
+      });
+      render(<SetCard {...defaultProps} />);
+      expect(screen.getByTestId('set-card').className).toContain('priority-must');
+    });
+
+    it('adds no priority class when no pick', () => {
+      render(<SetCard {...defaultProps} />);
+      expect(screen.getByTestId('set-card').className).not.toContain('priority-');
+    });
+  });
+
+  describe('conflict badge', () => {
+    it('shows conflict badge when conflicts exist', () => {
+      render(<SetCard {...defaultProps} conflicts={[makeSet({ id: 'set-2' })]} />);
+      expect(screen.getByTestId('set-card').className).toContain('has-conflict');
+    });
+
+    it('does not show conflict badge when no conflicts', () => {
+      render(<SetCard {...defaultProps} conflicts={[]} />);
+      expect(screen.getByTestId('set-card').className).not.toContain('has-conflict');
+    });
+  });
+
+  describe('crew overlap', () => {
+    it('renders crew avatars with an accessible count label when crew data is present', () => {
+      render(
+        <SetCard
+          {...defaultProps}
+          friendProfiles={[
+            { profileId: 'p1', name: 'Alice', priority: 'must' },
+            { profileId: 'p2', name: 'Bob', priority: 'maybe' },
+          ]}
+        />,
+      );
+      // Avatars replace the bare count; the accessible label still conveys the count.
+      expect(screen.getByLabelText(/2 crew members going to Daft Punk/)).toBeInTheDocument();
+      // Initials avatars render for each crew member (no avatar image provided).
+      expect(screen.getByText('A')).toBeInTheDocument();
+      expect(screen.getByText('B')).toBeInTheDocument();
+    });
+
+    it('uses singular phrasing in the accessible label for a single friend', () => {
+      render(<SetCard {...defaultProps} friendProfiles={[{ profileId: 'p1', name: 'Alice', priority: 'must' }]} />);
+      expect(screen.getByLabelText(/1 crew member going to Daft Punk/)).toBeInTheDocument();
+    });
+
+    it('shows a +N overflow chip when more than 3 crew members are going', () => {
+      render(
+        <SetCard
+          {...defaultProps}
+          friendProfiles={[
+            { profileId: 'p1', name: 'Alice', priority: 'must' },
+            { profileId: 'p2', name: 'Bob', priority: 'maybe' },
+            { profileId: 'p3', name: 'Carol', priority: 'want-to-see' },
+            { profileId: 'p4', name: 'Dave', priority: 'maybe' },
+            { profileId: 'p5', name: 'Eve', priority: 'maybe' },
+          ]}
+        />,
+      );
+      expect(screen.getByText('+2')).toBeInTheDocument();
+      expect(screen.getByLabelText(/5 crew members going to Daft Punk/)).toBeInTheDocument();
+    });
+
+    it('groups avatars by priority (must before want before maybe) in the cluster', () => {
+      // Provide friends out of priority order with distinct initials; the cluster
+      // should re-sort so must (A) renders before want (B) before maybe (C).
+      const { container } = render(
+        <SetCard
+          {...defaultProps}
+          friendProfiles={[
+            { profileId: 'p1', name: 'Cara', priority: 'maybe' },
+            { profileId: 'p2', name: 'Bea', priority: 'want-to-see' },
+            { profileId: 'p3', name: 'Ada', priority: 'must' },
+          ]}
+        />,
+      );
+      const text = container.querySelector('.card-overlap')?.textContent ?? '';
+      // Visible initials sequence reflects must → want → maybe ordering.
+      expect(text.indexOf('A')).toBeLessThan(text.indexOf('B'));
+      expect(text.indexOf('B')).toBeLessThan(text.indexOf('C'));
+    });
+
+    it('summarizes the priority breakdown in the accessible label', () => {
+      render(
+        <SetCard
+          {...defaultProps}
+          friendProfiles={[
+            { profileId: 'p1', name: 'Alice', priority: 'must' },
+            { profileId: 'p2', name: 'Bob', priority: 'must' },
+            { profileId: 'p3', name: 'Carol', priority: 'maybe' },
+          ]}
+        />,
+      );
+      // "N of your crew have this as a must" surfaces as a must/maybe breakdown
+      // appended to the count label.
+      expect(screen.getByLabelText(/3 crew members going to Daft Punk — 2 must, 1 maybe/)).toBeInTheDocument();
+    });
+
+    it('joins crew-member avatars by userId, falling back to initials', () => {
+      // Profile p1 -> user u1 -> crew member with an avatar image; p2 has no
+      // matching crew member, so it falls back to initials.
+      festivalStoreState.allProfiles = [
+        { id: 'p1', userId: 'u1' },
+        { id: 'p2', userId: 'u2' },
+      ];
+      crewStoreState.crewMembers = [{ userId: 'u1', name: 'Alice' }];
+      const { container } = render(
+        <SetCard
+          {...defaultProps}
+          friendProfiles={[
+            { profileId: 'p1', avatarUrl: 'https://cdn/alice.png', priority: 'must' },
+            { profileId: 'p2', name: 'Bob', priority: 'maybe' },
+          ]}
+        />,
+      );
+      // Alice's avatar comes from friendProfiles.avatarUrl; name is joined
+      // from the crew roster for the alt text.
+      const img = container.querySelector('img[alt="Alice"]');
+      expect(img).toHaveAttribute('src', 'https://cdn/alice.png');
+      // Bob has no crew-member match and no avatarUrl -> initials fallback.
+      expect(screen.getByText('B')).toBeInTheDocument();
+    });
+
+    it('falls back to the count when crew profiles have no identity data', () => {
+      render(
+        <SetCard
+          {...defaultProps}
+          friendProfiles={[
+            { profileId: 'p1', priority: 'must' },
+            { profileId: 'p2', priority: 'maybe' },
+          ]}
+        />,
+      );
+      expect(screen.getByText('2 going')).toBeInTheDocument();
+    });
+
+    it('hides crew overlap when no friendProfiles', () => {
+      render(<SetCard {...defaultProps} friendProfiles={[]} />);
+      expect(screen.queryByText(/going/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('live badge', () => {
+    it('shows LiveBadge when status is live', () => {
+      vi.mocked(useSetStatus).mockReturnValue({
+        status: 'live',
+        label: 'LIVE',
+        minutesUntil: -10,
+        progress: 0.5,
+      });
+      render(<SetCard {...defaultProps} />);
+      expect(screen.getByTestId('live-badge')).toBeInTheDocument();
+    });
+
+    it('shows LiveBadge when status is soon', () => {
+      vi.mocked(useSetStatus).mockReturnValue({
+        status: 'soon',
+        label: 'In 15m',
+        minutesUntil: 15,
+        progress: 0,
+      });
+      render(<SetCard {...defaultProps} />);
+      expect(screen.getByTestId('live-badge')).toBeInTheDocument();
+    });
+
+    it('does not show LiveBadge when status is later', () => {
+      vi.mocked(useSetStatus).mockReturnValue({
+        status: 'later',
+        label: '6:00 PM',
+        minutesUntil: 300,
+        progress: 0,
+      });
+      render(<SetCard {...defaultProps} />);
+      expect(screen.queryByTestId('live-badge')).not.toBeInTheDocument();
+    });
+  });
+
+  it('renders note indicator when user has a note', () => {
+    vi.mocked(usePicks).mockReturnValue({
+      getMyPick: vi.fn(() => null),
+      savePick: vi.fn(),
+      getMyNote: vi.fn(() => 'My note'),
+    });
+    render(<SetCard {...defaultProps} />);
+    expect(screen.getByLabelText('Has note')).toBeInTheDocument();
+  });
+
+  it('does not render note indicator when no note', () => {
+    render(<SetCard {...defaultProps} />);
+    expect(screen.queryByLabelText('Has note')).not.toBeInTheDocument();
+  });
+
+  it('applies stage color as background on the stage label', () => {
+    // StageBadge darkens bright colors so white text meets WCAG AA contrast,
+    // so the rendered background is the contrast-adjusted color, not the raw input.
+    render(<SetCard {...defaultProps} stageColor="#00ff00" />);
+    const stageEl = screen.getByText('Main Stage');
+
+    // Compute the expected value via the same helper the component uses, so this
+    // assertion stays valid if the contrast math is later tuned.
+    const adjusted = ensureWhiteContrast('#00ff00');
+    const r = parseInt(adjusted.slice(1, 3), 16);
+    const g = parseInt(adjusted.slice(3, 5), 16);
+    const b = parseInt(adjusted.slice(5, 7), 16);
+
+    expect(stageEl.style.background).toBe(`rgb(${r}, ${g}, ${b})`);
+    // Sanity: bright green is darkened (not the raw #00ff00 input).
+    expect(stageEl.style.background).not.toBe('rgb(0, 255, 0)');
+    expect(g).toBeGreaterThan(0);
+    expect(g).toBeLessThan(255);
+  });
+});

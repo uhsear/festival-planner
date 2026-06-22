@@ -95,8 +95,8 @@ def main():
         code, out, err = run(
             client,
             "curl -s " + READY_URL.rsplit("/api/", 1)[0] + "/ "
-            "| grep -o '_expo/static/js/web/[^\"]*' | head -2 && "
-            f"ls {APP}/packages/mobile/dist/_expo/static/js/web/ | grep -i '^index-' | head -2",
+            "| grep -o 'assets/index-[^\"]*' | head -2 && "
+            f"ls {APP}/packages/web/dist/assets/ | grep '^index-' | head -2",
         )
         print(f"[bundle]\n{out}{err}")
     finally:

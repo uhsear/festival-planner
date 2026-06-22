@@ -1,6 +1,7 @@
 packages:
   - "shared"
   - "mobile"
+  - "web"
 
 # pnpm v10 blocks dependency build scripts by default. Allow @sentry/cli to run
 # its postinstall, which downloads the sentry-cli binary that the
