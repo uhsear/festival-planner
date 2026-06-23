@@ -1,0 +1,470 @@
+/* Glassmorphism */
+.glass {
+  background-color: var(--color-glass);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--color-glass-border);
+}
+@media (hover: hover) {
+  .glass:hover {
+    background-color: color-mix(in oklch, var(--color-glass) 85%, white);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* Layout utilities */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Password toggle 44x44 touch target (WCAG 2.5.8) */
+.relative > button[aria-label='Show password'],
+.relative > button[aria-label='Hide password'] {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Coral danger button AA contrast */
+.bg-accent-coral\/20.text-accent-coral {
+  color: #ff7a8c;
+}
+.bg-accent-coral\/30.text-accent-coral,
+.bg-accent-coral\/20.text-accent-coral:hover {
+  color: #ff8fa0;
+}
+
+/* Container queries — set-card typography + crew grids */
+.card-grid > .card-enter {
+  container-type: inline-size;
+}
+@container (max-width: 319px) {
+  .set-card .card-artist {
+    font-size: 15px !important;
+    letter-spacing: -0.2px;
+  }
+  .set-card .card-stage {
+    font-size: 10px;
+    padding: 2px 8px;
+    margin-bottom: 6px;
+  }
+  .set-card .card-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+@container (min-width: 320px) and (max-width: 419px) {
+  .set-card .card-artist {
+    font-size: 17px !important;
+  }
+}
+@container (min-width: 420px) {
+  .set-card .card-artist {
+    font-size: 20px !important;
+    letter-spacing: -0.4px;
+  }
+}
+@media (max-width: 319px) {
+  .crew-category-grid,
+  .crew-type-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .crew-stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Auth breathing circle */
+.auth-screen::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(500px, 80vw);
+  height: min(500px, 80vw);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(var(--accent-coral-rgb), 0.06) 0%,
+    rgba(0, 232, 208, 0.03) 50%,
+    transparent 70%
+  );
+  pointer-events: none;
+  animation: breathe 6s ease-in-out infinite;
+}
+
+/* Scrollbar — single global definition (8px, matching base.css). This block
+   loads after base.css and is authoritative: refined transparent track +
+   overlay thumb + aqua active. Narrower 6px bars are scoped per-context via
+   .scrollbar-thin below (e.g. stage-filter rows) rather than overriding the
+   global width here, which previously fought base.css's 8px. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+  margin: var(--space-2);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-overlay-5);
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+::-webkit-scrollbar-thumb:active {
+  background: var(--color-aqua-a3);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-overlay-5) transparent;
+}
+/* Opt-in narrow scrollbar for dense horizontal contexts (e.g. filter rows). */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+/* Input focus glow */
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-accent-aqua);
+  box-shadow:
+    0 0 0 3px var(--color-aqua-a12),
+    0 0 16px var(--color-aqua-a06);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.25s var(--ease-out);
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  box-shadow:
+    0 0 0 3px var(--color-aqua-a15),
+    0 0 20px var(--color-aqua-a08);
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .set-card,
+  .set-card:hover {
+    transform: none !important;
+    transition: none !important;
+  }
+  .day-tab-underline:active {
+    transform: none !important;
+  }
+}
+
+/* Focus-visible + touch targets */
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  box-shadow: 0 0 0 4px var(--color-aqua-a2);
+}
+.card-priority-btn:focus-visible {
+  outline-offset: 0;
+}
+.card-priority-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+@media (forced-colors: active) {
+  .card-priority-btn {
+    border: 2px solid ButtonText;
+  }
+  .card-priority-btn[aria-pressed='true'] {
+    border-color: Highlight;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .set-card {
+    border: 1px solid ButtonText;
+  }
+  .day-tab-underline.active {
+    border-bottom: 3px solid Highlight;
+  }
+}
+@media (pointer: fine) and (hover: hover) {
+  .day-tab-underline {
+    padding: 6px 12px;
+    min-height: 32px;
+  }
+}
+@media (pointer: coarse) {
+  .card-priority-btn {
+    min-height: 48px;
+    min-width: 48px;
+  }
+  .day-tab-underline {
+    min-height: 44px;
+  }
+}
+@media (hover: none) {
+  .set-card:hover {
+    border-color: var(--color-border-light);
+    background: var(--color-bg-card);
+  }
+}
+
+/* Dialog */
+[role='dialog'] {
+  z-index: var(--z-modal);
+  outline: none;
+}
+[role='dialog']:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: -2px;
+}
+
+/* Disabled + placeholder contrast. Pairs the muted text with an explicit
+   disabled surface tone so a disabled control reads as inert rather than
+   just low-contrast text on the live button color. */
+button:disabled,
+button[disabled] {
+  opacity: 1 !important;
+  color: var(--color-text-disabled) !important;
+  background-color: var(--color-bg-disabled) !important;
+  cursor: not-allowed;
+}
+input::placeholder,
+textarea::placeholder,
+select::placeholder {
+  opacity: 1;
+  color: var(--color-text-placeholder) !important;
+}
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder {
+  opacity: 1;
+  color: var(--color-text-placeholder) !important;
+}
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+  opacity: 1;
+  color: var(--color-text-placeholder) !important;
+}
+
+/* Admin panel */
+.admin-desktop-sidebar {
+  display: none;
+}
+.admin-mobile-only {
+  display: block;
+}
+@media (min-width: 768px) {
+  .admin-desktop-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 12rem;
+    padding: 0;
+  }
+  .admin-mobile-only {
+    display: none !important;
+  }
+}
+.admin-mobile-only button,
+.admin-mobile-only a[role='button'],
+.admin-mobile-only .flex button {
+  min-block-size: 44px;
+}
+button[aria-label='Back to app'] {
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-desktop-sidebar + main button[class*='px-6'][class*='py-2'],
+.admin-desktop-sidebar ~ main button[class*='px-6'][class*='py-2'] {
+  min-block-size: 44px;
+}
+
+/* CrewMap (MapLibre) — dark-theme marker + popup overrides so the GL defaults
+   (light popup, blue marker) don't clash with the app's dark surface. The
+   maplibre-gl base CSS is dynamically imported by the CrewMap component. */
+.festie-map-marker {
+  inline-size: 18px;
+  block-size: 18px;
+  border-radius: 50%;
+  background: var(--color-accent-coral, #ff3366);
+  border: 2px solid #fff;
+  box-shadow: 0 0 8px rgba(255, 51, 102, 0.6);
+  cursor: pointer;
+}
+.festie-map-canvas .maplibregl-popup-content {
+  background: var(--color-bg-elevated, #18182c);
+  color: var(--color-text-primary, #eaeaf2);
+  border: 1px solid var(--color-border-light, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.festie-map-canvas .festie-map-sub {
+  color: var(--color-text-secondary, #9999bb);
+}
+.festie-map-canvas .maplibregl-popup-tip {
+  border-top-color: var(--color-bg-elevated, #18182c);
+  border-bottom-color: var(--color-bg-elevated, #18182c);
+}
+.festie-map-canvas .maplibregl-ctrl-attrib {
+  background: rgba(8, 8, 16, 0.7);
+  color: var(--color-text-muted, #8787a8);
+}
+.festie-map-canvas .maplibregl-ctrl-attrib a {
+  color: var(--color-text-secondary, #9999bb);
+}
+
+/* Live peer marker — visually distinct from the coral meeting-point dot: an aqua
+   avatar disc with the member's initial and a pulsing ring so it reads as "live".
+   Honesty is in the popup copy ("Live · N ago"), never in the marker itself. */
+.festie-peer-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 26px;
+  block-size: 26px;
+  border-radius: 50%;
+  background: var(--color-accent-aqua, #19e3d3);
+  color: var(--color-bg-primary, #08080f);
+  border: 2px solid #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 8px rgba(25, 227, 211, 0.6);
+  cursor: pointer;
+}
+.festie-peer-marker::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent-aqua, #19e3d3);
+  animation: festie-live-pulse 2s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .festie-peer-marker::before {
+    animation: none;
+  }
+}
+/* Stale peer (Snap Map-style): the avatar desaturates, the live ring is dropped,
+   and a "last seen N ago" chip hangs below so an out-of-date dot can't be read as
+   live. The honesty lives in both the marker treatment and the popup copy. */
+.festie-peer-marker--stale {
+  background: var(--color-text-muted, #8787a8);
+  color: var(--color-bg-primary, #08080f);
+  border-color: var(--color-border-light, rgba(255, 255, 255, 0.4));
+  box-shadow: none;
+  filter: grayscale(1);
+  opacity: 0.9;
+}
+.festie-peer-marker--stale::before {
+  display: none;
+}
+.festie-peer-chip {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(8, 8, 16, 0.9);
+  color: var(--color-text-secondary, #9999bb);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-light, rgba(255, 255, 255, 0.14));
+  pointer-events: none;
+}
+
+/* SOS marker — the loudest thing on the map: a large coral disc with a pulsing
+   alarm ring. Bigger than peers/meeting points so it can't be missed. */
+.festie-sos-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 34px;
+  block-size: 34px;
+  border-radius: 50%;
+  background: var(--color-accent-coral, #ff3366);
+  color: #fff;
+  border: 3px solid #fff;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 0 14px rgba(255, 51, 102, 0.85);
+  cursor: pointer;
+}
+.festie-sos-marker::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 3px solid var(--color-accent-coral, #ff3366);
+  animation: festie-live-pulse 1.4s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .festie-sos-marker::before {
+    animation: none;
+  }
+}
+.festie-map-canvas .festie-sos-title {
+  color: var(--color-accent-coral, #ff3366);
+}
+.festie-map-canvas .festie-sos-link {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--color-accent-aqua, #19e3d3);
+  font-weight: 600;
+}
+
+/* Small pulsing "live" dot used in the sharing-indicator banner. */
+.festie-live-dot {
+  display: inline-block;
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: 50%;
+  background: var(--color-accent-aqua, #19e3d3);
+  box-shadow: 0 0 0 0 rgba(25, 227, 211, 0.6);
+  animation: festie-live-pulse 1.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .festie-live-dot {
+    animation: none;
+  }
+}
+
+@keyframes festie-live-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.85);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}

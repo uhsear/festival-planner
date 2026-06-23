@@ -10,7 +10,7 @@
 #   1. SSHes to the prod box (KEY AUTH ONLY — no password support).
 #   2. git fetch + reset --hard origin/main.
 #   3. Migrations are app-managed (applied on backend boot); no deploy step.
-#   4. Builds the Expo-web bundle (the only web surface; the Vite SPA is retired).
+#   4. Builds the web bundle.
 #   5. Restarts the PM2 app ("festie").
 #   6. Tags the deploy `deploy-<UTC timestamp>` and pushes the tag (P14).
 #   7. Health-gates on /api/ready; if it is non-200, ABORTS and prints the
@@ -130,20 +130,21 @@ def main():
         # is no separate migration step in the deploy — adding one would double-run
         # and conflict with that ledger.
 
-        # 4. Build the Expo-web surface (react-native-web). Served when WEB_DIST
-        # points at packages/mobile/dist (the prod cutover, now the only web
-        # surface — the Vite SPA at packages/web was retired). build:web =
-        # `expo export -p web` + manifest + Workbox SW. Rebuilt fresh each deploy
-        # so the served bundle never goes stale.
+        # 4. Build the web bundle (login shell so pnpm is on PATH)
         code, out, err = run(
             client,
-            f"bash -lc 'cd {APP}/packages/mobile && rm -rf dist && pnpm run build:web' 2>&1 | tail -10",
-            timeout=900,
+            f"bash -lc 'cd {APP}/packages && pnpm --filter @festie/web build' 2>&1 | tail -8",
+            timeout=600,
         )
-        print(f"[build:web] exit={code}\n{out}{err}")
+        print(f"[build] exit={code}\n{out}{err}")
         if code != 0:
             rollback_hint()
-            raise SystemExit("expo-web build failed")
+            raise SystemExit("web build failed")
+
+        # NOTE: festie.us serves the Vite SPA (packages/web). The Expo
+        # react-native-web export (`pnpm run build:web` in packages/mobile) is no
+        # longer built here — it is kept dormant for a possible future
+        # app.festie.us, but the desktop flagship is the bespoke web SPA.
 
         # 4. Restart the backend
         code, out, err = run(

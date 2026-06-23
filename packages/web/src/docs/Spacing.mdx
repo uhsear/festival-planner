@@ -1,0 +1,174 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+import { spacing, spacingNamed } from '@festie/shared/tokens';
+
+<Meta title="Tokens/Spacing" />
+
+# Spacing Tokens
+
+All spacing tokens are defined in `packages/shared/src/tokens/spacing.ts`. The scale uses a **4px base unit** (`spacing.1 = 4px`).
+
+---
+
+## Numeric Scale
+
+export function SpacingBar({ name, px }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 16,
+      marginBottom: 8,
+    }}>
+      <div style={{
+        fontFamily: 'monospace',
+        fontSize: 13,
+        color: '#9999bb',
+        width: 100,
+        flexShrink: 0,
+        textAlign: 'right',
+      }}>
+        spacing.{name}
+      </div>
+      <div style={{
+        fontFamily: 'monospace',
+        fontSize: 13,
+        color: '#ffb020',
+        width: 50,
+        flexShrink: 0,
+      }}>
+        {px}px
+      </div>
+      <div style={{
+        width: px,
+        height: 24,
+        backgroundColor: '#00e8d0',
+        borderRadius: 4,
+        minWidth: 4,
+        transition: 'width 0.2s ease',
+      }} />
+    </div>
+  );
+}
+
+{Object.entries(spacing).map(([key, value]) => (
+  <SpacingBar key={key} name={key} px={value} />
+))}
+
+---
+
+## Named Scale (Legacy Aliases)
+
+These named aliases map to the same underlying values and are used in older parts of the codebase.
+
+export function NamedSpacingBar({ name, px }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 16,
+      marginBottom: 8,
+    }}>
+      <div style={{
+        fontFamily: 'monospace',
+        fontSize: 13,
+        color: '#9999bb',
+        width: 120,
+        flexShrink: 0,
+        textAlign: 'right',
+      }}>
+        spacingNamed.{name}
+      </div>
+      <div style={{
+        fontFamily: 'monospace',
+        fontSize: 13,
+        color: '#ffb020',
+        width: 50,
+        flexShrink: 0,
+      }}>
+        {px}px
+      </div>
+      <div style={{
+        width: px,
+        height: 24,
+        backgroundColor: '#ff3366',
+        borderRadius: 4,
+        minWidth: 4,
+        transition: 'width 0.2s ease',
+      }} />
+    </div>
+  );
+}
+
+{Object.entries(spacingNamed).map(([key, value]) => (
+  <NamedSpacingBar key={key} name={key} px={value} />
+))}
+
+---
+
+## Visual Comparison
+
+Boxes sized at each spacing value, demonstrating padding relationships.
+
+export function SpacingBox({ name, px }) {
+  return (
+    <div style={{
+      display: 'inline-flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      marginRight: 16,
+      marginBottom: 16,
+    }}>
+      <div style={{
+        width: px * 2 + 32,
+        height: px * 2 + 32,
+        padding: px,
+        backgroundColor: 'rgba(0, 232, 208, 0.1)',
+        border: '1px solid rgba(0, 232, 208, 0.3)',
+        borderRadius: 8,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <div style={{
+          width: 32,
+          height: 32,
+          backgroundColor: 'rgba(0, 232, 208, 0.4)',
+          borderRadius: 4,
+        }} />
+      </div>
+      <div style={{
+        fontFamily: 'monospace',
+        fontSize: 11,
+        color: '#9999bb',
+        marginTop: 4,
+        textAlign: 'center',
+      }}>
+        {name}
+        <br />
+        <span style={{ color: '#ffb020' }}>{px}px</span>
+      </div>
+    </div>
+  );
+}
+
+<div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+  {Object.entries(spacing).map(([key, value]) => (
+    <SpacingBox key={key} name={`spacing.${key}`} px={value} />
+  ))}
+</div>
+
+---
+
+## Scale Reference
+
+| Token | Value | CSS Property | Common Usage |
+|-------|-------|-------------|-------------|
+| `spacing.1` | 4px | `--space-1` | Tight gaps, icon padding |
+| `spacing.2` | 8px | `--space-2` | Inline element gaps |
+| `spacing.3` | 12px | `--space-3` | Card inner padding (small) |
+| `spacing.4` | 16px | `--space-4` | Standard padding |
+| `spacing.5` | 20px | `--space-5` | Section gaps |
+| `spacing.6` | 24px | `--space-6` | Card padding, list gaps |
+| `spacing.8` | 32px | `--space-8` | Section margins |
+| `spacing.10` | 40px | `--space-10` | Large section gaps |
+| `spacing.12` | 48px | `--space-12` | Page-level margins |

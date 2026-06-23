@@ -1,0 +1,387 @@
+/* ── Admin nav breakpoint ─────────────────────────────────────────────── */
+.admin-mobile-only {
+  display: block;
+}
+.admin-desktop-sidebar {
+  display: none;
+}
+@media (min-width: 600px) {
+  .admin-mobile-only {
+    display: none;
+  }
+  .admin-desktop-sidebar {
+    display: block;
+  }
+}
+@media (min-width: 430px) and (max-width: 599px) {
+  .admin-mobile-only button:not(.bg-accent-aqua):not(.active):not([aria-pressed='true']) {
+    color: var(--color-text-primary);
+  }
+}
+.admin-mobile-only button.bg-accent-aqua.text-bg-primary,
+.admin-desktop-sidebar button.bg-accent-aqua.text-bg-primary {
+  color: var(--color-bg-primary);
+}
+
+/* ── #main-content ───────────────────────────────────────────────────── */
+#main-content {
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  min-height: calc(100dvh - 180px);
+}
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Horizontal pill rows: snap + inertia ────────────────────────────── */
+.day-tabs,
+[role='tablist'][aria-label='Crew tabs'],
+[role='tablist'][aria-label='Schedule tabs'] {
+  scroll-snap-type: x proximity;
+  scroll-padding-inline-start: 8px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
+}
+.day-tabs > *,
+[role='tablist'][aria-label='Crew tabs'] > *,
+[role='tablist'][aria-label='Schedule tabs'] > * {
+  scroll-snap-align: start;
+}
+
+/* ── /cards: interaction overrides ───────────────────────────────────── */
+.card-grid .set-card:has(.set-card-click-target:active) {
+  transform: scale(0.985);
+  transition: transform 90ms var(--ease-standard);
+}
+/* Desktop hover lightens the interactive card border (mirrors the touch
+   behavior in components.css `@media (hover: none)`, which desktop hovers
+   were missing — screenshots showed no border change on pointer devices). */
+@media (hover: hover) {
+  .card-grid .set-card:hover {
+    border-color: var(--color-border-light);
+  }
+}
+.card-grid .set-card-click-target:focus-visible {
+  outline: 2px solid var(--color-accent-aqua);
+  outline-offset: -3px;
+  border-radius: 12px;
+}
+@keyframes card-priority-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.18);
+  }
+  70% {
+    transform: scale(0.94);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.card-grid .card-priority-btn[aria-pressed='true'] {
+  animation: card-priority-pop 260ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .card-grid .card-priority-btn:hover {
+    transform: translateY(-1px) scale(1.08);
+  }
+}
+.card-grid .card-priority-btn:active {
+  transform: scale(0.92);
+  transition: transform 60ms var(--ease-standard);
+}
+@keyframes card-crew-in {
+  from {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.card-grid .card-overlap {
+  animation: card-crew-in 240ms var(--ease-out) both;
+}
+.card-grid .card-priority-btn {
+  position: relative;
+}
+.card-grid .card-priority-btn::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+.card-grid .card-preview-btn::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+}
+
+/* ── CSS containment ─────────────────────────────────────────────────── */
+.fk-grid__body,
+.timeline-grid,
+.crew-page {
+  contain: layout style;
+}
+
+/* ── Cards route: sub-header scrolls with content (:has) ─────────────── */
+.main-content:has(#main-content > .card-grid),
+.main-content:has(#main-content .card-grid) {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+.main-content:has(#main-content > .card-grid) > #main-content,
+.main-content:has(#main-content .card-grid) > #main-content {
+  overflow: visible !important;
+  flex: none !important;
+  min-height: 0 !important;
+}
+
+/* ── Viewport-fill routes (mobile) ───────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Viewport-fill routes need to override the shell's overflow/height so the
+     inner surface is the scroller — but they must NOT zero the shell's top/side
+     inset (that caused content to butt against the chrome with no breathing
+     room). Keep the shell's `px-6 py-4` top inset; only neutralize the side pad
+     so the full-bleed timeline/grid can use the full width. */
+  #main-content:has(.timeline-view),
+  #main-content:has(.fk-grid) {
+    position: relative;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    display: flex;
+    flex-direction: column;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  #main-content:has(.timeline-view) .timeline-view {
+    flex: 1;
+    min-height: 0;
+    overflow: auto !important;
+  }
+  .fk-grid {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+  .fk-grid__body {
+    overflow-x: visible !important;
+    min-width: max-content;
+  }
+  #main-content:has(.fk-grid) .fk-grid__col {
+    min-width: 92px !important;
+  }
+  .fk-grid__col-head {
+    white-space: normal !important;
+    text-overflow: clip !important;
+    line-height: 1.15 !important;
+    padding: 4px !important;
+  }
+  .fk-grid__head {
+    min-width: max-content;
+  }
+  #main-content:has(.fk-grid)::after,
+  #main-content:has(.timeline-view)::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 24px;
+    pointer-events: none;
+    z-index: 20;
+    background: linear-gradient(to right, transparent, var(--color-bg-primary, #0d0d1a));
+  }
+  /* Crew is a normal scrolling page — keep the shell's `px-6 py-4` inset so the
+     crew selector/name sits below the chrome with the same top/side breathing
+     room as every other route. Only relax overflow (the page no longer carries
+     its own px-/pt- pad). */
+  #main-content:has(.crew-page) {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  #main-content:has(.crew-page) .crew-page {
+    contain: none;
+  }
+  #main-content:has(.crew-page) .crew-tab-panel {
+    overflow: visible !important;
+  }
+}
+
+/* ── Print ───────────────────────────────────────────────────────────── */
+@media print {
+  .sub-header-wrap,
+  [data-testid='festival-day-banner'],
+  .fk-grid__share-btn,
+  .skip-link,
+  .timeline-legend > summary,
+  .admin-mobile-only,
+  .admin-desktop-sidebar,
+  [role='dialog'],
+  .guest-banner {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    color-scheme: light;
+  }
+  .set-card,
+  .fm-card-enter,
+  .fk-grid__set,
+  .fk-grid__col-head,
+  .card-grid .set-card {
+    background: #fff !important;
+    color: #000 !important;
+    border: 1px solid #333 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    filter: none !important;
+  }
+  #main-content,
+  .fk-grid,
+  .fk-grid__body,
+  .timeline-grid,
+  .crew-page {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    contain: none !important;
+  }
+  .set-card,
+  .fm-card-enter,
+  .fk-grid__set {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  a {
+    color: #000 !important;
+    text-decoration: underline;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── Stage filter scroll fade masks ──────────────────────────────────── */
+.stage-filter-scroll {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+}
+.stage-filter-scroll .filter-stage {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.stage-filter-scroll.fade-right:not(.fade-left) .filter-stage {
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+}
+.stage-filter-scroll.fade-left:not(.fade-right) .filter-stage {
+  -webkit-mask-image: linear-gradient(to left, #000 0, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to left, #000 0, #000 calc(100% - 28px), transparent 100%);
+}
+.stage-filter-scroll.fade-left.fade-right .filter-stage {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+}
+
+/* ── Set card enter + card grid base ─────────────────────────────────── */
+.set-card.card-enter {
+  animation: stagger-fade-in 0.3s var(--ease-out) both;
+}
+.card-grid {
+  padding-bottom: 20px;
+}
+
+/* ── Filter-stage force horizontal scroll ────────────────────────────── */
+.sub-header .filter-stage,
+.filter-stage {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  width: 100% !important;
+  max-width: 100%;
+  min-width: 0;
+  /* Compact horizontal rhythm on small widths; comfortable on desktop.
+     Symmetric vertical padding (was an ad-hoc 4px top / 6px bottom). */
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
+}
+.filter-stage::-webkit-scrollbar {
+  display: none;
+}
+.filter-stage > * {
+  flex: 0 0 auto !important;
+}
+/* Density: roomier stage-chip rhythm + padding once past the mobile breakpoint. */
+@media (min-width: 640px) {
+  .sub-header .filter-stage,
+  .filter-stage {
+    gap: var(--space-4);
+    padding: var(--space-2) var(--space-4);
+  }
+}
+.sub-header {
+  flex-wrap: wrap;
+  min-width: 0;
+  overflow: visible;
+}
+.content-area p.text-text-muted {
+  color: var(--color-text-secondary) !important;
+}
+
+/* ── Responsive card grid columns ────────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+@media (min-width: 1025px) {
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    /* Gap is token-driven via --cards-gap on the grid element (space-3 → space-4
+       past md). The old `gap: var(--space-8)` here jumped to 32px at desktop,
+       fighting the token rhythm; removed so the grid gap stays predictable. */
+  }
+}
+@media (min-width: 1441px) {
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
+}
+
+/* ── Accessibility media queries ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .day-tab-underline::after {
+    transition: none;
+  }
+  .set-card,
+  .set-card:hover {
+    transform: none !important;
+    transition: none !important;
+  }
+  .card-grid .card-priority-btn[aria-pressed='true'],
+  .card-grid .card-overlap {
+    animation: none;
+  }
+  .card-grid .card-priority-btn:hover,
+  .card-grid .card-priority-btn:active,
+  .card-grid .set-card:has(.set-card-click-target:active) {
+    transform: none;
+  }
+}

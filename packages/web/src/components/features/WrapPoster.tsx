@@ -1,0 +1,192 @@
+interface PosterSet {
+  rating: number;
+  artist: string;
+  stageName?: string | null;
+}
+interface PosterStats {
+  totalRated: number;
+  stagesVisited: number;
+  daysAttended: number;
+  totalHours: number;
+}
+
+interface Props {
+  festivalName: string;
+  topSets: PosterSet[];
+  stats: PosterStats;
+}
+
+const EMOJI: Record<number, string> = { 5: '🔥', 4: '😊', 3: '👍', 2: '🤔', 1: '👎' };
+
+/**
+ * Poster palette — mirrors the theme tokens in styles/theme.css. These posters
+ * are rendered off-screen and captured to a PNG via html-to-image, where CSS
+ * custom properties don't resolve reliably, so we keep literal hex values here
+ * rather than var() refs. Centralising them in one object (instead of scattering
+ * the magic hex inline) gives a single place to re-sync if the theme shifts.
+ *   bg        ← --color-bg-primary       (#080810)
+ *   coral     ← --color-accent-coral     (#ff3366)
+ *   aqua      ← --color-accent-aqua      (#00e8d0)
+ *   text      ← --color-text-primary     (#eaeaf2)
+ *   textMuted ← --color-text-secondary   (#9999bb)
+ * glowAlpha: ambient corner glows. Bumped 0.22 → 0.30 so the coral/aqua wash
+ * reads in bright sunlight / on phone screens; this is an off-screen render, so
+ * it is unaffected by system accessibility/contrast settings.
+ */
+const POSTER_COLORS = {
+  bg: '#080810',
+  coral: '#ff3366',
+  aqua: '#00e8d0',
+  text: '#eaeaf2',
+  textMuted: '#9999bb',
+} as const;
+const GLOW_ALPHA = 0.3;
+const POSTER_BG_IMAGE =
+  `radial-gradient(60% 45% at 50% 0%, rgba(255, 51, 102, ${GLOW_ALPHA}), transparent 60%), ` +
+  `radial-gradient(60% 45% at 50% 100%, rgba(0, 232, 208, ${GLOW_ALPHA}), transparent 60%)`;
+
+/**
+ * Fixed-dimension 1080×1920 poster (9:16 — Instagram story / TikTok) rendered
+ * off-screen and captured via html-to-image for sharing. All styles are inline
+ * + numeric pixel values so it looks identical whether the user is on an iPad
+ * or iPhone SE: layout doesn't depend on media queries or CSS cascade.
+ */
+export default function WrapPoster({ festivalName, topSets, stats }: Props) {
+  return (
+    <div
+      style={{
+        width: 1080,
+        height: 1920,
+        background: POSTER_COLORS.bg,
+        backgroundImage: POSTER_BG_IMAGE,
+        color: POSTER_COLORS.text,
+        fontFamily: 'Space Grotesk, system-ui, -apple-system, sans-serif',
+        padding: 80,
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box',
+      }}
+    >
+      {/* Header */}
+      <header style={{ textAlign: 'center' }}>
+        <div
+          style={{
+            fontFamily: "'Clash Display', system-ui, sans-serif",
+            fontSize: 96,
+            fontWeight: 900,
+            letterSpacing: 8,
+            color: POSTER_COLORS.aqua,
+            lineHeight: 1,
+          }}
+        >
+          FESTIE
+        </div>
+        <div style={{ fontSize: 32, opacity: 0.7, marginTop: 16, letterSpacing: 3, textTransform: 'uppercase' }}>
+          Your festival wrap
+        </div>
+        <div style={{ fontSize: 56, fontWeight: 700, marginTop: 18 }}>{festivalName}</div>
+      </header>
+
+      {/* Top sets */}
+      <section style={{ marginTop: 90, flex: 1 }}>
+        <div
+          style={{
+            fontSize: 28,
+            letterSpacing: 4,
+            textTransform: 'uppercase',
+            color: POSTER_COLORS.textMuted,
+            marginBottom: 24,
+          }}
+        >
+          Top sets
+        </div>
+        {topSets.slice(0, 5).map((s, i) => (
+          <div
+            key={s.artist || i}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 24,
+              padding: '24px 0',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            <div style={{ fontSize: 64, width: 80, flexShrink: 0, textAlign: 'center' }}>{EMOJI[s.rating] || '⭐'}</div>
+            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+              <div
+                style={{
+                  fontSize: 40,
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {s.artist}
+              </div>
+              {s.stageName && <div style={{ fontSize: 24, opacity: 0.55, marginTop: 4 }}>{s.stageName}</div>}
+            </div>
+            <div
+              style={{
+                fontSize: 32,
+                fontWeight: 800,
+                color: POSTER_COLORS.aqua,
+                width: 100,
+                textAlign: 'right',
+                flexShrink: 0,
+              }}
+            >
+              #{i + 1}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* Stats grid */}
+      <section
+        style={{
+          marginTop: 60,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 18,
+        }}
+      >
+        {[
+          { label: 'Sets', value: String(stats.totalRated) },
+          { label: 'Stages', value: String(stats.stagesVisited) },
+          { label: 'Days', value: String(stats.daysAttended) },
+          { label: 'Hours', value: stats.totalHours.toFixed(1) },
+        ].map((t) => (
+          <div
+            key={t.label}
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              borderRadius: 24,
+              border: '1px solid rgba(255,255,255,0.08)',
+              padding: 28,
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 56, fontWeight: 800, color: POSTER_COLORS.coral, lineHeight: 1 }}>{t.value}</div>
+            <div
+              style={{
+                fontSize: 20,
+                opacity: 0.65,
+                marginTop: 8,
+                letterSpacing: 3,
+                textTransform: 'uppercase',
+              }}
+            >
+              {t.label}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* Footer */}
+      <footer style={{ textAlign: 'center', marginTop: 60, fontSize: 28, opacity: 0.45, letterSpacing: 6 }}>
+        FESTIE.US
+      </footer>
+    </div>
+  );
+}

@@ -133,11 +133,11 @@ export default function createPageRoutes(deps: any) {
   router.get('/security-whitepaper', (req: any, res: any) => res.sendFile(path.join(config.PUBLIC_DIR, 'security-whitepaper.html')));
 
   // SPA fallback - serve index.html for non-API, non-static routes.
-  // Prefer the Expo-web dist/index.html when the export exists; fall back
+  // Prefer React dist/index.html when the Vite build exists; fall back
   // to legacy public/index.html otherwise.
   // ponytail: config.WEB_DIST is the prod source (set by loadConfig); the || keeps
   // partial/test configs from throwing on path.join(undefined).
-  const webDist = config.WEB_DIST || path.join(config.PUBLIC_DIR, '..', 'packages', 'mobile', 'dist');
+  const webDist = config.WEB_DIST || path.join(config.PUBLIC_DIR, '..', 'packages', 'web', 'dist');
   const _reactIndex = path.join(webDist, 'index.html');
   const _spaIndex = fs.existsSync(_reactIndex) ? _reactIndex : path.join(config.PUBLIC_DIR, 'index.html');
   router.get('/{*splat}', (req: any, res: any, next: any) => {

@@ -12,6 +12,10 @@ module.exports = {
   'routes/**/*.{ts,tsx,js,cjs}': 'eslint --fix',
   'server.ts': 'eslint --fix',
 
+  // ── packages/web ────────────────────────────────────────────────────────────
+  'packages/web/src/**/*.{ts,tsx,js,jsx}': (files) =>
+    `pnpm --filter @festie/web exec eslint --fix ${files.join(' ')}`,
+
   // ── packages/shared ─────────────────────────────────────────────────────────
   'packages/shared/src/**/*.{ts,tsx,js}': (files) =>
     `pnpm --filter @festie/shared exec eslint --fix ${files.join(' ')}`,
