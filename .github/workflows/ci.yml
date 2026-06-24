@@ -299,8 +299,10 @@ jobs:
           }
 
       - name: Install oasdiff (breaking-change detector)
-        # oasdiff is a Go binary; ubuntu-latest ships with Go so this is a cheap
-        # one-liner that adds no npm deps. The version pin keeps runs deterministic.
+        # oasdiff is a Go binary; ubuntu-latest ships with Go. Non-blocking: oasdiff
+        # is a nice-to-have warn gate, so a flaky `go install` must never fail CI
+        # (the diff step below already guards a missing binary).
+        continue-on-error: true
         run: go install github.com/tufin/oasdiff@latest
 
       - name: oasdiff — detect breaking API changes (non-blocking warn)
