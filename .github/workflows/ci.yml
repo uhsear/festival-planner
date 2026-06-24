@@ -248,6 +248,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Fetch full history so `git show origin/main:...` is available for the
+          # oasdiff base-spec comparison below.
+          fetch-depth: 0
       - uses: ./.github/actions/pnpm-setup
         with:
           node-cache: 'npm'
@@ -255,6 +259,75 @@ jobs:
         working-directory: packages
         run: pnpm install --frozen-lockfile
       - run: npm ci
+
+      # ── API schema drift gate ────────────────────────────────────────────────
+      # Save the committed spec BEFORE regenerating so oasdiff can compare the
+      # base-branch (main) spec versus the spec produced by this branch's Zod schemas.
+      - name: Save base-branch OpenAPI spec for oasdiff
+        run: |
+          # Try origin/main first; fall back to HEAD~1 on direct pushes to main.
+          if git show origin/main:lib/openapi.generated.json > /tmp/base-openapi.json 2>/dev/null; then
+            echo "BASE_SPEC=/tmp/base-openapi.json" >> "$GITHUB_ENV"
+            echo "Base spec sourced from origin/main"
+          elif git show HEAD~1:lib/openapi.generated.json > /tmp/base-openapi.json 2>/dev/null; then
+            echo "BASE_SPEC=/tmp/base-openapi.json" >> "$GITHUB_ENV"
+            echo "Base spec sourced from HEAD~1 (direct push to main)"
+          else
+            echo "BASE_SPEC=" >> "$GITHUB_ENV"
+            echo "::warning::No base spec found; oasdiff comparison will be skipped"
+          fi
+
+      - name: Regenerate OpenAPI spec + shared types
+        # Derives lib/openapi.generated.json and packages/shared/src/types/api.gen.ts
+        # directly from the Zod schemas (lib/schemas.ts via lib/openapi.ts).
+        run: npm run gen:api-types
+
+      - name: Drift gate — generated artifacts must match what is committed
+        # BLOCKING. If a developer edits a Zod schema in lib/schemas.ts without
+        # running `npm run gen:api-types` and committing the result, this step fails
+        # with a clear diff. The two source-of-truth files:
+        #   lib/openapi.generated.json          (the spec snapshot)
+        #   packages/shared/src/types/api.gen.ts (shared TS types for web + mobile)
+        run: |
+          git diff --exit-code -- lib/openapi.generated.json packages/shared/src/types/api.gen.ts || {
+            echo ""
+            echo "::error::OpenAPI spec / shared types are out of date."
+            echo "::error::Run \`npm run gen:api-types\` locally and commit the two generated files:"
+            echo "::error::  lib/openapi.generated.json"
+            echo "::error::  packages/shared/src/types/api.gen.ts"
+            exit 1
+          }
+
+      - name: Install oasdiff (breaking-change detector)
+        # oasdiff is a Go binary; ubuntu-latest ships with Go. Non-blocking: oasdiff
+        # is a nice-to-have warn gate, so a flaky `go install` must never fail CI
+        # (the diff step below already guards a missing binary).
+        continue-on-error: true
+        run: go install github.com/tufin/oasdiff@latest
+
+      - name: oasdiff — detect breaking API changes (non-blocking warn)
+        # Compares the base-branch committed spec (origin/main) versus the spec
+        # generated from this branch's Zod schemas.  Non-blocking: a breaking
+        # change surfaces as a workflow warning and is visible in the PR log, but
+        # it does NOT fail CI — the team decides intentional breaks are acceptable.
+        # Promote to blocking by removing `|| true` and dropping `continue-on-error`.
+        continue-on-error: true
+        run: |
+          if [ -z "$BASE_SPEC" ]; then
+            echo "::warning::oasdiff skipped — no base spec available"
+            exit 0
+          fi
+          BREAK_OUTPUT=$(~/go/bin/oasdiff breaking "$BASE_SPEC" lib/openapi.generated.json 2>&1 || true)
+          if [ -n "$BREAK_OUTPUT" ]; then
+            echo "::warning::oasdiff detected breaking API changes vs origin/main:"
+            echo "$BREAK_OUTPUT" | while IFS= read -r line; do
+              echo "::warning::  $line"
+            done
+          else
+            echo "oasdiff: no breaking changes detected vs origin/main"
+          fi
+      # ── End API schema drift gate ────────────────────────────────────────────
+
       - name: Typecheck (backend)
         run: npm run typecheck
       - name: Typecheck (packages/web)

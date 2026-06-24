@@ -9,7 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     make g++ && \
     rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
+# .npmrc carries legacy-peer-deps=true (openapi-typescript@7 peer-requires TS5;
+# repo is on TS6). Without it here, `npm ci` ERESOLVE-fails in the image.
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci --omit=dev
 
 # ── Production stage ──────────────────────────────────────────────────────────
