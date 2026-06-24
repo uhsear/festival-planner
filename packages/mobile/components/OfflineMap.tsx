@@ -17,6 +17,7 @@ import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/ty
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
 import { useNow } from '../hooks/useNow';
+import { safeJsonForScript, isAllowedMapHost } from '../lib/webviewBridge';
 
 /** A peer/SOS marker pushed into the WebView via window.__festieSetPeers. */
 interface LivePin {
@@ -31,28 +32,6 @@ interface LivePin {
   stale?: boolean;
   /** Short "N ago" age shown on the stale chip (no "as of" prefix). */
   age?: string;
-}
-
-/**
- * Context-aware serializer for values pushed INTO the WebView's JS context via
- * injectJavaScript. `JSON.stringify` alone is NOT safe to splice into a script
- * context: it does not escape `<` (so a `</script>`-style payload could break
- * out if the result were ever placed in an inline <script>), nor the JS line
- * terminators U+2028 / U+2029 (which are literal newlines inside a JS string
- * and would produce a syntax error / injection seam). We escape all three to
- * `\uXXXX` so the result is safe in both JS-string and HTML contexts. This is
- * the single hardened transport for ALL user-controlled pin/peer/SOS data
- * (security-review-2026-06-06 H3 + L6).
- */
-// U+2028 / U+2029 are valid whitespace in JSON output but are literal line
-// terminators inside a JS string literal — they must be \u-escaped before the
-// JSON is spliced into the WebView's JS context. Built from char codes so this
-// source file stays plain-ASCII.
-const LS_RE = new RegExp(String.fromCharCode(0x2028), 'g');
-const PS_RE = new RegExp(String.fromCharCode(0x2029), 'g');
-
-function safeJsonForScript(value: unknown): string {
-  return JSON.stringify(value).replace(/</g, '\\u003c').replace(LS_RE, '\\u2028').replace(PS_RE, '\\u2029');
 }
 
 /**
@@ -102,12 +81,6 @@ const MAP_ORIGIN_WHITELIST = [
   'https://tile.openstreetmap.org',
   'https://*.tile.openstreetmap.org',
 ];
-
-// Hosts permitted for in-WebView resource/navigation loads. Anything else is
-// blocked (default-deny), mirroring the hardened Spotify embed WebView.
-function isAllowedMapHost(host: string): boolean {
-  return host === 'unpkg.com' || /(^|\.)tile\.openstreetmap\.org$/.test(host);
-}
 
 /**
  * Default-DENY navigation guard. Allows the inline document's own load

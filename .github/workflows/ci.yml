@@ -202,6 +202,24 @@ jobs:
         working-directory: packages
         run: pnpm --filter @festie/mobile lint
 
+  mobile-tests:
+    # Mirrors frontend-tests: path-gated on packages/mobile or packages/shared
+    # changes (same filter the changes job exposes as `mobile`). Pass/fail only
+    # — no coverage threshold enforced here (jest config owned separately).
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: ./.github/actions/pnpm-setup
+      - name: Install workspace deps
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
+      - name: Test mobile (jest-expo)
+        working-directory: packages
+        run: pnpm --filter @festie/mobile test
+
   security:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -300,16 +318,17 @@ jobs:
         run: pnpm exec bundlemon
 
   docker:
-    needs: [test, frontend-tests, mobile-typecheck]
-    # frontend-tests / mobile-typecheck may be path-filtered out (P8). `always()`
-    # plus explicit result checks lets docker proceed when an upstream job is
-    # *skipped*, while still gating on real failures/cancellations.
+    needs: [test, frontend-tests, mobile-typecheck, mobile-tests]
+    # frontend-tests / mobile-typecheck / mobile-tests may be path-filtered out
+    # (P8). `always()` plus explicit result checks lets docker proceed when an
+    # upstream job is *skipped*, while still gating on real failures/cancellations.
     if: |
       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
       always() &&
       needs.test.result == 'success' &&
       needs.frontend-tests.result != 'failure' && needs.frontend-tests.result != 'cancelled' &&
-      needs.mobile-typecheck.result != 'failure' && needs.mobile-typecheck.result != 'cancelled'
+      needs.mobile-typecheck.result != 'failure' && needs.mobile-typecheck.result != 'cancelled' &&
+      needs.mobile-tests.result != 'failure' && needs.mobile-tests.result != 'cancelled'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

@@ -20,6 +20,22 @@ import {
   type SelectOption,
 } from '../../components/admin';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
+import {
+  addStage as addStageReducer,
+  removeStage as removeStageReducer,
+  setStageField as setStageFieldReducer,
+  addDay as addDayReducer,
+  removeDay as removeDayReducer,
+  setDayField as setDayFieldReducer,
+  toggleDay as toggleDayReducer,
+  addSet as addSetReducer,
+  removeSet as removeSetReducer,
+  setSetField as setSetFieldReducer,
+  type StageRow,
+  type SetRow,
+  type DayRow,
+  type FormState,
+} from './festivalEditState';
 
 /**
  * Admin — Festival editor (native UI parity for the web FestivalEditForm →
@@ -62,35 +78,8 @@ const COMMON_TIME_ZONES = [
 
 const DEFAULT_STAGE_COLOR = '#6a6a88';
 
-// ── Local editable shapes (mirror the web form's Festival/Day/SetRow) ────────
-interface StageRow {
-  id: string;
-  name: string;
-  color: string;
-}
-interface SetRow {
-  id: string;
-  artist: string;
-  stageId: string;
-  /** '' or 'TBA' is the permitted fallback; the field renders it as blank. */
-  startTime: string;
-  endTime: string;
-  /** Optional spotify/soundcloud URL — sent as linkUrl (server normalizes it). */
-  linkUrl: string;
-}
-interface DayRow {
-  id: string;
-  label: string;
-  date: string;
-  sets: SetRow[];
-}
-interface FormState {
-  name: string;
-  location: string;
-  timeZone: string; // '' = device-local (no festival zone)
-  stages: StageRow[];
-  days: DayRow[];
-}
+// Local editable shapes (StageRow / SetRow / DayRow / FormState) live in
+// ./festivalEditState alongside the pure tree reducers they operate on.
 
 // Detail response from GET /festivals/:id (depth=2). Loosely typed — we only
 // read the fields the editor hydrates.
@@ -216,71 +205,37 @@ export default function FestivalEditScreen() {
 
   // ── Stage editing ─────────────────────────────────────────────────────────
   const addStage = () =>
-    setForm((f) => ({ ...f, stages: [...f.stages, { id: uid('stage'), name: '', color: DEFAULT_STAGE_COLOR }] }));
-  const removeStage = (stageId: string) =>
-    setForm((f) => ({ ...f, stages: f.stages.filter((s) => s.id !== stageId) }));
+    setForm((f) => addStageReducer(f, { id: uid('stage'), name: '', color: DEFAULT_STAGE_COLOR }));
+  const removeStage = (stageId: string) => setForm((f) => removeStageReducer(f, stageId));
   const setStageField = (stageId: string, field: 'name' | 'color', value: string) =>
-    setForm((f) => ({
-      ...f,
-      stages: f.stages.map((s) => (s.id === stageId ? { ...s, [field]: value } : s)),
-    }));
+    setForm((f) => setStageFieldReducer(f, stageId, field, value));
 
   // ── Day editing ───────────────────────────────────────────────────────────
   const addDay = () => {
     const day: DayRow = { id: uid('day'), label: '', date: '', sets: [] };
-    setForm((f) => ({ ...f, days: [...f.days, day] }));
+    setForm((f) => addDayReducer(f, day));
     setExpandedDays((prev) => new Set(prev).add(day.id));
   };
-  const removeDay = (dayId: string) =>
-    setForm((f) => ({ ...f, days: f.days.filter((d) => d.id !== dayId) }));
+  const removeDay = (dayId: string) => setForm((f) => removeDayReducer(f, dayId));
   const setDayField = (dayId: string, field: 'label' | 'date', value: string) =>
-    setForm((f) => ({
-      ...f,
-      days: f.days.map((d) => (d.id === dayId ? { ...d, [field]: value } : d)),
-    }));
-  const toggleDay = (dayId: string) =>
-    setExpandedDays((prev) => {
-      const next = new Set(prev);
-      if (next.has(dayId)) next.delete(dayId);
-      else next.add(dayId);
-      return next;
-    });
+    setForm((f) => setDayFieldReducer(f, dayId, field, value));
+  const toggleDay = (dayId: string) => setExpandedDays((prev) => toggleDayReducer(prev, dayId));
 
   // ── Set editing (nested under each day) ───────────────────────────────────
   const addSet = (dayId: string) =>
-    setForm((f) => ({
-      ...f,
-      days: f.days.map((d) =>
-        d.id === dayId
-          ? {
-              ...d,
-              sets: [
-                ...d.sets,
-                {
-                  id: uid('set'),
-                  artist: '',
-                  stageId: f.stages[0]?.id || '',
-                  startTime: '',
-                  endTime: '',
-                  linkUrl: '',
-                },
-              ],
-            }
-          : d,
-      ),
-    }));
-  const removeSet = (dayId: string, setId: string) =>
-    setForm((f) => ({
-      ...f,
-      days: f.days.map((d) => (d.id === dayId ? { ...d, sets: d.sets.filter((s) => s.id !== setId) } : d)),
-    }));
+    setForm((f) =>
+      addSetReducer(f, dayId, {
+        id: uid('set'),
+        artist: '',
+        stageId: f.stages[0]?.id || '',
+        startTime: '',
+        endTime: '',
+        linkUrl: '',
+      }),
+    );
+  const removeSet = (dayId: string, setId: string) => setForm((f) => removeSetReducer(f, dayId, setId));
   const setSetField = (dayId: string, setId: string, field: keyof SetRow, value: string) =>
-    setForm((f) => ({
-      ...f,
-      days: f.days.map((d) =>
-        d.id === dayId ? { ...d, sets: d.sets.map((s) => (s.id === setId ? { ...s, [field]: value } : s)) } : d,
-      ),
-    }));
+    setForm((f) => setSetFieldReducer(f, dayId, setId, field, value));
 
   // Stage options for the per-set ModalSelect.
   const stageOptions: SelectOption[] = form.stages.map((s) => ({

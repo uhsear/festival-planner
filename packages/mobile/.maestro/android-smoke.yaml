@@ -13,6 +13,15 @@
 #     iOS cloud sim). Content taps are optional + screenshotted; final assertVisible
 #     on app chrome is the hard gate.
 appId: us.festie.app
+# smoke: the GUEST phase (launch → picker → schedule → Picks bounce → login
+# screen assertion) runs unconditionally and finishes in under 3 min on a
+# warm emulator — safe for the fast PR subset.
+# authed: the post-login walk (crew sub-tabs, SOS dialog) needs repo secrets.
+# nightly: full run including authed sections.
+tags:
+  - smoke
+  - authed
+  - nightly
 env:
   TEST_USERNAME: ${TEST_USERNAME}
   TEST_PASSWORD: ${TEST_PASSWORD}

@@ -23,6 +23,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
+    "typecheck:fast": "tsgo --noEmit",
     "gen:theme": "tsx scripts/gen-theme-css.ts",
     "lint": "eslint src/ --ext .ts,.tsx"
   },
@@ -40,6 +41,7 @@
     "jsdom": "^29.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "@typescript/native-preview": "latest",
     "typescript": "~6.0.3",
     "vitest": "^4.1.8"
   },

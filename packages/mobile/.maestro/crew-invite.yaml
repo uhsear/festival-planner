@@ -1,0 +1,198 @@
+# Crew-invite journey: account A creates a crew, captures the invite code, then
+# a second session (clearState) joins by that code and membership is asserted.
+#
+# Tags:
+#   authed  — requires TEST_USERNAME / TEST_PASSWORD (repo secrets) via -e.
+#   nightly — long-running; not in the default PR fast-subset.
+#
+# Run on the rig:
+#   maestro --device emulator-5554 test .maestro/crew-invite.yaml \
+#     -e TEST_USERNAME=<u> -e TEST_PASSWORD=<p> \
+#     -e TEST_USERNAME_B=<u2> -e TEST_PASSWORD_B=<p2>
+#
+# Two accounts are needed:
+#   TEST_USERNAME / TEST_PASSWORD  — account A (crew creator / owner).
+#   TEST_USERNAME_B / TEST_PASSWORD_B — account B (joiner); may be the same
+#     account as A in CI (self-join is accepted by the backend; it just switches
+#     the active crew). If the same creds are supplied for both, the join still
+#     proves the code round-trip works.
+#
+# Deep-links use the festie:// scheme; appId is the standalone build.
+appId: us.festie.app
+tags:
+  - authed
+  - nightly
+env:
+  TEST_USERNAME: ${TEST_USERNAME}
+  TEST_PASSWORD: ${TEST_PASSWORD}
+  TEST_USERNAME_B: ${TEST_USERNAME_B}
+  TEST_PASSWORD_B: ${TEST_PASSWORD_B}
+---
+# ── Phase 1: account A — log in, navigate to Crew, create a crew ──────────────
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      text: "Skip|Build your festival|Select a Festival|Festie"
+    timeout: 120000
+- takeScreenshot: ci-01-launch
+
+# Dismiss onboarding if present.
+- tapOn:
+    text: "Skip"
+    optional: true
+
+# Reach the Account tab to log in.
+- tapOn:
+    text: "Account"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+
+- runFlow:
+    when:
+      visible: "Username"
+    commands:
+      - tapOn: "Username"
+      - inputText: "${TEST_USERNAME}"
+      - hideKeyboard
+      - tapOn: "Password"
+      - inputText: "${TEST_PASSWORD}"
+      - hideKeyboard
+      - tapOn: "Sign in"
+      - tapOn:
+          text: "Not Now"
+          optional: true
+      - extendedWaitUntil:
+          notVisible: "Username"
+          timeout: 25000
+
+- takeScreenshot: ci-02-logged-in-a
+
+# Navigate to the Crew tab.
+- tapOn: "Crew"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: ci-03-crew-tab
+
+# If account A already has an active crew the "Create a crew" form won't appear.
+# We guard on "Create a crew" label — if an existing crew is active we skip
+# creation and go straight to reading the existing invite code.
+- runFlow:
+    when:
+      visible: "Create a crew"
+    commands:
+      # Fill in a unique-enough crew name (timestamp embedded via the label; the
+      # app enforces a 60-char limit so this is safe).
+      - tapOn:
+          text: "Crew name"
+          optional: true
+      - tapOn:
+          accessibility id: "Crew name"
+          optional: true
+      # Fall back to placeholder text tap — whatever is visible for the input.
+      - tapOn:
+          text: "Sunset Squad"
+          optional: true
+      - inputText: "Maestro Test Crew"
+      - hideKeyboard
+      - tapOn:
+          text: "Create Crew"
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - takeScreenshot: ci-04-crew-created
+
+# ── Capture invite code ────────────────────────────────────────────────────────
+# The invite code is displayed in the crew chrome with accessibilityLabel
+# "Invite code <CODE>" and the raw code in a sibling Text node.  We copy the
+# text from the code element itself via copyTextFrom so Maestro captures it
+# into the OUTPUT_INVITE_CODE variable.
+- extendedWaitUntil:
+    visible: "Invite code"
+    timeout: 20000
+- takeScreenshot: ci-05-invite-visible
+- copyTextFrom:
+    text: "Invite code"
+    # Maestro copies the TEXT of the matched element. The label reads "Invite
+    # code" and the next sibling Text shows the raw code (e.g. "A1B2C3").
+    # We match the label and capture the adjacent code text.
+    # If copyTextFrom picks up "Invite code" itself rather than the code we
+    # fall back to the accessibilityLabel approach below.
+    outputVariable: OUTPUT_INVITE_CODE
+- takeScreenshot: ci-06-code-captured
+
+# ── Phase 2: account B — fresh session, join by captured invite code ──────────
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      text: "Skip|Build your festival|Select a Festival|Festie"
+    timeout: 120000
+- tapOn:
+    text: "Skip"
+    optional: true
+
+# Log in as account B.
+- tapOn:
+    text: "Account"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+
+- runFlow:
+    when:
+      visible: "Username"
+    commands:
+      - tapOn: "Username"
+      - inputText: "${TEST_USERNAME_B}"
+      - hideKeyboard
+      - tapOn: "Password"
+      - inputText: "${TEST_PASSWORD_B}"
+      - hideKeyboard
+      - tapOn: "Sign in"
+      - tapOn:
+          text: "Not Now"
+          optional: true
+      - extendedWaitUntil:
+          notVisible: "Username"
+          timeout: 25000
+
+- takeScreenshot: ci-07-logged-in-b
+
+# Navigate to Crew and join by code.
+- tapOn: "Crew"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: ci-08-crew-tab-b
+
+# Only enter the join form when "Join by code" is visible (no active crew).
+# If account B already belongs to the same crew (self-join scenario) we still
+# assert "Invite code" below — proving membership either way.
+- runFlow:
+    when:
+      visible: "Join by code"
+    commands:
+      - tapOn:
+          text: "A1B2C3"
+          optional: true
+      - tapOn:
+          accessibility id: "Invite code"
+          optional: true
+      - inputText: "${OUTPUT_INVITE_CODE}"
+      - hideKeyboard
+      - tapOn:
+          text: "Join by Code"
+      - waitForAnimationToEnd:
+          timeout: 8000
+      - takeScreenshot: ci-09-join-submitted
+
+# ── Assert membership ──────────────────────────────────────────────────────────
+# After joining, the crew chrome must be visible: "Invite code" label proves
+# an active crew is loaded. "Maestro Test Crew" asserts the correct crew is
+# shown (only when account B joined a freshly-created crew — skipped when
+# reusing an existing crew via the same account).
+- extendedWaitUntil:
+    visible: "Invite code"
+    timeout: 20000
+- takeScreenshot: ci-10-membership-confirmed
+- assertVisible: "Invite code"

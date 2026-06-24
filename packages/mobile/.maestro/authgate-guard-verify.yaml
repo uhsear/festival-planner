@@ -11,6 +11,12 @@
 # Deep-links past the nav with the `festie` scheme; each `assertVisible:
 # "Sign in to your account"` after a gated openLink is the hard security gate.
 appId: us.festie.app
+# smoke: entirely credential-free (guest-only). Runs four deep-link probes +
+# one public-route assertion — completes in under 2 min on a warm emulator.
+# Safe for the fast PR subset via --include-tags=smoke.
+tags:
+  - smoke
+  - nightly
 ---
 - launchApp:
     clearState: true

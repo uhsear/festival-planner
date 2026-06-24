@@ -6,6 +6,19 @@ import { useCrewStore } from '@festie/shared/stores';
 import type { CrewExpense, CrewMember, CrewSettlement } from '@festie/shared/types';
 import { venmoLink, cashAppLink, payPalLink, formatBalance, formatAmount } from '@festie/shared/utils';
 import { EXPENSE_CATEGORIES, expenseCategoryFor } from '@festie/shared/constants';
+import {
+  sanitizeAmountInput,
+  canAddExpense,
+  isAmountInvalid,
+  actualExpenses as selectActualExpenses,
+  plannedExpenses as selectPlannedExpenses,
+  sumExpenseAmounts,
+  visibleExpenses as selectVisibleExpenses,
+  nonZeroBalances as selectNonZeroBalances,
+  myBalance as selectMyBalance,
+  myPayments as selectMyPayments,
+  myReceipts as selectMyReceipts,
+} from '../lib/expenseView';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -64,35 +77,29 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
     setSplitWith((prev) => (prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]));
   };
 
-  const myBalance = balances.find((b) => b.userId === currentUserId)?.balance ?? 0;
+  const myBalance = selectMyBalance(balances, currentUserId);
   // Actual spend feeds the ledger; planned is the forecast/budget total. Keep
   // them separate so a budget row never inflates "total spent".
-  const actualExpenses = expenses.filter((e) => !e.planned);
-  const plannedExpenses = expenses.filter((e) => e.planned);
-  const totalSpent = actualExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-  const totalPlanned = plannedExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-  const visibleExpenses = view === 'actual' ? actualExpenses : view === 'planned' ? plannedExpenses : expenses;
-  const nonZeroBalances = balances.filter((b) => Math.abs(b.balance) > 0.01);
+  const actualExpenses = selectActualExpenses(expenses);
+  const plannedExpenses = selectPlannedExpenses(expenses);
+  const totalSpent = sumExpenseAmounts(actualExpenses);
+  const totalPlanned = sumExpenseAmounts(plannedExpenses);
+  const visibleExpenses = selectVisibleExpenses(expenses, view);
+  const nonZeroBalances = selectNonZeroBalances(balances);
   // My net position from the netted plan, one actionable line per crew member:
   //   myPayments — "You owe {toName} ${amt}" (settle-able by me)
   //   myReceipts — "{fromName} owes you ${amt}" (they settle; read-only here)
-  const myPayments = settlements.filter((s) => s.fromUserId === currentUserId);
-  const myReceipts = settlements.filter((s) => s.toUserId === currentUserId);
+  const myPayments = selectMyPayments(settlements, currentUserId);
+  const myReceipts = selectMyReceipts(settlements, currentUserId);
 
   const amt = Number(amount);
-  const canAdd = !!description.trim() && Number.isFinite(amt) && amt > 0 && splitWith.length > 0;
+  const canAdd = canAddExpense(description, amt, splitWith.length);
   // Inline-validation flag: amount typed but not a usable positive number.
   // (decimal-pad can still surface '-', '..', or trailing dots on some devices.)
-  const amountInvalid = amount.trim().length > 0 && !(Number.isFinite(amt) && amt > 0);
+  const amountInvalid = isAmountInvalid(amount, amt);
 
-  // Reject negatives / non-numeric and cap to a single decimal with 2 places.
-  // Mirrors the web form's <input type="number" min="0.01"> guard so a minus
-  // sign (present on some Android decimal-pads) or pasted text can't enter a
-  // credit-flow amount. Empty string stays allowed so the field can be cleared.
   const handleAmountChange = (next: string) => {
-    const cleaned = next.replace(/[^0-9.]/g, '');
-    const match = cleaned.match(/^\d*(\.\d{0,2})?/);
-    setAmount(match ? match[0] : '');
+    setAmount(sanitizeAmountInput(next));
   };
 
   const handleAdd = async () => {

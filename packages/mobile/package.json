@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "build:web": "expo export -p web && node scripts/build-manifest.mjs && node scripts/build-sw.mjs",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "lint": "eslint .",
     "eas-build-post-install": "node scripts/install-sentry-cli.cjs"
   },
@@ -69,6 +70,7 @@
     "@types/react": "~19.2.17",
     "eslint": "^9.39.0",
     "typescript": "~6.0.3",
+    "vitest": "^4.1.8",
     "workbox-build": "^7.x"
   },
   "expo": {
