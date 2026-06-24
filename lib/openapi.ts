@@ -1,7 +1,62 @@
 /**
  * OpenAPI 3.0 spec generator — produces a JSON spec from the app's route/schema definitions.
  * Served at GET /api/docs/openapi.json
+ *
+ * REQUEST bodies and params are DERIVED from the authoritative Zod schemas in
+ * `lib/schemas.ts` via zod-openapi's `createSchema` (zod v4-native). This makes
+ * the documented request contract a projection of the validator — the docs can
+ * no longer silently disagree with what the server actually accepts (the prior
+ * hand-written `username` bounds had drifted to minLength:2/maxLength:30 while
+ * the validator enforced min1/max40).
+ *
+ * RESPONSE component schemas remain hand-written for now: no response-shape Zod
+ * schemas exist yet, so deriving them is out of scope.
+ *
+ * `createSchema` is synchronous, so `generateOpenAPISpec` stays a plain function
+ * the request handler / Swagger mount can call on demand under tsx.
  */
+
+import type { z } from 'zod';
+import { createSchema } from 'zod-openapi';
+import {
+  registerSchema,
+  loginSchema,
+  refreshTokenSchema,
+  adminBulkDeactivateSchema,
+  festivalDepthQuery,
+} from './schemas';
+
+/**
+ * Convert a Zod schema to an OpenAPI 3.0.3 JSON Schema object (the request half
+ * of an operation). `io: 'input'` so we document what the client must SEND
+ * (pre-transform), and the 3.0.3 target so the emitted dialect matches the
+ * spec's `openapi: '3.0.3'` (nullable/format rendered the 3.0 way, not 3.1).
+ */
+function zodSchema(schema: z.ZodType): Record<string, any> {
+  return createSchema(schema, { io: 'input', openapiVersion: '3.0.3' }).schema as Record<string, any>;
+}
+
+/** Wrap a derived Zod schema as an application/json request body. */
+function jsonBody(schema: z.ZodType) {
+  return { content: { 'application/json': { schema: zodSchema(schema) } } };
+}
+
+/**
+ * Project a Zod object schema's top-level properties into OpenAPI query
+ * `parameters`. Used for query schemas (e.g. the festival `depth` filter) so the
+ * documented query contract is also derived from the validator.
+ */
+function queryParams(schema: z.ZodType): Array<Record<string, any>> {
+  const json = zodSchema(schema);
+  const props: Record<string, any> = json.properties || {};
+  const required: string[] = json.required || [];
+  return Object.entries(props).map(([name, propSchema]) => ({
+    name,
+    in: 'query',
+    required: required.includes(name),
+    schema: propSchema,
+  }));
+}
 
 export function generateOpenAPISpec(config: any) {
   return {
@@ -102,21 +157,21 @@ export function generateOpenAPISpec(config: any) {
       '/api/v1/auth/register': {
         post: {
           tags: ['Auth'], summary: 'Register new user',
-          requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['username', 'password', 'confirmPassword'], properties: { username: { type: 'string', minLength: 2, maxLength: 30 }, password: { type: 'string', minLength: 8 }, confirmPassword: { type: 'string' } } } } } },
+          requestBody: jsonBody(registerSchema),
           responses: { 201: { description: 'User created', content: { 'application/json': { schema: { $ref: '#/components/schemas/RefreshTokenResponse' } } } } },
         },
       },
       '/api/v1/auth/login': {
         post: {
           tags: ['Auth'], summary: 'Login',
-          requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['username', 'password'], properties: { username: { type: 'string' }, password: { type: 'string' } } } } } },
+          requestBody: jsonBody(loginSchema),
           responses: { 200: { description: 'Login successful' }, 401: { description: 'Invalid credentials' }, 423: { description: 'Account locked' } },
         },
       },
       '/api/v1/auth/refresh-token': {
         post: {
           tags: ['Auth'], summary: 'Exchange refresh token for new session + refresh token',
-          requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['refreshToken'], properties: { refreshToken: { type: 'string' } } } } } },
+          requestBody: jsonBody(refreshTokenSchema),
           responses: { 200: { description: 'Tokens rotated', content: { 'application/json': { schema: { $ref: '#/components/schemas/RefreshTokenResponse' } } } }, 401: { description: 'Invalid/expired refresh token' } },
         },
       },
@@ -135,7 +190,7 @@ export function generateOpenAPISpec(config: any) {
       '/api/v1/festivals/{id}': {
         get: {
           tags: ['Festivals'], summary: 'Get festival by ID',
-          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, { name: 'depth', in: 'query', schema: { type: 'integer', enum: [0, 1, 2] } }],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, ...queryParams(festivalDepthQuery)],
           responses: { 200: { description: 'Festival data' } },
         },
       },
@@ -169,7 +224,7 @@ export function generateOpenAPISpec(config: any) {
         put: { tags: ['Notifications'], summary: 'Update notification preferences', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Updated' } } },
       },
       '/api/v1/admin/bulk/deactivate': {
-        post: { tags: ['Admin'], summary: 'Bulk deactivate users', security: [{ bearerAuth: [] }], requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { userIds: { type: 'array', items: { type: 'string' }, maxItems: 50 } } } } } }, responses: { 200: { description: 'Results' } } },
+        post: { tags: ['Admin'], summary: 'Bulk deactivate users', security: [{ bearerAuth: [] }], requestBody: jsonBody(adminBulkDeactivateSchema), responses: { 200: { description: 'Results' } } },
       },
       '/api/v1/admin/bulk/archive-festivals': {
         post: { tags: ['Admin'], summary: 'Bulk archive festivals', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Results' } } },

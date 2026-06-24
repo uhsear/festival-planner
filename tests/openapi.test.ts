@@ -107,6 +107,49 @@ describe('openapi: generateOpenAPISpec', () => {
     assert.ok(tagNames.includes('Notifications'));
   });
 
+  it('derives the register request body from the Zod schema (drift closed)', () => {
+    // The register request body is now a projection of `registerSchema` in
+    // lib/schemas.ts via zod-openapi — NOT a hand-written duplicate. This pins
+    // the username bounds to the authoritative validator (z.string().min(1).max(40))
+    // and guards against the old drift where the hand-written spec claimed
+    // minLength:2 / maxLength:30.
+    const spec = generateOpenAPISpec({});
+    const body = (spec.paths['/api/v1/auth/register'] as any).post.requestBody;
+    const schema = body.content['application/json'].schema;
+    const username = schema.properties.username;
+    assert.equal(username.type, 'string');
+    assert.equal(username.minLength, 1, 'username minLength must equal the Zod schema (.min(1))');
+    assert.equal(username.maxLength, 40, 'username maxLength must equal the Zod schema (.max(40))');
+    // Password bounds also come from the Zod schema (.min(8).max(200)).
+    assert.equal(schema.properties.password.minLength, 8);
+    assert.equal(schema.properties.password.maxLength, 200);
+    // Fields the validator requires but the old hand-written spec omitted are
+    // now documented because they are derived, not transcribed.
+    assert.ok(schema.required.includes('username'));
+    assert.ok(schema.required.includes('dateOfBirth'));
+    assert.ok(schema.required.includes('tosAccepted'));
+  });
+
+  it('derives the login request body from the Zod schema', () => {
+    const spec = generateOpenAPISpec({});
+    const schema = (spec.paths['/api/v1/auth/login'] as any).post.requestBody.content['application/json'].schema;
+    // loginSchema enforces username .max(40) — the derived spec reflects it.
+    assert.equal(schema.properties.username.maxLength, 40);
+    assert.deepEqual([...schema.required].sort(), ['password', 'username']);
+  });
+
+  it('derives the festival depth query parameter from the Zod schema', () => {
+    const spec = generateOpenAPISpec({});
+    const params = (spec.paths['/api/v1/festivals/{id}'] as any).get.parameters as any[];
+    const depth = params.find((p) => p.name === 'depth');
+    assert.ok(depth, 'depth query param present');
+    assert.equal(depth.in, 'query');
+    // festivalDepthQuery is z.coerce.number().int().min(0).max(2).optional()
+    assert.equal(depth.required, false);
+    assert.equal(depth.schema.minimum, 0);
+    assert.equal(depth.schema.maximum, 2);
+  });
+
   it('handles null config gracefully', () => {
     const spec = generateOpenAPISpec(null);
     assert.equal(spec.openapi, '3.0.3');
