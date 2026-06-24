@@ -13,10 +13,9 @@ import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@festie/shared/stores';
+import { isValidEmail } from '@festie/shared/utils';
 import Button from '../../components/Button';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
-
-const EMAIL_RE = /^\S+@\S+\.[a-zA-Z]{2,}$/;
 
 /**
  * Forgot-password screen — mobile mirror of the web /forgot-password page.
@@ -137,7 +136,7 @@ export default function ForgotPasswordScreen() {
       setEmailError('Email is required');
       return;
     }
-    if (!EMAIL_RE.test(trimmed)) {
+    if (!isValidEmail(trimmed)) {
       setEmailError('Invalid email address');
       return;
     }

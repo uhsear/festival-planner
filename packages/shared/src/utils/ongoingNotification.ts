@@ -112,13 +112,18 @@ function toTimedSets(sets: OngoingSetInput[], days: FestivalDay[]): TimedSet[] {
 }
 
 /**
- * Choose the "active" meeting point from the last-cached list. Preference order:
+ * Choose the "active" meeting point from the last-cached list for the ongoing-set
+ * notification. Preference order:
  *   1. an explicitly `active` point,
  *   2. otherwise the most recently created point
  * Optimistic-offline placeholders are eligible (they ARE the user's cached
  * intent). Returns null when there are no usable points.
+ *
+ * NOTE: distinct from `crewPlan.pickActiveMeetingPoint(points, nowMs)` — that one
+ * picks the soonest future timed point for the crew-plan screen. This variant is
+ * scoped to the notification (most-recent active), hence the `Ongoing` name.
  */
-export function pickActiveMeetingPoint(meetingPoints: CrewMeetingPoint[] = []): CrewMeetingPoint | null {
+export function pickOngoingMeetingPoint(meetingPoints: CrewMeetingPoint[] = []): CrewMeetingPoint | null {
   if (!meetingPoints.length) return null;
   const flagged = meetingPoints.filter((m) => m.active);
   const pool = flagged.length ? flagged : meetingPoints;
@@ -182,7 +187,7 @@ export function buildOngoingNotificationModel(input: OngoingNotificationModelInp
 
   const focus = current ?? next ?? null;
 
-  const mp = pickActiveMeetingPoint(meetingPoints);
+  const mp = pickOngoingMeetingPoint(meetingPoints);
   const meetingPointLabel = mp ? mp.label : null;
 
   // Offline-honest meeting-point line. NEVER implies the point is live.

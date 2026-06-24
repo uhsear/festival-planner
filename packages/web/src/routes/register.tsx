@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@festie/shared';
+import { isValidEmail } from '@festie/shared/utils';
 import { useToast } from '../lib/toastContext';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import Button from '../components/ui/Button';
@@ -34,7 +35,8 @@ function RegisterPageInner() {
   const [dobErr, setDobErr] = useState('');
   const [formError, setFormError] = useState('');
 
-  const isValidEmail = (value: string) => /^\S+@\S+\.\w{2,}$/.test(value);
+  // isValidEmail is the shared UX-level check (@festie/shared/utils); the backend
+  // Zod schema remains the authoritative validation boundary.
   // UX-only check; the backend Zod schema is the authoritative 18+ gate.
   const isAtLeast18 = (iso: string) => {
     const d = new Date(`${iso}T00:00:00Z`);

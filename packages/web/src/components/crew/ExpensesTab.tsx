@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
 import { useCrewStore } from '@festie/shared/stores';
 import type { SettleCrewExpenseRequest, CrewSettlementPlan, CrewSettlement } from '@festie/shared/types';
-import { venmoLink, cashAppLink, payPalLink } from '@festie/shared/utils';
+import { venmoLink, cashAppLink, payPalLink, formatBalance, formatAmount } from '@festie/shared/utils';
+import { EXPENSE_CATEGORIES, expenseCategoryFor } from '@festie/shared/constants';
 import { useToast } from '../../lib/toastContext';
 import { cn } from '@/lib/utils';
 import Button from '../ui/Button';
@@ -43,21 +44,6 @@ interface Props {
   crewId: string;
   members: CrewMemberLite[];
   currentUserId: string;
-}
-
-const CATEGORIES = [
-  { key: 'food', emoji: '🍔', label: 'Food' },
-  { key: 'drinks', emoji: '🍺', label: 'Drinks' },
-  { key: 'transport', emoji: '🚗', label: 'Ride' },
-  { key: 'hotel', emoji: '🏨', label: 'Hotel' },
-  { key: 'tickets', emoji: '🎫', label: 'Tickets' },
-  { key: 'other', emoji: '💸', label: 'Other' },
-] as const;
-
-function formatBalance(value: number): string {
-  if (value > 0.01) return `+$${value.toFixed(2)}`;
-  if (value < -0.01) return `-$${Math.abs(value).toFixed(2)}`;
-  return '$0.00';
 }
 
 function balanceColor(value: number): string {
@@ -236,7 +222,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
           {totalPlanned > 0 && (
             <div className="p-3 rounded-lg bg-bg-card border border-border col-span-2">
               <div className="text-xs text-text-muted uppercase tracking-wide">Planned (budget)</div>
-              <div className="text-lg font-bold text-accent-aqua tabular-nums">${totalPlanned.toFixed(2)}</div>
+              <div className="text-lg font-bold text-accent-aqua tabular-nums">{formatAmount(totalPlanned)}</div>
             </div>
           )}
         </div>
@@ -324,7 +310,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
                         <span className="text-sm text-text-primary">
                           You owe <span className="font-medium">{s.toName}</span>{' '}
                           <span className="text-[var(--color-text-danger)] font-semibold tabular-nums">
-                            ${s.amount.toFixed(2)}
+                            {formatAmount(s.amount)}
                           </span>
                         </span>
                         <Button
@@ -378,7 +364,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
                   <div key={`get-${s.fromUserId}`} className="flex items-center justify-between gap-2">
                     <span className="text-sm text-text-primary">
                       <span className="font-medium">{s.fromName}</span> owes you{' '}
-                      <span className="text-accent-aqua font-semibold tabular-nums">${s.amount.toFixed(2)}</span>
+                      <span className="text-accent-aqua font-semibold tabular-nums">{formatAmount(s.amount)}</span>
                     </span>
                   </div>
                 ))}
@@ -442,15 +428,15 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
           <div>
             <label className="block text-sm font-medium text-text-primary mb-2">Category</label>
             <div className="crew-category-grid grid grid-cols-3 gap-2">
-              {CATEGORIES.map((c) => (
+              {EXPENSE_CATEGORIES.map((c) => (
                 <button
-                  key={c.key}
+                  key={c.id}
                   type="button"
-                  onClick={() => setCategory(c.key)}
-                  aria-pressed={category === c.key}
+                  onClick={() => setCategory(c.id)}
+                  aria-pressed={category === c.id}
                   className={cn(
                     'min-h-11 px-2 py-2 rounded-lg border text-xs flex flex-col items-center gap-1',
-                    category === c.key
+                    category === c.id
                       ? 'bg-accent-aqua/15 border-accent-aqua text-accent-aqua'
                       : 'bg-bg-card border-border text-text-secondary hover:border-border-light',
                   )}
@@ -486,7 +472,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
             </div>
             {splitWith.length > 0 && amount && (
               <div className="text-xs text-text-muted mt-1 tabular-nums">
-                ${(Number(amount) / splitWith.length).toFixed(2)}/person {'×'} {splitWith.length}
+                {formatAmount(Number(amount) / splitWith.length)}/person {'×'} {splitWith.length}
               </div>
             )}
           </div>
@@ -535,7 +521,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
       ) : (
         <div className="space-y-2">
           {visibleExpenses.map((e, i) => {
-            const cat = CATEGORIES.find((c) => c.key === e.category) ?? CATEGORIES[CATEGORIES.length - 1]!;
+            const cat = expenseCategoryFor(e.category);
             return (
               <ExpenseItem
                 key={e.id}

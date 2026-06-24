@@ -1,6 +1,7 @@
 import React, { useMemo, useRef } from 'react';
 import { useFestivalStore, useAuthStore, useCrewStore } from '@festie/shared/stores';
 import { useCrew, useFestival } from '@festie/shared/hooks';
+import { resolveStageColor } from '@festie/shared/utils';
 import type { Priority } from '@festie/shared/types';
 import GuestTeaser from '../components/features/GuestTeaser';
 import EmptyState from '../components/ui/EmptyState';
@@ -29,7 +30,9 @@ function CompareViewInner() {
   const activeCrew = useCrewStore((s) => s.activeCrew);
 
   const { getCrewScopedProfiles, getCrewScopedOtherPicks } = useCrew();
-  const { getStageColor, getStageName } = useFestival();
+  const { getStageColor: getStageColorRaw, getStageName } = useFestival();
+  // Map shared's platform-neutral fallback sentinel to the web muted CSS var.
+  const getStageColor = (stageId: string) => resolveStageColor(getStageColorRaw(stageId), 'var(--text-muted)');
   const dayTabsRef = useRef<HTMLDivElement>(null);
   useRovingTabs(dayTabsRef);
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@festie/shared/services/api';
+import { formatUptime, timeAgoFromIso } from '@festie/shared/utils';
 import { Users, Tent, ClipboardList, Music } from 'lucide-react';
 import { useToast } from '../../lib/toastContext';
 import { cn } from '../../lib/utils';
@@ -78,23 +79,6 @@ export default function AdminDashboard() {
   }
 
   const { stats, health, recentActivity } = data;
-
-  const formatUptime = (seconds: number): string => {
-    const d = Math.floor(seconds / 86400);
-    const hr = Math.floor((seconds % 86400) / 3600);
-    const mn = Math.floor((seconds % 3600) / 60);
-    if (d > 0) return `${d}d ${hr}h ${mn}m`;
-    if (hr > 0) return `${hr}h ${mn}m`;
-    return `${mn}m`;
-  };
-
-  const formatTimeAgo = (dateStr: string): string => {
-    const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
-  };
 
   return (
     <div className="space-y-8">
@@ -192,7 +176,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-xs text-text-muted whitespace-nowrap">{formatTimeAgo(activity.createdAt)}</div>
+                  <div className="text-xs text-text-muted whitespace-nowrap">{timeAgoFromIso(activity.createdAt)}</div>
                 </div>
               ))}
             </div>

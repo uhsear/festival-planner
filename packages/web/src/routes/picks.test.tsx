@@ -36,6 +36,8 @@ vi.mock('@festie/shared/utils', () => ({
   formatTime: vi.fn((t: string) => t),
   artistDisplayName: vi.fn((set: { artist?: string }) => set.artist || 'Unknown'),
   buildPicksIcs: vi.fn(() => 'BEGIN:VCALENDAR\r\nEND:VCALENDAR'),
+  buildPicksShareUrl: vi.fn((profileId: string) => `https://festie.us/s/${profileId}`),
+  resolveStageColor: (c: string | null | undefined, fallback: string) => c || fallback,
 }));
 
 vi.mock('../components/ui/StageBadge', () => ({

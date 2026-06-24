@@ -13,6 +13,7 @@ import {
   MAX_ENCODED_LENGTH,
   type PlanSnapshotInput,
 } from '@festie/shared/utils';
+import { PRIORITY_WEIGHT } from '@festie/shared/constants';
 import type { CrewMeetingPoint, Priority } from '@festie/shared/types';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
@@ -25,8 +26,6 @@ import IconButton from '../ui/IconButton';
 // priority-ranked (must > want > maybe) and capped to MAX_PICKS so an
 // over-long plan still produces a single scannable code; the SAME shared
 // codec mobile uses also truncates defensively.
-
-const PRIORITY_RANK: Record<string, number> = { must: 3, 'want-to-see': 2, maybe: 1 };
 
 /** Soonest active, future meeting point with a coord; falls back to any active+coord one. */
 function pickShareMeetingPoint(points: CrewMeetingPoint[], nowMs: number): CrewMeetingPoint | null {
@@ -66,7 +65,7 @@ function usePlanSnapshot(): SnapshotState {
     // important picks survive the bound (the codec truncates the tail).
     const picks = Object.entries((currentProfile.picks as Record<string, Priority>) || {})
       .map(([setId, priority]) => ({ setId, priority: priority as string }))
-      .sort((a, b) => (PRIORITY_RANK[b.priority] ?? 0) - (PRIORITY_RANK[a.priority] ?? 0))
+      .sort((a, b) => (PRIORITY_WEIGHT[b.priority as Priority] ?? 0) - (PRIORITY_WEIGHT[a.priority as Priority] ?? 0))
       .slice(0, MAX_PICKS)
       .map((p) => ({ setId: p.setId, priority: toPickPriority(p.priority) }));
 

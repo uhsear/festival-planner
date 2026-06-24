@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Copy, RefreshCw, Share2 } from 'lucide-react';
 import { useCrewStore } from '@festie/shared/stores';
+import { buildJoinUrl } from '@festie/shared/utils';
 import Button from '../ui/Button';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import { useToast } from '../../lib/toastContext';
@@ -26,7 +27,7 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
   }, []);
 
   const handleCopy = useCallback(() => {
-    const url = `${window.location.origin}/join/${encodeURIComponent(inviteCode)}`;
+    const url = buildJoinUrl(inviteCode, window.location.origin);
     navigator.clipboard?.writeText(url);
     setCopiedCode(true);
     if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
@@ -34,7 +35,7 @@ export default function CrewInviteBar({ inviteCode, crewId, isOwner }: CrewInvit
   }, [inviteCode]);
 
   const handleShare = useCallback(async () => {
-    const url = `${window.location.origin}/join/${encodeURIComponent(inviteCode)}`;
+    const url = buildJoinUrl(inviteCode, window.location.origin);
     const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
     if (typeof nav.share === 'function') {
       try {

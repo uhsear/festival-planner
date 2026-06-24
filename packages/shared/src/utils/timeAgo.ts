@@ -21,3 +21,21 @@ export function timeAgo(ms: number): string {
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
 }
+
+/**
+ * Human-readable uptime string from a raw seconds value (server process uptime).
+ *
+ * Buckets: seconds-only → "Nm", hours present → "Nh Nm", days present → "Nd Nh Nm".
+ * The `d` component is omitted when zero so "0d 2h 30m" never appears.
+ *
+ * Used by the admin dashboard health card on both web (AdminDashboard.tsx) and
+ * mobile (admin/index.tsx) so they render identically from a single source.
+ */
+export function formatUptime(seconds: number): string {
+  const d = Math.floor(seconds / 86400);
+  const hr = Math.floor((seconds % 86400) / 3600);
+  const mn = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}d ${hr}h ${mn}m`;
+  if (hr > 0) return `${hr}h ${mn}m`;
+  return `${mn}m`;
+}

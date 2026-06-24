@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { usePicks, useCrewNudges, useFestival } from '@festie/shared/hooks';
 import { useFestivalStore } from '@festie/shared/stores';
-import { artistDisplayName, buildOverlapBreakdown } from '@festie/shared/utils';
+import { artistDisplayName, buildOverlapBreakdown, resolveStageColor } from '@festie/shared/utils';
 import StageBadge from '../ui/StageBadge';
 import CrewOverlapAvatars, { OverlapFriend } from './CrewOverlapAvatars';
 import { cn } from '@/lib/utils';
@@ -25,7 +25,9 @@ function dismissKey(setId: string): string {
 export default function CrewSuggestionStrip() {
   const nudges = useCrewNudges();
   const { savePick } = usePicks();
-  const { getStageColor, getStageName } = useFestival();
+  const { getStageColor: getStageColorRaw, getStageName } = useFestival();
+  // Map shared's platform-neutral fallback sentinel to the web muted CSS var.
+  const getStageColor = (stageId: string) => resolveStageColor(getStageColorRaw(stageId), 'var(--text-muted)');
   const currentFestival = useFestivalStore((state) => state.currentFestival);
   const b2bSeparator = currentFestival?.b2bSeparator;
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildOngoingNotificationModel, pickActiveMeetingPoint, type OngoingSetInput } from './ongoingNotification';
+import { buildOngoingNotificationModel, pickOngoingMeetingPoint, type OngoingSetInput } from './ongoingNotification';
 import type { CrewMeetingPoint, FestivalDay } from '../types/domain';
 
 const DAY = '2026-09-04';
@@ -113,20 +113,20 @@ describe('buildOngoingNotificationModel', () => {
   });
 });
 
-describe('pickActiveMeetingPoint', () => {
+describe('pickOngoingMeetingPoint', () => {
   it('returns null for an empty list', () => {
-    expect(pickActiveMeetingPoint([])).toBeNull();
+    expect(pickOngoingMeetingPoint([])).toBeNull();
   });
 
   it('prefers an active point over an inactive newer one', () => {
     const inactiveNewer = mp({ id: 'a', active: false, created_at: '2026-09-04T12:00:00Z' });
     const activeOlder = mp({ id: 'b', active: true, created_at: '2026-09-04T09:00:00Z' });
-    expect(pickActiveMeetingPoint([inactiveNewer, activeOlder])?.id).toBe('b');
+    expect(pickOngoingMeetingPoint([inactiveNewer, activeOlder])?.id).toBe('b');
   });
 
   it('falls back to the most recent when none are flagged active', () => {
     const older = mp({ id: 'a', active: false, created_at: '2026-09-04T09:00:00Z' });
     const newer = mp({ id: 'b', active: false, created_at: '2026-09-04T12:00:00Z' });
-    expect(pickActiveMeetingPoint([older, newer])?.id).toBe('b');
+    expect(pickOngoingMeetingPoint([older, newer])?.id).toBe('b');
   });
 });

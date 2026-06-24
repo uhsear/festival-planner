@@ -1,6 +1,11 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '@festie/shared/tokens';
-import type { CrewWrapOverlapPair, CrewWrapSeenTogether, CrewWrapMemberSummary } from '@festie/shared/types';
+import type {
+  CrewWrapOverlapPair,
+  CrewWrapSeenTogether,
+  CrewWrapMemberSummary,
+  CrewWrapData,
+} from '@festie/shared/types';
 
 /**
  * Poster palette — sourced from @festie/shared/tokens (pure data, zero runtime
@@ -18,20 +23,9 @@ const POSTER = {
   rank: colors.accent.aqua, // #00e8d0
 } as const;
 
-export type { CrewWrapOverlapPair, CrewWrapSeenTogether, CrewWrapMemberSummary };
-
-export interface CrewWrapData {
-  crewId: string;
-  festivalId: string;
-  memberCount: number;
-  members: { userId: string; name: string }[];
-  topOverlap: CrewWrapOverlapPair | null;
-  overlapMatrix: CrewWrapOverlapPair[];
-  setsSeenTogether: CrewWrapSeenTogether[];
-  totalSplit: number;
-  biggestSpender: { userId: string; name: string; amount: number } | null;
-  perMember: CrewWrapMemberSummary[];
-}
+// Re-export the shared types so existing importers (e.g. app/wrap.tsx) keep
+// importing `CrewWrapData` from this component module unchanged.
+export type { CrewWrapOverlapPair, CrewWrapSeenTogether, CrewWrapMemberSummary, CrewWrapData };
 
 interface Props {
   crewName: string;

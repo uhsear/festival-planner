@@ -5,7 +5,7 @@ import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import { Priority } from '@festie/shared/types';
-import { formatTime, artistDisplayName, buildPicksIcs } from '@festie/shared/utils';
+import { formatTime, artistDisplayName, buildPicksIcs, buildPicksShareUrl, resolveStageColor } from '@festie/shared/utils';
 import StageBadge from '../components/ui/StageBadge';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
@@ -48,7 +48,12 @@ function PicksViewInner() {
 
   const setDetailSet = useUIStore((state) => state.setDetailSet);
   const { getMyPick } = usePicks();
-  const { getStageColor, getStageName } = useFestival();
+  const { getStageColor: getStageColorRaw, getStageName } = useFestival();
+  // Map shared's platform-neutral fallback sentinel to the web muted CSS var.
+  const getStageColor = useCallback(
+    (stageId: string) => resolveStageColor(getStageColorRaw(stageId), 'var(--text-muted)'),
+    [getStageColorRaw],
+  );
   const { toast } = useToast();
 
   // Filter sets by selected day using dayIndex
@@ -133,7 +138,7 @@ function PicksViewInner() {
   // clipboard copy as the desktop fallback.
   const handleSharePicks = useCallback(async () => {
     if (!currentProfile || !currentFestival) return;
-    const url = `https://festie.us/s/${currentProfile.id}`;
+    const url = buildPicksShareUrl(currentProfile.id);
     const text = `My ${currentFestival.name} picks on Festie`;
     const nav = navigator as Navigator & {
       share?: (data: ShareData) => Promise<void>;

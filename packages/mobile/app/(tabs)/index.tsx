@@ -21,6 +21,7 @@ import {
   getConflictingSetIds,
   timeToMinutes,
   festivalPhase,
+  byStartTime,
 } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
@@ -50,16 +51,6 @@ const VIEW_OPTIONS: readonly { value: ViewMode; label: string }[] = [
   { value: 'timeline', label: 'Timeline' },
   { value: 'cards', label: 'Cards' },
 ];
-
-/** Compare set start times for ascending time order. */
-function byStartTime(a: FestivalSet, b: FestivalSet): number {
-  const ta = a.startTime || '';
-  const tb = b.startTime || '';
-  if (ta && tb) return ta.localeCompare(tb);
-  if (ta && !tb) return -1;
-  if (!ta && tb) return 1;
-  return 0;
-}
 
 type ListRow =
   | { kind: 'stageHeader'; key: string; stageName: string; stageColor: string }

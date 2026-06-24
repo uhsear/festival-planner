@@ -1,12 +1,10 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
+import { formatAmount } from '@festie/shared/utils';
+import type { EXPENSE_CATEGORIES } from '@festie/shared/constants';
 import IconButton from '../ui/IconButton';
 
-interface CategoryDef {
-  key: string;
-  emoji: string;
-  label: string;
-}
+type CategoryDef = (typeof EXPENSE_CATEGORIES)[number];
 
 export interface ExpenseItemProps {
   id: string;
@@ -54,7 +52,7 @@ export default function ExpenseItem({
           )}
         </div>
         <div className="text-xs text-text-secondary">
-          <span className="tabular-nums">${Number(amount).toFixed(2)}</span> {'·'}{' '}
+          <span className="tabular-nums">{formatAmount(amount)}</span> {'·'}{' '}
           {planned ? 'planned' : `${paidByMe ? 'You' : paidByName} paid`}
           {splitCount > 0 && ` · split ${splitCount} ways`}
         </div>

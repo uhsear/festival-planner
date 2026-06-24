@@ -25,7 +25,9 @@ const PRIORITY_NOUN: Record<Priority, string> = {
 // Weighted score per backer priority — drives the suggestion ranking so a set
 // two crew-mates flagged as `must` outranks one three crew-mates merely
 // `maybe`'d. Mirrors PRIORITY_RANK's must > want > maybe ordering.
-const PRIORITY_WEIGHT: Record<Priority, number> = {
+// Re-exported from @festie/shared/constants so consumers that need "higher =
+// more important" scoring (crew-plan digest, PlanQRShare sort) import once.
+export const PRIORITY_WEIGHT: Record<Priority, number> = {
   must: 3,
   'want-to-see': 2,
   maybe: 1,

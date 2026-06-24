@@ -4,7 +4,8 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore } from '@festie/shared/stores';
 import type { CrewExpense, CrewMember, CrewSettlement } from '@festie/shared/types';
-import { venmoLink, cashAppLink, payPalLink } from '@festie/shared/utils';
+import { venmoLink, cashAppLink, payPalLink, formatBalance, formatAmount } from '@festie/shared/utils';
+import { EXPENSE_CATEGORIES, expenseCategoryFor } from '@festie/shared/constants';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -16,25 +17,6 @@ interface CrewExpensesProps {
   currentUserId: string;
 }
 
-// Mirrors the web ExpensesTab categories (lib server enum + emoji labels).
-const CATEGORIES = [
-  { key: 'food', emoji: '🍔', label: 'Food' },
-  { key: 'drinks', emoji: '🍺', label: 'Drinks' },
-  { key: 'transport', emoji: '🚗', label: 'Ride' },
-  { key: 'hotel', emoji: '🏨', label: 'Hotel' },
-  { key: 'tickets', emoji: '🎫', label: 'Tickets' },
-  { key: 'other', emoji: '💸', label: 'Other' },
-] as const;
-
-function formatBalance(value: number): string {
-  if (value > 0.01) return `+$${value.toFixed(2)}`;
-  if (value < -0.01) return `-$${Math.abs(value).toFixed(2)}`;
-  return '$0.00';
-}
-
-function categoryFor(key: string): (typeof CATEGORIES)[number] {
-  return CATEGORIES.find((c) => c.key === key) ?? CATEGORIES[CATEGORIES.length - 1]!;
-}
 
 /**
  * Crew expenses — track shared costs, view per-person balances, settle debts.
@@ -151,7 +133,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
   // Settle the exact netted amount from the plan (NOT a Math.min heuristic).
   const handleSettle = (s: CrewSettlement) => {
     if (s.amount <= 0) return;
-    Alert.alert('Settle up', `Record paying ${s.toName} $${s.amount.toFixed(2)}?`, [
+    Alert.alert('Settle up', `Record paying ${s.toName} ${formatAmount(s.amount)}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Settle',
@@ -182,7 +164,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
         <View style={styles.statsGrid}>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Total spent</Text>
-            <Text style={[styles.statValue, styles.tabularNums]}>${totalSpent.toFixed(2)}</Text>
+            <Text style={[styles.statValue, styles.tabularNums]}>{formatAmount(totalSpent)}</Text>
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Your balance</Text>
@@ -203,7 +185,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
       {totalPlanned > 0 ? (
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Planned (budget)</Text>
-          <Text style={[styles.statValue, styles.balancePositive, styles.tabularNums]}>${totalPlanned.toFixed(2)}</Text>
+          <Text style={[styles.statValue, styles.balancePositive, styles.tabularNums]}>{formatAmount(totalPlanned)}</Text>
         </View>
       ) : null}
 
@@ -285,7 +267,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
                       <View style={styles.ledgerRow}>
                         <Text style={styles.ledgerName}>
                           You owe {s.toName}{' '}
-                          <Text style={[styles.balanceNegative, styles.tabularNums]}>${s.amount.toFixed(2)}</Text>
+                          <Text style={[styles.balanceNegative, styles.tabularNums]}>{formatAmount(s.amount)}</Text>
                         </Text>
                         <TouchableOpacity
                           style={styles.settleButton}
@@ -343,7 +325,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
                   <View key={`get-${s.fromUserId}`} style={styles.ledgerRow}>
                     <Text style={styles.ledgerName}>
                       {s.fromName} owes you{' '}
-                      <Text style={[styles.balancePositive, styles.tabularNums]}>${s.amount.toFixed(2)}</Text>
+                      <Text style={[styles.balancePositive, styles.tabularNums]}>{formatAmount(s.amount)}</Text>
                     </Text>
                   </View>
                 ))}
@@ -404,13 +386,13 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
             </Text>
           ) : null}
           <View style={styles.chipGrid}>
-            {CATEGORIES.map((c) => {
-              const active = category === c.key;
+            {EXPENSE_CATEGORIES.map((c) => {
+              const active = category === c.id;
               return (
                 <TouchableOpacity
-                  key={c.key}
+                  key={c.id}
                   style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => setCategory(c.key)}
+                  onPress={() => setCategory(c.id)}
                   activeOpacity={0.8}
                   accessibilityRole="button"
                   accessibilityLabel={`Category ${c.label}`}
@@ -442,7 +424,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
           </View>
           {splitWith.length > 0 && amt > 0 ? (
             <Text style={[styles.splitHint, styles.tabularNums]}>
-              ${(amt / splitWith.length).toFixed(2)}/person × {splitWith.length}
+              {formatAmount(amt / splitWith.length)}/person × {splitWith.length}
             </Text>
           ) : null}
           {/* Planned = budget/forecast row. Excluded from balances + settle-up. */}
@@ -496,7 +478,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
         </Text>
       ) : (
         visibleExpenses.map((e, idx) => {
-          const cat = categoryFor(e.category);
+          const cat = expenseCategoryFor(e.category);
           const canRemove = e.paid_by === currentUserId;
           // R20 swipe-to-delete fallback: react-native-gesture-handler is absent
           // from the mobile deps, so the whole row is long-pressable (= delete
@@ -535,7 +517,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
                     {e.split_with.length}
                   </Text>
                 </View>
-                <Text style={[styles.expenseAmount, styles.tabularNums]}>${Number(e.amount).toFixed(2)}</Text>
+                <Text style={[styles.expenseAmount, styles.tabularNums]}>{formatAmount(e.amount)}</Text>
                 {canRemove ? (
                   <TouchableOpacity
                     onPress={() => handleRemove(e)}

@@ -1,46 +1,12 @@
 import { useEffect } from 'react';
 import { View, Text } from 'react-native';
 import { useCrewStore } from '@festie/shared/stores';
+import { timeAgoFromIso, getInitials } from '@festie/shared/utils';
+import { CREW_ACTIVITY_LABELS } from '@festie/shared/constants';
 import { makeStyles, typeStyle } from '../hooks/useTokens';
 
 interface CrewActivityProps {
   crewId: string;
-}
-
-// Mirrors the web ActivityTab verb labels.
-const TYPE_LABELS: Record<string, string> = {
-  'member-joined': 'joined the crew',
-  'member-left': 'left the crew',
-  'member-kicked': 'was removed',
-  'poll-created': 'created a poll',
-  'poll-voted': 'voted on a poll',
-  'expense-added': 'added an expense',
-  'expense-deleted': 'removed an expense',
-  'expense-settled': 'settled up',
-  'home-base-updated': 'updated the home base',
-  'meeting-point-added': 'dropped a meeting point',
-  'meeting-point-removed': 'removed a meeting point',
-  'crew-updated': 'updated the crew',
-};
-
-function initialsFor(name: string | undefined): string {
-  const trimmed = (name ?? '').trim();
-  if (!trimmed) return '?';
-  const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
-}
-
-function timeAgo(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return '';
-  const s = Math.floor((Date.now() - then) / 1000);
-  if (s < 60) return `${Math.max(s, 0)}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
 }
 
 /**
@@ -73,18 +39,18 @@ export default function CrewActivity({ crewId }: CrewActivityProps) {
   return (
     <View style={styles.container}>
       {dedupedActivity.map((it) => {
-        const verb = TYPE_LABELS[it.type] ?? it.type.replace(/-/g, ' ');
+        const verb = CREW_ACTIVITY_LABELS[it.type] ?? it.type.replace(/-/g, ' ');
         return (
           <View key={it.id} style={styles.row}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initialsFor(it.username)}</Text>
+              <Text style={styles.avatarText}>{getInitials(it.username ?? '') || '?'}</Text>
             </View>
             <View style={styles.info}>
               <Text style={styles.line}>
                 <Text style={styles.name}>{it.username || 'Someone'}</Text> <Text style={styles.verb}>{verb}</Text>
                 {it.detail ? <Text style={styles.verb}>: {it.detail}</Text> : null}
               </Text>
-              <Text style={styles.time}>{timeAgo(it.created_at)}</Text>
+              <Text style={styles.time}>{timeAgoFromIso(it.created_at)}</Text>
             </View>
           </View>
         );

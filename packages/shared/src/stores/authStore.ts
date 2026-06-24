@@ -219,7 +219,7 @@ const authStore: StateCreator<AuthStore> = (set, get) => ({
         isLoading: false,
       });
       analytics.identify(user.id);
-      analytics.capture('user_registered');
+      analytics.captureEvent('user_registered');
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Registration failed');
       set({ error: message, isLoading: false });

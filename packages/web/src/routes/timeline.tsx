@@ -4,7 +4,7 @@ import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useFestivalModeStore } from '@festie/shared/stores/festivalModeStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import { Priority } from '@festie/shared/types';
-import { getSetTimeBounds, artistDisplayName } from '@festie/shared/utils';
+import { getSetTimeBounds, artistDisplayName, resolveStageColor } from '@festie/shared/utils';
 import RefreshableView from '../components/layout/RefreshableView';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import TimelineGrid from '../features/TimelineGrid';
@@ -38,7 +38,12 @@ function TimelineViewInner() {
   // battery-costing reflow loop). The manual "Now" button stays available.
   const lowPowerMode = useFestivalModeStore((state) => state.lowPowerMode);
   const { getMyPick, getOtherPicks, savePick } = usePicks();
-  const { getStageColor } = useFestival();
+  const { getStageColor: getStageColorRaw } = useFestival();
+  // Map shared's platform-neutral fallback sentinel to the web muted CSS var.
+  const getStageColor = useCallback(
+    (stageId: string) => resolveStageColor(getStageColorRaw(stageId), 'var(--text-muted)'),
+    [getStageColorRaw],
+  );
 
   const {
     currentFestival,

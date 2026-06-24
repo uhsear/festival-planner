@@ -3,7 +3,7 @@ import { AccessibilityInfo, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
-import { artistDisplayName } from '@festie/shared/utils';
+import { artistDisplayName, fmtClock, fmtCountdown } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useNowNext } from '../hooks/useNowNext';
 import LiveDot from './LiveDot';
@@ -11,18 +11,6 @@ import LiveDot from './LiveDot';
 interface NowNextStripProps {
   /** Opens the full Now & Next surface (festival-mode screen). */
   onPress: () => void;
-}
-
-function fmtClock(ms: number): string {
-  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function fmtCountdown(mins: number): string {
-  if (mins < 1) return 'now';
-  if (mins < 60) return `in ${mins}m`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m ? `in ${h}h ${m}m` : `in ${h}h`;
 }
 
 /**

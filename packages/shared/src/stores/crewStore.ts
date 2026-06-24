@@ -310,7 +310,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         crewMembers: crew.members ?? [],
         crewLoading: false,
       }));
-      analytics.capture('crew_created', { crew_id: crew.id });
+      analytics.captureEvent('crew_created', { crew_id: crew.id });
       return crew;
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to create crew');
@@ -382,7 +382,7 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         crews: state.crews.some((c) => c.id === crew.id) ? state.crews : [...state.crews, crew],
         crewLoading: false,
       }));
-      analytics.capture('crew_joined', { crew_id: crew.id });
+      analytics.captureEvent('crew_joined', { crew_id: crew.id });
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to join crew');
       set({ error: message, crewLoading: false });

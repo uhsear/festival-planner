@@ -4,7 +4,7 @@ import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
-import { artistDisplayName } from '@festie/shared/utils';
+import { artistDisplayName, fmtClock, fmtCountdown } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useOngoingNotification } from '../hooks/useOngoingNotification';
 import { useNowNext } from '../hooks/useNowNext';
@@ -17,18 +17,6 @@ import { LowPowerToggle, LowPowerIndicator } from '../components/LowPowerControl
 
 // Countdown flips to coral when a set is <= this many minutes away.
 const IMMINENT_MIN = 5;
-
-function fmtClock(d: Date): string {
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function fmtCountdown(mins: number): string {
-  if (mins < 1) return 'starting now';
-  if (mins < 60) return `in ${mins}m`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m ? `in ${h}h ${m}m` : `in ${h}h`;
-}
 
 /**
  * Now & Next — the live "now / up next" view (a.k.a. festival mode), a mobile
@@ -77,7 +65,7 @@ export default function FestivalModeScreen() {
             <Text style={styles.festivalName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
               {currentFestival.name}
             </Text>
-            <Text style={styles.clock}>{fmtClock(now)}</Text>
+            <Text style={styles.clock}>{fmtClock(now.getTime())}</Text>
           </View>
 
           {/* Offline-honest freshness for the live schedule surface, plus the
@@ -112,7 +100,7 @@ export default function FestivalModeScreen() {
                   >
                     <Text style={styles.artist}>{artistDisplayName(s, currentFestival.b2bSeparator)}</Text>
                     {stageName ? <Text style={styles.stage}>{stageName}</Text> : null}
-                    <Text style={styles.untilText}>until {fmtClock(new Date(end))}</Text>
+                    <Text style={styles.untilText}>until {fmtClock(end)}</Text>
                   </TouchableOpacity>
                 );
               })
@@ -143,7 +131,7 @@ export default function FestivalModeScreen() {
                   <Text style={styles.artist}>{artistDisplayName(s, currentFestival.b2bSeparator)}</Text>
                   <View style={styles.nextMeta}>
                     {stageName ? <Text style={styles.stage}>{stageName}</Text> : null}
-                    <Text style={styles.startText}>{fmtClock(new Date(start))}</Text>
+                    <Text style={styles.startText}>{fmtClock(start)}</Text>
                     <Text style={[styles.countdown, imminent && styles.countdownImminent]}>{fmtCountdown(mins)}</Text>
                   </View>
                 </TouchableOpacity>

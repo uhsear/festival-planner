@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@festie/shared';
 import { timeAgo } from '@festie/shared/utils';
+import { CREW_ACTIVITY_LABELS } from '@festie/shared/constants';
 import EmptyState from '../ui/EmptyState';
 import Avatar from '../ui/Avatar';
 import Skeleton from '../ui/Skeleton';
@@ -24,21 +25,6 @@ interface ActivityItem {
 interface Props {
   crewId: string;
 }
-
-const TYPE_LABELS: Record<string, string> = {
-  'member-joined': 'joined the crew',
-  'member-left': 'left the crew',
-  'member-kicked': 'was removed',
-  'poll-created': 'created a poll',
-  'poll-voted': 'voted on a poll',
-  'expense-added': 'added an expense',
-  'expense-deleted': 'removed an expense',
-  'expense-settled': 'settled up',
-  'home-base-updated': 'updated the home base',
-  'meeting-point-added': 'dropped a meeting point',
-  'meeting-point-removed': 'removed a meeting point',
-  'crew-updated': 'updated the crew',
-};
 
 export default function ActivityTab({ crewId }: Props) {
   const {
@@ -92,7 +78,7 @@ export default function ActivityTab({ crewId }: Props) {
   return (
     <div className="space-y-2 px-4">
       {items.map((it, idx) => {
-        const verb = TYPE_LABELS[it.type] || it.type.replace(/-/g, ' ');
+        const verb = CREW_ACTIVITY_LABELS[it.type] || it.type.replace(/-/g, ' ');
         return (
           <div
             key={it.id}

@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
+import { resolveStageColor } from '@festie/shared/utils';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { getPxPerMin, getGutterW, toMin, fmtHour } from '../components/grid/gridUtils';
 import { useGridExport } from '../components/grid/useGridExport';
@@ -28,7 +29,12 @@ function GridViewInner() {
   const activeStages = useFestivalStore((s) => s.activeStages);
   const setDetailSet = useUIStore((s) => s.setDetailSet);
   const { getMyPick, getOtherPicks } = usePicks();
-  const { getStageColor, getStageName } = useFestival();
+  const { getStageColor: getStageColorRaw, getStageName } = useFestival();
+  // Map shared's platform-neutral fallback sentinel to the web muted CSS var.
+  const getStageColor = useCallback(
+    (stageId: string) => resolveStageColor(getStageColorRaw(stageId), 'var(--text-muted)'),
+    [getStageColorRaw],
+  );
 
   // Compact crew-overlap indicator for grid cells: how many OTHER crew members
   // picked a set. Reads persisted allProfiles (via getOtherPicks), so the

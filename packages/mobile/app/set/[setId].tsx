@@ -19,6 +19,7 @@ import {
   relativeLuminance,
   srgbToLinear,
   linearToSrgb,
+  buildSetUrl,
 } from '@festie/shared/utils';
 import type { Priority } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
@@ -189,7 +190,7 @@ export default function SetDetailScreen() {
   // route). festie.us is the registered universal-link host (app.json) and the
   // festie:// scheme also resolves set/<id>, so the link deep-links into the app
   // when installed and falls back to the web page otherwise.
-  const shareUrl = useMemo(() => (set ? `https://festie.us/set/${set.id}` : ''), [set]);
+  const shareUrl = useMemo(() => (set ? buildSetUrl(set.id) : ''), [set]);
   // Narrow dep (currentFestival?.name, not the whole object) is deliberate so the
   // share handler only re-creates when the displayed name changes. React Compiler
   // is not enabled here, so keep the manual memo and suppress its readiness warning.

@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { FestivalDay, FestivalSet, Priority, Stage } from '@festie/shared/types';
 import { timeToMinutes, formatTime, artistDisplayName, getSetTimeBounds } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { safeStageColor } from '../lib/stageColor';
 import { useNowIndicator, type TimeBounds } from '../hooks/useNowIndicator';
 
 const SLOT_MINUTES = 15;
@@ -351,7 +352,7 @@ export default function TimelineView({
         stage={item}
         sets={setsByStage.get(item.id) || []}
         timeBounds={timeBounds!}
-        stageColor={getStageColor(item.id)}
+        stageColor={safeStageColor(getStageColor(item.id), t.colors.text.muted)}
         nowIndicator={nowIndicator}
         conflictIds={conflictIds}
         b2bSeparator={b2bSeparator}

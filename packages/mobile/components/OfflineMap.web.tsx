@@ -123,13 +123,6 @@ function relAge(serverAt: string): string {
   return formatStaleness(serverAt).replace(/^as of /, '');
 }
 
-/** Up-to-two-letter initials for an avatar marker (fallback "?"). */
-function initialsFor(name: string | undefined): string {
-  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
-}
 
 /** A peer/SOS row resolved from live-location props (for the fallback list). */
 interface LivePin {
@@ -190,7 +183,7 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
         id: `peer:${p.userId}`,
         label: p.username || 'Crew member',
         sublabel: stale ? `last seen ${age}` : `live · ${age}`,
-        initial: initialsFor(p.username),
+        initial: getInitials(p.username ?? '') || '?',
         latitude: p.lat,
         longitude: p.lng,
         kind: 'peer',

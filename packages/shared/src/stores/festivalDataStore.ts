@@ -329,7 +329,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         { picks: mergedPicks },
         `pick-${currentProfile.id}-${request.setId}`,
       );
-      analytics.capture('pick_saved', {
+      analytics.captureEvent('pick_saved', {
         set_id: request.setId,
         priority: request.priority ?? null,
       });

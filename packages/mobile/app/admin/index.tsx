@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '@festie/shared/services';
 import { useAuthStore } from '@festie/shared/stores';
 import type { Festival } from '@festie/shared/types';
+import { timeAgoFromIso, formatUptime } from '@festie/shared/utils';
 import ScreenHeader from '../../components/ScreenHeader';
 import SectionLabel from '../../components/SectionLabel';
 import EmptyState from '../../components/EmptyState';
@@ -68,27 +69,6 @@ interface AuditEntry {
   friendlyAction?: string;
   actorUsername?: string;
   createdAt: string;
-}
-
-// Relative "time ago" formatter — mirrors the web admin console's helper so the
-// mobile feed reads identically.
-function timeAgo(dateStr: string): string {
-  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-}
-
-// Uptime formatter — mirrors the web admin console's formatUptime so the
-// System Health card reads identically.
-function formatUptime(seconds: number): string {
-  const d = Math.floor(seconds / 86400);
-  const hr = Math.floor((seconds % 86400) / 3600);
-  const mn = Math.floor((seconds % 3600) / 60);
-  if (d > 0) return `${d}d ${hr}h ${mn}m`;
-  if (hr > 0) return `${hr}h ${mn}m`;
-  return `${mn}m`;
 }
 
 export default function AdminScreen() {
@@ -322,14 +302,14 @@ export default function AdminScreen() {
                   key={a.id ?? i}
                   style={[styles.row, i < Math.min(activity.length, 15) - 1 && styles.rowDivider]}
                   accessibilityRole="text"
-                  accessibilityLabel={`${a.friendlyAction ?? a.action} by ${a.actorUsername ?? 'system'}, ${timeAgo(a.createdAt)}`}
+                  accessibilityLabel={`${a.friendlyAction ?? a.action} by ${a.actorUsername ?? 'system'}, ${timeAgoFromIso(a.createdAt)}`}
                 >
                   <View style={styles.rowBody}>
                     <Text style={styles.rowTitle} numberOfLines={1}>
                       {a.friendlyAction ?? a.action}
                     </Text>
                     <Text style={styles.rowHint} numberOfLines={1}>
-                      {a.actorUsername ?? 'system'} · {timeAgo(a.createdAt)}
+                      {a.actorUsername ?? 'system'} · {timeAgoFromIso(a.createdAt)}
                     </Text>
                   </View>
                 </View>
@@ -351,14 +331,14 @@ export default function AdminScreen() {
                     key={a.id ?? i}
                     style={[styles.row, i < Math.min(audit.length, 15) - 1 && styles.rowDivider]}
                     accessibilityRole="text"
-                    accessibilityLabel={`${a.friendlyAction ?? a.action} by ${a.actorUsername ?? 'system'}, ${timeAgo(a.createdAt)}`}
+                    accessibilityLabel={`${a.friendlyAction ?? a.action} by ${a.actorUsername ?? 'system'}, ${timeAgoFromIso(a.createdAt)}`}
                   >
                     <View style={styles.rowBody}>
                       <Text style={styles.rowTitle} numberOfLines={1}>
                         {a.friendlyAction ?? a.action}
                       </Text>
                       <Text style={styles.rowHint} numberOfLines={1}>
-                        {a.actorUsername ?? 'system'} · {timeAgo(a.createdAt)}
+                        {a.actorUsername ?? 'system'} · {timeAgoFromIso(a.createdAt)}
                       </Text>
                     </View>
                   </View>

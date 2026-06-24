@@ -8,6 +8,7 @@ import { useAuthStore } from '@festie/shared/stores';
 import {
   normalizeAnalytics,
   ANALYTICS_DEFAULTS,
+  timeAgoFromIso,
   type AnalyticsData,
 } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../../hooks/useTokens';
@@ -33,17 +34,6 @@ import SectionLabel from '../../components/SectionLabel';
  * Gated on isAdmin; the AuthGate on the admin segment also enforces this.
  * Pull-to-refresh re-runs GET /admin/analytics.
  */
-
-/** Compact "time ago" from an ISO date string (used for lastActive). */
-function timeAgoStr(dateStr: string): string {
-  if (!dateStr) return '—';
-  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
-  if (!Number.isFinite(diff) || diff < 0) return '—';
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-}
 
 function formatDate(s: string): string {
   if (!s) return '—';
@@ -337,14 +327,14 @@ export default function AdminAnalyticsScreen() {
                     key={u.id}
                     style={[styles.row, i < Math.min(data.activeUsers.length, 15) - 1 && styles.rowDivider]}
                     accessibilityRole="text"
-                    accessibilityLabel={`${u.username}: ${u.totalPicks} picks, last active ${timeAgoStr(u.lastActive)}`}
+                    accessibilityLabel={`${u.username}: ${u.totalPicks} picks, last active ${timeAgoFromIso(u.lastActive)}`}
                   >
                     <View style={styles.rowBody}>
                       <Text style={styles.rowTitle} numberOfLines={1}>
                         {u.username}
                       </Text>
                       <Text style={styles.rowHint} numberOfLines={1}>
-                        {u.profileCount} profile{u.profileCount !== 1 ? 's' : ''} · {u.totalPicks} picks · {timeAgoStr(u.lastActive)}
+                        {u.profileCount} profile{u.profileCount !== 1 ? 's' : ''} · {u.totalPicks} picks · {timeAgoFromIso(u.lastActive)}
                       </Text>
                     </View>
                   </View>
