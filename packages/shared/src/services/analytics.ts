@@ -12,6 +12,11 @@
  * test, and unconfigured installs never make network calls.
  */
 
+import type {
+  AnalyticsEventName,
+  AnalyticsEventProps,
+} from './analyticsEvents';
+
 /** Shape of a PostHog capture payload. */
 interface CapturePayload {
   api_key: string;
@@ -136,6 +141,29 @@ export function capture(event: string, props: Record<string, unknown> = {}): voi
 }
 
 /**
+ * Typed wrapper over {@link capture} for catalogued events (see
+ * `analyticsEvents.ts`). The event name is constrained to the catalog union and
+ * the props are checked against that event's shape, so a typo or a wrong-shaped
+ * payload is a compile error rather than a silent analytics mismatch.
+ *
+ * Events with no props (prop type `Record<string, never>`) may omit the second
+ * argument. For events NOT in the catalog, call {@link capture} directly — that
+ * remains the free-form escape hatch.
+ *
+ * @example
+ *   captureEvent('pick_saved', { set_id, priority });
+ *   captureEvent('user_registered');
+ */
+export function captureEvent<E extends AnalyticsEventName>(
+  ...args: Record<string, never> extends AnalyticsEventProps<E>
+    ? [event: E, props?: AnalyticsEventProps<E>]
+    : [event: E, props: AnalyticsEventProps<E>]
+): void {
+  const [event, props] = args;
+  capture(event, (props ?? {}) as Record<string, unknown>);
+}
+
+/**
  * Associate future events with a known user.
  *
  * Also fires a PostHog `$identify` event so the profile is linked server-side.
@@ -165,4 +193,4 @@ export function reset(): void {
   _distinctId = ANONYMOUS_ID;
 }
 
-export const analytics = { init, capture, identify, reset };
+export const analytics = { init, capture, captureEvent, identify, reset };

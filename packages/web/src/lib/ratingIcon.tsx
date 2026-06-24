@@ -1,9 +1,12 @@
 import { Flame, Smile, ThumbsUp, Meh, ThumbsDown, type LucideIcon } from 'lucide-react';
+// Re-export shared scale data so callers can use a single import for both.
+export { RATING_SCALE } from '@festie/shared/constants';
 
 /**
- * The 5-tier set-rating scale, shared across the rating UI (buttons, account
- * history, posters). Replaces the OS-font emoji (🔥😊👍🤔👎), which rendered
- * inconsistently across platforms and polluted the accessibility tree.
+ * Web-only icon map for the 5-tier rating scale. The pure data (label, order)
+ * lives in @festie/shared/constants RATING_SCALE_DATA; this adds the Lucide
+ * icon component references that are web-specific. Mobile uses Ionicons names
+ * instead (see mobile/components/RatingButtons.tsx).
  */
 export const RATING_META: Record<number, { Icon: LucideIcon; label: string }> = {
   5: { Icon: Flame, label: 'Fire' },
@@ -12,6 +15,3 @@ export const RATING_META: Record<number, { Icon: LucideIcon; label: string }> = 
   2: { Icon: Meh, label: 'Meh' },
   1: { Icon: ThumbsDown, label: 'Skip' },
 };
-
-/** High → low, for rendering the rating buttons in order. */
-export const RATING_SCALE = [5, 4, 3, 2, 1] as const;

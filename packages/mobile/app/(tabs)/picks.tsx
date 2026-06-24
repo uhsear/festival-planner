@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import type { FestivalSet, Priority, Stage } from '@festie/shared/types';
-import { artistDisplayName, getConflictingSetIds, buildPicksIcs } from '@festie/shared/utils';
+import { artistDisplayName, getConflictingSetIds, buildPicksIcs, buildPicksShareUrl } from '@festie/shared/utils';
 import { mapErrorToUserMessage } from '@festie/shared/services';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
@@ -348,7 +348,7 @@ export default function PicksScreen() {
   // Share a public, read-only link to my picks (server route GET /s/:profileId).
   const handleSharePicks = useCallback(() => {
     if (!currentProfile || !currentFestival) return;
-    const url = `https://festie.us/s/${currentProfile.id}`;
+    const url = buildPicksShareUrl(currentProfile.id);
     Share.share({ message: `My ${currentFestival.name} picks on Festie: ${url}`, url }).catch(() => {});
   }, [currentProfile, currentFestival]);
 

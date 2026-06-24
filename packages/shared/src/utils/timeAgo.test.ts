@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { timeAgo } from './timeAgo';
+import { timeAgo, formatUptime } from './timeAgo';
 
 const NOW = new Date('2026-06-03T12:00:00Z').getTime();
 
@@ -40,5 +40,26 @@ describe('timeAgo', () => {
     expect(timeAgo(at(-5_000))).toBe('just now'); // future timestamp (clock skew)
     expect(timeAgo(NaN)).toBe('just now');
     expect(timeAgo(Infinity)).toBe('just now');
+  });
+});
+
+describe('formatUptime', () => {
+  it('renders minutes-only when under 1 hour', () => {
+    expect(formatUptime(0)).toBe('0m');
+    expect(formatUptime(59)).toBe('0m');
+    expect(formatUptime(60)).toBe('1m');
+    expect(formatUptime(59 * 60 + 59)).toBe('59m');
+  });
+
+  it('renders hours + minutes when under 1 day', () => {
+    expect(formatUptime(3600)).toBe('1h 0m');
+    expect(formatUptime(3600 + 30 * 60)).toBe('1h 30m');
+    expect(formatUptime(23 * 3600 + 59 * 60)).toBe('23h 59m');
+  });
+
+  it('renders days + hours + minutes when 1 day or more', () => {
+    expect(formatUptime(86400)).toBe('1d 0h 0m');
+    expect(formatUptime(86400 + 2 * 3600 + 15 * 60)).toBe('1d 2h 15m');
+    expect(formatUptime(7 * 86400 + 3600)).toBe('7d 1h 0m');
   });
 });

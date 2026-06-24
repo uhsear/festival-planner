@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useFestivalStore } from '../stores/festivalStore';
 import { FestivalSet } from '../types';
+import { STAGE_COLOR_FALLBACK } from '../utils/stageColor';
 
 export interface UseFestivalReturn {
   getDays: () => { index: number; date: string; label?: string }[];
@@ -63,10 +64,13 @@ export function useFestival(): UseFestivalReturn {
     });
   }, [getCurrentDaySets, activeStages, searchQuery, stages, onlyMine, currentProfile]);
 
-  // Use actual stage.color from API response (legacy behavior)
+  // Use actual stage.color from API response. When a stage has no color we
+  // return the platform-neutral STAGE_COLOR_FALLBACK sentinel (NOT a web CSS var
+  // — shared must stay RN-safe); each platform maps it to its own muted value
+  // via resolveStageColor (web → var(--text-muted), mobile → token).
   const getStageColor = useCallback(
     (stageId: string): string => {
-      return stages.find((s) => s.id === stageId)?.color || 'var(--text-muted)';
+      return stages.find((s) => s.id === stageId)?.color || STAGE_COLOR_FALLBACK;
     },
     [stages],
   );

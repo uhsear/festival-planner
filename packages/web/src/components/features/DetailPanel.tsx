@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FestivalSet, Priority } from '@festie/shared/types';
-import { formatTime, artistDisplayName, hasSetStarted } from '@festie/shared/utils';
+import { formatTime, artistDisplayName, hasSetStarted, buildHomeUrl } from '@festie/shared/utils';
 import { api } from '@festie/shared/services/api';
 import { useFestivalStore } from '@festie/shared/stores/festivalStore';
 import { Drawer } from 'vaul';
@@ -84,7 +84,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     const text = `Catch ${artistName}${fest}${time} 🎶`;
     const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
     try {
-      await nav.share?.({ title: artistName, text, url: 'https://festie.us' });
+      await nav.share?.({ title: artistName, text, url: buildHomeUrl() });
     } catch {
       /* user dismissed or share failed */
     }

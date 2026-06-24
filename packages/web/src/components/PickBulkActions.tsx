@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback } from 'react';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
 import type { FestivalSet, Priority, Stage } from '@festie/shared/types';
+import { PRIORITY_OPTIONS } from '@festie/shared/constants';
 import Button from './ui/Button';
 import Badge from './ui/Badge';
 import { useToast } from '../lib/toastContext';
@@ -17,12 +18,6 @@ import { Layers, Sparkles, ChevronDown } from 'lucide-react';
 //   • per-genre  (every set whose artists list that genre)
 // The chosen priority defaults to must-see (the headline "must-see on a stage"
 // ask) but can be switched to want/maybe before applying.
-
-const PRIORITY_OPTIONS: ReadonlyArray<{ value: Priority; label: string }> = [
-  { value: 'must', label: 'Must' },
-  { value: 'want-to-see', label: 'Want' },
-  { value: 'maybe', label: 'Maybe' },
-];
 
 /** Lowercased, de-duped genre list across a set's artists. */
 function setGenres(set: FestivalSet): string[] {
@@ -95,7 +90,7 @@ export default function PickBulkActions() {
       setBusyKey(key);
       try {
         await bulkSavePicks(setIds, priority);
-        const pLabel = PRIORITY_OPTIONS.find((p) => p.value === priority)?.label ?? '';
+        const pLabel = PRIORITY_OPTIONS.find((p) => p.value === priority)?.short ?? '';
         toast(`Added ${setIds.length} set${setIds.length === 1 ? '' : 's'} from ${label} to ${pLabel}`, 'success');
       } catch {
         // bulkSavePicks already rolled back + set the store error; surface a toast.
@@ -139,9 +134,7 @@ export default function PickBulkActions() {
                 type="button"
                 role="radio"
                 aria-checked={priority === p.value}
-                aria-label={`${
-                  p.value === 'must' ? 'Must See' : p.value === 'want-to-see' ? 'Want to See' : 'Maybe'
-                }${priority === p.value ? ' (selected)' : ''}`}
+                aria-label={`${p.label}${priority === p.value ? ' (selected)' : ''}`}
                 onClick={() => setPriority(p.value)}
                 className={`text-xs px-2.5 py-1 rounded-full border cursor-pointer transition-colors ${
                   priority === p.value
@@ -149,7 +142,7 @@ export default function PickBulkActions() {
                     : 'border-border text-text-secondary hover:bg-bg-card-hover'
                 }`}
               >
-                {p.label}
+                {p.short}
               </button>
             ))}
           </div>

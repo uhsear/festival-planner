@@ -2,22 +2,30 @@ import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '@festie/shared/services';
+import { RATING_SCALE_DATA } from '@festie/shared/constants';
 import { makeStyles, useTokens } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
 import PressableScale from './PressableScale';
 
 /**
- * Rating scale mirrors the web RatingButtons (shared lib/ratingIcon): vector
- * icons instead of OS-font emoji, so it renders consistently and stays tintable.
- *   5 Fire · 4 Good · 3 Okay · 2 Meh · 1 Skip
+ * Mobile-specific icon map paired with the shared rating scale data. The pure
+ * data (value, label, order) comes from RATING_SCALE_DATA; this adds Ionicons
+ * names which are mobile-only. Web uses Lucide icons (see lib/ratingIcon.tsx).
  */
-const RATINGS: readonly { n: number; icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
-  { n: 5, icon: 'flame', label: 'Fire' },
-  { n: 4, icon: 'happy', label: 'Good' },
-  { n: 3, icon: 'thumbs-up', label: 'Okay' },
-  { n: 2, icon: 'remove', label: 'Meh' },
-  { n: 1, icon: 'thumbs-down', label: 'Skip' },
-];
+const ICON_FOR_RATING: Record<number, keyof typeof Ionicons.glyphMap> = {
+  5: 'flame',
+  4: 'happy',
+  3: 'thumbs-up',
+  2: 'remove',
+  1: 'thumbs-down',
+};
+
+/** Merged RATING_SCALE_DATA + platform icon — rendered high→low (order ascending). */
+const RATINGS = RATING_SCALE_DATA.map((r) => ({
+  n: r.value,
+  icon: ICON_FOR_RATING[r.value]!,
+  label: r.label,
+}));
 
 interface Rating {
   setId: string;

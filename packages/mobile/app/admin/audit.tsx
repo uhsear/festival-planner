@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '@festie/shared/services';
 import { useAuthStore } from '@festie/shared/stores';
+import { timeAgoFromIso } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../../hooks/useTokens';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
@@ -46,16 +47,6 @@ interface AuditMeta {
   total: number;
   limit: number;
   nextCursor: string | null;
-}
-
-/** Relative "time ago" from an ISO date string. */
-function timeAgoStr(dateStr: string): string {
-  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
-  if (!Number.isFinite(diff) || diff < 0) return '—';
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
 }
 
 /** Build a query string from non-empty filter values + optional cursor. */
@@ -424,7 +415,7 @@ export default function AdminAuditScreen() {
                       style={[styles.row, !isLast && styles.rowDivider]}
                       onPress={() => toggleExpand(entry.id)}
                       accessibilityRole="button"
-                      accessibilityLabel={`${entry.friendlyAction ?? entry.action} by ${entry.actorUsername ?? 'system'}, ${timeAgoStr(entry.createdAt)}. ${isExpanded ? 'Collapse' : 'Expand'} details.`}
+                      accessibilityLabel={`${entry.friendlyAction ?? entry.action} by ${entry.actorUsername ?? 'system'}, ${timeAgoFromIso(entry.createdAt)}. ${isExpanded ? 'Collapse' : 'Expand'} details.`}
                       accessibilityState={{ expanded: isExpanded }}
                     >
                       <View style={styles.rowBody}>
@@ -435,7 +426,7 @@ export default function AdminAuditScreen() {
                           {entry.actorUsername ?? 'system'}
                           {entry.resourceType ? ` · ${entry.resourceType}` : ''}
                           {' · '}
-                          {timeAgoStr(entry.createdAt)}
+                          {timeAgoFromIso(entry.createdAt)}
                         </Text>
                         {isExpanded ? (
                           <View style={styles.detailBox}>

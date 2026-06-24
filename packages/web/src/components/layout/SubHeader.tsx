@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { useFestivalStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
-import { festivalStatus, type FestivalStatus } from '@festie/shared/utils';
+import { festivalStatus, resolveStageColor, type FestivalStatus } from '@festie/shared/utils';
 import { getStageBadgeStyle } from '../ui/StageBadge';
 import { useSwipeDays } from '../../hooks/useSwipeDays';
 import { useHaptics } from '../../hooks/useHaptics';
@@ -39,7 +39,12 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
   const currentProfile = useFestivalStore((s) => s.currentProfile);
   const onlyMine = useFestivalStore((s) => s.onlyMine);
   const setOnlyMine = useFestivalStore((s) => s.setOnlyMine);
-  const { getStageColor } = useFestival();
+  const { getStageColor: getStageColorRaw } = useFestival();
+  // Map shared's platform-neutral fallback sentinel to the web muted CSS var.
+  const getStageColor = useCallback(
+    (stageId: string) => resolveStageColor(getStageColorRaw(stageId), 'var(--text-muted)'),
+    [getStageColorRaw],
+  );
   const { select: selectHaptic } = useHaptics();
   const { toast } = useToast();
   const { ref: stageScrollRef, canScrollLeft, canScrollRight } = useScrollFade<HTMLDivElement>();

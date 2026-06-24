@@ -3,8 +3,9 @@ import { View, Text, ScrollView } from 'react-native';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/stores';
-import { getSetTimeBounds, artistDisplayName, formatTime } from '@festie/shared/utils';
-import type { CrewMeetingPoint, FestivalDay, FestivalSet, Priority, Profile } from '@festie/shared/types';
+import { artistDisplayName, formatTime, pickActiveMeetingPoint, buildSlots } from '@festie/shared/utils';
+import { PRIORITY_LABEL } from '@festie/shared/constants';
+import type { FestivalDay, FestivalSet, Profile } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
 import { useNow } from '../hooks/useNow';
@@ -16,77 +17,8 @@ import EmptyState from '../components/EmptyState';
 // activeCrew, festivalDataStore.sets / allProfiles / days, and the shared
 // getSetTimeBounds. No fetches — the whole screen renders from cache.
 
-const PRIORITY_RANK: Record<Priority, number> = { must: 3, 'want-to-see': 2, maybe: 1 };
-const PRIORITY_LABEL: Record<Priority, string> = { must: 'Must', 'want-to-see': 'Want', maybe: 'Maybe' };
-const HOW_MANY_SLOTS = 3;
-
-/** The soonest still-active meeting point with a future-or-now meet time. */
-function pickActiveMeetingPoint(points: CrewMeetingPoint[], nowMs: number): CrewMeetingPoint | null {
-  const future = points
-    .filter((p) => p.active && p.meet_at)
-    .map((p) => ({ p, ms: new Date(p.meet_at as string).getTime() }))
-    .filter(({ ms }) => Number.isFinite(ms) && ms >= nowMs)
-    .sort((a, b) => a.ms - b.ms);
-  if (future.length > 0) return future[0]!.p;
-  const untimed = points.filter((p) => p.active && !p.meet_at);
-  return untimed[0] ?? null;
-}
-
-interface SlotPick {
-  memberId: string;
-  memberName: string;
-  set: FestivalSet;
-  priority: Priority;
-}
-
-interface Slot {
-  startMs: number;
-  startTime: string;
-  picks: SlotPick[];
-}
-
-/**
- * Group future sets into the next `HOW_MANY_SLOTS` start-time slots and, for
- * each crew member, surface their single highest-priority pick in that slot.
- */
-function buildSlots(sets: FestivalSet[], days: FestivalDay[], profiles: Profile[], nowMs: number): Slot[] {
-  const timed = sets
-    .map((set) => ({ set, bounds: getSetTimeBounds(set, days) }))
-    .filter((x): x is { set: FestivalSet; bounds: { startMs: number; endMs: number } } => x.bounds != null)
-    .filter((x) => x.bounds.endMs > nowMs);
-
-  const startTimes = Array.from(new Set(timed.map((x) => x.bounds.startMs)))
-    .sort((a, b) => a - b)
-    .slice(0, HOW_MANY_SLOTS);
-
-  return startTimes.map((startMs) => {
-    const slotSets = timed.filter((x) => x.bounds.startMs === startMs).map((x) => x.set);
-    const slotSetIds = new Set(slotSets.map((s) => s.id));
-    const setsById = new Map(slotSets.map((s) => [s.id, s]));
-
-    const picks: SlotPick[] = [];
-    for (const profile of profiles) {
-      let best: { setId: string; priority: Priority } | null = null;
-      for (const [setId, priority] of Object.entries(profile.picks || {})) {
-        if (!slotSetIds.has(setId)) continue;
-        const p = priority as Priority;
-        if (!best || PRIORITY_RANK[p] > PRIORITY_RANK[best.priority]) best = { setId, priority: p };
-      }
-      if (best) {
-        picks.push({
-          memberId: profile.id,
-          memberName: profile.name || 'Crew member',
-          set: setsById.get(best.setId)!,
-          priority: best.priority,
-        });
-      }
-    }
-    picks.sort((a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]);
-
-    const sampleStart = slotSets[0]?.startTime ?? '';
-    return { startMs, startTime: sampleStart, picks };
-  });
-}
+// Pure digest assembly (pickActiveMeetingPoint + buildSlots) lives in
+// @festie/shared/utils so web + mobile share one implementation.
 
 export default function CrewPlanScreen() {
   const t = useTokens();

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '@festie/shared/services/api';
+import { timeAgoFromIso } from '@festie/shared/utils';
 import { useToast } from '../../lib/toastContext';
 import EmptyState from '../ui/EmptyState';
 import { SearchX } from 'lucide-react';
@@ -78,14 +79,6 @@ export default function AdminAudit() {
   const resetPagination = () => {
     setCursorStack([]);
     setCurrentCursor(null);
-  };
-
-  const formatTimeAgo = (dateStr: string): string => {
-    const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return `${Math.floor(diff / 86400)}d ago`;
   };
 
   // Only show the full-page spinner on first load. Subsequent filter/page
@@ -175,7 +168,7 @@ export default function AdminAudit() {
                   <div className="flex-1">
                     <div className="font-medium text-text-primary">{entry.action.replace(/[_:]/g, ' ')}</div>
                     <div className="text-xs text-text-muted mt-1">
-                      {entry.actorUsername || 'system'} • {formatTimeAgo(entry.createdAt)}
+                      {entry.actorUsername || 'system'} • {timeAgoFromIso(entry.createdAt)}
                     </div>
                   </div>
                   <div className="text-xl text-text-muted ml-4">{expandedId === entry.id ? '−' : '+'}</div>

@@ -195,7 +195,7 @@ export const STAGE_COLOR_PRESETS: readonly string[] = [
   '#ffb020', // amber
   '#39ff14', // green
   '#9c4dcb', // stage purple (accessible)
-  '#4488ff', // blue
+  '#c01d3a', // coral-strong (deepened danger coral)
   '#f0a030', // warm orange
   '#22c55e', // verified green
   '#ff6b6b', // soft red

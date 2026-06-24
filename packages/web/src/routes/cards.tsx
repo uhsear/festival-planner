@@ -2,7 +2,13 @@ import React, { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
-import { artistDisplayName, getSetHotness, getConflictingSetIds, festivalPhase } from '@festie/shared/utils';
+import {
+  artistDisplayName,
+  getSetHotness,
+  getConflictingSetIds,
+  festivalPhase,
+  resolveStageColor,
+} from '@festie/shared/utils';
 import SetCard from '../components/features/SetCard';
 import PhaseHomeActions from '../components/features/PhaseHomeActions';
 import EmptyState from '../components/ui/EmptyState';
@@ -53,7 +59,12 @@ function CardsViewInner() {
   const setDetailSet = useUIStore((state) => state.setDetailSet);
   const setDetailAutoSpotify = useUIStore((state) => state.setDetailAutoSpotify);
   const { getMyPick, getOtherPicks } = usePicks();
-  const { getStageColor, getStageName } = useFestival();
+  const { getStageColor: getStageColorRaw, getStageName } = useFestival();
+  // Map shared's platform-neutral fallback sentinel to the web muted CSS var.
+  const getStageColor = useCallback(
+    (stageId: string) => resolveStageColor(getStageColorRaw(stageId), 'var(--text-muted)'),
+    [getStageColorRaw],
+  );
   const prefersReducedMotion = usePrefersReducedMotion();
 
   const handlePreview = useCallback(

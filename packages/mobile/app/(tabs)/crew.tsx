@@ -22,6 +22,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuthStore, useCrewStore, useFestivalStore, useFestivalModeStore } from '@festie/shared/stores';
 import { useCrew } from '@festie/shared/hooks';
 import { mapErrorToUserMessage } from '@festie/shared/services';
+import { setLabel, getInitials, buildJoinUrl } from '@festie/shared/utils';
 import type { Crew, CrewMember, CrewOverlap, FestivalSet } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
 import Button from '../../components/Button';
@@ -43,23 +44,6 @@ import CrewLiveLocation from '../../components/CrewLiveLocation';
 import CrewSos from '../../components/CrewSos';
 import UpdatedAgoBadge from '../../components/UpdatedAgoBadge';
 import { LowPowerIndicator } from '../../components/LowPowerControls';
-
-/** Two-letter initials derived from a member's display name (fallback "?"). */
-function initialsFor(name: string | undefined): string {
-  const trimmed = (name ?? '').trim();
-  if (!trimmed) return '?';
-  const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
-}
-
-/** Compact "Artist — HH:MM" label for a set in the overlap list. */
-function setLabel(set: FestivalSet | undefined, fallbackId: string): string {
-  if (!set) return `Set ${fallbackId.slice(0, 6)}`;
-  const artist = set.artist ?? set.artists?.[0]?.name ?? `Set ${fallbackId.slice(0, 6)}`;
-  const time = set.startTime ? ` — ${set.startTime}` : '';
-  return `${artist}${time}`;
-}
 
 // DC2 deep-link tab whitelist. Module-scoped so its identity is stable across
 // renders (a component-local array would be a new ref each render and force the
@@ -324,7 +308,7 @@ export default function CrewScreen() {
   const handleShareInvite = useCallback((code: string, crewName: string) => {
     // Friendly join link (DC15): festie.us/join/CODE 302-redirects into the app
     // (routes/pages.ts) instead of exposing the machiney /api/v1/crews/join URL.
-    const url = `https://festie.us/join/${code}`;
+    const url = buildJoinUrl(code);
     Share.share({
       message: `Join "${crewName}" on Festie — tap to join: ${url}`,
       url,
@@ -799,7 +783,7 @@ export default function CrewScreen() {
             return (
               <View style={styles.memberRow}>
                 <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{initialsFor(item.name)}</Text>
+                  <Text style={styles.avatarText}>{getInitials(item.name ?? '') || '?'}</Text>
                 </View>
                 <View style={styles.memberInfo}>
                   <Text style={styles.memberName} numberOfLines={1}>

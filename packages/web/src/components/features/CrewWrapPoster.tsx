@@ -1,19 +1,13 @@
-import type { CrewWrapOverlapPair, CrewWrapSeenTogether, CrewWrapMemberSummary } from '@festie/shared/types';
+import type {
+  CrewWrapOverlapPair,
+  CrewWrapSeenTogether,
+  CrewWrapMemberSummary,
+  CrewWrapData,
+} from '@festie/shared/types';
 
-export type { CrewWrapOverlapPair, CrewWrapSeenTogether, CrewWrapMemberSummary };
-
-export interface CrewWrapData {
-  crewId: string;
-  festivalId: string;
-  memberCount: number;
-  members: { userId: string; name: string }[];
-  topOverlap: CrewWrapOverlapPair | null;
-  overlapMatrix: CrewWrapOverlapPair[];
-  setsSeenTogether: CrewWrapSeenTogether[];
-  totalSplit: number;
-  biggestSpender: { userId: string; name: string; amount: number } | null;
-  perMember: CrewWrapMemberSummary[];
-}
+// Re-export the shared types so existing importers (e.g. routes/wrap.tsx) keep
+// importing `CrewWrapData` from this component module unchanged.
+export type { CrewWrapOverlapPair, CrewWrapSeenTogether, CrewWrapMemberSummary, CrewWrapData };
 
 interface Props {
   crewName: string;

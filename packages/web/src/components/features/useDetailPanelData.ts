@@ -3,7 +3,7 @@ import { FestivalSet, Priority } from '@festie/shared/types';
 import { usePicks, useFestival, useCrew } from '@festie/shared/hooks';
 import { useFestivalStore } from '@festie/shared/stores/festivalStore';
 import { useCrewStore } from '@festie/shared/stores/crewStore';
-import { artistDisplayName, artistSubtitle, getSetLinks, detectConflicts } from '@festie/shared/utils';
+import { artistDisplayName, artistSubtitle, getSetLinks, detectConflicts, resolveStageColor } from '@festie/shared/utils';
 
 export interface CrewMemberPick {
   profileId: string;
@@ -26,7 +26,9 @@ export function useDetailPanelData(set: FestivalSet) {
   const activeCrew = useCrewStore((s) => s.activeCrew);
 
   const { getMyPick, savePick, saveNote, getOtherPicks, saveReminder, getMyReminder } = usePicks();
-  const { getStageColor, getStageName } = useFestival();
+  const { getStageColor: getStageColorRaw, getStageName } = useFestival();
+  // Map shared's platform-neutral fallback sentinel to the web muted CSS var.
+  const getStageColor = (stageId: string) => resolveStageColor(getStageColorRaw(stageId), 'var(--text-muted)');
   const { getCrewScopedOtherPicks } = useCrew();
 
   const b2bSeparator = currentFestival?.b2bSeparator;

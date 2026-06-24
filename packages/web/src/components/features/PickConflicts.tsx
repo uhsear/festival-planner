@@ -5,7 +5,7 @@ import { useCrewStore } from '@festie/shared/stores/crewStore';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useFestival } from '@festie/shared/hooks';
 import { Priority } from '@festie/shared/types';
-import { buildPickConflicts, artistDisplayName, formatTime } from '@festie/shared/utils';
+import { buildPickConflicts, artistDisplayName, formatTime, resolveStageColor } from '@festie/shared/utils';
 import type { ConflictGroup, ConflictPick } from '@festie/shared/utils';
 import StageBadge from '../ui/StageBadge';
 import { cn } from '@/lib/utils';
@@ -54,7 +54,9 @@ export default function PickConflicts() {
   const crewMembers = useCrewStore((state) => state.crewMembers);
 
   const setDetailSet = useUIStore((state) => state.setDetailSet);
-  const { getStageName, getStageColor } = useFestival();
+  const { getStageName, getStageColor: getStageColorRaw } = useFestival();
+  // Map shared's platform-neutral fallback sentinel to the web muted CSS var.
+  const getStageColor = (stageId: string) => resolveStageColor(getStageColorRaw(stageId), 'var(--text-muted)');
 
   const b2bSeparator = currentFestival?.b2bSeparator;
   const myUserId = currentProfile?.userId;

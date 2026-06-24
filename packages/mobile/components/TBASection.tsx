@@ -6,6 +6,7 @@ import { artistDisplayName, ensureWhiteContrast } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import Avatar from './Avatar';
 import { priorityColor } from '../lib/priorityColor';
+import { safeStageColor } from '../lib/stageColor';
 
 const PRIORITIES: readonly {
   value: Priority;
@@ -201,7 +202,7 @@ export default function TBASection({
                 set={s}
                 width={cardWidth}
                 stageName={stage?.name}
-                stageColor={stage ? getStageColor(stage.id) : undefined}
+                stageColor={stage ? safeStageColor(getStageColor(stage.id), t.colors.text.muted) : undefined}
                 myPick={getMyPick(s.id)}
                 others={getOtherPicks(s.id)}
                 showPicks={!!currentProfile}

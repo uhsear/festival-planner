@@ -3,6 +3,7 @@ import { renderHook } from '@testing-library/react';
 import { useFestival } from '../useFestival';
 import { useFestivalDataStore } from '../../stores/festivalDataStore';
 import { useFestivalUIStore } from '../../stores/festivalUIStore';
+import { STAGE_COLOR_FALLBACK } from '../../utils/stageColor';
 
 vi.mock('../../services/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
@@ -196,18 +197,20 @@ describe('useFestival hook', () => {
       expect(result.current.getStageColor('s1')).toBe('#ff0000');
     });
 
-    it('returns default color for unknown stage', () => {
+    it('returns the platform-neutral fallback sentinel for an unknown stage', () => {
       useFestivalDataStore.setState({ stages: [stage1] });
       const { result } = renderHook(() => useFestival());
-      expect(result.current.getStageColor('unknown')).toBe('var(--text-muted)');
+      // Shared must NOT leak the web CSS var; each platform maps the sentinel
+      // via resolveStageColor (web → var(--text-muted), mobile → token).
+      expect(result.current.getStageColor('unknown')).toBe(STAGE_COLOR_FALLBACK);
     });
 
-    it('returns default when stage has no color', () => {
+    it('returns the neutral fallback sentinel when a stage has no color', () => {
       useFestivalDataStore.setState({
         stages: [{ ...stage1, color: undefined }],
       });
       const { result } = renderHook(() => useFestival());
-      expect(result.current.getStageColor('s1')).toBe('var(--text-muted)');
+      expect(result.current.getStageColor('s1')).toBe(STAGE_COLOR_FALLBACK);
     });
   });
 

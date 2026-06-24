@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import type { FestivalSet, Priority } from '@festie/shared/types';
-import { formatTime, artistDisplayName, artistSubtitle, ensureWhiteContrast } from '@festie/shared/utils';
+import { formatTime, artistDisplayName, artistSubtitle, ensureWhiteContrast, PRIORITY_RANK } from '@festie/shared/utils';
 import { useCrewStore, useFestivalStore } from '@festie/shared/stores';
 import { duration, easing } from '@festie/shared/tokens';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
@@ -79,12 +79,8 @@ const PRIORITIES: readonly {
   { value: 'maybe', icon: 'ellipse', label: 'Maybe', short: 'Maybe' },
 ];
 
-// Crew-overlap avatars cluster by priority: must first, then want, then maybe.
-const PRIORITY_RANK: Record<Priority, number> = {
-  must: 0,
-  'want-to-see': 1,
-  maybe: 2,
-};
+// PRIORITY_RANK imported from @festie/shared/utils (crewNudges): must=0,
+// want-to-see=1, maybe=2 — lower rank sorts earlier (must first).
 
 const PRIORITY_NOUN: Record<Priority, string> = {
   must: 'must',

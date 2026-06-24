@@ -35,6 +35,7 @@ vi.mock('@festie/shared/utils', () => ({
   buildPickConflicts: (...args: unknown[]) => buildPickConflicts(...(args as [])),
   artistDisplayName: vi.fn((set: { artist?: string }) => set.artist || 'Unknown'),
   formatTime: vi.fn((t: string) => t),
+  resolveStageColor: (c: string | null | undefined, fallback: string) => c || fallback,
 }));
 
 vi.mock('../ui/StageBadge', () => ({

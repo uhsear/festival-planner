@@ -2,6 +2,126 @@ import { Priority } from '../types/domain';
 
 export const API_BASE = '/api/v1';
 
+// ── Pick priority — shared data, no icon refs ──────────────────────────────
+
+/**
+ * Short display label for each pick priority (used in badges, pills, and
+ * compact UI). Full-length labels ("Must See" / "Want to See") live in
+ * PRIORITY_LABELS below. Both web and mobile import from here.
+ */
+export const PRIORITY_LABEL: Record<Priority, string> = {
+  must: 'Must',
+  'want-to-see': 'Want',
+  maybe: 'Maybe',
+};
+
+/**
+ * Ordered pick-priority option config. Icon refs are intentionally absent —
+ * web uses Lucide components, mobile uses Ionicons names; keep those per-
+ * platform. `sort` is the canonical display order (descending importance).
+ *
+ * Consumers:
+ *   web  — PickBulkActions priority selector
+ *   mobile — SetCardMobile PRIORITIES array (add `icon` per-platform)
+ */
+export const PRIORITY_OPTIONS: readonly {
+  value: Priority;
+  label: string;
+  /** Short label — same as PRIORITY_LABEL[value]. */
+  short: string;
+  /** Display sort order: lower number renders first (must=0, want=1, maybe=2). */
+  sort: number;
+}[] = [
+  { value: 'must', label: 'Must See', short: 'Must', sort: 0 },
+  { value: 'want-to-see', label: 'Want to See', short: 'Want', sort: 1 },
+  { value: 'maybe', label: 'Maybe', short: 'Maybe', sort: 2 },
+] as const;
+
+// ── Crew activity feed ─────────────────────────────────────────────────────
+
+/**
+ * Human-readable verb labels for crew activity event types. Keyed by the
+ * `type` column emitted by the server (crew_activity table). Missing keys
+ * degrade gracefully: callers replace hyphens with spaces as a fallback.
+ *
+ * Single source for web ActivityTab + mobile CrewActivity.
+ */
+export const CREW_ACTIVITY_LABELS: Record<string, string> = {
+  'member-joined': 'joined the crew',
+  'member-left': 'left the crew',
+  'member-kicked': 'was removed',
+  'poll-created': 'created a poll',
+  'poll-voted': 'voted on a poll',
+  'expense-added': 'added an expense',
+  'expense-deleted': 'removed an expense',
+  'expense-settled': 'settled up',
+  'home-base-updated': 'updated the home base',
+  'meeting-point-added': 'dropped a meeting point',
+  'meeting-point-removed': 'removed a meeting point',
+  'crew-updated': 'updated the crew',
+};
+
+// ── Expense categories ─────────────────────────────────────────────────────
+
+/**
+ * Ordered expense category catalog. Each entry carries an `id` (server enum
+ * value), `emoji` (pure string — safe for both platforms), and `label`.
+ * The last entry (`other`) is the default/fallback.
+ *
+ * Single source for web ExpensesTab + mobile CrewExpenses.
+ */
+export const EXPENSE_CATEGORIES: readonly {
+  id: string;
+  emoji: string;
+  label: string;
+}[] = [
+  { id: 'food', emoji: '🍔', label: 'Food' },
+  { id: 'drinks', emoji: '🍺', label: 'Drinks' },
+  { id: 'transport', emoji: '🚗', label: 'Ride' },
+  { id: 'hotel', emoji: '🏨', label: 'Hotel' },
+  { id: 'tickets', emoji: '🎫', label: 'Tickets' },
+  { id: 'other', emoji: '💸', label: 'Other' },
+] as const;
+
+/**
+ * Look up a category by id, falling back to the last entry (`other`).
+ * Shared helper so both platforms use the same fallback logic.
+ */
+export function expenseCategoryFor(id: string): (typeof EXPENSE_CATEGORIES)[number] {
+  return EXPENSE_CATEGORIES.find((c) => c.id === id) ?? EXPENSE_CATEGORIES[EXPENSE_CATEGORIES.length - 1]!;
+}
+
+// ── 5-tier rating scale ────────────────────────────────────────────────────
+
+/**
+ * 5-tier set-rating scale data. Icon refs are intentionally absent —
+ * web uses Lucide (Flame, Smile, ThumbsUp, Meh, ThumbsDown) and mobile uses
+ * Ionicons (flame, happy, thumbs-up, remove, thumbs-down); keep those per-
+ * platform. `order` is highest-first so [0] is the best rating.
+ *
+ * Single source for web ratingIcon + mobile RatingButtons.
+ */
+export const RATING_SCALE_DATA: readonly {
+  value: number;
+  label: string;
+  /** Display order, 0-indexed highest-first (value 5 → order 0). */
+  order: number;
+}[] = [
+  { value: 5, label: 'Fire', order: 0 },
+  { value: 4, label: 'Good', order: 1 },
+  { value: 3, label: 'Okay', order: 2 },
+  { value: 2, label: 'Meh', order: 3 },
+  { value: 1, label: 'Skip', order: 4 },
+] as const;
+
+/** High → low numeric rating values, for rendering order. */
+export const RATING_SCALE = RATING_SCALE_DATA.map((r) => r.value) as readonly number[];
+
+/** Quick label lookup by numeric rating value. */
+export const RATING_LABEL: Record<number, string> = Object.fromEntries(
+  RATING_SCALE_DATA.map((r) => [r.value, r.label]),
+);
+
 export const PRIORITY_MAP: Record<string, string> = {
   must: 'must',
   'want-to-see': 'want',

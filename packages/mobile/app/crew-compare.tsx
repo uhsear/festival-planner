@@ -4,7 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/stores';
 import { useCrew, useFestival } from '@festie/shared/hooks';
-import { artistDisplayName, formatTime } from '@festie/shared/utils';
+import { artistDisplayName, formatTime, byStartTime } from '@festie/shared/utils';
+import { PRIORITY_LABEL } from '@festie/shared/constants';
 import type { FestivalSet, Priority, Profile } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { safeStageColor } from '../lib/stageColor';
@@ -14,21 +15,6 @@ import LoadingState from '../components/LoadingState';
 
 const ROW_HEADER_W = 168;
 const CELL_W = 76;
-
-const PRIORITY_LABEL: Record<Priority, string> = {
-  must: 'Must',
-  'want-to-see': 'Want',
-  maybe: 'Maybe',
-};
-
-function byStartTime(a: FestivalSet, b: FestivalSet): number {
-  const ta = a.startTime || '';
-  const tb = b.startTime || '';
-  if (ta && tb) return ta.localeCompare(tb);
-  if (ta && !tb) return -1;
-  if (!ta && tb) return 1;
-  return 0;
-}
 
 type Column = { id: string; name: string; isMe: boolean; avatarName?: string };
 
