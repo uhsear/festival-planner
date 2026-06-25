@@ -36,4 +36,11 @@ export type {
   CrewActivityEntry,
   NotificationPrefs,
   OnlineUser,
+  PeerLocation,
 } from '../../packages/shared/src/types/domain';
+
+// Live-location socket payloads live in the shared socket-events module (which
+// itself only imports types from ./domain), so this `import type`-only re-export
+// is likewise runtime-free. The live-location snapshot cache asserts its return
+// shape against the exact contract the web/mobile clients consume.
+export type { LocationPeerUpdatePayload } from '../../packages/shared/src/types/socket-events';

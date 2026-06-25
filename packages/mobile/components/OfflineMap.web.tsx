@@ -12,6 +12,8 @@ import {
   getInitials,
   buildPursuit,
   nearestPin,
+  pickMapStyle,
+  hasOfflineBasemap,
   type MapPin as Pin,
   type Coord,
 } from '@festie/shared/utils';
@@ -70,20 +72,19 @@ interface OfflineMapProps {
   festival?: (Festival & { stages?: Stage[] }) | null;
 }
 
-// A free OpenStreetMap raster style (no API key). Online-only basemap — mirrors
-// CrewMap.tsx so the web map and this map render identically.
-const RASTER_STYLE = {
-  version: 8 as const,
-  sources: {
-    osm: {
-      type: 'raster' as const,
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
-  layers: [{ id: 'osm', type: 'raster' as const, source: 'osm' }],
-};
+// Basemap style is chosen by the shared `pickMapStyle` (Phase 3A): a festival
+// with an `offlineBasemap.pmtilesUrl` gets a PMTiles VECTOR basemap; every other
+// festival keeps TODAY's online OSM raster (graceful fallback, never regressed) —
+// mirrors CrewMap.tsx so the web surfaces render identically.
+//
+// Phase 3B caching (web): the PMTiles JS client byte-range fetches the archive
+// over HTTPS, and the browser's HTTP cache (the archive is served immutable +
+// long-max-age, see lib/middleware.ts /uploads/basemaps) keeps the read warm
+// across reloads — no extra code needed here. FUTURE OPTIMIZATION (not built):
+// persist the archive to OPFS (Origin Private File System) + a Cache Storage /
+// Service Worker range-shim so the web map works fully offline like native's
+// file:// cache. Deliberately deferred — the HTTP-cache path is sufficient today
+// and OPFS range-serving is a meaningful build we shouldn't over-invest in now.
 
 // The subset of the maplibre-gl module we use. Loaded via `.default` at runtime
 // (CJS interop); the type-level default member doesn't exist, so model the
@@ -323,6 +324,13 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
   useEffect(() => {
     cameraRef.current = camera;
   }, [camera]);
+  // Latest festival map-config for the lazy map creation (style choice). The
+  // style is picked once at creation; the write lives in an effect (not render)
+  // so it never trips the refs-in-render rule.
+  const mapConfigRef = useRef(festival?.mapConfig);
+  useEffect(() => {
+    mapConfigRef.current = festival?.mapConfig;
+  }, [festival]);
 
   // Keep the click-handler refs current without re-binding the map listener.
   useEffect(() => {
@@ -455,12 +463,32 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
       try {
         const maplibregl = (await import('maplibre-gl')).default as unknown as MapLibre;
         await import('maplibre-gl/dist/maplibre-gl.css');
+
+        const cfg = mapConfigRef.current;
+        // Phase 3A: register the pmtiles protocol + read the vector style only
+        // when this festival carries a valid offline basemap; otherwise
+        // pickMapStyle returns the unchanged online OSM raster. addProtocol is a
+        // process-global on the maplibre module — guard against double-register.
+        // Done BEFORE the final mounted-guard so no await sits between it and the
+        // mapRef assignment.
+        if (hasOfflineBasemap(cfg)) {
+          const gAny = maplibregl as unknown as {
+            __festiePmtilesRegistered?: boolean;
+            addProtocol?: (id: string, fn: unknown) => void;
+          };
+          if (!gAny.__festiePmtilesRegistered && typeof gAny.addProtocol === 'function') {
+            const { Protocol } = await import('pmtiles');
+            const protocol = new Protocol();
+            gAny.addProtocol('pmtiles', protocol.tile);
+            gAny.__festiePmtilesRegistered = true;
+          }
+        }
         if (cancelled || !containerRef.current || mapRef.current) return;
 
         const c = centerRef.current;
         const map = new maplibregl.Map({
           container: containerRef.current,
-          style: RASTER_STYLE,
+          style: pickMapStyle(cfg) as unknown as import('maplibre-gl').StyleSpecification,
           center: c ? [c.longitude, c.latitude] : [0, 0],
           zoom: c ? 14 : 1,
           attributionControl: { compact: true },

@@ -154,6 +154,41 @@ export default function createFestivalsRoutes(deps: any) {
     }
   });
 
+  // GET /:id/basemap — resolve a festival's offline PMTiles vector basemap (Phase
+  // 3B). A STABLE, app-facing endpoint that decouples clients from where the
+  // archive is hosted: the persisted reference lives in
+  // map_config.offlineBasemap.pmtilesUrl (Phase 3A schema). When set, we 302 to
+  // that https URL (which may be Festie's own /uploads/basemaps/<file>.pmtiles
+  // static path, or an external CDN). When the festival has no offline basemap we
+  // 404 — the client already falls back to the online OSM raster (graceful, the
+  // online path is never regressed). Lets the mobile app prefetch via one stable
+  // URL without re-reading the whole festival document.
+  router.get('/:id/basemap', rateLimit(120, 'festival-basemap'), async (req: any, res: any) => {
+    try {
+      const id = String(req.params.id || '');
+      if (!id) return sendError(res, 400, 'Festival ID required', ErrorCodes.INVALID_INPUT);
+      const festival = await getFestivalById(id);
+      if (!festival) return sendError(res, 404, 'Festival not found', ErrorCodes.NOT_FOUND);
+
+      const url = festival.mapConfig?.offlineBasemap?.pmtilesUrl;
+      // Re-assert https before redirecting (defense in depth — the schema already
+      // enforces it on write, but never emit a Location header to a non-https /
+      // unparseable target). Absent ⇒ no offline basemap ⇒ honest 404.
+      if (typeof url !== 'string' || !/^https:\/\//i.test(url)) {
+        return sendError(res, 404, 'No offline basemap for this festival', ErrorCodes.NOT_FOUND);
+      }
+
+      // Short cache on the REDIRECT (not the archive) so a re-extract that swaps
+      // the pointer propagates within minutes; the archive itself is immutably
+      // long-cached by the static handler.
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.redirect(302, url);
+    } catch (error: any) {
+      log.error('festival basemap resolve failed', { error: error.message, festivalId: req.params?.id });
+      return sendError(res, 500, 'Failed to resolve basemap', ErrorCodes.INTERNAL_ERROR);
+    }
+  });
+
   // Tiered data loading (OpenViking L0/L1/L2 pattern):
   //   ?depth=0 → name, id, location only (already served by GET /)
   //   ?depth=1 → stages + days with set names (no profiles/messages) — default for mobile initial load

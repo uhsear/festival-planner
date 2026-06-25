@@ -39,6 +39,7 @@ import { z } from 'zod';
 import { generateTraceId, propagateTraceId } from '../lib/tracing.js';
 import { schemas } from '../lib/schemas.js';
 import { LOCATION_UPDATE_LIMIT, registerSharingSocket, unregisterSharingSocket } from '../lib/rate-limiting.js';
+import { writeLivePosition, dropLivePosition, readLiveSnapshot } from '../lib/live-location-cache.js';
 
 // ════════════════════════════════════════════════════════════════════════════════
 // Socket Event Validation Schemas
@@ -402,6 +403,8 @@ export default function setupSocketHandlers(deps: any) {
           });
           delete socket.data.sharingCrewId;
           unregisterSharingSocket(redis, session.userId, socket.id).catch(() => {});
+          // Phase 3C: evict the cached position on crew-leave.
+          void dropLivePosition(redis, crewId, session.userId);
         }
 
         socket.leave(`crew:${crewId}`);
@@ -470,7 +473,7 @@ export default function setupSocketHandlers(deps: any) {
         if (position) {
           const nowMs = Date.now();
           const serverAt = new Date(nowMs).toISOString();
-          socket.to('crew:' + crewId).emit('location:peer-update', {
+          const payload = {
             _v: 1,
             crewId,
             userId: session.userId,
@@ -482,7 +485,11 @@ export default function setupSocketHandlers(deps: any) {
             // L4: clamp client capturedAt to a small window around server time.
             capturedAt: clampCapturedAt(position.capturedAt, nowMs, serverAt),
             serverAt,
-          });
+          };
+          socket.to('crew:' + crewId).emit('location:peer-update', payload);
+          // Phase 3C: cache the first fix so a late-joiner snapshot (location:sync)
+          // can render this sharer immediately. Ephemeral (Redis-only) + fail-open.
+          void writeLivePosition(redis, crewId, payload);
         }
 
         log.debug('location:share', { userId: session.userId, crewId });
@@ -546,14 +553,16 @@ export default function setupSocketHandlers(deps: any) {
             socket.leave('crew:' + crewId);
             if (socket.data?.crewId === crewId) delete socket.data.crewId;
             unregisterSharingSocket(redis, userId, socket.id).catch(() => {});
+            // Phase 3C: evict the cached position so the snapshot can't reveal a
+            // revoked member's last-known GPS.
+            void dropLivePosition(redis, crewId, userId);
             socket.emit('error', { message: 'No longer a member of this crew', code: 'NOT_A_MEMBER' });
             return;
           }
         }
 
         const serverAt = new Date(nowMs).toISOString();
-        // Broadcast to the crew room EXCLUDING the sender.
-        socket.to('crew:' + crewId).emit('location:peer-update', {
+        const payload = {
           _v: 1,
           crewId,
           userId,
@@ -566,7 +575,11 @@ export default function setupSocketHandlers(deps: any) {
           // L4: clamp client capturedAt to a small window around server time.
           capturedAt: clampCapturedAt(capturedAt, nowMs, serverAt),
           serverAt,
-        });
+        };
+        // Broadcast to the crew room EXCLUDING the sender.
+        socket.to('crew:' + crewId).emit('location:peer-update', payload);
+        // Phase 3C: refresh the late-joiner snapshot cache with this fix.
+        void writeLivePosition(redis, crewId, payload);
       } catch (error: any) {
         log.error('location:update error', { error: error.message, socketId: socket.id, userId: socket.data?.userId });
       }
@@ -584,6 +597,9 @@ export default function setupSocketHandlers(deps: any) {
           delete socket.data.sharingCrewId;
           unregisterSharingSocket(redis, userId, socket.id).catch(() => {});
         }
+        // Phase 3C: evict the cached position so a snapshot won't show a member
+        // who just stopped (peer-stopped already tells currently-connected peers).
+        if (userId) void dropLivePosition(redis, crewId, userId);
 
         if (userId) {
           socket.to('crew:' + crewId).emit('location:peer-stopped', {
@@ -598,6 +614,53 @@ export default function setupSocketHandlers(deps: any) {
       } catch (error: any) {
         log.error('location:stop error', { error: error.message, socketId: socket.id, userId: socket.data?.userId });
         respond({ ok: false });
+      }
+    });
+
+    // ── Live Location: late-joiner snapshot (Phase 3C) ─────────────────
+    // A freshly-opened app sees an empty map until the next ~10s update tick.
+    // On join/subscribe the client emits location:sync to pull all crew members'
+    // CURRENT last-known positions at once. Served from the ephemeral Redis TTL
+    // cache (NOT Postgres), excluding the requester, and gated as tightly as
+    // location:share (re-validates session + membership) because it reveals
+    // peers' GPS. Fail-open: any miss/Redis-hiccup returns { ok: false, peers: [] }
+    // and positions still arrive on the next live tick — no regression.
+    socket.on('location:sync', async (data: any = {}, ack: any) => {
+      const respond = withAckTimeout(typeof ack === 'function' ? ack : null, log, connectionId);
+      try {
+        if (config.LIVE_LOCATION_ENABLED === false) {
+          return respond({ ok: false, peers: [] });
+        }
+        const validation = schemas.locationSync.safeParse(data);
+        if (!validation.success) return respond({ ok: false, peers: [] });
+        const { crewId } = validation.data;
+
+        // Must already be joined to this crew room (join:crew gated membership).
+        if (socket.data?.crewId !== crewId) return respond({ ok: false, peers: [] });
+
+        // Re-validate session + membership: the snapshot reveals peers' last-known
+        // GPS, so a user who left the crew must not be able to pull positions.
+        const sessionToken =
+          socket.data?.userSessionToken || resolveSocketToken(socket, null, config.USER_SESSION_COOKIE);
+        const session = await validateUserSession(sessionToken);
+        if (!session) {
+          disconnectSocket(socket, io);
+          return respond({ ok: false, peers: [] });
+        }
+        const membership = await stores.crews.getMember(crewId, session.userId);
+        if (!membership) return respond({ ok: false, peers: [] });
+
+        // Serve last-known positions from the ephemeral Redis cache, excluding
+        // the requester (they render their own marker locally).
+        const peers = await readLiveSnapshot(redis, crewId, {
+          now: Date.now(),
+          selfUserId: session.userId,
+        });
+        log.debug('location:sync', { userId: session.userId, crewId, peerCount: peers.length });
+        respond({ ok: true, peers });
+      } catch (error: any) {
+        log.error('location:sync error', { error: error.message, socketId: socket.id, userId: socket.data?.userId });
+        respond({ ok: false, peers: [] });
       }
     });
 
@@ -671,6 +734,9 @@ export default function setupSocketHandlers(deps: any) {
           });
           // M3: drop the concurrent-sharing registration for this socket.
           unregisterSharingSocket(redis, sharingUserId, socket.id).catch(() => {});
+          // Phase 3C: evict the cached position so a force-quit sharer's marker
+          // isn't served in a later snapshot (the staleness filter is a backstop).
+          void dropLivePosition(redis, sharingCrewId, sharingUserId);
         }
         // Crew room cleanup happens automatically when socket disconnects (Socket.IO removes from all rooms)
         removeSocketPresence(socket);

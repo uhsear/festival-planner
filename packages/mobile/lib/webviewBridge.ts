@@ -32,15 +32,25 @@ export function safeJsonForScript(value: unknown): string {
 /**
  * Hosts permitted for in-WebView resource/navigation loads. Anything else is
  * blocked (default-deny), mirroring the hardened Spotify embed WebView. Allows
- * unpkg.com (MapLibre JS/CSS) and the OpenStreetMap tile hosts
+ * unpkg.com (MapLibre JS/CSS + the pmtiles UMD) and the OpenStreetMap tile hosts
  * (`tile.openstreetmap.org` + its `*.tile.openstreetmap.org` subdomains). The
  * anchored regex (`(^|\.)tile\.openstreetmap\.org$`) rejects lookalike hosts
  * such as `evil.openstreetmap.org.attacker.com` or
  * `tile.openstreetmap.org.evil.com` — the `$` end-anchor means the host must
  * END at the legitimate domain.
+ *
+ * Phase 3A: a festival MAY carry an offline PMTiles vector basemap, whose archive
+ * is byte-range fetched over HTTPS from a per-festival host. That host is NOT
+ * baked in here (it's config-driven, admin-controlled, and validated https
+ * upstream); the renderer passes it in via `extraHost` so the allowlist permits
+ * EXACTLY that one origin and nothing more — default-deny is preserved. The host
+ * is compared by strict equality (no wildcard), so only the configured origin
+ * (and the static unpkg/OSM hosts) can ever load.
  */
-export function isAllowedMapHost(host: string): boolean {
-  return host === 'unpkg.com' || /(^|\.)tile\.openstreetmap\.org$/.test(host);
+export function isAllowedMapHost(host: string, extraHost?: string | null): boolean {
+  if (host === 'unpkg.com' || /(^|\.)tile\.openstreetmap\.org$/.test(host)) return true;
+  // The festival's PMTiles host, when one is configured. Strict equality only.
+  return !!extraHost && host === extraHost;
 }
 
 // ── Authoring mode (Phase D) ────────────────────────────────────────────────
