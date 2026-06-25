@@ -40,11 +40,15 @@ export default function createUtils(pool: Pool) {
         COALESCE(f.location, '') AS location,
         COALESCE(f.b2b_separator, 'b2b') AS "b2bSeparator",
         f.time_zone AS "timeZone",
+        f.map_config AS "mapConfig",
         f.created_at AS "createdAt",
         f.updated_at AS "updatedAt",
         COALESCE(
           (SELECT json_agg(
-            json_build_object('id', s.id, 'name', s.name, 'color', s.color)
+            json_build_object(
+              'id', s.id, 'name', s.name, 'color', s.color,
+              'latitude', s.latitude, 'longitude', s.longitude
+            )
             ORDER BY s.sort_order ASC
           )
           FROM festival_stages s WHERE s.festival_id = f.id),

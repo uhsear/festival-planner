@@ -1,4 +1,4 @@
-import { safeJsonForScript, isAllowedMapHost } from './webviewBridge';
+import { safeJsonForScript, isAllowedMapHost, isAuthoringMode, buildSetAuthoringScript } from './webviewBridge';
 
 // The literal JS line terminators (built from char codes so this file stays
 // plain-ASCII, matching the source). They are only ever used via these
@@ -137,5 +137,47 @@ describe('isAllowedMapHost', () => {
     // a future caller that forgets to normalize fails closed, not open.
     expect(isAllowedMapHost('UNPKG.COM')).toBe(false);
     expect(isAllowedMapHost('Tile.OpenStreetMap.org')).toBe(false);
+  });
+});
+
+describe('isAuthoringMode', () => {
+  it('accepts the three recognized modes', () => {
+    expect(isAuthoringMode('off')).toBe(true);
+    expect(isAuthoringMode('stage')).toBe(true);
+    expect(isAuthoringMode('amenity')).toBe(true);
+  });
+  it('rejects anything else', () => {
+    expect(isAuthoringMode('on')).toBe(false);
+    expect(isAuthoringMode('')).toBe(false);
+    expect(isAuthoringMode(null)).toBe(false);
+    expect(isAuthoringMode(undefined)).toBe(false);
+    expect(isAuthoringMode(1)).toBe(false);
+  });
+});
+
+describe('buildSetAuthoringScript', () => {
+  it('emits a guarded call that ends in true; for a known mode', () => {
+    expect(buildSetAuthoringScript('stage')).toBe(
+      'window.__festieSetAuthoring && window.__festieSetAuthoring("stage"); true;',
+    );
+    expect(buildSetAuthoringScript('amenity')).toBe(
+      'window.__festieSetAuthoring && window.__festieSetAuthoring("amenity"); true;',
+    );
+    expect(buildSetAuthoringScript('off')).toBe(
+      'window.__festieSetAuthoring && window.__festieSetAuthoring("off"); true;',
+    );
+  });
+  it('coerces an unknown mode to "off" (never interpolates raw input)', () => {
+    // Defends against a caller passing arbitrary text — the mode is whitelisted,
+    // so nothing but a recognized literal can ever reach the injected script.
+    expect(buildSetAuthoringScript('"); alert(1); ("' as unknown as 'off')).toBe(
+      'window.__festieSetAuthoring && window.__festieSetAuthoring("off"); true;',
+    );
+  });
+  it('the mode is always JSON-quoted, so no payload escapes the string literal', () => {
+    const out = buildSetAuthoringScript('amenity');
+    expect(out).toContain('"amenity"');
+    // Only the guarded single statement; no stray semicolons from injected text.
+    expect(out.match(/__festieSetAuthoring/g)).toHaveLength(2);
   });
 });

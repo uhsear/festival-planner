@@ -180,7 +180,13 @@ export default function createFestivalsRoutes(deps: any) {
             id: festival.id,
             name: festival.name,
             location: festival.location,
-            stages: (festival.stages || []).map((s: any) => ({ id: s.id, name: s.name, color: s.color })),
+            stages: (festival.stages || []).map((s: any) => ({
+              id: s.id,
+              name: s.name,
+              color: s.color,
+              latitude: s.latitude ?? null,
+              longitude: s.longitude ?? null,
+            })),
             days: (festival.days || []).map((d: any) => ({
               label: d.label,
               date: d.date,
@@ -193,6 +199,7 @@ export default function createFestivalsRoutes(deps: any) {
                 endTime: s.endTime,
               })),
             })),
+            mapConfig: festival.mapConfig ?? null,
             createdAt: festival.createdAt,
             updatedAt: festival.updatedAt,
           });
@@ -257,6 +264,7 @@ export default function createFestivalsRoutes(deps: any) {
           timeZone: nextFestival.timeZone,
           stages: nextFestival.stages,
           days: nextFestival.days,
+          mapConfig: nextFestival.mapConfig,
         });
         invalidateFestivalCache();
 

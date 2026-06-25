@@ -3,6 +3,7 @@ import { api } from '@festie/shared/services/api';
 import { useToast } from '../../lib/toastContext';
 import LineupImport from './LineupImport';
 import FestivalEditForm, { Festival as FormFestival } from './FestivalEditForm';
+import FestivalMapEditor from './FestivalMapEditor';
 import { cn } from '../../lib/utils';
 import EmptyState from '../ui/EmptyState';
 import ConfirmDialog from '../ui/ConfirmDialog';
@@ -38,6 +39,9 @@ export default function AdminFestivals() {
   const [searchQuery, setSearchQuery] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string; description: string } | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  // When set, the dedicated map editor is shown for this festival (Phase D). It
+  // owns stage-pin + amenity authoring and persists via the same PUT path.
+  const [mapEditingId, setMapEditingId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -145,6 +149,12 @@ export default function AdminFestivals() {
     return <div className="text-center py-12 text-text-muted">Loading festivals…</div>;
   }
 
+  // Map editor takes over the panel when active — it loads the festival itself
+  // and persists the geo edits, then returns here on close.
+  if (mapEditingId) {
+    return <FestivalMapEditor festivalId={mapEditingId} onClose={() => setMapEditingId(null)} />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Tabs */}
@@ -223,6 +233,12 @@ export default function AdminFestivals() {
                       className="px-3 py-1.5 rounded-md bg-accent-aqua/20 text-accent-aqua hover:bg-accent-aqua/30 transition-colors text-sm font-medium"
                     >
                       Edit
+                    </button>
+                    <button
+                      onClick={() => setMapEditingId(festival.id)}
+                      className="px-3 py-1.5 rounded-md bg-accent-aqua/20 text-accent-aqua hover:bg-accent-aqua/30 transition-colors text-sm font-medium"
+                    >
+                      Map
                     </button>
                     <button
                       onClick={() => handleDelete(festival.id)}

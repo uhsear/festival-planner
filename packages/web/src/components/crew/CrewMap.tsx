@@ -6,13 +6,15 @@ import { MapPin, AlertTriangle } from 'lucide-react';
 import {
   extractMeetingPointPins,
   extractStagePins,
-  pinsCentroid,
+  extractAmenityPins,
+  amenityGlyph,
+  pickFestivalCamera,
   formatStaleness,
   isPeerStale,
   getInitials,
   type MapPin as Pin,
 } from '@festie/shared/utils';
-import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/types';
+import type { CrewMeetingPoint, PeerLocation, SosEntry, Festival, Stage } from '@festie/shared/types';
 import EmptyState from '../ui/EmptyState';
 
 /**
@@ -53,6 +55,22 @@ interface Props {
   peers?: PeerLocation[];
   /** Active SOS for this crew, or null. */
   sos?: SosEntry | null;
+  /**
+   * The current festival, carrying `mapConfig` (amenities + camera) and — when
+   * the caller folds the store's separate `stages` array in — `stages[]` for
+   * stage pins. Omitted/null keeps the original meeting-points-only behaviour and
+   * the "not mapped yet" fallback. Backward-compatible: a festival with no map
+   * data yields no stage/amenity pins and no map-config camera.
+   */
+  festival?: (Festival & { stages?: Stage[] }) | null;
+  /**
+   * Admin authoring hook (Phase D). When provided, a click anywhere on the map
+   * reports its coordinate so the festival-map editor can place/move a stage pin
+   * or drop an amenity. Omitted (the default) leaves the map read-only — exactly
+   * the prior behaviour. Web uses maplibre's native `click` event directly; no
+   * WebView bridge involved (that's mobile-only).
+   */
+  onMapClick?: (coord: { latitude: number; longitude: number }) => void;
 }
 
 // A free OpenStreetMap raster style (no API key). Online-only basemap.
@@ -120,7 +138,7 @@ function relAge(serverAt: string): string {
   return formatStaleness(serverAt).replace(/^as of /, '');
 }
 
-export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props) {
+export default function CrewMap({ meetingPoints, peers = [], sos = null, festival = null, onMapClick }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   // 'pending' until we know whether the GL library mounted; flips to 'error' on
   // a load/init failure so we never leave a blank canvas behind. 'ready' once the
@@ -132,6 +150,8 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
   const mapRef = useRef<import('maplibre-gl').Map | null>(null);
   const glRef = useRef<MapLibre | null>(null);
   const mpMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
+  const stageMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
+  const amenityMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const peerMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const sosMarkerRef = useRef<import('maplibre-gl').Marker | null>(null);
   const fittedRef = useRef(false);
@@ -140,33 +160,58 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
     () => extractMeetingPointPins(meetingPoints as unknown as CrewMeetingPoint[]),
     [meetingPoints],
   );
-  const stagePins = useMemo(() => extractStagePins(), []); // [] today — see mapPins TODO
+  // Stage + amenity pins from the festival's map data (Phase A/B contract).
+  // Empty for festivals that were never mapped — the "not mapped yet" note stays.
+  const stagePins = useMemo<Pin[]>(() => extractStagePins(festival), [festival]);
+  const amenityPins = useMemo<Pin[]>(() => extractAmenityPins(festival?.mapConfig), [festival]);
   const hasPins = pins.length > 0;
+  const hasStages = stagePins.length > 0;
+  const hasAmenities = amenityPins.length > 0;
   const hasPeers = peers.length > 0;
   const hasSos = !!sos?.position;
-  // Render the map when there's ANYTHING to plot (pins, peers, or an SOS coord).
-  const shouldRenderMap = hasPins || hasPeers || hasSos;
+  // Render the map when there's ANYTHING to plot (meeting points, stage/amenity
+  // map data, live peers, or an SOS coord).
+  const shouldRenderMap = hasPins || hasStages || hasAmenities || hasPeers || hasSos;
 
-  // Initial center: meeting-point centroid, else the first peer, else the SOS.
+  // Initial camera: prefer the festival's explicit map-config (bounds/center),
+  // then fall back to framing the static pins (meeting points + stages +
+  // amenities), then live peers / SOS. pickFestivalCamera owns the static-pin
+  // precedence; we extend its fallback with the ephemeral peer/SOS coord.
+  const staticPins = useMemo(() => [...pins, ...stagePins, ...amenityPins], [pins, stagePins, amenityPins]);
+  const camera = useMemo(() => pickFestivalCamera(festival, staticPins), [festival, staticPins]);
   const center = useMemo(() => {
-    const c = pinsCentroid(pins);
-    if (c) return c;
+    if (camera.center) return camera.center;
     if (peers[0]) return { latitude: peers[0].lat, longitude: peers[0].lng };
     if (sos?.position) return { latitude: sos.position.lat, longitude: sos.position.lng };
     return null;
     // Recompute only when the coord sources meaningfully change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pins, peers.length, sos?.position?.lat, sos?.position?.lng]);
+  }, [camera, peers.length, sos?.position?.lat, sos?.position?.lng]);
 
   // Stable keys so marker effects re-run only when their own coords change.
   const pinsKey = useMemo(() => pins.map((p) => `${p.id}:${p.latitude},${p.longitude}`).join('|'), [pins]);
+  const stagesKey = useMemo(
+    () => stagePins.map((p) => `${p.id}:${p.latitude},${p.longitude}:${p.color ?? ''}`).join('|'),
+    [stagePins],
+  );
+  const amenitiesKey = useMemo(
+    () => amenityPins.map((p) => `${p.id}:${p.latitude},${p.longitude}:${p.amenityType ?? ''}`).join('|'),
+    [amenityPins],
+  );
   const peersKey = useMemo(() => peers.map((p) => `${p.userId}:${p.lat},${p.lng}:${p.serverAt}`).join('|'), [peers]);
   const sosKey = sos ? `${sos.userId}:${sos.position?.lat},${sos.position?.lng}` : '';
 
-  // Keep the latest center for the (peer-driven) lazy map creation without making
-  // it an effect dep (which would recreate the map on every position tick).
+  // Keep the latest camera for the lazy map creation without making it an effect
+  // dep (which would recreate the map on every position tick).
   const centerRef = useRef(center);
   centerRef.current = center;
+  const cameraRef = useRef(camera);
+  cameraRef.current = camera;
+  // Keep the latest authoring click handler in a ref so the map's click listener
+  // (wired once at creation) always calls the current callback without making the
+  // handler a map-creation dep (which would recreate the map on every render).
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
 
   // ── Map lifecycle: create once when there's content; tear down on unmount ──
   useEffect(() => {
@@ -196,6 +241,14 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
           if (cancelled) return;
           setStatus('ready');
         });
+        // Authoring: report each map click's coord to the current handler (if
+        // any). Wired once; the ref keeps it pointing at the latest callback.
+        map.on('click', (e) => {
+          const cb = onMapClickRef.current;
+          if (!cb) return;
+          const { lng, lat } = e.lngLat;
+          if (Number.isFinite(lat) && Number.isFinite(lng)) cb({ latitude: lat, longitude: lng });
+        });
         glRef.current = maplibregl;
         mapRef.current = map;
       } catch {
@@ -206,6 +259,8 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
     return () => {
       cancelled = true;
       mpMarkersRef.current = [];
+      stageMarkersRef.current = [];
+      amenityMarkersRef.current = [];
       peerMarkersRef.current = [];
       sosMarkerRef.current = null;
       fittedRef.current = false;
@@ -249,6 +304,80 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, pinsKey]);
+
+  // ── Stage markers (festival-mapped; stage-colored, labelled) ────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    for (const m of stageMarkersRef.current) m.remove();
+    stageMarkersRef.current = [];
+
+    for (const p of stagePins) {
+      const el = document.createElement('div');
+      el.className = 'festie-stage-marker';
+      // Tint the marker with the stage's own brand color (falls back to the CSS
+      // default in the stylesheet when absent).
+      if (p.color) el.style.setProperty('--stage-color', p.color);
+      el.setAttribute('aria-label', `Stage: ${p.label}`);
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      // A small always-on label tag so stages read at a glance, distinct from the
+      // coral meeting dots + aqua peer discs. Text via textContent (injection-safe).
+      const tag = document.createElement('span');
+      tag.className = 'festie-stage-tag';
+      tag.textContent = p.label;
+      el.appendChild(tag);
+      const popupEl = popupContent([titleEl(p.label), subEl('Stage')]);
+      const marker = new gl.Marker({ element: el })
+        .setLngLat([p.longitude, p.latitude])
+        .setPopup(new gl.Popup({ offset: 14, closeButton: false }).setDOMContent(popupEl))
+        .addTo(map);
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          marker.togglePopup();
+        }
+      });
+      stageMarkersRef.current.push(marker);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, stagesKey]);
+
+  // ── Amenity markers (festival-mapped; category glyph + color) ───────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    for (const m of amenityMarkersRef.current) m.remove();
+    amenityMarkersRef.current = [];
+
+    for (const p of amenityPins) {
+      const { glyph, color } = amenityGlyph(p.amenityType);
+      const el = document.createElement('div');
+      el.className = 'festie-amenity-marker';
+      el.style.setProperty('--amenity-color', color);
+      el.setAttribute('aria-label', `${p.amenityType ?? 'Amenity'}: ${p.label}`);
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.textContent = glyph;
+      const popupEl = popupContent([titleEl(p.label), p.amenityType ? subEl(p.amenityType) : null]);
+      const marker = new gl.Marker({ element: el })
+        .setLngLat([p.longitude, p.latitude])
+        .setPopup(new gl.Popup({ offset: 14, closeButton: false }).setDOMContent(popupEl))
+        .addTo(map);
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          marker.togglePopup();
+        }
+      });
+      amenityMarkersRef.current.push(marker);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, amenitiesKey]);
 
   // ── Live peer markers (rebuilt per tick — small N; keeps staleness honest) ──
   useEffect(() => {
@@ -339,14 +468,33 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, sosKey]);
 
-  // ── Fit bounds once across everything we have when the map first loads ──────
+  // ── Frame once when the map first loads ─────────────────────────────────────
+  // Precedence (via pickFestivalCamera): explicit map-config bounds win — fit the
+  // festival grounds exactly. Otherwise fit the union of everything we can plot
+  // (meeting points + stages + amenities + live peers + SOS) so nothing's off
+  // screen. The map was already centered on camera.center at creation.
   useEffect(() => {
     const map = mapRef.current;
     const gl = glRef.current;
     if (status !== 'ready' || !map || !gl || fittedRef.current) return;
 
+    // 1. Explicit festival bounds — frame the grounds.
+    const cfgBounds = cameraRef.current.bounds;
+    if (cfgBounds) {
+      const [[west, south], [east, north]] = cfgBounds;
+      map.fitBounds(
+        new gl.LngLatBounds([west, south], [east, north]),
+        { padding: 56, maxZoom: 17, duration: 0 },
+      );
+      fittedRef.current = true;
+      return;
+    }
+
+    // 2. Fit the union of all plottable coords.
     const coords: [number, number][] = [
       ...pins.map((p) => [p.longitude, p.latitude] as [number, number]),
+      ...stagePins.map((p) => [p.longitude, p.latitude] as [number, number]),
+      ...amenityPins.map((p) => [p.longitude, p.latitude] as [number, number]),
       ...peers.map((p) => [p.lng, p.lat] as [number, number]),
       ...(sos?.position ? [[sos.position.lng, sos.position.lat] as [number, number]] : []),
     ];
@@ -357,7 +505,7 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
     }
     fittedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, pinsKey, peersKey, sosKey]);
+  }, [status, pinsKey, stagesKey, amenitiesKey, peersKey, sosKey]);
 
   // ── Empty state: nothing to plot ───────────────────────────────────────────
   if (!shouldRenderMap) {
@@ -368,8 +516,8 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
           title="No mapped meeting points yet"
           description="Add a location to a meeting point to see it here."
         />
-        {stagePins.length === 0 && (
-          <p className="text-xs text-text-muted text-center mt-2">Stage locations aren&apos;t mapped yet.</p>
+        {!hasStages && !hasAmenities && (
+          <p className="text-xs text-text-muted text-center mt-2">This festival isn&apos;t mapped yet.</p>
         )}
       </div>
     );
@@ -378,6 +526,8 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
   const peerCount = peers.length;
   const countCopy = [
     pins.length ? (pins.length === 1 ? '1 mapped point' : `${pins.length} mapped points`) : '',
+    stagePins.length ? (stagePins.length === 1 ? '1 stage' : `${stagePins.length} stages`) : '',
+    amenityPins.length ? (amenityPins.length === 1 ? '1 amenity' : `${amenityPins.length} amenities`) : '',
     peerCount ? (peerCount === 1 ? '1 live crew member' : `${peerCount} live crew members`) : '',
   ]
     .filter(Boolean)
@@ -415,7 +565,7 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null }: Props
       </div>
       <p className="text-xs text-text-muted text-center">
         {countCopy || 'Live locations'}
-        {stagePins.length === 0 && pins.length > 0 ? ' · stages aren’t mapped yet' : ''}
+        {!hasStages && !hasAmenities && pins.length > 0 ? ' · this festival isn’t mapped yet' : ''}
       </p>
     </div>
   );

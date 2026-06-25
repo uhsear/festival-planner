@@ -36,6 +36,8 @@ import {
   type DayRow,
   type FormState,
 } from './festivalEditState';
+import { amenityCount } from '@festie/shared/utils';
+import type { FestivalMapConfig } from '@festie/shared/types';
 
 /**
  * Admin — Festival editor (native UI parity for the web FestivalEditForm →
@@ -88,7 +90,8 @@ interface FestivalDetail {
   name?: string;
   location?: string;
   timeZone?: string | null;
-  stages?: { id?: string; name?: string; color?: string }[];
+  mapConfig?: FestivalMapConfig | null;
+  stages?: { id?: string; name?: string; color?: string; latitude?: number | null; longitude?: number | null }[];
   days?: {
     id?: string;
     label?: string;
@@ -113,10 +116,16 @@ const EMPTY_FORM: FormState = {
   timeZone: '',
   stages: [],
   days: [],
+  mapConfig: null,
 };
 
 function uid(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/** True when a stage row carries a finite lat/lng pin. */
+function stageIsPinned(s: StageRow): boolean {
+  return typeof s.latitude === 'number' && typeof s.longitude === 'number';
 }
 
 /** First spotify/soundcloud link found on a set, for hydrating the link field. */
@@ -153,6 +162,8 @@ export default function FestivalEditScreen() {
         id: s.id || uid('stage'),
         name: s.name || '',
         color: s.color || DEFAULT_STAGE_COLOR,
+        latitude: typeof s.latitude === 'number' ? s.latitude : null,
+        longitude: typeof s.longitude === 'number' ? s.longitude : null,
       }));
       const days: DayRow[] = (full.days || []).map((d) => ({
         id: d.id || uid('day'),
@@ -173,6 +184,7 @@ export default function FestivalEditScreen() {
         timeZone: full.timeZone || '',
         stages,
         days,
+        mapConfig: full.mapConfig ?? null,
       });
       // Auto-expand all days so artists are visible immediately (web parity).
       setExpandedDays(new Set(days.map((d) => d.id)));
@@ -203,9 +215,19 @@ export default function FestivalEditScreen() {
     else router.replace('/admin');
   }, [router]);
 
+  // Open the dedicated map editor for this festival. The map screen loads the
+  // festival by id and persists stage pins + amenities itself, so geo authoring
+  // is fully owned there (this text-form screen never needs the map). Edit-only.
+  const goToMapEditor = useCallback(() => {
+    if (!editingId) return;
+    router.push({ pathname: '/admin/festival-map', params: { id: editingId } });
+  }, [router, editingId]);
+
   // ── Stage editing ─────────────────────────────────────────────────────────
   const addStage = () =>
-    setForm((f) => addStageReducer(f, { id: uid('stage'), name: '', color: DEFAULT_STAGE_COLOR }));
+    setForm((f) =>
+      addStageReducer(f, { id: uid('stage'), name: '', color: DEFAULT_STAGE_COLOR, latitude: null, longitude: null }),
+    );
   const removeStage = (stageId: string) => setForm((f) => removeStageReducer(f, stageId));
   const setStageField = (stageId: string, field: 'name' | 'color', value: string) =>
     setForm((f) => setStageFieldReducer(f, stageId, field, value));
@@ -289,7 +311,20 @@ export default function FestivalEditScreen() {
       name: form.name.trim(),
       location: form.location.trim(),
       timeZone: form.timeZone ? form.timeZone : null,
-      stages: form.stages.map((s) => ({ id: s.id, name: s.name.trim(), color: s.color })),
+      // Preserve stage pin coords (authored in the map editor) so saving the
+      // text fields here never silently drops a stage's location. null when
+      // unpinned (Phase A contract: per-stage latitude/longitude).
+      stages: form.stages.map((s) => ({
+        id: s.id,
+        name: s.name.trim(),
+        color: s.color,
+        latitude: s.latitude,
+        longitude: s.longitude,
+      })),
+      // Round-trip the festival map-config (amenities/center/etc, authored in the
+      // map editor). Sending the loaded value back keeps it on save; explicit
+      // null clears it (Phase A: omit=keep, null=clear, object=replace).
+      mapConfig: form.mapConfig,
       days: form.days.map((d) => ({
         id: d.id,
         label: d.label.trim(),
@@ -466,6 +501,34 @@ export default function FestivalEditScreen() {
                     value={stage.color}
                     onChangeText={(v) => setStageField(stage.id, 'color', v)}
                   />
+                  {/* Pin status. Locations are AUTHORED on the map editor (it has
+                      the actual map); here we only surface whether this stage is
+                      pinned and link across to set/move it. */}
+                  <View style={styles.locationRow}>
+                    <Ionicons
+                      name={stageIsPinned(stage) ? 'location' : 'location-outline'}
+                      size={t.iconSize.sm}
+                      color={stageIsPinned(stage) ? t.colors.accent.aqua : t.colors.text.muted}
+                    />
+                    <Text style={styles.locationText} numberOfLines={1}>
+                      {stageIsPinned(stage)
+                        ? `Pinned · ${stage.latitude!.toFixed(5)}, ${stage.longitude!.toFixed(5)}`
+                        : 'No location pinned'}
+                    </Text>
+                    {editingId ? (
+                      <TouchableOpacity
+                        onPress={goToMapEditor}
+                        style={styles.locationBtn}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Set location for ${stage.name || 'stage'} on the map`}
+                      >
+                        <Text style={styles.locationBtnText}>
+                          {stageIsPinned(stage) ? 'Move' : 'Set location'}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 </View>
               ))
             )}
@@ -479,6 +542,22 @@ export default function FestivalEditScreen() {
               <Ionicons name="add" size={t.iconSize.md} color={t.colors.accent.aqua} />
               <Text style={styles.addBtnText}>Add stage</Text>
             </TouchableOpacity>
+            {/* Map editor link (edit only — the map screen loads the festival by
+                id and persists stage pins + amenities itself). */}
+            {editingId ? (
+              <TouchableOpacity
+                onPress={goToMapEditor}
+                style={styles.toolBtn}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Edit festival map"
+              >
+                <Ionicons name="map-outline" size={t.iconSize.md} color={t.colors.accent.aqua} />
+                <Text style={styles.toolBtnText}>
+                  Edit map{amenityCount(form.mapConfig) > 0 ? ` · ${amenityCount(form.mapConfig)} amenities` : ''}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* Days & Artists */}
@@ -765,6 +844,29 @@ const useStyles = makeStyles((t) => ({
   stageHeaderText: {
     ...typeStyle('label', 600),
     color: t.colors.text.secondary,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+  },
+  locationText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+    flex: 1,
+  },
+  locationBtn: {
+    minHeight: 36,
+    paddingHorizontal: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.accent.aqua,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationBtnText: {
+    ...typeStyle('caption', 600),
+    color: t.colors.accent.aqua,
   },
   // Days ---------------------------------------------------------------------
   dayBlock: {

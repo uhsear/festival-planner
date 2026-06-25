@@ -42,3 +42,42 @@ export function safeJsonForScript(value: unknown): string {
 export function isAllowedMapHost(host: string): boolean {
   return host === 'unpkg.com' || /(^|\.)tile\.openstreetmap\.org$/.test(host);
 }
+
+// ── Authoring mode (Phase D) ────────────────────────────────────────────────
+//
+// The admin festival-map editor reuses the SAME WebView map document as the
+// crew map, switched into an "authoring" mode where a single map tap reports a
+// coordinate back to RN (so the editor can place/move a stage pin or drop an
+// amenity). Authoring REUSES the existing one-shot tap path (the `map-longpress`
+// message): the editor arms placement via `__festieSetPlacement(true)` exactly
+// like the meeting-point drop, then receives `{type:'map-longpress', latitude,
+// longitude}`. `__festieSetAuthoring(mode)` only flips a cosmetic cursor/affordance
+// flag in the document — it does NOT introduce a second tap channel, weaken the
+// CSP, the host allowlist, or the safeJsonForScript transport. All values pushed
+// into the document still go through safeJsonForScript.
+
+/** Authoring sub-modes the editor can put the map document into. */
+export type AuthoringMode = 'off' | 'stage' | 'amenity';
+
+/** Inbound message types RN listens for from the authoring map document. */
+export type AuthoringMessageType =
+  | 'authoring' // confirms the active AuthoringMode after __festieSetAuthoring
+  | 'map-longpress' // a placement tap reported its coordinate (shared with crew map)
+  | 'placement'; // confirms placement-armed on/off (shared with crew map)
+
+/** True for one of the recognized authoring sub-modes. */
+export function isAuthoringMode(value: unknown): value is AuthoringMode {
+  return value === 'off' || value === 'stage' || value === 'amenity';
+}
+
+/**
+ * Build the `injectJavaScript` snippet that flips the document's authoring mode.
+ * The mode string is validated + whitelisted here (never interpolated raw), so a
+ * caller can't splice arbitrary JS through this path; an unknown value coerces to
+ * 'off'. Returns a statement ending in `true;` (react-native-webview requires the
+ * injected script to evaluate to a truthy value to avoid a warning).
+ */
+export function buildSetAuthoringScript(mode: AuthoringMode): string {
+  const safe: AuthoringMode = isAuthoringMode(mode) ? mode : 'off';
+  return `window.__festieSetAuthoring && window.__festieSetAuthoring(${JSON.stringify(safe)}); true;`;
+}

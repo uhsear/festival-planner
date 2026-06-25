@@ -31,6 +31,8 @@ function collectFestivalChildren(festivalId: string, festival: any) {
     stage.name,
     stage.color,
     sortOrder,
+    stage.latitude ?? null,
+    stage.longitude ?? null,
   ]);
 
   const dayRows: any[][] = [];
@@ -67,7 +69,10 @@ function collectFestivalChildren(festivalId: string, festival: any) {
 async function insertStagesBatch(client: any, rows: any[][]) {
   if (rows.length === 0) return;
   const { clause, params } = buildMultiInsert(rows);
-  await client.query(`INSERT INTO festival_stages (festival_id, id, name, color, sort_order) VALUES ${clause}`, params);
+  await client.query(
+    `INSERT INTO festival_stages (festival_id, id, name, color, sort_order, latitude, longitude) VALUES ${clause}`,
+    params,
+  );
 }
 
 /** Batch-insert days in a single multi-row query. */
@@ -229,8 +234,8 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
 
           await client.query(
             `
-            INSERT INTO festivals (id, name, location, created_at, updated_at, b2b_separator, latitude, longitude, time_zone)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO festivals (id, name, location, created_at, updated_at, b2b_separator, latitude, longitude, time_zone, map_config)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT(id) DO UPDATE SET
               name = EXCLUDED.name,
               location = EXCLUDED.location,
@@ -239,7 +244,8 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
               b2b_separator = EXCLUDED.b2b_separator,
               latitude = EXCLUDED.latitude,
               longitude = EXCLUDED.longitude,
-              time_zone = EXCLUDED.time_zone
+              time_zone = EXCLUDED.time_zone,
+              map_config = EXCLUDED.map_config
           `,
             [
               festival.id,
@@ -251,6 +257,7 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
               festival.latitude || null,
               festival.longitude || null,
               festival.timeZone ?? null,
+              festival.mapConfig == null ? null : JSON.stringify(festival.mapConfig),
             ],
           );
 
@@ -282,11 +289,15 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
           COALESCE(f.location, '') AS location,
           COALESCE(f.b2b_separator, 'b2b') AS "b2bSeparator",
           f.time_zone AS "timeZone",
+          f.map_config AS "mapConfig",
           f.created_at AS "createdAt",
           f.updated_at AS "updatedAt",
           COALESCE(
             (SELECT json_agg(
-              json_build_object('id', s.id, 'name', s.name, 'color', s.color)
+              json_build_object(
+                'id', s.id, 'name', s.name, 'color', s.color,
+                'latitude', s.latitude, 'longitude', s.longitude
+              )
               ORDER BY s.sort_order ASC
             )
             FROM festival_stages s WHERE s.festival_id = f.id),
@@ -404,7 +415,7 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
         const updatedAt = festival.updatedAt || createdAt;
 
         await client.query(
-          'INSERT INTO festivals (id, name, location, created_at, updated_at, b2b_separator, latitude, longitude, time_zone) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+          'INSERT INTO festivals (id, name, location, created_at, updated_at, b2b_separator, latitude, longitude, time_zone, map_config) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
           [
             festival.id,
             festival.name,
@@ -415,6 +426,7 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
             festival.latitude || null,
             festival.longitude || null,
             festival.timeZone ?? null,
+            festival.mapConfig == null ? null : JSON.stringify(festival.mapConfig),
           ],
         );
 
@@ -431,6 +443,7 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
             name,
             location,
             time_zone AS "timeZone",
+            map_config AS "mapConfig",
             created_at AS "createdAt",
             updated_at AS "updatedAt"
           FROM
@@ -482,6 +495,11 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
           values.push(fields.timeZone ?? null);
           idx++;
         }
+        if (fields.mapConfig !== undefined) {
+          sets.push(`map_config = $${idx}`);
+          values.push(fields.mapConfig == null ? null : JSON.stringify(fields.mapConfig));
+          idx++;
+        }
         sets.push(`updated_at = $${idx}`);
         values.push(new Date().toISOString());
         idx++;
@@ -498,6 +516,8 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
             stage.name,
             stage.color,
             sortOrder,
+            stage.latitude ?? null,
+            stage.longitude ?? null,
           ]);
           await insertStagesBatch(client, stageRows);
         }
@@ -515,6 +535,7 @@ export default function createFestivalsStore(pool: Pool, utils: any) {
             name,
             location,
             time_zone AS "timeZone",
+            map_config AS "mapConfig",
             created_at AS "createdAt",
             updated_at AS "updatedAt"
           FROM

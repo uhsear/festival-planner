@@ -14,10 +14,19 @@
  * editable view-model, not domain types.
  */
 
+import type { FestivalMapConfig } from '@festie/shared/types';
+
 export interface StageRow {
   id: string;
   name: string;
   color: string;
+  /**
+   * M6 stage pin coords (degrees). null when the stage has no pin. Authored from
+   * the map editor's "Set location" flow; sent on the stage rows in the festival
+   * write payload (Phase A backend contract). Additive + backward-compatible.
+   */
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface SetRow {
@@ -44,6 +53,13 @@ export interface FormState {
   timeZone: string; // '' = device-local (no festival zone)
   stages: StageRow[];
   days: DayRow[];
+  /**
+   * M6 festival site-map config (amenities/zones/siteplan/center/bounds).
+   * null = "not mapped yet". Authored from the map editor; sent as `mapConfig`
+   * in the festival write payload (Phase A backend contract). Imported as the
+   * shared `FestivalMapConfig` type so the reducer state matches the wire shape.
+   */
+  mapConfig: FestivalMapConfig | null;
 }
 
 // ── Stage editing ───────────────────────────────────────────────────────────
@@ -60,6 +76,27 @@ export function setStageField(f: FormState, stageId: string, field: 'name' | 'co
     ...f,
     stages: f.stages.map((s) => (s.id === stageId ? { ...s, [field]: value } : s)),
   };
+}
+
+/**
+ * Set (or clear) a stage's pin coordinate. Passing both null clears the pin.
+ * Pure structural update — only the matching stage row changes.
+ */
+export function setStageLocation(
+  f: FormState,
+  stageId: string,
+  latitude: number | null,
+  longitude: number | null,
+): FormState {
+  return {
+    ...f,
+    stages: f.stages.map((s) => (s.id === stageId ? { ...s, latitude, longitude } : s)),
+  };
+}
+
+/** Replace the whole festival map-config (amenities/center/etc). */
+export function setMapConfig(f: FormState, mapConfig: FestivalMapConfig | null): FormState {
+  return { ...f, mapConfig };
 }
 
 // ── Day editing ───────────────────────────────────────────────────────────--

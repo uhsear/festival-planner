@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
-import { useAuthStore, useCrewStore, useLiveLocationStore } from '@festie/shared/stores';
+import { useAuthStore, useCrewStore, useLiveLocationStore, useFestivalStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -31,6 +31,17 @@ export default function MapScreen() {
   const user = useAuthStore((s) => s.user);
   const activeCrew = useCrewStore((s) => s.activeCrew);
   const meetingPoints = useCrewStore((s) => s.meetingPoints) as CrewMeetingPoint[];
+
+  // Festival map data: currentFestival carries `mapConfig` (amenities + camera);
+  // stages live as a separate top-level array in the store. Fold them together so
+  // OfflineMap can plot stage + amenity pins. Null when no festival is selected —
+  // OfflineMap keeps its meeting-points-only behaviour + "not mapped yet" note.
+  const currentFestival = useFestivalStore((s) => s.currentFestival);
+  const festivalStages = useFestivalStore((s) => s.stages);
+  const mapFestival = useMemo(
+    () => (currentFestival ? { ...currentFestival, stages: festivalStages } : null),
+    [currentFestival, festivalStages],
+  );
 
   // Ephemeral live location + SOS (never persisted). The record is a stable ref
   // unless it changes, so derive the array via memo to avoid render churn.
@@ -120,7 +131,13 @@ export default function MapScreen() {
       <View style={styles.chipBar}>
         <FreshnessChip surface="crew" />
       </View>
-      <OfflineMap meetingPoints={meetingPoints} peers={peers} sos={sos} onMapPress={handleMapPress} />
+      <OfflineMap
+        meetingPoints={meetingPoints}
+        peers={peers}
+        sos={sos}
+        onMapPress={handleMapPress}
+        festival={mapFestival}
+      />
 
       {/* DC2 + R24: raise-SOS shortcut on the map. The FAB lives in an outer
           absolutely-positioned wrapper so its placement never depends on the

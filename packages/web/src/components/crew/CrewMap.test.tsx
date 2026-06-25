@@ -51,8 +51,16 @@ const { extractMeetingPointPins } = vi.hoisted(() => ({ extractMeetingPointPins:
 vi.mock('@festie/shared/utils', () => ({
   extractMeetingPointPins,
   extractStagePins: () => [],
+  extractAmenityPins: () => [],
+  amenityGlyph: () => ({ glyph: '?', color: '#888888' }),
   pinsCentroid: (pins: Array<{ latitude: number; longitude: number }>) =>
     pins.length ? { latitude: pins[0].latitude, longitude: pins[0].longitude } : null,
+  // Mirror the real precedence enough for these tests: with no map-config the
+  // camera centres on the first pin (centroid stand-in) and never fits bounds.
+  pickFestivalCamera: (_festival: unknown, pins: Array<{ latitude: number; longitude: number }>) => ({
+    center: pins.length ? { latitude: pins[0].latitude, longitude: pins[0].longitude } : null,
+    bounds: null,
+  }),
   formatStaleness: () => 'as of just now',
 }));
 
@@ -89,10 +97,10 @@ describe('CrewMap', () => {
     expect(mapInstances).toHaveLength(0);
   });
 
-  it('surfaces the honest "stages aren\'t mapped" note in the empty state', () => {
+  it('surfaces the honest "not mapped yet" note in the empty state', () => {
     extractMeetingPointPins.mockReturnValue([]);
     render(<CrewMap meetingPoints={[]} />);
-    expect(screen.getByText(/stage locations aren.t mapped yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/this festival isn.t mapped yet/i)).toBeInTheDocument();
   });
 
   it('renders the map container (not the empty state) when at least one pin has coords', () => {

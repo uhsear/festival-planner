@@ -1,5 +1,59 @@
 export type Priority = 'must' | 'want-to-see' | 'maybe';
 
+/**
+ * Amenity category for festival site-map pins (matches the backend
+ * `AMENITY_TYPES` enum in lib/schemas.ts). Drives the marker glyph/color.
+ */
+export type AmenityType =
+  | 'water'
+  | 'medical'
+  | 'toilet'
+  | 'food'
+  | 'atm'
+  | 'entrance'
+  | 'exit'
+  | 'info'
+  | 'charging';
+
+/**
+ * Festival site-map config (M6). Additive + nullable on the Festival; `null`
+ * (or absent) means "not mapped yet" and the map UI keeps its fallback. ALL
+ * coordinates are GeoJSON order [longitude, latitude]. Mirrors the backend Zod
+ * `festivalMapConfigSchema` shape (lib/schemas.ts) — kept as a hand-written type
+ * here so mobile/web can import it without pulling in zod at runtime.
+ */
+export interface FestivalMapConfig {
+  version: 1;
+  /** [lng, lat] initial camera centre. */
+  center?: [number, number];
+  /** [[west, south], [east, north]] — SW corner then NE corner, each [lng, lat]. */
+  bounds?: [[number, number], [number, number]];
+  /** GeoJSON FeatureCollection of amenity Points. */
+  amenities?: {
+    type: 'FeatureCollection';
+    features: Array<{
+      type: 'Feature';
+      geometry: { type: 'Point'; coordinates: [number, number] };
+      properties: { id: string; amenityType: AmenityType; label: string };
+    }>;
+  };
+  /** GeoJSON FeatureCollection of zone Polygons. */
+  zones?: {
+    type: 'FeatureCollection';
+    features: Array<{
+      type: 'Feature';
+      geometry: { type: 'Polygon'; coordinates: [number, number][][] };
+      properties?: Record<string, unknown>;
+    }>;
+  };
+  /** Georeferenced site-plan image overlay. */
+  siteplan?: {
+    imageUrl: string;
+    corners: [[number, number], [number, number], [number, number], [number, number]];
+    opacity: number;
+  };
+}
+
 export interface Festival {
   id: string;
   name: string;
@@ -16,6 +70,12 @@ export interface Festival {
    * time math falls back to the device-local frame (see resolveFestivalTimeZone).
    */
   timeZone?: string;
+  /**
+   * M6 festival site-map config (serializer key `mapConfig`; DB column
+   * `map_config` jsonb). `null`/absent = "not mapped yet" fallback. Additive +
+   * backward-compatible — legacy festivals omit it and keep working.
+   */
+  mapConfig?: FestivalMapConfig | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +85,13 @@ export interface Stage {
   name: string;
   color?: string;
   festivalId: string;
+  /**
+   * M6 stage pin coords (degrees). `null`/absent when the stage has no pin.
+   * latitude -90..90, longitude -180..180. Additive + backward-compatible —
+   * legacy stages omit these and render without a pin.
+   */
+  latitude?: number | null;
+  longitude?: number | null;
   createdAt: string;
   updatedAt: string;
 }
