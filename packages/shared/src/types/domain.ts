@@ -52,6 +52,18 @@ export interface FestivalMapConfig {
     corners: [[number, number], [number, number], [number, number], [number, number]];
     opacity: number;
   };
+  /**
+   * Offline VECTOR basemap (Phase 3A). When present, the map renders a PMTiles
+   * vector basemap (read via the `pmtiles://` protocol) instead of the online OSM
+   * raster tiles — so a downloaded/CDN-hosted `.pmtiles` archive can back the map
+   * with little/no network. ADDITIVE + nullable: absent ⇒ the map keeps TODAY's
+   * online OSM raster style unchanged (graceful fallback). `pmtilesUrl` MUST be an
+   * https URL to a `.pmtiles` archive; `attribution` is optional basemap credit.
+   */
+  offlineBasemap?: {
+    pmtilesUrl: string;
+    attribution?: string;
+  };
 }
 
 export interface Festival {

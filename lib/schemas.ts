@@ -393,6 +393,20 @@ const siteplanSchema = z
   })
   .strict();
 
+// Offline VECTOR basemap (Phase 3A). When present, the client renders a PMTiles
+// vector basemap (pmtiles:// protocol) instead of the online OSM raster, so a
+// downloaded/CDN-hosted `.pmtiles` archive can back the map with little/no
+// network. ADDITIVE: absent ⇒ the map keeps the online OSM raster (graceful
+// fallback). https-only (mirrors siteplan.imageUrl / crewPhotoAlbumSchema) to
+// avoid javascript:/data: schemes; the client also re-asserts https + an exact
+// host allowlist before the WebView ever loads it.
+const offlineBasemapSchema = z
+  .object({
+    pmtilesUrl: z.string().url().max(2048).startsWith('https://', 'PMTiles URL must be https'),
+    attribution: z.string().max(500).optional(),
+  })
+  .strict();
+
 export const festivalMapConfigSchema = z
   .object({
     version: z.literal(1),
@@ -402,6 +416,7 @@ export const festivalMapConfigSchema = z
     amenities: amenitiesCollectionSchema.optional(),
     zones: zonesCollectionSchema.optional(),
     siteplan: siteplanSchema.optional(),
+    offlineBasemap: offlineBasemapSchema.optional(),
   })
   .strict();
 export type FestivalMapConfigInput = z.infer<typeof festivalMapConfigSchema>;

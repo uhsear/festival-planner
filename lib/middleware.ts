@@ -168,6 +168,44 @@ function configureMiddleware(app: Application, ctx: any) {
     }),
   );
 
+  // ── Offline basemap static files (Phase 3B) ───────────────────────────
+  // Per-festival PMTiles vector basemaps for the offline map. Mirrors the avatar
+  // static handler: immutable long-cache (a festival's archive is content-stable;
+  // a re-extract gets a new filename), nosniff, and a locked-down CSP. The
+  // PMTiles JS client byte-range fetches the archive, so Range support matters —
+  // express.static sets `Accept-Ranges: bytes` and honours `Range` requests for
+  // these files automatically. ADDITIVE: festivals with no offline basemap never
+  // touch this path and render the unchanged online OSM raster.
+  const basemapsDir = path.join(config.PUBLIC_DIR, 'uploads', 'basemaps');
+  app.use(
+    '/uploads/basemaps',
+    express.static(basemapsDir, {
+      immutable: true,
+      maxAge: '365d',
+      fallthrough: true,
+      // Only ever serve .pmtiles archives from here; anything else 404s into the
+      // SPA catch-all (which already rejects /uploads/* with a 404).
+      setHeaders(res: any, filePath: any) {
+        if (!filePath.endsWith('.pmtiles')) return;
+        // PMTiles is an application/octet-stream container; the client reads it by
+        // byte range, not by content type, but set an explicit type + nosniff.
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        // The archive is map geometry only — no script/style/frame surface.
+        res.setHeader(
+          'Content-Security-Policy',
+          "default-src 'none'; img-src 'self'; style-src 'none'; script-src 'none'",
+        );
+        // Permit cross-origin range reads from the app's own WebView/SPA map.
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Range');
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+      },
+    }),
+  );
+
   // ── Liveness probe ────────────────────────────────────────────────────
   app.get('/health/live', (req: any, res: any) => {
     res.status(200).json({ status: 'alive', uptime: process.uptime() });

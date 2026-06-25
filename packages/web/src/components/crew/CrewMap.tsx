@@ -14,6 +14,8 @@ import {
   getInitials,
   buildPursuit,
   nearestPin,
+  pickMapStyle,
+  hasOfflineBasemap,
   type MapPin as Pin,
   type Coord,
 } from '@festie/shared/utils';
@@ -105,19 +107,9 @@ interface PursueTarget {
   coord: Coord;
 }
 
-// A free OpenStreetMap raster style (no API key). Online-only basemap.
-const RASTER_STYLE = {
-  version: 8 as const,
-  sources: {
-    osm: {
-      type: 'raster' as const,
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
-  layers: [{ id: 'osm', type: 'raster' as const, source: 'osm' }],
-};
+// Basemap style is chosen by the shared `pickMapStyle` (Phase 3A): a festival
+// with an `offlineBasemap.pmtilesUrl` gets a PMTiles VECTOR basemap; every other
+// festival keeps TODAY's online OSM raster (graceful fallback, never regressed).
 
 // The subset of the maplibre-gl module we use. We load it via `.default` at
 // runtime (CJS interop — the test mock returns `{ default: {...} }`), but the
@@ -369,6 +361,10 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
   // handler a map-creation dep (which would recreate the map on every render).
   const onMapClickRef = useRef(onMapClick);
   onMapClickRef.current = onMapClick;
+  // Latest festival map-config for the lazy map creation (style choice), without
+  // making it a creation dep. The style is picked once at map creation.
+  const mapConfigRef = useRef(festival?.mapConfig);
+  mapConfigRef.current = festival?.mapConfig;
 
   // ── Map lifecycle: create once when there's content; tear down on unmount ──
   useEffect(() => {
@@ -380,12 +376,33 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
       try {
         const maplibregl = (await import('maplibre-gl')).default as unknown as MapLibre;
         await import('maplibre-gl/dist/maplibre-gl.css');
+
+        const cfg = mapConfigRef.current;
+        // Phase 3A: only when this festival carries a valid offline basemap do we
+        // register the pmtiles protocol + read it from a vector style. Otherwise
+        // pickMapStyle returns the unchanged online OSM raster. addProtocol is a
+        // process-global registration on the maplibre module; guard so repeated
+        // map mounts don't double-register (maplibre warns on a duplicate). Done
+        // BEFORE the final mounted-guard so no await sits between that guard and
+        // the mapRef assignment (keeps the atomic-update lint happy).
+        if (hasOfflineBasemap(cfg)) {
+          const gAny = maplibregl as unknown as {
+            __festiePmtilesRegistered?: boolean;
+            addProtocol?: (id: string, fn: unknown) => void;
+          };
+          if (!gAny.__festiePmtilesRegistered && typeof gAny.addProtocol === 'function') {
+            const { Protocol } = await import('pmtiles');
+            const protocol = new Protocol();
+            gAny.addProtocol('pmtiles', protocol.tile);
+            gAny.__festiePmtilesRegistered = true;
+          }
+        }
         if (cancelled || !containerRef.current || mapRef.current) return;
 
         const c = centerRef.current;
         const map = new maplibregl.Map({
           container: containerRef.current,
-          style: RASTER_STYLE,
+          style: pickMapStyle(cfg) as unknown as import('maplibre-gl').StyleSpecification,
           center: c ? [c.longitude, c.latitude] : [0, 0],
           zoom: c ? 14 : 1,
           attributionControl: { compact: true },

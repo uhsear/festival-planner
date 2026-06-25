@@ -16,6 +16,10 @@ import {
   getInitials,
   buildPursuit,
   nearestPin,
+  pickMapStyle,
+  pmtilesHost,
+  hasOfflineBasemap,
+  pmtilesVectorStyle,
   type Coord,
 } from '@festie/shared/utils';
 import type { CrewMeetingPoint, PeerLocation, SosEntry, Festival, Stage, AmenityType } from '@festie/shared/types';
@@ -24,6 +28,7 @@ import { useListBottomInset } from '../hooks/useListBottomInset';
 import { useNow } from '../hooks/useNow';
 import { safeJsonForScript, isAllowedMapHost, buildSetAuthoringScript } from '../lib/webviewBridge';
 import type { AuthoringMode } from '../lib/webviewBridge';
+import { ensureBasemapCached, basemapCacheDir } from '../lib/basemapCache';
 
 /**
  * A static festival map-data marker (stage or amenity) pushed into the WebView
@@ -80,20 +85,18 @@ interface LivePin {
 const MAPLIBRE_VERSION = '4.7.1';
 const MAPLIBRE_JS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.js`;
 const MAPLIBRE_CSS = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css`;
-// A free OpenStreetMap raster style (no API key). CDN-hosted tiles — online-only
-// today; F5 swaps this for a downloaded PMTiles source for true offline.
-const RASTER_STYLE_JSON = JSON.stringify({
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
-});
+// PMTiles UMD/IIFE browser build (Phase 3A). Loaded from unpkg (already allowed)
+// only when a festival carries an offline vector basemap. The IIFE exposes a
+// `pmtiles` global with `pmtiles.Protocol`, which we register with MapLibre via
+// `addProtocol('pmtiles', protocol.tile)` so the in-WebView map can byte-range
+// read the `.pmtiles` archive. Pinned version (subresource pinning, mirrors the
+// pinned MapLibre version) — no `@latest`.
+const PMTILES_VERSION = '4.4.1';
+const PMTILES_JS = `https://unpkg.com/pmtiles@${PMTILES_VERSION}/dist/pmtiles.js`;
+// The basemap style is now CHOSEN by the shared `pickMapStyle` (Phase 3A) and
+// templated into buildHtml per-festival: a festival with an offline PMTiles
+// basemap gets a vector style; every other festival keeps TODAY's online OSM
+// raster (graceful fallback — the online path is never regressed).
 
 // Origins the inline map document is allowed to load/navigate to. The page is
 // served as inline HTML (about:blank origin) and only pulls MapLibre from unpkg
@@ -107,24 +110,41 @@ const MAP_ORIGIN_WHITELIST = [
 ];
 
 /**
- * Default-DENY navigation guard. Allows the inline document's own load
+ * Default-DENY navigation guard FACTORY. Allows the inline document's own load
  * (about:blank / data:) and resource loads from the map's CDN + tile hosts;
  * blocks every other origin so an injected payload cannot redirect the WebView
  * off to an attacker host. The map never legitimately navigates elsewhere.
+ *
+ * Phase 3A: `extraHost` is the ONE additional https host permitted — the current
+ * festival's PMTiles archive host (config-driven, validated https upstream).
+ * Passing it through the closure keeps the allowlist exactly as wide as the
+ * active festival needs and no wider; with no offline basemap it's null and the
+ * guard is byte-for-byte the prior behaviour.
+ *
+ * Phase 3B: `allowFile` permits the `file://` scheme — and ONLY when true (a
+ * local cached archive backs THIS festival's map). The WebView's
+ * `allowingReadAccessToURL` is independently scoped to the basemaps cache dir, so
+ * even with the scheme allowed here, reads are confined to that one folder. With
+ * no local cache `allowFile` is false and `file://` is rejected like any other
+ * off-origin navigation (default-deny preserved).
  */
-function onShouldStartLoadWithRequest(req: ShouldStartLoadRequest): boolean {
-  const url = req.url || '';
-  // The inline HTML document itself (no real origin) + data URIs MapLibre uses.
-  if (url === 'about:blank' || url.startsWith('about:') || url.startsWith('data:') || url.startsWith('blob:')) {
-    return true;
-  }
-  let host = '';
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    return false;
-  }
-  return isAllowedMapHost(host);
+function makeShouldStartLoad(extraHost: string | null, allowFile: boolean = false) {
+  return function onShouldStartLoadWithRequest(req: ShouldStartLoadRequest): boolean {
+    const url = req.url || '';
+    // The inline HTML document itself (no real origin) + data URIs MapLibre uses.
+    if (url === 'about:blank' || url.startsWith('about:') || url.startsWith('data:') || url.startsWith('blob:')) {
+      return true;
+    }
+    // Local cached PMTiles archive (Phase 3B): only when a local basemap is active.
+    if (url.startsWith('file://')) return allowFile;
+    let host = '';
+    try {
+      host = new URL(url).hostname;
+    } catch {
+      return false;
+    }
+    return isAllowedMapHost(host, extraHost);
+  };
 }
 
 // If MapLibre's script hasn't signalled "ready" within this window we assume no
@@ -196,24 +216,62 @@ interface OfflineMapProps {
  * `{type:'error'}` if the script never arrives — RN uses those to decide map vs
  * fallback.
  */
-function buildHtml(center: { latitude: number; longitude: number } | null): string {
+function buildHtml(
+  center: { latitude: number; longitude: number } | null,
+  /** MapLibre style object (raster OSM by default, PMTiles vector when configured). */
+  style: object,
+  /** The festival's PMTiles host to permit in the CSP, or null for none. */
+  pmtilesOrigin: string | null,
+  /**
+   * Phase 3B: true when the chosen vector style reads a LOCAL `file://` PMTiles
+   * archive (cached to app storage) rather than the remote https one. When set,
+   * the CSP additionally permits the `file:` scheme on connect-src/img-src so the
+   * pmtiles lib can byte-range read the local archive. Conservative + explicit:
+   * `file:` is added ONLY in this branch (a basemap IS configured AND a local
+   * copy exists); with no offline basemap the CSP is byte-for-byte as before.
+   */
+  localBasemap: boolean = false,
+): string {
   // center is numeric, non-user-controlled coords — safe to template. Still run
   // it through the hardened serializer for uniformity.
   const centerJson = safeJsonForScript(center ?? { latitude: 0, longitude: 0 });
   const hasCenter = center != null;
-  // CSP confines what the document may load/connect to: MapLibre JS/CSS from
-  // unpkg, raster tiles from OpenStreetMap, inline styles/scripts and blob/data
-  // workers MapLibre needs. No other origins — so an injected payload (defense
-  // in depth behind H3's transport fix) cannot exfiltrate to an attacker host.
+  // The chosen basemap style, serialized with the hardened context-aware
+  // serializer (it carries only config-derived numbers/strings; the pmtilesUrl
+  // was validated https upstream, but we still escape `<` / line terminators so
+  // it can never break out of the JS string context — same transport as pins).
+  const styleJson = safeJsonForScript(style);
+  // Phase 3A/3B: load the pmtiles UMD when a vector basemap is configured — either
+  // a remote https archive (pmtilesOrigin set) OR a local cached file:// archive
+  // (localBasemap set). With neither, the map is the unchanged online OSM raster.
+  const usePmtiles = pmtilesOrigin != null || localBasemap;
+  // Phase 3A CSP widening (the one security-sensitive change). When — and only
+  // when — a festival has a REMOTE offline basemap, we add its EXACT https origin
+  // to connect-src (the archive is byte-range fetched via fetch()) and img-src (a
+  // raster-tile PMTiles archive returns image bytes). unpkg is already allowed
+  // (it serves the pmtiles UMD too). default-src stays 'none' (default-deny);
+  // no wildcard origin is ever added — only the single configured host.
+  const extra = pmtilesOrigin ? ` https://${pmtilesOrigin}` : '';
+  // Phase 3B local-cache widening. When — and only when — a LOCAL cached archive
+  // backs the map, permit the `file:` scheme on connect-src (byte-range fetch of
+  // the archive) + img-src (raster pmtiles return image bytes). Scheme-only (no
+  // path); the WebView's `allowingReadAccessToURL` is scoped to the basemaps
+  // cache dir so file access is confined to exactly that folder. No remote origin
+  // is added in this branch. With no offline basemap `fileExtra` is empty.
+  const fileExtra = localBasemap ? ' file:' : '';
   const csp = [
     "default-src 'none'",
     "script-src 'unsafe-inline' https://unpkg.com blob:",
     "style-src 'unsafe-inline' https://unpkg.com",
-    'img-src data: blob: https://*.tile.openstreetmap.org https://unpkg.com',
-    'connect-src https://unpkg.com https://*.tile.openstreetmap.org',
+    `img-src data: blob: https://*.tile.openstreetmap.org https://unpkg.com${extra}${fileExtra}`,
+    `connect-src https://unpkg.com https://*.tile.openstreetmap.org${extra}${fileExtra}`,
     'worker-src blob:',
     'font-src data:',
   ].join('; ');
+  // The pmtiles UMD <script>, included only when a vector basemap is configured.
+  // Loaded BEFORE init() runs (init is the maplibre script.onload) so the
+  // `pmtiles` global exists when we register the protocol.
+  const pmtilesScriptTag = usePmtiles ? `<script src="${PMTILES_JS}"></script>` : '';
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -221,6 +279,7 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <link href="${MAPLIBRE_CSS}" rel="stylesheet" />
+  ${pmtilesScriptTag}
   <style>
     html, body, #map { margin: 0; padding: 0; height: 100%; width: 100%; background: #080810; }
     .festie-marker {
@@ -304,6 +363,10 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
     var PINS = [];
     var CENTER = ${centerJson};
     var HAS_CENTER = ${hasCenter};
+    // The chosen basemap style (raster OSM by default; PMTiles vector when the
+    // festival configured one) + whether the pmtiles protocol must be registered.
+    var STYLE = ${styleJson};
+    var USE_PMTILES = ${usePmtiles ? 'true' : 'false'};
     // Tracks whether meeting-point pins exist, so live peer/SOS auto-framing only
     // kicks in when there are no pins to anchor the view. Updated by __festieSetPins.
     var HAD_PINS = false;
@@ -453,9 +516,20 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
     function init() {
       if (typeof maplibregl === 'undefined') { post({ type: 'error', reason: 'no-maplibre' }); return; }
       try {
+        // Phase 3A: when a vector basemap is configured, register the pmtiles
+        // protocol so MapLibre can resolve pmtiles-scheme sources. The pmtiles
+        // UMD script was loaded in the head, so the pmtiles global is present; if
+        // it somehow is not we fall through (the vector source then errors and RN
+        // falls back to the honest list) rather than throwing here.
+        if (USE_PMTILES && typeof pmtiles !== 'undefined' && pmtiles.Protocol) {
+          try {
+            var protocol = new pmtiles.Protocol();
+            maplibregl.addProtocol('pmtiles', protocol.tile);
+          } catch (e) {}
+        }
         var map = new maplibregl.Map({
           container: 'map',
-          style: ${RASTER_STYLE_JSON},
+          style: STYLE,
           center: HAS_CENTER ? [CENTER.longitude, CENTER.latitude] : [0, 0],
           zoom: HAS_CENTER ? 15 : 1,
           attributionControl: { compact: true }
@@ -778,9 +852,110 @@ export default function OfflineMap({
     });
   }, []);
 
-  // The HTML doc carries NO pin data — only the numeric center — so it only
-  // rebuilds when the center changes (pins flow in via injectJavaScript below).
-  const html = useMemo(() => buildHtml(center), [center]);
+  // Phase 3A: choose the basemap style + the (optional) PMTiles host for this
+  // festival. A festival with NO offline basemap yields the unchanged online OSM
+  // raster style + a null host — exactly today's behaviour (graceful fallback).
+  const remoteBasemapHost = useMemo(() => pmtilesHost(festival?.mapConfig), [festival]);
+
+  // Phase 3B: the festival's configured (remote, https) PMTiles URL, if any. Used
+  // both as the cache source and as the fallback when caching is unavailable.
+  const remotePmtilesUrl = useMemo(
+    () => (hasOfflineBasemap(festival?.mapConfig) ? festival!.mapConfig!.offlineBasemap!.pmtilesUrl : null),
+    [festival],
+  );
+  const basemapAttribution = useMemo(
+    () => (hasOfflineBasemap(festival?.mapConfig) ? festival?.mapConfig?.offlineBasemap?.attribution : undefined),
+    [festival],
+  );
+
+  // Phase 3B native cache: once a festival with an offline basemap opens, download
+  // the .pmtiles to app cache ONCE (idempotent) and point the WebView at the local
+  // file:// so subsequent opens render with zero network. On failure we keep the
+  // REMOTE https URL (Phase 3A range-fetch path) — additive, never regresses.
+  //
+  // We store the cached result TAGGED with the URL it was cached for; a switch to
+  // a different festival is handled by comparing that tag against the current URL
+  // during render (below) — no synchronous reset-in-effect needed.
+  const [cachedBasemap, setCachedBasemap] = useState<{ url: string; uri: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!remotePmtilesUrl) return;
+    void ensureBasemapCached(remotePmtilesUrl).then((uri) => {
+      if (!cancelled && uri) setCachedBasemap({ url: remotePmtilesUrl, uri });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [remotePmtilesUrl]);
+
+  // The EFFECTIVE basemap the WebView will read: the local cached file ONLY when
+  // it was cached for the CURRENTLY configured URL (so a stale file from another
+  // festival never leaks across); else the remote https URL (Phase 3A); else no
+  // offline basemap. Derived during render — no effect/setState churn.
+  const localBasemapUri =
+    cachedBasemap && remotePmtilesUrl && cachedBasemap.url === remotePmtilesUrl ? cachedBasemap.uri : null;
+  const usingLocalBasemap = localBasemapUri != null;
+  const mapStyle = useMemo(() => {
+    if (usingLocalBasemap && localBasemapUri) {
+      // Local file:// archive — build the vector style directly off the local URI
+      // via the SAME shared style builder (single source of truth).
+      return pmtilesVectorStyle(localBasemapUri, basemapAttribution);
+    }
+    // Remote https basemap (Phase 3A) or no basemap → unchanged shared pick.
+    return pickMapStyle(festival?.mapConfig);
+  }, [usingLocalBasemap, localBasemapUri, basemapAttribution, festival]);
+
+  // The remote host is permitted in the CSP/allowlist ONLY while we're still
+  // reading the remote archive. Once the local file is in use, no remote origin
+  // is needed (and isn't added) — the map reads purely from file://.
+  const offlineBasemapHost = usingLocalBasemap ? null : remoteBasemapHost;
+
+  // The HTML doc carries NO pin data — only the numeric center + the chosen
+  // basemap style — so it rebuilds only when the center or the basemap changes
+  // (pins flow in via injectJavaScript below).
+  const html = useMemo(
+    () => buildHtml(center, mapStyle, offlineBasemapHost, usingLocalBasemap),
+    [center, mapStyle, offlineBasemapHost, usingLocalBasemap],
+  );
+
+  // Navigation guard + origin whitelist, widened by EXACTLY the festival's
+  // PMTiles host (remote mode) OR the file:// scheme (local-cache mode) — default-
+  // deny preserved; only one of the two is ever active at a time.
+  const shouldStartLoad = useMemo(
+    () => makeShouldStartLoad(offlineBasemapHost, usingLocalBasemap),
+    [offlineBasemapHost, usingLocalBasemap],
+  );
+  const originWhitelist = useMemo(() => {
+    if (usingLocalBasemap) return [...MAP_ORIGIN_WHITELIST, 'file://'];
+    return offlineBasemapHost ? [...MAP_ORIGIN_WHITELIST, `https://${offlineBasemapHost}`] : MAP_ORIGIN_WHITELIST;
+  }, [offlineBasemapHost, usingLocalBasemap]);
+
+  // Scope native file access to EXACTLY the basemaps cache dir (and only when a
+  // local archive is active). `allowingReadAccessToURL` (iOS) confines reads to
+  // this subtree; `allowFileAccess` (Android) gates file:// at all. Both are off
+  // unless a local basemap is in use — so the no-basemap + remote paths keep the
+  // WebView with no filesystem access whatsoever (default-deny preserved).
+  const basemapCacheDirUri = useMemo(() => {
+    if (!usingLocalBasemap) return undefined;
+    try {
+      return basemapCacheDir().uri;
+    } catch {
+      return undefined;
+    }
+  }, [usingLocalBasemap]);
+
+  // In local-cache mode, give the inline document a `file://` ORIGIN (via baseUrl)
+  // that matches the cache dir, so the pmtiles client's same-origin `file://`
+  // Range fetch of the archive succeeds under the standard `allowFileAccess` —
+  // WITHOUT enabling the much broader allowUniversalAccessFromFileURLs. With no
+  // local basemap, baseUrl is undefined and the doc loads at about:blank exactly
+  // as before (online + remote-basemap paths unchanged). If the local read still
+  // fails on some platform, map.on('error') falls us back to the honest list — a
+  // blank map is never shown and the online path is never regressed.
+  const source = useMemo(
+    () => (usingLocalBasemap && basemapCacheDirUri ? { html, baseUrl: basemapCacheDirUri } : { html }),
+    [html, usingLocalBasemap, basemapCacheDirUri],
+  );
 
   // 'loading' → WebView mounted, waiting for MapLibre; 'map' → interactive map up;
   // 'fallback' → CDN/offline failure, render the honest list instead. Start in
@@ -1128,9 +1303,9 @@ export default function OfflineMap({
         // expected. Anything else (e.g. an injected redirect) is blocked so a
         // payload can't navigate the WebView off to an attacker host. Pairs with
         // the in-document CSP for defense in depth behind the H3 transport fix.
-        originWhitelist={MAP_ORIGIN_WHITELIST}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        source={{ html }}
+        originWhitelist={originWhitelist}
+        onShouldStartLoadWithRequest={shouldStartLoad}
+        source={source}
         style={styles.web}
         onMessage={onMessage}
         onLoadStart={armTimeout}
@@ -1139,6 +1314,16 @@ export default function OfflineMap({
         javaScriptEnabled
         domStorageEnabled
         startInLoadingState={false}
+        // Phase 3B: native file access for the LOCAL cached PMTiles archive only.
+        // `allowFileAccess` (Android) is enabled ONLY when a local basemap is in
+        // use; `allowingReadAccessToURL` (iOS) confines reads to the basemaps cache
+        // dir. We deliberately leave allowFileAccessFromFileURLs /
+        // allowUniversalAccessFromFileURLs at their secure defaults (off): the doc
+        // is an about:blank inline page reading file:// via pmtiles fetch under the
+        // CSP, which does not require cross-file-origin access. With no local
+        // basemap both props are off and the WebView has zero filesystem access.
+        allowFileAccess={usingLocalBasemap}
+        allowingReadAccessToURL={basemapCacheDirUri}
       />
       {phase === 'loading' ? (
         <View style={styles.loadingOverlay} pointerEvents="none">
