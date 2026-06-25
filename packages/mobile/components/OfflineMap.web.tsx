@@ -10,9 +10,12 @@ import {
   formatStaleness,
   isPeerStale,
   getInitials,
+  buildPursuit,
+  nearestPin,
   type MapPin as Pin,
+  type Coord,
 } from '@festie/shared/utils';
-import type { CrewMeetingPoint, PeerLocation, SosEntry, Festival, Stage } from '@festie/shared/types';
+import type { CrewMeetingPoint, PeerLocation, SosEntry, Festival, Stage, AmenityType } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
 import { useNow } from '../hooks/useNow';
@@ -145,6 +148,33 @@ interface LivePin {
   age?: string;
 }
 
+/** A live pursue target: a peer, the SOS, or a nearest-amenity pin. */
+interface PursueTarget {
+  id: string;
+  label: string;
+  coord: Coord;
+}
+
+// Amenity categories the filter chips can toggle, in display order.
+const AMENITY_CATEGORIES: AmenityType[] = [
+  'water',
+  'medical',
+  'toilet',
+  'food',
+  'atm',
+  'entrance',
+  'exit',
+  'info',
+  'charging',
+];
+
+// The "nearest X" quick targets.
+const NEAREST_TARGETS: { type: AmenityType; label: string }[] = [
+  { type: 'medical', label: 'medical' },
+  { type: 'water', label: 'water' },
+  { type: 'toilet', label: 'toilet' },
+];
+
 export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, festival = null }: OfflineMapProps) {
   const t = useTokens();
   const styles = useStyles();
@@ -158,6 +188,12 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
   const [placing, setPlacing] = useState(false);
   // Guards a single in-flight "find me" geolocation request.
   const [locating, setLocating] = useState(false);
+
+  // ── Pursue / filter / nearest state (Phase 2B) ─────────────────────────────
+  const [selfCoord, setSelfCoord] = useState<Coord | null>(null);
+  const [geoState, setGeoState] = useState<'idle' | 'locating' | 'denied' | 'on'>('idle');
+  const [pursue, setPursue] = useState<PursueTarget | null>(null);
+  const [hiddenAmenities, setHiddenAmenities] = useState<Set<AmenityType>>(() => new Set());
 
   // The DOM node MapLibre mounts into. On react-native-web a View renders a div,
   // and `ref` resolves to that DOM element.
@@ -179,6 +215,12 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
   // Stage + amenity pins from the festival's map data (Phase A/B contract).
   const stagePins = useMemo<Pin[]>(() => extractStagePins(festival), [festival]);
   const amenityPins = useMemo<Pin[]>(() => extractAmenityPins(festival?.mapConfig), [festival]);
+  // Amenity pins after the filter chips — hidden categories are dropped from the
+  // rendered set. The full `amenityPins` still drives camera-fit + nearest-X.
+  const visibleAmenityPins = useMemo<Pin[]>(
+    () => amenityPins.filter((p) => !(p.amenityType && hiddenAmenities.has(p.amenityType))),
+    [amenityPins, hiddenAmenities],
+  );
 
   // `now` ticks via useNow so staleness recomputes without an impure Date.now()
   // in the memo factory (react-hooks/purity) — same pattern as OfflineMap.tsx.
@@ -257,7 +299,11 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
     [stagePins],
   );
   const amenitiesKey = useMemo(
-    () => amenityPins.map((p) => `${p.id}:${p.latitude},${p.longitude}:${p.amenityType ?? ''}`).join('|'),
+    () => visibleAmenityPins.map((p) => `${p.id}:${p.latitude},${p.longitude}:${p.amenityType ?? ''}`).join('|'),
+    [visibleAmenityPins],
+  );
+  const allAmenitiesKey = useMemo(
+    () => amenityPins.map((p) => `${p.id}:${p.latitude},${p.longitude}`).join('|'),
     [amenityPins],
   );
   const peersKey = useMemo(
@@ -293,6 +339,111 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
       // Canvas not ready yet — the next placement toggle will set it.
     }
   }, [placing]);
+
+  // ── Pursue / geolocation / nearest (Phase 2B) ──────────────────────────────
+  // Select (or toggle off) a pursue target. Stable identity so the marker
+  // effects don't re-run just because this changed.
+  const selectPursue = useCallback((next: PursueTarget) => {
+    setPursue((prev) => (prev && prev.id === next.id ? null : next));
+  }, []);
+  const clearPursue = useCallback(() => setPursue(null), []);
+
+  // Continuous browser-geolocation watch keeping `selfCoord` fresh as the user
+  // moves so the arrow + ETA recompute live. Permission denial is non-destructive.
+  const watchIdRef = useRef<number | null>(null);
+  const enableLocation = useCallback(() => {
+    const geo = typeof navigator !== 'undefined' ? navigator.geolocation : undefined;
+    if (!geo) {
+      setGeoState('denied');
+      return;
+    }
+    if (watchIdRef.current != null) return;
+    setGeoState('locating');
+    watchIdRef.current = geo.watchPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          setSelfCoord({ latitude, longitude });
+          setGeoState('on');
+        }
+      },
+      () => {
+        setGeoState('denied');
+        if (watchIdRef.current != null) {
+          geo.clearWatch(watchIdRef.current);
+          watchIdRef.current = null;
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 15_000 },
+    );
+  }, []);
+  useEffect(() => {
+    return () => {
+      const geo = typeof navigator !== 'undefined' ? navigator.geolocation : undefined;
+      if (geo && watchIdRef.current != null) {
+        geo.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+  }, []);
+
+  // Resolve the pursue target's LIVE coord (peer/SOS track props; nearest-amenity
+  // is static). Null when the target vanished so the overlay clears itself.
+  const liveTarget = useMemo<PursueTarget | null>(() => {
+    if (!pursue) return null;
+    if (pursue.id.startsWith('peer:')) {
+      const uid = pursue.id.slice('peer:'.length);
+      const p = peerList.find((x) => x.userId === uid);
+      if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return null;
+      return { id: pursue.id, label: p.username || pursue.label, coord: { latitude: p.lat, longitude: p.lng } };
+    }
+    if (pursue.id.startsWith('sos:')) {
+      if (!sos?.position) return null;
+      return {
+        id: pursue.id,
+        label: `${sos.username} — SOS`,
+        coord: { latitude: sos.position.lat, longitude: sos.position.lng },
+      };
+    }
+    return pursue; // nearest-amenity: static captured coord
+  }, [pursue, peerList, sos]);
+
+  const pursuit = useMemo(
+    () => (selfCoord && liveTarget ? buildPursuit(selfCoord, liveTarget.coord) : null),
+    [selfCoord, liveTarget],
+  );
+  const pursueIsSos = !!liveTarget && liveTarget.id.startsWith('sos:');
+
+  // "Nearest X": closest amenity of a category to self → pursue + frame it.
+  // Searches the FULL amenity set (ignores chip visibility).
+  const pursueNearest = useCallback(
+    (type: AmenityType) => {
+      if (!selfCoord) {
+        enableLocation();
+        return;
+      }
+      const found = nearestPin(selfCoord, amenityPins, (p) => p.amenityType === type);
+      if (!found) return;
+      setPursue({
+        id: `amenity:${found.pin.id}`,
+        label: found.pin.label || type,
+        coord: { latitude: found.pin.latitude, longitude: found.pin.longitude },
+      });
+      if (mapRef.current) {
+        mapRef.current.flyTo({ center: [found.pin.longitude, found.pin.latitude], zoom: 16, duration: 600 });
+      }
+    },
+    [selfCoord, amenityPins, enableLocation],
+  );
+
+  const toggleAmenity = useCallback((type: AmenityType) => {
+    setHiddenAmenities((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }, []);
 
   // ── Map lifecycle: create once when there's content; tear down on unmount ──
   useEffect(() => {
@@ -465,7 +616,7 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
     for (const m of amenityMarkersRef.current) m.remove();
     amenityMarkersRef.current = [];
 
-    for (const p of amenityPins) {
+    for (const p of visibleAmenityPins) {
       const { glyph, color } = amenityGlyph(p.amenityType);
       const el = document.createElement('div');
       el.style.cssText = [
@@ -538,16 +689,24 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
         .setLngLat([peer.lng, peer.lat])
         .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setDOMContent(popupEl))
         .addTo(map);
+      // Click/Enter selects this peer as the pursue target (arrow + ETA).
+      const target: PursueTarget = {
+        id: `peer:${peer.userId}`,
+        label: peer.username || 'Crew member',
+        coord: { latitude: peer.lat, longitude: peer.lng },
+      };
+      el.addEventListener('click', () => selectPursue(target));
       el.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           marker.togglePopup();
+          selectPursue(target);
         }
       });
       peerMarkersRef.current.push(marker);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, peersKey]);
+  }, [status, peersKey, selectPursue]);
 
   // ── SOS marker (emphasized) ────────────────────────────────────────────────
   useEffect(() => {
@@ -583,11 +742,18 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
       .setPopup(new gl.Popup({ offset: 18, closeButton: false }).setDOMContent(popupEl))
       .addTo(map);
     sosMarkerRef.current = marker;
+    // Tapping the SOS marker pursues it (arrow + ETA toward the person in need).
+    const sosTarget: PursueTarget = {
+      id: `sos:${sos.userId}`,
+      label: `${sos.username} — SOS`,
+      coord: { latitude: sos.position.lat, longitude: sos.position.lng },
+    };
+    el.addEventListener('click', () => selectPursue(sosTarget));
     // Open the SOS popup immediately so it's impossible to miss.
     marker.togglePopup();
     map.flyTo({ center: [sos.position.lng, sos.position.lat], zoom: 15, duration: 600 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, sosKey]);
+  }, [status, sosKey, selectPursue]);
 
   // ── Frame once when the map first loads ─────────────────────────────────────
   // Explicit festival map-config bounds win (frame the grounds); otherwise fit
@@ -622,7 +788,7 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
     }
     fittedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, pinsKey, stagesKey, amenitiesKey, peersKey, sosKey]);
+  }, [status, pinsKey, stagesKey, allAmenitiesKey, peersKey, sosKey]);
 
   // Toggle placement mode: the next single map click drops a meeting point and
   // auto-exits (web parity with native's "Drop pin"). The click handler reads
@@ -738,6 +904,103 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
                 <Ionicons name="locate" size={20} color={t.colors.accent.aqua} />
               )}
             </TouchableOpacity>
+
+            {/* Pursue overlay: directional arrow + "Alex · 210 m NE · ~3 min". */}
+            {liveTarget ? (
+              <View
+                style={[styles.pursueBar, pursueIsSos ? styles.pursueBarSos : null]}
+                accessibilityRole="text"
+                accessibilityLabel={
+                  pursuit
+                    ? `Pursuing ${liveTarget.label}, ${pursuit.distanceLabel}${pursuit.compass ? ' ' + pursuit.compass : ''}${pursuit.etaLabel !== '—' ? ', about ' + pursuit.etaLabel : ''}`
+                    : `Enable location to pursue ${liveTarget.label}`
+                }
+              >
+                {selfCoord && pursuit && Number.isFinite(pursuit.bearingDeg) ? (
+                  <Ionicons
+                    name="navigate"
+                    size={24}
+                    color={pursueIsSos ? t.colors.accent.coral : t.colors.accent.aqua}
+                    style={{ transform: [{ rotate: `${pursuit.bearingDeg}deg` }] }}
+                  />
+                ) : (
+                  <Ionicons name="navigate-outline" size={24} color={t.colors.text.muted} />
+                )}
+                <View style={styles.pursueBody}>
+                  {selfCoord && pursuit ? (
+                    <Text style={styles.pursueLabel} numberOfLines={1}>
+                      <Text style={styles.pursueName}>{liveTarget.label}</Text>
+                      {`  ${pursuit.distanceLabel}${pursuit.compass ? ' ' + pursuit.compass : ''}${pursuit.etaLabel !== '—' ? ' · ~' + pursuit.etaLabel : ''}`}
+                    </Text>
+                  ) : (
+                    <TouchableOpacity onPress={enableLocation} accessibilityRole="button">
+                      <Text style={styles.pursueEnable} numberOfLines={2}>
+                        {geoState === 'denied'
+                          ? 'Location blocked — enable it to pursue'
+                          : geoState === 'locating'
+                            ? 'Locating you…'
+                            : `Enable location to pursue ${liveTarget.label}`}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={clearPursue}
+                  style={styles.pursueClose}
+                  accessibilityRole="button"
+                  accessibilityLabel="Stop pursuing"
+                >
+                  <Ionicons name="close" size={16} color={t.colors.text.muted} />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {/* Nearest-X + amenity filter chips. */}
+            {hasAmenities ? (
+              <View style={styles.chipDock} pointerEvents="box-none">
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.chipRow}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {NEAREST_TARGETS.filter((nt) => amenityPins.some((p) => p.amenityType === nt.type)).map((nt) => {
+                    const { glyph } = amenityGlyph(nt.type);
+                    return (
+                      <TouchableOpacity
+                        key={`near-${nt.type}`}
+                        style={styles.nearestChip}
+                        onPress={() => pursueNearest(nt.type)}
+                        activeOpacity={0.85}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Find and pursue the nearest ${nt.label}`}
+                      >
+                        <Text style={styles.chipGlyph}>{glyph}</Text>
+                        <Text style={styles.nearestChipText}>{`Nearest ${nt.label}`}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {AMENITY_CATEGORIES.filter((type) => amenityPins.some((p) => p.amenityType === type)).map((type) => {
+                    const { glyph } = amenityGlyph(type);
+                    const on = !hiddenAmenities.has(type);
+                    return (
+                      <TouchableOpacity
+                        key={`filter-${type}`}
+                        style={[styles.filterChip, on ? styles.filterChipOn : styles.filterChipOff]}
+                        onPress={() => toggleAmenity(type)}
+                        activeOpacity={0.85}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: on }}
+                        accessibilityLabel={`${on ? 'Hide' : 'Show'} ${type} amenities`}
+                      >
+                        <Text style={[styles.chipGlyph, on ? null : styles.chipGlyphOff]}>{glyph}</Text>
+                        <Text style={[styles.filterChipText, on ? styles.filterChipTextOn : null]}>{type}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            ) : null}
           </>
         ) : null}
 
@@ -913,6 +1176,108 @@ const useStyles = makeStyles((t) => ({
   mapHintText: {
     ...typeStyle('micro'),
     color: t.colors.text.onAccent,
+  },
+  // ── Pursue overlay (arrow + label), top of the map below the tap hint ──────
+  pursueBar: {
+    position: 'absolute',
+    top: t.spacing[3],
+    left: t.spacing[4],
+    right: t.spacing[4],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.bg.elevated,
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 8,
+  },
+  pursueBarSos: {
+    borderColor: t.colors.accent.coral,
+  },
+  pursueBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pursueLabel: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
+  pursueName: {
+    ...typeStyle('caption', 700),
+    color: t.colors.text.primary,
+  },
+  pursueEnable: {
+    ...typeStyle('caption', 600),
+    color: t.colors.accent.aqua,
+  },
+  pursueClose: {
+    padding: t.spacing[1],
+  },
+  // ── Nearest-X + amenity filter chip dock, just above the bottom FABs ───────
+  chipDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: t.spacing[5] + 56 + 48,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[2],
+    paddingHorizontal: t.spacing[4],
+  },
+  chipGlyph: {
+    fontSize: 13,
+    lineHeight: 16,
+  },
+  chipGlyphOff: {
+    opacity: 0.4,
+  },
+  nearestChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.aquaAlpha[12],
+  },
+  nearestChipText: {
+    ...typeStyle('micro', 600),
+    color: t.colors.text.primary,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    paddingHorizontal: t.spacing[3],
+    paddingVertical: t.spacing[2],
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+  },
+  filterChipOn: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.aquaAlpha[10],
+  },
+  filterChipOff: {
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.secondary,
+  },
+  filterChipText: {
+    ...typeStyle('micro'),
+    color: t.colors.text.muted,
+  },
+  filterChipTextOn: {
+    color: t.colors.text.primary,
   },
   // "Drop pin" placement toggle, pinned bottom-right just above the "find me" FAB.
   dropPinButton: {
