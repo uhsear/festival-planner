@@ -438,6 +438,59 @@ button[aria-label='Back to app'] {
   font-weight: 600;
 }
 
+/* ── Festival map data: stage + amenity markers (M6 Phase C) ────────────────
+   Distinct from coral meeting-point dots + aqua live-peer discs:
+   • Stage  = a small filled dot tinted with the stage's brand color + an
+     always-on label tag, so stages read at a glance.
+   • Amenity = a tinted disc carrying the category glyph (emoji from the shared
+     amenityGlyph map), colored per amenityType. */
+.festie-stage-marker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 14px;
+  block-size: 14px;
+  border-radius: 50%;
+  background: var(--stage-color, var(--color-accent-aqua, #19e3d3));
+  border: 2px solid #fff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+.festie-stage-tag {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  max-inline-size: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(8, 8, 16, 0.82);
+  color: var(--color-text-primary, #eaeaf2);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--stage-color, var(--color-border-light, rgba(255, 255, 255, 0.18)));
+  pointer-events: none;
+}
+.festie-amenity-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 24px;
+  block-size: 24px;
+  border-radius: 50%;
+  background: var(--amenity-color, var(--color-text-muted, #8787a8));
+  border: 2px solid #fff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
 /* Small pulsing "live" dot used in the sharing-indicator banner. */
 .festie-live-dot {
   display: inline-block;

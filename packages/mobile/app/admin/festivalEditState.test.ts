@@ -2,6 +2,8 @@ import {
   addStage,
   removeStage,
   setStageField,
+  setStageLocation,
+  setMapConfig,
   addDay,
   removeDay,
   setDayField,
@@ -12,7 +14,12 @@ import {
   type FormState,
   type SetRow,
   type DayRow,
+  type StageRow,
 } from './festivalEditState';
+
+function stage(over: Partial<StageRow>): StageRow {
+  return { id: 'st1', name: '', color: '#fff', latitude: null, longitude: null, ...over };
+}
 
 function set(over: Partial<SetRow>): SetRow {
   return { id: 's1', artist: '', stageId: '', startTime: '', endTime: '', linkUrl: '', ...over };
@@ -23,22 +30,44 @@ function day(over: Partial<DayRow>): DayRow {
 }
 
 function form(over: Partial<FormState>): FormState {
-  return { name: '', location: '', timeZone: '', stages: [], days: [], ...over };
+  return { name: '', location: '', timeZone: '', stages: [], days: [], mapConfig: null, ...over };
 }
 
 describe('stage reducers', () => {
   it('addStage appends', () => {
-    const f = addStage(form({}), { id: 'st1', name: 'Main', color: '#fff' });
+    const f = addStage(form({}), stage({ id: 'st1', name: 'Main', color: '#fff' }));
     expect(f.stages.map((s) => s.id)).toEqual(['st1']);
   });
   it('removeStage drops only the matching id', () => {
-    const f = form({ stages: [{ id: 'a', name: '', color: '' }, { id: 'b', name: '', color: '' }] });
+    const f = form({ stages: [stage({ id: 'a' }), stage({ id: 'b' })] });
     expect(removeStage(f, 'a').stages.map((s) => s.id)).toEqual(['b']);
   });
   it('setStageField edits the right field on the right stage', () => {
-    const f = form({ stages: [{ id: 'a', name: 'x', color: '#000' }] });
+    const f = form({ stages: [stage({ id: 'a', name: 'x', color: '#000' })] });
     const next = setStageField(f, 'a', 'name', 'Renamed');
-    expect(next.stages[0]).toEqual({ id: 'a', name: 'Renamed', color: '#000' });
+    expect(next.stages[0]).toEqual({ id: 'a', name: 'Renamed', color: '#000', latitude: null, longitude: null });
+  });
+});
+
+describe('setStageLocation', () => {
+  it('sets the pin on the matching stage only', () => {
+    const f = form({ stages: [stage({ id: 'a' }), stage({ id: 'b' })] });
+    const next = setStageLocation(f, 'b', 12.5, -3.25);
+    expect(next.stages.find((s) => s.id === 'a')).toMatchObject({ latitude: null, longitude: null });
+    expect(next.stages.find((s) => s.id === 'b')).toMatchObject({ latitude: 12.5, longitude: -3.25 });
+  });
+  it('clears the pin when both are null', () => {
+    const f = form({ stages: [stage({ id: 'a', latitude: 1, longitude: 2 })] });
+    expect(setStageLocation(f, 'a', null, null).stages[0]).toMatchObject({ latitude: null, longitude: null });
+  });
+});
+
+describe('setMapConfig', () => {
+  it('replaces the whole config', () => {
+    const f = form({});
+    const cfg = { version: 1 as const, center: [1, 2] as [number, number] };
+    expect(setMapConfig(f, cfg).mapConfig).toEqual(cfg);
+    expect(setMapConfig(f, null).mapConfig).toBeNull();
   });
 });
 

@@ -83,7 +83,14 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   // the FESTIVAL frame (matching mobile), not the viewer's device zone.
   const currentFestival = useFestivalStore((s) => s.currentFestival);
   const festivalDays = useFestivalStore((s) => s.days);
+  // Stages live as a separate top-level array in the store; fold them onto the
+  // festival so CrewMap can plot stage pins (+ amenities/camera from mapConfig).
+  const festivalStages = useFestivalStore((s) => s.stages);
   const festivalTimeZone = resolveFestivalTimeZone(currentFestival);
+  const mapFestival = useMemo(
+    () => (currentFestival ? { ...currentFestival, stages: festivalStages } : null),
+    [currentFestival, festivalStages],
+  );
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [label, setLabel] = useState('');
@@ -325,7 +332,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
             </div>
           }
         >
-          <CrewMap meetingPoints={points} peers={peers} sos={sos} />
+          <CrewMap meetingPoints={points} peers={peers} sos={sos} festival={mapFestival} />
         </Suspense>
       )}
 

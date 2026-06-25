@@ -8,16 +8,37 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   extractMeetingPointPins,
   extractStagePins,
-  pinsCentroid,
+  extractAmenityPins,
+  amenityGlyph,
+  pickFestivalCamera,
   formatStaleness,
   isPeerStale,
   getInitials,
 } from '@festie/shared/utils';
-import type { CrewMeetingPoint, PeerLocation, SosEntry } from '@festie/shared/types';
+import type { CrewMeetingPoint, PeerLocation, SosEntry, Festival, Stage } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
 import { useNow } from '../hooks/useNow';
-import { safeJsonForScript, isAllowedMapHost } from '../lib/webviewBridge';
+import { safeJsonForScript, isAllowedMapHost, buildSetAuthoringScript } from '../lib/webviewBridge';
+import type { AuthoringMode } from '../lib/webviewBridge';
+
+/**
+ * A static festival map-data marker (stage or amenity) pushed into the WebView
+ * via window.__festieSetMapData. Glyph + color are resolved on the RN side from
+ * the shared `amenityGlyph` map (single source of truth) so the inline document
+ * needs no category logic of its own.
+ */
+interface MapMarker {
+  id: string;
+  kind: 'stage' | 'amenity';
+  label: string;
+  latitude: number;
+  longitude: number;
+  /** Fill color: stage brand color, or the amenity category color. */
+  color: string;
+  /** Emoji glyph for amenities; empty for stages (which show a label tag). */
+  glyph?: string;
+}
 
 /** A peer/SOS marker pushed into the WebView via window.__festieSetPeers. */
 interface LivePin {
@@ -119,6 +140,20 @@ interface OfflineMapProps {
    * create flow (prefilled with these coords). Omit to disable the affordance.
    */
   onMapPress?: (coord: { latitude: number; longitude: number }) => void;
+  /**
+   * Current festival carrying `mapConfig` (amenities + camera) and, when the
+   * caller folds in the store's separate `stages` array, `stages[]`. Omitted/null
+   * keeps the original behaviour + "not mapped yet" fallback. Backward-compatible.
+   */
+  festival?: (Festival & { stages?: Stage[] }) | null;
+  /**
+   * Authoring mode for the admin map editor (Phase D). 'off' (default) is the
+   * normal crew-map behaviour. 'stage' / 'amenity' tint the map cursor so the
+   * admin knows the next placement tap will set a stage location or drop an
+   * amenity. The tap itself still flows through `onMapPress` (the existing
+   * placement/`map-longpress` path) — authoring only annotates intent.
+   */
+  authoringMode?: AuthoringMode;
 }
 
 /**
@@ -209,6 +244,28 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
        hook can't reach this document) — drop the infinite pulse, keep the dot. */
     @media (prefers-reduced-motion: reduce) {
       .festie-peer, .festie-sos { animation: none; }
+    }
+    /* Festival map data (Phase C). Stage = small brand-colored dot + always-on
+       label tag; amenity = larger disc carrying the category glyph. Both visually
+       distinct from the coral meeting dots + aqua peer discs. Color is set inline
+       per-marker from the shared amenityGlyph/stage-color source on the RN side. */
+    .festie-stage {
+      position: relative;
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid #fff; box-shadow: 0 0 6px rgba(0,0,0,0.5);
+    }
+    .festie-stage-tag {
+      position: absolute; top: calc(100% + 3px); left: 50%; transform: translateX(-50%);
+      white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis;
+      background: rgba(8,8,16,0.82); color: #eaeaf2;
+      font: 700 10px/1.4 -apple-system, system-ui, sans-serif;
+      padding: 1px 6px; border-radius: 8px;
+    }
+    .festie-amenity {
+      display: flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 50%;
+      border: 2px solid #fff; box-shadow: 0 0 6px rgba(0,0,0,0.5);
+      font-size: 13px; line-height: 1;
     }
     .maplibregl-popup-content { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; }
   </style>
@@ -320,6 +377,42 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
       }
     }
 
+    // Static festival map data: stage + amenity markers. Re-rendered wholesale on
+    // each push (small N), tracked so a re-push doesn't stack duplicates. Glyph +
+    // color arrive resolved from the RN side (shared amenityGlyph) — no category
+    // logic here. All text via textContent — never parsed as HTML.
+    var MAPDATA_MARKERS = [];
+    function renderMapData(map, markers) {
+      MAPDATA_MARKERS.forEach(function (m) { try { m.remove(); } catch (e) {} });
+      MAPDATA_MARKERS = [];
+      (markers || []).forEach(function (p) {
+        var el = document.createElement('div');
+        if (p.kind === 'stage') {
+          el.className = 'festie-stage';
+          el.style.background = p.color || '#19e3d3';
+          var tag = document.createElement('span');
+          tag.className = 'festie-stage-tag';
+          tag.style.border = '1px solid ' + (p.color || 'rgba(255,255,255,0.18)');
+          tag.textContent = p.label;
+          el.appendChild(tag);
+        } else {
+          el.className = 'festie-amenity';
+          el.style.background = p.color || '#8787a8';
+          el.textContent = p.glyph || '';
+        }
+        var aLabel = (p.kind === 'stage' ? 'Stage: ' : 'Amenity: ') + p.label;
+        el.setAttribute('role', 'button');
+        el.setAttribute('aria-label', aLabel);
+        el.setAttribute('title', aLabel);
+        var popupHtml = '<strong>' + escapeHtml(p.label) + '</strong>';
+        var marker = new maplibregl.Marker({ element: el })
+          .setLngLat([p.longitude, p.latitude])
+          .setPopup(new maplibregl.Popup({ offset: 14 }).setHTML(popupHtml))
+          .addTo(map);
+        MAPDATA_MARKERS.push(marker);
+      });
+    }
+
     function escapeHtml(s) {
       return String(s == null ? '' : s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -352,6 +445,18 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
           PLACEMENT = !!on;
           try { map.getCanvas().style.cursor = PLACEMENT ? 'crosshair' : ''; } catch (e) {}
           post({ type: 'placement', on: PLACEMENT });
+        };
+
+        // Authoring mode (Phase D, admin map editor). Cosmetic only: it records
+        // which kind of feature the next placement tap will create ('stage' /
+        // 'amenity') and tints the canvas accordingly, then confirms back to RN.
+        // It does NOT open a second tap channel — placement still drives the
+        // one-shot 'map-longpress' message exactly like the crew-map drop. The
+        // mode value is whitelisted on the RN side before injection.
+        var AUTHORING = 'off';
+        window.__festieSetAuthoring = function (mode) {
+          AUTHORING = (mode === 'stage' || mode === 'amenity') ? mode : 'off';
+          post({ type: 'authoring', mode: AUTHORING });
         };
         map.on('click', function (e) {
           if (!PLACEMENT || !e || !e.lngLat) return;
@@ -389,6 +494,25 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
             post({ type: 'peers-updated', peers: ((live && live.items) || []).length });
           } catch (err) { post({ type: 'error', reason: 'peer-update' }); }
         };
+
+        // Push static festival map data (stage + amenity markers). Independent of
+        // the meeting/peer/SOS layers above — does not touch them.
+        window.__festieSetMapData = function (markers) {
+          try {
+            renderMapData(map, markers || []);
+            post({ type: 'mapdata-updated', markers: (markers || []).length });
+          } catch (err) { post({ type: 'error', reason: 'mapdata-update' }); }
+        };
+
+        // RN-driven framing to explicit festival map-config bounds
+        // ([[west,south],[east,north]] in GeoJSON [lng,lat]). Numeric, range-
+        // checked on the RN side before injection.
+        window.__festieFitBounds = function (west, south, east, north) {
+          try {
+            map.fitBounds([[west, south], [east, north]], { padding: 48, maxZoom: 17, duration: 0 });
+            post({ type: 'fitted' });
+          } catch (err) { post({ type: 'error', reason: 'fitbounds' }); }
+        };
       } catch (err) {
         post({ type: 'error', reason: 'init-throw' });
       }
@@ -404,7 +528,14 @@ function buildHtml(center: { latitude: number; longitude: number } | null): stri
 </html>`;
 }
 
-export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: OfflineMapProps) {
+export default function OfflineMap({
+  meetingPoints,
+  peers,
+  sos,
+  onMapPress,
+  festival = null,
+  authoringMode = 'off',
+}: OfflineMapProps) {
   const t = useTokens();
   const styles = useStyles();
   const bottomPad = useListBottomInset();
@@ -418,8 +549,45 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
   const [placing, setPlacing] = useState(false);
 
   const pins = useMemo(() => extractMeetingPointPins(meetingPoints), [meetingPoints]);
-  const stagePins = useMemo(() => extractStagePins(), []); // [] today — see mapPins TODO
-  const center = useMemo(() => pinsCentroid(pins), [pins]);
+  // Stage + amenity pins from the festival's map data (Phase A/B contract).
+  const stagePins = useMemo(() => extractStagePins(festival), [festival]);
+  const amenityPins = useMemo(() => extractAmenityPins(festival?.mapConfig), [festival]);
+  const hasStages = stagePins.length > 0;
+  const hasAmenities = amenityPins.length > 0;
+
+  // Resolve stage + amenity pins into WebView markers, attaching glyph + color
+  // from the shared source so the inline document carries no category logic.
+  const mapMarkers = useMemo<MapMarker[]>(() => {
+    const out: MapMarker[] = [];
+    for (const s of stagePins) {
+      out.push({
+        id: s.id,
+        kind: 'stage',
+        label: s.label,
+        latitude: s.latitude,
+        longitude: s.longitude,
+        color: s.color || '#19e3d3',
+      });
+    }
+    for (const a of amenityPins) {
+      const { glyph, color } = amenityGlyph(a.amenityType);
+      out.push({
+        id: a.id,
+        kind: 'amenity',
+        label: a.label,
+        latitude: a.latitude,
+        longitude: a.longitude,
+        color,
+        glyph,
+      });
+    }
+    return out;
+  }, [stagePins, amenityPins]);
+
+  // Initial camera: festival map-config (bounds/center) → static pins → centroid.
+  const staticPins = useMemo(() => [...pins, ...stagePins, ...amenityPins], [pins, stagePins, amenityPins]);
+  const camera = useMemo(() => pickFestivalCamera(festival, staticPins), [festival, staticPins]);
+  const center = camera.center;
 
   const hasLive = (peers?.length ?? 0) > 0 || !!sos;
 
@@ -475,9 +643,11 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
 
   // 'loading' → WebView mounted, waiting for MapLibre; 'map' → interactive map up;
   // 'fallback' → CDN/offline failure, render the honest list instead. Start in
-  // loading whenever there's anything to plot (meeting points OR live markers).
+  // loading whenever there's anything to plot (meeting points, festival map data,
+  // OR live markers).
+  const hasAnythingToPlot = pins.length > 0 || hasStages || hasAmenities || hasLive;
   const [phase, setPhase] = useState<'loading' | 'map' | 'fallback'>(
-    pins.length === 0 && !hasLive ? 'fallback' : 'loading',
+    hasAnythingToPlot ? 'loading' : 'fallback',
   );
 
   const fellBackRef = useRef(false);
@@ -524,7 +694,14 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
       } else if (msg.type === 'error') {
         // Only a load/init failure means "no map" → fall back. A transient
         // pin/peer/recenter glitch must NOT tear the whole map down.
-        if (msg.reason !== 'pin-update' && msg.reason !== 'peer-update' && msg.reason !== 'flyto') fallBack();
+        if (
+          msg.reason !== 'pin-update' &&
+          msg.reason !== 'peer-update' &&
+          msg.reason !== 'flyto' &&
+          msg.reason !== 'mapdata-update' &&
+          msg.reason !== 'fitbounds'
+        )
+          fallBack();
       }
     },
     [fallBack, onMapPress],
@@ -554,13 +731,13 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
   }, []);
 
   // If we fell back only because there was nothing to plot (NOT a CDN/offline
-  // error — fellBackRef tracks real failures), try the map once live markers or
-  // meeting points show up.
+  // error — fellBackRef tracks real failures), try the map once live markers,
+  // meeting points, or festival map data show up.
   useEffect(() => {
-    if (phase === 'fallback' && !fellBackRef.current && (pins.length > 0 || hasLive)) {
+    if (phase === 'fallback' && !fellBackRef.current && hasAnythingToPlot) {
       setPhase('loading');
     }
-  }, [phase, pins.length, hasLive]);
+  }, [phase, hasAnythingToPlot]);
 
   // Push meeting-point pins into the WebView once the map is up and whenever they
   // change. This is the ONLY path pin data enters the document — serialized with
@@ -579,6 +756,45 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
     if (phase !== 'map' || !webRef.current) return;
     webRef.current.injectJavaScript(`window.__festieSetPeers && window.__festieSetPeers(${liveJson}); true;`);
   }, [phase, liveJson]);
+
+  // Push static festival map data (stage + amenity markers) into the WebView when
+  // the map is up and whenever it changes. Same hardened serializer (labels are
+  // user/admin-controlled). Independent of the meeting/peer/SOS layers.
+  const mapDataJson = useMemo(() => safeJsonForScript(mapMarkers), [mapMarkers]);
+  useEffect(() => {
+    if (phase !== 'map' || !webRef.current) return;
+    webRef.current.injectJavaScript(`window.__festieSetMapData && window.__festieSetMapData(${mapDataJson}); true;`);
+  }, [phase, mapDataJson]);
+
+  // Frame the map to the festival's explicit map-config bounds once it's up. The
+  // map was already centered on camera.center via buildHtml; bounds (when the
+  // config carries them) tighten the view to the grounds. Coords are numeric +
+  // range-checked by the schema before they reach here. Fires once per map mount;
+  // re-runs only if the bounds themselves change.
+  const fitBoundsRef = useRef(false);
+  const boundsKey = camera.bounds ? camera.bounds.flat().join(',') : '';
+  useEffect(() => {
+    if (phase !== 'map') {
+      fitBoundsRef.current = false;
+      return;
+    }
+    if (fitBoundsRef.current || !webRef.current || !camera.bounds) return;
+    const [[west, south], [east, north]] = camera.bounds;
+    if (![west, south, east, north].every((n) => Number.isFinite(n))) return;
+    fitBoundsRef.current = true;
+    webRef.current.injectJavaScript(
+      `window.__festieFitBounds && window.__festieFitBounds(${west}, ${south}, ${east}, ${north}); true;`,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, boundsKey]);
+
+  // Push the authoring mode into the WebView whenever it (or the map phase)
+  // changes (Phase D). The mode is whitelisted by buildSetAuthoringScript before
+  // injection — only 'off'/'stage'/'amenity' can ever reach the document.
+  useEffect(() => {
+    if (phase !== 'map' || !webRef.current) return;
+    webRef.current.injectJavaScript(buildSetAuthoringScript(authoringMode));
+  }, [phase, authoringMode]);
 
   // Toggle placement mode in the WebView. The next single map tap (while on)
   // drops a meeting point and auto-exits. We optimistically flip local state for
@@ -729,8 +945,10 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress }: Of
           </View>
         ))}
 
-        {/* Stages: no coords in the data model today (see mapPins TODO). */}
-        {stagePins.length === 0 ? <Text style={styles.stageNote}>Stage locations aren't mapped yet.</Text> : null}
+        {/* Stage/amenity map data: honest note when this festival was never mapped. */}
+        {!hasStages && !hasAmenities ? (
+          <Text style={styles.stageNote}>This festival isn't mapped yet.</Text>
+        ) : null}
       </ScrollView>
     );
   }

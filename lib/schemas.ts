@@ -246,6 +246,11 @@ export const stageSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{3,8}$/)
     .optional(),
+  // Festival-map: optional GPS pin for this stage (mirrors meetingPointCreateSchema
+  // coords). Nullable — stages without coords simply don't render a map pin and the
+  // "not mapped yet" fallback stays for festivals that were never mapped.
+  latitude: z.number().min(-90).max(90).optional().nullable(),
+  longitude: z.number().min(-180).max(180).optional().nullable(),
 });
 export type StageInput = z.infer<typeof stageSchema>;
 
@@ -319,6 +324,88 @@ const festivalTimeZone = z
   .nullable()
   .optional();
 
+// ── Festival map config (site-plan overlay, amenities, zones) ───────────
+// All coordinates are GeoJSON order: [longitude, latitude]. Every sub-field is
+// optional and the object is .strict() so unknown keys are rejected; the whole
+// map_config column is nullable so existing festivals (no map data) keep working
+// and the "not mapped yet" fallback stays. Bounds are clamp/structure-only (we
+// don't enforce west<east etc.) so partial editing in an admin UI stays ergonomic.
+
+const AMENITY_TYPES = ['water', 'medical', 'toilet', 'food', 'atm', 'entrance', 'exit', 'info', 'charging'] as const;
+
+// [lng, lat] tuple with lng in -180..180 and lat in -90..90.
+const lngLat = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
+
+const amenityFeatureSchema = z
+  .object({
+    type: z.literal('Feature'),
+    geometry: z
+      .object({
+        type: z.literal('Point'),
+        coordinates: lngLat,
+      })
+      .strict(),
+    properties: z
+      .object({
+        id: z.string().max(100),
+        amenityType: z.enum(AMENITY_TYPES),
+        label: z.string().max(200),
+      })
+      .strict(),
+  })
+  .strict();
+
+const amenitiesCollectionSchema = z
+  .object({
+    type: z.literal('FeatureCollection'),
+    features: z.array(amenityFeatureSchema).max(500),
+  })
+  .strict();
+
+const zoneFeatureSchema = z
+  .object({
+    type: z.literal('Feature'),
+    geometry: z
+      .object({
+        type: z.literal('Polygon'),
+        // Polygon = array of linear rings, each ring an array of [lng, lat] positions.
+        coordinates: z.array(z.array(lngLat).max(1000)).max(50),
+      })
+      .strict(),
+    properties: z.record(z.string(), z.any()).optional(),
+  })
+  .strict();
+
+const zonesCollectionSchema = z
+  .object({
+    type: z.literal('FeatureCollection'),
+    features: z.array(zoneFeatureSchema).max(200),
+  })
+  .strict();
+
+const siteplanSchema = z
+  .object({
+    // https-only to avoid javascript:/data: schemes (mirrors crewPhotoAlbumSchema).
+    imageUrl: z.string().url().max(2048).startsWith('https://', 'Image URL must be https'),
+    // Exactly 4 georeferencing corners, each [lng, lat] (TL, TR, BR, BL by convention).
+    corners: z.tuple([lngLat, lngLat, lngLat, lngLat]),
+    opacity: z.number().min(0).max(1),
+  })
+  .strict();
+
+export const festivalMapConfigSchema = z
+  .object({
+    version: z.literal(1),
+    center: lngLat.optional(),
+    // [[west, south], [east, north]] — SW corner then NE corner, each [lng, lat].
+    bounds: z.tuple([lngLat, lngLat]).optional(),
+    amenities: amenitiesCollectionSchema.optional(),
+    zones: zonesCollectionSchema.optional(),
+    siteplan: siteplanSchema.optional(),
+  })
+  .strict();
+export type FestivalMapConfigInput = z.infer<typeof festivalMapConfigSchema>;
+
 export const festivalCreateSchema = z.object({
   id: z.string().max(100).optional(),
   name: z.string().min(1).max(200),
@@ -327,6 +414,9 @@ export const festivalCreateSchema = z.object({
   timeZone: festivalTimeZone,
   stages: z.array(stageSchema).max(20).optional(),
   days: z.array(daySchema).max(10).optional(),
+  // Optional festival site-map. Nullable so an update can clear it; omitted on
+  // legacy clients ⇒ map_config stays NULL and the festival renders unmapped.
+  mapConfig: festivalMapConfigSchema.optional().nullable(),
 });
 export type FestivalCreateInput = z.infer<typeof festivalCreateSchema>;
 
@@ -597,6 +687,15 @@ export function sanitizeFestivalPayload(input: any, existingFestival: any, confi
   // keeps whatever the festival already had so updates don't drop it.
   const rawTz = input.timeZone !== undefined ? input.timeZone : existingFestival?.timeZone;
   const timeZone = rawTz ? sanitizeString(rawTz, 64) || null : null;
+  // Coordinate accepted only when it is a finite number within range; anything
+  // else (string, NaN, out-of-range) collapses to null so the DB stores a clean
+  // nullable double. Stages without coords keep null and render no map pin.
+  const coord = (value: any, max: number): number | null =>
+    typeof value === 'number' && Number.isFinite(value) && value >= -max && value <= max ? value : null;
+  // map_config: already shape-validated by festivalMapConfigSchema on the way in.
+  // An explicit null clears it; undefined keeps whatever the festival already had.
+  const mapConfig =
+    input.mapConfig !== undefined ? (input.mapConfig ?? null) : (existingFestival?.mapConfig ?? null);
   return {
     id: existingFestival?.id || sanitizeIdentifier(input.id, 100) || createOpaqueId('fest'),
     name: sanitizeString(input.name || existingFestival?.name || ''),
@@ -609,6 +708,8 @@ export function sanitizeFestivalPayload(input: any, existingFestival: any, confi
         id: sanitizeIdentifier(stage.id, 100) || createOpaqueId(`stage-${index}`),
         name: sanitizeString(stage.name || '', 100),
         color: validateColor(stage.color) ? stage.color : '#666666',
+        latitude: coord(stage.latitude, 90),
+        longitude: coord(stage.longitude, 180),
       })),
     days: (input.days || existingFestival?.days || []).slice(0, config.MAX_DAYS).map((day: any) => ({
       label: sanitizeString(day.label || '', 100),
@@ -627,6 +728,7 @@ export function sanitizeFestivalPayload(input: any, existingFestival: any, confi
         };
       }),
     })),
+    mapConfig,
     createdAt: existingFestival?.createdAt || now,
     updatedAt: now,
   };
@@ -1006,6 +1108,7 @@ export const schemas = {
   topicSubscription: topicSubscriptionSchema,
   festivalCreate: festivalCreateSchema,
   festivalUpdate: festivalUpdateSchema,
+  festivalMapConfig: festivalMapConfigSchema,
   crewCreate: crewCreateSchema,
   crewUpdate: crewUpdateSchema,
   crewJoin: crewJoinSchema,
