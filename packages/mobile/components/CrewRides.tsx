@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useCrewStore } from '@festie/shared/stores';
 import type { CrewRideOffer } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import Button from './Button';
 
 interface CrewRidesProps {
@@ -22,6 +25,8 @@ interface CrewRidesProps {
 export default function CrewRides({ crewId, currentUserId, isOwner }: CrewRidesProps) {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
+  const reduceMotion = useReduceMotion();
 
   const offers = useCrewStore((s) => s.rideOffers);
   const createRideOffer = useCrewStore((s) => s.createRideOffer);
@@ -67,6 +72,7 @@ export default function CrewRides({ crewId, currentUserId, isOwner }: CrewRidesP
         departAt: at || null,
         note: n || null,
       });
+      haptics.success();
       reset();
     } catch {
       // Error surfaced via the crew store.
@@ -76,6 +82,9 @@ export default function CrewRides({ crewId, currentUserId, isOwner }: CrewRidesP
   };
 
   const handleDelete = (offer: CrewRideOffer) => {
+    // R20 destructive-confirmation haptic: warn before the irreversible prompt
+    // (parity with packing + expenses).
+    haptics.warning();
     Alert.alert('Remove ride', `Remove this ride from the board?`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -191,7 +200,7 @@ export default function CrewRides({ crewId, currentUserId, isOwner }: CrewRidesP
       {offers.length === 0 ? (
         <Text style={styles.empty}>No rides yet — post a carpool so your crew can ride together.</Text>
       ) : (
-        offers.map((offer) => {
+        offers.map((offer, idx) => {
           const canRemove = offer.created_by === currentUserId || isOwner;
           const title = offer.driver || 'Ride offer';
           const meta = [
@@ -201,8 +210,10 @@ export default function CrewRides({ crewId, currentUserId, isOwner }: CrewRidesP
           ]
             .filter(Boolean)
             .join(' · ');
+          // R22 staggered reveal — cap the stagger; reduce-motion safe.
+          const entering = reduceMotion ? undefined : FadeInDown.delay(Math.min(idx, 9) * 40).duration(220);
           return (
-            <View key={offer.id} style={styles.itemRow}>
+            <Animated.View key={offer.id} entering={entering} style={styles.itemRow}>
               <View style={styles.iconBadge}>
                 <Ionicons name="car" size={16} color={t.colors.accent.aqua} />
               </View>
@@ -233,7 +244,7 @@ export default function CrewRides({ crewId, currentUserId, isOwner }: CrewRidesP
                   <Ionicons name="trash-outline" size={16} color={t.colors.accent.coral} />
                 </TouchableOpacity>
               ) : null}
-            </View>
+            </Animated.View>
           );
         })
       )}

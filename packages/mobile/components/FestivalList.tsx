@@ -5,6 +5,7 @@ import { useFestivalDataStore } from '@festie/shared/stores';
 import type { Festival } from '@festie/shared/types';
 import { formatFestivalDateRange, festivalStatus, type FestivalStatus } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
 import Button from './Button';
 import { Skeleton } from './Skeleton';
 
@@ -247,6 +248,7 @@ export default function FestivalList() {
   const error = useFestivalDataStore((s) => s.error);
   const loadFestivals = useFestivalDataStore((s) => s.loadFestivals);
   const selectFestival = useFestivalDataStore((s) => s.selectFestival);
+  const haptics = useHaptics();
 
   // Order: live first, then upcoming (soonest first), then past (most recent
   // first), so the festivals a user is most likely choosing sit at the top.
@@ -273,11 +275,14 @@ export default function FestivalList() {
 
   const handleSelect = useCallback(
     (id: string) => {
+      // A light selection tick confirms the tap landed before the (possibly
+      // brief network) festival load resolves.
+      haptics.select();
       // Failure feedback comes from the store error state (rendered by the
       // schedule's error empty-state), so the rejection itself is non-fatal.
       selectFestival(id).catch(() => {});
     },
-    [selectFestival],
+    [haptics, selectFestival],
   );
 
   const renderItem = useCallback(

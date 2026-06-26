@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@festie/shared/hooks';
 import Button from './Button';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
+import { passwordStrength } from '../lib/accountFormat';
 
 /**
  * Password-change form for the Account screen.
@@ -13,9 +15,12 @@ import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
  * The shared method is fully platform-neutral, so this is just the UI: two
  * secure fields, an 8-char minimum check, in-flight spinner, and inline errors.
  */
+const STRENGTH_COLORS = ['#f87171', '#ffb020', '#00e8d0', '#39ff14'] as const; // weak→strong
+
 export default function AccountPasswordSection() {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
   const { changePassword } = useAuth();
 
   const [open, setOpen] = useState(false);
@@ -24,6 +29,9 @@ export default function AccountPasswordSection() {
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // One toggle reveals every field — fewer taps than a per-field eye and the
+  // user is changing all three at once anyway.
+  const [reveal, setReveal] = useState(false);
 
   // Refs to chain the three secure fields: current → new → confirm → submit.
   const nextRef = useRef<TextInput>(null);
@@ -34,6 +42,7 @@ export default function AccountPasswordSection() {
     setNext('');
     setConfirm('');
     setError(null);
+    setReveal(false);
   };
 
   const toggle = () => {
@@ -55,21 +64,28 @@ export default function AccountPasswordSection() {
     const validationError = validate();
     if (validationError) {
       setError(validationError);
+      haptics.warning();
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
       await changePassword({ currentPassword: current, newPassword: next });
+      haptics.success();
       reset();
       setOpen(false);
       Alert.alert('Password updated', 'Your password has been changed.');
     } catch (err) {
+      haptics.warning();
       setError(err instanceof Error ? err.message : 'Could not change password.');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const strength = passwordStrength(next);
+  const matchState: 'none' | 'match' | 'mismatch' =
+    confirm.length === 0 ? 'none' : confirm === next ? 'match' : 'mismatch';
 
   return (
     <View style={styles.card}>
@@ -99,7 +115,7 @@ export default function AccountPasswordSection() {
             onChangeText={setCurrent}
             placeholder="Current password"
             placeholderTextColor={t.colors.text.placeholder}
-            secureTextEntry
+            secureTextEntry={!reveal}
             autoCapitalize="none"
             autoComplete="current-password"
             textContentType="password"
@@ -109,6 +125,7 @@ export default function AccountPasswordSection() {
             onSubmitEditing={() => nextRef.current?.focus()}
             blurOnSubmit={false}
           />
+
           <TextInput
             ref={nextRef}
             style={styles.input}
@@ -116,7 +133,7 @@ export default function AccountPasswordSection() {
             onChangeText={setNext}
             placeholder="New password"
             placeholderTextColor={t.colors.text.placeholder}
-            secureTextEntry
+            secureTextEntry={!reveal}
             autoCapitalize="none"
             autoComplete="password-new"
             textContentType="newPassword"
@@ -126,14 +143,39 @@ export default function AccountPasswordSection() {
             onSubmitEditing={() => confirmRef.current?.focus()}
             blurOnSubmit={false}
           />
+
+          {/* Strength meter — UX guidance only; the 8-char rule is authoritative. */}
+          {next.length > 0 ? (
+            <View style={styles.meterWrap} accessibilityRole="text" accessibilityLabel={`Password strength: ${strength.label}`}>
+              <View style={styles.meterTrack}>
+                {[0, 1, 2, 3].map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.meterSeg,
+                      i < strength.score && { backgroundColor: STRENGTH_COLORS[Math.max(0, strength.score - 1)] },
+                    ]}
+                  />
+                ))}
+              </View>
+              <Text style={[styles.meterLabel, { color: STRENGTH_COLORS[Math.max(0, strength.score - 1)] }]}>
+                {strength.label}
+              </Text>
+            </View>
+          ) : null}
+
           <TextInput
             ref={confirmRef}
-            style={styles.input}
+            style={[
+              styles.input,
+              matchState === 'mismatch' && styles.inputError,
+              matchState === 'match' && styles.inputOk,
+            ]}
             value={confirm}
             onChangeText={setConfirm}
             placeholder="Confirm new password"
             placeholderTextColor={t.colors.text.placeholder}
-            secureTextEntry
+            secureTextEntry={!reveal}
             autoCapitalize="none"
             autoComplete="password-new"
             textContentType="newPassword"
@@ -142,6 +184,34 @@ export default function AccountPasswordSection() {
             returnKeyType="go"
             onSubmitEditing={() => void submit()}
           />
+
+          <View style={styles.metaRow}>
+            {matchState === 'match' ? (
+              <View style={styles.matchPill}>
+                <Ionicons name="checkmark-circle" size={13} color={t.colors.status.verified} style={styles.matchIcon} />
+                <Text style={[styles.matchText, { color: t.colors.status.verified }]}>Passwords match</Text>
+              </View>
+            ) : matchState === 'mismatch' ? (
+              <View style={styles.matchPill}>
+                <Ionicons name="close-circle" size={13} color={t.colors.text.danger} style={styles.matchIcon} />
+                <Text style={[styles.matchText, { color: t.colors.text.danger }]}>Doesn’t match</Text>
+              </View>
+            ) : (
+              <View />
+            )}
+            <TouchableOpacity
+              onPress={() => setReveal((r) => !r)}
+              activeOpacity={0.7}
+              hitSlop={8}
+              accessibilityRole="switch"
+              accessibilityLabel={reveal ? 'Hide passwords' : 'Show passwords'}
+              accessibilityState={{ checked: reveal }}
+              style={styles.reveal}
+            >
+              <Ionicons name={reveal ? 'eye-off-outline' : 'eye-outline'} size={15} color={t.colors.text.secondary} style={styles.revealIcon} />
+              <Text style={styles.revealText}>{reveal ? 'Hide' : 'Show'}</Text>
+            </TouchableOpacity>
+          </View>
 
           {error ? (
             <Text style={styles.error} accessibilityLiveRegion="polite">
@@ -212,9 +282,64 @@ const useStyles = makeStyles((t) => ({
     paddingVertical: t.spacing[3],
     minHeight: 48,
   },
+  inputError: {
+    borderColor: t.colors.accent.coral,
+  },
+  inputOk: {
+    borderColor: t.colors.aquaAlpha[40],
+  },
+  meterWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[3],
+    marginTop: -t.spacing[1],
+  },
+  meterTrack: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: t.spacing[1],
+  },
+  meterSeg: {
+    flex: 1,
+    height: 4,
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.border.light,
+  },
+  meterLabel: {
+    ...typeStyle('caption'),
+    minWidth: 52,
+    textAlign: 'right',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: -t.spacing[1],
+  },
+  matchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  matchIcon: {
+    marginRight: 4,
+  },
+  matchText: {
+    ...typeStyle('caption'),
+  },
+  reveal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: t.spacing[1],
+  },
+  revealIcon: {
+    marginRight: 4,
+  },
+  revealText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.secondary,
+  },
   error: {
     ...typeStyle('caption'),
     color: t.colors.text.danger,
   },
-  // Submit CTA migrated to components/Button (F8).
 }));

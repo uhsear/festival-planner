@@ -24,7 +24,8 @@ import { useCrew } from '@festie/shared/hooks';
 import { mapErrorToUserMessage } from '@festie/shared/services';
 import { setLabel, getInitials, buildJoinUrl } from '@festie/shared/utils';
 import type { Crew, CrewMember, CrewOverlap, FestivalSet } from '@festie/shared/types';
-import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
+import { useTokens, makeStyles, typeStyle, MAX_FONT_SCALE } from '../../hooks/useTokens';
+import { useHaptics } from '../../hooks/useHaptics';
 import Button from '../../components/Button';
 import ScreenHeader from '../../components/ScreenHeader';
 import CrewTabBar, { type CrewTabKey } from '../../components/CrewTabBar';
@@ -53,6 +54,7 @@ const TAB_KEYS: readonly CrewTabKey[] = ['members', 'plan', 'logistics', 'money'
 export default function CrewScreen() {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
 
   // On tablet-width screens, inset the content so menu items and member rows
   // don't stretch edge-to-edge into an uncomfortably wide single column.
@@ -84,6 +86,8 @@ export default function CrewScreen() {
   const crewMembers = useCrewStore((s) => s.crewMembers);
   const crewOverlap = useCrewStore((s) => s.crewOverlap);
   const polls = useCrewStore((s) => s.polls);
+  const packingItems = useCrewStore((s) => s.packingItems);
+  const rideOffers = useCrewStore((s) => s.rideOffers);
   const expenseBalances = useCrewStore((s) => s.expenseBalances);
   const crewLoading = useCrewStore((s) => s.crewLoading);
   const error = useCrewStore((s) => s.error);
@@ -647,6 +651,14 @@ export default function CrewScreen() {
   const myBalance = expenseBalances.find((b) => b.userId === user.id)?.balance ?? 0;
   const hasUnsettledBalance = Math.abs(myBalance) > 0.01;
 
+  // Plan-tab at-a-glance counts (derived from already-loaded crew data, no extra
+  // fetch): how many packing items still need a claimer, and how many rides are
+  // on the board. Surfaced as small aqua count pills next to the section labels
+  // so the crew sees what's outstanding without expanding each list.
+  const packingLeft = packingItems.filter((i) => !i.claimed).length;
+  const packingDone = packingItems.length > 0 && packingLeft === 0;
+  const rideCount = rideOffers.length;
+
   // Shared pull-to-refresh control (only one tab renders at a time).
   const crewRefreshControl = (
     <RefreshControl
@@ -737,13 +749,21 @@ export default function CrewScreen() {
                   key={c.id}
                   style={[styles.crewChip, active && styles.crewChipActive]}
                   onPress={() => {
-                    if (!active) selectCrew(c.id).catch(() => {});
+                    if (!active) {
+                      haptics.select();
+                      selectCrew(c.id).catch(() => {});
+                    }
                   }}
                   activeOpacity={0.8}
                   accessibilityRole="button"
                   accessibilityLabel={`Switch to crew ${c.name}`}
                   accessibilityState={{ selected: active }}
                 >
+                  {c.totem_emoji ? (
+                    <Text style={styles.crewChipEmoji} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                      {c.totem_emoji}
+                    </Text>
+                  ) : null}
                   <Text style={[styles.crewChipText, active && styles.crewChipTextActive]} numberOfLines={1}>
                     {c.name}
                   </Text>
@@ -1145,11 +1165,37 @@ export default function CrewScreen() {
           <CrewPolls crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
 
           {/* DC4: Packing + Rides are pre-festival planning, so they live in
-              Plan (moved out of the mid-festival "Find" cluster). */}
-          <SectionLabel>Packing</SectionLabel>
+              Plan (moved out of the mid-festival "Find" cluster). The count
+              pills give an at-a-glance "what's outstanding" without expanding. */}
+          <View style={styles.sectionLabelRow}>
+            <SectionLabel>Packing</SectionLabel>
+            {packingDone ? (
+              <View style={styles.donePill} accessibilityLabel="All packing items claimed">
+                <Ionicons name="checkmark" size={12} color={t.colors.accent.aqua} />
+                <Text style={styles.donePillText}>All packed</Text>
+              </View>
+            ) : packingLeft > 0 ? (
+              <View
+                style={styles.countBadge}
+                accessibilityLabel={`${packingLeft} packing ${packingLeft === 1 ? 'item' : 'items'} unclaimed`}
+              >
+                <Text style={styles.countBadgeText}>{packingLeft}</Text>
+              </View>
+            ) : null}
+          </View>
           <CrewPacking crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
 
-          <SectionLabel>Rides</SectionLabel>
+          <View style={styles.sectionLabelRow}>
+            <SectionLabel>Rides</SectionLabel>
+            {rideCount > 0 ? (
+              <View
+                style={styles.countBadge}
+                accessibilityLabel={`${rideCount} ${rideCount === 1 ? 'ride' : 'rides'} on the board`}
+              >
+                <Text style={styles.countBadgeText}>{rideCount}</Text>
+              </View>
+            ) : null}
+          </View>
           <CrewRides crewId={crew.id} currentUserId={user.id} isOwner={isOwner} />
         </ScrollView>
       ) : crewTab === 'logistics' ? (
@@ -1410,6 +1456,9 @@ const useStyles = makeStyles((t) => ({
     paddingBottom: t.spacing[1],
   },
   crewChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
     paddingHorizontal: t.spacing[4],
     paddingVertical: t.spacing[2],
     // WCAG 2.5.5 44pt floor (F43) — matches dayChip/filterChip/iconButton.
@@ -1419,6 +1468,11 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.border.default,
     backgroundColor: t.colors.bg.secondary,
+  },
+  // Totem emoji shown inline before the crew name in the switcher chip, so the
+  // crew's rally marker is recognizable at a glance when hopping between crews.
+  crewChipEmoji: {
+    ...typeStyle('caption'),
   },
   crewChipActive: {
     borderColor: t.colors.accent.aqua,
@@ -1586,6 +1640,22 @@ const useStyles = makeStyles((t) => ({
     marginBottom: t.spacing[1],
   },
   countBadgeText: {
+    ...typeStyle('caption', 700),
+    color: t.colors.accent.aqua,
+  },
+  // "All packed" affordance — a calm aqua confirmation pill (not coral; this is
+  // a positive done-state, not an alarm) shown when nothing is left to claim.
+  donePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    paddingHorizontal: t.spacing[2],
+    paddingVertical: 1,
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.aquaAlpha[12],
+    marginBottom: t.spacing[1],
+  },
+  donePillText: {
     ...typeStyle('caption', 700),
     color: t.colors.accent.aqua,
   },

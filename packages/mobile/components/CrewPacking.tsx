@@ -53,6 +53,7 @@ export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPack
     setCreateBusy(true);
     try {
       await createPackingItem(crewId, { label: l });
+      haptics.success();
       reset();
     } catch {
       // Error surfaced via the crew store.
@@ -63,6 +64,8 @@ export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPack
 
   const handleToggle = async (item: CrewPackingItem) => {
     if (busyId === item.id) return;
+    // Tactile tick on claim/unclaim — the checkbox feels physical.
+    haptics.select();
     setBusyId(item.id);
     try {
       // Claim: mark claimed + record this user as the bringer. Un-claim: clear both.

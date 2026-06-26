@@ -202,6 +202,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
         };
       });
       await createPoll(crewId, { question: question.trim(), options: opts }, setRefs);
+      haptics.success();
       reset();
     } catch {
       // Error surfaced via the crew store.
@@ -223,6 +224,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
     setCreateBusy(true);
     try {
       await createPoll(crewId, { question: q, options: opts });
+      haptics.success();
       reset();
     } catch {
       // Error surfaced via the crew store.

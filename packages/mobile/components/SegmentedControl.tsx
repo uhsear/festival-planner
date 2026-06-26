@@ -3,7 +3,7 @@ import { View, Text } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { duration, easing } from '@festie/shared/tokens';
-import { makeStyles, typeStyle } from '../hooks/useTokens';
+import { makeStyles, typeStyle, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useHaptics } from '../hooks/useHaptics';
 import PressableScale from './PressableScale';
@@ -41,7 +41,9 @@ function Segment<T extends string>({ option, active, onPress }: SegmentProps<T>)
       accessibilityState={{ selected: active }}
       accessibilityLabel={option.label}
     >
-      <Text style={[s.label, active && s.labelActive]}>{option.label}</Text>
+      <Text style={[s.label, active && s.labelActive]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+        {option.label}
+      </Text>
     </PressableScale>
   );
 }

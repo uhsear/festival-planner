@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,15 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@festie/shared/hooks';
-import { useAuthStore } from '@festie/shared/stores';
+import { useAuthStore, useNotificationPrefsStore } from '@festie/shared/stores';
 import ScreenHeader from '../../components/ScreenHeader';
 import SectionLabel from '../../components/SectionLabel';
 import AccountAvatarSection from '../../components/AccountAvatarSection';
@@ -25,8 +28,9 @@ import AccountNotificationPrefsSection from '../../components/AccountNotificatio
 import AccountHistorySection from '../../components/AccountHistorySection';
 import AccountDataSection from '../../components/AccountDataSection';
 import AccountDangerSection from '../../components/AccountDangerSection';
-import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../../hooks/useTokens';
 import { useReduceMotion } from '../../hooks/useReduceMotion';
+import { useHaptics } from '../../hooks/useHaptics';
 
 /**
  * Account screen — mirrors packages/web/src/routes/account.tsx.
@@ -52,6 +56,7 @@ export default function AccountScreen() {
   const t = useTokens();
   const styles = useStyles();
   const router = useRouter();
+  const haptics = useHaptics();
   // Bottom inset keeps the Danger Zone clear of the iPhone home indicator.
   const insets = useSafeAreaInsets();
 
@@ -66,11 +71,32 @@ export default function AccountScreen() {
   const reduceMotion = useReduceMotion();
 
   const [loggingOut, setLoggingOut] = useState(false);
+  // Pull-to-refresh: a bump signal re-pulls the History card, and we reload
+  // notification prefs in parallel so a swipe refreshes everything live.
+  const [refreshing, setRefreshing] = useState(false);
+  const [historyReload, setHistoryReload] = useState(0);
 
   const avatarUrl = user?.avatar ?? user?.avatarUrl;
   const displayName = user?.name ?? user?.username ?? 'Account';
+  const emailVerified = !!user?.emailVerified;
+  const hasEmail = !!user?.email;
+  const appVersion = Constants.expoConfig?.version ?? null;
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    haptics.tap();
+    setHistoryReload((n) => n + 1);
+    try {
+      if (user) await useNotificationPrefsStore.getState().loadPrefs();
+    } catch {
+      // best-effort refresh — the History card surfaces its own error/retry.
+    } finally {
+      setRefreshing(false);
+    }
+  }, [haptics, user]);
 
   const confirmLogout = () => {
+    haptics.warning();
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -94,6 +120,13 @@ export default function AccountScreen() {
     }
   };
 
+  const go = (path: '/wrap' | '/privacy' | '/admin') => {
+    haptics.tap();
+    router.push(path);
+  };
+
+  const IdentityCard = reduceMotion ? View : Animated.View;
+
   return (
     // KAV is dropped: behavior='padding' is a no-op on Android, and on iOS it
     // doesn't scroll the focused field into view when it's deep in the list.
@@ -108,9 +141,26 @@ export default function AccountScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor={t.colors.accent.aqua}
+            colors={[t.colors.accent.aqua]}
+            progressBackgroundColor={t.colors.bg.secondary}
+          />
+        }
       >
         {/* Identity */}
-        <View style={styles.identity}>
+        <IdentityCard
+          entering={reduceMotion ? undefined : FadeInDown.duration(260)}
+          style={styles.identity}
+          accessible
+          accessibilityRole="summary"
+          accessibilityLabel={`Signed in as ${displayName}${user?.username ? `, at ${user.username}` : ''}${
+            hasEmail ? `, email ${emailVerified ? 'verified' : 'not verified'}` : ''
+          }`}
+        >
           {avatarUrl ? (
             <Image
               source={{ uri: avatarUrl }}
@@ -132,13 +182,46 @@ export default function AccountScreen() {
                 @{user.username}
               </Text>
             ) : null}
-            {user?.email ? (
-              <Text style={styles.email} numberOfLines={1} ellipsizeMode="middle">
-                {user.email}
-              </Text>
+            {hasEmail ? (
+              <View style={styles.identityMeta}>
+                <Text style={styles.email} numberOfLines={1} ellipsizeMode="middle">
+                  {user?.email}
+                </Text>
+              </View>
             ) : null}
+            <View style={styles.chips}>
+              {hasEmail ? (
+                <View
+                  style={[styles.chip, emailVerified ? styles.chipVerified : styles.chipUnverified]}
+                  accessibilityRole="text"
+                  accessibilityLabel={emailVerified ? 'Email verified' : 'Email not verified'}
+                >
+                  <Ionicons
+                    name={emailVerified ? 'checkmark-circle' : 'alert-circle'}
+                    size={12}
+                    color={emailVerified ? t.colors.status.verified : t.colors.accent.amber}
+                    style={styles.chipIcon}
+                  />
+                  <Text
+                    style={[styles.chipText, emailVerified ? styles.chipTextVerified : styles.chipTextUnverified]}
+                    maxFontSizeMultiplier={MAX_FONT_SCALE}
+                    numberOfLines={1}
+                  >
+                    {emailVerified ? 'Verified' : 'Unverified'}
+                  </Text>
+                </View>
+              ) : null}
+              {isAdmin ? (
+                <View style={[styles.chip, styles.chipAdmin]} accessibilityRole="text" accessibilityLabel="Administrator">
+                  <Ionicons name="shield-half" size={12} color={t.colors.accent.aqua} style={styles.chipIcon} />
+                  <Text style={[styles.chipText, styles.chipTextAdmin]} maxFontSizeMultiplier={MAX_FONT_SCALE} numberOfLines={1}>
+                    Admin
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-        </View>
+        </IdentityCard>
 
         {/* Profile photo — the AccountAvatarSection card carries its own
             "Profile Photo" title, so no separate section heading here. */}
@@ -172,7 +255,10 @@ export default function AccountScreen() {
               <Text style={styles.rowHint}>Follows your system accessibility setting</Text>
             </View>
             <View style={[styles.statusPill, reduceMotion && styles.statusPillOn]}>
-              <Text style={[styles.statusText, reduceMotion && styles.statusTextOn]}>
+              <Text
+                style={[styles.statusText, reduceMotion && styles.statusTextOn]}
+                maxFontSizeMultiplier={MAX_FONT_SCALE}
+              >
                 {reduceMotion ? 'On' : 'Off'}
               </Text>
             </View>
@@ -182,29 +268,18 @@ export default function AccountScreen() {
         {/* Festival */}
         <SectionLabel>Festival</SectionLabel>
         <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => router.push('/wrap')}
-            activeOpacity={0.7}
-            accessibilityRole="button"
+          <LinkRow
+            icon="sparkles-outline"
+            title="Festival Wrap"
+            hint="Your stats & top sets after the festival"
+            onPress={() => go('/wrap')}
             accessibilityLabel="Open your festival wrap"
-          >
-            <View style={styles.rowIcon}>
-              <Ionicons name="sparkles-outline" size={20} color={t.colors.text.secondary} />
-            </View>
-            <View style={styles.rowBody}>
-              <Text style={styles.rowTitle}>Festival Wrap</Text>
-              <Text style={styles.rowHint} numberOfLines={1}>
-                Your stats & top sets after the festival
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
-          </TouchableOpacity>
+          />
         </View>
 
         {/* History — cross-festival year-over-year (M3) */}
         <SectionLabel>History</SectionLabel>
-        <AccountHistorySection />
+        <AccountHistorySection refreshSignal={historyReload} />
 
         {/* Data */}
         <SectionLabel>Data</SectionLabel>
@@ -213,24 +288,13 @@ export default function AccountScreen() {
         {/* Legal */}
         <SectionLabel>Legal</SectionLabel>
         <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => router.push('/privacy')}
-            activeOpacity={0.7}
-            accessibilityRole="button"
+          <LinkRow
+            icon="shield-checkmark-outline"
+            title="Privacy Policy"
+            hint="How we handle your data"
+            onPress={() => go('/privacy')}
             accessibilityLabel="Open the privacy policy"
-          >
-            <View style={styles.rowIcon}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={t.colors.text.secondary} />
-            </View>
-            <View style={styles.rowBody}>
-              <Text style={styles.rowTitle}>Privacy Policy</Text>
-              <Text style={styles.rowHint} numberOfLines={1}>
-                How we handle your data
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
-          </TouchableOpacity>
+          />
         </View>
 
         {/* Admin — only visible to administrators (read-only dashboard) */}
@@ -238,24 +302,14 @@ export default function AccountScreen() {
           <>
             <SectionLabel>Admin</SectionLabel>
             <View style={styles.card}>
-              <TouchableOpacity
-                style={styles.row}
-                onPress={() => router.push('/admin')}
-                activeOpacity={0.7}
-                accessibilityRole="button"
+              <LinkRow
+                icon="speedometer-outline"
+                iconTint={t.colors.accent.aqua}
+                title="Admin"
+                hint="Dashboard, activity & festivals"
+                onPress={() => go('/admin')}
                 accessibilityLabel="Open the admin dashboard"
-              >
-                <View style={styles.rowIcon}>
-                  <Ionicons name="speedometer-outline" size={20} color={t.colors.accent.aqua} />
-                </View>
-                <View style={styles.rowBody}>
-                  <Text style={styles.rowTitle}>Admin</Text>
-                  <Text style={styles.rowHint} numberOfLines={1}>
-                    Dashboard, activity &amp; festivals
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
-              </TouchableOpacity>
+              />
             </View>
           </>
         ) : null}
@@ -289,8 +343,59 @@ export default function AccountScreen() {
         {/* Danger zone */}
         <SectionLabel>Danger Zone</SectionLabel>
         <AccountDangerSection onDeleted={() => router.replace('/(auth)/login')} />
+
+        {/* App version footer — a quiet build stamp for support/debugging. */}
+        {appVersion ? (
+          <Text style={styles.version} accessibilityLabel={`App version ${appVersion}`}>
+            Festie · v{appVersion}
+          </Text>
+        ) : null}
       </ScrollView>
     </View>
+  );
+}
+
+/**
+ * A single navigational row inside a card (Festival Wrap, Privacy, Admin).
+ * Centralizes the icon + title + hint + chevron + light haptic so the three
+ * link rows stay pixel-identical instead of drifting copy-paste.
+ */
+function LinkRow({
+  icon,
+  iconTint,
+  title,
+  hint,
+  onPress,
+  accessibilityLabel,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconTint?: string;
+  title: string;
+  hint: string;
+  onPress: () => void;
+  accessibilityLabel: string;
+}) {
+  const t = useTokens();
+  const styles = useStyles();
+  return (
+    <TouchableOpacity
+      style={styles.row}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+    >
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} size={20} color={iconTint ?? t.colors.text.secondary} />
+      </View>
+      <View style={styles.rowBody}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.rowHint} numberOfLines={1}>
+          {hint}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
+    </TouchableOpacity>
   );
 }
 
@@ -348,9 +453,55 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.accent.aqua,
   },
+  identityMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   email: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
+    flexShrink: 1,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+    marginTop: t.spacing[1],
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: t.spacing[2],
+    paddingVertical: 3,
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+  },
+  chipIcon: {
+    marginRight: 4,
+  },
+  chipText: {
+    ...typeStyle('micro'),
+  },
+  chipVerified: {
+    backgroundColor: t.colors.status.verifiedBg,
+    borderColor: t.colors.status.verifiedBg,
+  },
+  chipTextVerified: {
+    color: t.colors.status.verified,
+  },
+  chipUnverified: {
+    backgroundColor: t.colors.amberAlpha[12],
+    borderColor: t.colors.amberAlpha[20],
+  },
+  chipTextUnverified: {
+    color: t.colors.accent.amber,
+  },
+  chipAdmin: {
+    backgroundColor: t.colors.aquaAlpha[10],
+    borderColor: t.colors.aquaAlpha[20],
+  },
+  chipTextAdmin: {
+    color: t.colors.accent.aqua,
   },
   card: {
     backgroundColor: t.colors.bg.secondary,
@@ -408,5 +559,11 @@ const useStyles = makeStyles((t) => ({
   },
   statusTextOn: {
     color: t.colors.text.onLightAccent,
+  },
+  version: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+    textAlign: 'center',
+    marginTop: t.spacing[2],
   },
 }));

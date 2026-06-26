@@ -335,6 +335,42 @@ export default function TimelineView({
 
   // Single-column-per-page on phones; a touch of peek so swipe is discoverable.
   const columnWidth = useMemo(() => Math.min(width - 24, 360), [width]);
+  const pageStride = columnWidth + 8;
+
+  // Which stage page is centered, for the position indicator + dot jumps. The
+  // carousel reports scroll; we round to the nearest snapped page.
+  const carouselRef = useRef<FlatList<Stage>>(null);
+  const [activePage, setActivePage] = useState(0);
+  const handleCarouselScroll = useCallback(
+    (e: { nativeEvent: { contentOffset: { x: number } } }) => {
+      const page = Math.round(e.nativeEvent.contentOffset.x / pageStride);
+      setActivePage((prev) => (prev === page ? prev : page));
+    },
+    [pageStride],
+  );
+  const jumpToStage = useCallback(
+    (index: number) => {
+      carouselRef.current?.scrollToOffset({ offset: index * pageStride, animated: true });
+      setActivePage(index);
+    },
+    [pageStride],
+  );
+
+  // Stage ids with a set on stage RIGHT NOW (for the live dot in the indicator).
+  // Derived from the existing now-line position (nowIndicator %) mapped back to
+  // an absolute minute, so it agrees exactly with the coral NOW line per column.
+  const liveStageIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (nowIndicator === null || !timeBounds) return ids;
+    const nowMin = timeBounds.minMin + (nowIndicator / 100) * (timeBounds.maxMin - timeBounds.minMin);
+    for (const s of timedSets) {
+      const start = timeToMinutes(s.startTime);
+      let end = timeToMinutes(s.endTime);
+      if (end <= start) end += 24 * 60;
+      if (start <= nowMin && nowMin < end) ids.add(s.stageId);
+    }
+    return ids;
+  }, [nowIndicator, timeBounds, timedSets]);
 
   const setsByStage = useMemo(() => {
     const m = new Map<string, FestivalSet[]>();
@@ -377,6 +413,7 @@ export default function TimelineView({
       columnWidth,
       scrollRef,
       handleUserScroll,
+      t.colors.text.muted,
     ],
   );
 
@@ -406,13 +443,16 @@ export default function TimelineView({
       ) : null}
 
       <FlatList
+        ref={carouselRef}
         data={visibleStages}
         renderItem={renderStage}
         keyExtractor={keyExtractor}
         horizontal
         showsHorizontalScrollIndicator={false}
-        snapToInterval={columnWidth + 8}
+        snapToInterval={pageStride}
         decelerationRate="fast"
+        onScroll={handleCarouselScroll}
+        scrollEventThrottle={32}
         // flex:1 binds the carousel (and thus each stage column's flex:1 height)
         // to the parent's available height. Without it the list sizes to its
         // tall content and overflows the frame, which both breaks the per-column
@@ -420,6 +460,46 @@ export default function TimelineView({
         style={styles.carouselList}
         contentContainerStyle={styles.carousel}
       />
+
+      {/* Stage position indicator. With ≤8 stages each gets a tappable dot
+          (filled aqua = current page, coral = a set is live on that stage,
+          tap to jump); beyond that a compact "i / N" label avoids a dot row
+          that would itself need to scroll. */}
+      {visibleStages.length > 1 ? (
+        visibleStages.length <= 8 ? (
+          <View style={styles.dotsRow} accessibilityRole="tablist" accessibilityLabel="Stages">
+            {visibleStages.map((st, i) => {
+              const active = i === activePage;
+              const live = liveStageIds.has(st.id);
+              return (
+                <TouchableOpacity
+                  key={st.id}
+                  onPress={() => jumpToStage(i)}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={`${st.name}${live ? ', live now' : ''}`}
+                >
+                  <View
+                    style={[
+                      styles.dot,
+                      active && styles.dotActive,
+                      live && { backgroundColor: t.colors.accent.coral },
+                      active && live && { backgroundColor: t.colors.accent.coral },
+                    ]}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.dotsRow} accessibilityRole="text" accessibilityLabel={`Stage ${activePage + 1} of ${visibleStages.length}`}>
+            <Text style={styles.pageLabel}>
+              {activePage + 1} / {visibleStages.length}
+            </Text>
+          </View>
+        )
+      ) : null}
 
       {nowIndicator !== null ? (
         <TouchableOpacity
@@ -480,6 +560,28 @@ const useStyles = makeStyles((t) => ({
   },
   carouselList: {
     flex: 1,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: t.spacing[2],
+    paddingVertical: t.spacing[2],
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.border.light,
+  },
+  dotActive: {
+    backgroundColor: t.colors.accent.aqua,
+    // A touch wider so the current page reads clearly even at a glance.
+    width: 18,
+  },
+  pageLabel: {
+    ...typeStyle('micro', 600),
+    color: t.colors.text.muted,
   },
   carousel: {
     paddingHorizontal: t.spacing[3],

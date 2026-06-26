@@ -3,7 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@festie/shared/stores';
 import Button from './Button';
-import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
 
 /**
  * Display-name editor for the Account screen.
@@ -14,9 +15,12 @@ import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
  * itself is the permanent handle and is NOT editable here — it's shown
  * read-only beneath the form.
  */
+const MAX_LEN = 50;
+
 export default function AccountDisplayNameSection() {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
   const user = useAuthStore((s) => s.user);
   const updateDisplayName = useAuthStore((s) => s.updateDisplayName);
 
@@ -44,10 +48,13 @@ export default function AccountDisplayNameSection() {
     });
   };
 
+  const trimmed = value.trim();
+  const dirty = trimmed !== currentName;
+  const valid = trimmed.length > 0 && trimmed.length <= MAX_LEN && dirty;
+
   const validate = (): string | null => {
-    const trimmed = value.trim();
     if (!trimmed) return 'Enter a display name.';
-    if (trimmed.length > 50) return 'Display name must be 50 characters or fewer.';
+    if (trimmed.length > MAX_LEN) return `Display name must be ${MAX_LEN} characters or fewer.`;
     if (trimmed === currentName) return 'That is already your display name.';
     return null;
   };
@@ -56,15 +63,18 @@ export default function AccountDisplayNameSection() {
     const validationError = validate();
     if (validationError) {
       setError(validationError);
+      haptics.warning();
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      await updateDisplayName(value.trim());
+      await updateDisplayName(trimmed);
+      haptics.success();
       setOpen(false);
       Alert.alert('Display name updated', 'Your display name has been changed.');
     } catch (err) {
+      haptics.warning();
       setError(err instanceof Error ? err.message : 'Could not change display name.');
     } finally {
       setSubmitting(false);
@@ -95,22 +105,51 @@ export default function AccountDisplayNameSection() {
 
       {open ? (
         <View style={styles.form}>
-          <TextInput
-            style={[styles.input, focused && styles.inputFocused]}
-            value={value}
-            onChangeText={setValue}
-            placeholder="How your name appears to your crew"
-            placeholderTextColor={t.colors.text.placeholder}
-            autoCapitalize="words"
-            autoCorrect={false}
-            maxLength={50}
-            editable={!submitting}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            accessibilityLabel="New display name"
-          />
+          <View style={[styles.inputWrap, focused && styles.inputFocused]}>
+            <TextInput
+              style={styles.input}
+              value={value}
+              onChangeText={setValue}
+              placeholder="How your name appears to your crew"
+              placeholderTextColor={t.colors.text.placeholder}
+              autoCapitalize="words"
+              autoCorrect={false}
+              maxLength={MAX_LEN}
+              editable={!submitting}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              returnKeyType="done"
+              onSubmitEditing={() => valid && void submit()}
+              accessibilityLabel="New display name"
+            />
+            {value.length > 0 && !submitting ? (
+              <TouchableOpacity
+                onPress={() => setValue('')}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Clear display name"
+                style={styles.clear}
+              >
+                <Ionicons name="close-circle" size={18} color={t.colors.text.placeholder} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
-          {username ? <Text style={styles.handleHint}>@{username} · username can’t be changed</Text> : null}
+          <View style={styles.metaRow}>
+            {username ? (
+              <Text style={styles.handleHint} numberOfLines={1}>
+                @{username} · username can’t be changed
+              </Text>
+            ) : (
+              <View />
+            )}
+            <Text
+              style={[styles.counter, trimmed.length > MAX_LEN && styles.counterOver]}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+            >
+              {value.length}/{MAX_LEN}
+            </Text>
+          </View>
 
           {error ? (
             <Text style={styles.error} accessibilityLiveRegion="polite">
@@ -122,6 +161,7 @@ export default function AccountDisplayNameSection() {
             label="Save Display Name"
             onPress={() => void submit()}
             loading={submitting}
+            disabled={!valid}
             accessibilityLabel="Save display name"
           />
         </View>
@@ -170,28 +210,51 @@ const useStyles = makeStyles((t) => ({
     borderTopColor: t.colors.border.default,
     paddingTop: t.spacing[3],
   },
-  input: {
-    ...typeStyle('body'),
-    color: t.colors.text.primary,
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: t.colors.bg.primary,
     borderRadius: t.radii.default,
     borderWidth: 1,
     borderColor: t.colors.border.light,
+    paddingRight: t.spacing[2],
+    minHeight: 48,
+  },
+  input: {
+    ...typeStyle('body'),
+    flex: 1,
+    color: t.colors.text.primary,
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[3],
-    minHeight: 48,
   },
   inputFocused: {
     borderColor: t.colors.accent.aqua,
     backgroundColor: t.colors.ring.aqua,
   },
+  clear: {
+    padding: t.spacing[1],
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: t.spacing[2],
+    marginTop: -t.spacing[1],
+  },
   handleHint: {
     ...typeStyle('caption'),
     color: t.colors.text.muted,
+    flexShrink: 1,
+  },
+  counter: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+  },
+  counterOver: {
+    color: t.colors.text.danger,
   },
   error: {
     ...typeStyle('caption'),
     color: t.colors.text.danger,
   },
-  // Submit CTA migrated to components/Button (F8).
 }));

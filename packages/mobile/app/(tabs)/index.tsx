@@ -24,7 +24,7 @@ import {
   byStartTime,
 } from '@festie/shared/utils';
 import type { FestivalSet, Priority } from '@festie/shared/types';
-import { useTokens, makeStyles, typeStyle } from '../../hooks/useTokens';
+import { useTokens, makeStyles, typeStyle, MAX_FONT_SCALE } from '../../hooks/useTokens';
 import { useListBottomInset } from '../../hooks/useListBottomInset';
 import { safeStageColor } from '../../lib/stageColor';
 import { useUI, type ViewMode } from '../../contexts/UIContext';
@@ -116,6 +116,10 @@ export default function TimelineScreen() {
   // my-picks filter) so a user can't lose track of a filter that's hiding rows.
   const [showSearch, setShowSearch] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  // Cards view: a scroll-to-top affordance for long lineups. We track whether
+  // the list is scrolled past a threshold and expose a ref to snap it back.
+  const listRef = useRef<FlatList<ListRow>>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   // Recompute on every render (cheap) so the "today" dot updates at midnight
   // without needing an explicit timer. The component re-renders on store
   // updates, search keystrokes, etc., so this stays current in practice.
@@ -309,6 +313,31 @@ export default function TimelineScreen() {
     [currentFestival, savePick],
   );
 
+  // One-tap reset for every active schedule filter (search text, my-picks, stage
+  // selection) — the recoverability companion to the results summary chip.
+  const clearAllFilters = useCallback(() => {
+    haptics.select();
+    handleSearch('');
+    setOnlyMine(false);
+    setActiveStages([]);
+  }, [haptics, handleSearch, setActiveStages]);
+
+  // Cards scroll tracking: reveal the scroll-to-top FAB once the user is well
+  // past the fold. Guarded so the setState only fires on an actual transition.
+  const handleCardsScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const y = e.nativeEvent.contentOffset.y;
+    setShowScrollTop((prev) => {
+      const next = y > 640;
+      return prev === next ? prev : next;
+    });
+  }, []);
+
+  const scrollCardsToTop = useCallback(() => {
+    haptics.select();
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    setShowScrollTop(false);
+  }, [haptics]);
+
   const renderRow = useCallback<ListRenderItem<ListRow>>(
     ({ item }) => {
       if (item.kind === 'stageHeader') {
@@ -427,6 +456,35 @@ export default function TimelineScreen() {
     />
   );
 
+  // Cards-view empty element. Layers three honest cases: a failed load (error +
+  // retry), the "my picks only" filter resolving to nothing (nudge to pick or
+  // show all), and the generic no-results / no-search states.
+  const cardsEmpty = scheduleLoadError ? (
+    errorScheduleState
+  ) : onlyMine && search.length === 0 ? (
+    <EmptyState
+      icon="star-outline"
+      title="No picks for this day yet"
+      message="Tap a priority on any set to add it here, or browse the full lineup."
+      action={{ label: 'Show all sets', onPress: () => setOnlyMine(false) }}
+    />
+  ) : (
+    <EmptyState
+      icon={search.length > 0 ? 'search' : 'musical-notes'}
+      title={search.length > 0 ? 'No artists match your search' : 'No sets for this day'}
+      message={
+        search.length > 0
+          ? 'Try a different spelling or clear the search to see the full lineup.'
+          : 'Pick another day from the day selector to browse the schedule.'
+      }
+      action={
+        search.length > 0
+          ? { label: 'Clear search', onPress: () => handleSearch('') }
+          : { label: 'Switch festival', onPress: clearSelection }
+      }
+    />
+  );
+
   // No festival selected — show the festival selector. FestivalList owns its own
   // loading (skeleton), error, and empty states (F21); the screen no longer
   // pre-empts them with a separate spinner/EmptyState, which produced two
@@ -451,6 +509,9 @@ export default function TimelineScreen() {
   const filtersActive = onlyMine || stageFilterActive;
   const searchOpen = showSearch || search.length > 0;
   const filtersOpen = showFilters || filtersActive;
+  // Any narrowing in effect (search OR my-picks OR a stage subset) — gates the
+  // results-summary + Clear-all chip.
+  const anyFilterActive = search.length > 0 || filtersActive;
 
   // Schedule controls (Now & Next, phase actions, search, day + stage filters).
   // In Cards view these ride in the FlatList's ListHeaderComponent so the WHOLE
@@ -543,7 +604,11 @@ export default function TimelineScreen() {
                   accessibilityLabel={`Day: ${day.label ?? day.date}${isToday ? ' (today)' : ''}`}
                 >
                   {isToday ? <View style={[styles.todayDot, active && styles.todayDotActive]} /> : null}
-                  <Text style={[styles.dayText, active && styles.dayTextActive]} numberOfLines={1}>
+                  <Text
+                    style={[styles.dayText, active && styles.dayTextActive]}
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={MAX_FONT_SCALE}
+                  >
                     {day.label ?? day.date}
                   </Text>
                 </TouchableOpacity>
@@ -578,7 +643,12 @@ export default function TimelineScreen() {
                 accessibilityLabel="Show only my picks"
               >
                 <Ionicons name="star" size={12} color={onlyMine ? t.colors.accent.aqua : t.colors.text.muted} />
-                <Text style={[styles.filterChipText, onlyMine && styles.filterChipTextTinted]}>My picks</Text>
+                <Text
+                  style={[styles.filterChipText, onlyMine && styles.filterChipTextTinted]}
+                  maxFontSizeMultiplier={MAX_FONT_SCALE}
+                >
+                  My picks
+                </Text>
               </TouchableOpacity>
             ) : null}
             {stages.length > 1
@@ -599,12 +669,42 @@ export default function TimelineScreen() {
                       accessibilityLabel={`${on ? 'Hide' : 'Show'} ${st.name}`}
                     >
                       <View style={[styles.stageDotSmall, { backgroundColor: resolveStageColor(st.id) }]} />
-                      <Text style={[styles.filterChipText, !on && styles.filterChipTextOff]}>{st.name}</Text>
+                      <Text
+                        style={[styles.filterChipText, !on && styles.filterChipTextOff]}
+                        numberOfLines={1}
+                        maxFontSizeMultiplier={MAX_FONT_SCALE}
+                      >
+                        {st.name}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })
               : null}
           </ScrollView>
+        </View>
+      ) : null}
+
+      {/* Results summary + Clear-all. Surfaces honestly how many sets the active
+          search/stage/my-picks filters resolve to, and gives a single recovery
+          tap when a filter is hiding most of the lineup. Only shown while a
+          filter is actually narrowing the list. */}
+      {anyFilterActive ? (
+        <View style={[styles.resultsRow, { paddingHorizontal: hPad }]}>
+          <Text style={styles.resultsText} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+            {filteredSets.length} {filteredSets.length === 1 ? 'set' : 'sets'}
+            {onlyMine ? ' · my picks' : ''}
+            {stageFilterActive ? ` · ${activeStages.length} ${activeStages.length === 1 ? 'stage' : 'stages'}` : ''}
+          </Text>
+          <TouchableOpacity
+            onPress={clearAllFilters}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Clear all filters"
+          >
+            <Text style={styles.clearAllText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              Clear all
+            </Text>
+          </TouchableOpacity>
         </View>
       ) : null}
     </>
@@ -721,41 +821,46 @@ export default function TimelineScreen() {
           (cards get full height); in Timeline view they stay fixed above the
           bounded 2D timeline. */}
       {viewMode === 'cards' ? (
-        <FlatList
-          style={styles.scrollBody}
-          data={rows}
-          renderItem={renderRow}
-          keyExtractor={keyExtractor}
-          ListHeaderComponent={controls}
-          contentContainerStyle={[styles.listContent, { paddingHorizontal: hPad, paddingBottom: cardsBottomPad }]}
-          refreshControl={refreshControl}
-          ItemSeparatorComponent={cardsSeparator}
-          ListEmptyComponent={
-            // F2 — a failed festival load surfaces the error + retry rather than
-            // a misleading "No sets" empty state.
-            scheduleLoadError ? (
-              errorScheduleState
-            ) : (
-              <EmptyState
-                icon={search.length > 0 ? 'search' : 'musical-notes'}
-                title={search.length > 0 ? 'No artists match your search' : 'No sets for this day'}
-                message={
-                  search.length > 0
-                    ? 'Try a different spelling or clear the search to see the full lineup.'
-                    : 'Pick another day from the day selector to browse the schedule.'
-                }
-                action={
-                  search.length > 0
-                    ? { label: 'Clear search', onPress: () => handleSearch('') }
-                    : { label: 'Switch festival', onPress: clearSelection }
-                }
-              />
-            )
-          }
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          contentInsetAdjustmentBehavior="automatic"
-        />
+        <>
+          <FlatList
+            ref={listRef}
+            style={styles.scrollBody}
+            data={rows}
+            renderItem={renderRow}
+            keyExtractor={keyExtractor}
+            ListHeaderComponent={controls}
+            contentContainerStyle={[styles.listContent, { paddingHorizontal: hPad, paddingBottom: cardsBottomPad }]}
+            refreshControl={refreshControl}
+            ItemSeparatorComponent={cardsSeparator}
+            // F2 — a failed festival load surfaces the error + retry rather than a
+            // misleading "No sets" empty state (see cardsEmpty).
+            ListEmptyComponent={cardsEmpty}
+            // Perf for big lineups: cap the initial + per-batch render window so a
+            // 200-set day paints fast and scrolls without a long first frame.
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={11}
+            onScroll={handleCardsScroll}
+            scrollEventThrottle={16}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentInsetAdjustmentBehavior="automatic"
+          />
+          {showScrollTop ? (
+            <TouchableOpacity
+              style={[styles.scrollTopFab, { right: hPad }]}
+              onPress={scrollCardsToTop}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Scroll to top of the lineup"
+            >
+              <Ionicons name="chevron-up" size={18} color={t.colors.text.onLightAccent} />
+              <Text style={styles.scrollTopText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                Top
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </>
       ) : timeBounds && visibleStages.length > 0 ? (
         <>
           {controls}
@@ -891,6 +996,49 @@ const useStyles = makeStyles((t) => ({
   },
   freshnessRow: {
     paddingTop: t.spacing[2],
+  },
+  // Results summary + Clear-all chip. Sits between the filter chrome and the
+  // list; the count reads left, the recovery action right.
+  resultsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: t.spacing[3],
+    paddingTop: t.spacing[2],
+    paddingBottom: t.spacing[1],
+  },
+  resultsText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+    flexShrink: 1,
+  },
+  clearAllText: {
+    ...typeStyle('caption', 700),
+    color: t.colors.accent.aqua,
+  },
+  // Scroll-to-top FAB (cards view, long lineups). Aqua pill with dark ink to
+  // match the timeline's Now FAB; sits above the tab bar, right-aligned.
+  scrollTopFab: {
+    position: 'absolute',
+    bottom: t.spacing[5],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    paddingHorizontal: t.spacing[4],
+    paddingVertical: t.spacing[3],
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.accent.aqua,
+    minHeight: 44,
+    // Lift the pill above the surface so it reads as floating over the list.
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  scrollTopText: {
+    ...typeStyle('label', 700),
+    color: t.colors.text.onLightAccent,
   },
   daysWrap: {
     paddingVertical: t.spacing[3],
