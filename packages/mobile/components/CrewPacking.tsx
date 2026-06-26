@@ -193,6 +193,7 @@ export default function CrewPacking({ crewId, currentUserId, isOwner }: CrewPack
                 onPress={() => handleToggle(item)}
                 disabled={busyId === item.id}
                 style={[styles.checkbox, item.claimed && styles.checkboxOn]}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 activeOpacity={0.8}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: item.claimed }}

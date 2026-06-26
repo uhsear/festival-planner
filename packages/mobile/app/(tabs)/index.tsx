@@ -31,7 +31,6 @@ import { useUI, type ViewMode } from '../../contexts/UIContext';
 import type { TimeBounds } from '../../hooks/useNowIndicator';
 import { useHaptics } from '../../hooks/useHaptics';
 import SegmentedControl from '../../components/SegmentedControl';
-import LiveDot from '../../components/LiveDot';
 import NowNextStrip from '../../components/NowNextStrip';
 import PhaseHomeActions from '../../components/PhaseHomeActions';
 import FestivalList from '../../components/FestivalList';
@@ -786,7 +785,9 @@ export default function TimelineScreen() {
           stage/phase filters fold inline below (in `controls`) only when their
           toggle is on or they carry active state, reclaiming vertical space. */}
       <View style={[styles.viewSwitcher, { paddingHorizontal: hPad }]}>
-        <LiveDot />
+        {/* No now-indicator here: it crowded the row and truncated the
+            Timeline/Cards labels on narrow phones. The real now/next surface is
+            NowNextStrip above (shown only when a pick is actually live). */}
         <View style={styles.switcherFlex}>
           <SegmentedControl
             options={VIEW_OPTIONS}

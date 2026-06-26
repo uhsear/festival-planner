@@ -184,8 +184,12 @@ const useStyles = makeStyles((t) => ({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: t.spacing[1],
     paddingHorizontal: t.spacing[2],
+    // WCAG 2.5.5 / Apple HIG >=44pt — paddingHorizontal alone collapses this to
+    // ~16-20px tall.
+    minHeight: 44,
   },
   actionText: {
     ...typeStyle('caption'),
