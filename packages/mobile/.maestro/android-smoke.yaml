@@ -75,7 +75,11 @@ env:
       - extendedWaitUntil:
           visible:
             text: "Switch|Timeline|Cards"
-          timeout: 90000
+          # 150 s: a cold CI emulator fetching a 121-set lineup from prod over the
+          # public internet regularly approached the old 90 s cap on flaky runs.
+          # This is still a real gate — 150 s only elapses if the server is
+          # genuinely unreachable or the app silently failed to navigate.
+          timeout: 150000
       - takeScreenshot: 03b-festival-selected
       # …and must STILL be rendered well past the ~2s bounce window.
       - waitForAnimationToEnd:

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@festie/shared/stores';
 import Button from './Button';
@@ -31,13 +31,25 @@ export default function AccountDisplayNameSection() {
   const [value, setValue] = useState(currentName);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Transient inline confirmation — a quiet "Saved" beats a modal Alert for a
+  // non-destructive success the user can already see worked (matches the
+  // password/avatar sections; Alerts are reserved for destructive confirmations).
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // iOS lacks Android's input ripple, so give the field an explicit focus
   // affordance: accent border + subtle aqua ring (paired per token note).
   const [focused, setFocused] = useState(false);
 
+  useEffect(() => {
+    return () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    };
+  }, []);
+
   const reset = () => {
     setValue(currentName);
     setError(null);
+    setSaved(false);
   };
 
   const toggle = () => {
@@ -71,8 +83,13 @@ export default function AccountDisplayNameSection() {
     try {
       await updateDisplayName(trimmed);
       haptics.success();
-      setOpen(false);
-      Alert.alert('Display name updated', 'Your display name has been changed.');
+      // Keep the card open briefly to show the inline confirmation, then collapse.
+      setSaved(true);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => {
+        setSaved(false);
+        setOpen(false);
+      }, 1800);
     } catch (err) {
       haptics.warning();
       setError(err instanceof Error ? err.message : 'Could not change display name.');
@@ -155,6 +172,13 @@ export default function AccountDisplayNameSection() {
             <Text style={styles.error} accessibilityLiveRegion="polite">
               {error}
             </Text>
+          ) : null}
+
+          {saved ? (
+            <View style={styles.savedRow} accessibilityLiveRegion="polite">
+              <Ionicons name="checkmark-circle" size={14} color={t.colors.status.verified} style={styles.savedIcon} />
+              <Text style={styles.savedText}>Saved</Text>
+            </View>
           ) : null}
 
           <Button
@@ -256,5 +280,17 @@ const useStyles = makeStyles((t) => ({
   error: {
     ...typeStyle('caption'),
     color: t.colors.text.danger,
+  },
+  savedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -t.spacing[1],
+  },
+  savedIcon: {
+    marginRight: 4,
+  },
+  savedText: {
+    ...typeStyle('caption'),
+    color: t.colors.status.verified,
   },
 }));

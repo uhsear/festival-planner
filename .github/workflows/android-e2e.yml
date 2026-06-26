@@ -202,13 +202,38 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           ram-size: 4096M
           disable-animations: true
-          # Each script line runs in its own subshell, so a bare `cd` doesn't
-          # persist — keep `cd` and `maestro` on one line so the flow path
-          # (packages/mobile/.maestro/...) resolves.
+          # The emulator-runner writes the script to a file and executes it as a
+          # single bash invocation, so `cd` persists across lines.
+          #
+          # Retry logic (max 2 attempts, 1 retry):
+          #   - The job flakes when the home-server prod is slow to return the
+          #     festival lineup over the public internet; the flow times out but
+          #     a re-run passes. A single automatic retry after 20 s cures that
+          #     without masking real bugs: a code regression or crash fails
+          #     consistently on both attempts, so `exit $MAESTRO_RC` still fails
+          #     the job. A ::warning:: annotation makes any retry visible in the
+          #     Actions UI so flake patterns are trackable.
           script: |
             adb install -r packages/mobile/android/app/build/outputs/apk/release/app-release.apk
             adb logcat -c
-            cd packages/mobile && { MAESTRO_CLI_NO_ANALYTICS=1 maestro test -e TEST_USERNAME="$TEST_USERNAME" -e TEST_PASSWORD="$TEST_PASSWORD" --format junit --output maestro-report.xml .maestro/android-smoke.yaml; MAESTRO_RC=$?; adb logcat -d ReactNativeJS:V AndroidRuntime:E ReactNative:W *:S > logcat-rn.txt || true; exit $MAESTRO_RC; }
+            cd packages/mobile
+            MAESTRO_RC=1
+            for attempt in 1 2; do
+              MAESTRO_CLI_NO_ANALYTICS=1 maestro test \
+                -e TEST_USERNAME="$TEST_USERNAME" \
+                -e TEST_PASSWORD="$TEST_PASSWORD" \
+                --format junit --output maestro-report.xml \
+                .maestro/android-smoke.yaml
+              MAESTRO_RC=$?
+              [ "$MAESTRO_RC" -eq 0 ] && break
+              if [ "$attempt" -lt 2 ]; then
+                echo "::warning::Maestro attempt $attempt failed (rc=$MAESTRO_RC) — transient network timeout suspected; retrying once after 20 s"
+                sleep 20
+                adb logcat -c
+              fi
+            done
+            adb logcat -d ReactNativeJS:V AndroidRuntime:E ReactNative:W *:S > logcat-rn.txt || true
+            exit $MAESTRO_RC
 
       - name: Upload release APK
         if: always()

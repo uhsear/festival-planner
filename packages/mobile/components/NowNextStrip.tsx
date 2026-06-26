@@ -58,9 +58,25 @@ export default function NowNextStrip({ onPress }: NowNextStripProps) {
   const isNow = !!nowSet;
   const name = artistDisplayName(focus.set, b2bSeparator);
   const stage = getStageName(focus.set.stageId) || '';
+  // `upcoming` spans every festival day (not just today), so the soonest pick can
+  // be tomorrow or later — a bare minutes countdown ("in 28h 30m") then hides the
+  // day boundary. When the next set starts on a LATER calendar day, surface the
+  // day + clock ("Tomorrow 14:00" / "Sat 14:00") instead so the wait reads
+  // honestly; same-day picks keep the compact live countdown.
+  const toMidnightMs = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const startDate = new Date(focus.start);
+  const dayDiff = isNow ? 0 : Math.round((toMidnightMs(startDate) - toMidnightMs(now)) / 86_400_000);
+  const laterDay = dayDiff >= 1;
+  const dayLabel = !laterDay
+    ? ''
+    : dayDiff === 1
+      ? 'Tomorrow'
+      : startDate.toLocaleDateString(undefined, { weekday: 'short' });
   const timing = isNow
     ? `until ${fmtClock(focus.end)}`
-    : fmtCountdown(Math.round((focus.start - now.getTime()) / 60_000));
+    : laterDay
+      ? `${dayLabel} ${fmtClock(focus.start)}`
+      : fmtCountdown(Math.round((focus.start - now.getTime()) / 60_000));
 
   // How far through the currently-playing pick we are (0–1), advancing on the
   // hook's 60s tick. Drives the thin progress rail along the strip's bottom edge
