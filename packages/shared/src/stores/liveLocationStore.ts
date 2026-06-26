@@ -41,8 +41,20 @@ export interface LiveLocationState {
   lastSentCoord: { lat: number; lng: number } | null;
   /** Peers currently sharing to this crew, keyed by userId. */
   peers: Record<string, PeerLocation>;
-  /** The active SOS for this crew, or null. */
+  /**
+   * All active SOS entries for this crew, keyed by the raiser's userId. Multiple
+   * crew members can have an SOS up at once; each is its own keyed slot.
+   */
+  sosByUser: Record<string, SosEntry>;
+  /**
+   * BACKWARD-COMPAT (do NOT remove): the single most-recent active SOS, DERIVED
+   * from `sosByUser` (latest by `raisedAt`), or null when none. Every existing
+   * consumer that reads `state.sos` keeps working unchanged; it now simply tracks
+   * the newest of possibly several active SOS entries.
+   */
   sos: SosEntry | null;
+  /** All active SOS entries as an array, newest first (derived from `sosByUser`). */
+  activeSosList: SosEntry[];
 }
 
 export interface LiveLocationActions {
@@ -67,10 +79,13 @@ export interface LiveLocationActions {
   removePeer: (userId: string) => void;
   /** Drop peers whose serverAt is older than ttlMs (defense in depth vs server TTL). */
   sweepStale: (now: number, ttlMs?: number) => void;
-  /** Set the active SOS. Ignored if it targets a different crew than active. */
+  /** Apply an SOS (keyed by raiser userId). Ignored if it targets a different crew than active. */
   applySos: (entry: SosEntry) => void;
-  /** Clear the active SOS banner. */
-  clearSos: () => void;
+  /**
+   * Clear SOS state. With a `raiserId`, removes just that raiser's SOS; with no
+   * argument (the socket "clear-all" / resolved path) clears every active SOS.
+   */
+  clearSos: (raiserId?: string) => void;
   /** Full reset (e.g. on logout). */
   reset: () => void;
 }
@@ -84,8 +99,24 @@ const EMPTY: LiveLocationState = {
   lastSentAt: null,
   lastSentCoord: null,
   peers: {},
+  sosByUser: {},
   sos: null,
+  activeSosList: [],
 };
+
+/**
+ * Recompute the derived SOS views (`activeSosList` newest-first + the
+ * backward-compat single `sos`) from the keyed `sosByUser` map. Centralized so
+ * every mutation that touches `sosByUser` keeps the derived fields in sync.
+ */
+function deriveSos(
+  sosByUser: Record<string, SosEntry>,
+): Pick<LiveLocationState, 'sosByUser' | 'sos' | 'activeSosList'> {
+  const activeSosList = Object.values(sosByUser).sort(
+    (a, b) => new Date(b.raisedAt).getTime() - new Date(a.raisedAt).getTime(),
+  );
+  return { sosByUser, activeSosList, sos: activeSosList[0] ?? null };
+}
 
 const liveLocationStore: StateCreator<LiveLocationStore> = (set, get) => ({
   ...EMPTY,
@@ -145,11 +176,21 @@ const liveLocationStore: StateCreator<LiveLocationStore> = (set, get) => ({
   applySos: (entry) => {
     const { crewId } = get();
     if (crewId && entry.crewId !== crewId) return;
-    set({ sos: entry });
+    set((state) => deriveSos({ ...state.sosByUser, [entry.userId]: entry }));
   },
 
-  clearSos: () => {
-    set({ sos: null });
+  clearSos: (raiserId) => {
+    set((state) => {
+      // No raiserId → the socket "clear-all" / resolved path: drop every SOS.
+      if (raiserId === undefined) {
+        if (Object.keys(state.sosByUser).length === 0) return state;
+        return deriveSos({});
+      }
+      if (!(raiserId in state.sosByUser)) return state;
+      const next = { ...state.sosByUser };
+      delete next[raiserId];
+      return deriveSos(next);
+    });
   },
 
   reset: () => {

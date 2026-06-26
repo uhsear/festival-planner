@@ -43,7 +43,9 @@ function resetStore() {
     lastSentAt: null,
     lastSentCoord: null,
     peers: {},
+    sosByUser: {},
     sos: null,
+    activeSosList: [],
   });
 }
 
@@ -61,7 +63,9 @@ describe('liveLocationStore', () => {
       expect(s.lastSentAt).toBeNull();
       expect(s.lastSentCoord).toBeNull();
       expect(s.peers).toEqual({});
+      expect(s.sosByUser).toEqual({});
       expect(s.sos).toBeNull();
+      expect(s.activeSosList).toEqual([]);
     });
   });
 
@@ -271,9 +275,53 @@ describe('liveLocationStore', () => {
       expect(useLiveLocationStore.getState().sos).toMatchObject({ username: 'Carol' });
     });
 
+    it('keys SOS by raiser userId and exposes it in sosByUser', () => {
+      useLiveLocationStore.getState().applySos(makeSos());
+      const s = useLiveLocationStore.getState();
+      expect(s.sosByUser['user-3']).toMatchObject({ username: 'Carol' });
+      expect(s.activeSosList).toHaveLength(1);
+    });
+
+    it('holds multiple concurrent SOS entries keyed by raiser', () => {
+      const store = useLiveLocationStore.getState();
+      store.applySos(makeSos({ userId: 'user-3', username: 'Carol' }));
+      store.applySos(makeSos({ userId: 'user-4', username: 'Dave' }));
+      const s = useLiveLocationStore.getState();
+      expect(Object.keys(s.sosByUser).sort()).toEqual(['user-3', 'user-4']);
+      expect(s.activeSosList).toHaveLength(2);
+    });
+
+    it('re-applying the same raiser upserts (replaces) their SOS, not a new slot', () => {
+      const store = useLiveLocationStore.getState();
+      store.applySos(makeSos({ userId: 'user-3', message: 'first' }));
+      store.applySos(makeSos({ userId: 'user-3', message: 'updated' }));
+      const s = useLiveLocationStore.getState();
+      expect(Object.keys(s.sosByUser)).toEqual(['user-3']);
+      expect(s.sosByUser['user-3']!.message).toBe('updated');
+    });
+
+    it('BACKWARD-COMPAT: `sos` reflects the most-recent active SOS (latest raisedAt)', () => {
+      const store = useLiveLocationStore.getState();
+      store.applySos(makeSos({ userId: 'older', username: 'Old', raisedAt: isoFor(NOW, 10_000) }));
+      store.applySos(makeSos({ userId: 'newer', username: 'New', raisedAt: isoFor(NOW, 1_000) }));
+      // Newest-first regardless of insertion order.
+      const s = useLiveLocationStore.getState();
+      expect(s.sos).toMatchObject({ username: 'New' });
+      expect(s.activeSosList.map((x) => x.username)).toEqual(['New', 'Old']);
+    });
+
+    it('`sos` falls back to the next-newest after the newest is cleared', () => {
+      const store = useLiveLocationStore.getState();
+      store.applySos(makeSos({ userId: 'older', username: 'Old', raisedAt: isoFor(NOW, 10_000) }));
+      store.applySos(makeSos({ userId: 'newer', username: 'New', raisedAt: isoFor(NOW, 1_000) }));
+      store.clearSos('newer');
+      expect(useLiveLocationStore.getState().sos).toMatchObject({ username: 'Old' });
+    });
+
     it('crew-scope guard DROPS an SOS targeting a different crew', () => {
       useLiveLocationStore.getState().applySos(makeSos({ crewId: 'crew-OTHER' }));
       expect(useLiveLocationStore.getState().sos).toBeNull();
+      expect(useLiveLocationStore.getState().sosByUser).toEqual({});
     });
 
     it('accepts an SOS when no crew is scoped yet (crewId null)', () => {
@@ -282,11 +330,33 @@ describe('liveLocationStore', () => {
       expect(useLiveLocationStore.getState().sos).not.toBeNull();
     });
 
-    it('clearSos clears the banner', () => {
+    it('clearSos(raiserId) removes just that raiser, leaving others', () => {
       const store = useLiveLocationStore.getState();
-      store.applySos(makeSos());
+      store.applySos(makeSos({ userId: 'user-3' }));
+      store.applySos(makeSos({ userId: 'user-4' }));
+      store.clearSos('user-3');
+      const s = useLiveLocationStore.getState();
+      expect(Object.keys(s.sosByUser)).toEqual(['user-4']);
+      expect(s.sos).toMatchObject({ userId: 'user-4' });
+    });
+
+    it('clearSos() with no arg clears ALL active SOS (socket clear-all path)', () => {
+      const store = useLiveLocationStore.getState();
+      store.applySos(makeSos({ userId: 'user-3' }));
+      store.applySos(makeSos({ userId: 'user-4' }));
       store.clearSos();
-      expect(useLiveLocationStore.getState().sos).toBeNull();
+      const s = useLiveLocationStore.getState();
+      expect(s.sosByUser).toEqual({});
+      expect(s.sos).toBeNull();
+      expect(s.activeSosList).toEqual([]);
+    });
+
+    it('clearSos is a no-op (same reference) for an unknown raiser', () => {
+      const store = useLiveLocationStore.getState();
+      store.applySos(makeSos({ userId: 'user-3' }));
+      const before = useLiveLocationStore.getState().sosByUser;
+      store.clearSos('nobody');
+      expect(useLiveLocationStore.getState().sosByUser).toBe(before);
     });
   });
 
