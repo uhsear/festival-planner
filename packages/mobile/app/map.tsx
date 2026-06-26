@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
-import { useAuthStore, useCrewStore, useLiveLocationStore, useFestivalStore } from '@festie/shared/stores';
+import { useAuthStore, useCrewStore, useLiveLocationStore, useFestivalDataStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -36,8 +36,12 @@ export default function MapScreen() {
   // stages live as a separate top-level array in the store. Fold them together so
   // OfflineMap can plot stage + amenity pins. Null when no festival is selected —
   // OfflineMap keeps its meeting-points-only behaviour + "not mapped yet" note.
-  const currentFestival = useFestivalStore((s) => s.currentFestival);
-  const festivalStages = useFestivalStore((s) => s.stages);
+  // Read from festivalDataStore — the SAME store selectFestival writes (and the
+  // schedule reads). map.tsx previously read useFestivalStore.currentFestival,
+  // a different store that selection never updates, so the map showed a stale/
+  // wrong festival (e.g. it kept FK 2K26 after switching to another festival).
+  const currentFestival = useFestivalDataStore((s) => s.currentFestival);
+  const festivalStages = useFestivalDataStore((s) => s.stages);
   const mapFestival = useMemo(
     () => (currentFestival ? { ...currentFestival, stages: festivalStages } : null),
     [currentFestival, festivalStages],
