@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Switch, TouchableOpacity, AppState, Alert, Linking, type AppStateStatus } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import * as Battery from 'expo-battery';
 import { useLiveLocationPublisher, type GeoWatcher } from '@festie/shared/hooks';
 import {
   LIVE_LOCATION,
@@ -87,6 +88,37 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
     return () => sub.remove();
   }, [resetShare]);
 
+  // Phase 4C battery: cache the latest battery % so each GPS fix can attach it
+  // SYNCHRONOUSLY without awaiting a native read in the publish path — a slow or
+  // failed battery read must never block (or fail) a location send. Seeded once,
+  // then kept fresh by the OS battery-level listener. Fully optional + resilient:
+  // any failure leaves the ref undefined and the peer popup simply omits the chip.
+  const batteryPctRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    let active = true;
+    let sub: ReturnType<typeof Battery.addBatteryLevelListener> | null = null;
+    // getBatteryLevelAsync returns 0–1 (or -1 when unknown, e.g. some emulators).
+    const setFromLevel = (level: number) => {
+      if (active && typeof level === 'number' && level >= 0) {
+        batteryPctRef.current = Math.round(level * 100);
+      }
+    };
+    Battery.getBatteryLevelAsync()
+      .then(setFromLevel)
+      .catch(() => {
+        /* battery unreadable — leave undefined so the chip is omitted */
+      });
+    try {
+      sub = Battery.addBatteryLevelListener(({ batteryLevel }) => setFromLevel(batteryLevel));
+    } catch {
+      /* listener unavailable — the seeded value (if any) is still used */
+    }
+    return () => {
+      active = false;
+      sub?.remove();
+    };
+  }, []);
+
   // expo-location → GeoFix adapter for the shared publisher. watchPositionAsync
   // is async; we hold the subscription and tear it down synchronously.
   const watchPosition = useCallback<GeoWatcher>((onFix, onError) => {
@@ -105,11 +137,11 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
           accuracy: pos.coords.accuracy ?? undefined,
           heading: pos.coords.heading ?? undefined,
           speed: pos.coords.speed ?? undefined,
-          // TODO(expo-battery): battery is intentionally omitted — expo-battery is
-          // NOT a dependency (adding it needs a native build, which would break the
-          // OTA-only release train). The payload field + peer popup already exist;
-          // when a future native build adds expo-battery, read Battery.getBatteryLevelAsync()
-          // (×100) here and the "8% — regroup" chip lights up with no other change.
+          // Phase 4C battery: attach the cached % (kept fresh by the listener
+          // above). Optional — undefined when the read failed/is unavailable, so
+          // the peer popup omits the chip. Requires the native build that adds
+          // expo-battery; it does NOT light up over OTA.
+          battery: batteryPctRef.current,
           capturedAt: new Date(pos.timestamp).toISOString(),
         });
       },
