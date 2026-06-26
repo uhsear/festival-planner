@@ -218,6 +218,15 @@ function SetCardMobileImpl({
   const subtitle = artistSubtitle(set);
   const timeLabel = set.startTime && set.endTime ? `${formatTime(set.startTime)} - ${formatTime(set.endTime)}` : 'TBA';
 
+  // R19: live state drives the aqua border AND the coral "now" progress bar.
+  const isLive = setStatus.status === 'live';
+  // Spell out how far through a live set we are so the body's accessible name
+  // carries the same "now" context the visual progress bar does for sighted users.
+  const livePct = isLive ? Math.round(setStatus.progress * 100) : 0;
+  const a11yBody = isLive
+    ? `${artistName}, ${stageName}, ${timeLabel}, live, ${livePct}% through`
+    : `${artistName}, ${stageName}, ${timeLabel}`;
+
   // The stage pill renders white (onAccent) text on the stage color, so darken
   // the fill just enough for that text to clear WCAG AA (see shared
   // ensureWhiteContrast). The card's left border keeps the true stage color.
@@ -232,15 +241,9 @@ function SetCardMobileImpl({
   // means: (a) valid DOM on web, (b) the body opens detail, (c) the priority
   // buttons stay independently tappable and don't bubble to onPress.
   // R19: Apply live state styling when set status is 'live'.
-  const isLive = setStatus.status === 'live';
   return (
     <View style={[styles.card, isLive && styles.cardLive]}>
-      <AppPressable
-        style={styles.body}
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={`${artistName}, ${stageName}, ${timeLabel}`}
-      >
+      <AppPressable style={styles.body} onPress={onPress} accessibilityRole="button" accessibilityLabel={a11yBody}>
         <View style={[styles.stagePill, { backgroundColor: pillBg }]}>
           <Text style={styles.stageText} numberOfLines={1}>
             {stageName}
@@ -285,6 +288,46 @@ function SetCardMobileImpl({
 
         {friendProfiles && friendProfiles.length > 0 ? <CrewCluster friendProfiles={friendProfiles} /> : null}
       </View>
+
+      {/* Live "now" progress — a thin coral fill that tracks how far through the
+          currently-playing set we are (setStatus.progress, 60s tick). Mirrors a
+          media scrubber so the card reads as "happening right now" at a glance,
+          beyond the static aqua border. Only mounts while the set is live. */}
+      {isLive ? <LiveProgressBar progress={setStatus.progress} /> : null}
+    </View>
+  );
+}
+
+/**
+ * Thin live-progress bar for a currently-playing set. The fill width glides to
+ * the new fraction on each status tick (Reduce Motion jumps instantly). Coral
+ * is the deliberate "now" exception already used by the live badge + NOW line.
+ */
+function LiveProgressBar({ progress }: { progress: number }) {
+  const styles = useStyles();
+  const reduceMotion = useReduceMotion();
+  // Floor the visible fill so a set that just started still reads as a sliver
+  // rather than an empty track; cap at 1.
+  const pct = Math.max(0.02, Math.min(1, progress));
+  const w = useSharedValue(pct);
+
+  useEffect(() => {
+    w.value = reduceMotion
+      ? pct
+      : withTiming(pct, { duration: duration.slow, easing: Easing.bezier(...easing.standard.bezier) });
+  }, [pct, reduceMotion, w]);
+
+  const fillStyle = useAnimatedStyle(() => ({ width: `${w.value * 100}%` }));
+
+  return (
+    <View
+      style={styles.progressTrack}
+      accessible={false}
+      // The body's accessible name already announces "N% through"; hide the bar
+      // from the a11y tree so it isn't read as a second, redundant element.
+      importantForAccessibility="no-hide-descendants"
+    >
+      <Animated.View style={[styles.progressFill, fillStyle]} />
     </View>
   );
 }
@@ -406,6 +449,20 @@ const useStyles = makeStyles((t) => ({
   cardLive: {
     borderWidth: 1.5,
     borderColor: t.colors.accent.aqua,
+  },
+  // Live progress scrubber: a recessed track with a coral fill, full content
+  // width, docked under the footer. radii.pill keeps both ends rounded.
+  progressTrack: {
+    height: 3,
+    marginTop: t.spacing[3],
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.overlay[3],
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.accent.coral,
   },
   body: {
     gap: t.spacing[1],

@@ -1,12 +1,15 @@
 import { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { usePickConflicts } from '@festie/shared/hooks';
 import type { ConflictGroup, ConflictPick } from '@festie/shared/utils';
 import { artistDisplayName, formatTime } from '@festie/shared/utils';
+import { duration as motionDuration } from '@festie/shared/tokens';
 import { useTokens, makeStyles, typeStyle, MAX_FONT_SCALE } from '../hooks/useTokens';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 import { priorityColor } from '../lib/priorityColor';
 
 /**
@@ -56,6 +59,7 @@ function ClashCard({ group, separator }: { group: ConflictGroup; separator?: str
   const t = useTokens();
   const styles = useStyles();
   const router = useRouter();
+  const reduceMotion = useReduceMotion();
 
   const keep = useMemo(() => group.picks.find((p) => p.set.id === group.recommendedKeepId) ?? group.picks[0], [group]);
   const keepName = keep ? artistDisplayName(keep.set, separator) : '';
@@ -70,6 +74,7 @@ function ClashCard({ group, separator }: { group: ConflictGroup; separator?: str
   const a11yNames = group.picks.map((p) => artistDisplayName(p.set, separator)).join(', ');
 
   return (
+    <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(motionDuration.med)}>
     <TouchableOpacity
       style={styles.card}
       activeOpacity={0.8}
@@ -103,6 +108,7 @@ function ClashCard({ group, separator }: { group: ConflictGroup; separator?: str
         ))}
       </View>
     </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -148,6 +154,9 @@ const useStyles = makeStyles((t) => ({
     borderRadius: t.radii.default,
     borderWidth: 1,
     borderColor: t.colors.accent.coral,
+    // Thicker coral stripe on the leading edge so a clash card reads as urgent
+    // at a glance and never blends with the neutral set cards beneath it.
+    borderLeftWidth: 4,
     backgroundColor: t.colors.bg.card,
     padding: t.spacing[3],
     gap: t.spacing[2],

@@ -62,8 +62,15 @@ export default function NowNextStrip({ onPress }: NowNextStripProps) {
     ? `until ${fmtClock(focus.end)}`
     : fmtCountdown(Math.round((focus.start - now.getTime()) / 60_000));
 
+  // How far through the currently-playing pick we are (0–1), advancing on the
+  // hook's 60s tick. Drives the thin progress rail along the strip's bottom edge
+  // — a quiet "this set is in motion" cue that pairs with the coral NOW accent.
+  const progressPct = isNow
+    ? Math.max(0, Math.min(1, (now.getTime() - focus.start) / Math.max(1, focus.end - focus.start)))
+    : 0;
+
   const a11y = isNow
-    ? `Now playing: ${name}${stage ? ` at ${stage}` : ''}, ${timing}. Open Now & Next.`
+    ? `Now playing: ${name}${stage ? ` at ${stage}` : ''}, ${timing}, ${Math.round(progressPct * 100)}% through. Open Now & Next.`
     : `Up next: ${name}${stage ? ` at ${stage}` : ''}, ${timing}. Open Now & Next.`;
 
   return (
@@ -99,6 +106,15 @@ export default function NowNextStrip({ onPress }: NowNextStripProps) {
         </View>
       </View>
       <Ionicons name="chevron-forward" size={16} color={t.colors.text.muted} />
+
+      {/* Live scrubber along the strip's bottom edge. Static width (no
+          animation needed — it re-renders on the hook's tick); clipped to the
+          rounded card by the strip's overflow:hidden. */}
+      {isNow ? (
+        <View style={styles.progressTrack} pointerEvents="none" accessible={false}>
+          <View style={[styles.progressFill, { width: `${progressPct * 100}%` }]} />
+        </View>
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -115,6 +131,20 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.border.default,
     backgroundColor: t.colors.bg.secondary,
+    // Clip the absolutely-positioned live scrubber to the rounded card edge.
+    overflow: 'hidden',
+  },
+  progressTrack: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 3,
+    backgroundColor: t.colors.shade[3],
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: t.colors.accent.coral,
   },
   // Currently-playing: coral accent rail (matches festival-mode's nowCard).
   stripNow: {

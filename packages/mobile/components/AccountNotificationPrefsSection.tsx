@@ -3,7 +3,9 @@ import { View, Text, Switch, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore, useNotificationPrefsStore, useFestivalStore } from '@festie/shared/stores';
 import { api } from '@festie/shared/services';
+import { Skeleton } from './Skeleton';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
 
 /**
  * Per-category notification preferences (crew / set reminders / schedule) plus
@@ -27,6 +29,7 @@ type TopicSubscriptions = { crew: boolean; schedule: boolean };
 function FestivalTopicsRows() {
   const styles = useStyles();
   const t = useTokens();
+  const haptics = useHaptics();
   const currentFestival = useFestivalStore((s) => s.currentFestival);
   // Auth gate: /notifications/topics is an authenticated endpoint, and this
   // section can be mounted eagerly (NativeTabs pre-renders the Account tab).
@@ -55,6 +58,7 @@ function FestivalTopicsRows() {
   if (!currentFestival || !festivalId) return null;
 
   const setTopic = (topic: keyof TopicSubscriptions, value: boolean) => {
+    haptics.select();
     const prev = subs;
     setSubs((s) => ({ ...s, [topic]: value }));
     api.put(`/notifications/topics/${encodeURIComponent(festivalId)}`, { [topic]: value }).catch(() => {
@@ -63,27 +67,30 @@ function FestivalTopicsRows() {
     });
   };
 
-  const rows: { key: keyof TopicSubscriptions; title: string }[] = [
-    { key: 'crew', title: 'Crew updates' },
-    { key: 'schedule', title: 'Schedule changes' },
+  const rows: { key: keyof TopicSubscriptions; title: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { key: 'crew', title: 'Crew updates', icon: 'people-outline' },
+    { key: 'schedule', title: 'Schedule changes', icon: 'calendar-outline' },
   ];
 
   return (
     <>
       <View style={styles.subHeader}>
         <Text style={styles.subHeaderText} numberOfLines={1}>
-          Notifications for {currentFestival.name}
+          For {currentFestival.name}
         </Text>
       </View>
       {rows.map((r) => (
         <View key={r.key} style={styles.row}>
+          <View style={styles.rowIcon}>
+            <Ionicons name={r.icon} size={18} color={t.colors.text.secondary} />
+          </View>
           <Text style={styles.rowTitle}>{r.title}</Text>
           <Switch
             value={subs[r.key]}
             onValueChange={(v) => setTopic(r.key, v)}
             trackColor={{ false: t.colors.border.default, true: t.colors.accent.aqua }}
             thumbColor={t.colors.text.onAccent}
-            accessibilityLabel={r.title}
+            accessibilityLabel={`${r.title} for ${currentFestival.name}`}
           />
         </View>
       ))}
@@ -94,8 +101,12 @@ function FestivalTopicsRows() {
 export default function AccountNotificationPrefsSection() {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
   const user = useAuthStore((s) => s.user);
   const prefs = useNotificationPrefsStore((s) => s.prefs);
+  const loaded = useNotificationPrefsStore((s) => s.loaded);
+  const isLoading = useNotificationPrefsStore((s) => s.isLoading);
+  const storeError = useNotificationPrefsStore((s) => s.error);
   const loadPrefs = useNotificationPrefsStore((s) => s.loadPrefs);
   const updatePrefs = useNotificationPrefsStore((s) => s.updatePrefs);
 
@@ -109,45 +120,65 @@ export default function AccountNotificationPrefsSection() {
   if (!user) return null;
 
   const quietOn = !!prefs.dndStart;
+  const set = (patch: Parameters<typeof updatePrefs>[0]) => {
+    haptics.select();
+    updatePrefs(patch).catch(() => {});
+  };
 
-  const rows: { key: keyof typeof prefs; title: string; value: boolean; onChange: (v: boolean) => void }[] = [
+  const rows: {
+    key: keyof typeof prefs;
+    title: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    value: boolean;
+    onChange: (v: boolean) => void;
+  }[] = [
     {
       key: 'setReminders',
       title: 'Set reminders',
+      icon: 'alarm-outline',
       value: prefs.setReminders,
-      onChange: (v) => updatePrefs({ setReminders: v }).catch(() => {}),
+      onChange: (v) => set({ setReminders: v }),
     },
     {
       key: 'crewUpdates',
       title: 'Crew updates',
+      icon: 'people-outline',
       value: prefs.crewUpdates,
-      onChange: (v) => updatePrefs({ crewUpdates: v }).catch(() => {}),
+      onChange: (v) => set({ crewUpdates: v }),
     },
     {
       key: 'scheduleChanges',
       title: 'Schedule changes',
+      icon: 'calendar-outline',
       value: prefs.scheduleChanges,
-      onChange: (v) => updatePrefs({ scheduleChanges: v }).catch(() => {}),
+      onChange: (v) => set({ scheduleChanges: v }),
     },
     {
       key: 'lineupDrops',
       title: 'New lineups',
+      icon: 'megaphone-outline',
       value: prefs.lineupDrops,
-      onChange: (v) => updatePrefs({ lineupDrops: v }).catch(() => {}),
+      onChange: (v) => set({ lineupDrops: v }),
     },
     {
       key: 'crewReformed',
       title: 'Crew re-forms',
+      icon: 'refresh-outline',
       value: prefs.crewReformed,
-      onChange: (v) => updatePrefs({ crewReformed: v }).catch(() => {}),
+      onChange: (v) => set({ crewReformed: v }),
     },
     {
       key: 'wrapReady',
       title: 'Wrap-up ready',
+      icon: 'sparkles-outline',
       value: prefs.wrapReady,
-      onChange: (v) => updatePrefs({ wrapReady: v }).catch(() => {}),
+      onChange: (v) => set({ wrapReady: v }),
     },
   ];
+
+  // Until the first load resolves, the switches would show defaults (all on)
+  // which is a quiet lie — render a skeleton instead so toggles reflect truth.
+  const showSkeleton = !loaded && isLoading;
 
   return (
     <View style={styles.card}>
@@ -155,36 +186,65 @@ export default function AccountNotificationPrefsSection() {
         <Ionicons name="options-outline" size={18} color={t.colors.text.secondary} />
         <Text style={styles.headerText}>Notification types</Text>
       </View>
-      {rows.map((r) => (
-        <View key={r.key} style={styles.row}>
-          <Text style={styles.rowTitle}>{r.title}</Text>
-          <Switch
-            value={r.value}
-            onValueChange={r.onChange}
-            trackColor={{ false: t.colors.border.default, true: t.colors.accent.aqua }}
-            thumbColor={t.colors.text.onAccent}
-            accessibilityLabel={r.title}
-          />
+
+      {showSkeleton ? (
+        <View style={styles.skeleton}>
+          {[0, 1, 2, 3].map((i) => (
+            <View key={i} style={styles.skelRow}>
+              <Skeleton width={140} height={14} radius={t.radii.xs} />
+              <Skeleton width={40} height={22} radius={t.radii.pill} />
+            </View>
+          ))}
         </View>
-      ))}
-      <View style={styles.row}>
-        <View style={styles.rowBody}>
-          <Text style={styles.rowTitle}>Quiet hours</Text>
-          <Text style={styles.rowHint}>Mute 11pm–8am</Text>
-        </View>
-        <Switch
-          value={quietOn}
-          onValueChange={(v) =>
-            updatePrefs(v ? { dndStart: QUIET_START, dndEnd: QUIET_END } : { dndStart: null, dndEnd: null }).catch(
-              () => {},
-            )
-          }
-          trackColor={{ false: t.colors.border.default, true: t.colors.accent.aqua }}
-          thumbColor={t.colors.text.onAccent}
-          accessibilityLabel="Quiet hours"
-        />
-      </View>
-      <FestivalTopicsRows />
+      ) : (
+        <>
+          {rows.map((r) => (
+            <View key={r.key} style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Ionicons name={r.icon} size={18} color={r.value ? t.colors.accent.aqua : t.colors.text.secondary} />
+              </View>
+              <Text style={styles.rowTitle}>{r.title}</Text>
+              <Switch
+                value={r.value}
+                onValueChange={r.onChange}
+                trackColor={{ false: t.colors.border.default, true: t.colors.accent.aqua }}
+                thumbColor={t.colors.text.onAccent}
+                accessibilityLabel={r.title}
+                accessibilityState={{ checked: r.value }}
+              />
+            </View>
+          ))}
+
+          <View style={styles.row}>
+            <View style={styles.rowIcon}>
+              <Ionicons name="moon-outline" size={18} color={quietOn ? t.colors.accent.aqua : t.colors.text.secondary} />
+            </View>
+            <View style={styles.rowBody}>
+              <Text style={styles.rowTitle}>Quiet hours</Text>
+              <Text style={styles.rowHint}>Mutes everything 11:00 PM – 8:00 AM</Text>
+            </View>
+            <Switch
+              value={quietOn}
+              onValueChange={(v) =>
+                set(v ? { dndStart: QUIET_START, dndEnd: QUIET_END } : { dndStart: null, dndEnd: null })
+              }
+              trackColor={{ false: t.colors.border.default, true: t.colors.accent.aqua }}
+              thumbColor={t.colors.text.onAccent}
+              accessibilityLabel="Quiet hours"
+              accessibilityState={{ checked: quietOn }}
+            />
+          </View>
+
+          <FestivalTopicsRows />
+
+          {storeError ? (
+            <View style={styles.errorRow} accessibilityLiveRegion="polite">
+              <Ionicons name="alert-circle-outline" size={14} color={t.colors.text.danger} style={styles.errorIcon} />
+              <Text style={styles.errorText}>{storeError}</Text>
+            </View>
+          ) : null}
+        </>
+      )}
     </View>
   );
 }
@@ -196,6 +256,7 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.border.default,
     overflow: 'hidden',
+    paddingBottom: t.spacing[2],
   },
   header: {
     flexDirection: 'row',
@@ -213,19 +274,23 @@ const useStyles = makeStyles((t) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: t.spacing[3],
     paddingHorizontal: t.spacing[4],
     paddingVertical: t.spacing[3],
     minHeight: 52,
   },
+  rowIcon: {
+    width: 22,
+    alignItems: 'center',
+  },
   rowBody: {
     flex: 1,
-    gap: t.spacing[1],
+    gap: 2,
   },
   rowTitle: {
     ...typeStyle('body'),
     color: t.colors.text.primary,
+    flex: 1,
   },
   rowHint: {
     ...typeStyle('caption'),
@@ -235,11 +300,38 @@ const useStyles = makeStyles((t) => ({
     paddingHorizontal: t.spacing[4],
     paddingTop: t.spacing[3],
     paddingBottom: t.spacing[1],
+    marginTop: t.spacing[1],
     borderTopWidth: 1,
     borderTopColor: t.colors.border.default,
   },
   subHeaderText: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
+    textTransform: 'uppercase',
+  },
+  skeleton: {
+    paddingHorizontal: t.spacing[4],
+    paddingTop: t.spacing[2],
+    gap: t.spacing[3],
+  },
+  skelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: t.spacing[2],
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: t.spacing[4],
+    paddingTop: t.spacing[2],
+  },
+  errorIcon: {
+    marginRight: t.spacing[1],
+  },
+  errorText: {
+    ...typeStyle('caption'),
+    color: t.colors.text.danger,
+    flexShrink: 1,
   },
 }));

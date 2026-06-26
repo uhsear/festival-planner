@@ -6,6 +6,7 @@ import { api } from '@festie/shared/services';
 import type { User } from '@festie/shared/types';
 import Button from './Button';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
 
 /**
  * Payment-handle editor for the Account screen. Sets Venmo / Cash App / PayPal
@@ -16,6 +17,7 @@ import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 export default function AccountPaymentHandlesSection() {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
 
@@ -35,6 +37,7 @@ export default function AccountPaymentHandlesSection() {
   const dirty =
     venmo.trim() !== current.venmo || cashapp.trim() !== current.cashapp || paypal.trim() !== current.paypal;
 
+  const count = [current.venmo, current.cashapp, current.paypal].filter(Boolean).length;
   const summary =
     [current.venmo && 'Venmo', current.cashapp && 'Cash App', current.paypal && 'PayPal'].filter(Boolean).join(' · ') ||
     'Add a way to get paid back';
@@ -77,9 +80,11 @@ export default function AccountPaymentHandlesSection() {
       setVenmo(res.user?.venmoHandle ?? '');
       setCashapp(res.user?.cashappCashtag ?? '');
       setPaypal(res.user?.paypalHandle ?? '');
+      haptics.success();
       setOpen(false);
       Alert.alert('Payment handles updated', 'Your payment handles have been saved.');
     } catch (err) {
+      haptics.warning();
       setError(err instanceof Error ? err.message : 'Could not update payment handles.');
     } finally {
       setSubmitting(false);
@@ -105,49 +110,44 @@ export default function AccountPaymentHandlesSection() {
             {summary}
           </Text>
         </View>
+        {count > 0 && !open ? (
+          <View style={styles.countPill}>
+            <Text style={styles.countText}>{count}</Text>
+          </View>
+        ) : null}
         <Ionicons name={open ? 'chevron-up' : 'chevron-forward'} size={18} color={t.colors.text.placeholder} />
       </TouchableOpacity>
 
       {open ? (
         <View style={styles.form}>
-          <Text style={styles.fieldLabel}>Venmo username</Text>
-          <TextInput
-            style={styles.input}
+          <Text style={styles.formIntro}>
+            Used to prefill settle-up links when your crew pays you back. All optional.
+          </Text>
+
+          <PrefixField
+            label="Venmo username"
+            prefix="@"
             value={venmo}
             onChangeText={setVenmo}
             placeholder="your-venmo"
-            placeholderTextColor={t.colors.text.placeholder}
-            autoCapitalize="none"
-            autoCorrect={false}
-            maxLength={64}
             editable={!submitting}
             accessibilityLabel="Venmo username"
           />
-
-          <Text style={styles.fieldLabel}>Cash App $cashtag</Text>
-          <TextInput
-            style={styles.input}
+          <PrefixField
+            label="Cash App $cashtag"
+            prefix="$"
             value={cashapp}
             onChangeText={setCashapp}
             placeholder="yourcashtag"
-            placeholderTextColor={t.colors.text.placeholder}
-            autoCapitalize="none"
-            autoCorrect={false}
-            maxLength={64}
             editable={!submitting}
             accessibilityLabel="Cash App cashtag"
           />
-
-          <Text style={styles.fieldLabel}>PayPal.me name</Text>
-          <TextInput
-            style={styles.input}
+          <PrefixField
+            label="PayPal.me name"
+            prefix="paypal.me/"
             value={paypal}
             onChangeText={setPaypal}
             placeholder="yourpaypal"
-            placeholderTextColor={t.colors.text.placeholder}
-            autoCapitalize="none"
-            autoCorrect={false}
-            maxLength={64}
             editable={!submitting}
             accessibilityLabel="PayPal.me name"
           />
@@ -162,11 +162,68 @@ export default function AccountPaymentHandlesSection() {
             label="Save Payment Handles"
             onPress={() => void submit()}
             loading={submitting}
+            disabled={!dirty}
             accessibilityLabel="Save payment handles"
             style={styles.submit}
           />
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/** A labelled text field with a fixed leading affordance (@, $, paypal.me/). */
+function PrefixField({
+  label,
+  prefix,
+  value,
+  onChangeText,
+  placeholder,
+  editable,
+  accessibilityLabel,
+}: {
+  label: string;
+  prefix: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder: string;
+  editable: boolean;
+  accessibilityLabel: string;
+}) {
+  const t = useTokens();
+  const styles = useStyles();
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={[styles.inputWrap, focused && styles.inputFocused]}>
+        <Text style={styles.prefix}>{prefix}</Text>
+        <TextInput
+          style={styles.input}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={t.colors.text.placeholder}
+          autoCapitalize="none"
+          autoCorrect={false}
+          maxLength={64}
+          editable={editable}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          accessibilityLabel={accessibilityLabel}
+        />
+        {value.length > 0 && editable ? (
+          <TouchableOpacity
+            onPress={() => onChangeText('')}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`Clear ${label}`}
+            style={styles.clear}
+          >
+            <Ionicons name="close-circle" size={16} color={t.colors.text.placeholder} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -203,28 +260,65 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
   },
+  countPill: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: t.spacing[2],
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.aquaAlpha[12],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countText: {
+    ...typeStyle('caption'),
+    color: t.colors.accent.aqua,
+  },
   form: {
     paddingHorizontal: t.spacing[4],
     paddingBottom: t.spacing[4],
-    gap: t.spacing[2],
+    gap: t.spacing[3],
     borderTopWidth: 1,
     borderTopColor: t.colors.border.default,
     paddingTop: t.spacing[3],
+  },
+  formIntro: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+  },
+  field: {
+    gap: t.spacing[1],
   },
   fieldLabel: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
   },
-  input: {
-    ...typeStyle('body'),
-    color: t.colors.text.primary,
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: t.colors.bg.primary,
     borderRadius: t.radii.default,
     borderWidth: 1,
     borderColor: t.colors.border.light,
     paddingHorizontal: t.spacing[3],
-    paddingVertical: t.spacing[3],
     minHeight: 48,
+  },
+  inputFocused: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.ring.aqua,
+  },
+  prefix: {
+    ...typeStyle('body'),
+    color: t.colors.text.muted,
+    marginRight: t.spacing[1],
+  },
+  input: {
+    ...typeStyle('body'),
+    flex: 1,
+    color: t.colors.text.primary,
+    paddingVertical: t.spacing[3],
+  },
+  clear: {
+    padding: t.spacing[1],
   },
   error: {
     ...typeStyle('caption'),

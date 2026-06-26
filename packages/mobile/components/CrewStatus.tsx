@@ -114,6 +114,8 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      // Confirm the fix landed — a geo-ETA is about to replace the manual field.
+      haptics.success();
     } catch {
       Alert.alert('Location unavailable', "Couldn't get your location — type an ETA estimate instead.");
     } finally {
@@ -224,7 +226,10 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
                 <TouchableOpacity
                   key={opt.key}
                   style={[styles.statusChip, active && styles.statusChipActive]}
-                  onPress={() => setStatus(opt.key)}
+                  onPress={() => {
+                    if (!active) haptics.select();
+                    setStatus(opt.key);
+                  }}
                   activeOpacity={0.8}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: active }}

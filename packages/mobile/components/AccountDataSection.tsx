@@ -5,6 +5,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { api } from '@festie/shared/services';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { useHaptics } from '../hooks/useHaptics';
 
 /**
  * GDPR data export for the Account screen — the mobile analog of the web
@@ -16,6 +17,7 @@ import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 export default function AccountDataSection() {
   const t = useTokens();
   const styles = useStyles();
+  const haptics = useHaptics();
   const [busy, setBusy] = useState(false);
 
   const handleExport = async () => {
@@ -30,6 +32,7 @@ export default function AccountDataSection() {
       file.create({ overwrite: true });
       file.write(json);
 
+      haptics.success();
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(file.uri, {
           mimeType: 'application/json',
@@ -40,6 +43,7 @@ export default function AccountDataSection() {
         Alert.alert('Export ready', `Saved to ${file.uri}`);
       }
     } catch (err) {
+      haptics.warning();
       const message = err instanceof Error ? err.message : 'Could not export your data.';
       // The server returns 429 with a "Next available" message when rate-limited.
       Alert.alert('Export unavailable', message);
@@ -60,26 +64,18 @@ export default function AccountDataSection() {
         accessibilityState={{ disabled: busy }}
       >
         <View style={styles.rowIcon}>
-          <Ionicons
-            name="download-outline"
-            size={20}
-            color={t.colors.text.secondary}
-          />
+          <Ionicons name="download-outline" size={20} color={t.colors.text.secondary} />
         </View>
         <View style={styles.rowBody}>
           <Text style={styles.rowTitle}>Export my data</Text>
           <Text style={styles.rowHint} numberOfLines={1}>
-            Download a JSON copy of your account data
+            {busy ? 'Preparing your export…' : 'A JSON copy of your account · once per day'}
           </Text>
         </View>
         {busy ? (
           <ActivityIndicator size="small" color={t.colors.accent.aqua} />
         ) : (
-          <Ionicons
-            name="chevron-forward"
-            size={18}
-            color={t.colors.text.placeholder}
-          />
+          <Ionicons name="share-outline" size={18} color={t.colors.text.placeholder} />
         )}
       </TouchableOpacity>
     </View>

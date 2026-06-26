@@ -185,6 +185,18 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
             >
               {formatBalance(myBalance)}
             </Text>
+            {/* Directional plain-language gloss so the signed number is never
+                ambiguous: positive = others owe you, negative = you owe. */}
+            <Text
+              style={[
+                styles.statSub,
+                myBalance > 0.01 && styles.balancePositive,
+                myBalance < -0.01 && styles.balanceNegative,
+              ]}
+              numberOfLines={1}
+            >
+              {myBalance > 0.01 ? "you're owed" : myBalance < -0.01 ? 'you owe' : 'settled up'}
+            </Text>
           </View>
         </View>
       ) : null}
@@ -204,7 +216,10 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
               <TouchableOpacity
                 key={v}
                 style={[styles.filterTab, active && styles.filterTabActive]}
-                onPress={() => setView(v)}
+                onPress={() => {
+                  if (!active) haptics.select();
+                  setView(v);
+                }}
                 activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
@@ -239,7 +254,10 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
                   <TouchableOpacity
                     key={v}
                     style={[styles.settleToggleTab, active && styles.settleToggleTabActive]}
-                    onPress={() => setSettleView(v)}
+                    onPress={() => {
+                      if (!active) haptics.select();
+                      setSettleView(v);
+                    }}
                     activeOpacity={0.8}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
@@ -570,6 +588,10 @@ const useStyles = makeStyles((t) => ({
   statValue: {
     ...typeStyle('label'),
     color: t.colors.text.primary,
+  },
+  statSub: {
+    ...typeStyle('micro'),
+    color: t.colors.text.muted,
   },
   balancePositive: {
     color: t.colors.accent.aqua,

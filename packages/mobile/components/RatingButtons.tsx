@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '@festie/shared/services';
 import { RATING_SCALE_DATA } from '@festie/shared/constants';
-import { makeStyles, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
 import PressableScale from './PressableScale';
 
@@ -56,12 +56,22 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
   const haptics = useHaptics();
   const [current, setCurrent] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  // Until the initial GET resolves we don't know if there's an existing rating,
+  // so we hold the controls at a slightly reduced opacity and show "Loading…"
+  // rather than flashing the "Tap to rate" hint and then a filled state.
+  const [loaded, setLoaded] = useState(false);
 
   // Fetch the current rating for this set on mount.
   useEffect(() => {
-    if (!festivalId) return;
     let cancelled = false;
     (async () => {
+      // No festival id → nothing to fetch; just release the loading affordance
+      // (kept inside the async callback so we never setState synchronously in
+      // the effect body, which would trigger a cascading render).
+      if (!festivalId) {
+        if (!cancelled) setLoaded(true);
+        return;
+      }
       try {
         const res = await api.get<{ ratings: Rating[] } | Rating[]>(`/ratings/festival/${festivalId}`);
         const ratings = Array.isArray(res) ? res : res?.ratings || [];
@@ -69,6 +79,8 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
         if (!cancelled) setCurrent(found?.rating ?? null);
       } catch {
         /* No ratings available */
+      } finally {
+        if (!cancelled) setLoaded(true);
       }
     })();
     return () => {
@@ -92,9 +104,13 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
           await api.delete(`/ratings/${setId}`);
         } else {
           await api.post(`/ratings/${setId}`, { rating: n });
+          // Success notification only when COMMITTING a rating (not clearing) —
+          // a small "logged it" confirmation, distinct from the per-tap select.
+          haptics.success();
         }
       } catch {
-        // Roll back on failure.
+        // Roll back on failure + a warning buzz so the user knows it didn't save.
+        haptics.warning();
         setCurrent(prev);
       } finally {
         setBusy(false);
@@ -103,26 +119,47 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
     [busy, current, setId, haptics],
   );
 
+  // The human-readable label for the current rating, used in the caption + the
+  // group accessibility value so the chosen rating is spoken on focus.
+  const currentLabel = useMemo(() => RATINGS.find((r) => r.n === current)?.label ?? null, [current]);
+
   return (
-    <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel="Rate this set">
-      {RATINGS.map((r) => {
-        const active = current === r.n;
-        return (
-          <PressableScale
-            key={r.n}
-            style={[styles.button, active && styles.buttonActive]}
-            onPress={() => handlePress(r.n)}
-            disabled={busy}
-            accessibilityRole="radio"
-            // radio/checkbox roles announce on/off via `checked` (TalkBack
-            // ignores `selected` for radios); keep `selected` for iOS parity (F44).
-            accessibilityState={{ checked: active, selected: active, disabled: busy }}
-            accessibilityLabel={`${r.label} (${r.n} of 5)`}
-          >
-            <Ionicons name={r.icon} size={22} color={active ? t.colors.accent.amber : t.colors.text.secondary} />
-          </PressableScale>
-        );
-      })}
+    <View>
+      <View
+        style={[styles.row, !loaded && styles.rowLoading]}
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Rate this set"
+        accessibilityHint="Choose 1 to 5; tap the active rating again to remove it"
+      >
+        {RATINGS.map((r) => {
+          const active = current === r.n;
+          return (
+            <PressableScale
+              key={r.n}
+              style={[styles.button, active && styles.buttonActive]}
+              onPress={() => handlePress(r.n)}
+              disabled={busy || !loaded}
+              hitSlop={6}
+              accessibilityRole="radio"
+              // radio/checkbox roles announce on/off via `checked` (TalkBack
+              // ignores `selected` for radios); keep `selected` for iOS parity (F44).
+              accessibilityState={{ checked: active, selected: active, disabled: busy || !loaded }}
+              accessibilityLabel={`${r.label} (${r.n} of 5)`}
+            >
+              <Ionicons name={r.icon} size={22} color={active ? t.colors.accent.amber : t.colors.text.secondary} />
+            </PressableScale>
+          );
+        })}
+      </View>
+      <Text
+        style={[styles.caption, currentLabel ? styles.captionActive : null]}
+        maxFontSizeMultiplier={MAX_FONT_SCALE}
+        numberOfLines={1}
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      >
+        {!loaded ? 'Loading…' : currentLabel ? `You rated this: ${currentLabel}` : 'Tap to rate this set'}
+      </Text>
     </View>
   );
 }
@@ -132,6 +169,18 @@ const useStyles = makeStyles((t) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: t.spacing[2],
+  },
+  rowLoading: {
+    opacity: 0.55,
+  },
+  caption: {
+    ...typeStyle('caption'),
+    color: t.colors.text.muted,
+    marginTop: t.spacing[2],
+    textAlign: 'center',
+  },
+  captionActive: {
+    color: t.colors.accent.amber,
   },
   button: {
     flex: 1,

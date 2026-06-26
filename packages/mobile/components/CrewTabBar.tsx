@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { duration, easing } from '@festie/shared/tokens';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useHaptics } from '../hooks/useHaptics';
 
 export type CrewTabKey = 'members' | 'plan' | 'logistics' | 'money';
 
@@ -47,6 +48,14 @@ export default function CrewTabBar({ activeTab, onTabChange, badges }: CrewTabBa
   const t = useTokens();
   const styles = useStyles();
   const reduceMotion = useReduceMotion();
+  const haptics = useHaptics();
+
+  // Light selection tick when switching to a different tab — the segmented bar
+  // feels physical, and a no-op re-tap (same tab) stays silent.
+  const handlePress = (key: CrewTabKey) => {
+    if (key !== activeTab) haptics.select();
+    onTabChange(key);
+  };
 
   // Tab layout measurements: keyed by tab.key, populated via onLayout callbacks.
   const [tabLayouts, setTabLayouts] = useState<Record<string, { x: number; width: number }>>({});
@@ -97,7 +106,7 @@ export default function CrewTabBar({ activeTab, onTabChange, badges }: CrewTabBa
               key={tab.key}
               testID={`crew-tab-${tab.key}`}
               style={[styles.tab, active && styles.tabActive]}
-              onPress={() => onTabChange(tab.key)}
+              onPress={() => handlePress(tab.key)}
               activeOpacity={0.8}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
