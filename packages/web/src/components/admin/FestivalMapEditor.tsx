@@ -296,6 +296,11 @@ export default function FestivalMapEditor({ festivalId, onClose }: FestivalMapEd
     setArmed((prev) => (prev?.kind === 'siteplan' ? null : prev));
   };
 
+  // Per-tap draft dots for the live preview (web-parity with native OfflineMap):
+  // the in-progress zone vertices while drawing, or the site-plan corners while
+  // placing. Empty otherwise — no dots drawn.
+  const draftPoints = isDrawingZone ? draftVertices : isPlacingSiteplan ? draftCorners : [];
+
   const amenityFeatures = mapConfig?.amenities?.features ?? [];
   // Committed zones (the draft preview is rendered separately via previewConfig).
   const placedZones = useMemo(() => extractZones(mapConfig), [mapConfig]);
@@ -377,7 +382,12 @@ export default function FestivalMapEditor({ festivalId, onClose }: FestivalMapEd
       {/* Live map preview. Clicking the map applies to the armed target. */}
       <div className="relative">
         <Suspense fallback={<div className="h-72 flex-center text-text-muted">Loading map…</div>}>
-          <CrewMap meetingPoints={[]} festival={mapFestival} onMapClick={armed ? handleMapClick : undefined} />
+          <CrewMap
+            meetingPoints={[]}
+            festival={mapFestival}
+            onMapClick={armed ? handleMapClick : undefined}
+            draftPoints={draftPoints}
+          />
         </Suspense>
         {armed && (
           <div

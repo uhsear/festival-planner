@@ -11,16 +11,22 @@
  *     is online-only by design (excluded from the offline write-queue): a queued
  *     rescue replayed hours later is dangerous, so an offline raise surfaces an
  *     explicit "No signal — SOS not sent" message instead of silently queuing.
- *  2. RECEIVE — when an `sos:raised` broadcast lands in the liveLocationStore,
- *     a prominent banner names the raiser (with a warning haptic), lets any crew
+ *  2. RECEIVE — when `sos:raised` broadcasts land in the liveLocationStore, a
+ *     prominent banner names the raiser (with a warning haptic), lets any crew
  *     member open the MeetingPointCompass pointed at the SOS coordinate to walk
  *     toward them, and lets the raiser (or anyone) clear it ("I'm safe").
+ *
+ * MULTIPLE SOS: the store exposes `activeSosList` (newest first); more than one
+ * crew member can have an SOS up at once. We render EVERY active SOS as its own
+ * banner (each with its raiser + a confirm-gated clear). With exactly one active
+ * SOS the surface is visually identical to the original single-SOS banner.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import type { SosEntry } from '@festie/shared/types';
 import { api, isApiClientError, mapErrorToUserMessage } from '@festie/shared/services';
 import { useLiveLocationStore } from '@festie/shared/stores';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
@@ -32,33 +38,61 @@ interface CrewSosProps {
   currentUserId: string;
 }
 
+function sosTargetFor(sos: SosEntry): MeetingPointTarget | null {
+  return sos.position && Number.isFinite(sos.position.lat) && Number.isFinite(sos.position.lng)
+    ? { label: `${sos.username} (SOS)`, latitude: sos.position.lat, longitude: sos.position.lng }
+    : null;
+}
+
 export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
   const t = useTokens();
   const styles = useStyles();
   const haptics = useHaptics();
 
-  // Only surface the SOS for the crew this card belongs to (the store is scoped
-  // to the active crew, but guard anyway so a stale entry never leaks across).
-  const sos = useLiveLocationStore((s) => (s.sos && s.sos.crewId === crewId ? s.sos : null));
+  // Render ALL active SOS for this crew. Select the stable array from the store
+  // (its reference only changes when an SOS mutates) and crew-filter via useMemo
+  // so we never return a fresh array from the selector (which would thrash the
+  // useSyncExternalStore snapshot). The store is already scoped to the active
+  // crew, but guard anyway so a stale entry never leaks across crews.
+  const activeSosList = useLiveLocationStore((s) => s.activeSosList);
+  const sosList = useMemo(
+    () => activeSosList.filter((e) => e.crewId === crewId),
+    [activeSosList, crewId],
+  );
 
   const [raising, setRaising] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
+  // Which raiser's clear is currently in flight (per-SOS, so one clear's spinner
+  // doesn't disable every banner's button).
+  const [clearingId, setClearingId] = useState<string | null>(null);
+  // The SOS we're currently navigating toward (drives the single compass modal).
+  const [navTarget, setNavTarget] = useState<{ name: string; target: MeetingPointTarget } | null>(null);
 
-  // Warning haptic on each NEW incoming SOS (keyed on raisedAt so re-renders
-  // don't re-buzz). The raiser already felt the confirm haptic, so only buzz for
-  // SOS raised by someone else.
-  const lastBuzzedRef = useRef<string | null>(null);
+  const myActiveSos = sosList.some((s) => s.userId === currentUserId);
+
+  // Warning haptic on each NEW incoming SOS from someone else. Keyed on
+  // `userId|raisedAt` so re-renders don't re-buzz and a second crew member's SOS
+  // still buzzes even while the first is up. The raiser already felt the confirm
+  // haptic, so we only buzz for SOS raised by others.
+  const buzzedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!sos) {
-      lastBuzzedRef.current = null;
+    if (sosList.length === 0) {
+      buzzedRef.current.clear();
       return;
     }
-    if (sos.raisedAt !== lastBuzzedRef.current) {
-      lastBuzzedRef.current = sos.raisedAt;
-      if (sos.userId !== currentUserId) haptics.warning();
+    const liveKeys = new Set(sosList.map((s) => `${s.userId}|${s.raisedAt}`));
+    // Forget cleared SOS so a re-raise by the same person buzzes again.
+    for (const key of buzzedRef.current) {
+      if (!liveKeys.has(key)) buzzedRef.current.delete(key);
     }
-  }, [sos, currentUserId, haptics]);
+    let sawNew = false;
+    for (const s of sosList) {
+      const key = `${s.userId}|${s.raisedAt}`;
+      if (buzzedRef.current.has(key)) continue;
+      buzzedRef.current.add(key);
+      if (s.userId !== currentUserId) sawNew = true;
+    }
+    if (sawNew) haptics.warning();
+  }, [sosList, currentUserId, haptics]);
 
   const doRaise = useCallback(async () => {
     if (raising) return;
@@ -108,93 +142,112 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
     );
   }, [doRaise]);
 
-  const doClear = useCallback(async () => {
-    if (clearing) return;
-    setClearing(true);
-    try {
-      await api.post(`/crews/${crewId}/sos/clear`, {});
-      // The sos:cleared broadcast dismisses the banner for the whole crew.
-      haptics.success();
-    } catch (err) {
-      Alert.alert('Could not clear SOS', mapErrorToUserMessage(err, 'Try again.'));
-    } finally {
-      setClearing(false);
-    }
-  }, [crewId, clearing, haptics]);
+  const doClear = useCallback(
+    async (raiserId: string) => {
+      if (clearingId) return;
+      setClearingId(raiserId);
+      try {
+        // Pass the raiser so the clear targets that SOS; the broadcast then
+        // dismisses just that banner for the whole crew.
+        await api.post(`/crews/${crewId}/sos/clear`, { raiserId });
+        haptics.success();
+      } catch (err) {
+        Alert.alert('Could not clear SOS', mapErrorToUserMessage(err, 'Try again.'));
+      } finally {
+        setClearingId(null);
+      }
+    },
+    [crewId, clearingId, haptics],
+  );
 
-  // Clearing kills a LIVE emergency for the whole crew and any member can do it,
-  // so gate it behind a confirm (parity with the raise, which is already
-  // confirm-gated) — one stray tap must not silently resolve a real SOS.
-  const confirmClear = useCallback(() => {
-    const mine = sos?.userId === currentUserId;
-    Alert.alert(
-      mine ? 'Clear your SOS?' : 'Mark this SOS resolved?',
-      mine
-        ? "This tells your whole crew you're safe and removes the alert for everyone. Only do this once you're actually OK."
-        : 'This clears the active emergency alert for everyone in the crew. Only do this if you know they are safe.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: mine ? "I'm safe" : 'Mark resolved', style: 'destructive', onPress: () => void doClear() },
-      ],
+  // Clearing kills a LIVE emergency and any member can do it, so gate it behind a
+  // confirm (parity with the raise) — one stray tap must not silently resolve a
+  // real SOS.
+  const confirmClear = useCallback(
+    (sos: SosEntry) => {
+      const mine = sos.userId === currentUserId;
+      Alert.alert(
+        mine ? 'Clear your SOS?' : `Mark ${sos.username}'s SOS resolved?`,
+        mine
+          ? "This tells your whole crew you're safe and removes the alert for everyone. Only do this once you're actually OK."
+          : `This clears ${sos.username}'s active emergency alert for everyone in the crew. Only do this if you know they are safe.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: mine ? "I'm safe" : 'Mark resolved',
+            style: 'destructive',
+            onPress: () => void doClear(sos.userId),
+          },
+        ],
+      );
+    },
+    [doClear, currentUserId],
+  );
+
+  const renderBanner = (sos: SosEntry) => {
+    const isMine = sos.userId === currentUserId;
+    const target = sosTargetFor(sos);
+    const clearing = clearingId === sos.userId;
+    return (
+      <View key={`${sos.userId}|${sos.raisedAt}`} style={styles.banner} accessible accessibilityRole="alert">
+        <View style={styles.bannerHead}>
+          <Ionicons name="warning" size={22} color={t.colors.accent.coral} />
+          <Text style={styles.bannerTitle}>{isMine ? 'You raised an SOS' : `${sos.username} raised an SOS`}</Text>
+        </View>
+        <Text style={styles.bannerBody}>
+          {sos.message
+            ? sos.message
+            : target
+              ? 'Tap “Get directions” to walk toward their last location.'
+              : 'No location was attached — reach them by phone or radio.'}
+        </Text>
+        <View style={styles.bannerActions}>
+          {target ? (
+            <TouchableOpacity
+              style={[styles.bannerButton, styles.bannerButtonPrimary]}
+              onPress={() => setNavTarget({ name: sos.username, target })}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={`Get directions to ${sos.username}`}
+            >
+              <Ionicons name="navigate" size={16} color={t.colors.text.onAccent} />
+              <Text style={styles.bannerButtonPrimaryText}>Get directions</Text>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity
+            style={[styles.bannerButton, styles.bannerButtonOutline]}
+            onPress={() => confirmClear(sos)}
+            disabled={clearing}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={isMine ? "I'm safe, clear my SOS" : `Mark ${sos.username}'s SOS resolved`}
+          >
+            {clearing ? (
+              <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+            ) : (
+              <Text style={styles.bannerButtonOutlineText}>{isMine ? "I'm safe" : 'Mark resolved'}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
     );
-  }, [doClear, sos?.userId, currentUserId]);
-
-  const sosTarget: MeetingPointTarget | null =
-    sos?.position && Number.isFinite(sos.position.lat) && Number.isFinite(sos.position.lng)
-      ? { label: `${sos.username} (SOS)`, latitude: sos.position.lat, longitude: sos.position.lng }
-      : null;
-
-  const isMine = sos?.userId === currentUserId;
+  };
 
   return (
     <View style={styles.wrap}>
-      {/* Active SOS banner (whole-crew) */}
-      {sos ? (
-        <View style={styles.banner} accessible accessibilityRole="alert">
-          <View style={styles.bannerHead}>
-            <Ionicons name="warning" size={22} color={t.colors.accent.coral} />
-            <Text style={styles.bannerTitle}>{isMine ? 'You raised an SOS' : `${sos.username} raised an SOS`}</Text>
-          </View>
-          <Text style={styles.bannerBody}>
-            {sos.message
-              ? sos.message
-              : sosTarget
-                ? 'Tap “Get directions” to walk toward their last location.'
-                : 'No location was attached — reach them by phone or radio.'}
-          </Text>
-          <View style={styles.bannerActions}>
-            {sosTarget ? (
-              <TouchableOpacity
-                style={[styles.bannerButton, styles.bannerButtonPrimary]}
-                onPress={() => setNavOpen(true)}
-                activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel={`Get directions to ${sos.username}`}
-              >
-                <Ionicons name="navigate" size={16} color={t.colors.text.onAccent} />
-                <Text style={styles.bannerButtonPrimaryText}>Get directions</Text>
-              </TouchableOpacity>
-            ) : null}
-            <TouchableOpacity
-              style={[styles.bannerButton, styles.bannerButtonOutline]}
-              onPress={confirmClear}
-              disabled={clearing}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel={isMine ? "I'm safe, clear my SOS" : 'Mark this SOS resolved'}
-            >
-              {clearing ? (
-                <ActivityIndicator size="small" color={t.colors.accent.aqua} />
-              ) : (
-                <Text style={styles.bannerButtonOutlineText}>{isMine ? "I'm safe" : 'Mark resolved'}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+      {/* When two or more SOS are live, label the stack so the count is obvious.
+          A single SOS stays visually identical to the original banner. */}
+      {sosList.length > 1 ? (
+        <Text style={styles.stackCount} accessibilityRole="header">
+          {sosList.length} active SOS
+        </Text>
       ) : null}
 
+      {/* Active SOS banner(s) — whole-crew, newest first. */}
+      {sosList.map(renderBanner)}
+
       {/* Raise SOS button — hidden while my own SOS is already active. */}
-      {!isMine ? (
+      {!myActiveSos ? (
         <TouchableOpacity
           style={styles.sosButton}
           onPress={confirmRaise}
@@ -219,18 +272,18 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
 
       {/* Navigate-to-SOS compass modal (reuses the on-device meeting-point compass). */}
       <Modal
-        visible={navOpen && !!sosTarget}
+        visible={!!navTarget}
         animationType="slide"
-        onRequestClose={() => setNavOpen(false)}
+        onRequestClose={() => setNavTarget(null)}
         presentationStyle="pageSheet"
       >
         <View style={styles.modal}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle} numberOfLines={1}>
-              Walk toward {sos?.username}
+              Walk toward {navTarget?.name}
             </Text>
             <TouchableOpacity
-              onPress={() => setNavOpen(false)}
+              onPress={() => setNavTarget(null)}
               style={styles.modalClose}
               activeOpacity={0.7}
               accessibilityRole="button"
@@ -239,7 +292,7 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
               <Ionicons name="close" size={24} color={t.colors.text.primary} />
             </TouchableOpacity>
           </View>
-          {sosTarget ? <MeetingPointCompass target={sosTarget} /> : null}
+          {navTarget ? <MeetingPointCompass target={navTarget.target} /> : null}
         </View>
       </Modal>
     </View>
@@ -249,6 +302,10 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
 const useStyles = makeStyles((t) => ({
   wrap: {
     gap: t.spacing[2],
+  },
+  stackCount: {
+    ...typeStyle('label', 700),
+    color: t.colors.accent.coral,
   },
   banner: {
     gap: t.spacing[2],

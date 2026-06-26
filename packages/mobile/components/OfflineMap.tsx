@@ -193,8 +193,18 @@ interface OfflineMapProps {
   meetingPoints: CrewMeetingPoint[];
   /** Live crew peers currently sharing (ephemeral; from liveLocationStore). */
   peers?: PeerLocation[];
-  /** Active crew SOS, if any (ephemeral; from liveLocationStore). */
+  /**
+   * Active crew SOS, if any (ephemeral; from liveLocationStore). Back-compat
+   * single-SOS input — superseded by `activeSosList` when that's provided.
+   */
   sos?: SosEntry | null;
+  /**
+   * All currently-active crew SOS (newest first), from the store's
+   * `activeSosList`. When provided it supersedes `sos` and a marker is rendered
+   * for EACH entry (each framed once on first appearance). Omitted ⇒ falls back
+   * to `[sos]` so existing single-SOS callers are unchanged.
+   */
+  activeSosList?: SosEntry[];
   /**
    * Tap-to-create: fired when the user long-presses the interactive map, with
    * the pressed coordinate. The screen wires this to the existing meeting-point
@@ -844,6 +854,7 @@ export default function OfflineMap({
   meetingPoints,
   peers,
   sos,
+  activeSosList,
   onMapPress,
   festival = null,
   authoringMode = 'off',
@@ -939,7 +950,11 @@ export default function OfflineMap({
   const camera = useMemo(() => pickFestivalCamera(festival, staticPins), [festival, staticPins]);
   const center = camera.center;
 
-  const hasLive = (peers?.length ?? 0) > 0 || !!sos;
+  // Effective SOS list: prefer the multi-SOS `activeSosList`, else the single
+  // `sos` prop (back-compat). A marker is rendered for EACH entry.
+  const sosList = useMemo<SosEntry[]>(() => activeSosList ?? (sos ? [sos] : []), [activeSosList, sos]);
+
+  const hasLive = (peers?.length ?? 0) > 0 || sosList.length > 0;
 
   // Live peer + SOS markers pushed into the WebView (and listed in the fallback).
   // `now` ticks via useNow so staleness recomputes without an impure Date.now()
@@ -972,19 +987,21 @@ export default function OfflineMap({
         ...(windowLabel ? { windowLabel } : {}),
       });
     }
-    if (sos?.position && Number.isFinite(sos.position.lat) && Number.isFinite(sos.position.lng)) {
-      items.push({
-        id: `sos:${sos.userId}`,
-        label: `${sos.username} — SOS`,
-        sublabel: sos.message || 'Needs help',
-        initial: '!',
-        latitude: sos.position.lat,
-        longitude: sos.position.lng,
-        kind: 'sos',
-      });
+    for (const s of sosList) {
+      if (s.position && Number.isFinite(s.position.lat) && Number.isFinite(s.position.lng)) {
+        items.push({
+          id: `sos:${s.userId}`,
+          label: `${s.username} — SOS`,
+          sublabel: s.message || 'Needs help',
+          initial: '!',
+          latitude: s.position.lat,
+          longitude: s.position.lng,
+          kind: 'sos',
+        });
+      }
     }
     return items;
-  }, [peers, sos, now]);
+  }, [peers, sosList, now]);
 
   // Meeting points present but without coords — listed so they're never lost,
   // even though they can't be plotted.
@@ -1008,15 +1025,17 @@ export default function OfflineMap({
       return { id: pursue.id, label: p.username || pursue.label, coord: { latitude: p.lat, longitude: p.lng } };
     }
     if (pursue.id.startsWith('sos:')) {
-      if (!sos?.position) return null;
+      const uid = pursue.id.slice('sos:'.length);
+      const s = sosList.find((x) => x.userId === uid);
+      if (!s?.position) return null;
       return {
         id: pursue.id,
-        label: `${sos.username} — SOS`,
-        coord: { latitude: sos.position.lat, longitude: sos.position.lng },
+        label: `${s.username} — SOS`,
+        coord: { latitude: s.position.lat, longitude: s.position.lng },
       };
     }
     return pursue; // nearest-amenity: static captured coord
-  }, [pursue, peers, sos]);
+  }, [pursue, peers, sosList]);
 
   // Pursuit bundle (bearing + distance + compass + ETA) self → target.
   const pursuit = useMemo(
@@ -1469,29 +1488,32 @@ export default function OfflineMap({
     prevAuthRef.current = authoringMode;
   }, [phase, authoringMode]);
 
-  // P1 safety: one-shot fly/frame to an incoming SOS the moment it first appears,
-  // regardless of meeting pins. The WebView's renderLive only auto-frames the live
-  // layer when there are NO pins — so with pins present a safety-critical SOS could
-  // sit off-screen. We track the SOS userId and fire __festieFlyTo exactly once per
-  // SOS (not on every position tick); resetting when the map remounts or the SOS
-  // clears so a later SOS re-frames. Web already force-flies to the SOS.
-  const framedSosRef = useRef<string | null>(null);
+  // P1 safety: one-shot fly/frame to each incoming SOS the moment it first
+  // appears, regardless of meeting pins. The WebView's renderLive only auto-frames
+  // the live layer when there are NO pins — so with pins present a safety-critical
+  // SOS could sit off-screen. We track framed SOS by userId and fire __festieFlyTo
+  // exactly once per SOS (not on every position tick); the framed set is reset when
+  // the map remounts, and a cleared SOS drops its flag so a re-raise re-frames.
+  // With several at once the last-framed wins the camera. Web force-flies likewise.
+  const framedSosRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (phase !== 'map' || !webRef.current) {
-      framedSosRef.current = null; // re-frame after a remount
+      framedSosRef.current = new Set(); // re-frame after a remount
       return;
     }
-    const uid = sos?.userId ?? null;
-    if (!uid || !sos?.position) {
-      framedSosRef.current = null; // SOS cleared — allow the next one to frame
-      return;
+    const present = new Set(sosList.map((s) => s.userId));
+    // Drop framed flags for SOS that cleared so a later re-raise re-frames.
+    for (const uid of Array.from(framedSosRef.current)) {
+      if (!present.has(uid)) framedSosRef.current.delete(uid);
     }
-    if (framedSosRef.current === uid) return; // already framed this SOS
-    const { lat, lng } = sos.position;
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-    framedSosRef.current = uid;
-    webRef.current.injectJavaScript(`window.__festieFlyTo && window.__festieFlyTo(${lng}, ${lat}, 16); true;`);
-  }, [phase, sos]);
+    for (const s of sosList) {
+      if (!s.position || framedSosRef.current.has(s.userId)) continue;
+      const { lat, lng } = s.position;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      framedSosRef.current.add(s.userId);
+      webRef.current.injectJavaScript(`window.__festieFlyTo && window.__festieFlyTo(${lng}, ${lat}, 16); true;`);
+    }
+  }, [phase, sosList]);
 
   // Toggle placement mode in the WebView. The next single map tap (while on)
   // drops a meeting point and auto-exits. We optimistically flip local state for
@@ -1544,28 +1566,29 @@ export default function OfflineMap({
           </Text>
         </View>
 
-        {/* SOS first — safety-critical, even with no map. */}
-        {sos ? (
+        {/* SOS first — safety-critical, even with no map. One row per active SOS. */}
+        {sosList.map((s) => (
           <View
+            key={`sos:${s.userId}`}
             style={styles.sosRow}
             accessible
             accessibilityRole="alert"
-            accessibilityLabel={`SOS from ${sos.username}${sos.message ? ', ' + sos.message : ''}`}
+            accessibilityLabel={`SOS from ${s.username}${s.message ? ', ' + s.message : ''}`}
           >
             <Ionicons name="warning" size={20} color={t.colors.accent.coral} />
             <View style={styles.rowBody}>
-              <Text style={styles.rowLabel}>{sos.username} — SOS</Text>
+              <Text style={styles.rowLabel}>{s.username} — SOS</Text>
               <Text style={styles.rowSub}>
-                {sos.message || (sos.position ? 'Shared their location' : 'No location — reach them directly')}
+                {s.message || (s.position ? 'Shared their location' : 'No location — reach them directly')}
               </Text>
-              {sos.position ? (
+              {s.position ? (
                 <Text style={styles.rowCoord}>
-                  {sos.position.lat.toFixed(5)}, {sos.position.lng.toFixed(5)}
+                  {s.position.lat.toFixed(5)}, {s.position.lng.toFixed(5)}
                 </Text>
               ) : null}
             </View>
           </View>
-        ) : null}
+        ))}
 
         {/* Live peers — honest "last seen N ago" with no map. */}
         {livePeerPins.map((p) => (

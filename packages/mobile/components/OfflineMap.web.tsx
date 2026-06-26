@@ -62,8 +62,24 @@ interface OfflineMapProps {
   meetingPoints: CrewMeetingPoint[];
   /** Live crew peers currently sharing (ephemeral; from liveLocationStore). */
   peers?: PeerLocation[];
-  /** Active crew SOS, if any (ephemeral; from liveLocationStore). */
+  /**
+   * Active crew SOS, if any (ephemeral; from liveLocationStore). Back-compat
+   * single-SOS input — superseded by `activeSosList` when that's provided.
+   */
   sos?: SosEntry | null;
+  /**
+   * All currently-active crew SOS (newest first), from the store's
+   * `activeSosList`. When provided it supersedes `sos` and a marker is rendered
+   * for EACH entry (each framed once on first appearance). Omitted ⇒ falls back
+   * to `[sos]` so existing single-SOS callers are unchanged.
+   */
+  activeSosList?: SosEntry[];
+  /**
+   * In-progress authoring vertices/corners (web-parity with the native
+   * OfflineMap's draftPoints): a small aqua dot renders at each tapped zone
+   * vertex / site-plan corner. Omitted/empty in normal crew use — no dots.
+   */
+  draftPoints?: { latitude: number; longitude: number }[];
   /**
    * Tap-to-create: fired when the user drops a pin on the interactive map, with
    * the chosen coordinate. Web parity with the native OfflineMap — the screen
@@ -184,7 +200,15 @@ const NEAREST_TARGETS: { type: AmenityType; label: string }[] = [
   { type: 'toilet', label: 'toilet' },
 ];
 
-export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, festival = null }: OfflineMapProps) {
+export default function OfflineMap({
+  meetingPoints,
+  peers,
+  sos,
+  activeSosList,
+  draftPoints,
+  onMapPress,
+  festival = null,
+}: OfflineMapProps) {
   const t = useTokens();
   const styles = useStyles();
   const bottomPad = useListBottomInset();
@@ -214,7 +238,11 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
   const amenityMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const zoneLabelMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const peerMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
-  const sosMarkerRef = useRef<import('maplibre-gl').Marker | null>(null);
+  // SOS markers keyed by raiser userId (one per active SOS) + a framed-once set.
+  const sosMarkersRef = useRef<Map<string, import('maplibre-gl').Marker>>(new Map());
+  const sosFramedRef = useRef<Set<string>>(new Set());
+  // Draft authoring dots (in-progress zone vertices / site-plan corners).
+  const draftMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const fittedRef = useRef(false);
   // The map's click handler is bound once at creation, so it reads placement +
   // the live onMapPress callback through refs rather than stale closure values.
@@ -241,6 +269,10 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
   // in the memo factory (react-hooks/purity) — same pattern as OfflineMap.tsx.
   const now = useNow();
 
+  // Effective SOS list: prefer the multi-SOS `activeSosList`, else the single
+  // `sos` prop (back-compat). A marker is rendered for EACH entry.
+  const sosList = useMemo<SosEntry[]>(() => activeSosList ?? (sos ? [sos] : []), [activeSosList, sos]);
+
   // Live peer + SOS rows (used by both the GL markers and the fallback list).
   const livePins = useMemo<LivePin[]>(() => {
     const items: LivePin[] = [];
@@ -260,19 +292,21 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
         age,
       });
     }
-    if (sos?.position && Number.isFinite(sos.position.lat) && Number.isFinite(sos.position.lng)) {
-      items.push({
-        id: `sos:${sos.userId}`,
-        label: `${sos.username} — SOS`,
-        sublabel: sos.message || 'Needs help',
-        initial: '!',
-        latitude: sos.position.lat,
-        longitude: sos.position.lng,
-        kind: 'sos',
-      });
+    for (const s of sosList) {
+      if (s.position && Number.isFinite(s.position.lat) && Number.isFinite(s.position.lng)) {
+        items.push({
+          id: `sos:${s.userId}`,
+          label: `${s.username} — SOS`,
+          sublabel: s.message || 'Needs help',
+          initial: '!',
+          latitude: s.position.lat,
+          longitude: s.position.lng,
+          kind: 'sos',
+        });
+      }
     }
     return items;
-  }, [peers, sos, now]);
+  }, [peers, sosList, now]);
 
   // Meeting points present but without coords — listed so they're never lost.
   const uncoordedPoints = useMemo(
@@ -290,7 +324,7 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
   const hasZones = zones.length > 0;
   const hasSiteplan = !!siteplan;
   const hasPeers = peerList.length > 0;
-  const hasSos = !!sos?.position;
+  const hasSos = sosList.some((s) => !!s.position);
   // Render the map when there's ANYTHING to plot (meeting points, stage/amenity
   // map data, zone polygons, a site-plan overlay, live peers, or an SOS coord).
   const shouldRenderMap = hasPins || hasStages || hasAmenities || hasZones || hasSiteplan || hasPeers || hasSos;
@@ -320,11 +354,12 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
   const center = useMemo(() => {
     if (camera.center) return camera.center;
     if (peerList[0]) return { latitude: peerList[0].lat, longitude: peerList[0].lng };
-    if (sos?.position) return { latitude: sos.position.lat, longitude: sos.position.lng };
+    const sp = sosList.find((s) => s.position)?.position;
+    if (sp) return { latitude: sp.lat, longitude: sp.lng };
     return null;
     // Recompute only when the coord sources meaningfully change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [camera, peerList.length, sos?.position?.lat, sos?.position?.lng]);
+  }, [camera, peerList.length, sosList]);
 
   // Stable keys so marker effects re-run only when their own coords change.
   const pinsKey = useMemo(() => pins.map((p) => `${p.id}:${p.latitude},${p.longitude}`).join('|'), [pins]);
@@ -354,12 +389,23 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
     () => peerList.map((p) => `${p.userId}:${p.lat},${p.lng}:${p.serverAt}`).join('|'),
     [peerList],
   );
-  // SOS keys are SPLIT: identity (userId) drives the build + one-shot fly/open on
-  // FIRST appearance, while coord changes only reposition the existing marker (no
+  // SOS keys are SPLIT: the IDENTITY set drives the build/reconcile + one-shot
+  // fly/open per new SOS; the COORD set only repositions existing markers (no
   // re-fly/re-open every tick). Keying the build effect on lat/lng would yank the
   // camera + reopen the popup on every SOS position update.
-  const sosKey = sos ? sos.userId : '';
-  const sosCoordKey = sos?.position ? `${sos.position.lat},${sos.position.lng}` : '';
+  const sosIdsKey = useMemo(
+    () => sosList.filter((s) => s.position).map((s) => s.userId).join('|'),
+    [sosList],
+  );
+  const sosCoordsKey = useMemo(
+    () => sosList.map((s) => (s.position ? `${s.userId}:${s.position.lat},${s.position.lng}` : '')).join('|'),
+    [sosList],
+  );
+  // Draft authoring dots re-render only when a vertex/corner is added/removed/moved.
+  const draftPointsKey = useMemo(
+    () => (draftPoints ?? []).map((p) => `${p.latitude},${p.longitude}`).join('|'),
+    [draftPoints],
+  );
   // Re-run the site-plan effect when the image URL, corners, or opacity change.
   const siteplanKey = siteplan
     ? `${siteplan.imageUrl}:${siteplan.corners.map((c) => c.join(',')).join('|')}:${siteplan.opacity}`
@@ -458,15 +504,17 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
       return { id: pursue.id, label: p.username || pursue.label, coord: { latitude: p.lat, longitude: p.lng } };
     }
     if (pursue.id.startsWith('sos:')) {
-      if (!sos?.position) return null;
+      const uid = pursue.id.slice('sos:'.length);
+      const s = sosList.find((x) => x.userId === uid);
+      if (!s?.position) return null;
       return {
         id: pursue.id,
-        label: `${sos.username} — SOS`,
-        coord: { latitude: sos.position.lat, longitude: sos.position.lng },
+        label: `${s.username} — SOS`,
+        coord: { latitude: s.position.lat, longitude: s.position.lng },
       };
     }
     return pursue; // nearest-amenity: static captured coord
-  }, [pursue, peerList, sos]);
+  }, [pursue, peerList, sosList]);
 
   const pursuit = useMemo(
     () => (selfCoord && liveTarget ? buildPursuit(selfCoord, liveTarget.coord) : null),
@@ -593,7 +641,9 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
       amenityMarkersRef.current = [];
       zoneLabelMarkersRef.current = [];
       peerMarkersRef.current = [];
-      sosMarkerRef.current = null;
+      sosMarkersRef.current = new Map();
+      sosFramedRef.current = new Set();
+      draftMarkersRef.current = [];
       fittedRef.current = false;
       mapRef.current?.remove();
       mapRef.current = null;
@@ -944,66 +994,117 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, peersKey, selectPursue]);
 
-  // ── SOS marker (emphasized) ────────────────────────────────────────────────
+  // ── SOS markers (emphasized; one per active SOS) ────────────────────────────
+  // Reconcile a marker per active SOS keyed by raiser userId: build new ones,
+  // drop cleared ones, and frame each EXACTLY once on first appearance. Keyed on
+  // the identity set; coord ticks only reposition (the effect below).
   useEffect(() => {
     const map = mapRef.current;
     const gl = glRef.current;
     if (status !== 'ready' || !map || !gl) return;
 
-    sosMarkerRef.current?.remove();
-    sosMarkerRef.current = null;
-    if (!sos?.position) return;
+    const markers = sosMarkersRef.current;
+    const present = new Set(sosList.filter((s) => s.position).map((s) => s.userId));
 
-    const el = document.createElement('div');
-    el.className = 'festie-sos-marker';
-    el.setAttribute('role', 'img');
-    el.setAttribute('aria-label', `SOS from ${sos.username}`);
-    el.textContent = '!';
-    // Coords are numeric (range-checked server-side), so this URL is structurally
-    // safe; assert the https scheme as belt-and-braces (mirrors CrewMap).
-    const dir = `https://maps.google.com/?q=${sos.position.lat},${sos.position.lng}`;
-    const link = document.createElement('a');
-    if (/^https:/i.test(dir)) link.setAttribute('href', dir);
-    link.className = 'festie-sos-link';
-    link.setAttribute('target', '_blank');
-    link.setAttribute('rel', 'noopener noreferrer');
-    link.textContent = 'Get directions';
-    const popupEl = popupContent([
-      titleEl(`🆘 ${sos.username} needs help`, 'festie-sos-title'),
-      sos.message ? subEl(sos.message) : null,
-      link,
-    ]);
-    const marker = new gl.Marker({ element: el })
-      .setLngLat([sos.position.lng, sos.position.lat])
-      .setPopup(new gl.Popup({ offset: 18, closeButton: false }).setDOMContent(popupEl))
-      .addTo(map);
-    sosMarkerRef.current = marker;
-    // Tapping the SOS marker pursues it (arrow + ETA toward the person in need).
-    const sosTarget: PursueTarget = {
-      id: `sos:${sos.userId}`,
-      label: `${sos.username} — SOS`,
-      coord: { latitude: sos.position.lat, longitude: sos.position.lng },
-    };
-    el.addEventListener('click', () => selectPursue(sosTarget));
-    // Open the SOS popup + fly to it ONCE on first appearance (keyed on userId) so
-    // it's impossible to miss. Subsequent coord ticks reposition via the effect
-    // below — they never re-fly or re-open.
-    marker.togglePopup();
-    map.flyTo({ center: [sos.position.lng, sos.position.lat], zoom: 15, duration: 600 });
+    // Remove markers for SOS that cleared (and forget their framed flag).
+    for (const [uid, marker] of markers) {
+      if (!present.has(uid)) {
+        marker.remove();
+        markers.delete(uid);
+        sosFramedRef.current.delete(uid);
+      }
+    }
+
+    for (const s of sosList) {
+      if (!s.position || markers.has(s.userId)) continue;
+      const { lat, lng } = s.position;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      const el = document.createElement('div');
+      el.className = 'festie-sos-marker';
+      el.setAttribute('role', 'img');
+      el.setAttribute('aria-label', `SOS from ${s.username}`);
+      el.textContent = '!';
+      // Coords are numeric (range-checked server-side), so this URL is structurally
+      // safe; assert the https scheme as belt-and-braces (mirrors CrewMap).
+      const dir = `https://maps.google.com/?q=${lat},${lng}`;
+      const link = document.createElement('a');
+      if (/^https:/i.test(dir)) link.setAttribute('href', dir);
+      link.className = 'festie-sos-link';
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer');
+      link.textContent = 'Get directions';
+      const popupEl = popupContent([
+        titleEl(`🆘 ${s.username} needs help`, 'festie-sos-title'),
+        s.message ? subEl(s.message) : null,
+        link,
+      ]);
+      const marker = new gl.Marker({ element: el })
+        .setLngLat([lng, lat])
+        .setPopup(new gl.Popup({ offset: 18, closeButton: false }).setDOMContent(popupEl))
+        .addTo(map);
+      // Tapping the SOS marker pursues it (arrow + ETA toward the person in need).
+      const sosTarget: PursueTarget = {
+        id: `sos:${s.userId}`,
+        label: `${s.username} — SOS`,
+        coord: { latitude: lat, longitude: lng },
+      };
+      el.addEventListener('click', () => selectPursue(sosTarget));
+      markers.set(s.userId, marker);
+      // Open the popup + fly to it ONCE on first appearance so it's impossible to
+      // miss. Subsequent coord ticks reposition via the effect below.
+      if (!sosFramedRef.current.has(s.userId)) {
+        sosFramedRef.current.add(s.userId);
+        marker.togglePopup();
+        map.flyTo({ center: [lng, lat], zoom: 15, duration: 600 });
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, sosKey, selectPursue]);
+  }, [status, sosIdsKey, selectPursue]);
 
   // ── SOS marker reposition (coord ticks only — no re-fly/re-open) ────────────
-  // The build effect above keys on userId (appearance), so it doesn't rebuild when
-  // the SOS person moves. Slide the existing marker to the latest coord here.
+  // The build effect above keys on the identity set, so it doesn't rebuild when an
+  // SOS person moves. Slide each existing marker to the latest coord here.
   useEffect(() => {
-    const marker = sosMarkerRef.current;
-    if (status !== 'ready' || !marker || !sos?.position) return;
-    const { lat, lng } = sos.position;
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-    marker.setLngLat([lng, lat]);
+    if (status !== 'ready') return;
+    const markers = sosMarkersRef.current;
+    for (const s of sosList) {
+      if (!s.position) continue;
+      const marker = markers.get(s.userId);
+      if (!marker) continue;
+      const { lat, lng } = s.position;
+      if (Number.isFinite(lat) && Number.isFinite(lng)) marker.setLngLat([lng, lat]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, sosCoordKey]);
+  }, [status, sosCoordsKey]);
+
+  // ── Draft authoring dots (web-parity with native OfflineMap) ────────────────
+  // A small aqua dot at each in-progress zone vertex / site-plan corner. Empty/
+  // omitted ⇒ no dots. Re-rendered wholesale on each change (tiny N).
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    for (const m of draftMarkersRef.current) m.remove();
+    draftMarkersRef.current = [];
+    for (const p of draftPoints ?? []) {
+      if (!Number.isFinite(p.latitude) || !Number.isFinite(p.longitude)) continue;
+      const el = document.createElement('div');
+      el.style.cssText = [
+        'width:12px',
+        'height:12px',
+        'border-radius:50%',
+        'background:#19e3d3',
+        'border:2px solid #fff',
+        'box-shadow:0 0 6px rgba(25,227,211,0.85)',
+        'pointer-events:none',
+      ].join(';');
+      el.setAttribute('aria-hidden', 'true');
+      const marker = new gl.Marker({ element: el }).setLngLat([p.longitude, p.latitude]).addTo(map);
+      draftMarkersRef.current.push(marker);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, draftPointsKey]);
 
   // ── Frame once when the map first loads ─────────────────────────────────────
   // Explicit festival map-config bounds win (frame the grounds); otherwise fit
@@ -1031,7 +1132,9 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
       ...peerList
         .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
         .map((p) => [p.lng, p.lat] as [number, number]),
-      ...(sos?.position ? [[sos.position.lng, sos.position.lat] as [number, number]] : []),
+      ...sosList
+        .filter((s) => s.position)
+        .map((s) => [s.position!.lng, s.position!.lat] as [number, number]),
     ];
     if (coords.length > 1) {
       let bounds = new gl.LngLatBounds(coords[0], coords[0]);
@@ -1040,7 +1143,7 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
     }
     fittedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, pinsKey, stagesKey, allAmenitiesKey, zonesKey, siteplanKey, peersKey, sosKey]);
+  }, [status, pinsKey, stagesKey, allAmenitiesKey, zonesKey, siteplanKey, peersKey, sosIdsKey]);
 
   // Toggle placement mode: the next single map click drops a meeting point and
   // auto-exits (web parity with native's "Drop pin"). The click handler reads
@@ -1284,28 +1387,29 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
         </Text>
       </View>
 
-      {/* SOS first — safety-critical, even with no map. */}
-      {sos ? (
+      {/* SOS first — safety-critical, even with no map. One row per active SOS. */}
+      {sosList.map((s) => (
         <View
+          key={`sos:${s.userId}`}
           style={styles.sosRow}
           accessible
           accessibilityRole="alert"
-          accessibilityLabel={`SOS from ${sos.username}${sos.message ? ', ' + sos.message : ''}`}
+          accessibilityLabel={`SOS from ${s.username}${s.message ? ', ' + s.message : ''}`}
         >
           <Ionicons name="warning" size={20} color={t.colors.accent.coral} />
           <View style={styles.rowBody}>
-            <Text style={styles.rowLabel}>{sos.username} — SOS</Text>
+            <Text style={styles.rowLabel}>{s.username} — SOS</Text>
             <Text style={styles.rowSub}>
-              {sos.message || (sos.position ? 'Shared their location' : 'No location — reach them directly')}
+              {s.message || (s.position ? 'Shared their location' : 'No location — reach them directly')}
             </Text>
-            {sos.position ? (
+            {s.position ? (
               <Text style={styles.rowCoord}>
-                {sos.position.lat.toFixed(5)}, {sos.position.lng.toFixed(5)}
+                {s.position.lat.toFixed(5)}, {s.position.lng.toFixed(5)}
               </Text>
             ) : null}
           </View>
         </View>
-      ) : null}
+      ))}
 
       {/* Live peers — honest "last seen N ago" with no map. */}
       {livePeerPins.map((p) => (
