@@ -359,7 +359,9 @@ export type paths = {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Crew"][];
+                    };
                 };
             };
         };
@@ -379,7 +381,9 @@ export type paths = {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Crew"];
+                    };
                 };
             };
         };
@@ -548,12 +552,14 @@ export type paths = {
             };
             requestBody?: never;
             responses: {
-                /** @description Festival data */
+                /** @description Festival data (full depth=2 document; depth=1 returns the FestivalDepth1 shape) */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Festival"];
+                    };
                 };
             };
         };
@@ -870,6 +876,55 @@ export type paths = {
 export type webhooks = Record<string, never>;
 export type components = {
     schemas: {
+        Artist: {
+            links?: {
+                [key: string]: string;
+            };
+            name: string;
+        };
+        Crew: {
+            createdAt: string;
+            createdBy: string;
+            festivalId: string;
+            homeBaseLocation: string | null;
+            homeBaseTime: string | null;
+            homeBaseUpdatedAt: string | null;
+            id: string;
+            inviteCode?: string;
+            inviteExpiresAt?: string | null;
+            joinedAt?: string;
+            maxMembers?: number;
+            memberCount: number;
+            members: {
+                avatarKey: string | null;
+                avatarVersion: string | null;
+                joinedAt?: string;
+                name: string;
+                /** @enum {string} */
+                role: "owner" | "member";
+                userId: string;
+                username: string;
+            }[];
+            name: string;
+            owner: string;
+            photoAlbumUrl: string | null;
+            reformedFrom: string | null;
+            /** @enum {string} */
+            role?: "owner" | "member";
+            totem_emoji: string | null;
+            totem_name: string | null;
+            updatedAt: string;
+        };
+        CrewMember: {
+            avatarKey: string | null;
+            avatarVersion: string | null;
+            joinedAt?: string;
+            name: string;
+            /** @enum {string} */
+            role: "owner" | "member";
+            userId: string;
+            username: string;
+        };
         Day: {
             date?: string;
             id?: string;
@@ -888,10 +943,206 @@ export type components = {
             };
         };
         Festival: {
-            days?: components["schemas"]["Day"][];
-            id?: string;
-            name?: string;
-            stages?: components["schemas"]["Stage"][];
+            b2bSeparator: string;
+            createdAt: string;
+            days: {
+                date: string;
+                dayIndex: number;
+                label: string;
+                sets: {
+                    artist: string | null;
+                    artists: {
+                        links?: {
+                            [key: string]: string;
+                        };
+                        name: string;
+                    }[];
+                    endTime: string | null;
+                    id: string;
+                    linkUrl: string | null;
+                    stageId: string | null;
+                    startTime: string | null;
+                }[];
+            }[];
+            id: string;
+            location: string;
+            mapConfig: {
+                amenities?: {
+                    features: {
+                        geometry: {
+                            coordinates: (number)[];
+                            /** @enum {string} */
+                            type: "Point";
+                        };
+                        properties: {
+                            /** @enum {string} */
+                            amenityType: "water" | "medical" | "toilet" | "food" | "atm" | "entrance" | "exit" | "info" | "charging";
+                            id: string;
+                            label: string;
+                        };
+                        /** @enum {string} */
+                        type: "Feature";
+                    }[];
+                    /** @enum {string} */
+                    type: "FeatureCollection";
+                };
+                bounds?: ((number)[] | (number)[])[];
+                center?: (number)[];
+                offlineBasemap?: {
+                    attribution?: string;
+                    /** Format: uri */
+                    pmtilesUrl: string;
+                };
+                siteplan?: {
+                    corners: ((number)[] | (number)[] | (number)[] | (number)[])[];
+                    /** Format: uri */
+                    imageUrl: string;
+                    opacity: number;
+                };
+                /** @enum {number} */
+                version: 1;
+                zones?: {
+                    features: {
+                        geometry: {
+                            coordinates: (number)[][][];
+                            /** @enum {string} */
+                            type: "Polygon";
+                        };
+                        properties?: {
+                            [key: string]: unknown;
+                        };
+                        /** @enum {string} */
+                        type: "Feature";
+                    }[];
+                    /** @enum {string} */
+                    type: "FeatureCollection";
+                };
+            } | null;
+            name: string;
+            stages: {
+                color: string | null;
+                id: string;
+                latitude: number | null;
+                longitude: number | null;
+                name: string;
+            }[];
+            timeZone: string | null;
+            updatedAt: string;
+        };
+        FestivalDepth1: {
+            createdAt: string;
+            days: {
+                date: string;
+                label: string;
+                sets: {
+                    artist: string | null;
+                    artists: {
+                        links?: {
+                            [key: string]: string;
+                        };
+                        name: string;
+                    }[];
+                    endTime: string | null;
+                    id: string;
+                    stageId: string | null;
+                    startTime: string | null;
+                }[];
+            }[];
+            id: string;
+            location: string;
+            mapConfig: {
+                amenities?: {
+                    features: {
+                        geometry: {
+                            coordinates: (number)[];
+                            /** @enum {string} */
+                            type: "Point";
+                        };
+                        properties: {
+                            /** @enum {string} */
+                            amenityType: "water" | "medical" | "toilet" | "food" | "atm" | "entrance" | "exit" | "info" | "charging";
+                            id: string;
+                            label: string;
+                        };
+                        /** @enum {string} */
+                        type: "Feature";
+                    }[];
+                    /** @enum {string} */
+                    type: "FeatureCollection";
+                };
+                bounds?: ((number)[] | (number)[])[];
+                center?: (number)[];
+                offlineBasemap?: {
+                    attribution?: string;
+                    /** Format: uri */
+                    pmtilesUrl: string;
+                };
+                siteplan?: {
+                    corners: ((number)[] | (number)[] | (number)[] | (number)[])[];
+                    /** Format: uri */
+                    imageUrl: string;
+                    opacity: number;
+                };
+                /** @enum {number} */
+                version: 1;
+                zones?: {
+                    features: {
+                        geometry: {
+                            coordinates: (number)[][][];
+                            /** @enum {string} */
+                            type: "Polygon";
+                        };
+                        properties?: {
+                            [key: string]: unknown;
+                        };
+                        /** @enum {string} */
+                        type: "Feature";
+                    }[];
+                    /** @enum {string} */
+                    type: "FeatureCollection";
+                };
+            } | null;
+            name: string;
+            stages: {
+                color: string | null;
+                id: string;
+                latitude: number | null;
+                longitude: number | null;
+                name: string;
+            }[];
+            updatedAt: string;
+        };
+        FestivalSet: {
+            artist: string | null;
+            artists: {
+                links?: {
+                    [key: string]: string;
+                };
+                name: string;
+            }[];
+            endTime: string | null;
+            id: string;
+            linkUrl: string | null;
+            stageId: string | null;
+            startTime: string | null;
+        };
+        MeetingPoint: {
+            active: boolean;
+            created_at: string;
+            created_by: string;
+            creator_name?: string;
+            crew_id: string;
+            expires_at: string | null;
+            id: string;
+            label: string;
+            latitude: number | null;
+            location: string;
+            longitude: number | null;
+            meet_at: string | null;
+            recurs_daily: boolean;
+            stage_reference: string | null;
+            type: string;
+            updated_at: string;
         };
         Profile: {
             festivalId?: string;
@@ -918,9 +1169,11 @@ export type components = {
             startTime?: string | null;
         };
         Stage: {
-            id?: string;
-            name?: string;
-            sortOrder?: number;
+            color: string | null;
+            id: string;
+            latitude: number | null;
+            longitude: number | null;
+            name: string;
         };
         Success: {
             /** @description Response payload */
@@ -930,11 +1183,15 @@ export type components = {
             meta?: Record<string, never>;
         };
         User: {
-            avatarUrl?: string | null;
-            /** Format: date-time */
-            createdAt?: string;
-            id?: string;
-            username?: string;
+            avatarUrl: string | null;
+            cashappCashtag: string | null;
+            email: string | null;
+            emailVerified: boolean;
+            id: string;
+            name: string | null;
+            paypalHandle: string | null;
+            username: string;
+            venmoHandle: string | null;
         };
     };
     responses: never;
