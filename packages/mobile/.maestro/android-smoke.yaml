@@ -107,15 +107,11 @@ env:
 # If the selection silently unwound to the picker (the rehydration-clobber
 # regression), this fails the flow loudly instead of the walk continuing.
 - assertNotVisible: "Select a Festival"
-# ── Tab-bar interactivity gate (NON-optional, always runs) ──
-# Regression guard for the build-#15 bug where the Schedule body's timeline
-# carousel sized to its content, overflowed the frame, and painted/intercepted
-# touches over the bottom tab bar — leaving every tab untappable.
-# Picks is now AuthGate-guarded (P1 security fix): tapping it as a GUEST must
-# bounce to login. This single non-optional tap proves BOTH that the Picks tab
-# is tappable (dead-tab-bar guard) AND that the guard fires — and it lands us on
-# the login screen, flowing straight into the authed phase below. The authed
-# tab-bar walk (Picks -> My Picks, Schedule) runs post-login further down.
+# ── Tab-bar interactivity gate + guest AuthGate (NON-optional) ──
+# All four tabs are visible to guests (the Account tab is the sign-in entry).
+# Picks is AuthGate-guarded: tapping it as a GUEST must bounce to login. This
+# single non-optional tap proves the tab is tappable (dead-tab-bar guard) AND
+# the guard fires — and lands us on login, flowing into the authed phase below.
 - tapOn:
     text: "Picks"
 - assertVisible: "Sign in to your account"
