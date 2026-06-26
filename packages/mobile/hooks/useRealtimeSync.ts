@@ -299,6 +299,9 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
         accuracy: data.accuracy,
         heading: data.heading,
         speed: data.speed,
+        battery: data.battery,
+        lowPower: data.lowPower,
+        expiresAt: data.expiresAt,
         capturedAt: data.capturedAt,
         serverAt: data.serverAt,
       });

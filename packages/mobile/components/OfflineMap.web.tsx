@@ -961,6 +961,8 @@ export default function OfflineMap({
       const headingLabel = arrowGlyph ? subEl(`Heading ${arrowGlyph}`) : null;
       const batteryLabel = !stale ? formatBatteryLabel(peer.battery) : null;
       const batteryEl = batteryLabel ? subEl(`Battery ${batteryLabel}`) : null;
+      // Peer low-power flag (#5): cue a live (non-stale) peer in battery-saver mode, next to battery.
+      const lowPowerEl = !stale && peer.lowPower === true ? subEl('🍃 Low Power') : null;
       const windowLabel = !stale ? formatShareWindow(peer.expiresAt, nowMs) : null;
       const windowEl = windowLabel ? subEl(windowLabel) : null;
       const popupEl = popupContent([
@@ -968,6 +970,7 @@ export default function OfflineMap({
         subEl(stale ? `Last seen ${rel}` : `Live · ${rel}`),
         headingLabel,
         batteryEl,
+        lowPowerEl,
         windowEl,
         acc,
       ]);

@@ -118,50 +118,6 @@
           }
         }
       },
-      "Profile": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "userId": {
-            "type": "string"
-          },
-          "festivalId": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "picks": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string",
-              "enum": [
-                "must",
-                "want-to-see",
-                "maybe"
-              ]
-            }
-          }
-        }
-      },
-      "RefreshTokenResponse": {
-        "type": "object",
-        "properties": {
-          "user": {
-            "$ref": "#/components/schemas/User"
-          },
-          "token": {
-            "type": "string",
-            "description": "New session token"
-          },
-          "refreshToken": {
-            "type": "string",
-            "description": "New refresh token (90-day TTL)"
-          }
-        }
-      },
       "User": {
         "type": "object",
         "properties": {
@@ -1670,6 +1626,717 @@
           "updated_at"
         ],
         "additionalProperties": false
+      },
+      "FestivalListItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "stageCount": {
+            "type": "number"
+          },
+          "dayCount": {
+            "type": "number"
+          },
+          "startDate": {
+            "nullable": true,
+            "type": "string"
+          },
+          "endDate": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "location",
+          "stageCount",
+          "dayCount",
+          "startDate",
+          "endDate"
+        ],
+        "additionalProperties": false
+      },
+      "PickPriority": {
+        "type": "string",
+        "enum": [
+          "must",
+          "want-to-see",
+          "maybe"
+        ]
+      },
+      "Profile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "festivalId": {
+            "type": "string"
+          },
+          "userId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "nullable": true,
+            "type": "string"
+          },
+          "picks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "must",
+                "want-to-see",
+                "maybe"
+              ]
+            }
+          },
+          "notes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "reminders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "festivalId",
+          "userId",
+          "name",
+          "avatarUrl",
+          "picks",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CrewPoll": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "crew_id": {
+            "type": "string"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "closes_at": {
+            "nullable": true,
+            "type": "string"
+          },
+          "closed": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "vote_count": {
+            "type": "string"
+          },
+          "votes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "option": {
+                  "nullable": true,
+                  "type": "number"
+                },
+                "user_id": {
+                  "nullable": true,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "option",
+                "user_id"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "crew_id",
+          "created_by",
+          "question",
+          "options",
+          "closes_at",
+          "closed",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "CrewPollVote": {
+        "type": "object",
+        "properties": {
+          "option": {
+            "nullable": true,
+            "type": "number"
+          },
+          "user_id": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "option",
+          "user_id"
+        ],
+        "additionalProperties": false
+      },
+      "CrewExpense": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "crew_id": {
+            "type": "string"
+          },
+          "paid_by": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "split_with": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": "string"
+          },
+          "planned": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "paid_by_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "crew_id",
+          "paid_by",
+          "description",
+          "amount",
+          "split_with",
+          "category",
+          "planned",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "CrewSettlementPlan": {
+        "type": "object",
+        "properties": {
+          "balances": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                },
+                "balance": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "userId",
+                "username",
+                "balance"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "settlements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fromUserId": {
+                  "type": "string"
+                },
+                "fromName": {
+                  "type": "string"
+                },
+                "toUserId": {
+                  "type": "string"
+                },
+                "toName": {
+                  "type": "string"
+                },
+                "amountCents": {
+                  "type": "number"
+                },
+                "amount": {
+                  "type": "number"
+                },
+                "payeeHandles": {
+                  "type": "object",
+                  "properties": {
+                    "venmo": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "cashapp": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "paypal": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "venmo",
+                    "cashapp",
+                    "paypal"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "fromUserId",
+                "fromName",
+                "toUserId",
+                "toName",
+                "amountCents",
+                "amount",
+                "payeeHandles"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "balances",
+          "settlements"
+        ],
+        "additionalProperties": false
+      },
+      "CrewPackingItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "crew_id": {
+            "type": "string"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "brought_by": {
+            "nullable": true,
+            "type": "string"
+          },
+          "claimed": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "creator_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "crew_id",
+          "created_by",
+          "label",
+          "brought_by",
+          "claimed",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "CrewRideOffer": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "crew_id": {
+            "type": "string"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "driver": {
+            "nullable": true,
+            "type": "string"
+          },
+          "seats": {
+            "nullable": true,
+            "type": "number"
+          },
+          "depart_from": {
+            "nullable": true,
+            "type": "string"
+          },
+          "depart_at": {
+            "nullable": true,
+            "type": "string"
+          },
+          "note": {
+            "nullable": true,
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "creator_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "crew_id",
+          "created_by",
+          "driver",
+          "seats",
+          "depart_from",
+          "depart_at",
+          "note",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "CrewMemberStatus": {
+        "type": "object",
+        "properties": {
+          "crew_id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "status": {
+            "nullable": true,
+            "type": "string"
+          },
+          "target_meeting_point_id": {
+            "nullable": true,
+            "type": "string"
+          },
+          "eta_minutes": {
+            "nullable": true,
+            "type": "number"
+          },
+          "note": {
+            "nullable": true,
+            "type": "string"
+          },
+          "latitude": {
+            "nullable": true,
+            "type": "number"
+          },
+          "longitude": {
+            "nullable": true,
+            "type": "number"
+          },
+          "location_captured_at": {
+            "nullable": true,
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "avatar_key": {
+            "nullable": true,
+            "type": "string"
+          },
+          "avatar_version": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "crew_id",
+          "user_id",
+          "status",
+          "target_meeting_point_id",
+          "eta_minutes",
+          "note",
+          "latitude",
+          "longitude",
+          "location_captured_at",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "CrewActivityEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "crew_id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "detail": {
+            "nullable": true,
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "crew_id",
+          "user_id",
+          "type",
+          "detail",
+          "created_at",
+          "username"
+        ],
+        "additionalProperties": false
+      },
+      "NotificationPrefs": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "crewUpdates": {
+            "type": "number"
+          },
+          "setReminders": {
+            "type": "number"
+          },
+          "scheduleChanges": {
+            "type": "number"
+          },
+          "lineupDrops": {
+            "type": "number"
+          },
+          "crewReformed": {
+            "type": "number"
+          },
+          "wrapReady": {
+            "type": "number"
+          },
+          "dndStart": {
+            "nullable": true,
+            "type": "string"
+          },
+          "dndEnd": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "crewUpdates",
+          "setReminders",
+          "scheduleChanges",
+          "lineupDrops",
+          "crewReformed",
+          "wrapReady",
+          "dndStart",
+          "dndEnd"
+        ],
+        "additionalProperties": false
+      },
+      "AuthEnvelope": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "username": {
+                "type": "string"
+              },
+              "name": {
+                "nullable": true,
+                "type": "string"
+              },
+              "avatarUrl": {
+                "nullable": true,
+                "type": "string"
+              },
+              "email": {
+                "nullable": true,
+                "type": "string"
+              },
+              "emailVerified": {
+                "type": "boolean"
+              },
+              "venmoHandle": {
+                "nullable": true,
+                "type": "string"
+              },
+              "cashappCashtag": {
+                "nullable": true,
+                "type": "string"
+              },
+              "paypalHandle": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "username",
+              "name",
+              "avatarUrl",
+              "email",
+              "emailVerified",
+              "venmoHandle",
+              "cashappCashtag",
+              "paypalHandle"
+            ],
+            "additionalProperties": false
+          },
+          "token": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "RefreshTokenResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "username": {
+                "type": "string"
+              },
+              "name": {
+                "nullable": true,
+                "type": "string"
+              },
+              "avatarUrl": {
+                "nullable": true,
+                "type": "string"
+              },
+              "email": {
+                "nullable": true,
+                "type": "string"
+              },
+              "emailVerified": {
+                "type": "boolean"
+              },
+              "venmoHandle": {
+                "nullable": true,
+                "type": "string"
+              },
+              "cashappCashtag": {
+                "nullable": true,
+                "type": "string"
+              },
+              "paypalHandle": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "username",
+              "name",
+              "avatarUrl",
+              "email",
+              "emailVerified",
+              "venmoHandle",
+              "cashappCashtag",
+              "paypalHandle"
+            ],
+            "additionalProperties": false
+          },
+          "token": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "additionalProperties": false
       }
     }
   },
@@ -1784,7 +2451,14 @@
         },
         "responses": {
           "200": {
-            "description": "Login successful"
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthEnvelope"
+                }
+              }
+            }
           },
           "401": {
             "description": "Invalid credentials"
@@ -1849,7 +2523,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Current user info"
+            "description": "Current user info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthEnvelope"
+                }
+              }
+            }
           }
         }
       }
@@ -1893,7 +2574,17 @@
         "summary": "List all festivals",
         "responses": {
           "200": {
-            "description": "Festival list (ETag-cached)"
+            "description": "Festival list (ETag-cached)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FestivalListItem"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1961,7 +2652,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Profile list"
+            "description": "Profile list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Profile"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1979,7 +2680,14 @@
         ],
         "responses": {
           "201": {
-            "description": "Profile created"
+            "description": "Profile created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
           }
         }
       }
@@ -1997,7 +2705,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Picks updated"
+            "description": "Picks updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
           },
           "409": {
             "description": "Version mismatch"
@@ -2102,6 +2817,483 @@
         }
       }
     },
+    "/api/v1/crews/{crewId}/polls": {
+      "get": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "List active crew polls",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Polls (with vote tallies)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "polls": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CrewPoll"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "Create crew poll",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Poll created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "poll": {
+                      "$ref": "#/components/schemas/CrewPoll"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crews/{crewId}/expenses": {
+      "get": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "List crew expenses",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expense ledger",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CrewExpense"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "Add crew expense",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Expense created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrewExpense"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crews/{crewId}/expenses/settlement-plan": {
+      "get": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "Netted who-pays-whom settlement plan",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Balances + settlements",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrewSettlementPlan"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crews/{crewId}/packing": {
+      "get": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "List crew packing items",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Packing board",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CrewPackingItem"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "Add packing item",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Item created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "item": {
+                      "$ref": "#/components/schemas/CrewPackingItem"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crews/{crewId}/rides": {
+      "get": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "List crew ride offers",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ride board",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "offers": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CrewRideOffer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "Add ride offer",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Offer created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "offer": {
+                      "$ref": "#/components/schemas/CrewRideOffer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crews/{crewId}/status": {
+      "get": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "List crew member statuses",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Member statuses",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statuses": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CrewMemberStatus"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "Upsert my own status",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status upserted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "$ref": "#/components/schemas/CrewMemberStatus"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/crews/{crewId}/activity": {
+      "get": {
+        "tags": [
+          "Crews"
+        ],
+        "summary": "Crew activity feed (cursor-paginated)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "crewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Activity entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CrewActivityEntry"
+                      }
+                    },
+                    "nextCursor": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/festivals/{festivalId}/calendar": {
       "get": {
         "tags": [
@@ -2151,7 +3343,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Preferences"
+            "description": "Preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPrefs"
+                }
+              }
+            }
           }
         }
       },
@@ -2167,7 +3366,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Updated"
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPrefs"
+                }
+              }
+            }
           }
         }
       }

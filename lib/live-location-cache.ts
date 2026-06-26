@@ -147,6 +147,13 @@ export function assembleSnapshot(
 
     const username = typeof obj.username === 'string' ? obj.username : '';
     const capturedAt = typeof obj.capturedAt === 'string' ? obj.capturedAt : serverAt;
+    // Phase 4C cues: carry the optional battery / low-power / share-window fields
+    // through the snapshot so a late-joiner sees the same chips as a live peer.
+    // The full payload is written to the cache verbatim (writeLivePosition), so
+    // these are present whenever the live source supplied them; only emit the
+    // whitelisted, type-checked values.
+    const lowPower = typeof obj.lowPower === 'boolean' ? obj.lowPower : undefined;
+    const expiresAt = typeof obj.expiresAt === 'string' ? obj.expiresAt : undefined;
 
     peers.push({
       _v: 1,
@@ -158,6 +165,9 @@ export function assembleSnapshot(
       accuracy: optionalFiniteNumber(obj.accuracy),
       heading: optionalFiniteNumber(obj.heading),
       speed: optionalFiniteNumber(obj.speed),
+      battery: optionalFiniteNumber(obj.battery),
+      lowPower,
+      expiresAt,
       capturedAt,
       serverAt,
     });
