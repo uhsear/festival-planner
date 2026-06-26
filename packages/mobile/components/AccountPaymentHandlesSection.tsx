@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@festie/shared/stores';
 import { api } from '@festie/shared/services';
@@ -33,6 +33,17 @@ export default function AccountPaymentHandlesSection() {
   const [paypal, setPaypal] = useState(current.paypal);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Transient inline confirmation — a quiet "Saved" beats a modal Alert for a
+  // non-destructive success (matches the password/avatar sections; Alerts are
+  // reserved for destructive confirmations).
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    };
+  }, []);
 
   const dirty =
     venmo.trim() !== current.venmo || cashapp.trim() !== current.cashapp || paypal.trim() !== current.paypal;
@@ -47,6 +58,7 @@ export default function AccountPaymentHandlesSection() {
     setCashapp(current.cashapp);
     setPaypal(current.paypal);
     setError(null);
+    setSaved(false);
   };
 
   const toggle = () => {
@@ -81,8 +93,13 @@ export default function AccountPaymentHandlesSection() {
       setCashapp(res.user?.cashappCashtag ?? '');
       setPaypal(res.user?.paypalHandle ?? '');
       haptics.success();
-      setOpen(false);
-      Alert.alert('Payment handles updated', 'Your payment handles have been saved.');
+      // Keep the card open briefly to show the inline confirmation, then collapse.
+      setSaved(true);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => {
+        setSaved(false);
+        setOpen(false);
+      }, 1800);
     } catch (err) {
       haptics.warning();
       setError(err instanceof Error ? err.message : 'Could not update payment handles.');
@@ -156,6 +173,13 @@ export default function AccountPaymentHandlesSection() {
             <Text style={styles.error} accessibilityLiveRegion="polite">
               {error}
             </Text>
+          ) : null}
+
+          {saved ? (
+            <View style={styles.savedRow} accessibilityLiveRegion="polite">
+              <Ionicons name="checkmark-circle" size={14} color={t.colors.status.verified} style={styles.savedIcon} />
+              <Text style={styles.savedText}>Saved</Text>
+            </View>
           ) : null}
 
           <Button
@@ -323,6 +347,18 @@ const useStyles = makeStyles((t) => ({
   error: {
     ...typeStyle('caption'),
     color: t.colors.text.danger,
+  },
+  savedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -t.spacing[1],
+  },
+  savedIcon: {
+    marginRight: 4,
+  },
+  savedText: {
+    ...typeStyle('caption'),
+    color: t.colors.status.verified,
   },
   // Submit CTA layout only — fill/ink/disabled live in components/Button (F8).
   submit: {

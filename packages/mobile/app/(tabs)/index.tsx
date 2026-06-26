@@ -706,6 +706,11 @@ export default function TimelineScreen() {
             {filteredSets.length} {filteredSets.length === 1 ? 'set' : 'sets'}
             {onlyMine ? ' · my picks' : ''}
             {stageFilterActive ? ` · ${activeStages.length} ${activeStages.length === 1 ? 'stage' : 'stages'}` : ''}
+            {/* The count spans the whole filtered day, but in Timeline mode the
+                timeline only plots timed sets — TBA sets live in the docked TBA
+                list below. Qualify how many of the N are unscheduled so the
+                number can't read as "missing" rows from the timeline. */}
+            {viewMode === 'timeline' && timelessSets.length > 0 ? ` · ${timelessSets.length} TBA` : ''}
           </Text>
           <TouchableOpacity
             onPress={clearAllFilters}

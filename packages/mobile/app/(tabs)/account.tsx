@@ -1,14 +1,5 @@
 import { useCallback, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, ScrollView, Image, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -17,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@festie/shared/hooks';
 import { useAuthStore, useNotificationPrefsStore } from '@festie/shared/stores';
 import ScreenHeader from '../../components/ScreenHeader';
+import AppPressable from '../../components/AppPressable';
 import SectionLabel from '../../components/SectionLabel';
 import AccountAvatarSection from '../../components/AccountAvatarSection';
 import AccountDisplayNameSection from '../../components/AccountDisplayNameSection';
@@ -294,7 +286,7 @@ export default function AccountScreen() {
         {/* Account actions */}
         <SectionLabel>Account</SectionLabel>
         <View style={styles.card}>
-          <TouchableOpacity
+          <AppPressable
             style={styles.row}
             onPress={confirmLogout}
             disabled={loggingOut}
@@ -314,7 +306,7 @@ export default function AccountScreen() {
             ) : (
               <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
             )}
-          </TouchableOpacity>
+          </AppPressable>
         </View>
 
         {/* Danger zone */}
@@ -355,7 +347,7 @@ function LinkRow({
   const t = useTokens();
   const styles = useStyles();
   return (
-    <TouchableOpacity
+    <AppPressable
       style={styles.row}
       onPress={onPress}
       activeOpacity={0.7}
@@ -372,7 +364,7 @@ function LinkRow({
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color={t.colors.text.placeholder} />
-    </TouchableOpacity>
+    </AppPressable>
   );
 }
 
