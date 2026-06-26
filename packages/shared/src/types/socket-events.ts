@@ -158,8 +158,12 @@ export interface LocationSharePayload extends VersionedPayload {
     lng: number;
     accuracy?: number;
     heading?: number;
+    /** Phase 4C: sharer battery % (0–100); only present when a native/web source supplies it. */
+    battery?: number;
     capturedAt: string;
   };
+  /** Phase 4C: ISO expiry of this time-boxed share ("sharing ends in Nm"). */
+  expiresAt?: string;
 }
 
 /** client→server: a periodic high-frequency GPS fix while sharing. */
@@ -170,6 +174,10 @@ export interface LocationUpdatePayload extends VersionedPayload {
   accuracy?: number;
   heading?: number;
   speed?: number;
+  /** Phase 4C: sharer battery % (0–100); only present when a source supplies it. */
+  battery?: number;
+  /** Phase 4C: ISO expiry of this time-boxed share. */
+  expiresAt?: string;
   capturedAt: string;
 }
 
@@ -193,6 +201,10 @@ export interface LocationPeerUpdatePayload extends VersionedPayload {
   accuracy?: number;
   heading?: number;
   speed?: number;
+  /** Phase 4C: sharer battery % (0–100); only present when a source supplies it. */
+  battery?: number;
+  /** Phase 4C: ISO expiry of this time-boxed share ("sharing ends in Nm"). */
+  expiresAt?: string;
   capturedAt: string;
   serverAt: string;
 }

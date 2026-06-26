@@ -431,7 +431,7 @@ export default function setupSocketHandlers(deps: any) {
         }
         const validation = schemas.locationShare.safeParse(data);
         if (!validation.success) return respond({ ok: false, code: 'SCHEMA_MISMATCH' });
-        const { crewId, position } = validation.data;
+        const { crewId, position, expiresAt } = validation.data;
 
         // The socket must already be joined to this crew room (join:crew set it).
         if (socket.data?.crewId !== crewId) return respond({ ok: false, code: 'NOT_IN_CREW_ROOM' });
@@ -482,6 +482,10 @@ export default function setupSocketHandlers(deps: any) {
             lng: position.lng,
             accuracy: position.accuracy,
             heading: position.heading,
+            // Phase 4C: relay battery (off the fix) + the share-window expiry so
+            // peers render the direction/battery/countdown chips. Pure pass-through.
+            battery: position.battery,
+            expiresAt,
             // L4: clamp client capturedAt to a small window around server time.
             capturedAt: clampCapturedAt(position.capturedAt, nowMs, serverAt),
             serverAt,
@@ -512,7 +516,7 @@ export default function setupSocketHandlers(deps: any) {
           socket.emit('error', { message: 'Invalid location payload', code: 'SCHEMA_MISMATCH' });
           return;
         }
-        const { crewId, lat, lng, accuracy, heading, speed, capturedAt } = validation.data;
+        const { crewId, lat, lng, accuracy, heading, speed, battery, expiresAt, capturedAt } = validation.data;
 
         if (socket.data?.sharingCrewId !== crewId) {
           socket.emit('error', { message: 'Not sharing location to this crew', code: 'NOT_SHARING' });
@@ -572,6 +576,10 @@ export default function setupSocketHandlers(deps: any) {
           accuracy,
           heading,
           speed,
+          // Phase 4C: relay sharer battery + the share-window expiry (both optional)
+          // so peers render the heading/battery/countdown chips. Pure pass-through.
+          battery,
+          expiresAt,
           // L4: clamp client capturedAt to a small window around server time.
           capturedAt: clampCapturedAt(capturedAt, nowMs, serverAt),
           serverAt,

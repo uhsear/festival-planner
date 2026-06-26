@@ -395,6 +395,20 @@ button[aria-label='Back to app'] {
   border: 1px solid var(--color-border-light, rgba(255, 255, 255, 0.14));
   pointer-events: none;
 }
+/* Phase 4C: direction-of-travel pointer for a live peer. A small caret pinned
+   just above the avatar, rotated inline by the GPS course (transform set per
+   marker). Hidden for stale peers (no live heading to trust). */
+.festie-peer-heading {
+  position: absolute;
+  bottom: calc(100% - 1px);
+  left: 50%;
+  transform-origin: 50% 14px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--color-accent-aqua, #19e3d3);
+  text-shadow: 0 0 2px rgba(8, 8, 16, 0.9);
+  pointer-events: none;
+}
 
 /* SOS marker — the loudest thing on the map: a large coral disc with a pulsing
    alarm ring. Bigger than peers/meeting points so it can't be missed. */
@@ -489,6 +503,25 @@ button[aria-label='Back to app'] {
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
+}
+/* Zone label (Phase 4A): a small chip at the zone centroid, tinted with the
+   zone's color. Non-interactive — the polygon fill (a GL layer) sits beneath
+   every marker; this tag just names the area. */
+.festie-zone-label {
+  white-space: nowrap;
+  max-inline-size: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(8, 8, 16, 0.7);
+  color: var(--color-text-primary, #eaeaf2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 8px;
+  border: 1px solid var(--zone-color, rgba(255, 255, 255, 0.25));
+  pointer-events: none;
 }
 
 /* Small pulsing "live" dot used in the sharing-indicator banner. */

@@ -29,6 +29,12 @@ export interface LiveLocationState {
   crewId: string | null;
   /** The crew we are actively publishing our own position to, or null. */
   sharingCrewId: string | null;
+  /**
+   * Phase 4C: ISO timestamp our own time-boxed share auto-stops, or null. Drives
+   * the "sharing ends in Nm" countdown on our own sharing indicator (peers get
+   * theirs from each peer's relayed expiresAt). Cleared on stop/reset.
+   */
+  sharingExpiresAt: string | null;
   /** Publisher bookkeeping: epoch ms of our last published fix. */
   lastSentAt: number | null;
   /** Publisher bookkeeping: our last published coordinate (for move-threshold). */
@@ -45,8 +51,12 @@ export interface LiveLocationActions {
    * when the crew changes so stale markers from another crew never render.
    */
   setActiveCrew: (crewId: string | null) => void;
-  /** Mark that we have started publishing our own position to `crewId`. */
-  startSharing: (crewId: string) => void;
+  /**
+   * Mark that we have started publishing our own position to `crewId`. `expiresAt`
+   * (Phase 4C) is the ISO auto-stop time for the "sharing ends in Nm" own-side
+   * countdown; omit it to leave the window unset.
+   */
+  startSharing: (crewId: string, expiresAt?: string | null) => void;
   /** Stop publishing our own position; clears publisher bookkeeping. */
   stopSharing: () => void;
   /** Record a just-published fix (used by the throttle in useLiveLocationPublisher). */
@@ -70,6 +80,7 @@ export type LiveLocationStore = LiveLocationState & LiveLocationActions;
 const EMPTY: LiveLocationState = {
   crewId: null,
   sharingCrewId: null,
+  sharingExpiresAt: null,
   lastSentAt: null,
   lastSentCoord: null,
   peers: {},
@@ -86,12 +97,12 @@ const liveLocationStore: StateCreator<LiveLocationStore> = (set, get) => ({
     set({ ...EMPTY, crewId });
   },
 
-  startSharing: (crewId) => {
-    set({ crewId, sharingCrewId: crewId, lastSentAt: null, lastSentCoord: null });
+  startSharing: (crewId, expiresAt = null) => {
+    set({ crewId, sharingCrewId: crewId, sharingExpiresAt: expiresAt, lastSentAt: null, lastSentCoord: null });
   },
 
   stopSharing: () => {
-    set({ sharingCrewId: null, lastSentAt: null, lastSentCoord: null });
+    set({ sharingCrewId: null, sharingExpiresAt: null, lastSentAt: null, lastSentCoord: null });
   },
 
   recordSent: (coord, at) => {

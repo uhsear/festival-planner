@@ -7,10 +7,18 @@ import {
   extractMeetingPointPins,
   extractStagePins,
   extractAmenityPins,
+  extractZones,
+  zonesGeoJSON,
+  zoneLabels,
+  extractSiteplan,
+  siteplanImageSource,
   amenityGlyph,
   pickFestivalCamera,
   formatStaleness,
   isPeerStale,
+  headingToArrow,
+  formatBatteryLabel,
+  formatShareWindow,
   getInitials,
   buildPursuit,
   nearestPin,
@@ -176,6 +184,7 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
   const mpMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const stageMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const amenityMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
+  const zoneLabelMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const peerMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const sosMarkerRef = useRef<import('maplibre-gl').Marker | null>(null);
   const fittedRef = useRef(false);
@@ -247,6 +256,13 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
   // Empty for festivals that were never mapped — the "not mapped yet" note stays.
   const stagePins = useMemo<Pin[]>(() => extractStagePins(festival), [festival]);
   const amenityPins = useMemo<Pin[]>(() => extractAmenityPins(festival?.mapConfig), [festival]);
+  // Zone polygons (Phase 4A): filled translucent areas (camping/VIP/no-go) drawn
+  // UNDER the pins. Empty for festivals with no zones — no zone layer is added.
+  const zones = useMemo(() => extractZones(festival?.mapConfig), [festival]);
+  // Site-plan raster overlay (Phase 4B): the organizer's georeferenced paper map,
+  // drawn UNDER zones + pins. Null for festivals with no site plan — no raster
+  // layer is added (graceful, unchanged).
+  const siteplan = useMemo(() => extractSiteplan(festival?.mapConfig), [festival]);
   // Amenity pins after the filter chips: a category in `hiddenAmenities` is
   // dropped from the rendered set. The full `amenityPins` is still used for the
   // camera + nearest-X search (so "nearest medical" works even when hidden).
@@ -257,17 +273,38 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
   const hasPins = pins.length > 0;
   const hasStages = stagePins.length > 0;
   const hasAmenities = amenityPins.length > 0;
+  const hasZones = zones.length > 0;
+  const hasSiteplan = !!siteplan;
   const hasPeers = peers.length > 0;
   const hasSos = !!sos?.position;
   // Render the map when there's ANYTHING to plot (meeting points, stage/amenity
-  // map data, live peers, or an SOS coord).
-  const shouldRenderMap = hasPins || hasStages || hasAmenities || hasPeers || hasSos;
+  // map data, zone polygons, a site-plan overlay, live peers, or an SOS coord).
+  const shouldRenderMap = hasPins || hasStages || hasAmenities || hasZones || hasSiteplan || hasPeers || hasSos;
 
   // Initial camera: prefer the festival's explicit map-config (bounds/center),
   // then fall back to framing the static pins (meeting points + stages +
   // amenities), then live peers / SOS. pickFestivalCamera owns the static-pin
   // precedence; we extend its fallback with the ephemeral peer/SOS coord.
-  const staticPins = useMemo(() => [...pins, ...stagePins, ...amenityPins], [pins, stagePins, amenityPins]);
+  // Zone centroids feed the camera-fit fallback as pseudo-pins so a zones-only
+  // festival still frames its grounds (pickFestivalCamera's explicit config
+  // bounds/center still win when present).
+  const zoneCentroidPins = useMemo<Pin[]>(
+    () =>
+      zones
+        .filter((z) => z.centroid)
+        .map((z) => ({
+          id: `zone:${z.id}`,
+          kind: 'amenity' as const,
+          label: z.label || 'Zone',
+          latitude: z.centroid!.latitude,
+          longitude: z.centroid!.longitude,
+        })),
+    [zones],
+  );
+  const staticPins = useMemo(
+    () => [...pins, ...stagePins, ...amenityPins, ...zoneCentroidPins],
+    [pins, stagePins, amenityPins, zoneCentroidPins],
+  );
   const camera = useMemo(() => pickFestivalCamera(festival, staticPins), [festival, staticPins]);
   const center = useMemo(() => {
     if (camera.center) return camera.center;
@@ -294,8 +331,24 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
     () => amenityPins.map((p) => `${p.id}:${p.latitude},${p.longitude}`).join('|'),
     [amenityPins],
   );
+  // Re-run the zone effect when a zone's color/label/geometry changes (the
+  // centroid + per-ring point counts capture a live admin draw adding vertices).
+  const zonesKey = useMemo(
+    () =>
+      zones
+        .map(
+          (z) =>
+            `${z.id}:${z.color}:${z.label}:${z.rings.map((r) => r.length).join(',')}:${z.centroid?.latitude ?? ''},${z.centroid?.longitude ?? ''}`,
+        )
+        .join('|'),
+    [zones],
+  );
   const peersKey = useMemo(() => peers.map((p) => `${p.userId}:${p.lat},${p.lng}:${p.serverAt}`).join('|'), [peers]);
   const sosKey = sos ? `${sos.userId}:${sos.position?.lat},${sos.position?.lng}` : '';
+  // Re-run the site-plan effect when the image URL, corners, or opacity change.
+  const siteplanKey = siteplan
+    ? `${siteplan.imageUrl}:${siteplan.corners.map((c) => c.join(',')).join('|')}:${siteplan.opacity}`
+    : '';
 
   // Resolve the pursue target's LIVE coord: a peer/SOS target tracks the latest
   // position from props (so the arrow follows them), while a nearest-amenity
@@ -435,6 +488,7 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
       mpMarkersRef.current = [];
       stageMarkersRef.current = [];
       amenityMarkersRef.current = [];
+      zoneLabelMarkersRef.current = [];
       peerMarkersRef.current = [];
       sosMarkerRef.current = null;
       fittedRef.current = false;
@@ -444,6 +498,111 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
     };
     // Only (re)create when content first appears / disappears.
   }, [shouldRenderMap]);
+
+  // ── Site-plan raster overlay (festival-mapped; UNDER zones + every marker) ──
+  // The organizer's georeferenced paper site-plan, drawn as a MapLibre `image`
+  // source + raster layer positioned by its 4 corners at the configured opacity.
+  // Declared BEFORE the zones effect so, on first load, this layer is added to
+  // the stack first and the zone fill/outline layers (added next) sit on top —
+  // and DOM markers (meeting/stage/amenity/peer/SOS) are always above all GL
+  // layers. Graceful: no siteplan ⇒ nothing added; clearing it removes the layer.
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    const SRC = 'festie-siteplan';
+    const LAYER = 'festie-siteplan-layer';
+    const src = siteplanImageSource(siteplan);
+    try {
+      if (!src) {
+        // Cleared (or never present): tear down the layer + source if we added them.
+        if (map.getLayer(LAYER)) map.removeLayer(LAYER);
+        if (map.getSource(SRC)) map.removeSource(SRC);
+        return;
+      }
+      // MapLibre's ImageSource wants a 4-tuple of [lng,lat]; our corners are
+      // already in TL/TR/BR/BL order — assert the tuple shape for the typings.
+      const coordinates = src.coordinates as unknown as [
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+      ];
+      const existing = map.getSource(SRC) as import('maplibre-gl').ImageSource | undefined;
+      if (existing) {
+        existing.updateImage({ url: src.url, coordinates });
+        if (map.getLayer(LAYER)) map.setPaintProperty(LAYER, 'raster-opacity', src.opacity);
+      } else {
+        map.addSource(SRC, { type: 'image', url: src.url, coordinates });
+        map.addLayer({
+          id: LAYER,
+          type: 'raster',
+          source: SRC,
+          paint: { 'raster-opacity': src.opacity, 'raster-fade-duration': 0 },
+        });
+      }
+    } catch {
+      // Transient style-not-ready race: a later siteplanKey change re-attempts.
+      // Never tear the map down for a site-plan glitch.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, siteplanKey]);
+
+  // ── Zone polygons (festival-mapped; filled translucent, UNDER every marker) ──
+  // Rendered as a single GeoJSON source + a fill + outline GL layer (data-driven
+  // color via ['get','color']) so they always sit beneath the DOM markers
+  // (meeting points / stages / amenities / peers / SOS). Zone labels are DOM
+  // markers at each centroid (no glyphs endpoint needed — same approach as the
+  // stage tag). The source/layers are added once, then `setData` updates them.
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    // Typed via maplibre's own setData param so we don't depend on the ambient
+    // GeoJSON namespace (not in scope in the web tsconfig). The struct from
+    // zonesGeoJSON is a GeoJSON FeatureCollection in all but nominal type.
+    type ZoneData = Parameters<import('maplibre-gl').GeoJSONSource['setData']>[0];
+    const data = zonesGeoJSON(zones) as unknown as ZoneData;
+    try {
+      const existing = map.getSource('festie-zones') as import('maplibre-gl').GeoJSONSource | undefined;
+      if (existing) {
+        existing.setData(data);
+      } else {
+        map.addSource('festie-zones', { type: 'geojson', data });
+        map.addLayer({
+          id: 'festie-zones-fill',
+          type: 'fill',
+          source: 'festie-zones',
+          paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 },
+        });
+        map.addLayer({
+          id: 'festie-zones-line',
+          type: 'line',
+          source: 'festie-zones',
+          paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.85 },
+        });
+      }
+    } catch {
+      // A transient style-not-ready race: the next zonesKey change (or the fit
+      // effect) will re-attempt. Never tear the map down for a zone glitch.
+    }
+
+    // Rebuild the centroid label markers (DOM) for zones that carry a label.
+    for (const m of zoneLabelMarkersRef.current) m.remove();
+    zoneLabelMarkersRef.current = [];
+    for (const z of zoneLabels(zones)) {
+      const el = document.createElement('div');
+      el.className = 'festie-zone-label';
+      el.style.setProperty('--zone-color', z.color);
+      el.setAttribute('aria-hidden', 'true');
+      el.textContent = z.label;
+      const marker = new gl.Marker({ element: el }).setLngLat([z.longitude, z.latitude]).addTo(map);
+      zoneLabelMarkersRef.current.push(marker);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, zonesKey]);
 
   // ── Meeting-point markers ──────────────────────────────────────────────────
   useEffect(() => {
@@ -578,6 +737,17 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
       const iniEl = document.createElement('span');
       iniEl.textContent = initials;
       el.appendChild(iniEl);
+      // Phase 4C: direction-of-travel pointer — a caret rotated by the GPS course.
+      // Only for live peers with a real heading (a stationary fix reports none).
+      const arrowGlyph = stale ? null : headingToArrow(peer.heading);
+      if (arrowGlyph && typeof peer.heading === 'number') {
+        const dir = document.createElement('span');
+        dir.className = 'festie-peer-heading';
+        dir.setAttribute('aria-hidden', 'true');
+        dir.textContent = '▲';
+        dir.style.transform = `translateX(-50%) rotate(${peer.heading}deg)`;
+        el.appendChild(dir);
+      }
       if (stale) {
         const chip = document.createElement('span');
         chip.className = 'festie-peer-chip';
@@ -586,7 +756,21 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
       }
       const acc =
         typeof peer.accuracy === 'number' && peer.accuracy > 0 ? subEl(`±${Math.round(peer.accuracy)} m`) : null;
-      const popupEl = popupContent([titleEl(peer.username), subEl(stale ? `Last seen ${rel}` : `Live · ${rel}`), acc]);
+      // Phase 4C popup chips: heading arrow, battery ("8% — regroup"), and the
+      // remaining share window ("sharing ends in Nm"). Each omitted when absent.
+      const headingLabel = arrowGlyph ? subEl(`Heading ${arrowGlyph}`) : null;
+      const batteryLabel = !stale ? (formatBatteryLabel(peer.battery) ?? null) : null;
+      const batteryEl = batteryLabel ? subEl(`Battery ${batteryLabel}`) : null;
+      const windowLabel = !stale ? formatShareWindow(peer.expiresAt, now) : null;
+      const windowEl = windowLabel ? subEl(windowLabel) : null;
+      const popupEl = popupContent([
+        titleEl(peer.username),
+        subEl(stale ? `Last seen ${rel}` : `Live · ${rel}`),
+        headingLabel,
+        batteryEl,
+        windowEl,
+        acc,
+      ]);
       const marker = new gl.Marker({ element: el })
         .setLngLat([peer.lng, peer.lat])
         .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setDOMContent(popupEl))
@@ -685,6 +869,10 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
       ...pins.map((p) => [p.longitude, p.latitude] as [number, number]),
       ...stagePins.map((p) => [p.longitude, p.latitude] as [number, number]),
       ...amenityPins.map((p) => [p.longitude, p.latitude] as [number, number]),
+      // Every zone vertex so the grounds frame includes the drawn areas.
+      ...zones.flatMap((z) => z.rings.flat()),
+      // Site-plan corners so a siteplan-only festival still frames its grounds.
+      ...(siteplan ? siteplan.corners : []),
       ...peers.map((p) => [p.lng, p.lat] as [number, number]),
       ...(sos?.position ? [[sos.position.lng, sos.position.lat] as [number, number]] : []),
     ];
@@ -695,7 +883,7 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
     }
     fittedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, pinsKey, stagesKey, allAmenitiesKey, peersKey, sosKey]);
+  }, [status, pinsKey, stagesKey, allAmenitiesKey, zonesKey, siteplanKey, peersKey, sosKey]);
 
   // ── Empty state: nothing to plot ───────────────────────────────────────────
   if (!shouldRenderMap) {

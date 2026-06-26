@@ -629,8 +629,17 @@ export interface PeerLocation {
   lat: number;
   lng: number;
   accuracy?: number;
+  /** Phase 4C: GPS course/heading (deg clockwise from north) → direction-of-travel arrow. */
   heading?: number;
   speed?: number;
+  /**
+   * Phase 4C: sharer battery % (0–100). OPTIONAL — only populated once a native
+   * build adds expo-battery (mobile) or the Battery API is available (web); until
+   * then it is undefined and the popup simply omits the battery chip.
+   */
+  battery?: number;
+  /** Phase 4C: ISO expiry of the sharer's time-boxed share ("sharing ends in Nm"). */
+  expiresAt?: string;
   /** ISO timestamp the client stamped at GPS fix time. */
   capturedAt: string;
   /** ISO timestamp the server received/relayed the fix (authoritative for staleness). */

@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { shouldPublishLocation, isPeerStale, type LatLng } from './liveLocation';
+import {
+  shouldPublishLocation,
+  isPeerStale,
+  headingToArrow,
+  formatBatteryLabel,
+  formatShareWindow,
+  LOW_BATTERY_THRESHOLD,
+  type LatLng,
+} from './liveLocation';
 import { LIVE_LOCATION } from '../constants/config';
 
 const NOW = 1_000_000;
@@ -74,5 +82,92 @@ describe('liveLocation.isPeerStale', () => {
   it('honours a custom freshness window', () => {
     expect(isPeerStale(NOW - 5_000, NOW, 1_000)).toBe(true);
     expect(isPeerStale(NOW - 5_000, NOW, 10_000)).toBe(false);
+  });
+});
+
+describe('liveLocation.headingToArrow', () => {
+  it('maps the four cardinals to their arrow glyphs', () => {
+    expect(headingToArrow(0)).toBe('↑');
+    expect(headingToArrow(90)).toBe('→');
+    expect(headingToArrow(180)).toBe('↓');
+    expect(headingToArrow(270)).toBe('←');
+  });
+
+  it('rounds to the nearest 45° sector (intercardinals)', () => {
+    expect(headingToArrow(44)).toBe('↗');
+    expect(headingToArrow(45)).toBe('↗');
+    expect(headingToArrow(135)).toBe('↘');
+    expect(headingToArrow(225)).toBe('↙');
+    expect(headingToArrow(315)).toBe('↖');
+  });
+
+  it('wraps 360 / negative / out-of-range headings back to North-ish', () => {
+    expect(headingToArrow(360)).toBe('↑');
+    expect(headingToArrow(720)).toBe('↑');
+    expect(headingToArrow(-90)).toBe('←');
+    expect(headingToArrow(-45)).toBe('↖');
+  });
+
+  it('returns null for absent / non-finite headings (no misleading arrow)', () => {
+    expect(headingToArrow(null)).toBeNull();
+    expect(headingToArrow(undefined)).toBeNull();
+    expect(headingToArrow(NaN)).toBeNull();
+    expect(headingToArrow(Infinity)).toBeNull();
+  });
+});
+
+describe('liveLocation.formatBatteryLabel', () => {
+  it('shows a bare percentage when healthy', () => {
+    expect(formatBatteryLabel(85)).toBe('85%');
+    expect(formatBatteryLabel(100)).toBe('100%');
+  });
+
+  it('appends a regroup nudge at/below the low threshold', () => {
+    expect(formatBatteryLabel(8)).toBe('8% — regroup');
+    expect(formatBatteryLabel(LOW_BATTERY_THRESHOLD)).toBe(`${LOW_BATTERY_THRESHOLD}% — regroup`);
+    expect(formatBatteryLabel(0)).toBe('0% — regroup');
+  });
+
+  it('rounds fractional levels before formatting', () => {
+    expect(formatBatteryLabel(83.4)).toBe('83%');
+    expect(formatBatteryLabel(20.6)).toBe('21%');
+  });
+
+  it('honours a custom low threshold', () => {
+    expect(formatBatteryLabel(30, 50)).toBe('30% — regroup');
+    expect(formatBatteryLabel(60, 50)).toBe('60%');
+  });
+
+  it('returns null for absent / out-of-range / non-finite levels', () => {
+    expect(formatBatteryLabel(null)).toBeNull();
+    expect(formatBatteryLabel(undefined)).toBeNull();
+    expect(formatBatteryLabel(-1)).toBeNull();
+    expect(formatBatteryLabel(101)).toBeNull();
+    expect(formatBatteryLabel(NaN)).toBeNull();
+  });
+});
+
+describe('liveLocation.formatShareWindow', () => {
+  it('counts down whole minutes, rounding up', () => {
+    expect(formatShareWindow(NOW + 4 * 60_000, NOW)).toBe('sharing ends in 4m');
+    expect(formatShareWindow(NOW + 3 * 60_000 + 1, NOW)).toBe('sharing ends in 4m');
+  });
+
+  it('never shows 0m while still live (clamps to 1m)', () => {
+    expect(formatShareWindow(NOW + 1, NOW)).toBe('sharing ends in 1m');
+    expect(formatShareWindow(NOW + 30_000, NOW)).toBe('sharing ends in 1m');
+  });
+
+  it('accepts ISO strings as well as epoch ms', () => {
+    const iso = new Date(NOW + 10 * 60_000).toISOString();
+    expect(formatShareWindow(iso, NOW)).toBe('sharing ends in 10m');
+  });
+
+  it('returns null once the window has elapsed or is absent/invalid', () => {
+    expect(formatShareWindow(NOW, NOW)).toBeNull();
+    expect(formatShareWindow(NOW - 1, NOW)).toBeNull();
+    expect(formatShareWindow(null, NOW)).toBeNull();
+    expect(formatShareWindow(undefined, NOW)).toBeNull();
+    expect(formatShareWindow('not-a-date', NOW)).toBeNull();
   });
 });

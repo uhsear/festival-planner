@@ -46,11 +46,19 @@ export function safeJsonForScript(value: unknown): string {
  * EXACTLY that one origin and nothing more — default-deny is preserved. The host
  * is compared by strict equality (no wildcard), so only the configured origin
  * (and the static unpkg/OSM hosts) can ever load.
+ *
+ * Phase 4B: `extraHost` may be an ARRAY so the renderer can permit BOTH the
+ * basemap host AND the georeferenced site-plan image host (each config-driven,
+ * admin-controlled, validated https upstream). Each is matched by strict
+ * equality; a single string is still accepted for backward compatibility.
  */
-export function isAllowedMapHost(host: string, extraHost?: string | null): boolean {
+export function isAllowedMapHost(host: string, extraHost?: string | string[] | null): boolean {
   if (host === 'unpkg.com' || /(^|\.)tile\.openstreetmap\.org$/.test(host)) return true;
-  // The festival's PMTiles host, when one is configured. Strict equality only.
-  return !!extraHost && host === extraHost;
+  // The festival's configured host(s) (PMTiles basemap / site-plan image), when
+  // present. Strict equality only — no wildcard. Empty strings never match.
+  if (!extraHost) return false;
+  const list = Array.isArray(extraHost) ? extraHost : [extraHost];
+  return list.some((h) => !!h && host === h);
 }
 
 // ── Authoring mode (Phase D) ────────────────────────────────────────────────
@@ -67,7 +75,7 @@ export function isAllowedMapHost(host: string, extraHost?: string | null): boole
 // into the document still go through safeJsonForScript.
 
 /** Authoring sub-modes the editor can put the map document into. */
-export type AuthoringMode = 'off' | 'stage' | 'amenity';
+export type AuthoringMode = 'off' | 'stage' | 'amenity' | 'zone' | 'siteplan';
 
 /** Inbound message types RN listens for from the authoring map document. */
 export type AuthoringMessageType =
@@ -77,7 +85,9 @@ export type AuthoringMessageType =
 
 /** True for one of the recognized authoring sub-modes. */
 export function isAuthoringMode(value: unknown): value is AuthoringMode {
-  return value === 'off' || value === 'stage' || value === 'amenity';
+  return (
+    value === 'off' || value === 'stage' || value === 'amenity' || value === 'zone' || value === 'siteplan'
+  );
 }
 
 /**

@@ -105,6 +105,11 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
           accuracy: pos.coords.accuracy ?? undefined,
           heading: pos.coords.heading ?? undefined,
           speed: pos.coords.speed ?? undefined,
+          // TODO(expo-battery): battery is intentionally omitted — expo-battery is
+          // NOT a dependency (adding it needs a native build, which would break the
+          // OTA-only release train). The payload field + peer popup already exist;
+          // when a future native build adds expo-battery, read Battery.getBatteryLevelAsync()
+          // (×100) here and the "8% — regroup" chip lights up with no other change.
           capturedAt: new Date(pos.timestamp).toISOString(),
         });
       },

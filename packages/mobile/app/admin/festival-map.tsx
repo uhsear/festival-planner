@@ -14,6 +14,21 @@ import {
   stageCoordFromTap,
   AMENITY_PALETTE,
   humanizeAmenityType,
+  buildZoneFeature,
+  appendZone,
+  removeZone,
+  zoneCount,
+  extractZones,
+  ZONE_PALETTE,
+  buildSiteplan,
+  setSiteplan,
+  removeSiteplan,
+  extractSiteplan,
+  isHttpsUrl,
+  clampOpacity,
+  SITEPLAN_DEFAULT_OPACITY,
+  SITEPLAN_CORNER_LABELS,
+  SITEPLAN_CORNER_COUNT,
 } from '@festie/shared/utils';
 import type { AmenityType, Festival, FestivalMapConfig, Stage } from '@festie/shared/types';
 import EmptyState from '../../components/EmptyState';
@@ -84,8 +99,22 @@ interface StageEdit {
 
 const DEFAULT_STAGE_COLOR = '#6a6a88';
 
+// Discrete opacity steps for the site-plan overlay. React Native has no
+// `<input type=range>` and Festie ships no slider native module, so the editor
+// offers preset chips (pure JS, OTA-safe) instead of a continuous slider — the
+// default (SITEPLAN_DEFAULT_OPACITY = 0.6) is one of the stops.
+const SITEPLAN_OPACITY_PRESETS = [0.3, 0.45, 0.6, 0.75, 0.9] as const;
+
 // What the next placement tap will do. null = idle (no target armed).
-type ArmedTarget = { kind: 'stage'; stageId: string } | { kind: 'amenity'; amenityType: AmenityType } | null;
+type ArmedTarget =
+  | { kind: 'stage'; stageId: string }
+  | { kind: 'amenity'; amenityType: AmenityType }
+  | { kind: 'zone' }
+  | { kind: 'siteplan' }
+  | null;
+
+/** A single tapped vertex while drawing a zone (geo.ts {latitude, longitude}). */
+type Vertex = { latitude: number; longitude: number };
 
 export default function FestivalMapEditorScreen() {
   const t = useTokens();
@@ -109,6 +138,18 @@ export default function FestivalMapEditorScreen() {
   const [armed, setArmed] = useState<ArmedTarget>(null);
   // New-amenity label buffer (used when an amenity target is armed).
   const [amenityLabel, setAmenityLabel] = useState('');
+  // Zone drawing (Phase 4A): in-progress polygon vertices + chosen color/label.
+  const [draftVertices, setDraftVertices] = useState<Vertex[]>([]);
+  const [zoneColor, setZoneColor] = useState<string>(ZONE_PALETTE[0].color);
+  const [zoneLabel, setZoneLabel] = useState('');
+  const isDrawingZone = armed?.kind === 'zone';
+  // Site-plan overlay (Phase 4B): https image URL + opacity are typed fields; the
+  // 4 corners are tapped on the map (TL, TR, BR, BL) while armed. Committed
+  // corners live in mapConfig.siteplan.
+  const [siteplanUrl, setSiteplanUrl] = useState('');
+  const [siteplanOpacity, setSiteplanOpacity] = useState<number>(SITEPLAN_DEFAULT_OPACITY);
+  const [draftCorners, setDraftCorners] = useState<Vertex[]>([]);
+  const isPlacingSiteplan = armed?.kind === 'siteplan';
 
   // ── Load ──────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -128,6 +169,11 @@ export default function FestivalMapEditorScreen() {
         })),
       );
       setMapConfig(full.mapConfig ?? null);
+      // Hydrate the site-plan URL + opacity fields from the existing config (the
+      // corners stay committed in mapConfig until the admin re-taps them).
+      const existingSp = extractSiteplan(full.mapConfig ?? null);
+      setSiteplanUrl(existingSp?.imageUrl ?? '');
+      setSiteplanOpacity(existingSp?.opacity ?? SITEPLAN_DEFAULT_OPACITY);
     } catch {
       setLoadError(true);
     }
@@ -157,14 +203,32 @@ export default function FestivalMapEditorScreen() {
   // Fold the live stages into a Festival-shaped object so OfflineMap can plot the
   // stage + amenity pins as they're authored (live preview). The cast is safe:
   // OfflineMap only reads stages[] + mapConfig off this object.
+  // The config the PREVIEW renders: committed config, plus the in-progress zone
+  // (once it has ≥3 vertices) appended as a draft so the organizer watches the
+  // polygon take shape. The draft is never saved — only committed zones persist.
+  const previewConfig = useMemo(() => {
+    let cfg = mapConfig;
+    if (isDrawingZone && draftVertices.length >= 3) {
+      const draft = buildZoneFeature(draftVertices, { color: zoneColor, label: zoneLabel || 'Drawing…' }, 'zone-draft');
+      if (draft) cfg = appendZone(cfg, draft);
+    }
+    // While placing corners, preview the site plan once all 4 are tapped and the
+    // URL is a valid https image (the draft is never saved on its own).
+    if (isPlacingSiteplan && draftCorners.length === SITEPLAN_CORNER_COUNT && isHttpsUrl(siteplanUrl)) {
+      const sp = buildSiteplan(siteplanUrl, draftCorners, siteplanOpacity);
+      if (sp) cfg = setSiteplan(cfg, sp);
+    }
+    return cfg;
+  }, [isDrawingZone, draftVertices, zoneColor, zoneLabel, mapConfig, isPlacingSiteplan, draftCorners, siteplanUrl, siteplanOpacity]);
+
   const mapFestival = useMemo(() => {
     return {
       id: editingId ?? 'draft',
       name,
-      mapConfig,
+      mapConfig: previewConfig,
       stages: stages as unknown as Stage[],
     } as Festival & { stages?: Stage[] };
-  }, [editingId, name, mapConfig, stages]);
+  }, [editingId, name, previewConfig, stages]);
 
   // The WebView authoring mode follows the armed target ('stage' / 'amenity' /
   // 'off'). Cosmetic on the WebView side; the tap still flows through onMapPress.
@@ -174,6 +238,22 @@ export default function FestivalMapEditorScreen() {
   const handleMapPress = useCallback(
     (coord: { latitude: number; longitude: number }) => {
       if (!armed) return;
+      // Zone drawing: each tap appends a vertex and STAYS armed (multi-tap),
+      // unlike the one-shot stage/amenity placement below.
+      if (armed.kind === 'zone') {
+        setDraftVertices((prev) => [...prev, { latitude: coord.latitude, longitude: coord.longitude }]);
+        return;
+      }
+      // Site-plan: collect up to 4 corners (TL, TR, BR, BL). Stays armed (multi-
+      // tap); extra taps beyond 4 are ignored until the admin re-starts.
+      if (armed.kind === 'siteplan') {
+        setDraftCorners((prev) =>
+          prev.length >= SITEPLAN_CORNER_COUNT
+            ? prev
+            : [...prev, { latitude: coord.latitude, longitude: coord.longitude }],
+        );
+        return;
+      }
       if (armed.kind === 'stage') {
         const next = stageCoordFromTap(coord);
         setStages((prev) =>
@@ -201,7 +281,77 @@ export default function FestivalMapEditorScreen() {
     setStages((prev) => prev.map((s) => (s.id === stageId ? { ...s, latitude: null, longitude: null } : s)));
   const removeAmenityById = (amenityId: string) => setMapConfig((prev) => removeAmenity(prev, amenityId));
 
+  // ── Zone drawing controls ───────────────────────────────────────────────────
+  const startZone = () => {
+    setDraftVertices([]);
+    setArmed({ kind: 'zone' });
+  };
+  const undoVertex = () => setDraftVertices((prev) => prev.slice(0, -1));
+  const cancelZone = () => {
+    setDraftVertices([]);
+    setArmed(null);
+  };
+  const finishZone = () => {
+    const feature = buildZoneFeature(draftVertices, { color: zoneColor, label: zoneLabel });
+    if (feature) setMapConfig((prev) => appendZone(prev, feature));
+    setDraftVertices([]);
+    setZoneLabel('');
+    setArmed(null);
+  };
+  const removeZoneById = (zoneId: string) => setMapConfig((prev) => removeZone(prev, zoneId));
+
+  // ── Site-plan overlay controls (Phase 4B) ──────────────────────────────────
+  // The committed site plan (corners + url + opacity), if any. The URL is an
+  // admin-provided https link — Festie hosts no arbitrary uploads, so this REUSES
+  // the same link-out pattern as crew photo albums (crewPhotoAlbumSchema), which
+  // siteplanSchema was explicitly built to mirror. The 4 corners are tapped on
+  // the map (same one-shot placement path as stage/amenity/zone authoring).
+  const committedSiteplan = useMemo(() => extractSiteplan(mapConfig), [mapConfig]);
+  // Convert stored [lng,lat] corners back to {latitude,longitude} for re-commits.
+  const cornersToLatLng = (corners: [number, number][]) =>
+    corners.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
+  // Re-commit a site plan through the shared validator; no-op if it doesn't build.
+  const recommitSiteplan = (url: string, corners: Vertex[], opacity: number) => {
+    const sp = buildSiteplan(url, corners, opacity);
+    if (sp) setMapConfig((prev) => setSiteplan(prev, sp));
+    return !!sp;
+  };
+  const startSiteplanCorners = () => {
+    setDraftCorners([]);
+    setArmed({ kind: 'siteplan' });
+  };
+  const undoCorner = () => setDraftCorners((prev) => prev.slice(0, -1));
+  const cancelSiteplanCorners = () => {
+    setDraftCorners([]);
+    setArmed(null);
+  };
+  const applySiteplanCorners = () => {
+    if (recommitSiteplan(siteplanUrl, draftCorners, siteplanOpacity)) {
+      setDraftCorners([]);
+      setArmed(null);
+    }
+  };
+  const onSiteplanUrlChange = (v: string) => {
+    setSiteplanUrl(v);
+    // Live-update a committed overlay's image when the URL stays valid.
+    if (committedSiteplan && isHttpsUrl(v)) {
+      recommitSiteplan(v, cornersToLatLng(committedSiteplan.corners), siteplanOpacity);
+    }
+  };
+  const onSiteplanOpacityChange = (v: number) => {
+    const op = clampOpacity(v);
+    setSiteplanOpacity(op);
+    if (committedSiteplan) recommitSiteplan(committedSiteplan.imageUrl, cornersToLatLng(committedSiteplan.corners), op);
+  };
+  const removeSiteplanOverlay = () => {
+    setMapConfig((prev) => removeSiteplan(prev));
+    setDraftCorners([]);
+    setArmed((prev) => (prev?.kind === 'siteplan' ? null : prev));
+  };
+
   const amenityFeatures = mapConfig?.amenities?.features ?? [];
+  // Committed zones (the draft preview renders separately via previewConfig).
+  const placedZones = useMemo(() => extractZones(mapConfig), [mapConfig]);
 
   // ── Save ────────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -322,7 +472,13 @@ export default function FestivalMapEditorScreen() {
             <Text style={styles.armedBannerText} numberOfLines={1}>
               {armed.kind === 'stage'
                 ? 'Tap the map to set this stage’s location'
-                : `Tap the map to drop a ${humanizeAmenityType(armed.amenityType)} marker`}
+                : armed.kind === 'amenity'
+                  ? `Tap the map to drop a ${humanizeAmenityType(armed.amenityType)} marker`
+                  : armed.kind === 'siteplan'
+                    ? draftCorners.length >= SITEPLAN_CORNER_COUNT
+                      ? 'All 4 corners set — apply them below'
+                      : `Tap the ${SITEPLAN_CORNER_LABELS[draftCorners.length]} corner (${draftCorners.length}/${SITEPLAN_CORNER_COUNT})`
+                    : `Tap the map to add zone points (${draftVertices.length} added — need 3+)`}
             </Text>
           </View>
         ) : null}
@@ -386,6 +542,233 @@ export default function FestivalMapEditorScreen() {
                 );
               })
             )}
+          </View>
+
+          {/* Zones (camping / VIP / no-go / parking) */}
+          <SectionLabel>Zones</SectionLabel>
+          <View style={styles.card}>
+            <Text style={styles.emptyHint}>
+              Pick a color, name the area, then tap the map to drop points. Finish with 3 or more.{' '}
+              {zoneCount(mapConfig)} drawn.
+            </Text>
+            <LabeledTextInput
+              label="Zone name"
+              value={zoneLabel}
+              onChangeText={setZoneLabel}
+              placeholder="e.g. Camping, VIP, No-go"
+              autoCapitalize="sentences"
+              hint="Shown as the zone's label tag."
+            />
+            <View style={styles.palette}>
+              {ZONE_PALETTE.map((preset) => {
+                const selected = zoneColor === preset.color;
+                return (
+                  <TouchableOpacity
+                    key={preset.color}
+                    onPress={() => {
+                      setZoneColor(preset.color);
+                      if (!zoneLabel.trim()) setZoneLabel(preset.label);
+                    }}
+                    style={[styles.paletteItem, selected ? { borderColor: preset.color, borderWidth: 2 } : null]}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={`Use ${preset.label} color`}
+                  >
+                    <View style={[styles.zoneSwatch, { backgroundColor: preset.color }]} />
+                    <Text style={styles.paletteLabel} numberOfLines={1}>
+                      {preset.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {isDrawingZone ? (
+              <View style={styles.zoneControls}>
+                <Text style={styles.zonePointCount}>
+                  {draftVertices.length} {draftVertices.length === 1 ? 'point' : 'points'}
+                </Text>
+                <TouchableOpacity
+                  onPress={undoVertex}
+                  disabled={draftVertices.length === 0}
+                  style={[styles.zoneBtn, draftVertices.length === 0 ? styles.btnDisabled : null]}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Undo last zone point"
+                >
+                  <Text style={styles.zoneBtnText}>Undo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={finishZone}
+                  disabled={draftVertices.length < 3}
+                  style={[styles.zoneBtnPrimary, draftVertices.length < 3 ? styles.btnDisabled : null]}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Finish zone"
+                >
+                  <Text style={styles.zoneBtnPrimaryText}>Finish</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={cancelZone}
+                  style={styles.zoneBtnDanger}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel drawing this zone"
+                >
+                  <Text style={styles.zoneBtnDangerText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={startZone}
+                style={[styles.armBtn, styles.zoneStartBtn]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Draw a zone"
+              >
+                <Text style={styles.armBtnText}>Draw a zone</Text>
+              </TouchableOpacity>
+            )}
+
+            {placedZones.length > 0 ? (
+              <View style={styles.placedList}>
+                {placedZones.map((z) => (
+                  <View key={z.id} style={styles.placedRow}>
+                    <View style={[styles.zoneSwatch, { backgroundColor: z.color }]} />
+                    <Text style={styles.placedLabel} numberOfLines={1}>
+                      {z.label || 'Unnamed zone'}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => removeZoneById(z.id)}
+                      style={styles.miniBtn}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${z.label || 'zone'}`}
+                    >
+                      <Ionicons name="close" size={t.iconSize.sm} color={t.colors.accent.coral} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+
+          {/* Site plan overlay */}
+          <SectionLabel>Site plan overlay</SectionLabel>
+          <View style={styles.card}>
+            <Text style={styles.emptyHint}>
+              Underlay the organizer’s map image. Paste an https image link, then tap the four corners
+              (top-left, top-right, bottom-right, bottom-left) to georeference it.
+            </Text>
+            <LabeledTextInput
+              label="Site-plan image URL"
+              value={siteplanUrl}
+              onChangeText={onSiteplanUrlChange}
+              placeholder="https://…/site-plan.png"
+              keyboardType="url"
+              autoCapitalize="none"
+              maxLength={2048}
+              error={siteplanUrl.trim() !== '' && !isHttpsUrl(siteplanUrl) ? 'Image link must start with https://' : null}
+              hint="Link to the organizer's site-plan image (Festie hosts no uploads)."
+            />
+
+            {isPlacingSiteplan ? (
+              <View style={styles.zoneControls}>
+                <Text style={styles.zonePointCount}>
+                  {draftCorners.length}/{SITEPLAN_CORNER_COUNT} corners
+                </Text>
+                <TouchableOpacity
+                  onPress={undoCorner}
+                  disabled={draftCorners.length === 0}
+                  style={[styles.zoneBtn, draftCorners.length === 0 ? styles.btnDisabled : null]}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Undo last corner"
+                >
+                  <Text style={styles.zoneBtnText}>Undo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={applySiteplanCorners}
+                  disabled={draftCorners.length !== SITEPLAN_CORNER_COUNT || !isHttpsUrl(siteplanUrl)}
+                  style={[
+                    styles.zoneBtnPrimary,
+                    draftCorners.length !== SITEPLAN_CORNER_COUNT || !isHttpsUrl(siteplanUrl) ? styles.btnDisabled : null,
+                  ]}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Apply the four corners"
+                >
+                  <Text style={styles.zoneBtnPrimaryText}>Apply</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={cancelSiteplanCorners}
+                  style={styles.zoneBtnDanger}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel placing corners"
+                >
+                  <Text style={styles.zoneBtnDangerText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={startSiteplanCorners}
+                disabled={!isHttpsUrl(siteplanUrl)}
+                style={[styles.armBtn, styles.zoneStartBtn, !isHttpsUrl(siteplanUrl) ? styles.btnDisabled : null]}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={committedSiteplan ? 'Re-place site-plan corners' : 'Set site-plan corners'}
+              >
+                <Text style={styles.armBtnText}>{committedSiteplan ? 'Re-place corners' : 'Set corners'}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Opacity presets — only meaningful once an overlay is committed. */}
+            {committedSiteplan ? (
+              <View style={styles.opacityBlock}>
+                <Text style={styles.zonePointCount}>Opacity: {Math.round(siteplanOpacity * 100)}%</Text>
+                <View style={styles.palette}>
+                  {SITEPLAN_OPACITY_PRESETS.map((op) => {
+                    const selected = Math.round(siteplanOpacity * 100) === Math.round(op * 100);
+                    return (
+                      <TouchableOpacity
+                        key={op}
+                        onPress={() => onSiteplanOpacityChange(op)}
+                        style={[styles.opacityChip, selected ? styles.opacityChipOn : null]}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={`Set overlay opacity to ${Math.round(op * 100)} percent`}
+                      >
+                        <Text style={[styles.opacityChipText, selected ? styles.opacityChipTextOn : null]}>
+                          {Math.round(op * 100)}%
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+
+            {committedSiteplan ? (
+              <View style={styles.placedList}>
+                <View style={styles.placedRow}>
+                  <Text style={styles.placedLabel} numberOfLines={1}>
+                    Overlay set ({SITEPLAN_CORNER_COUNT} corners)
+                  </Text>
+                  <TouchableOpacity
+                    onPress={removeSiteplanOverlay}
+                    style={styles.miniBtn}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove site-plan overlay"
+                  >
+                    <Ionicons name="close" size={t.iconSize.sm} color={t.colors.accent.coral} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
           </View>
 
           {/* Amenities */}
@@ -625,6 +1008,91 @@ const useStyles = makeStyles((t) => ({
   paletteLabel: {
     ...typeStyle('caption'),
     color: t.colors.text.primary,
+  },
+  // Zone drawing ---------------------------------------------------------------
+  zoneSwatch: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ffffff',
+  },
+  zoneStartBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: t.spacing[4],
+  },
+  zoneControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
+  },
+  zonePointCount: {
+    ...typeStyle('caption', 600),
+    color: t.colors.text.secondary,
+  },
+  zoneBtn: {
+    minHeight: 40,
+    paddingHorizontal: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoneBtnText: {
+    ...typeStyle('caption', 600),
+    color: t.colors.text.secondary,
+  },
+  zoneBtnPrimary: {
+    minHeight: 40,
+    paddingHorizontal: t.spacing[3],
+    borderRadius: t.radii.default,
+    backgroundColor: t.colors.accent.aqua,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoneBtnPrimaryText: {
+    ...typeStyle('caption', 600),
+    color: t.colors.text.onLightAccent,
+  },
+  zoneBtnDanger: {
+    minHeight: 40,
+    paddingHorizontal: t.spacing[3],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.accent.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoneBtnDangerText: {
+    ...typeStyle('caption', 600),
+    color: t.colors.accent.coral,
+  },
+  // Site-plan opacity presets --------------------------------------------------
+  opacityBlock: {
+    gap: t.spacing[2],
+  },
+  opacityChip: {
+    minHeight: 40,
+    paddingHorizontal: t.spacing[3],
+    borderRadius: t.radii.pill,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  opacityChipOn: {
+    borderColor: t.colors.accent.aqua,
+    backgroundColor: t.colors.accent.aqua,
+  },
+  opacityChipText: {
+    ...typeStyle('caption', 600),
+    color: t.colors.text.secondary,
+  },
+  opacityChipTextOn: {
+    color: t.colors.text.onLightAccent,
   },
   // Placed amenities -----------------------------------------------------------
   placedList: {

@@ -62,3 +62,67 @@ export function isPeerStale(
   if (!Number.isFinite(ms)) return false;
   return now - ms > freshMs;
 }
+
+// ── Phase 4C presentation helpers (heading / battery / share-window) ──────────
+// Pure formatters shared by the web CrewMap + mobile OfflineMap peer renderers so
+// a peer's direction-of-travel, battery, and remaining share window read
+// identically on every surface. All total/defensive: absent/invalid => null so a
+// caller can simply skip the chip.
+
+/** 8-wind arrow glyphs, indexed by 45° sector starting at North (0° = ↑). */
+const HEADING_ARROWS = ['↑', '↗', '→', '↘', '↓', '↙', '←', '↖'] as const;
+
+/**
+ * Map a GPS course/heading (degrees clockwise from true north) to an 8-wind arrow
+ * glyph for a direction-of-travel indicator. Returns null when heading is absent
+ * or non-finite (a stationary fix often reports no heading) so callers render no
+ * arrow rather than a misleading one.
+ */
+export function headingToArrow(heading: number | null | undefined): string | null {
+  if (typeof heading !== 'number' || !Number.isFinite(heading)) return null;
+  const norm = ((heading % 360) + 360) % 360;
+  const idx = Math.round(norm / 45) % 8;
+  return HEADING_ARROWS[idx]!; // idx is always 0–7 (% 8); noUncheckedIndexedAccess can't see it
+}
+
+/** At/below this battery %, the label nudges the crew to regroup before a dead phone. */
+export const LOW_BATTERY_THRESHOLD = 20;
+
+/**
+ * Format a peer's battery level (0–100) for the popup, e.g. "85%" or, when low,
+ * "8% — regroup". Returns null for absent/invalid/out-of-range so the chip is
+ * simply omitted. NOTE: until a native build adds expo-battery, `level` is always
+ * undefined on mobile — see the TODO in useLiveLocationPublisher; web reads it
+ * from the (non-standard) Battery API only when available.
+ */
+export function formatBatteryLabel(
+  level: number | null | undefined,
+  lowThreshold: number = LOW_BATTERY_THRESHOLD,
+): string | null {
+  if (typeof level !== 'number' || !Number.isFinite(level)) return null;
+  const pct = Math.round(level);
+  if (pct < 0 || pct > 100) return null;
+  return pct <= lowThreshold ? `${pct}% — regroup` : `${pct}%`;
+}
+
+/**
+ * Countdown for a time-boxed share, e.g. "sharing ends in 4m". `expiresAt` is the
+ * ISO timestamp (or epoch ms) the share auto-stops. Returns null when there is no
+ * window or it has already elapsed (the peer is swept regardless) so callers show
+ * nothing. Always rounds UP to whole minutes (never "ends in 0m" while still live).
+ */
+export function formatShareWindow(
+  expiresAt: string | number | null | undefined,
+  now: number,
+): string | null {
+  if (expiresAt == null) return null;
+  let ms: number;
+  if (typeof expiresAt === 'number') ms = expiresAt;
+  else if (typeof expiresAt === 'string') ms = new Date(expiresAt).getTime();
+  else return null;
+  if (!Number.isFinite(ms)) return null;
+  const remaining = ms - now;
+  if (remaining <= 0) return null;
+  const mins = Math.max(1, Math.ceil(remaining / 60_000));
+  return `sharing ends in ${mins}m`;
+}
