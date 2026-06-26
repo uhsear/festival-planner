@@ -673,6 +673,12 @@ export interface PeerLocation {
    * then it is undefined and the popup simply omits the battery chip.
    */
   battery?: number;
+  /**
+   * Peer low-power flag (#5): the sharer's device is in battery-saver / low-power
+   * mode. OPTIONAL — only populated when the native build reads it (expo-battery);
+   * absent → the popup omits the low-power cue. Surfaced next to the battery chip.
+   */
+  lowPower?: boolean;
   /** Phase 4C: ISO expiry of the sharer's time-boxed share ("sharing ends in Nm"). */
   expiresAt?: string;
   /** ISO timestamp the client stamped at GPS fix time. */

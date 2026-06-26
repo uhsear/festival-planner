@@ -168,38 +168,57 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-api33-google_apis-x86_64-v1
+          # api34: the API-33 google_apis image needs ~9.8 GB for its userdata
+          # partition but only ~8 GB is free on the disk-reclaimed runner, so it
+          # FATALs before boot (upstream issue #455 — 26–32 and 34–35 are fine,
+          # 33 fails always). v2 also invalidates any poisoned/half-created AVD
+          # cached by the earlier failing API-33 runs (the key is otherwise static).
+          key: avd-api34-google_apis-x86_64-v2
 
       - name: Create AVD (cache miss only)
         if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
         with:
-          api-level: 33
+          # api-level 34 (not 33): the API-33 google_apis image's userdata
+          # partition needs ~9.8 GB and only ~8 GB is free after the disk
+          # reclaim + Gradle build, so API 33 FATALs before boot and adb never
+          # comes up. 34 is the known-good level on ubuntu-latest (issue #455).
+          api-level: 34
           target: google_apis
           arch: x86_64
           profile: pixel_6
           avd-name: festie-e2e
           ram-size: 4096M
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          # -no-snapshot (the action's documented default): always cold-boot
+          # cleanly instead of loading/saving a boot snapshot, so a half-written
+          # snapshot can't poison later cold boots. AVD creation is still cached.
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          # 900 s (default is 600): software-GPU cold boot on a busy runner can
+          # exceed the 10-min default — give it headroom rather than flake.
+          emulator-boot-timeout: 900
           force-avd-creation: false
           script: echo "AVD created and cached."
 
       - name: Run Maestro smoke on emulator
-        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2
+        uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
         env:
           # Passed to Maestro so the authed phase of android-smoke runs; the flow's
           # login is GUARDED, so it stays green even if these are empty.
           TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
         with:
-          api-level: 33
+          # Must match the Create-AVD step above (api-level/target/arch/options)
+          # or the cached AVD won't be reused. See that step for the api-34 +
+          # -no-snapshot + boot-timeout rationale.
+          api-level: 34
           target: google_apis
           arch: x86_64
           profile: pixel_6
           avd-name: festie-e2e
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          emulator-boot-timeout: 900
           ram-size: 4096M
           disable-animations: true
           # The emulator-runner writes the script to a file and executes it as a

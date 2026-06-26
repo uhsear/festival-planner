@@ -15,7 +15,19 @@ import {
   festivalDepth1ResponseSchema,
   crewResponseSchema,
   meetingPointResponseSchema,
+  festivalListItemResponseSchema,
+  profileResponseSchema,
+  crewPollResponseSchema,
+  crewExpenseResponseSchema,
+  crewSettlementPlanResponseSchema,
+  crewPackingItemResponseSchema,
+  crewRideOfferResponseSchema,
+  crewMemberStatusResponseSchema,
+  crewActivityEntryResponseSchema,
+  notificationPrefsResponseSchema,
+  authEnvelopeResponseSchema,
 } from '../lib/responseSchemas.js';
+import { serializeOwnProfile, serializeProfileForViewer } from '../lib/helpers/export-utils.js';
 import { serializePublicUser } from '../lib/helpers.js';
 
 // ── Authentication schemas ──────────────────────────────────────────────
@@ -651,5 +663,179 @@ describe('responseSchemas: serialized payloads parse', () => {
     assert.equal(parsed.recurs_daily, false);
     assert.equal(typeof parsed.meet_at, 'string');
     assert.equal(parsed.creator_name, 'alice');
+  });
+
+  it('festivalListItemResponseSchema parses a GET /festivals summary row', () => {
+    // Mirrors routes/festivals.ts router.get('/') mapper.
+    const row = {
+      id: 'fest-1',
+      name: 'Test Fest',
+      location: '',
+      stageCount: 3,
+      dayCount: 2,
+      startDate: '2026-07-01',
+      endDate: '2026-07-02',
+    };
+    const parsed = festivalListItemResponseSchema.parse(wire(row));
+    assert.equal(parsed.stageCount, 3);
+    // Dateless festival → null range still parses.
+    const noDates = festivalListItemResponseSchema.parse(
+      wire({ ...row, startDate: null, endDate: null }),
+    );
+    assert.equal(noDates.startDate, null);
+  });
+
+  it('profileResponseSchema parses own + viewer + orphan profiles', () => {
+    const now = new Date().toISOString();
+    // OWN profile (real serializer) — notes/reminders present.
+    const own = serializeOwnProfile(
+      {
+        id: 'prof-1', festivalId: 'fest-1', userId: 'user-1', name: 'alice',
+        picks: { 'set-1': 'must', 'set-2': 'maybe' }, notes: { 'set-1': 'front rail' },
+        reminders: { 'set-1': 15 }, createdAt: now, updatedAt: now,
+      },
+      { id: 'user-1', username: 'alice', avatarKey: 'k', avatarVersion: 'v' },
+    );
+    const parsedOwn = profileResponseSchema.parse(wire(own));
+    assert.equal(parsedOwn.picks['set-1'], 'must');
+    assert.equal(parsedOwn.notes!['set-1'], 'front rail');
+    assert.equal(parsedOwn.reminders!['set-1'], 15);
+
+    // VIEWER of someone else's profile — notes/reminders omitted.
+    const viewer = serializeProfileForViewer(
+      { id: 'prof-2', festivalId: 'fest-1', userId: 'user-2', name: 'bob', picks: {}, notes: { x: 'secret' }, createdAt: now, updatedAt: now },
+      'user-1',
+      null,
+    );
+    const parsedViewer = profileResponseSchema.parse(wire(viewer));
+    assert.equal(parsedViewer.avatarUrl, null);
+    assert.equal(parsedViewer.notes, undefined);
+
+    // ORPHAN profile (unclaimed import) → userId null still parses.
+    const orphan = serializeProfileForViewer(
+      { id: 'prof-3', festivalId: 'fest-1', userId: null, name: 'imported', picks: {}, createdAt: now, updatedAt: now },
+      'user-1',
+      null,
+    );
+    assert.equal(profileResponseSchema.parse(wire(orphan)).userId, null);
+  });
+
+  it('crewPollResponseSchema parses list (votes/vote_count) + bare create rows', () => {
+    const now = new Date().toISOString();
+    // LIST row: vote_count is a STRING (bigint), votes carry option/user_id (LEFT JOIN ⇒ may be null).
+    const listRow = {
+      id: 'poll-1', crew_id: 'crew-1', created_by: 'user-1', question: 'Where to meet?',
+      options: ['Gate A', 'Gate B'], closes_at: null, closed: false, created_at: now,
+      vote_count: '2', votes: [{ option: 0, user_id: 'user-1' }, { option: null, user_id: null }],
+    };
+    const parsed = crewPollResponseSchema.parse(wire(listRow));
+    assert.equal(parsed.vote_count, '2');
+    assert.equal(parsed.votes![1]!.option, null);
+
+    // CREATE/close row: no vote_count/votes — still parses (both optional).
+    const bare = { id: 'poll-2', crew_id: 'crew-1', created_by: 'user-1', question: 'Q', options: ['a'], closes_at: now, closed: true, created_at: now };
+    const parsedBare = crewPollResponseSchema.parse(wire(bare));
+    assert.equal(parsedBare.vote_count, undefined);
+  });
+
+  it('crewExpenseResponseSchema parses a ledger row (amount is a NUMERIC string)', () => {
+    const now = new Date();
+    // node-postgres returns NUMERIC `amount` as a string; list adds paid_by_name.
+    const listRow = {
+      id: 'exp-1', crew_id: 'crew-1', paid_by: 'user-1', description: 'Beer run',
+      amount: '42.50', split_with: ['user-1', 'user-2'], category: 'food', planned: false,
+      created_at: now, paid_by_name: 'alice',
+    };
+    const parsed = crewExpenseResponseSchema.parse(wire(listRow));
+    assert.equal(parsed.amount, '42.50');
+    assert.equal(parsed.paid_by_name, 'alice');
+    // create/getById row omits paid_by_name.
+    const bare = { ...listRow, paid_by_name: undefined };
+    assert.equal(crewExpenseResponseSchema.parse(wire(bare)).paid_by_name, undefined);
+  });
+
+  it('crewSettlementPlanResponseSchema parses balances + settlements w/ payee handles', () => {
+    const payload = {
+      balances: [{ userId: 'user-1', username: 'alice', balance: 21.25 }, { userId: 'user-2', username: 'bob', balance: -21.25 }],
+      settlements: [
+        {
+          fromUserId: 'user-2', fromName: 'bob', toUserId: 'user-1', toName: 'alice',
+          amountCents: 2125, amount: 21.25,
+          payeeHandles: { venmo: '@alice', cashapp: null, paypal: null },
+        },
+      ],
+    };
+    const parsed = crewSettlementPlanResponseSchema.parse(wire(payload));
+    assert.equal(parsed.settlements[0]!.amountCents, 2125);
+    assert.equal(parsed.settlements[0]!.payeeHandles.cashapp, null);
+  });
+
+  it('crewPackingItemResponseSchema parses list (creator_name) + bare rows', () => {
+    const now = new Date();
+    const listRow = { id: 'pack-1', crew_id: 'crew-1', created_by: 'user-1', label: 'Tent', brought_by: 'alice', claimed: true, created_at: now, creator_name: 'alice' };
+    const parsed = crewPackingItemResponseSchema.parse(wire(listRow));
+    assert.equal(parsed.claimed, true);
+    assert.equal(parsed.creator_name, 'alice');
+    // create row: brought_by null, no creator_name.
+    const bare = { id: 'pack-2', crew_id: 'crew-1', created_by: 'user-1', label: 'Ice', brought_by: null, claimed: false, created_at: now };
+    assert.equal(crewPackingItemResponseSchema.parse(wire(bare)).brought_by, null);
+  });
+
+  it('crewRideOfferResponseSchema parses a fully-null offer + populated offer', () => {
+    const now = new Date();
+    const nullish = { id: 'ride-1', crew_id: 'crew-1', created_by: 'user-1', driver: null, seats: null, depart_from: null, depart_at: null, note: null, created_at: now };
+    assert.equal(crewRideOfferResponseSchema.parse(wire(nullish)).seats, null);
+    const full = { ...nullish, driver: 'alice', seats: 4, depart_from: 'Lot C', depart_at: '18:00', note: 'meet by van', creator_name: 'alice' };
+    const parsed = crewRideOfferResponseSchema.parse(wire(full));
+    assert.equal(parsed.seats, 4);
+    assert.equal(parsed.creator_name, 'alice');
+  });
+
+  it('crewMemberStatusResponseSchema parses list (joined identity) + bare upsert row', () => {
+    const now = new Date();
+    // LIST row: joined username/name/avatar present; breadcrumb coords present.
+    const listRow = {
+      crew_id: 'crew-1', user_id: 'user-1', status: 'on-my-way', target_meeting_point_id: 'mp-1',
+      eta_minutes: 10, note: null, latitude: 51.5, longitude: -0.12, location_captured_at: now,
+      updated_at: now, username: 'alice', name: 'Alice', avatar_key: null, avatar_version: null,
+    };
+    const parsed = crewMemberStatusResponseSchema.parse(wire(listRow));
+    assert.equal(parsed.eta_minutes, 10);
+    assert.equal(parsed.username, 'alice');
+    // upsert row: no joined fields, status-only (coords null).
+    const bare = { crew_id: 'crew-1', user_id: 'user-1', status: null, target_meeting_point_id: null, eta_minutes: null, note: null, latitude: null, longitude: null, location_captured_at: null, updated_at: now };
+    const parsedBare = crewMemberStatusResponseSchema.parse(wire(bare));
+    assert.equal(parsedBare.username, undefined);
+    assert.equal(parsedBare.latitude, null);
+  });
+
+  it('crewActivityEntryResponseSchema parses an activity feed row', () => {
+    const row = { id: 'act-1', crew_id: 'crew-1', user_id: 'user-1', type: 'poll-created', detail: 'Where to meet?', created_at: new Date(), username: 'alice' };
+    const parsed = crewActivityEntryResponseSchema.parse(wire(row));
+    assert.equal(parsed.type, 'poll-created');
+    // detail-less event → null still parses.
+    assert.equal(crewActivityEntryResponseSchema.parse(wire({ ...row, detail: null })).detail, null);
+  });
+
+  it('notificationPrefsResponseSchema parses the get() shape (0/1 ints, nullable DND)', () => {
+    // Default (no-row) shape: every toggle is the integer 1, DND null.
+    const defaults = { userId: 'user-1', crewUpdates: 1, setReminders: 1, scheduleChanges: 1, lineupDrops: 1, crewReformed: 1, wrapReady: 1, dndStart: null, dndEnd: null };
+    const parsed = notificationPrefsResponseSchema.parse(wire(defaults));
+    assert.equal(parsed.crewUpdates, 1);
+    assert.equal(parsed.dndStart, null);
+    // Saved row with opt-outs (0) and a DND window.
+    const saved = { ...defaults, crewUpdates: 0, dndStart: '23:00', dndEnd: '08:00' };
+    assert.equal(notificationPrefsResponseSchema.parse(wire(saved)).dndStart, '23:00');
+  });
+
+  it('authEnvelopeResponseSchema parses cookie (no tokens) + body-token envelopes', () => {
+    const user = serializePublicUser({ id: 'user-1', username: 'alice' });
+    // Cookie path: user only.
+    const cookieEnv = authEnvelopeResponseSchema.parse(wire({ user }));
+    assert.equal(cookieEnv.token, undefined);
+    assert.equal(cookieEnv.user.username, 'alice');
+    // Body-token path (native): token + refreshToken present.
+    const bodyEnv = authEnvelopeResponseSchema.parse(wire({ user, token: 'sess', refreshToken: 'rt' }));
+    assert.equal(bodyEnv.refreshToken, 'rt');
   });
 });

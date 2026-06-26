@@ -119,6 +119,35 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
     };
   }, []);
 
+  // Peer low-power flag (#5): cache whether the device is in battery-saver /
+  // low-power mode so each GPS fix can attach it SYNCHRONOUSLY (same pattern as
+  // battery above — no awaiting a native read in the publish path). Seeded once,
+  // then kept fresh by the OS low-power-mode listener. Fully optional + resilient:
+  // any failure leaves the ref undefined and the peer popup simply omits the cue.
+  const lowPowerRef = useRef<boolean | undefined>(undefined);
+  useEffect(() => {
+    let active = true;
+    let sub: ReturnType<typeof Battery.addLowPowerModeListener> | null = null;
+    Battery.isLowPowerModeEnabledAsync()
+      .then((enabled) => {
+        if (active && typeof enabled === 'boolean') lowPowerRef.current = enabled;
+      })
+      .catch(() => {
+        /* low-power state unreadable — leave undefined so the cue is omitted */
+      });
+    try {
+      sub = Battery.addLowPowerModeListener(({ lowPowerMode }) => {
+        if (active && typeof lowPowerMode === 'boolean') lowPowerRef.current = lowPowerMode;
+      });
+    } catch {
+      /* listener unavailable — the seeded value (if any) is still used */
+    }
+    return () => {
+      active = false;
+      sub?.remove();
+    };
+  }, []);
+
   // expo-location → GeoFix adapter for the shared publisher. watchPositionAsync
   // is async; we hold the subscription and tear it down synchronously.
   const watchPosition = useCallback<GeoWatcher>((onFix, onError) => {
@@ -142,6 +171,10 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
           // the peer popup omits the chip. Requires the native build that adds
           // expo-battery; it does NOT light up over OTA.
           battery: batteryPctRef.current,
+          // Peer low-power flag (#5): attach the cached battery-saver state (kept
+          // fresh by the listener above). Optional — undefined when unreadable, so
+          // the peer popup omits the cue. Synchronous: never blocks the fix send.
+          lowPower: lowPowerRef.current,
           capturedAt: new Date(pos.timestamp).toISOString(),
         });
       },

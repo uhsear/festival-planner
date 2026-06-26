@@ -39,6 +39,12 @@ export interface GeoFix {
    * the peer popup simply omits the battery chip.
    */
   battery?: number;
+  /**
+   * Peer low-power flag (#5): the device is in battery-saver / low-power mode at
+   * fix time. OPTIONAL — the mobile adapter reads it from expo-battery; absent on
+   * web / when unavailable, in which case the peer popup omits the low-power cue.
+   */
+  lowPower?: boolean;
   /** ISO timestamp at fix time. Defaults to now if the watcher omits it. */
   capturedAt?: string;
 }
@@ -132,6 +138,10 @@ export function useLiveLocationPublisher({
           // TODO(expo-battery): mobile fix.battery is undefined until a native
           // build adds expo-battery; this passes it through with no native read.
           battery: fix.battery,
+          // Peer low-power flag (#5): relay the sharer's battery-saver state (when
+          // a source supplies it) so peers see a low-power cue next to the battery
+          // chip. Optional — undefined on web / when unavailable; pure pass-through.
+          lowPower: fix.lowPower,
           expiresAt: sessionExpiresAt,
           capturedAt: fix.capturedAt ?? new Date(now).toISOString(),
         });

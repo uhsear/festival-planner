@@ -105,11 +105,14 @@ describe('live-location-cache — assembleSnapshot (pure)', () => {
     assert.deepEqual(Object.keys(p).sort(), [
       '_v',
       'accuracy',
+      'battery',
       'capturedAt',
       'crewId',
+      'expiresAt',
       'heading',
       'lat',
       'lng',
+      'lowPower',
       'serverAt',
       'speed',
       'userId',
@@ -118,6 +121,29 @@ describe('live-location-cache — assembleSnapshot (pure)', () => {
     assert.equal(p.userId, 'user-a');
     assert.equal(p.lat, 41.8781);
     assert.equal(p._v, 1);
+  });
+
+  it('carries the optional battery / lowPower / expiresAt cues through the snapshot', () => {
+    const expiresAt = new Date(NOW + 600_000).toISOString();
+    const peers = assembleSnapshot(entriesFrom(freshPayload({ battery: 23, lowPower: true, expiresAt })), {
+      now: NOW,
+    });
+    assert.equal(peers.length, 1);
+    const p = peers[0]!;
+    assert.equal(p.battery, 23);
+    assert.equal(p.lowPower, true);
+    assert.equal(p.expiresAt, expiresAt);
+  });
+
+  it('drops a non-finite battery and a non-boolean lowPower rather than emitting bad values', () => {
+    const peers = assembleSnapshot(entriesFrom(freshPayload({ battery: 'full', lowPower: 'yes', expiresAt: 42 })), {
+      now: NOW,
+    });
+    assert.equal(peers.length, 1);
+    const p = peers[0]!;
+    assert.equal(p.battery, undefined);
+    assert.equal(p.lowPower, undefined);
+    assert.equal(p.expiresAt, undefined);
   });
 
   it('excludes the requester (selfUserId)', () => {

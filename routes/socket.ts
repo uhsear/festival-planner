@@ -485,6 +485,9 @@ export default function setupSocketHandlers(deps: any) {
             // Phase 4C: relay battery (off the fix) + the share-window expiry so
             // peers render the direction/battery/countdown chips. Pure pass-through.
             battery: position.battery,
+            // Peer low-power flag (#5): relay the sharer's battery-saver state so
+            // peers render a low-power cue next to battery. Optional pass-through.
+            lowPower: position.lowPower,
             expiresAt,
             // L4: clamp client capturedAt to a small window around server time.
             capturedAt: clampCapturedAt(position.capturedAt, nowMs, serverAt),
@@ -516,7 +519,8 @@ export default function setupSocketHandlers(deps: any) {
           socket.emit('error', { message: 'Invalid location payload', code: 'SCHEMA_MISMATCH' });
           return;
         }
-        const { crewId, lat, lng, accuracy, heading, speed, battery, expiresAt, capturedAt } = validation.data;
+        const { crewId, lat, lng, accuracy, heading, speed, battery, lowPower, expiresAt, capturedAt } =
+          validation.data;
 
         if (socket.data?.sharingCrewId !== crewId) {
           socket.emit('error', { message: 'Not sharing location to this crew', code: 'NOT_SHARING' });
@@ -579,6 +583,9 @@ export default function setupSocketHandlers(deps: any) {
           // Phase 4C: relay sharer battery + the share-window expiry (both optional)
           // so peers render the heading/battery/countdown chips. Pure pass-through.
           battery,
+          // Peer low-power flag (#5): relay the sharer's battery-saver state so
+          // peers render a low-power cue next to battery. Optional pass-through.
+          lowPower,
           expiresAt,
           // L4: clamp client capturedAt to a small window around server time.
           capturedAt: clampCapturedAt(capturedAt, nowMs, serverAt),

@@ -827,6 +827,10 @@ export default function CrewMap({
       const headingLabel = arrowGlyph ? subEl(`Heading ${arrowGlyph}`) : null;
       const batteryLabel = !stale ? (formatBatteryLabel(peer.battery) ?? null) : null;
       const batteryEl = batteryLabel ? subEl(`Battery ${batteryLabel}`) : null;
+      // Low-power cue (#5): mirrors the mobile OfflineMap "🍃 Low Power" chip —
+      // shown next to the battery chip when the sharer's device is in battery-saver
+      // mode. Omitted for stale peers and when the flag is absent.
+      const lowPowerEl = !stale && peer.lowPower === true ? subEl('🍃 Low Power') : null;
       const windowLabel = !stale ? formatShareWindow(peer.expiresAt, now) : null;
       const windowEl = windowLabel ? subEl(windowLabel) : null;
       const popupEl = popupContent([
@@ -834,6 +838,7 @@ export default function CrewMap({
         subEl(stale ? `Last seen ${rel}` : `Live · ${rel}`),
         headingLabel,
         batteryEl,
+        lowPowerEl,
         windowEl,
         acc,
       ]);

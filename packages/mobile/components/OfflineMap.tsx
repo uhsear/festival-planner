@@ -76,6 +76,8 @@ interface LivePin {
   headingArrow?: string;
   /** Phase 4C: battery chip text ("8% — regroup"); absent when no battery data. */
   batteryLabel?: string;
+  /** Peer low-power flag (#5): sharer is in battery-saver mode — shows a "Low Power" cue next to battery. */
+  lowPower?: boolean;
   /** Phase 4C: share-window countdown ("sharing ends in Nm"); absent when no expiry. */
   windowLabel?: string;
 }
@@ -546,6 +548,7 @@ function buildHtml(
           // Phase 4C popup chips (escaped; RN supplies the formatted strings).
           (p.headingArrow ? '<br/>Heading ' + escapeHtml(p.headingArrow) : '') +
           (p.batteryLabel ? '<br/>Battery ' + escapeHtml(p.batteryLabel) : '') +
+          (p.lowPower ? '<br/>🍃 Low Power' : '') +
           (p.windowLabel ? '<br/>' + escapeHtml(p.windowLabel) : '');
         var marker = new maplibregl.Marker({ element: el })
           .setLngLat([p.longitude, p.latitude])
@@ -971,6 +974,8 @@ export default function OfflineMap({
       // WebView document never computes them. Suppressed for stale peers.
       const arrow = stale ? null : headingToArrow(p.heading);
       const battery = stale ? null : formatBatteryLabel(p.battery);
+      // Peer low-power flag (#5): only cue a live (non-stale) peer in battery-saver mode.
+      const lowPower = stale ? false : p.lowPower === true;
       const windowLabel = stale ? null : formatShareWindow(p.expiresAt, now);
       items.push({
         id: `peer:${p.userId}`,
@@ -984,6 +989,7 @@ export default function OfflineMap({
         age,
         ...(arrow && typeof p.heading === 'number' ? { heading: p.heading, headingArrow: arrow } : {}),
         ...(battery ? { batteryLabel: battery } : {}),
+        ...(lowPower ? { lowPower: true } : {}),
         ...(windowLabel ? { windowLabel } : {}),
       });
     }

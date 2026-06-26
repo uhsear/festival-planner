@@ -114,7 +114,9 @@ export type paths = {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["AuthEnvelope"];
+                    };
                 };
                 /** @description Invalid credentials */
                 401: {
@@ -194,7 +196,9 @@ export type paths = {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["AuthEnvelope"];
+                    };
                 };
             };
         };
@@ -393,6 +397,145 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/crews/{crewId}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Crew activity feed (cursor-paginated) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Activity entries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: components["schemas"]["CrewActivityEntry"][];
+                            nextCursor?: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crews/{crewId}/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List crew expenses */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Expense ledger */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CrewExpense"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Add crew expense */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Expense created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CrewExpense"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crews/{crewId}/expenses/settlement-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Netted who-pays-whom settlement plan */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Balances + settlements */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CrewSettlementPlan"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/crews/{crewId}/overlap": {
         parameters: {
             query?: never;
@@ -420,6 +563,262 @@ export type paths = {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crews/{crewId}/packing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List crew packing items */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Packing board */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items?: components["schemas"]["CrewPackingItem"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Add packing item */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Item created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            item?: components["schemas"]["CrewPackingItem"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crews/{crewId}/polls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List active crew polls */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Polls (with vote tallies) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            polls?: components["schemas"]["CrewPoll"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create crew poll */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Poll created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            poll?: components["schemas"]["CrewPoll"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crews/{crewId}/rides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List crew ride offers */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ride board */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            offers?: components["schemas"]["CrewRideOffer"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Add ride offer */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Offer created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            offer?: components["schemas"]["CrewRideOffer"];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/crews/{crewId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List crew member statuses */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Member statuses */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            statuses?: components["schemas"]["CrewMemberStatus"][];
+                        };
+                    };
+                };
+            };
+        };
+        /** Upsert my own status */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    crewId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Status upserted */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            status?: components["schemas"]["CrewMemberStatus"];
+                        };
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -485,7 +884,9 @@ export type paths = {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["FestivalListItem"][];
+                    };
                 };
             };
         };
@@ -627,7 +1028,9 @@ export type paths = {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["NotificationPrefs"];
+                    };
                 };
             };
         };
@@ -646,7 +1049,9 @@ export type paths = {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["NotificationPrefs"];
+                    };
                 };
             };
         };
@@ -715,7 +1120,9 @@ export type paths = {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Profile"][];
+                    };
                 };
             };
         };
@@ -751,7 +1158,9 @@ export type paths = {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Profile"];
+                    };
                 };
             };
         };
@@ -784,7 +1193,9 @@ export type paths = {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["Profile"];
+                    };
                 };
                 /** @description Version mismatch */
                 409: {
@@ -882,6 +1293,21 @@ export type components = {
             };
             name: string;
         };
+        AuthEnvelope: {
+            refreshToken?: string;
+            token?: string;
+            user: {
+                avatarUrl: string | null;
+                cashappCashtag: string | null;
+                email: string | null;
+                emailVerified: boolean;
+                id: string;
+                name: string | null;
+                paypalHandle: string | null;
+                username: string;
+                venmoHandle: string | null;
+            };
+        };
         Crew: {
             createdAt: string;
             createdBy: string;
@@ -915,6 +1341,27 @@ export type components = {
             totem_name: string | null;
             updatedAt: string;
         };
+        CrewActivityEntry: {
+            created_at: string;
+            crew_id: string;
+            detail: string | null;
+            id: string;
+            type: string;
+            user_id: string;
+            username: string;
+        };
+        CrewExpense: {
+            amount: string;
+            category: string;
+            created_at: string;
+            crew_id: string;
+            description: string;
+            id: string;
+            paid_by: string;
+            paid_by_name?: string;
+            planned: boolean;
+            split_with: string[];
+        };
         CrewMember: {
             avatarKey: string | null;
             avatarVersion: string | null;
@@ -924,6 +1371,83 @@ export type components = {
             role: "owner" | "member";
             userId: string;
             username: string;
+        };
+        CrewMemberStatus: {
+            avatar_key?: string | null;
+            avatar_version?: string | null;
+            crew_id: string;
+            eta_minutes: number | null;
+            latitude: number | null;
+            location_captured_at: string | null;
+            longitude: number | null;
+            name?: string | null;
+            note: string | null;
+            status: string | null;
+            target_meeting_point_id: string | null;
+            updated_at: string;
+            user_id: string;
+            username?: string;
+        };
+        CrewPackingItem: {
+            brought_by: string | null;
+            claimed: boolean;
+            created_at: string;
+            created_by: string;
+            creator_name?: string;
+            crew_id: string;
+            id: string;
+            label: string;
+        };
+        CrewPoll: {
+            closed: boolean;
+            closes_at: string | null;
+            created_at: string;
+            created_by: string;
+            crew_id: string;
+            id: string;
+            options: string[];
+            question: string;
+            vote_count?: string;
+            votes?: {
+                option: number | null;
+                user_id: string | null;
+            }[];
+        };
+        CrewPollVote: {
+            option: number | null;
+            user_id: string | null;
+        };
+        CrewRideOffer: {
+            created_at: string;
+            created_by: string;
+            creator_name?: string;
+            crew_id: string;
+            depart_at: string | null;
+            depart_from: string | null;
+            driver: string | null;
+            id: string;
+            note: string | null;
+            seats: number | null;
+        };
+        CrewSettlementPlan: {
+            balances: {
+                balance: number;
+                userId: string;
+                username: string;
+            }[];
+            settlements: {
+                amount: number;
+                amountCents: number;
+                fromName: string;
+                fromUserId: string;
+                payeeHandles: {
+                    cashapp: string | null;
+                    paypal: string | null;
+                    venmo: string | null;
+                };
+                toName: string;
+                toUserId: string;
+            }[];
         };
         Day: {
             date?: string;
@@ -1112,6 +1636,15 @@ export type components = {
             }[];
             updatedAt: string;
         };
+        FestivalListItem: {
+            dayCount: number;
+            endDate: string | null;
+            id: string;
+            location: string;
+            name: string;
+            stageCount: number;
+            startDate: string | null;
+        };
         FestivalSet: {
             artist: string | null;
             artists: {
@@ -1144,21 +1677,51 @@ export type components = {
             type: string;
             updated_at: string;
         };
+        NotificationPrefs: {
+            crewReformed: number;
+            crewUpdates: number;
+            dndEnd: string | null;
+            dndStart: string | null;
+            lineupDrops: number;
+            scheduleChanges: number;
+            setReminders: number;
+            userId: string;
+            wrapReady: number;
+        };
+        /** @enum {string} */
+        PickPriority: "must" | "want-to-see" | "maybe";
         Profile: {
-            festivalId?: string;
-            id?: string;
-            name?: string;
-            picks?: {
+            avatarUrl: string | null;
+            createdAt: string;
+            festivalId: string;
+            id: string;
+            name: string;
+            notes?: {
+                [key: string]: string;
+            };
+            picks: {
                 [key: string]: "must" | "want-to-see" | "maybe";
             };
-            userId?: string;
+            reminders?: {
+                [key: string]: number;
+            };
+            updatedAt: string;
+            userId: string | null;
         };
         RefreshTokenResponse: {
-            /** @description New refresh token (90-day TTL) */
             refreshToken?: string;
-            /** @description New session token */
             token?: string;
-            user?: components["schemas"]["User"];
+            user: {
+                avatarUrl: string | null;
+                cashappCashtag: string | null;
+                email: string | null;
+                emailVerified: boolean;
+                id: string;
+                name: string | null;
+                paypalHandle: string | null;
+                username: string;
+                venmoHandle: string | null;
+            };
         };
         Set: {
             endTime?: string | null;

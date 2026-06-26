@@ -853,6 +853,10 @@ const liveCoord = z
     // a native build adds expo-battery (mobile) or the Battery API is present
     // (web); absent payloads behave exactly as before.
     battery: z.number().min(0).max(100).optional(),
+    // Peer low-power flag (#5): the SHARER's device is in battery-saver / low-power
+    // mode, surfaced next to battery on the peer popup. OPTIONAL + backward-compatible:
+    // only populated when the native build reads it (expo-battery); absent → omitted.
+    lowPower: z.boolean().optional(),
     capturedAt: z.string().datetime(),
   })
   .strip();
@@ -884,6 +888,9 @@ export const locationUpdateSchema = z
     // expiry of this time-boxed share, relayed so peers render battery + a
     // "sharing ends in Nm" countdown without any new endpoint.
     battery: z.number().min(0).max(100).optional(),
+    // Peer low-power flag (#5): the SHARER's device is in battery-saver / low-power
+    // mode. OPTIONAL + backward-compatible — absent payloads behave exactly as before.
+    lowPower: z.boolean().optional(),
     expiresAt: z.string().datetime().optional(),
     capturedAt: z.string().datetime(),
   })

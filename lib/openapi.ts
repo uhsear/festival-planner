@@ -72,6 +72,25 @@ const responseComponents: Record<string, Record<string, any>> = {
   Crew: zodResponseSchema(responseSchemas.crew),
   CrewMember: zodResponseSchema(responseSchemas.crewMember),
   MeetingPoint: zodResponseSchema(responseSchemas.meetingPoint),
+  // Phase 2 breadth — the remaining serialized entities. These OVERRIDE the
+  // hand-written Profile / RefreshTokenResponse placeholders below (spread last)
+  // and add the previously-undocumented crew/notification/auth shapes.
+  FestivalListItem: zodResponseSchema(responseSchemas.festivalListItem),
+  PickPriority: zodResponseSchema(responseSchemas.pickPriority),
+  Profile: zodResponseSchema(responseSchemas.profile),
+  CrewPoll: zodResponseSchema(responseSchemas.crewPoll),
+  CrewPollVote: zodResponseSchema(responseSchemas.crewPollVote),
+  CrewExpense: zodResponseSchema(responseSchemas.crewExpense),
+  CrewSettlementPlan: zodResponseSchema(responseSchemas.crewSettlementPlan),
+  CrewPackingItem: zodResponseSchema(responseSchemas.crewPackingItem),
+  CrewRideOffer: zodResponseSchema(responseSchemas.crewRideOffer),
+  CrewMemberStatus: zodResponseSchema(responseSchemas.crewMemberStatus),
+  CrewActivityEntry: zodResponseSchema(responseSchemas.crewActivityEntry),
+  NotificationPrefs: zodResponseSchema(responseSchemas.notificationPrefs),
+  // The auth envelope backs both AuthEnvelope and the existing
+  // RefreshTokenResponse component (same wire shape: { user, token?, refreshToken? }).
+  AuthEnvelope: zodResponseSchema(responseSchemas.authEnvelope),
+  RefreshTokenResponse: zodResponseSchema(responseSchemas.authEnvelope),
 };
 
 /** A `200`/`201` response body that $refs a registered response component. */
@@ -83,6 +102,28 @@ function jsonResponseRef(name: string) {
 function jsonResponseArrayRef(name: string) {
   return { content: { 'application/json': { schema: { type: 'array', items: { $ref: `#/components/schemas/${name}` } } } } };
 }
+
+/** A `{ ref: '#/components/schemas/<name>' }` reference (component property value). */
+function ref(name: string) {
+  return { $ref: `#/components/schemas/${name}` };
+}
+
+/**
+ * A success body that is an OBJECT wrapping registered components — the common
+ * crew sub-resource shape (e.g. `{ poll }`, `{ items, nextCursor }`). `props`
+ * maps each wrapper key to its property schema (use `ref`/array shapes).
+ */
+function jsonResponseWrapper(props: Record<string, any>) {
+  return { content: { 'application/json': { schema: { type: 'object', properties: props } } } };
+}
+
+/** Shorthand: an array-of-component property schema for a wrapper object. */
+function arrayOf(name: string) {
+  return { type: 'array', items: ref(name) };
+}
+
+/** The `crewId` path parameter shared by every crew sub-resource route. */
+const crewIdPathParam = { name: 'crewId', in: 'path', required: true, schema: { type: 'string' } };
 
 /**
  * Project a Zod object schema's top-level properties into OpenAPI query
@@ -160,24 +201,13 @@ export function generateOpenAPISpec(config: any) {
             linkUrl: { type: 'string', nullable: true },
           },
         },
-        Profile: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' }, userId: { type: 'string' }, festivalId: { type: 'string' },
-            name: { type: 'string' }, picks: { type: 'object', additionalProperties: { type: 'string', enum: ['must', 'want-to-see', 'maybe'] } },
-          },
-        },
-        RefreshTokenResponse: {
-          type: 'object',
-          properties: {
-            user: { $ref: '#/components/schemas/User' },
-            token: { type: 'string', description: 'New session token' },
-            refreshToken: { type: 'string', description: 'New refresh token (90-day TTL)' },
-          },
-        },
+        // Profile and RefreshTokenResponse are now DERIVED (see responseComponents:
+        // Profile ⇐ profileResponseSchema, RefreshTokenResponse ⇐ authEnvelopeResponseSchema)
+        // and spread in below, so their hand-written placeholders were removed.
         // Derived response components (override User/Stage/Festival placeholders
         // above and add Artist/FestivalSet/FestivalDepth1/Crew/CrewMember/
-        // MeetingPoint). Spread LAST so the derived definitions win.
+        // MeetingPoint + the Phase-2 breadth entities). Spread LAST so the
+        // derived definitions win.
         ...responseComponents,
       },
     },
@@ -193,7 +223,7 @@ export function generateOpenAPISpec(config: any) {
         post: {
           tags: ['Auth'], summary: 'Login',
           requestBody: jsonBody(loginSchema),
-          responses: { 200: { description: 'Login successful' }, 401: { description: 'Invalid credentials' }, 423: { description: 'Account locked' } },
+          responses: { 200: { description: 'Login successful', ...jsonResponseRef('AuthEnvelope') }, 401: { description: 'Invalid credentials' }, 423: { description: 'Account locked' } },
         },
       },
       '/api/v1/auth/refresh-token': {
@@ -204,7 +234,7 @@ export function generateOpenAPISpec(config: any) {
         },
       },
       '/api/v1/auth/me': {
-        get: { tags: ['Auth'], summary: 'Get current user', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Current user info' } } },
+        get: { tags: ['Auth'], summary: 'Get current user', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Current user info', ...jsonResponseRef('AuthEnvelope') } } },
       },
       '/api/v1/auth/logout': {
         post: { tags: ['Auth'], summary: 'Logout', responses: { 200: { description: 'Session invalidated' } } },
@@ -213,7 +243,7 @@ export function generateOpenAPISpec(config: any) {
         post: { tags: ['Auth'], summary: 'Refresh session token (requires valid session)', security: [{ bearerAuth: [] }], responses: { 200: { description: 'New session token' } } },
       },
       '/api/v1/festivals': {
-        get: { tags: ['Festivals'], summary: 'List all festivals', responses: { 200: { description: 'Festival list (ETag-cached)' } } },
+        get: { tags: ['Festivals'], summary: 'List all festivals', responses: { 200: { description: 'Festival list (ETag-cached)', ...jsonResponseArrayRef('FestivalListItem') } } },
       },
       '/api/v1/festivals/{id}': {
         get: {
@@ -223,13 +253,13 @@ export function generateOpenAPISpec(config: any) {
         },
       },
       '/api/v1/profiles/{festivalId}': {
-        get: { tags: ['Profiles'], summary: 'List profiles for festival', security: [{ bearerAuth: [] }], parameters: [{ name: 'festivalId', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Profile list' } } },
+        get: { tags: ['Profiles'], summary: 'List profiles for festival', security: [{ bearerAuth: [] }], parameters: [{ name: 'festivalId', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Profile list', ...jsonResponseArrayRef('Profile') } } },
       },
       '/api/v1/profiles/{festivalId}/join': {
-        post: { tags: ['Profiles'], summary: 'Join festival', security: [{ bearerAuth: [] }], responses: { 201: { description: 'Profile created' } } },
+        post: { tags: ['Profiles'], summary: 'Join festival', security: [{ bearerAuth: [] }], responses: { 201: { description: 'Profile created', ...jsonResponseRef('Profile') } } },
       },
       '/api/v1/profiles/{festivalId}/picks': {
-        put: { tags: ['Profiles'], summary: 'Update picks (with ETag concurrency)', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Picks updated' }, 409: { description: 'Version mismatch' } } },
+        put: { tags: ['Profiles'], summary: 'Update picks (with ETag concurrency)', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Picks updated', ...jsonResponseRef('Profile') }, 409: { description: 'Version mismatch' } } },
       },
       '/api/v1/crews': {
         get: { tags: ['Crews'], summary: 'List user crews', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Crew list', ...jsonResponseArrayRef('Crew') } } },
@@ -241,6 +271,32 @@ export function generateOpenAPISpec(config: any) {
       '/api/v1/crews/{crewId}/overlap': {
         get: { tags: ['Crews'], summary: 'Get crew pick overlap analysis', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Overlap data' } } },
       },
+      '/api/v1/crews/{crewId}/polls': {
+        get: { tags: ['Crews'], summary: 'List active crew polls', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 200: { description: 'Polls (with vote tallies)', ...jsonResponseWrapper({ polls: arrayOf('CrewPoll') }) } } },
+        post: { tags: ['Crews'], summary: 'Create crew poll', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 200: { description: 'Poll created', ...jsonResponseWrapper({ poll: ref('CrewPoll') }) } } },
+      },
+      '/api/v1/crews/{crewId}/expenses': {
+        get: { tags: ['Crews'], summary: 'List crew expenses', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 200: { description: 'Expense ledger', ...jsonResponseArrayRef('CrewExpense') } } },
+        post: { tags: ['Crews'], summary: 'Add crew expense', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 201: { description: 'Expense created', ...jsonResponseRef('CrewExpense') } } },
+      },
+      '/api/v1/crews/{crewId}/expenses/settlement-plan': {
+        get: { tags: ['Crews'], summary: 'Netted who-pays-whom settlement plan', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 200: { description: 'Balances + settlements', ...jsonResponseRef('CrewSettlementPlan') } } },
+      },
+      '/api/v1/crews/{crewId}/packing': {
+        get: { tags: ['Crews'], summary: 'List crew packing items', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 200: { description: 'Packing board', ...jsonResponseWrapper({ items: arrayOf('CrewPackingItem') }) } } },
+        post: { tags: ['Crews'], summary: 'Add packing item', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 200: { description: 'Item created', ...jsonResponseWrapper({ item: ref('CrewPackingItem') }) } } },
+      },
+      '/api/v1/crews/{crewId}/rides': {
+        get: { tags: ['Crews'], summary: 'List crew ride offers', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 200: { description: 'Ride board', ...jsonResponseWrapper({ offers: arrayOf('CrewRideOffer') }) } } },
+        post: { tags: ['Crews'], summary: 'Add ride offer', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 200: { description: 'Offer created', ...jsonResponseWrapper({ offer: ref('CrewRideOffer') }) } } },
+      },
+      '/api/v1/crews/{crewId}/status': {
+        get: { tags: ['Crews'], summary: 'List crew member statuses', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 200: { description: 'Member statuses', ...jsonResponseWrapper({ statuses: arrayOf('CrewMemberStatus') }) } } },
+        put: { tags: ['Crews'], summary: 'Upsert my own status', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 200: { description: 'Status upserted', ...jsonResponseWrapper({ status: ref('CrewMemberStatus') }) } } },
+      },
+      '/api/v1/crews/{crewId}/activity': {
+        get: { tags: ['Crews'], summary: 'Crew activity feed (cursor-paginated)', security: [{ bearerAuth: [] }], parameters: [crewIdPathParam], responses: { 200: { description: 'Activity entries', ...jsonResponseWrapper({ items: arrayOf('CrewActivityEntry'), nextCursor: { type: 'string', nullable: true } }) } } },
+      },
       '/api/v1/festivals/{festivalId}/calendar': {
         get: { tags: ['Export'], summary: 'Calendar events JSON for native integration', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Calendar events' } } },
       },
@@ -248,8 +304,8 @@ export function generateOpenAPISpec(config: any) {
         post: { tags: ['Notifications'], summary: 'Register FCM push token', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Token registered' } } },
       },
       '/api/v1/notifications/preferences': {
-        get: { tags: ['Notifications'], summary: 'Get notification preferences', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Preferences' } } },
-        put: { tags: ['Notifications'], summary: 'Update notification preferences', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Updated' } } },
+        get: { tags: ['Notifications'], summary: 'Get notification preferences', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Preferences', ...jsonResponseRef('NotificationPrefs') } } },
+        put: { tags: ['Notifications'], summary: 'Update notification preferences', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Updated', ...jsonResponseRef('NotificationPrefs') } } },
       },
       '/api/v1/admin/bulk/deactivate': {
         post: { tags: ['Admin'], summary: 'Bulk deactivate users', security: [{ bearerAuth: [] }], requestBody: jsonBody(adminBulkDeactivateSchema), responses: { 200: { description: 'Results' } } },

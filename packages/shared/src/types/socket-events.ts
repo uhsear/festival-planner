@@ -160,6 +160,8 @@ export interface LocationSharePayload extends VersionedPayload {
     heading?: number;
     /** Phase 4C: sharer battery % (0–100); only present when a native/web source supplies it. */
     battery?: number;
+    /** Peer low-power flag (#5): sharer's device is in battery-saver mode; absent → omitted. */
+    lowPower?: boolean;
     capturedAt: string;
   };
   /** Phase 4C: ISO expiry of this time-boxed share ("sharing ends in Nm"). */
@@ -176,6 +178,8 @@ export interface LocationUpdatePayload extends VersionedPayload {
   speed?: number;
   /** Phase 4C: sharer battery % (0–100); only present when a source supplies it. */
   battery?: number;
+  /** Peer low-power flag (#5): sharer's device is in battery-saver mode; absent → omitted. */
+  lowPower?: boolean;
   /** Phase 4C: ISO expiry of this time-boxed share. */
   expiresAt?: string;
   capturedAt: string;
@@ -203,6 +207,8 @@ export interface LocationPeerUpdatePayload extends VersionedPayload {
   speed?: number;
   /** Phase 4C: sharer battery % (0–100); only present when a source supplies it. */
   battery?: number;
+  /** Peer low-power flag (#5): sharer's device is in battery-saver mode; absent → omitted. */
+  lowPower?: boolean;
   /** Phase 4C: ISO expiry of this time-boxed share ("sharing ends in Nm"). */
   expiresAt?: string;
   capturedAt: string;
