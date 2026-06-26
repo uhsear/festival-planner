@@ -52,6 +52,11 @@ vi.mock('@festie/shared/utils', () => ({
   extractMeetingPointPins,
   extractStagePins: () => [],
   extractAmenityPins: () => [],
+  extractZones: () => [],
+  zonesGeoJSON: () => ({ type: 'FeatureCollection', features: [] }),
+  zoneLabels: () => [],
+  extractSiteplan: () => null,
+  siteplanImageSource: () => null,
   amenityGlyph: () => ({ glyph: '?', color: '#888888' }),
   pinsCentroid: (pins: Array<{ latitude: number; longitude: number }>) =>
     pins.length ? { latitude: pins[0].latitude, longitude: pins[0].longitude } : null,

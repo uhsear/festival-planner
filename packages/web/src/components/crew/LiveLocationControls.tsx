@@ -9,7 +9,7 @@ import { useLiveLocationStore } from '@festie/shared/stores/liveLocationStore';
 import { useFestivalModeStore } from '@festie/shared/stores/festivalModeStore';
 import { useLiveLocationPublisher, type GeoWatcher } from '@festie/shared/hooks';
 import { LIVE_LOCATION } from '@festie/shared/constants';
-import { formatStaleness } from '@festie/shared/utils';
+import { formatStaleness, formatShareWindow } from '@festie/shared/utils';
 import { useSharedSocket } from '../../lib/socketContext';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
@@ -44,7 +44,19 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
   // Per-session opt-in. NOT persisted — always starts OFF (privacy requirement).
   const [sharing, setSharing] = useState(false);
   const sharingCrewId = useLiveLocationStore((s) => s.sharingCrewId);
+  const sharingExpiresAt = useLiveLocationStore((s) => s.sharingExpiresAt);
   const sos = useLiveLocationStore((s) => s.sos);
+
+  // Phase 4C: tick once a minute so the own-side "sharing ends in Nm" countdown
+  // stays current. Only runs while sharing (cleared otherwise).
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (!sharingExpiresAt) return;
+    setNowTick(Date.now());
+    const id = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [sharingExpiresAt]);
+  const shareCountdown = sharingExpiresAt ? formatShareWindow(sharingExpiresAt, nowTick) : null;
   // Low-power mode disables the battery-hungry live-location auto-share (GPS
   // watch + socket emit loop). SOS stays available — it's an essential.
   const lowPowerMode = useFestivalModeStore((s) => s.lowPowerMode);
@@ -88,6 +100,11 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
             accuracy: pos.coords.accuracy ?? undefined,
             heading: pos.coords.heading ?? undefined,
             speed: pos.coords.speed ?? undefined,
+            // TODO(battery): the Battery Status API (navigator.getBattery()) is
+            // non-standard and unavailable in Safari/iOS, so battery is left
+            // undefined here for parity with mobile (build-gated). The payload
+            // field + peer popup already exist; wire getBattery().level×100 when a
+            // cross-browser source is acceptable.
             capturedAt: new Date(pos.timestamp).toISOString(),
           }),
         (err) => onError?.(err),
@@ -256,7 +273,9 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
           <span className="festie-live-dot" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-text-primary">You&apos;re sharing your live location</p>
-            <p className="text-xs text-text-muted">Only this crew can see it. Stops automatically when you leave.</p>
+            <p className="text-xs text-text-muted">
+              Only this crew can see it. Stops automatically when you leave{shareCountdown ? ` — ${shareCountdown}` : ''}.
+            </p>
           </div>
           <Button
             variant="outline"

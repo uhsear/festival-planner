@@ -9,10 +9,18 @@ import {
   extractMeetingPointPins,
   extractStagePins,
   extractAmenityPins,
+  extractZones,
+  zonesGeoJSON,
+  zoneLabels,
+  extractSiteplan,
+  siteplanImageSource,
   amenityGlyph,
   pickFestivalCamera,
   formatStaleness,
   isPeerStale,
+  headingToArrow,
+  formatBatteryLabel,
+  formatShareWindow,
   getInitials,
   buildPursuit,
   nearestPin,
@@ -21,6 +29,7 @@ import {
   hasOfflineBasemap,
   pmtilesVectorStyle,
   type Coord,
+  type MapPin as Pin,
 } from '@festie/shared/utils';
 import type { CrewMeetingPoint, PeerLocation, SosEntry, Festival, Stage, AmenityType } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
@@ -61,6 +70,14 @@ interface LivePin {
   stale?: boolean;
   /** Short "N ago" age shown on the stale chip (no "as of" prefix). */
   age?: string;
+  /** Phase 4C: GPS course (deg) — rotates the direction-of-travel caret. */
+  heading?: number;
+  /** Phase 4C: 8-wind arrow glyph for the popup ("Heading ↗"); absent when no heading. */
+  headingArrow?: string;
+  /** Phase 4C: battery chip text ("8% — regroup"); absent when no battery data. */
+  batteryLabel?: string;
+  /** Phase 4C: share-window countdown ("sharing ends in Nm"); absent when no expiry. */
+  windowLabel?: string;
 }
 
 /**
@@ -128,7 +145,7 @@ const MAP_ORIGIN_WHITELIST = [
  * no local cache `allowFile` is false and `file://` is rejected like any other
  * off-origin navigation (default-deny preserved).
  */
-function makeShouldStartLoad(extraHost: string | null, allowFile: boolean = false) {
+function makeShouldStartLoad(extraHost: string | string[] | null, allowFile: boolean = false) {
   return function onShouldStartLoadWithRequest(req: ShouldStartLoadRequest): boolean {
     const url = req.url || '';
     // The inline HTML document itself (no real origin) + data URIs MapLibre uses.
@@ -231,6 +248,14 @@ function buildHtml(
    * copy exists); with no offline basemap the CSP is byte-for-byte as before.
    */
   localBasemap: boolean = false,
+  /**
+   * Phase 4B: the host of the georeferenced site-plan image, or null. When set,
+   * its EXACT https origin is added to the CSP `img-src` so MapLibre's `image`
+   * source can load the organizer's site-plan raster. Config-driven, admin-
+   * controlled, validated https upstream; never a wildcard. With no site plan
+   * this is null and the CSP is byte-for-byte as before.
+   */
+  siteplanOrigin: string | null = null,
 ): string {
   // center is numeric, non-user-controlled coords — safe to template. Still run
   // it through the hardened serializer for uniformity.
@@ -259,11 +284,15 @@ function buildHtml(
   // cache dir so file access is confined to exactly that folder. No remote origin
   // is added in this branch. With no offline basemap `fileExtra` is empty.
   const fileExtra = localBasemap ? ' file:' : '';
+  // Phase 4B: permit EXACTLY the site-plan image's https origin on img-src (the
+  // raster is loaded as an image). Image-only — no connect-src/script-src change.
+  // With no site plan this is empty and the CSP is byte-for-byte as before.
+  const siteplanExtra = siteplanOrigin ? ` https://${siteplanOrigin}` : '';
   const csp = [
     "default-src 'none'",
     "script-src 'unsafe-inline' https://unpkg.com blob:",
     "style-src 'unsafe-inline' https://unpkg.com",
-    `img-src data: blob: https://*.tile.openstreetmap.org https://unpkg.com${extra}${fileExtra}`,
+    `img-src data: blob: https://*.tile.openstreetmap.org https://unpkg.com${extra}${fileExtra}${siteplanExtra}`,
     `connect-src https://unpkg.com https://*.tile.openstreetmap.org${extra}${fileExtra}`,
     'worker-src blob:',
     'font-src data:',
@@ -310,6 +339,13 @@ function buildHtml(
       font: 600 10px -apple-system, system-ui, sans-serif;
       padding: 1px 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.14);
     }
+    /* Phase 4C: direction-of-travel caret pinned above the avatar, rotated inline
+       per-peer by the GPS course. */
+    .festie-peer-dir {
+      position: absolute; bottom: calc(100% - 1px); left: 50%;
+      transform-origin: 50% 16px; font-size: 9px; line-height: 1;
+      color: #00e8d0; text-shadow: 0 0 2px rgba(8,8,16,0.9); pointer-events: none;
+    }
     /* SOS: emphasized, larger coral marker with a stronger pulse. */
     .festie-sos {
       width: 30px; height: 30px; border-radius: 50%;
@@ -349,6 +385,17 @@ function buildHtml(
       width: 24px; height: 24px; border-radius: 50%;
       border: 2px solid #fff; box-shadow: 0 0 6px rgba(0,0,0,0.5);
       font-size: 13px; line-height: 1;
+    }
+    /* Zone label (Phase 4A): small uppercase chip at the zone centroid, tinted
+       with the zone color. The polygon fill itself is a GL layer beneath every
+       marker. Non-interactive. */
+    .festie-zone-label {
+      white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis;
+      background: rgba(8,8,16,0.7); color: #eaeaf2;
+      font: 700 10px/1.3 -apple-system, system-ui, sans-serif;
+      letter-spacing: 0.02em; text-transform: uppercase;
+      padding: 2px 7px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25);
+      pointer-events: none;
     }
     .maplibregl-popup-content { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; }
   </style>
@@ -433,6 +480,17 @@ function buildHtml(
           var ini = document.createElement('span');
           ini.textContent = p.initial || '?';
           el.appendChild(ini);
+          // Phase 4C: direction-of-travel caret, rotated by the GPS course. RN
+          // gates it (live peers with a real heading only); the document just
+          // rotates a fixed glyph — no math, no untrusted text parsed as HTML.
+          if (typeof p.heading === 'number' && isFinite(p.heading)) {
+            var dir = document.createElement('span');
+            dir.className = 'festie-peer-dir';
+            dir.setAttribute('aria-hidden', 'true');
+            dir.textContent = '▲';
+            dir.style.transform = 'translateX(-50%) rotate(' + p.heading + 'deg)';
+            el.appendChild(dir);
+          }
           if (p.stale && p.age) {
             var chip = document.createElement('span');
             chip.className = 'festie-chip';
@@ -452,7 +510,11 @@ function buildHtml(
           });
         })(p);
         var popupHtml = '<strong>' + escapeHtml(p.label) + '</strong>' +
-          (p.sublabel ? '<br/>' + escapeHtml(p.sublabel) : '');
+          (p.sublabel ? '<br/>' + escapeHtml(p.sublabel) : '') +
+          // Phase 4C popup chips (escaped; RN supplies the formatted strings).
+          (p.headingArrow ? '<br/>Heading ' + escapeHtml(p.headingArrow) : '') +
+          (p.batteryLabel ? '<br/>Battery ' + escapeHtml(p.batteryLabel) : '') +
+          (p.windowLabel ? '<br/>' + escapeHtml(p.windowLabel) : '');
         var marker = new maplibregl.Marker({ element: el })
           .setLngLat([p.longitude, p.latitude])
           .setPopup(new maplibregl.Popup({ offset: 16 }).setHTML(popupHtml))
@@ -505,6 +567,70 @@ function buildHtml(
           .addTo(map);
         MAPDATA_MARKERS.push(marker);
       });
+    }
+
+    // Zone polygons (Phase 4A). A single GeoJSON source + a fill + outline layer
+    // (data-driven color via ['get','color']) so the filled areas always sit
+    // BENEATH every DOM marker. Zone labels are DOM markers at each centroid (no
+    // glyphs endpoint needed). The source/layers are added once, then setData
+    // updates them. Color arrives baked into each feature from the RN side.
+    var ZONE_LABEL_MARKERS = [];
+    function renderZones(map, payload) {
+      var collection = (payload && payload.collection) || { type: 'FeatureCollection', features: [] };
+      var labels = (payload && payload.labels) || [];
+      try {
+        var src = map.getSource('festie-zones');
+        if (src) {
+          src.setData(collection);
+        } else {
+          map.addSource('festie-zones', { type: 'geojson', data: collection });
+          map.addLayer({ id: 'festie-zones-fill', type: 'fill', source: 'festie-zones',
+            paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 } });
+          map.addLayer({ id: 'festie-zones-line', type: 'line', source: 'festie-zones',
+            paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.85 } });
+        }
+      } catch (e) {}
+      ZONE_LABEL_MARKERS.forEach(function (m) { try { m.remove(); } catch (e) {} });
+      ZONE_LABEL_MARKERS = [];
+      labels.forEach(function (z) {
+        var el = document.createElement('div');
+        el.className = 'festie-zone-label';
+        el.style.borderColor = z.color || 'rgba(255,255,255,0.25)';
+        el.textContent = z.label || '';
+        var marker = new maplibregl.Marker({ element: el }).setLngLat([z.longitude, z.latitude]).addTo(map);
+        ZONE_LABEL_MARKERS.push(marker);
+      });
+    }
+
+    // Site-plan raster overlay (Phase 4B). A MapLibre 'image' source + raster
+    // layer positioned by the 4 corners at the configured opacity, inserted UNDER
+    // the zones fill (and thus under every DOM marker). Pushed via
+    // __festieSetSiteplan after 'ready'; a null payload tears it down. The image
+    // URL was validated https + its host added to the CSP img-src on the RN side.
+    function renderSiteplan(map, payload) {
+      var SRC = 'festie-siteplan';
+      var LAYER = 'festie-siteplan-layer';
+      try {
+        if (!payload || !payload.url || !payload.coordinates) {
+          if (map.getLayer(LAYER)) map.removeLayer(LAYER);
+          if (map.getSource(SRC)) map.removeSource(SRC);
+          return;
+        }
+        var opacity = (typeof payload.opacity === 'number') ? payload.opacity : 0.6;
+        var src = map.getSource(SRC);
+        if (src) {
+          src.updateImage({ url: payload.url, coordinates: payload.coordinates });
+          if (map.getLayer(LAYER)) map.setPaintProperty(LAYER, 'raster-opacity', opacity);
+        } else {
+          map.addSource(SRC, { type: 'image', url: payload.url, coordinates: payload.coordinates });
+          var layer = { id: LAYER, type: 'raster', source: SRC,
+            paint: { 'raster-opacity': opacity, 'raster-fade-duration': 0 } };
+          // Keep the site plan UNDER zones: insert before the zones fill if it's
+          // already added; otherwise append (zones added later go on top anyway).
+          if (map.getLayer('festie-zones-fill')) map.addLayer(layer, 'festie-zones-fill');
+          else map.addLayer(layer);
+        }
+      } catch (e) {}
     }
 
     function escapeHtml(s) {
@@ -560,15 +686,20 @@ function buildHtml(
         // mode value is whitelisted on the RN side before injection.
         var AUTHORING = 'off';
         window.__festieSetAuthoring = function (mode) {
-          AUTHORING = (mode === 'stage' || mode === 'amenity') ? mode : 'off';
+          AUTHORING = (mode === 'stage' || mode === 'amenity' || mode === 'zone' || mode === 'siteplan')
+            ? mode : 'off';
           post({ type: 'authoring', mode: AUTHORING });
         };
         map.on('click', function (e) {
           if (!PLACEMENT || !e || !e.lngLat) return;
-          // One-shot: drop the pin, then exit placement so a stray tap can't
-          // keep firing creates.
-          PLACEMENT = false;
-          try { map.getCanvas().style.cursor = ''; } catch (err) {}
+          // Zone + site-plan authoring need MULTIPLE taps (one per vertex/corner),
+          // so they KEEP placement armed. Every other mode is one-shot: drop the
+          // pin, then exit placement so a stray tap can't keep firing creates.
+          var multiTap = (AUTHORING === 'zone' || AUTHORING === 'siteplan');
+          if (!multiTap) {
+            PLACEMENT = false;
+            try { map.getCanvas().style.cursor = ''; } catch (err) {}
+          }
           post({ type: 'map-longpress', longitude: e.lngLat.lng, latitude: e.lngLat.lat });
         });
 
@@ -607,6 +738,24 @@ function buildHtml(
             renderMapData(map, markers || []);
             post({ type: 'mapdata-updated', markers: (markers || []).length });
           } catch (err) { post({ type: 'error', reason: 'mapdata-update' }); }
+        };
+
+        // Push zone polygons (a GeoJSON FeatureCollection + label anchors).
+        // Independent of the meeting/peer/SOS/mapdata layers above.
+        window.__festieSetZones = function (payload) {
+          try {
+            renderZones(map, payload || { collection: { type: 'FeatureCollection', features: [] }, labels: [] });
+            post({ type: 'zones-updated' });
+          } catch (err) { post({ type: 'error', reason: 'zones-update' }); }
+        };
+
+        // Push the georeferenced site-plan overlay (a null payload tears it down).
+        // Independent of every other layer above.
+        window.__festieSetSiteplan = function (payload) {
+          try {
+            renderSiteplan(map, payload || null);
+            post({ type: 'siteplan-updated' });
+          } catch (err) { post({ type: 'error', reason: 'siteplan-update' }); }
         };
 
         // RN-driven framing to explicit festival map-config bounds
@@ -667,8 +816,14 @@ export default function OfflineMap({
   // Stage + amenity pins from the festival's map data (Phase A/B contract).
   const stagePins = useMemo(() => extractStagePins(festival), [festival]);
   const amenityPins = useMemo(() => extractAmenityPins(festival?.mapConfig), [festival]);
+  // Zone polygons (Phase 4A): filled translucent areas drawn UNDER the markers.
+  const zones = useMemo(() => extractZones(festival?.mapConfig), [festival]);
+  // Site-plan raster overlay (Phase 4B): the organizer's georeferenced paper map.
+  const siteplan = useMemo(() => extractSiteplan(festival?.mapConfig), [festival]);
   const hasStages = stagePins.length > 0;
   const hasAmenities = amenityPins.length > 0;
+  const hasZones = zones.length > 0;
+  const hasSiteplan = !!siteplan;
 
   // Resolve stage + amenity pins into WebView markers, attaching glyph + color
   // from the shared source so the inline document carries no category logic.
@@ -701,8 +856,27 @@ export default function OfflineMap({
     return out;
   }, [stagePins, amenityPins, hiddenAmenities]);
 
+  // Zone centroids feed the camera fallback as pseudo-pins so a zones-only
+  // festival still centres on its grounds (explicit config bounds/center win).
+  const zoneCentroidPins = useMemo<Pin[]>(
+    () =>
+      zones
+        .filter((z) => z.centroid)
+        .map((z) => ({
+          id: `zone:${z.id}`,
+          kind: 'amenity' as const,
+          label: z.label || 'Zone',
+          latitude: z.centroid!.latitude,
+          longitude: z.centroid!.longitude,
+        })),
+    [zones],
+  );
+
   // Initial camera: festival map-config (bounds/center) → static pins → centroid.
-  const staticPins = useMemo(() => [...pins, ...stagePins, ...amenityPins], [pins, stagePins, amenityPins]);
+  const staticPins = useMemo(
+    () => [...pins, ...stagePins, ...amenityPins, ...zoneCentroidPins],
+    [pins, stagePins, amenityPins, zoneCentroidPins],
+  );
   const camera = useMemo(() => pickFestivalCamera(festival, staticPins), [festival, staticPins]);
   const center = camera.center;
 
@@ -718,6 +892,12 @@ export default function OfflineMap({
       if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
       const age = formatStaleness(p.serverAt).replace(/^as of /, '');
       const stale = isPeerStale(p.serverAt, now);
+      // Phase 4C: heading caret + battery + share-window. All formatted on the RN
+      // side (shared pure helpers) and passed as plain strings/number so the
+      // WebView document never computes them. Suppressed for stale peers.
+      const arrow = stale ? null : headingToArrow(p.heading);
+      const battery = stale ? null : formatBatteryLabel(p.battery);
+      const windowLabel = stale ? null : formatShareWindow(p.expiresAt, now);
       items.push({
         id: `peer:${p.userId}`,
         label: p.username || 'Crew member',
@@ -728,6 +908,9 @@ export default function OfflineMap({
         kind: 'peer',
         stale,
         age,
+        ...(arrow && typeof p.heading === 'number' ? { heading: p.heading, headingArrow: arrow } : {}),
+        ...(battery ? { batteryLabel: battery } : {}),
+        ...(windowLabel ? { windowLabel } : {}),
       });
     }
     if (sos?.position && Number.isFinite(sos.position.lat) && Number.isFinite(sos.position.lng)) {
@@ -910,25 +1093,44 @@ export default function OfflineMap({
   // is needed (and isn't added) — the map reads purely from file://.
   const offlineBasemapHost = usingLocalBasemap ? null : remoteBasemapHost;
 
-  // The HTML doc carries NO pin data — only the numeric center + the chosen
-  // basemap style — so it rebuilds only when the center or the basemap changes
-  // (pins flow in via injectJavaScript below).
+  // Phase 4B: the host of the configured site-plan image, if any. Threaded into
+  // the CSP img-src + the navigation allowlist so the raster can load while
+  // keeping default-deny (EXACTLY this one https origin, no wildcard). Null when
+  // the festival has no site plan — CSP/allowlist byte-for-byte as before.
+  const siteplanImageHost = useMemo(() => {
+    if (!siteplan) return null;
+    try {
+      return new URL(siteplan.imageUrl).hostname;
+    } catch {
+      return null;
+    }
+  }, [siteplan]);
+
+  // The HTML doc carries NO pin data — only the numeric center, the chosen
+  // basemap style, and the site-plan image host (for the CSP) — so it rebuilds
+  // only when those change (pins/zones/siteplan data flow in via injectJavaScript).
   const html = useMemo(
-    () => buildHtml(center, mapStyle, offlineBasemapHost, usingLocalBasemap),
-    [center, mapStyle, offlineBasemapHost, usingLocalBasemap],
+    () => buildHtml(center, mapStyle, offlineBasemapHost, usingLocalBasemap, siteplanImageHost),
+    [center, mapStyle, offlineBasemapHost, usingLocalBasemap, siteplanImageHost],
   );
 
   // Navigation guard + origin whitelist, widened by EXACTLY the festival's
-  // PMTiles host (remote mode) OR the file:// scheme (local-cache mode) — default-
-  // deny preserved; only one of the two is ever active at a time.
+  // PMTiles host (remote mode) and/or the site-plan image host, OR the file://
+  // scheme (local-cache mode) — default-deny preserved; only configured origins
+  // are ever added.
+  const extraHosts = useMemo(
+    () => [offlineBasemapHost, siteplanImageHost].filter((h): h is string => !!h),
+    [offlineBasemapHost, siteplanImageHost],
+  );
   const shouldStartLoad = useMemo(
-    () => makeShouldStartLoad(offlineBasemapHost, usingLocalBasemap),
-    [offlineBasemapHost, usingLocalBasemap],
+    () => makeShouldStartLoad(extraHosts, usingLocalBasemap),
+    [extraHosts, usingLocalBasemap],
   );
   const originWhitelist = useMemo(() => {
-    if (usingLocalBasemap) return [...MAP_ORIGIN_WHITELIST, 'file://'];
-    return offlineBasemapHost ? [...MAP_ORIGIN_WHITELIST, `https://${offlineBasemapHost}`] : MAP_ORIGIN_WHITELIST;
-  }, [offlineBasemapHost, usingLocalBasemap]);
+    const base = usingLocalBasemap ? [...MAP_ORIGIN_WHITELIST, 'file://'] : [...MAP_ORIGIN_WHITELIST];
+    for (const h of extraHosts) base.push(`https://${h}`);
+    return base;
+  }, [extraHosts, usingLocalBasemap]);
 
   // Scope native file access to EXACTLY the basemaps cache dir (and only when a
   // local archive is active). `allowingReadAccessToURL` (iOS) confines reads to
@@ -961,7 +1163,7 @@ export default function OfflineMap({
   // 'fallback' → CDN/offline failure, render the honest list instead. Start in
   // loading whenever there's anything to plot (meeting points, festival map data,
   // OR live markers).
-  const hasAnythingToPlot = pins.length > 0 || hasStages || hasAmenities || hasLive;
+  const hasAnythingToPlot = pins.length > 0 || hasStages || hasAmenities || hasZones || hasSiteplan || hasLive;
   const [phase, setPhase] = useState<'loading' | 'map' | 'fallback'>(
     hasAnythingToPlot ? 'loading' : 'fallback',
   );
@@ -1039,6 +1241,8 @@ export default function OfflineMap({
           msg.reason !== 'peer-update' &&
           msg.reason !== 'flyto' &&
           msg.reason !== 'mapdata-update' &&
+          msg.reason !== 'zones-update' &&
+          msg.reason !== 'siteplan-update' &&
           msg.reason !== 'fitbounds'
         )
           fallBack();
@@ -1106,6 +1310,28 @@ export default function OfflineMap({
     webRef.current.injectJavaScript(`window.__festieSetMapData && window.__festieSetMapData(${mapDataJson}); true;`);
   }, [phase, mapDataJson]);
 
+  // Push zone polygons (a GeoJSON FeatureCollection with color baked in + label
+  // anchors) into the WebView when the map is up and whenever they change. Same
+  // hardened serializer (zone labels are admin-controlled). Independent layer.
+  const zonesJson = useMemo(
+    () => safeJsonForScript({ collection: zonesGeoJSON(zones), labels: zoneLabels(zones) }),
+    [zones],
+  );
+  useEffect(() => {
+    if (phase !== 'map' || !webRef.current) return;
+    webRef.current.injectJavaScript(`window.__festieSetZones && window.__festieSetZones(${zonesJson}); true;`);
+  }, [phase, zonesJson]);
+
+  // Push the site-plan raster overlay (Phase 4B) into the WebView when the map is
+  // up and whenever it changes. A null payload tears the layer down. The image
+  // URL is config-derived (https, host already in the CSP); same hardened
+  // serializer. Independent of every other layer.
+  const siteplanJson = useMemo(() => safeJsonForScript(siteplanImageSource(siteplan)), [siteplan]);
+  useEffect(() => {
+    if (phase !== 'map' || !webRef.current) return;
+    webRef.current.injectJavaScript(`window.__festieSetSiteplan && window.__festieSetSiteplan(${siteplanJson}); true;`);
+  }, [phase, siteplanJson]);
+
   // Frame the map to the festival's explicit map-config bounds once it's up. The
   // map was already centered on camera.center via buildHtml; bounds (when the
   // config carries them) tighten the view to the grounds. Coords are numeric +
@@ -1129,11 +1355,31 @@ export default function OfflineMap({
   }, [phase, boundsKey]);
 
   // Push the authoring mode into the WebView whenever it (or the map phase)
-  // changes (Phase D). The mode is whitelisted by buildSetAuthoringScript before
-  // injection — only 'off'/'stage'/'amenity' can ever reach the document.
+  // changes (Phase D / 4A / 4B). The mode is whitelisted by buildSetAuthoringScript
+  // before injection — only a known AuthoringMode can ever reach the document.
   useEffect(() => {
     if (phase !== 'map' || !webRef.current) return;
     webRef.current.injectJavaScript(buildSetAuthoringScript(authoringMode));
+  }, [phase, authoringMode]);
+
+  // Zone drawing + site-plan corner placement need placement ARMED across multiple
+  // taps (one vertex/corner per tap), so entering a multi-tap mode arms placement
+  // automatically and leaving it disarms. Scoped to multi-tap transitions only —
+  // stage/amenity placement (driven by the "Drop pin" toggle) is never touched,
+  // preserving their one-shot behaviour.
+  const isMultiTapMode = (m: AuthoringMode) => m === 'zone' || m === 'siteplan';
+  const prevAuthRef = useRef<AuthoringMode>('off');
+  useEffect(() => {
+    if (phase !== 'map' || !webRef.current) {
+      prevAuthRef.current = authoringMode;
+      return;
+    }
+    if (isMultiTapMode(authoringMode)) {
+      webRef.current.injectJavaScript('window.__festieSetPlacement && window.__festieSetPlacement(true); true;');
+    } else if (isMultiTapMode(prevAuthRef.current)) {
+      webRef.current.injectJavaScript('window.__festieSetPlacement && window.__festieSetPlacement(false); true;');
+    }
+    prevAuthRef.current = authoringMode;
   }, [phase, authoringMode]);
 
   // Toggle placement mode in the WebView. The next single map tap (while on)

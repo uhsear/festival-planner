@@ -29,8 +29,16 @@ export interface GeoFix {
   lat: number;
   lng: number;
   accuracy?: number;
+  /** GPS course/heading in degrees clockwise from north (peers render a travel arrow). */
   heading?: number;
   speed?: number;
+  /**
+   * Phase 4C: device battery % (0–100) at fix time. OPTIONAL — the web adapter
+   * may read the (non-standard) Battery API; the mobile adapter leaves this
+   * undefined until a native build adds expo-battery (see its TODO). When absent
+   * the peer popup simply omits the battery chip.
+   */
+  battery?: number;
   /** ISO timestamp at fix time. Defaults to now if the watcher omits it. */
   capturedAt?: string;
 }
@@ -77,9 +85,19 @@ export function useLiveLocationPublisher({
     const store = useLiveLocationStore;
     let stopped = false;
 
+    // Phase 4C: the share is time-boxed (durationMs, or MAX_SESSION_MS). Compute
+    // the absolute expiry ONCE at session start and relay it on every emit so
+    // peers can render a "sharing ends in Nm" countdown. A reconnect re-uses the
+    // same expiry (the wall-clock deadline doesn't move).
+    const cap =
+      typeof durationMs === 'number' && Number.isFinite(durationMs) && durationMs > 0
+        ? durationMs
+        : LIVE_LOCATION.MAX_SESSION_MS;
+    const sessionExpiresAt = new Date(Date.now() + cap).toISOString();
+
     // 1. Declare intent to share. Send the first fix inline once we have it.
-    store.getState().startSharing(crewId);
-    socket.emit('location:share', { _v: 1, crewId }, () => {});
+    store.getState().startSharing(crewId, sessionExpiresAt);
+    socket.emit('location:share', { _v: 1, crewId, expiresAt: sessionExpiresAt }, () => {});
 
     // Re-announce on reconnect: the server keeps the share grant on
     // per-connection state (socket.data.sharingCrewId), so a disconnect/
@@ -87,7 +105,7 @@ export function useLiveLocationPublisher({
     // NOT_SHARING until we re-emit the intent.
     const onReconnect = () => {
       if (!stopped) {
-        socket.emit('location:share', { _v: 1, crewId }, () => {});
+        socket.emit('location:share', { _v: 1, crewId, expiresAt: sessionExpiresAt }, () => {});
       }
     };
     socket.on('connect', onReconnect);
@@ -109,6 +127,12 @@ export function useLiveLocationPublisher({
           accuracy: fix.accuracy,
           heading: fix.heading,
           speed: fix.speed,
+          // Phase 4C: relay battery (when a source supplies it) + the fixed
+          // share-window expiry so peers can render direction/battery/countdown.
+          // TODO(expo-battery): mobile fix.battery is undefined until a native
+          // build adds expo-battery; this passes it through with no native read.
+          battery: fix.battery,
+          expiresAt: sessionExpiresAt,
           capturedAt: fix.capturedAt ?? new Date(now).toISOString(),
         });
         store.getState().recordSent(next, now);
@@ -118,13 +142,9 @@ export function useLiveLocationPublisher({
       },
     );
 
-    // 4. Hard session cap: auto-stop at the chosen time-box (or the default
-    //    MAX_SESSION_MS when no explicit duration was picked). A non-finite /
-    //    non-positive duration falls back to the default rather than never firing.
-    const cap =
-      typeof durationMs === 'number' && Number.isFinite(durationMs) && durationMs > 0
-        ? durationMs
-        : LIVE_LOCATION.MAX_SESSION_MS;
+    // 4. Hard session cap: auto-stop at the chosen time-box (the same `cap`
+    //    used above to derive sessionExpiresAt) so the timer and the countdown
+    //    peers see always agree.
     const sessionTimer = setTimeout(() => {
       stop();
       onAutoStop?.();

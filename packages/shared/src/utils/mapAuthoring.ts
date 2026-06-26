@@ -26,6 +26,8 @@
  */
 
 import type { AmenityType, FestivalMapConfig } from '../types/domain';
+import type { ZoneFeature } from './mapZones';
+import { isHexColor, ZONE_DEFAULT_COLOR } from './mapZones';
 
 /** A single amenity Feature inside a map-config's `amenities` collection. */
 export type AmenityFeature = NonNullable<FestivalMapConfig['amenities']>['features'][number];
@@ -246,4 +248,103 @@ export function captureCenter(
  */
 export function amenityCount(config: FestivalMapConfig | null | undefined): number {
   return config?.amenities?.features?.length ?? 0;
+}
+
+// ── Zone polygons (Phase 4A) ─────────────────────────────────────────────────
+//
+// The admin editor lets a festival admin draw zone polygons (camping / VIP /
+// no-go / parking) with a tap-to-add-vertex builder, then persists them into
+// `map_config.zones` via the SAME PUT /admin/festivals/:id write path. The
+// transforms — generating an id, building a CLOSED-ring Polygon Feature from a
+// list of tapped {latitude, longitude} vertices, and appending/removing a zone
+// in a config — are pure business logic and live here so web + mobile stay in
+// parity. Coordinates are converted at THIS boundary: callers pass/receive
+// {latitude, longitude}; the stored Feature is GeoJSON [lng, lat].
+
+/**
+ * Generate a collision-resistant id for a freshly-drawn zone. Prefixed so it's
+ * distinguishable from amenity/stage/day/set ids in logs. Pure-enough for the
+ * editor; not a security primitive.
+ */
+export function makeZoneId(): string {
+  return `zone-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Build a single zone GeoJSON Polygon Feature from a list of tapped vertices
+ * ({latitude, longitude}, converted to GeoJSON [lng, lat]). Out-of-range
+ * vertices are dropped; the ring is CLOSED (the first point is appended as the
+ * last when not already closed) as GeoJSON Polygons require. Returns null when
+ * fewer than 3 valid vertices remain (no polygon). The color is validated to a
+ * hex string (falls back to the neutral default); a blank label is stored as ''
+ * (the renderer falls back to no label tag). Pure: never mutates inputs.
+ */
+export function buildZoneFeature(
+  vertices: Array<{ latitude: number; longitude: number }>,
+  opts: { color?: string; label?: string } = {},
+  id: string = makeZoneId(),
+): ZoneFeature | null {
+  if (!Array.isArray(vertices)) return null;
+  const ring: [number, number][] = [];
+  for (const v of vertices) {
+    if (isValidLatLng(v)) ring.push([v.longitude, v.latitude]);
+  }
+  if (ring.length < 3) return null;
+  // Close the ring if the caller didn't (GeoJSON Polygon rings are closed).
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (!first || !last) return null; // unreachable (length ≥ 3) — narrows for TS
+  if (first[0] !== last[0] || first[1] !== last[1]) ring.push([first[0], first[1]]);
+  const color = isHexColor(opts.color) ? opts.color : ZONE_DEFAULT_COLOR;
+  const label = (opts.label ?? '').trim();
+  return {
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: [ring] },
+    properties: { id, color, label },
+  };
+}
+
+/**
+ * Return a new FestivalMapConfig with `feature` appended to its zones
+ * collection. If the prior config is null/absent, a fresh `version: 1` config
+ * with just this zone is created. Existing amenities/siteplan/center/bounds are
+ * preserved untouched. Pure: never mutates the input.
+ */
+export function appendZone(config: FestivalMapConfig | null | undefined, feature: ZoneFeature): FestivalMapConfig {
+  const base: FestivalMapConfig = config ? { ...config } : { version: 1 };
+  const prevFeatures = base.zones?.features ?? [];
+  return {
+    ...base,
+    version: 1,
+    zones: {
+      type: 'FeatureCollection',
+      features: [...prevFeatures, feature],
+    },
+  };
+}
+
+/**
+ * Return a new FestivalMapConfig with the zone whose `properties.id` matches
+ * removed. No-op (returns an equivalent config) when the id isn't present or
+ * there are no zones. Pure: never mutates the input.
+ */
+export function removeZone(config: FestivalMapConfig | null | undefined, zoneId: string): FestivalMapConfig {
+  const base: FestivalMapConfig = config ? { ...config } : { version: 1 };
+  const prevFeatures = base.zones?.features ?? [];
+  return {
+    ...base,
+    version: 1,
+    zones: {
+      type: 'FeatureCollection',
+      features: prevFeatures.filter((f) => (f?.properties as { id?: unknown } | undefined)?.id !== zoneId),
+    },
+  };
+}
+
+/**
+ * Count zones in a config (0 for null/absent). Small convenience for the
+ * editor's "N zones drawn" summary copy.
+ */
+export function zoneCount(config: FestivalMapConfig | null | undefined): number {
+  return config?.zones?.features?.length ?? 0;
 }

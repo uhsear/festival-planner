@@ -14,6 +14,8 @@ export * from './geo';
 export * from './liveLocation';
 export * from './planSnapshot';
 export * from './mapPins';
+export * from './mapZones';
+export * from './mapSiteplan';
 export * from './mapStyle';
 export * from './mapAuthoring';
 export * from './ongoingNotification';

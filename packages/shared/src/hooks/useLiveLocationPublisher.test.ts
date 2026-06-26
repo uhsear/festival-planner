@@ -98,7 +98,12 @@ describe('useLiveLocationPublisher', () => {
     renderHook(() =>
       useLiveLocationPublisher({ socket, crewId: 'crew-1', enabled: true, watchPosition: w.watchPosition }),
     );
-    expect(emit).toHaveBeenCalledWith('location:share', { _v: 1, crewId: 'crew-1' }, expect.any(Function));
+    expect(emit).toHaveBeenCalledWith(
+      'location:share',
+      // Phase 4C: the share now carries the time-boxed expiry (sharing ends in Nm).
+      expect.objectContaining({ _v: 1, crewId: 'crew-1', expiresAt: expect.any(String) }),
+      expect.any(Function),
+    );
     expect(w.started).toBe(true);
     const s = useLiveLocationStore.getState();
     expect(s.sharingCrewId).toBe('crew-1');

@@ -5,10 +5,18 @@ import {
   extractMeetingPointPins,
   extractStagePins,
   extractAmenityPins,
+  extractZones,
+  zonesGeoJSON,
+  zoneLabels,
+  extractSiteplan,
+  siteplanImageSource,
   amenityGlyph,
   pickFestivalCamera,
   formatStaleness,
   isPeerStale,
+  headingToArrow,
+  formatBatteryLabel,
+  formatShareWindow,
   getInitials,
   buildPursuit,
   nearestPin,
@@ -204,6 +212,7 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
   const mpMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const stageMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const amenityMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
+  const zoneLabelMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const peerMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
   const sosMarkerRef = useRef<import('maplibre-gl').Marker | null>(null);
   const fittedRef = useRef(false);
@@ -216,6 +225,11 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
   // Stage + amenity pins from the festival's map data (Phase A/B contract).
   const stagePins = useMemo<Pin[]>(() => extractStagePins(festival), [festival]);
   const amenityPins = useMemo<Pin[]>(() => extractAmenityPins(festival?.mapConfig), [festival]);
+  // Zone polygons (Phase 4A): filled translucent areas drawn UNDER the markers.
+  const zones = useMemo(() => extractZones(festival?.mapConfig), [festival]);
+  // Site-plan raster overlay (Phase 4B): the organizer's georeferenced paper map,
+  // drawn UNDER zones + pins. Null for festivals with no site plan (unchanged).
+  const siteplan = useMemo(() => extractSiteplan(festival?.mapConfig), [festival]);
   // Amenity pins after the filter chips — hidden categories are dropped from the
   // rendered set. The full `amenityPins` still drives camera-fit + nearest-X.
   const visibleAmenityPins = useMemo<Pin[]>(
@@ -273,16 +287,35 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
   const hasPins = pins.length > 0;
   const hasStages = stagePins.length > 0;
   const hasAmenities = amenityPins.length > 0;
+  const hasZones = zones.length > 0;
+  const hasSiteplan = !!siteplan;
   const hasPeers = peerList.length > 0;
   const hasSos = !!sos?.position;
   // Render the map when there's ANYTHING to plot (meeting points, stage/amenity
-  // map data, live peers, or an SOS coord).
-  const shouldRenderMap = hasPins || hasStages || hasAmenities || hasPeers || hasSos;
+  // map data, zone polygons, a site-plan overlay, live peers, or an SOS coord).
+  const shouldRenderMap = hasPins || hasStages || hasAmenities || hasZones || hasSiteplan || hasPeers || hasSos;
 
   // Initial camera: prefer the festival's explicit map-config (bounds/center),
   // then frame the static pins, then live peers / SOS. pickFestivalCamera owns
   // the static-pin precedence; we extend its fallback with the ephemeral coords.
-  const staticPins = useMemo(() => [...pins, ...stagePins, ...amenityPins], [pins, stagePins, amenityPins]);
+  // Zone centroids feed the camera fallback so a zones-only festival still frames.
+  const zoneCentroidPins = useMemo<Pin[]>(
+    () =>
+      zones
+        .filter((z) => z.centroid)
+        .map((z) => ({
+          id: `zone:${z.id}`,
+          kind: 'amenity' as const,
+          label: z.label || 'Zone',
+          latitude: z.centroid!.latitude,
+          longitude: z.centroid!.longitude,
+        })),
+    [zones],
+  );
+  const staticPins = useMemo(
+    () => [...pins, ...stagePins, ...amenityPins, ...zoneCentroidPins],
+    [pins, stagePins, amenityPins, zoneCentroidPins],
+  );
   const camera = useMemo(() => pickFestivalCamera(festival, staticPins), [festival, staticPins]);
   const center = useMemo(() => {
     if (camera.center) return camera.center;
@@ -307,11 +340,25 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
     () => amenityPins.map((p) => `${p.id}:${p.latitude},${p.longitude}`).join('|'),
     [amenityPins],
   );
+  const zonesKey = useMemo(
+    () =>
+      zones
+        .map(
+          (z) =>
+            `${z.id}:${z.color}:${z.label}:${z.rings.map((r) => r.length).join(',')}:${z.centroid?.latitude ?? ''},${z.centroid?.longitude ?? ''}`,
+        )
+        .join('|'),
+    [zones],
+  );
   const peersKey = useMemo(
     () => peerList.map((p) => `${p.userId}:${p.lat},${p.lng}:${p.serverAt}`).join('|'),
     [peerList],
   );
   const sosKey = sos ? `${sos.userId}:${sos.position?.lat},${sos.position?.lng}` : '';
+  // Re-run the site-plan effect when the image URL, corners, or opacity change.
+  const siteplanKey = siteplan
+    ? `${siteplan.imageUrl}:${siteplan.corners.map((c) => c.join(',')).join('|')}:${siteplan.opacity}`
+    : '';
 
   // Keep the latest center for the (peer-driven) lazy map creation without making
   // it an effect dep (which would recreate the map on every position tick). The
@@ -527,6 +574,7 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
       mpMarkersRef.current = [];
       stageMarkersRef.current = [];
       amenityMarkersRef.current = [];
+      zoneLabelMarkersRef.current = [];
       peerMarkersRef.current = [];
       sosMarkerRef.current = null;
       fittedRef.current = false;
@@ -536,6 +584,111 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
     };
     // Only (re)create when content first appears / disappears.
   }, [shouldRenderMap]);
+
+  // ── Site-plan raster overlay (festival-mapped; UNDER zones + every marker) ──
+  // The organizer's georeferenced paper site-plan as a MapLibre `image` source +
+  // raster layer, positioned by its 4 corners at the configured opacity. Declared
+  // BEFORE the zones effect so it's added to the layer stack first (zones + DOM
+  // markers sit on top). Graceful: no siteplan ⇒ nothing added; clearing removes.
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    const SRC = 'festie-siteplan';
+    const LAYER = 'festie-siteplan-layer';
+    const src = siteplanImageSource(siteplan);
+    try {
+      if (!src) {
+        if (map.getLayer(LAYER)) map.removeLayer(LAYER);
+        if (map.getSource(SRC)) map.removeSource(SRC);
+        return;
+      }
+      const coordinates = src.coordinates as unknown as [
+        [number, number],
+        [number, number],
+        [number, number],
+        [number, number],
+      ];
+      const existing = map.getSource(SRC) as import('maplibre-gl').ImageSource | undefined;
+      if (existing) {
+        existing.updateImage({ url: src.url, coordinates });
+        if (map.getLayer(LAYER)) map.setPaintProperty(LAYER, 'raster-opacity', src.opacity);
+      } else {
+        map.addSource(SRC, { type: 'image', url: src.url, coordinates });
+        map.addLayer({
+          id: LAYER,
+          type: 'raster',
+          source: SRC,
+          paint: { 'raster-opacity': src.opacity, 'raster-fade-duration': 0 },
+        });
+      }
+    } catch {
+      // Transient style-not-ready race: a later siteplanKey change re-attempts.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, siteplanKey]);
+
+  // ── Zone polygons (festival-mapped; filled translucent, UNDER every marker) ──
+  // GeoJSON source + fill + outline GL layer (data-driven color) beneath all DOM
+  // markers; labels are DOM markers at each centroid. The web EXPORT doesn't load
+  // web's components.css, so the label tag is styled inline (self-contained).
+  useEffect(() => {
+    const map = mapRef.current;
+    const gl = glRef.current;
+    if (status !== 'ready' || !map || !gl) return;
+
+    type ZoneData = Parameters<import('maplibre-gl').GeoJSONSource['setData']>[0];
+    const data = zonesGeoJSON(zones) as unknown as ZoneData;
+    try {
+      const existing = map.getSource('festie-zones') as import('maplibre-gl').GeoJSONSource | undefined;
+      if (existing) {
+        existing.setData(data);
+      } else {
+        map.addSource('festie-zones', { type: 'geojson', data });
+        map.addLayer({
+          id: 'festie-zones-fill',
+          type: 'fill',
+          source: 'festie-zones',
+          paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 },
+        });
+        map.addLayer({
+          id: 'festie-zones-line',
+          type: 'line',
+          source: 'festie-zones',
+          paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.85 },
+        });
+      }
+    } catch {
+      // Transient style-not-ready race: a later zonesKey change re-attempts.
+    }
+
+    for (const m of zoneLabelMarkersRef.current) m.remove();
+    zoneLabelMarkersRef.current = [];
+    for (const z of zoneLabels(zones)) {
+      const el = document.createElement('div');
+      el.style.cssText = [
+        'white-space:nowrap',
+        'max-width:140px',
+        'overflow:hidden',
+        'text-overflow:ellipsis',
+        'background:rgba(8,8,16,0.7)',
+        'color:#eaeaf2',
+        'font:700 10px/1.3 -apple-system,system-ui,sans-serif',
+        'letter-spacing:0.02em',
+        'text-transform:uppercase',
+        'padding:2px 7px',
+        'border-radius:8px',
+        `border:1px solid ${z.color}`,
+        'pointer-events:none',
+      ].join(';');
+      el.setAttribute('aria-hidden', 'true');
+      el.textContent = z.label;
+      const marker = new gl.Marker({ element: el }).setLngLat([z.longitude, z.latitude]).addTo(map);
+      zoneLabelMarkersRef.current.push(marker);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, zonesKey]);
 
   // ── Meeting-point markers ──────────────────────────────────────────────────
   useEffect(() => {
@@ -698,12 +851,37 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
       const initials = getInitials(peer.username || 'User') || '?';
       const el = document.createElement('div');
       el.className = stale ? 'festie-peer-marker festie-peer-marker--stale' : 'festie-peer-marker';
+      // This export ships no components.css, so anchor the heading caret + stale
+      // chip to the avatar explicitly (relative positioning) rather than the
+      // MapLibre-transformed wrapper.
+      el.style.position = 'relative';
       el.setAttribute('role', 'button');
       el.setAttribute('tabindex', '0');
       el.setAttribute('aria-label', `${peer.username} — ${stale ? `last seen ${rel}` : `live location, ${rel}`}`);
       const iniEl = document.createElement('span');
       iniEl.textContent = initials;
       el.appendChild(iniEl);
+      // Phase 4C: direction-of-travel pointer rotated by the GPS course (live peers
+      // with a real heading only). Inline-styled — this surface ships no CSS file.
+      const arrowGlyph = stale ? null : headingToArrow(peer.heading);
+      if (arrowGlyph && typeof peer.heading === 'number') {
+        const dir = document.createElement('span');
+        dir.setAttribute('aria-hidden', 'true');
+        dir.textContent = '▲';
+        dir.style.cssText = [
+          'position:absolute',
+          'bottom:calc(100% - 1px)',
+          'left:50%',
+          'transform-origin:50% 14px',
+          `transform:translateX(-50%) rotate(${peer.heading}deg)`,
+          'font-size:9px',
+          'line-height:1',
+          'color:#19e3d3',
+          'text-shadow:0 0 2px rgba(8,8,16,0.9)',
+          'pointer-events:none',
+        ].join(';');
+        el.appendChild(dir);
+      }
       if (stale) {
         const chip = document.createElement('span');
         chip.className = 'festie-peer-chip';
@@ -712,7 +890,20 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
       }
       const acc =
         typeof peer.accuracy === 'number' && peer.accuracy > 0 ? subEl(`±${Math.round(peer.accuracy)} m`) : null;
-      const popupEl = popupContent([titleEl(peer.username), subEl(stale ? `Last seen ${rel}` : `Live · ${rel}`), acc]);
+      // Phase 4C popup chips: heading arrow, battery, remaining share window.
+      const headingLabel = arrowGlyph ? subEl(`Heading ${arrowGlyph}`) : null;
+      const batteryLabel = !stale ? formatBatteryLabel(peer.battery) : null;
+      const batteryEl = batteryLabel ? subEl(`Battery ${batteryLabel}`) : null;
+      const windowLabel = !stale ? formatShareWindow(peer.expiresAt, nowMs) : null;
+      const windowEl = windowLabel ? subEl(windowLabel) : null;
+      const popupEl = popupContent([
+        titleEl(peer.username),
+        subEl(stale ? `Last seen ${rel}` : `Live · ${rel}`),
+        headingLabel,
+        batteryEl,
+        windowEl,
+        acc,
+      ]);
       const marker = new gl.Marker({ element: el })
         .setLngLat([peer.lng, peer.lat])
         .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setDOMContent(popupEl))
@@ -804,6 +995,8 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
       ...pins.map((p) => [p.longitude, p.latitude] as [number, number]),
       ...stagePins.map((p) => [p.longitude, p.latitude] as [number, number]),
       ...amenityPins.map((p) => [p.longitude, p.latitude] as [number, number]),
+      ...zones.flatMap((z) => z.rings.flat()),
+      ...(siteplan ? siteplan.corners : []),
       ...peerList
         .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
         .map((p) => [p.lng, p.lat] as [number, number]),
@@ -816,7 +1009,7 @@ export default function OfflineMap({ meetingPoints, peers, sos, onMapPress, fest
     }
     fittedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, pinsKey, stagesKey, allAmenitiesKey, peersKey, sosKey]);
+  }, [status, pinsKey, stagesKey, allAmenitiesKey, zonesKey, siteplanKey, peersKey, sosKey]);
 
   // Toggle placement mode: the next single map click drops a meeting point and
   // auto-exits (web parity with native's "Drop pin"). The click handler reads

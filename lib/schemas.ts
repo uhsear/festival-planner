@@ -848,6 +848,11 @@ const liveCoord = z
     lng: z.number().min(-180).max(180),
     accuracy: z.number().min(0).max(100000).optional(),
     heading: z.number().min(0).max(360).optional(),
+    // Phase 4C: device battery % (0–100) of the SHARER, surfaced on the peer
+    // popup ("8% — regroup"). OPTIONAL + backward-compatible: only populated when
+    // a native build adds expo-battery (mobile) or the Battery API is present
+    // (web); absent payloads behave exactly as before.
+    battery: z.number().min(0).max(100).optional(),
     capturedAt: z.string().datetime(),
   })
   .strip();
@@ -859,6 +864,9 @@ export const locationShareSchema = z
     // Optional first fix sent alongside the share-intent so peers see the sharer
     // immediately instead of waiting for the first periodic update tick.
     position: liveCoord.optional(),
+    // Phase 4C: ISO timestamp this time-boxed share auto-stops, so peers can show
+    // "sharing ends in Nm". OPTIONAL + backward-compatible.
+    expiresAt: z.string().datetime().optional(),
   })
   .strip();
 export type LocationShareInput = z.infer<typeof locationShareSchema>;
@@ -872,6 +880,11 @@ export const locationUpdateSchema = z
     accuracy: z.number().min(0).max(100000).optional(),
     heading: z.number().min(0).max(360).optional(),
     speed: z.number().min(0).max(1000).optional(),
+    // Phase 4C (all OPTIONAL + backward-compatible): sharer battery % and the ISO
+    // expiry of this time-boxed share, relayed so peers render battery + a
+    // "sharing ends in Nm" countdown without any new endpoint.
+    battery: z.number().min(0).max(100).optional(),
+    expiresAt: z.string().datetime().optional(),
     capturedAt: z.string().datetime(),
   })
   .strip();
