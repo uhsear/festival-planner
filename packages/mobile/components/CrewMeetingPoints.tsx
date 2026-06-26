@@ -159,8 +159,17 @@ export default function CrewMeetingPoints({
     }
   };
 
-  const openDirections = (loc: string) => {
-    Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(loc)}`).catch(() => {});
+  // Prefer the point's saved GPS coords (q=lat,lng routes to the exact pin) over
+  // the free-text location string, which a maps search can geocode wrongly.
+  const openDirections = (point: CrewMeetingPoint) => {
+    const q =
+      typeof point.latitude === 'number' &&
+      typeof point.longitude === 'number' &&
+      Number.isFinite(point.latitude) &&
+      Number.isFinite(point.longitude)
+        ? `${point.latitude},${point.longitude}`
+        : point.location;
+    Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(q)}`).catch(() => {});
   };
 
   const handleCreate = async () => {
@@ -401,7 +410,7 @@ export default function CrewMeetingPoints({
               </View>
               <View style={styles.rowActions}>
                 <TouchableOpacity
-                  onPress={() => openDirections(point.location)}
+                  onPress={() => openDirections(point)}
                   style={styles.iconButton}
                   activeOpacity={0.7}
                   accessibilityRole="button"

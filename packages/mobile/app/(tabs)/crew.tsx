@@ -17,7 +17,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuthStore, useCrewStore, useFestivalStore, useFestivalModeStore } from '@festie/shared/stores';
 import { useCrew } from '@festie/shared/hooks';
@@ -26,6 +25,7 @@ import { setLabel, getInitials, buildJoinUrl } from '@festie/shared/utils';
 import type { Crew, CrewMember, CrewOverlap, FestivalSet } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle, MAX_FONT_SCALE } from '../../hooks/useTokens';
 import { useHaptics } from '../../hooks/useHaptics';
+import { useListBottomInset } from '../../hooks/useListBottomInset';
 import Button from '../../components/Button';
 import ScreenHeader from '../../components/ScreenHeader';
 import CrewTabBar, { type CrewTabKey } from '../../components/CrewTabBar';
@@ -62,22 +62,24 @@ export default function CrewScreen() {
   const isTablet = width >= 768;
   const tabletInset = useMemo(() => (isTablet ? { paddingHorizontal: t.spacing[6] } : null), [isTablet, t.spacing]);
 
-  // Respect the iOS home indicator (~34pt on iPhone 12+/13+/14+) so the last
-  // member row / footer action clears the home bar instead of sitting under it.
-  // The static list/scroll styles can't read `insets`, so layer it on inline.
-  const insets = useSafeAreaInsets();
+  // Bottom padding via the shared inset hook (single source of truth for the
+  // home-indicator cushion). Crew is a TAB screen — the tab bar in (tabs)/_layout
+  // already absorbs the safe-area inset, so we pass includeSafeArea:false to add
+  // only the visible cushion and avoid double-padding the last row.
+  const listBottomPad = useListBottomInset({ includeSafeArea: false });
+  const memberBottomPad = useListBottomInset({ base: t.spacing[4], includeSafeArea: false });
   const memberListStyle = useMemo(
-    () => [styles.memberList, tabletInset, { paddingBottom: Math.max(t.spacing[4], insets.bottom + t.spacing[2]) }],
-    [styles.memberList, tabletInset, insets.bottom, t.spacing],
+    () => [styles.memberList, tabletInset, { paddingBottom: memberBottomPad }],
+    [styles.memberList, tabletInset, memberBottomPad],
   );
   const formScrollStyle = useMemo(
-    () => [styles.formScroll, tabletInset, { paddingBottom: Math.max(t.spacing[6], insets.bottom + t.spacing[2]) }],
-    [styles.formScroll, tabletInset, insets.bottom, t.spacing],
+    () => [styles.formScroll, tabletInset, { paddingBottom: listBottomPad }],
+    [styles.formScroll, tabletInset, listBottomPad],
   );
   // Per-tab scroll padding for the non-Members tabs (Plan / Logistics / Money).
   const tabScrollStyle = useMemo(
-    () => [styles.tabScroll, tabletInset, { paddingBottom: Math.max(t.spacing[6], insets.bottom + t.spacing[2]) }],
-    [styles.tabScroll, tabletInset, insets.bottom, t.spacing],
+    () => [styles.tabScroll, tabletInset, { paddingBottom: listBottomPad }],
+    [styles.tabScroll, tabletInset, listBottomPad],
   );
 
   const user = useAuthStore((s) => s.user);

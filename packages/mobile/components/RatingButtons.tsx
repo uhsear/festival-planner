@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { api } from '@festie/shared/services';
+import { api, mapErrorToUserMessage } from '@festie/shared/services';
 import { RATING_SCALE_DATA } from '@festie/shared/constants';
 import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
@@ -56,6 +56,11 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
   const haptics = useHaptics();
   const [current, setCurrent] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  // Set when an optimistic write rolls back, so the failure is VISIBLE (not just
+  // a haptic, which is silent for users with haptics disabled). Mobile ratings
+  // don't go through the offline queue, so a tap while offline would otherwise
+  // fill-then-quietly-vanish with no explanation.
+  const [saveError, setSaveError] = useState<string | null>(null);
   // Until the initial GET resolves we don't know if there's an existing rating,
   // so we hold the controls at a slightly reduced opacity and show "Loading…"
   // rather than flashing the "Tap to rate" hint and then a filled state.
@@ -95,6 +100,7 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
       // segmented control so equivalent "I chose this" controls all confirm (F18).
       haptics.select();
       setBusy(true);
+      setSaveError(null);
       const prev = current;
       const removing = current === n;
       // Optimistic local update.
@@ -108,10 +114,13 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
           // a small "logged it" confirmation, distinct from the per-tap select.
           haptics.success();
         }
-      } catch {
-        // Roll back on failure + a warning buzz so the user knows it didn't save.
+      } catch (e) {
+        // Roll back on failure + a warning buzz AND an explicit message — offline
+        // is the common cause (no offline queue here), and mapErrorToUserMessage
+        // distinguishes "you appear to be offline" from server/other failures.
         haptics.warning();
         setCurrent(prev);
+        setSaveError(mapErrorToUserMessage(e, "Couldn't save — try again."));
       } finally {
         setBusy(false);
       }
@@ -130,6 +139,9 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
         accessibilityRole="radiogroup"
         accessibilityLabel="Rate this set"
         accessibilityHint="Choose 1 to 5; tap the active rating again to remove it"
+        // Speak the chosen rating (or "Not rated") when the group gains focus, so
+        // the current value is announced without tabbing through every button.
+        accessibilityValue={{ text: currentLabel ?? 'Not rated' }}
       >
         {RATINGS.map((r) => {
           const active = current === r.n;
@@ -152,13 +164,26 @@ export default function RatingButtons({ setId, festivalId }: RatingButtonsProps)
         })}
       </View>
       <Text
-        style={[styles.caption, currentLabel ? styles.captionActive : null]}
+        style={[
+          styles.caption,
+          saveError ? styles.captionError : currentLabel ? styles.captionActive : null,
+        ]}
         maxFontSizeMultiplier={MAX_FONT_SCALE}
-        numberOfLines={1}
-        accessibilityElementsHidden
-        importantForAccessibility="no"
+        numberOfLines={2}
+        // The rollback message is the one caption state worth announcing — keep
+        // the routine "Tap to rate" / "You rated this" hints hidden from a11y
+        // (the radiogroup's accessibilityValue already conveys the rating).
+        accessibilityElementsHidden={!saveError}
+        importantForAccessibility={saveError ? 'yes' : 'no'}
+        accessibilityLiveRegion={saveError ? 'polite' : 'none'}
       >
-        {!loaded ? 'Loading…' : currentLabel ? `You rated this: ${currentLabel}` : 'Tap to rate this set'}
+        {!loaded
+          ? 'Loading…'
+          : saveError
+            ? saveError
+            : currentLabel
+              ? `You rated this: ${currentLabel}`
+              : 'Tap to rate this set'}
       </Text>
     </View>
   );
@@ -181,6 +206,9 @@ const useStyles = makeStyles((t) => ({
   },
   captionActive: {
     color: t.colors.accent.amber,
+  },
+  captionError: {
+    color: t.colors.accent.coral,
   },
   button: {
     flex: 1,

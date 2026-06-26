@@ -27,8 +27,10 @@ export default function AccountDataSection() {
       const data = await api.get<Record<string, unknown>>('/account/export');
       const json = JSON.stringify(data, null, 2);
 
-      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const file = new File(Paths.cache, `festie-data-${stamp}.json`);
+      // One fixed filename, overwritten each export. A timestamped name left a
+      // fresh full-account JSON bundle in the cache on every tap, forever —
+      // a privacy footgun. Overwriting keeps at most one copy on disk.
+      const file = new File(Paths.cache, 'festie-data-export.json');
       file.create({ overwrite: true });
       file.write(json);
 

@@ -122,6 +122,23 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
     }
   }, [crewId, clearing, haptics]);
 
+  // Clearing kills a LIVE emergency for the whole crew and any member can do it,
+  // so gate it behind a confirm (parity with the raise, which is already
+  // confirm-gated) — one stray tap must not silently resolve a real SOS.
+  const confirmClear = useCallback(() => {
+    const mine = sos?.userId === currentUserId;
+    Alert.alert(
+      mine ? 'Clear your SOS?' : 'Mark this SOS resolved?',
+      mine
+        ? "This tells your whole crew you're safe and removes the alert for everyone. Only do this once you're actually OK."
+        : 'This clears the active emergency alert for everyone in the crew. Only do this if you know they are safe.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: mine ? "I'm safe" : 'Mark resolved', style: 'destructive', onPress: () => void doClear() },
+      ],
+    );
+  }, [doClear, sos?.userId, currentUserId]);
+
   const sosTarget: MeetingPointTarget | null =
     sos?.position && Number.isFinite(sos.position.lat) && Number.isFinite(sos.position.lng)
       ? { label: `${sos.username} (SOS)`, latitude: sos.position.lat, longitude: sos.position.lng }
@@ -160,7 +177,7 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
             ) : null}
             <TouchableOpacity
               style={[styles.bannerButton, styles.bannerButtonOutline]}
-              onPress={doClear}
+              onPress={confirmClear}
               disabled={clearing}
               activeOpacity={0.85}
               accessibilityRole="button"

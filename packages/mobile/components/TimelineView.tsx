@@ -73,7 +73,13 @@ interface StageColumnProps {
   getMyPick: (setId: string) => Priority | null | undefined;
   onSetPress: (set: FestivalSet) => void;
   columnWidth: number;
-  scrollRef?: React.RefObject<ScrollView | null>;
+  /**
+   * Callback ref: every column registers its vertical ScrollView so the parent
+   * can keep the shared now-scroll target pointed at whichever stage page is
+   * currently centered (not a fixed column 0, which goes off-screen after the
+   * first swipe — leaving the Now FAB + auto-scroll dead).
+   */
+  registerScrollRef?: (node: ScrollView | null) => void;
   onUserScroll?: () => void;
 }
 
@@ -94,7 +100,7 @@ function StageColumn({
   getMyPick,
   onSetPress,
   columnWidth,
-  scrollRef,
+  registerScrollRef,
   onUserScroll,
 }: StageColumnProps) {
   const t = useTokens();
@@ -128,7 +134,7 @@ function StageColumn({
       </View>
 
       <ScrollView
-        ref={scrollRef}
+        ref={registerScrollRef}
         style={styles.columnScroll}
         contentContainerStyle={{ height: totalHeight }}
         showsVerticalScrollIndicator={false}
@@ -356,6 +362,29 @@ export default function TimelineView({
     [pageStride],
   );
 
+  // --- Active-page scroll target ------------------------------------------
+  // The Now FAB + the 60s auto-scroll drive ONE shared scrollRef (from
+  // useNowIndicator). Keep it pointed at whichever stage column is currently
+  // centered — NOT a fixed column 0. After the first swipe column 0 is
+  // off-screen, so the old fixed binding left both the FAB and the tick dead
+  // while the coral NOW line still rendered on the visible column. Each column
+  // registers its vertical ScrollView here; we re-aim scrollRef on page change
+  // and again whenever the active column (re)mounts under FlatList windowing.
+  const columnRefs = useRef<Map<number, ScrollView | null>>(new Map());
+  const activePageRef = useRef(activePage);
+  useEffect(() => {
+    activePageRef.current = activePage;
+    scrollRef.current = columnRefs.current.get(activePage) ?? null;
+  }, [activePage, scrollRef]);
+  const registerColumnRef = useCallback(
+    (index: number, node: ScrollView | null) => {
+      if (node) columnRefs.current.set(index, node);
+      else columnRefs.current.delete(index);
+      if (index === activePageRef.current) scrollRef.current = node;
+    },
+    [scrollRef],
+  );
+
   // Stage ids with a set on stage RIGHT NOW (for the live dot in the indicator).
   // Derived from the existing now-line position (nowIndicator %) mapped back to
   // an absolute minute, so it agrees exactly with the coral NOW line per column.
@@ -395,10 +424,12 @@ export default function TimelineView({
         getMyPick={getMyPick}
         onSetPress={onSetPress}
         columnWidth={columnWidth}
-        // Only the first column drives scroll-to-now (visible on first paint)
-        // and reports user drags so the tick won't fight active scrolling.
-        scrollRef={index === 0 ? scrollRef : undefined}
-        onUserScroll={index === 0 ? handleUserScroll : undefined}
+        // Every column registers its ScrollView; the shared now-scroll target is
+        // kept pointed at the centered page (see registerColumnRef) so the Now
+        // FAB + 60s auto-scroll always drive the visible stage. Any column's drag
+        // arms the "user is scrolling" guard so the tick won't fight it.
+        registerScrollRef={(node) => registerColumnRef(index, node)}
+        onUserScroll={handleUserScroll}
       />
     ),
     [
@@ -411,7 +442,7 @@ export default function TimelineView({
       getMyPick,
       onSetPress,
       columnWidth,
-      scrollRef,
+      registerColumnRef,
       handleUserScroll,
       t.colors.text.muted,
     ],
@@ -423,10 +454,13 @@ export default function TimelineView({
 
   return (
     <View style={styles.root}>
-      <View style={styles.hintRow}>
-        <Ionicons name="swap-horizontal" size={12} color={t.colors.text.muted} />
-        <Text style={styles.hintText}>Swipe to change stage</Text>
-      </View>
+      {/* Only meaningful with >1 stage — a single-stage festival can't swipe. */}
+      {visibleStages.length > 1 ? (
+        <View style={styles.hintRow}>
+          <Ionicons name="swap-horizontal" size={12} color={t.colors.text.muted} />
+          <Text style={styles.hintText}>Swipe to change stage</Text>
+        </View>
+      ) : null}
 
       {nextPickLabel ? (
         <View

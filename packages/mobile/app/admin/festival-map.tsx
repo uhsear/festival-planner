@@ -234,6 +234,14 @@ export default function FestivalMapEditorScreen() {
   // 'off'). Cosmetic on the WebView side; the tap still flows through onMapPress.
   const authoringMode: AuthoringMode = armed?.kind ?? 'off';
 
+  // In-progress zone vertices / site-plan corners → per-tap dots on the map. Below
+  // the polygon (3+) / overlay (4 corners) render threshold the preview shows
+  // nothing, so these give the admin immediate "your tap landed here" feedback.
+  const draftPoints = useMemo(
+    () => (isDrawingZone ? draftVertices : isPlacingSiteplan ? draftCorners : []),
+    [isDrawingZone, isPlacingSiteplan, draftVertices, draftCorners],
+  );
+
   // ── Placement: a map tap landed ─────────────────────────────────────────────
   const handleMapPress = useCallback(
     (coord: { latitude: number; longitude: number }) => {
@@ -464,6 +472,7 @@ export default function FestivalMapEditorScreen() {
           meetingPoints={[]}
           festival={mapFestival}
           authoringMode={authoringMode}
+          draftPoints={draftPoints}
           onMapPress={handleMapPress}
         />
         {armed ? (

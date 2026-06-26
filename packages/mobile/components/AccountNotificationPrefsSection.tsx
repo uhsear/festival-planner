@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, Switch, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore, useNotificationPrefsStore, useFestivalStore } from '@festie/shared/stores';
 import { api } from '@festie/shared/services';
 import { Skeleton } from './Skeleton';
+import { formatQuietHours } from '../lib/accountFormat';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
 
@@ -37,19 +38,28 @@ function FestivalTopicsRows() {
   const user = useAuthStore((s) => s.user);
   const festivalId = user ? (currentFestival?.id ?? null) : null;
 
-  // Default to ON (subscribed) before the real state loads.
-  const [subs, setSubs] = useState<TopicSubscriptions>({ crew: true, schedule: true });
+  // null = not yet resolved (renders a skeleton); the real subscription state
+  // loads on mount. We no longer assume "subscribed" before the GET lands — a
+  // failed/in-flight load must not masquerade as a confirmed opt-in.
+  const [subs, setSubs] = useState<TopicSubscriptions | null>(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!festivalId) return;
     let cancelled = false;
+    // Re-resolve when the festival changes: clear stale state back to loading.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- genuine data-fetch side effect: reset to the loading state before the async GET /notifications/topics keyed on festivalId; tracks the in-flight request, not render inputs.
+    setSubs(null);
+    setError(false);
     api
       .get<TopicSubscriptions>(`/notifications/topics/${encodeURIComponent(festivalId)}`)
       .then((data) => {
         if (cancelled) return;
         setSubs({ crew: data.crew !== false, schedule: data.schedule !== false });
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -59,10 +69,11 @@ function FestivalTopicsRows() {
 
   const setTopic = (topic: keyof TopicSubscriptions, value: boolean) => {
     haptics.select();
-    const prev = subs;
-    setSubs((s) => ({ ...s, [topic]: value }));
+    setSubs((s) => (s ? { ...s, [topic]: value } : s));
     api.put(`/notifications/topics/${encodeURIComponent(festivalId)}`, { [topic]: value }).catch(() => {
-      setSubs(prev);
+      // Roll back ONLY the key we mutated, not a full snapshot — a snapshot
+      // would clobber a concurrent toggle of the other topic.
+      setSubs((s) => (s ? { ...s, [topic]: !value } : s));
       Alert.alert('Update failed', "Couldn't update notification setting. Try again.");
     });
   };
@@ -79,7 +90,26 @@ function FestivalTopicsRows() {
           For {currentFestival.name}
         </Text>
       </View>
-      {rows.map((r) => (
+      {/* Skeleton until the subscription state resolves so the switches never
+          show a guessed "on" before the GET confirms it. */}
+      {subs === null ? (
+        error ? (
+          <View style={styles.errorRow} accessibilityLiveRegion="polite">
+            <Ionicons name="alert-circle-outline" size={14} color={t.colors.text.danger} style={styles.errorIcon} />
+            <Text style={styles.errorText}>Couldn’t load festival settings.</Text>
+          </View>
+        ) : (
+          <View style={styles.skeleton}>
+            {[0, 1].map((i) => (
+              <View key={i} style={styles.skelRow}>
+                <Skeleton width={140} height={14} radius={t.radii.xs} />
+                <Skeleton width={40} height={22} radius={t.radii.pill} />
+              </View>
+            ))}
+          </View>
+        )
+      ) : (
+        rows.map((r) => (
         <View key={r.key} style={styles.row}>
           <View style={styles.rowIcon}>
             <Ionicons name={r.icon} size={18} color={t.colors.text.secondary} />
@@ -93,7 +123,8 @@ function FestivalTopicsRows() {
             accessibilityLabel={`${r.title} for ${currentFestival.name}`}
           />
         </View>
-      ))}
+        ))
+      )}
     </>
   );
 }
@@ -117,9 +148,24 @@ export default function AccountNotificationPrefsSection() {
     loadPrefs().catch(() => {});
   }, [user, loadPrefs]);
 
+  // Remember the last real DND window so toggling quiet hours OFF (which nulls
+  // the bounds) then back ON restores the user's own window instead of forcing
+  // the 23:00/08:00 default.
+  const lastWindow = useRef<{ start: string; end: string }>({ start: QUIET_START, end: QUIET_END });
+  useEffect(() => {
+    if (prefs.dndStart && prefs.dndEnd) {
+      lastWindow.current = { start: prefs.dndStart, end: prefs.dndEnd };
+    }
+  }, [prefs.dndStart, prefs.dndEnd]);
+
   if (!user) return null;
 
   const quietOn = !!prefs.dndStart;
+  // Caption reflects the actual stored window, not a hardcoded "11 PM – 8 AM"
+  // that lies for any custom window. When off there is no stored window, so we
+  // show a generic line (the remembered window lives in a ref, read only in the
+  // toggle handler — never during render).
+  const quietCaption = formatQuietHours(prefs.dndStart, prefs.dndEnd);
   const set = (patch: Parameters<typeof updatePrefs>[0]) => {
     haptics.select();
     updatePrefs(patch).catch(() => {});
@@ -221,12 +267,20 @@ export default function AccountNotificationPrefsSection() {
             </View>
             <View style={styles.rowBody}>
               <Text style={styles.rowTitle}>Quiet hours</Text>
-              <Text style={styles.rowHint}>Mutes everything 11:00 PM – 8:00 AM</Text>
+              <Text style={styles.rowHint}>
+                {quietOn && quietCaption
+                  ? `Mutes everything ${quietCaption}`
+                  : 'Mutes notifications during your chosen window'}
+              </Text>
             </View>
             <Switch
               value={quietOn}
               onValueChange={(v) =>
-                set(v ? { dndStart: QUIET_START, dndEnd: QUIET_END } : { dndStart: null, dndEnd: null })
+                set(
+                  v
+                    ? { dndStart: lastWindow.current.start, dndEnd: lastWindow.current.end }
+                    : { dndStart: null, dndEnd: null },
+                )
               }
               trackColor={{ false: t.colors.border.default, true: t.colors.accent.aqua }}
               thumbColor={t.colors.text.onAccent}

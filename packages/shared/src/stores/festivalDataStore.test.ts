@@ -149,7 +149,7 @@ describe('festivalDataStore', () => {
       expect(state.sets[0]!.date).toBe('2026-06-01');
     });
 
-    it('initializes activeStages in the UI store', async () => {
+    it('resets activeStages to [] (all-selected) in the UI store', async () => {
       const detailResponse = {
         ...mockFestival,
         stages: [
@@ -161,7 +161,10 @@ describe('festivalDataStore', () => {
       vi.mocked(api.get).mockResolvedValueOnce(detailResponse);
 
       await useFestivalDataStore.getState().selectFestival('fest-1');
-      expect(useFestivalUIStore.getState().activeStages).toEqual(['s1', 's2']);
+      // Empty = "all stages". Storing the full id array here made the schedule
+      // UI read a phantom active stage filter on every load (it normalizes
+      // all-selected → []); [] keeps a fresh load filter-free.
+      expect(useFestivalUIStore.getState().activeStages).toEqual([]);
       expect(useFestivalUIStore.getState().selectedDay).toBe(0);
     });
 

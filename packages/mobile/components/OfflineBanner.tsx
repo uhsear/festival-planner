@@ -31,7 +31,16 @@ function retryFailed(item: FailedSyncItem): void {
  *
  * Mounted once at the app root so it overlays every screen.
  */
-export default function OfflineBanner() {
+interface OfflineBannerProps {
+  /**
+   * Reports whether a bar is currently rendered (any of FAILED / OFFLINE /
+   * SYNCING). The chrome uses this to tell ScreenHeader the top safe-area inset
+   * is already consumed by the banner, so the header doesn't double-apply it.
+   */
+  onActiveChange?: (active: boolean) => void;
+}
+
+export default function OfflineBanner({ onActiveChange }: OfflineBannerProps = {}) {
   const t = useTokens();
   const styles = useStyles();
   const insets = useSafeAreaInsets();
@@ -68,6 +77,15 @@ export default function OfflineBanner() {
   const showFailed = failedCount > 0;
   const showOffline = offlineMode && !dismissed;
   const showSyncing = !offlineMode && pendingSync > 0;
+  const active = showFailed || showOffline || showSyncing;
+
+  // Report the bar's live presence to the chrome so the top safe-area inset is
+  // applied exactly once (banner when shown, ScreenHeader otherwise). Reset to
+  // false on unmount so a stale "active" can't strand the header inset.
+  useEffect(() => {
+    onActiveChange?.(active);
+    return () => onActiveChange?.(false);
+  }, [active, onActiveChange]);
 
   const renderBar = () => {
     if (showFailed) {

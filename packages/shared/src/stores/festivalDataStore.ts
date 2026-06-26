@@ -100,9 +100,13 @@ export interface FestivalDataActions {
    * the deterministic-clientId coalescing (`bulk-<profileId>`) so repeated bulk
    * applies offline collapse to one replayed PUT whose body is the latest map.
    * Offline-native + queued, mirroring savePick's optimistic-then-PUT path.
-   * A no-op (no write) when `setIds` is empty or every set already has `priority`.
+   * Never DOWNGRADES an existing stronger pick (must > want > maybe): a set
+   * already at a higher priority is left untouched; only unpicked sets and
+   * weaker picks are written. Resolves to the REAL number of sets changed (0
+   * when nothing changed) so callers can report a truthful "Added N" instead of
+   * `setIds.length`. A no-op (no write) when nothing actually changes.
    */
-  bulkSavePicks: (setIds: string[], priority: Priority) => Promise<void>;
+  bulkSavePicks: (setIds: string[], priority: Priority) => Promise<number>;
   removePick: (festivalId: string, setId: string) => Promise<void>;
   saveNote: (request: SaveNoteRequest) => Promise<void>;
   saveReminder: (request: SaveReminderRequest) => Promise<void>;
@@ -187,9 +191,6 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         dayIndex: idx,
       }));
 
-      // Initialize activeStages with ALL stage IDs (legacy behavior: show all by default)
-      const allStageIds = stages.map((s) => s.id);
-
       // Find the current user's profile from the loaded profiles. When the
       // profiles fetch failed (offline — /festivals is SW-cached but /profiles is
       // not), DON'T clobber the persisted profile: keep it if it belongs to this
@@ -245,7 +246,13 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
 
       // Reset UI state in the UI store when selecting a new festival
       useFestivalUIStore.setState({
-        activeStages: allStageIds,
+        // Empty array = "all stages" (the schedule UI normalizes all-selected →
+        // []). Storing the FULL stage-id array instead made index.tsx read a
+        // PHANTOM active stage filter on every festival load — force-opening the
+        // filter panel, lighting the active dot, and rendering the results-summary
+        // + Clear-all chip + PhaseHomeActions on a clean load (squeezing the
+        // timeline). [] keeps a fresh load filter-free.
+        activeStages: [],
         selectedDay: todayIdx >= 0 ? todayIdx : 0,
       });
     } catch (err) {
@@ -344,9 +351,10 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
 
   // Bulk pick helper (M2): merge MANY setIds at one priority into the picks map
   // and issue exactly ONE coalesced PUT. Idempotent — if nothing actually
-  // changes (all sets already at this priority, or no setIds), we skip the write
-  // entirely rather than queue a redundant replay.
-  bulkSavePicks: async (setIds: string[], priority: Priority) => {
+  // changes (all sets already at this priority-or-higher, or no setIds), we skip
+  // the write entirely rather than queue a redundant replay. Returns the real
+  // count of sets changed so the caller never reports "Added N" on 0 changes.
+  bulkSavePicks: async (setIds: string[], priority: Priority): Promise<number> => {
     const prev = get().currentProfile;
     set({ error: null });
     try {
@@ -355,19 +363,25 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         throw new Error('No active profile -- select a festival first');
       }
 
+      // Priority strength order so a bulk "maybe" can't silently clobber a
+      // hand-set "must": must > want-to-see > maybe.
+      const rank: Record<Priority, number> = { maybe: 1, 'want-to-see': 2, must: 3 };
+
       const basePicks = currentProfile.picks || {};
       const mergedPicks: Record<string, Priority> = { ...basePicks };
-      let changed = false;
+      let changed = 0;
       for (const setId of setIds) {
-        if (mergedPicks[setId] !== priority) {
-          mergedPicks[setId] = priority;
-          changed = true;
-        }
+        const existing = mergedPicks[setId];
+        // Never DOWNGRADE a stronger existing pick — only set unpicked sets or
+        // upgrade a weaker one. Count only the sets we actually change.
+        if (existing && rank[existing] >= rank[priority]) continue;
+        mergedPicks[setId] = priority;
+        changed += 1;
       }
 
-      // Idempotent: nothing to write (empty list or all already at this
-      // priority). Avoids a redundant queued PUT on repeated bulk applies.
-      if (!changed) return;
+      // Idempotent: nothing to write (empty list, or every set already at this
+      // priority-or-higher). Avoids a redundant queued PUT on repeated applies.
+      if (changed === 0) return 0;
 
       // Optimistic: reflect all merged picks locally BEFORE the network call so
       // every star fills immediately even offline (the PUT is then queued).
@@ -382,6 +396,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       // per-set) so repeated bulk applies collapse to a single replayed PUT
       // whose body is the latest full map — never N writes.
       await offlinePut(`/profiles/${currentProfile.id}`, { picks: mergedPicks }, `bulk-${currentProfile.id}`);
+      return changed;
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to save picks');
       set({ currentProfile: prev, error: message });
