@@ -133,6 +133,7 @@ export default function AccountHistorySection({ refreshSignal = 0 }: AccountHist
           accessibilityRole="button"
           accessibilityLabel="Retry loading history"
           activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.retry}
         >
           <Ionicons name="refresh" size={14} color={t.colors.accent.aqua} style={styles.retryIcon} />

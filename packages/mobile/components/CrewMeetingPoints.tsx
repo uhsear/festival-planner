@@ -252,6 +252,7 @@ export default function CrewMeetingPoints({
                   onPress={() => setType(entry.key)}
                   activeOpacity={0.8}
                   accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
                   accessibilityLabel={`Meeting point type ${entry.label}`}
                 >
                   <Text style={[styles.typeChipText, active && styles.typeChipTextActive]}>{entry.label}</Text>

@@ -395,7 +395,7 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
                   <TouchableOpacity
                     onPress={clearMine}
                     disabled={busy}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    hitSlop={{ top: 15, bottom: 15, left: 8, right: 8 }}
                     accessibilityRole="button"
                     accessibilityLabel="Clear my status"
                   >

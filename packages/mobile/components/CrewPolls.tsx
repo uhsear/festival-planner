@@ -178,6 +178,9 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
     });
 
   const chosenSets = selectedSlot ? selectedSlot.sets.filter((s) => picked[s.id]) : [];
+  // P2: at MAX_OPTIONS, unchecked rows can't be added — dim + disable them so
+  // the cap is visible rather than a silent dead-tap (toggleSet returns prev).
+  const atMaxOptions = chosenSets.length >= MAX_OPTIONS;
   const canCreateSchedule = !!question.trim() && chosenSets.length >= 2 && chosenSets.length <= MAX_OPTIONS;
 
   const reset = () => {
@@ -326,6 +329,24 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
             </>
           ) : (
             <>
+              {/* P3: change just the timeslot (clears slotKey) without discarding
+                  the whole form — the header X resets everything. */}
+              <TouchableOpacity
+                onPress={() => {
+                  setSlotKey(null);
+                  setPicked({});
+                }}
+                style={styles.changeSlotRow}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Change timeslot"
+              >
+                <Ionicons name="chevron-back" size={14} color={t.colors.accent.aqua} />
+                <Text style={styles.changeSlotText}>
+                  {dayLabel(selectedSlot.dayIndex)} · {formatTime(selectedSlot.startTime)} — change
+                </Text>
+              </TouchableOpacity>
               <TextInput
                 style={styles.input}
                 placeholder="Which set should we catch?"
@@ -338,16 +359,27 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
               <Text style={styles.optionsLabel}>Options (pick 2–{MAX_OPTIONS})</Text>
               {selectedSlot.sets.map((set) => {
                 const checked = !!picked[set.id];
+                // P2: blocked = an unchecked row while the 4-option cap is full.
+                const blocked = !checked && atMaxOptions;
                 const stage = stageName(set.stageId) ?? set.stageName;
                 return (
                   <TouchableOpacity
                     key={set.id}
-                    style={[styles.optionPickRow, checked && styles.optionPickRowOn]}
+                    style={[
+                      styles.optionPickRow,
+                      checked && styles.optionPickRowOn,
+                      blocked && styles.optionPickRowBlocked,
+                    ]}
                     onPress={() => toggleSet(set.id)}
+                    disabled={blocked}
                     activeOpacity={0.8}
                     accessibilityRole="checkbox"
-                    accessibilityState={{ checked }}
-                    accessibilityLabel={`Include ${artistDisplayName(set)}`}
+                    accessibilityState={{ checked, disabled: blocked }}
+                    accessibilityLabel={
+                      blocked
+                        ? `${artistDisplayName(set)} — max ${MAX_OPTIONS} options reached`
+                        : `Include ${artistDisplayName(set)}`
+                    }
                   >
                     <Ionicons
                       name={checked ? 'checkbox' : 'square-outline'}
@@ -426,6 +458,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
               onPress={addOption}
               style={styles.addOptionRow}
               activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
               accessibilityRole="button"
               accessibilityLabel="Add poll option"
             >
@@ -548,6 +581,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
                   onPress={() => handleClose(poll)}
                   style={styles.closeRow}
                   activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                   accessibilityRole="button"
                   accessibilityLabel="Close poll"
                 >
@@ -661,6 +695,21 @@ const useStyles = makeStyles((t) => ({
   },
   optionPickRowOn: {
     borderColor: t.colors.accent.aqua,
+  },
+  // P2: dim the unchecked rows once the 4-option cap is hit (disabled press).
+  optionPickRowBlocked: {
+    opacity: 0.4,
+  },
+  changeSlotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    paddingVertical: t.spacing[1],
+  },
+  changeSlotText: {
+    ...typeStyle('caption'),
+    color: t.colors.accent.aqua,
+    flexShrink: 1,
   },
   optionPickText: {
     ...typeStyle('body'),
