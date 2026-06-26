@@ -27,6 +27,7 @@ import OfflineBanner from '../components/OfflineBanner';
 import FirstRunIntro from '../components/FirstRunIntro';
 import ErrorBoundary from '../components/ErrorBoundary';
 import HeaderTitle from '../components/HeaderTitle';
+import { TopBannerContext } from '../components/ScreenHeader';
 import { useLocalReminders } from '../hooks/useLocalReminders';
 import { ensureAndroidChannels } from '../hooks/useMobilePush';
 
@@ -139,6 +140,12 @@ function AuthGate() {
     const id = setTimeout(() => setBootTimedOut(true), 4000);
     return () => clearTimeout(id);
   }, []);
+
+  // When the OfflineBanner renders a bar IN FLOW above the navigator, it paints
+  // behind the status bar and so already owns the top safe-area inset. Track
+  // that so ScreenHeader (via TopBannerContext) drops its own insets.top and
+  // doesn't leave a double-applied notch gap below the banner.
+  const [bannerActive, setBannerActive] = useState(false);
 
   // Ensure Android notification channels exist BEFORE any notification is
   // scheduled. useLocalReminders targets channelId 'updates' which must exist
@@ -279,9 +286,10 @@ function AuthGate() {
       {/* Light status bar is intentional: the whole app sits on a dark bg and
           every header is dark (enforced by design), so dark icons would clash. */}
       <StatusBar style="light" />
-      {!loading && <OfflineBanner />}
-      <View style={styles.appShell}>
-        <ErrorBoundary>
+      {!loading && <OfflineBanner onActiveChange={setBannerActive} />}
+      <TopBannerContext.Provider value={bannerActive}>
+        <View style={styles.appShell}>
+          <ErrorBoundary>
           {/*
             Default headerShown:false — tabs/auth manage their own chrome. But
             several pushed routes (map, compass, plan-share, crew-plan,
@@ -351,8 +359,9 @@ function AuthGate() {
             />
             <Stack.Screen name="reset-password" options={{ presentation: 'card', headerShown: false }} />
           </Stack>
-        </ErrorBoundary>
-      </View>
+          </ErrorBoundary>
+        </View>
+      </TopBannerContext.Provider>
       {loading && (
         <View style={[StyleSheet.absoluteFill, styles.splash]} pointerEvents="auto">
           <ActivityIndicator size="large" color={colors.accent.aqua} />

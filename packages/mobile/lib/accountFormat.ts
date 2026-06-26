@@ -51,6 +51,39 @@ export function formatDateSpan(start: string | null | undefined, end: string | n
   return a || b;
 }
 
+/**
+ * Format a 24h 'HH:MM' clock string into a 12h label like "11:00 PM" / "8:00 AM".
+ * Returns the raw input on any parse miss so a caption never blanks. Used by the
+ * quiet-hours caption so it reflects the stored DND window instead of a
+ * hardcoded "11 PM – 8 AM".
+ */
+export function formatClockTime(hhmm: string | null | undefined): string | null {
+  if (!hhmm) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return hhmm;
+  let hour = Number(m[1]);
+  const minutes = m[2];
+  if (hour < 0 || hour > 23 || Number(minutes) > 59) return hhmm;
+  const period = hour >= 12 ? 'PM' : 'AM';
+  hour = hour % 12;
+  if (hour === 0) hour = 12;
+  return `${hour}:${minutes} ${period}`;
+}
+
+/**
+ * Human label for a quiet-hours / DND window, e.g. "11:00 PM – 8:00 AM".
+ * Returns null when either bound is missing so callers can fall back.
+ */
+export function formatQuietHours(
+  start: string | null | undefined,
+  end: string | null | undefined,
+): string | null {
+  const a = formatClockTime(start);
+  const b = formatClockTime(end);
+  if (!a || !b) return null;
+  return `${a} – ${b}`;
+}
+
 export interface PasswordStrength {
   /** 0 (empty) … 4 (strong). Drives the meter segment count + label. */
   score: 0 | 1 | 2 | 3 | 4;

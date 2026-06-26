@@ -215,6 +215,15 @@ interface OfflineMapProps {
    * placement/`map-longpress` path) — authoring only annotates intent.
    */
   authoringMode?: AuthoringMode;
+  /**
+   * In-progress authoring vertices/corners (Phase 4A/4B). While the admin draws a
+   * zone or places the 4 site-plan corners, each tapped point is pushed here so the
+   * WebView renders a small dot at it — giving per-tap feedback BELOW the threshold
+   * where the polygon/overlay can render (a 1–2-vertex zone or a 1–3-corner site
+   * plan otherwise shows nothing on the map). Omitted/empty in normal crew use — no
+   * dots drawn. Backward-compatible.
+   */
+  draftPoints?: { latitude: number; longitude: number }[];
 }
 
 /**
@@ -397,6 +406,15 @@ function buildHtml(
       padding: 2px 7px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25);
       pointer-events: none;
     }
+    /* Authoring draft dot (Phase 4A/4B): a small aqua dot rendered at each tapped
+       zone vertex / site-plan corner so taps give feedback below the polygon/
+       overlay render threshold. Non-interactive. */
+    .festie-draft-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #19e3d3; border: 2px solid #fff;
+      box-shadow: 0 0 6px rgba(25,227,211,0.85);
+      pointer-events: none;
+    }
     .maplibregl-popup-content { font-family: -apple-system, system-ui, sans-serif; font-size: 13px; }
   </style>
 </head>
@@ -417,6 +435,10 @@ function buildHtml(
     // Tracks whether meeting-point pins exist, so live peer/SOS auto-framing only
     // kicks in when there are no pins to anchor the view. Updated by __festieSetPins.
     var HAD_PINS = false;
+    // One-shot guard: auto-frame the live (peer/SOS) layer only the FIRST time it
+    // appears, not on every position tick (which would yank the camera as peers
+    // move). RN owns the one-shot SOS framing separately (__festieFlyTo).
+    var FRAMED_LIVE = false;
 
     function post(msg) {
       if (window.ReactNativeWebView) {
@@ -527,8 +549,10 @@ function buildHtml(
         }
       });
       // Only auto-frame live markers when there were no meeting-point pins to
-      // anchor the view; otherwise respect the meeting-point framing.
-      if (bounds && !HAD_PINS && items.length > 0) {
+      // anchor the view, and only ONCE (FRAMED_LIVE) so the camera isn't yanked
+      // on every position tick as peers move.
+      if (bounds && !HAD_PINS && !FRAMED_LIVE && items.length > 0) {
+        FRAMED_LIVE = true;
         map.fitBounds(bounds, { padding: 64, maxZoom: 16, duration: 300 });
       }
     }
@@ -602,6 +626,24 @@ function buildHtml(
       });
     }
 
+    // Authoring draft points (Phase 4A/4B): a small dot at each in-progress zone
+    // vertex / site-plan corner. Re-rendered wholesale on each push (tiny N),
+    // tracked so a re-push doesn't stack duplicates. Numeric coords only — never
+    // any text parsed as HTML.
+    var DRAFT_MARKERS = [];
+    function renderDraftPoints(map, points) {
+      DRAFT_MARKERS.forEach(function (m) { try { m.remove(); } catch (e) {} });
+      DRAFT_MARKERS = [];
+      (points || []).forEach(function (p) {
+        if (!p || typeof p.latitude !== 'number' || typeof p.longitude !== 'number') return;
+        var el = document.createElement('div');
+        el.className = 'festie-draft-dot';
+        el.setAttribute('aria-hidden', 'true');
+        var marker = new maplibregl.Marker({ element: el }).setLngLat([p.longitude, p.latitude]).addTo(map);
+        DRAFT_MARKERS.push(marker);
+      });
+    }
+
     // Site-plan raster overlay (Phase 4B). A MapLibre 'image' source + raster
     // layer positioned by the 4 corners at the configured opacity, inserted UNDER
     // the zones fill (and thus under every DOM marker). Pushed via
@@ -658,8 +700,15 @@ function buildHtml(
           style: STYLE,
           center: HAS_CENTER ? [CENTER.longitude, CENTER.latitude] : [0, 0],
           zoom: HAS_CENTER ? 15 : 1,
-          attributionControl: { compact: true }
+          attributionControl: { compact: true },
+          // North-locked: our pursue arrow + heading carets are north-referenced,
+          // so disable map rotation/pitch — a rotated basemap would desync them.
+          dragRotate: false,
+          pitchWithRotate: false
         });
+        // Also kill two-finger touch rotation (not covered by dragRotate).
+        try { map.touchZoomRotate && map.touchZoomRotate.disableRotation(); } catch (e) {}
+        try { map.keyboard && map.keyboard.disableRotation && map.keyboard.disableRotation(); } catch (e) {}
         map.on('load', function () {
           renderPins(map, PINS);
           post({ type: 'ready', pins: PINS.length });
@@ -749,6 +798,15 @@ function buildHtml(
           } catch (err) { post({ type: 'error', reason: 'zones-update' }); }
         };
 
+        // Push in-progress authoring vertices/corners (renders a dot per tap).
+        // Independent of every other layer above; an empty array clears them.
+        window.__festieSetDraftPoints = function (points) {
+          try {
+            renderDraftPoints(map, points || []);
+            post({ type: 'draftpoints-updated', count: (points || []).length });
+          } catch (err) { post({ type: 'error', reason: 'draftpoints-update' }); }
+        };
+
         // Push the georeferenced site-plan overlay (a null payload tears it down).
         // Independent of every other layer above.
         window.__festieSetSiteplan = function (payload) {
@@ -789,6 +847,7 @@ export default function OfflineMap({
   onMapPress,
   festival = null,
   authoringMode = 'off',
+  draftPoints,
 }: OfflineMapProps) {
   const t = useTokens();
   const styles = useStyles();
@@ -1163,7 +1222,23 @@ export default function OfflineMap({
   // 'fallback' → CDN/offline failure, render the honest list instead. Start in
   // loading whenever there's anything to plot (meeting points, festival map data,
   // OR live markers).
-  const hasAnythingToPlot = pins.length > 0 || hasStages || hasAmenities || hasZones || hasSiteplan || hasLive;
+  //
+  // P0 authoring deadlock fix: a brand-new festival with no plottable features
+  // would otherwise render the fallback list, never mount the WebView, and the
+  // authoring inject (which bails on phase !== 'map') could never fire — so a NEW
+  // festival could never be mapped. Force the map to mount whenever authoring is
+  // armed (authoringMode !== 'off') OR the festival carries a camera (center !=
+  // null), so the editor always has a tappable canvas. Crew behaviour is
+  // unchanged for truly-unmapped festivals (center is null + authoring 'off').
+  const hasAnythingToPlot =
+    pins.length > 0 ||
+    hasStages ||
+    hasAmenities ||
+    hasZones ||
+    hasSiteplan ||
+    hasLive ||
+    authoringMode !== 'off' ||
+    center != null;
   const [phase, setPhase] = useState<'loading' | 'map' | 'fallback'>(
     hasAnythingToPlot ? 'loading' : 'fallback',
   );
@@ -1243,6 +1318,7 @@ export default function OfflineMap({
           msg.reason !== 'mapdata-update' &&
           msg.reason !== 'zones-update' &&
           msg.reason !== 'siteplan-update' &&
+          msg.reason !== 'draftpoints-update' &&
           msg.reason !== 'fitbounds'
         )
           fallBack();
@@ -1332,6 +1408,17 @@ export default function OfflineMap({
     webRef.current.injectJavaScript(`window.__festieSetSiteplan && window.__festieSetSiteplan(${siteplanJson}); true;`);
   }, [phase, siteplanJson]);
 
+  // Push in-progress authoring vertices/corners into the WebView (a dot per tap)
+  // when the map is up and whenever they change. Keyed on the serialized string so
+  // a fresh empty-array prop each render doesn't re-inject (identical primitive).
+  const draftPointsJson = useMemo(() => safeJsonForScript(draftPoints ?? []), [draftPoints]);
+  useEffect(() => {
+    if (phase !== 'map' || !webRef.current) return;
+    webRef.current.injectJavaScript(
+      `window.__festieSetDraftPoints && window.__festieSetDraftPoints(${draftPointsJson}); true;`,
+    );
+  }, [phase, draftPointsJson]);
+
   // Frame the map to the festival's explicit map-config bounds once it's up. The
   // map was already centered on camera.center via buildHtml; bounds (when the
   // config carries them) tighten the view to the grounds. Coords are numeric +
@@ -1381,6 +1468,30 @@ export default function OfflineMap({
     }
     prevAuthRef.current = authoringMode;
   }, [phase, authoringMode]);
+
+  // P1 safety: one-shot fly/frame to an incoming SOS the moment it first appears,
+  // regardless of meeting pins. The WebView's renderLive only auto-frames the live
+  // layer when there are NO pins — so with pins present a safety-critical SOS could
+  // sit off-screen. We track the SOS userId and fire __festieFlyTo exactly once per
+  // SOS (not on every position tick); resetting when the map remounts or the SOS
+  // clears so a later SOS re-frames. Web already force-flies to the SOS.
+  const framedSosRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (phase !== 'map' || !webRef.current) {
+      framedSosRef.current = null; // re-frame after a remount
+      return;
+    }
+    const uid = sos?.userId ?? null;
+    if (!uid || !sos?.position) {
+      framedSosRef.current = null; // SOS cleared — allow the next one to frame
+      return;
+    }
+    if (framedSosRef.current === uid) return; // already framed this SOS
+    const { lat, lng } = sos.position;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    framedSosRef.current = uid;
+    webRef.current.injectJavaScript(`window.__festieFlyTo && window.__festieFlyTo(${lng}, ${lat}, 16); true;`);
+  }, [phase, sos]);
 
   // Toggle placement mode in the WebView. The next single map tap (while on)
   // drops a meeting point and auto-exits. We optimistically flip local state for
@@ -1584,7 +1695,10 @@ export default function OfflineMap({
           long-press). When armed, a hint tells the user to tap the map. */}
       {phase === 'map' ? (
         <>
-          {onMapPress ? (
+          {/* Crew controls (drop-pin FAB, find-me, amenity dock) are gated OFF in
+              authoring mode — the admin editor drives placement via its own armed
+              toolbar, and these would collide with that flow. */}
+          {onMapPress && authoringMode === 'off' ? (
             <>
               {placing ? (
                 <View style={styles.mapHint} pointerEvents="none">
@@ -1614,22 +1728,24 @@ export default function OfflineMap({
               </TouchableOpacity>
             </>
           ) : null}
-          <TouchableOpacity
-            testID="map-recenter-fab"
-            style={styles.recenterFab}
-            onPress={recenterToMe}
-            disabled={locating}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Recenter the map on my location"
-            accessibilityState={{ disabled: locating }}
-          >
-            {locating ? (
-              <ActivityIndicator size="small" color={t.colors.accent.aqua} />
-            ) : (
-              <Ionicons name="locate" size={20} color={t.colors.accent.aqua} />
-            )}
-          </TouchableOpacity>
+          {authoringMode === 'off' ? (
+            <TouchableOpacity
+              testID="map-recenter-fab"
+              style={styles.recenterFab}
+              onPress={recenterToMe}
+              disabled={locating}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Recenter the map on my location"
+              accessibilityState={{ disabled: locating }}
+            >
+              {locating ? (
+                <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+              ) : (
+                <Ionicons name="locate" size={20} color={t.colors.accent.aqua} />
+              )}
+            </TouchableOpacity>
+          ) : null}
 
           {/* Pursue overlay: directional arrow + "Alex · 210 m NE · ~3 min". */}
           {liveTarget ? (
@@ -1647,7 +1763,10 @@ export default function OfflineMap({
                   name="navigate"
                   size={24}
                   color={pursueIsSos ? t.colors.accent.coral : t.colors.accent.aqua}
-                  style={{ transform: [{ rotate: `${pursuit.bearingDeg}deg` }] }}
+                  // The Ionicons "navigate" glyph points NE (45°) at rotation 0,
+                  // so subtract 45° from the compass bearing — a due-north target
+                  // (bearing 0) then points straight up.
+                  style={{ transform: [{ rotate: `${pursuit.bearingDeg - 45}deg` }] }}
                 />
               ) : (
                 <Ionicons name="navigate-outline" size={24} color={t.colors.text.muted} />
@@ -1681,8 +1800,9 @@ export default function OfflineMap({
             </View>
           ) : null}
 
-          {/* Nearest-X + amenity filter chips, scrollable above the bottom FABs. */}
-          {hasAmenities ? (
+          {/* Nearest-X + amenity filter chips, scrollable above the bottom FABs.
+              Gated OFF in authoring mode (crew-only affordance). */}
+          {hasAmenities && authoringMode === 'off' ? (
             <View style={styles.chipDock} pointerEvents="box-none">
               <ScrollView
                 horizontal

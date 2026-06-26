@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { useCrewStore } from '@festie/shared/stores';
+import { useCrewStore, useFestivalModeStore } from '@festie/shared/stores';
 import { timeAgoFromIso } from '@festie/shared/utils';
 import { CREW_ACTIVITY_LABELS } from '@festie/shared/constants';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
@@ -55,17 +55,21 @@ export default function CrewActivity({ crewId }: CrewActivityProps) {
   const reduceMotion = useReduceMotion();
   const activity = useCrewStore((s) => s.activity);
   const loadActivity = useCrewStore((s) => s.loadActivity);
+  // Festival low-power mode slows the background refresh to save battery; the
+  // feed still loads once on mount / crew-change, just polls far less often.
+  const lowPowerMode = useFestivalModeStore((s) => s.lowPowerMode);
 
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (!crewId) return;
     loadActivity(crewId).catch(() => {});
+    const intervalMs = lowPowerMode ? 120_000 : 30_000;
     const interval = setInterval(() => {
       loadActivity(crewId).catch(() => {});
-    }, 30_000);
+    }, intervalMs);
     return () => clearInterval(interval);
-  }, [crewId, loadActivity]);
+  }, [crewId, loadActivity, lowPowerMode]);
 
   // Collapse back to the short view whenever the crew changes, so switching
   // crews never strands the feed in a stale expanded state. Render-time

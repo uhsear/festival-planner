@@ -431,30 +431,43 @@ export default function TimelineScreen() {
     />
   );
 
-  const emptyScheduleState = (
-    <EmptyState
-      icon={search.length > 0 ? 'search' : 'musical-notes'}
-      title={
-        search.length > 0
-          ? 'No artists match your search'
-          : timelessSets.length > 0
-            ? 'Set times not announced yet'
-            : 'No sets for this day'
-      }
-      message={
-        search.length > 0
-          ? 'Try a different spelling or clear the search to see the full lineup.'
-          : timelessSets.length > 0
-            ? 'This day’s set times haven’t been posted. Browse the full lineup in the TBA list below, or switch to Cards.'
-            : 'Pick another day from the day selector to browse the schedule.'
-      }
-      action={
-        search.length > 0
-          ? { label: 'Clear search', onPress: () => handleSearch('') }
-          : { label: 'Switch festival', onPress: clearSelection }
-      }
-    />
-  );
+  // When "my picks only" filters the timed timeline (and the TBA list) down to
+  // nothing, the day still HAS sets — they're just unpicked. Reuse the same
+  // onlyMine-aware branch as cardsEmpty ("No picks… / Show all sets") instead of
+  // the false "No sets for this day" / "Switch festival". The timeless-picks
+  // hint still wins when the user does have TBA picks (timelessSets non-empty).
+  const emptyScheduleState =
+    onlyMine && search.length === 0 && timelessSets.length === 0 ? (
+      <EmptyState
+        icon="star-outline"
+        title="No picks for this day yet"
+        message="Tap a priority on any set to add it here, or browse the full lineup."
+        action={{ label: 'Show all sets', onPress: () => setOnlyMine(false) }}
+      />
+    ) : (
+      <EmptyState
+        icon={search.length > 0 ? 'search' : 'musical-notes'}
+        title={
+          search.length > 0
+            ? 'No artists match your search'
+            : timelessSets.length > 0
+              ? 'Set times not announced yet'
+              : 'No sets for this day'
+        }
+        message={
+          search.length > 0
+            ? 'Try a different spelling or clear the search to see the full lineup.'
+            : timelessSets.length > 0
+              ? 'This day’s set times haven’t been posted. Browse the full lineup in the TBA list below, or switch to Cards.'
+              : 'Pick another day from the day selector to browse the schedule.'
+        }
+        action={
+          search.length > 0
+            ? { label: 'Clear search', onPress: () => handleSearch('') }
+            : { label: 'Switch festival', onPress: clearSelection }
+        }
+      />
+    );
 
   // Cards-view empty element. Layers three honest cases: a failed load (error +
   // retry), the "my picks only" filter resolving to nothing (nudge to pick or
@@ -784,7 +797,18 @@ export default function TimelineScreen() {
         </View>
         <TouchableOpacity
           style={[styles.toggleButton, searchOpen && styles.toggleButtonActive]}
-          onPress={() => setShowSearch((v) => !v)}
+          // searchOpen stays true while a query is present (searchOpen = showSearch
+          // || search.length > 0), so merely toggling showSearch can't close an
+          // active search — the panel re-opens itself. Closing must also CLEAR the
+          // query so the X reliably collapses the bar.
+          onPress={() => {
+            if (searchOpen) {
+              handleSearch('');
+              setShowSearch(false);
+            } else {
+              setShowSearch(true);
+            }
+          }}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityState={{ expanded: searchOpen }}

@@ -126,7 +126,9 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
   const [createBusy, setCreateBusy] = useState(false);
-  const [voteBusy, setVoteBusy] = useState(false);
+  // Per-poll in-flight set (keyed by poll id) so voting on one poll only
+  // disables that poll's options — a single global flag froze every poll.
+  const [votingPollIds, setVotingPollIds] = useState<Set<string>>(() => new Set());
 
   // ── Schedule-aware composer state ──────────────────────────────────────
   const [showSchedule, setShowSchedule] = useState(false);
@@ -234,15 +236,19 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
   };
 
   const handleVote = async (pollId: string, optionIndex: number) => {
-    if (voteBusy) return;
+    if (votingPollIds.has(pollId)) return;
     haptics.select();
-    setVoteBusy(true);
+    setVotingPollIds((prev) => new Set(prev).add(pollId));
     try {
       await votePoll(crewId, pollId, optionIndex);
     } catch {
       // Error surfaced via the crew store.
     } finally {
-      setVoteBusy(false);
+      setVotingPollIds((prev) => {
+        const next = new Set(prev);
+        next.delete(pollId);
+        return next;
+      });
     }
   };
 
@@ -467,6 +473,10 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
         polls.map((poll) => {
           const { counts, myVote, total, maxCount } = tally(poll, currentUserId);
           const canClose = poll.created_by === currentUserId || isOwner;
+          // Closed polls are results-only: no voting, a "Closed" badge, and the
+          // close row is hidden. `voting` is this poll's own in-flight flag.
+          const isClosed = !!poll.closed;
+          const voting = votingPollIds.has(poll.id);
           // DC8: polls fade/reflow in and out as they're created/closed; gated
           // on Reduce Motion (a plain View = instant).
           const PollContainer = reduceMotion ? View : Animated.View;
@@ -481,6 +491,11 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
             <PollContainer key={poll.id} style={styles.pollCard} {...motionProps}>
               <View style={styles.pollHeader}>
                 <Text style={styles.pollQuestion}>{poll.question}</Text>
+                {isClosed ? (
+                  <View style={styles.closedBadge} accessibilityLabel="Poll closed">
+                    <Text style={styles.closedBadgeText}>Closed</Text>
+                  </View>
+                ) : null}
                 <Text style={styles.pollVotes}>
                   {total} {total === 1 ? 'vote' : 'votes'}
                 </Text>
@@ -497,10 +512,13 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
                     <TouchableOpacity
                       style={[styles.optionButton, isMine && styles.optionButtonMine]}
                       onPress={() => handleVote(poll.id, i)}
-                      disabled={voteBusy}
+                      disabled={voting || isClosed}
                       activeOpacity={0.8}
                       accessibilityRole="button"
-                      accessibilityLabel={`Vote for ${text}, ${pct} percent`}
+                      accessibilityState={{ disabled: isClosed }}
+                      accessibilityLabel={
+                        isClosed ? `${text}, ${pct} percent (poll closed)` : `Vote for ${text}, ${pct} percent`
+                      }
                     >
                       {/* R26: animated width bar */}
                       <PollBarFill
@@ -525,7 +543,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
                   </Animated.View>
                 );
               })}
-              {canClose ? (
+              {canClose && !isClosed ? (
                 <TouchableOpacity
                   onPress={() => handleClose(poll)}
                   style={styles.closeRow}
@@ -694,6 +712,19 @@ const useStyles = makeStyles((t) => ({
   pollVotes: {
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
+  },
+  closedBadge: {
+    paddingHorizontal: t.spacing[2],
+    paddingVertical: 2,
+    borderRadius: t.radii.pill,
+    backgroundColor: t.colors.bg.input,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+  },
+  closedBadgeText: {
+    ...typeStyle('micro'),
+    color: t.colors.text.muted,
+    textTransform: 'uppercase',
   },
   optionButton: {
     position: 'relative',

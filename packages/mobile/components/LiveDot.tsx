@@ -16,6 +16,13 @@ import { useReduceMotion } from '../hooks/useReduceMotion';
 interface LiveDotProps {
   /** Optional label rendered next to the dot. Defaults to "NOW". */
   label?: string;
+  /**
+   * Whether something is actually live right now. When `false` the indicator
+   * renders nothing and the pulse loop is parked — so it never breathes a
+   * "NOW" badge before a festival has started. Defaults to `true` to preserve
+   * the behavior of existing call sites that only mount it when live.
+   */
+  live?: boolean;
 }
 
 /**
@@ -28,7 +35,7 @@ interface LiveDotProps {
  * animating. RN has no `prefers-reduced-motion` media query, so the decision is
  * made imperatively via {@link useReduceMotion}.
  */
-export default function LiveDot({ label = 'NOW' }: LiveDotProps) {
+export default function LiveDot({ label = 'NOW', live = true }: LiveDotProps) {
   const s = useStyles();
   const reduceMotion = useReduceMotion();
 
@@ -36,7 +43,9 @@ export default function LiveDot({ label = 'NOW' }: LiveDotProps) {
   const pulse = useSharedValue(0);
 
   useEffect(() => {
-    if (reduceMotion) {
+    // Park the loop when not live or under Reduce Motion. (Hooks must run
+    // unconditionally; the `!live` render short-circuit lives below the hooks.)
+    if (reduceMotion || !live) {
       cancelAnimation(pulse);
       pulse.value = 0; // resting state == fully visible, scale 1
       return;
@@ -58,15 +67,19 @@ export default function LiveDot({ label = 'NOW' }: LiveDotProps) {
     );
 
     return () => cancelAnimation(pulse);
-  }, [reduceMotion, pulse]);
+  }, [reduceMotion, live, pulse]);
 
   const dotStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + pulse.value * 0.35 }],
     opacity: 1 - pulse.value * 0.45,
   }));
 
+  // Not live → render nothing (no "NOW" badge pre-festival). After all hooks so
+  // the Rules of Hooks hold.
+  if (!live) return null;
+
   return (
-    <View style={s.row} accessibilityRole="text" accessibilityLabel={`${label}, live`}>
+    <View style={s.row} accessible accessibilityRole="text" accessibilityLabel={`${label}, live`}>
       <View style={s.halo}>
         <Animated.View style={[s.dot, dotStyle]} />
       </View>

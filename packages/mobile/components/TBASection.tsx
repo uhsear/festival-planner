@@ -162,13 +162,16 @@ export default function TBASection({
     return m;
   }, [stages]);
 
-  // 3 columns on wider phones/tablets, 2 otherwise. Account for the section
-  // padding (space[4] each side) and inter-card gap (space[2]).
+  // 3 columns on wider phones/tablets, 2 otherwise. The section has BOTH a
+  // spacing[4] MARGIN and a spacing[4] PADDING on each side, so the usable inner
+  // width is width − spacing[4]*4 (margin ×2 + padding ×2). Subtracting only the
+  // padding overflowed the row by a full margin's worth, wrapping the last card
+  // to a new line and leaving a dead gutter. Also account for the inter-card gap.
   const { cardWidth } = useMemo(() => {
-    const sectionPad = t.spacing[4] * 2;
+    const sectionInset = t.spacing[4] * 4;
     const gap = t.spacing[2];
     const n = width >= 500 ? 3 : 2;
-    const inner = width - sectionPad;
+    const inner = width - sectionInset;
     const w = Math.floor((inner - gap * (n - 1)) / n);
     return { cardWidth: w };
   }, [width, t.spacing]);

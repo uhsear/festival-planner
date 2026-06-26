@@ -344,7 +344,12 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
     [zones],
   );
   const peersKey = useMemo(() => peers.map((p) => `${p.userId}:${p.lat},${p.lng}:${p.serverAt}`).join('|'), [peers]);
-  const sosKey = sos ? `${sos.userId}:${sos.position?.lat},${sos.position?.lng}` : '';
+  // SOS keys are SPLIT: identity (userId) drives the build + one-shot fly/open on
+  // FIRST appearance; coord changes only reposition the existing marker (no
+  // re-fly/re-open every tick). Keying the build effect on lat/lng would yank the
+  // camera + reopen the popup on every SOS position update.
+  const sosKey = sos ? sos.userId : '';
+  const sosCoordKey = sos?.position ? `${sos.position.lat},${sos.position.lng}` : '';
   // Re-run the site-plan effect when the image URL, corners, or opacity change.
   const siteplanKey = siteplan
     ? `${siteplan.imageUrl}:${siteplan.corners.map((c) => c.join(',')).join('|')}:${siteplan.opacity}`
@@ -459,8 +464,19 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
           center: c ? [c.longitude, c.latitude] : [0, 0],
           zoom: c ? 14 : 1,
           attributionControl: { compact: true },
+          // North-locked: the pursue arrow + heading carets are north-referenced,
+          // so disable rotation/pitch — a rotated basemap would desync them.
+          dragRotate: false,
+          pitchWithRotate: false,
         });
         map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+        // Also kill two-finger / keyboard rotation (not covered by dragRotate).
+        try {
+          map.touchZoomRotate?.disableRotation?.();
+          map.keyboard?.disableRotation?.();
+        } catch {
+          // Older GL builds may lack these handlers — never fatal.
+        }
         map.on('error', () => {
           if (!cancelled) setStatus('error');
         });
@@ -836,11 +852,25 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
       coord: { latitude: sos.position.lat, longitude: sos.position.lng },
     };
     el.addEventListener('click', () => selectPursue(sosTarget));
-    // Open the SOS popup immediately so it's impossible to miss.
+    // Open the SOS popup + fly to it ONCE on first appearance (keyed on userId) so
+    // it's impossible to miss. Subsequent coord ticks reposition via the effect
+    // below — they never re-fly or re-open.
     marker.togglePopup();
     map.flyTo({ center: [sos.position.lng, sos.position.lat], zoom: 15, duration: 600 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, sosKey, selectPursue]);
+
+  // ── SOS marker reposition (coord ticks only — no re-fly/re-open) ────────────
+  // The build effect above keys on userId (appearance), so it doesn't rebuild when
+  // the SOS person moves. Slide the existing marker to the latest coord here.
+  useEffect(() => {
+    const marker = sosMarkerRef.current;
+    if (status !== 'ready' || !marker || !sos?.position) return;
+    const { lat, lng } = sos.position;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    marker.setLngLat([lng, lat]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, sosCoordKey]);
 
   // ── Frame once when the map first loads ─────────────────────────────────────
   // Precedence (via pickFestivalCamera): explicit map-config bounds win — fit the
@@ -961,7 +991,9 @@ export default function CrewMap({ meetingPoints, peers = [], sos = null, festiva
                 aria-hidden="true"
                 style={{
                   color: pursueIsSos ? 'var(--color-accent-coral)' : 'var(--color-accent-aqua)',
-                  transform: `rotate(${pursuit.bearingDeg}deg)`,
+                  // lucide's Navigation glyph points NE (45°) at rotation 0, so
+                  // subtract 45° so a due-north target points straight up.
+                  transform: `rotate(${pursuit.bearingDeg - 45}deg)`,
                   transition: 'transform 300ms ease-out',
                 }}
               />

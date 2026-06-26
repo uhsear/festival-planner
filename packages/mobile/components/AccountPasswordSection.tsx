@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@festie/shared/hooks';
 import Button from './Button';
@@ -29,6 +29,11 @@ export default function AccountPasswordSection() {
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Transient inline confirmation — a quiet "Saved" beats a modal Alert for a
+  // non-destructive success the user can already see worked (matches the avatar
+  // section pattern; Alerts are now reserved for destructive confirmations).
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // One toggle reveals every field — fewer taps than a per-field eye and the
   // user is changing all three at once anyway.
   const [reveal, setReveal] = useState(false);
@@ -37,12 +42,19 @@ export default function AccountPasswordSection() {
   const nextRef = useRef<TextInput>(null);
   const confirmRef = useRef<TextInput>(null);
 
+  useEffect(() => {
+    return () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+    };
+  }, []);
+
   const reset = () => {
     setCurrent('');
     setNext('');
     setConfirm('');
     setError(null);
     setReveal(false);
+    setSaved(false);
   };
 
   const toggle = () => {
@@ -73,8 +85,14 @@ export default function AccountPasswordSection() {
       await changePassword({ currentPassword: current, newPassword: next });
       haptics.success();
       reset();
-      setOpen(false);
-      Alert.alert('Password updated', 'Your password has been changed.');
+      // Keep the card open just long enough to show the inline confirmation,
+      // then collapse it so the field state is cleared for next time.
+      setSaved(true);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => {
+        setSaved(false);
+        setOpen(false);
+      }, 1800);
     } catch (err) {
       haptics.warning();
       setError(err instanceof Error ? err.message : 'Could not change password.');
@@ -86,6 +104,9 @@ export default function AccountPasswordSection() {
   const strength = passwordStrength(next);
   const matchState: 'none' | 'match' | 'mismatch' =
     confirm.length === 0 ? 'none' : confirm === next ? 'match' : 'mismatch';
+  // Gate the CTA on a clean form the same way the sibling sections do, so the
+  // button can't be pressed into a guaranteed validation error.
+  const canSubmit = validate() === null;
 
   return (
     <View style={styles.card}>
@@ -219,10 +240,18 @@ export default function AccountPasswordSection() {
             </Text>
           ) : null}
 
+          {saved ? (
+            <View style={styles.savedRow} accessibilityLiveRegion="polite">
+              <Ionicons name="checkmark-circle" size={14} color={t.colors.status.verified} style={styles.savedIcon} />
+              <Text style={styles.savedText}>Saved</Text>
+            </View>
+          ) : null}
+
           <Button
             label="Update Password"
             onPress={() => void submit()}
             loading={submitting}
+            disabled={!canSubmit}
             accessibilityLabel="Save new password"
           />
         </View>
@@ -341,5 +370,17 @@ const useStyles = makeStyles((t) => ({
   error: {
     ...typeStyle('caption'),
     color: t.colors.text.danger,
+  },
+  savedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -t.spacing[1],
+  },
+  savedIcon: {
+    marginRight: 4,
+  },
+  savedText: {
+    ...typeStyle('caption'),
+    color: t.colors.status.verified,
   },
 }));

@@ -92,7 +92,11 @@ export default function AccountHistorySection({ refreshSignal = 0 }: AccountHist
 
   if (!user) return null;
 
-  if (loading) {
+  // First-load only: show the skeleton while there is nothing to show yet. A
+  // background refresh (pull-to-refresh bumps refreshSignal) keeps loading=true
+  // but data is already populated, so we must NOT flash the loaded card back to
+  // a skeleton — render the stale data until the fresh fetch resolves.
+  if (loading && !data) {
     // Skeleton mirrors the loaded layout (stat grid + timeline) so the card
     // doesn't pop in height when the data lands — calmer than a bare spinner.
     return (
@@ -116,7 +120,10 @@ export default function AccountHistorySection({ refreshSignal = 0 }: AccountHist
     );
   }
 
-  if (error) {
+  // Same rule as the skeleton: only let an error replace the card when there is
+  // no prior data. A failed background refresh keeps the stale (still-useful)
+  // history visible rather than swapping it for an error panel.
+  if (error && !data) {
     return (
       <View style={[styles.card, styles.centered]}>
         <Ionicons name="cloud-offline-outline" size={28} color={t.colors.text.secondary} />

@@ -243,7 +243,7 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
           thumbColor={sharing || choosing ? t.colors.accent.aqua : t.colors.text.muted}
           accessibilityRole="switch"
           accessibilityLabel="Share my live location with this crew"
-          accessibilityState={{ checked: sharing, disabled: busy }}
+          accessibilityState={{ checked: sharing || choosing, disabled: busy }}
         />
       </View>
 

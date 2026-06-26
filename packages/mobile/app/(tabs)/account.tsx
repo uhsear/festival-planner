@@ -241,29 +241,6 @@ export default function AccountScreen() {
         <SectionLabel>Preferences</SectionLabel>
         <AccountNotificationsSection />
         <AccountNotificationPrefsSection />
-        <View style={styles.card}>
-          <View
-            style={styles.row}
-            accessibilityRole="text"
-            accessibilityLabel={`Reduce motion is ${reduceMotion ? 'on' : 'off'} (controlled in system settings)`}
-          >
-            <View style={styles.rowIcon}>
-              <Ionicons name="accessibility-outline" size={20} color={t.colors.text.secondary} />
-            </View>
-            <View style={styles.rowBody}>
-              <Text style={styles.rowTitle}>Reduce Motion</Text>
-              <Text style={styles.rowHint}>Follows your system accessibility setting</Text>
-            </View>
-            <View style={[styles.statusPill, reduceMotion && styles.statusPillOn]}>
-              <Text
-                style={[styles.statusText, reduceMotion && styles.statusTextOn]}
-                maxFontSizeMultiplier={MAX_FONT_SCALE}
-              >
-                {reduceMotion ? 'On' : 'Off'}
-              </Text>
-            </View>
-          </View>
-        </View>
 
         {/* Festival */}
         <SectionLabel>Festival</SectionLabel>
