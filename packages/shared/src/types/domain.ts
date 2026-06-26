@@ -66,6 +66,11 @@ export interface FestivalMapConfig {
   };
 }
 
+// SINGLE-SOURCING NOTE (Phase 3): NOT aliased to api.gen.ts
+// `components['schemas']['Festival']`. That generated type is the FULL getById
+// document (carries `stages`/`days`, no `description`/`image`/`startDate`/
+// `endDate`); this is the lighter client metadata model. Different shapes — kept
+// hand-written so consumers don't churn.
 export interface Festival {
   id: string;
   name: string;
@@ -92,6 +97,11 @@ export interface Festival {
   updatedAt: string;
 }
 
+// SINGLE-SOURCING NOTE (Phase 3): NOT aliased to api.gen.ts
+// `components['schemas']['Stage']`. The generated type is the narrower
+// stage-inside-festival-document projection (`color: string | null`, no
+// `festivalId`/`createdAt`/`updatedAt`); this domain model adds those + uses
+// `color?`. Kept hand-written.
 export interface Stage {
   id: string;
   name: string;
@@ -126,6 +136,11 @@ export interface Artist {
   links?: Record<string, string>;
 }
 
+// SINGLE-SOURCING NOTE (Phase 3): NOT aliased to api.gen.ts
+// `components['schemas']['FestivalSet']`. The generated type is the narrower
+// serialized set (nullable `startTime`/`endTime`/`stageId`, no `festivalId`/
+// `stageName`/`date`/`dayIndex`/`createdAt`/`updatedAt`); this domain model is a
+// superset with required times. Kept hand-written.
 export interface FestivalSet {
   id: string;
   festivalId: string;
@@ -142,6 +157,11 @@ export interface FestivalSet {
   updatedAt: string;
 }
 
+// SINGLE-SOURCING NOTE (Phase 3): NOT aliased to api.gen.ts
+// `components['schemas']['User']` (the serializePublicUser projection). This
+// domain model is broader — adds `avatar`/`isAdmin`/`createdAt`/`updatedAt` and
+// uses optional `email?`/`name?`/`emailVerified?` instead of the generated
+// `string | null` fields. Kept hand-written.
 export interface User {
   id: string;
   username: string;
@@ -181,6 +201,10 @@ export interface Profile {
   etag?: string;
 }
 
+// SINGLE-SOURCING NOTE (Phase 3): NOT aliased to api.gen.ts
+// `components['schemas']['CrewMember']`. The generated type requires
+// `username`/`name`/`role`/avatar fields; this domain model leaves them optional
+// (consumed in partial/overlap contexts). Looser optionality — kept hand-written.
 export interface CrewMember {
   userId: string;
   /** Immutable @handle, serialized alongside the friendly `name` (routes/crews.ts). */
@@ -192,6 +216,11 @@ export interface CrewMember {
   joinedAt?: string;
 }
 
+// SINGLE-SOURCING NOTE (Phase 3): NOT aliased to api.gen.ts
+// `components['schemas']['Crew']`. The generated type requires
+// `createdBy`/`memberCount` (and adds `maxMembers`/`inviteExpiresAt`/`role`);
+// this domain model omits those, makes `festivalId?` optional, and carries the
+// client-only `_optimistic` flag. Broader client model — kept hand-written.
 export interface Crew {
   id: string;
   name: string;
@@ -346,6 +375,12 @@ export interface ClosePollOptions {
 /**
  * Crew meeting point as serialized by the backend
  * (routes/crew-meeting-points.ts). snake_case from Postgres.
+ *
+ * SINGLE-SOURCING NOTE (Phase 3): NOT aliased to api.gen.ts
+ * `components['schemas']['MeetingPoint']`. The generated type requires
+ * `latitude`/`longitude`/`recurs_daily`/`expires_at`/`updated_at`; this domain
+ * model leaves them optional (legacy list/create payloads) and carries the
+ * client-only `_optimistic` flag. Looser optionality — kept hand-written.
  */
 export interface CrewMeetingPoint {
   id: string;

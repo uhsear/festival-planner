@@ -9,8 +9,13 @@
  * hand-written `username` bounds had drifted to minLength:2/maxLength:30 while
  * the validator enforced min1/max40).
  *
- * RESPONSE component schemas remain hand-written for now: no response-shape Zod
- * schemas exist yet, so deriving them is out of scope.
+ * RESPONSE component schemas are now DERIVED from the response-shape Zod schemas
+ * in `lib/responseSchemas.ts` (Phase 2) via `createSchema(..., { io: 'output' })`,
+ * so the documented payloads are a projection of the same schemas that model what
+ * the serializers actually emit. They are registered as components and attached
+ * as the success-response bodies of the matching routes. A few placeholder
+ * components with no response Zod schema yet (Day, Set, Profile, the auth token
+ * envelope) remain hand-written.
  *
  * `createSchema` is synchronous, so `generateOpenAPISpec` stays a plain function
  * the request handler / Swagger mount can call on demand under tsx.
@@ -25,6 +30,7 @@ import {
   adminBulkDeactivateSchema,
   festivalDepthQuery,
 } from './schemas';
+import { responseSchemas } from './responseSchemas';
 
 /**
  * Convert a Zod schema to an OpenAPI 3.0.3 JSON Schema object (the request half
@@ -39,6 +45,43 @@ function zodSchema(schema: z.ZodType): Record<string, any> {
 /** Wrap a derived Zod schema as an application/json request body. */
 function jsonBody(schema: z.ZodType) {
   return { content: { 'application/json': { schema: zodSchema(schema) } } };
+}
+
+/**
+ * Convert a RESPONSE Zod schema to OpenAPI 3.0.3 JSON Schema. `io: 'output'` so
+ * we document what the client RECEIVES (post-transform / serialized), the
+ * mirror of the request half above.
+ */
+function zodResponseSchema(schema: z.ZodType): Record<string, any> {
+  return createSchema(schema, { io: 'output', openapiVersion: '3.0.3' }).schema as Record<string, any>;
+}
+
+/**
+ * The derived response component schemas, keyed by their OpenAPI component name.
+ * These OVERRIDE the prior hand-written User/Festival/Stage placeholders and add
+ * the previously-missing entities. Each is self-contained (nested schemas are
+ * inlined by `createSchema`), so the spec needs no cross-component $refs here.
+ */
+const responseComponents: Record<string, Record<string, any>> = {
+  User: zodResponseSchema(responseSchemas.user),
+  Stage: zodResponseSchema(responseSchemas.stage),
+  Artist: zodResponseSchema(responseSchemas.artist),
+  FestivalSet: zodResponseSchema(responseSchemas.festivalSet),
+  FestivalDepth1: zodResponseSchema(responseSchemas.festivalDepth1),
+  Festival: zodResponseSchema(responseSchemas.festival),
+  Crew: zodResponseSchema(responseSchemas.crew),
+  CrewMember: zodResponseSchema(responseSchemas.crewMember),
+  MeetingPoint: zodResponseSchema(responseSchemas.meetingPoint),
+};
+
+/** A `200`/`201` response body that $refs a registered response component. */
+function jsonResponseRef(name: string) {
+  return { content: { 'application/json': { schema: { $ref: `#/components/schemas/${name}` } } } };
+}
+
+/** A success response body that is an ARRAY of a registered response component. */
+function jsonResponseArrayRef(name: string) {
+  return { content: { 'application/json': { schema: { type: 'array', items: { $ref: `#/components/schemas/${name}` } } } } };
 }
 
 /**
@@ -99,28 +142,9 @@ export function generateOpenAPISpec(config: any) {
             meta: { type: 'object', description: 'Optional metadata (pagination, etc.)' },
           },
         },
-        User: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            username: { type: 'string' },
-            avatarUrl: { type: 'string', nullable: true },
-            createdAt: { type: 'string', format: 'date-time' },
-          },
-        },
-        Festival: {
-          type: 'object',
-          properties: {
-            id: { type: 'string' },
-            name: { type: 'string' },
-            stages: { type: 'array', items: { $ref: '#/components/schemas/Stage' } },
-            days: { type: 'array', items: { $ref: '#/components/schemas/Day' } },
-          },
-        },
-        Stage: {
-          type: 'object',
-          properties: { id: { type: 'string' }, name: { type: 'string' }, sortOrder: { type: 'integer' } },
-        },
+        // User, Stage, Festival (and Artist/FestivalSet/FestivalDepth1/Crew/
+        // CrewMember/MeetingPoint) are derived from lib/responseSchemas.ts and
+        // spread in via `...responseComponents` at the end of this block.
         Day: {
           type: 'object',
           properties: {
@@ -151,6 +175,10 @@ export function generateOpenAPISpec(config: any) {
             refreshToken: { type: 'string', description: 'New refresh token (90-day TTL)' },
           },
         },
+        // Derived response components (override User/Stage/Festival placeholders
+        // above and add Artist/FestivalSet/FestivalDepth1/Crew/CrewMember/
+        // MeetingPoint). Spread LAST so the derived definitions win.
+        ...responseComponents,
       },
     },
     paths: {
@@ -191,7 +219,7 @@ export function generateOpenAPISpec(config: any) {
         get: {
           tags: ['Festivals'], summary: 'Get festival by ID',
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }, ...queryParams(festivalDepthQuery)],
-          responses: { 200: { description: 'Festival data' } },
+          responses: { 200: { description: 'Festival data (full depth=2 document; depth=1 returns the FestivalDepth1 shape)', ...jsonResponseRef('Festival') } },
         },
       },
       '/api/v1/profiles/{festivalId}': {
@@ -204,8 +232,8 @@ export function generateOpenAPISpec(config: any) {
         put: { tags: ['Profiles'], summary: 'Update picks (with ETag concurrency)', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Picks updated' }, 409: { description: 'Version mismatch' } } },
       },
       '/api/v1/crews': {
-        get: { tags: ['Crews'], summary: 'List user crews', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Crew list' } } },
-        post: { tags: ['Crews'], summary: 'Create crew', security: [{ bearerAuth: [] }], responses: { 201: { description: 'Crew created' } } },
+        get: { tags: ['Crews'], summary: 'List user crews', security: [{ bearerAuth: [] }], responses: { 200: { description: 'Crew list', ...jsonResponseArrayRef('Crew') } } },
+        post: { tags: ['Crews'], summary: 'Create crew', security: [{ bearerAuth: [] }], responses: { 201: { description: 'Crew created', ...jsonResponseRef('Crew') } } },
       },
       '/api/v1/crews/join/{code}': {
         post: { tags: ['Crews'], summary: 'Join crew by invite code', security: [{ bearerAuth: [] }], parameters: [{ name: 'code', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'Joined crew' } } },

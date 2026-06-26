@@ -10,6 +10,13 @@ import {
   artistDisplayName,
   normalizeSetArtists,
 } from '../lib/schemas.js';
+import {
+  userResponseSchema,
+  festivalDepth1ResponseSchema,
+  crewResponseSchema,
+  meetingPointResponseSchema,
+} from '../lib/responseSchemas.js';
+import { serializePublicUser } from '../lib/helpers.js';
 
 // ── Authentication schemas ──────────────────────────────────────────────
 
@@ -498,5 +505,151 @@ describe('schemas: validate middleware', () => {
     middleware(req, res, () => { throw new Error('next should not be called'); });
     assert.equal(statusSet, 400);
     assert.ok(jsonSent.error);
+  });
+});
+
+// ── Response (OUTPUT) schemas ────────────────────────────────────────────
+// Guard that a REAL serialized payload parses against its response schema. Each
+// payload is JSON-round-tripped first to mimic the wire (timestamptz → ISO
+// string), exactly as a client would decode it.
+
+describe('responseSchemas: serialized payloads parse', () => {
+  const wire = (v: unknown) => JSON.parse(JSON.stringify(v));
+
+  it('userResponseSchema parses serializePublicUser output (full + minimal)', () => {
+    // Full user (every optional populated) — uses the REAL serializer.
+    const full = serializePublicUser({
+      id: 'user-1',
+      username: 'alice',
+      displayName: 'Alice',
+      avatarKey: 'k123',
+      avatarVersion: 'v9',
+      email: 'a@b.com',
+      emailVerifiedAt: new Date().toISOString(),
+      venmoHandle: '@alice',
+      cashappCashtag: null,
+      paypalHandle: null,
+    });
+    const parsedFull = userResponseSchema.parse(wire(full));
+    assert.equal(parsedFull.id, 'user-1');
+    assert.equal(parsedFull.emailVerified, true);
+    assert.ok(parsedFull.avatarUrl && parsedFull.avatarUrl.includes('avatars'));
+
+    // Minimal user → nulls for name/avatarUrl/email/handles, emailVerified false.
+    const minimal = serializePublicUser({ id: 'u2', username: 'bob' });
+    const parsedMin = userResponseSchema.parse(wire(minimal));
+    assert.equal(parsedMin.name, null);
+    assert.equal(parsedMin.avatarUrl, null);
+    assert.equal(parsedMin.emailVerified, false);
+  });
+
+  it('festivalDepth1ResponseSchema parses a depth=1 festival payload', () => {
+    // Mirrors routes/festivals.ts depth===1 mapper exactly.
+    const now = new Date().toISOString();
+    const payload = {
+      id: 'fest-1',
+      name: 'Test Fest',
+      location: 'Open Field',
+      stages: [{ id: 'stage-1', name: 'Main', color: '#666666', latitude: 51.5, longitude: -0.12 }],
+      days: [
+        {
+          label: 'Day 1',
+          date: '2026-07-01',
+          sets: [
+            {
+              id: 'set-1',
+              artist: 'DJ A',
+              artists: [{ name: 'DJ A', links: { spotify: 'https://open.spotify.com/x' } }],
+              stageId: 'stage-1',
+              startTime: '12:00',
+              endTime: '13:00',
+            },
+          ],
+        },
+      ],
+      mapConfig: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const parsed = festivalDepth1ResponseSchema.parse(wire(payload));
+    assert.equal(parsed.stages[0]!.latitude, 51.5);
+    assert.equal(parsed.days[0]!.sets[0]!.id, 'set-1');
+
+    // mapConfig present (reuses the strict request validator's shape) also parses.
+    const mapped = festivalDepth1ResponseSchema.parse(
+      wire({ ...payload, mapConfig: { version: 1, center: [-0.12, 51.5] } }),
+    );
+    assert.equal(mapped.mapConfig?.version, 1);
+  });
+
+  it('crewResponseSchema parses serializeCrewWithMembers output (owner view)', () => {
+    // Mirrors routes/crews.ts serializeCrewWithMembers for an owner requester.
+    const now = new Date().toISOString();
+    const payload = {
+      id: 'crew-1',
+      festivalId: 'fest-1',
+      name: 'The Crew',
+      owner: 'user-1',
+      createdBy: 'user-1',
+      maxMembers: 30,
+      reformedFrom: null,
+      createdAt: now,
+      updatedAt: now,
+      homeBaseLocation: null,
+      homeBaseTime: null,
+      homeBaseUpdatedAt: null,
+      photoAlbumUrl: null,
+      totem_name: null,
+      totem_emoji: null,
+      role: 'owner',
+      joinedAt: now,
+      inviteCode: 'ABCD12',
+      inviteExpiresAt: null,
+      members: [
+        {
+          userId: 'user-1',
+          username: 'alice',
+          name: 'alice',
+          avatarKey: null,
+          avatarVersion: null,
+          role: 'owner',
+          joinedAt: now,
+        },
+      ],
+      memberCount: 1,
+    };
+    const parsed = crewResponseSchema.parse(wire(payload));
+    assert.equal(parsed.owner, 'user-1');
+    assert.equal(parsed.inviteCode, 'ABCD12');
+    assert.equal(parsed.members[0]!.role, 'owner');
+    assert.equal(parsed.memberCount, 1);
+  });
+
+  it('meetingPointResponseSchema parses a store row (Date timestamps → ISO)', () => {
+    // Mirrors lib/db/stores/crews.ts meetingPoints.listByCrew row (pg returns
+    // timestamptz as Date; JSON.stringify renders them as ISO on the wire).
+    const row = {
+      id: 'mp-1',
+      crew_id: 'crew-1',
+      created_by: 'user-1',
+      label: 'The big tree',
+      location: 'North field',
+      type: 'during',
+      meet_at: new Date(),
+      stage_reference: null,
+      expires_at: null,
+      latitude: 51.5,
+      longitude: -0.12,
+      recurs_daily: false,
+      active: true,
+      created_at: new Date(),
+      updated_at: new Date(),
+      creator_name: 'alice',
+    };
+    const parsed = meetingPointResponseSchema.parse(wire(row));
+    assert.equal(parsed.id, 'mp-1');
+    assert.equal(parsed.recurs_daily, false);
+    assert.equal(typeof parsed.meet_at, 'string');
+    assert.equal(parsed.creator_name, 'alice');
   });
 });
