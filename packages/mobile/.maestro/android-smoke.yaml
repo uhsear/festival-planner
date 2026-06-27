@@ -204,7 +204,10 @@ env:
           element:
             text: "Send SOS"
           direction: DOWN
-          timeout: 8000
+          # 16s (was 8s): SOS sits below live-location + meeting-points + crew-
+          # status in Logistics, so it needs a longer scroll budget than the
+          # live-location control above to come into view.
+          timeout: 16000
           optional: true
       - takeScreenshot: 09-sos
       # Open the SOS confirm dialog to prove it guards, then CANCEL (never send).

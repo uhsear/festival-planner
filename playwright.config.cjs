@@ -27,10 +27,10 @@ module.exports = defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
-    { name: 'visreg-setup', testMatch: /auth\.setup\.js/ },
+    { name: 'visreg-setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'visreg-auth',
-      testMatch: /visual-regression-auth\.spec\.js/,
+      testMatch: /visual-regression-auth\.spec\.ts/,
       use: { storageState: 'tests/e2e/.auth/state.json' },
       dependencies: ['visreg-setup'],
     },
