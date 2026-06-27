@@ -1,6 +1,8 @@
 /**
  * OpenAPI 3.0 spec generator — produces a JSON spec from the app's route/schema definitions.
- * Served at GET /api/docs/openapi.json
+ * Served at GET /api/docs/openapi.json — dev/staging ONLY (gated
+ * NODE_ENV !== 'production' in middleware.ts; the contract is intentionally not
+ * exposed on the public prod API to keep the attack surface small).
  *
  * REQUEST bodies and params are DERIVED from the authoritative Zod schemas in
  * `lib/schemas.ts` via zod-openapi's `createSchema` (zod v4-native). This makes
