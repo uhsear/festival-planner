@@ -90,6 +90,11 @@ jobs:
       - name: Lint shared (packages/shared)
         working-directory: packages
         run: pnpm --filter @festie/shared lint
+      - name: Dependency boundaries (dependency-cruiser)
+        run: npm run depcruise
+      - name: Dead-code report (knip, non-blocking)
+        run: npm run knip
+        continue-on-error: true
 
   test:
     runs-on: ubuntu-latest

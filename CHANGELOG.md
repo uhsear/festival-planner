@@ -249,4 +249,4 @@ For version-specific support:
 
 ---
 
-**Latest Version**: 1.9.0 (March 20, 2026)
+**Latest documented version**: 1.10.2 (March 22, 2026). Current release: see `package.json` (v3.0.0). Changes after 1.10.2 — the `packages/` monorepo split (web + mobile + shared), the TypeScript migration, and the Express 5 upgrade — are tracked in git history rather than back-filled here.

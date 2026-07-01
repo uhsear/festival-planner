@@ -12,7 +12,7 @@ module.exports = [
 
   // Ignore patterns (replaces .eslintignore)
   {
-    ignores: ['node_modules/**', 'public/**', 'tests/**', 'scripts/**', 'ecosystem.config.js', 'playwright.config.js', 'db-schema.js', 'db-schema2.js', 'check_*.js'],
+    ignores: ['node_modules/**', 'public/**', 'tests/**', 'scripts/**', 'ecosystem.config.cjs', 'playwright.config.cjs'],
   },
 
   // Server-side TypeScript (lib/, routes/, server.ts)

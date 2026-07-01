@@ -19,7 +19,6 @@ module.exports = {
       },
       to: {
         path: '^routes/',
-        pathNot: '^routes/index\\.js$',
       },
     },
     {
@@ -38,7 +37,14 @@ module.exports = {
     doNotFollow: {
       path: 'node_modules',
     },
-    tsPreCompilationDeps: false,
+    // The backend is TypeScript run via tsx (no build step). Without tsConfig +
+    // tsPreCompilationDeps, dependency-cruiser only follows runtime-resolvable
+    // deps and cruises a fraction of modules — making the circular/boundary
+    // guards near-useless. Point it at the real tsconfig and follow TS imports.
+    tsConfig: {
+      fileName: 'tsconfig.json',
+    },
+    tsPreCompilationDeps: true,
     enhancedResolveOptions: {
       exportsFields: ['exports'],
       conditionNames: ['import', 'require', 'node', 'default'],

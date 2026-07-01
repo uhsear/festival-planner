@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "server.ts",
+    "lib/avatar-worker.ts",
+    "scripts/*.{mjs,js}",
+    "tests/**/*.test.ts"
+  ],
+  "project": ["lib/**/*.ts", "routes/**/*.ts", "server.ts", "scripts/**/*.{ts,mjs,js}"],
+  "ignore": ["packages/**", "dist/**", "coverage/**", "migrations/**"],
+  "ignoreDependencies": ["@sentry/node", "syncpack"],
+  "ignoreBinaries": ["depcruise", "lhci", "psql", "pmtiles"]
+}

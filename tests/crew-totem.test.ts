@@ -85,6 +85,7 @@ describe('createCrewsStore — crew totem', () => {
 
   it('createWithOwner() inserts totem columns and threads the values', async () => {
     const pool = mockPool([
+      { rows: [], rowCount: 0 }, // BEGIN (createWithOwner runs in withTransaction)
       { rows: [], rowCount: 1 }, // INSERT crews
       { rows: [], rowCount: 1 }, // INSERT crew_members
       { rows: [{ id: 'crew3', totemName: 'Tree', totemEmoji: '🌳' }] }, // SELECT
@@ -102,11 +103,15 @@ describe('createCrewsStore — crew totem', () => {
       totemEmoji: '🌳',
     });
 
-    const insertSql = norm(pool.queries[0].sql);
+    // createWithOwner runs inside withTransaction, so queries[0] is BEGIN;
+    // locate the crews INSERT rather than assuming a fixed index.
+    const crewInsert = pool.queries.find((q: any) => norm(q.sql).includes('INSERT INTO crews ('));
+    assert.ok(crewInsert, 'issued an INSERT INTO crews');
+    const insertSql = norm(crewInsert.sql);
     assert.ok(insertSql.includes('totem_name'), 'INSERT lists totem_name column');
     assert.ok(insertSql.includes('totem_emoji'), 'INSERT lists totem_emoji column');
-    assert.strictEqual(pool.queries[0].params[8], 'Tree');
-    assert.strictEqual(pool.queries[0].params[9], '🌳');
+    assert.strictEqual(crewInsert.params[8], 'Tree');
+    assert.strictEqual(crewInsert.params[9], '🌳');
     assert.strictEqual(row.totemName, 'Tree');
     assert.strictEqual(row.totemEmoji, '🌳');
   });
