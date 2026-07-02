@@ -8,3 +8,4 @@ export * from './useLiveLocationPublisher';
 export * from './useOffline';
 export * from './useCrewNudges';
 export * from './usePickConflicts';
+export * from './useCurrentPosition';

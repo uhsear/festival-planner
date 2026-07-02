@@ -59,12 +59,14 @@ export default function DayEditor({
         <input
           type="text"
           placeholder="Day label"
+          aria-label="Day label"
           value={day.label}
           onChange={(e) => onLabelChange(e.target.value)}
           className="flex-1 px-3 py-2 rounded-lg bg-bg-primary border border-glass-border text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
         />
         <input
           type="date"
+          aria-label="Day date"
           value={day.date}
           onChange={(e) => onDateChange(e.target.value)}
           className="px-3 py-2 rounded-lg bg-bg-primary border border-glass-border text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-aqua"

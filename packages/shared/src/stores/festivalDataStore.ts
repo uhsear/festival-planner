@@ -1,7 +1,6 @@
 import { create, StateCreator } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { api } from '../services/api';
-import { analytics } from '../services/analytics';
 import { mapErrorToUserMessage } from '../services/errors';
 import { isOffline } from '../services/offlineQueue';
 import { getStorage } from '../platform/storage';
@@ -336,10 +335,6 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         { picks: mergedPicks },
         `pick-${currentProfile.id}-${request.setId}`,
       );
-      analytics.captureEvent('pick_saved', {
-        set_id: request.setId,
-        priority: request.priority ?? null,
-      });
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to save pick');
       // Roll back the optimistic update so the UI never shows a pick as saved

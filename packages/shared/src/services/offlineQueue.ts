@@ -20,10 +20,10 @@ const QUEUE_KEY = 'festie-offline-queue';
 const FAILED_KEY = 'festie-offline-failed';
 
 /** Drop queued mutations older than this on read (mirrors the web queue policy). */
-const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+export const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /** Cap on transient (5xx/network) replay attempts before surfacing (matches web). */
-const MAX_RETRIES = 5;
+export const MAX_RETRIES = 5;
 
 export type QueuedMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 

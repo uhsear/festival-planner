@@ -127,31 +127,6 @@ module.exports = [
     },
   },
 
-  // Test files
-  {
-    files: ['tests/**/*.ts'],
-    plugins: {
-      '@typescript-eslint': tseslint.plugin,
-    },
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: 'module',
-      parser: tseslint.parser,
-      globals: {
-        ...globals.node,
-      },
-    },
-    rules: {
-      'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-      'no-var': 'error',
-      'prefer-const': 'warn',
-      'eqeqeq': ['error', 'always', { null: 'ignore' }],
-      'no-console': 'off',
-      'no-undef': 'off',
-    },
-  },
-
   // Script files
   {
     files: ['scripts/**/*.js'],

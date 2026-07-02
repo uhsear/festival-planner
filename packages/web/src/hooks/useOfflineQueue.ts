@@ -1,12 +1,11 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useUIStore } from '@festie/shared/stores/uiStore';
+import { MAX_RETRIES, MAX_QUEUE_AGE_MS } from '@festie/shared/services';
 
 const DB_NAME = 'festie-offline-queue';
 const DB_VERSION = 1;
 const STORE_NAME = 'mutations';
-const MAX_RETRIES = 5;
 const RETRY_BACKOFF_BASE = 1000;
-const MAX_QUEUE_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 interface QueuedMutation {
   id?: number;

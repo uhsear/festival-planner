@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { api } from '@festie/shared/services';
 import { useCrewStore } from '@festie/shared/stores';
 import type { User } from '@festie/shared/types';
@@ -15,25 +15,9 @@ export function useCrewAdmin(
   const selectCrew = useCrewStore((state) => state.selectCrew);
   const forceAddMember = useCrewStore((state) => state.forceAddMember);
 
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isAdmin = user?.isAdmin ?? false;
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminAddBusy, setAdminAddBusy] = useState(false);
-
-  useEffect(() => {
-    if (!user) { setIsAdmin(false); return; }
-    let cancelled = false;
-    (async () => {
-      try {
-        const me = await api.get<{ roles?: Array<string | { role?: string; name?: string }> }>('/auth/me');
-        const roles = (me?.roles ?? []) as Array<string | { role?: string; name?: string }>;
-        const admin = roles.some((r) =>
-          typeof r === 'string' ? r === 'admin' : r.role === 'admin' || r.name === 'admin',
-        );
-        if (!cancelled) setIsAdmin(admin);
-      } catch {/* ignore */}
-    })();
-    return () => { cancelled = true; };
-  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submitForceAdd = useCallback(async (query: string) => {
     if (!activeCrewId) return;
