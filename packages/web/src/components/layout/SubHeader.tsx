@@ -107,7 +107,10 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
   // once data lands (was growing the sub-header 1 -> 2-3 rows post-paint).
   const showDaySkeleton = !festivalOnly && !currentFestival;
   const showStageSkeleton = !dayOnly && !festivalOnly && !currentFestival;
-  const currentStatus = currentFestival ? festivalStatus(currentFestival) : null;
+  // Pass the store's days array — the currentFestival payload carries neither
+  // startDate/endDate nor embedded days, so without it festivalStatus returns
+  // null and the pill never renders.
+  const currentStatus = currentFestival ? festivalStatus(currentFestival, days) : null;
 
   return (
     <div>
@@ -166,10 +169,11 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
         {currentStatus && (
           <span
             className={cn(
-              'inline-block shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em]',
-              currentStatus === 'ongoing' && 'bg-[#c01d3a] text-[#080810]',
-              currentStatus === 'upcoming' && 'border border-[rgba(0,232,208,0.4)] text-accent-aqua',
-              currentStatus === 'past' && 'bg-[#3a3a3a] text-[#686868]',
+              'type-micro inline-block shrink-0 rounded-full px-2 py-1',
+              // Live = the coral live-exception; coral-strong fill clears AA behind light text.
+              currentStatus === 'ongoing' && 'bg-accent-coral-strong text-[var(--color-bg-primary)]',
+              currentStatus === 'upcoming' && 'border border-[var(--color-aqua-a4)] text-accent-aqua',
+              currentStatus === 'past' && 'bg-[var(--color-bg-input)] text-text-muted',
             )}
             data-testid="festival-status-pill"
           >
