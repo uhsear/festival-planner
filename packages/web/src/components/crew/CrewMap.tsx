@@ -8,27 +8,28 @@ import {
   extractStagePins,
   extractAmenityPins,
   extractZones,
-  zonesGeoJSON,
-  zoneLabels,
   extractSiteplan,
-  siteplanImageSource,
   amenityGlyph,
   pickFestivalCamera,
-  formatStaleness,
-  isPeerStale,
-  headingToArrow,
-  formatBatteryLabel,
-  formatShareWindow,
-  getInitials,
   buildPursuit,
   nearestPin,
   pickMapStyle,
   hasOfflineBasemap,
   type MapPin as Pin,
-  type Coord,
 } from '@festie/shared/utils';
 import type { CrewMeetingPoint, PeerLocation, SosEntry, Festival, Stage, AmenityType } from '@festie/shared/types';
 import EmptyState from '../ui/EmptyState';
+import { type MapLibre, type PursueTarget } from './crew-map/mapDom';
+import { useGeolocationWatch } from './crew-map/useGeolocationWatch';
+import { useMeetingPointMarkers } from './crew-map/useMeetingPointMarkers';
+import { useStageMarkers } from './crew-map/useStageMarkers';
+import { useAmenityMarkers } from './crew-map/useAmenityMarkers';
+import { usePeerMarkers } from './crew-map/usePeerMarkers';
+import { useSosMarkers } from './crew-map/useSosMarkers';
+import { useZoneLayer } from './crew-map/useZoneLayer';
+import { useSiteplanLayer } from './crew-map/useSiteplanLayer';
+import { useDraftMarkers } from './crew-map/useDraftMarkers';
+import { useMapFraming } from './crew-map/useMapFraming';
 
 /**
  * CrewMap — web crew map (MapLibre GL JS, no API key).
@@ -44,8 +45,10 @@ import EmptyState from '../ui/EmptyState';
  * the GL lib but its `load` callback never fires, so marker code is inert there).
  *
  * The GL map instance is created ONCE and kept across peer updates — peer/SOS
- * markers are rebuilt on their own effects so a 10-second position tick never
- * tears down and rebuilds the whole map (which would churn tiles + lose viewport).
+ * markers are rebuilt on their own effects (see crew-map/*) so a 10-second
+ * position tick never tears down and rebuilds the whole map (which would churn
+ * tiles + lose viewport). Each per-concern hook reads its live array through a
+ * ref and keys its effect on a stable content string, so the deps are honest.
  *
  * HONESTY: peer freshness is rendered as "Live · N ago" from the server receive
  * time, and accuracy as a "±N m" radius note — we never imply a pinpoint fix.
@@ -126,67 +129,9 @@ const NEAREST_TARGETS: { type: AmenityType; label: string }[] = [
   { type: 'toilet', label: 'toilet' },
 ];
 
-/** A live pursue target: a peer, the SOS, or a nearest-amenity pin. */
-interface PursueTarget {
-  id: string;
-  label: string;
-  coord: Coord;
-}
-
 // Basemap style is chosen by the shared `pickMapStyle` (Phase 3A): a festival
 // with an `offlineBasemap.pmtilesUrl` gets a PMTiles VECTOR basemap; every other
 // festival keeps TODAY's online OSM raster (graceful fallback, never regressed).
-
-// The subset of the maplibre-gl module we use. We load it via `.default` at
-// runtime (CJS interop — the test mock returns `{ default: {...} }`), but the
-// type-level default member doesn't exist, so model the constructors we touch.
-type MapLibre = {
-  Map: typeof import('maplibre-gl').Map;
-  Marker: typeof import('maplibre-gl').Marker;
-  Popup: typeof import('maplibre-gl').Popup;
-  NavigationControl: typeof import('maplibre-gl').NavigationControl;
-  LngLatBounds: typeof import('maplibre-gl').LngLatBounds;
-};
-
-// Popups are built with DOM APIs (createElement + textContent) and handed to
-// MapLibre via `setDOMContent`, so user/server text is never parsed as HTML —
-// the browser escapes it for us. This mirrors the already-safe peer-marker
-// element render and closes the latent DOM-XSS fragility of the old string-HTML
-// `setHTML` path (security review L5).
-
-/** A <strong> title element with text set safely via textContent. */
-function titleEl(text: string, className?: string): HTMLElement {
-  const strong = document.createElement('strong');
-  if (className) strong.className = className;
-  strong.textContent = text;
-  return strong;
-}
-
-/** A subtitle line: <span class="festie-map-sub">text</span> preceded by a <br/>. */
-function subEl(text: string): HTMLElement {
-  const span = document.createElement('span');
-  span.className = 'festie-map-sub';
-  span.textContent = text;
-  return span;
-}
-
-/** Assemble popup children into a container fragment-equivalent <div>. */
-function popupContent(nodes: (Node | null)[]): HTMLElement {
-  const root = document.createElement('div');
-  let first = true;
-  for (const n of nodes) {
-    if (!n) continue;
-    if (!first) root.appendChild(document.createElement('br'));
-    root.appendChild(n);
-    first = false;
-  }
-  return root;
-}
-
-// "as of 5m ago" → "5m ago" so we can render the honest "Live · 5m ago" copy.
-function relAge(serverAt: string): string {
-  return formatStaleness(serverAt).replace(/^as of /, '');
-}
 
 export default function CrewMap({
   meetingPoints,
@@ -204,7 +149,9 @@ export default function CrewMap({
   const [status, setStatus] = useState<'pending' | 'ready' | 'error'>('pending');
 
   // Live MapLibre handles, kept across re-renders. Markers are tracked per kind
-  // so each effect only churns its own layer.
+  // so each effect only churns its own layer. The refs live here (not in the
+  // per-layer hooks) so the map-teardown cleanup below can reset them all in one
+  // place, preserving the exact recreate behaviour.
   const mapRef = useRef<import('maplibre-gl').Map | null>(null);
   const glRef = useRef<MapLibre | null>(null);
   const mpMarkersRef = useRef<import('maplibre-gl').Marker[]>([]);
@@ -221,11 +168,6 @@ export default function CrewMap({
   const fittedRef = useRef(false);
 
   // ── Pursue / filter / nearest state (Phase 2B) ─────────────────────────────
-  // The user's own GPS fix (browser geolocation), used to compute pursuit +
-  // nearest-X. Null until they enable location; failure leaves it null and the
-  // UI shows an "enable location to pursue" affordance.
-  const [selfCoord, setSelfCoord] = useState<Coord | null>(null);
-  const [geoState, setGeoState] = useState<'idle' | 'locating' | 'denied' | 'on'>('idle');
   // The current pursue target (a peer, the SOS, or a nearest-amenity pin) or null.
   const [pursue, setPursue] = useState<PursueTarget | null>(null);
   // Hidden amenity categories — toggled off via the filter chips. Default: all
@@ -239,45 +181,8 @@ export default function CrewMap({
   }, []);
   const clearPursue = useCallback(() => setPursue(null), []);
 
-  // Enable browser geolocation for pursue / nearest. A continuous watch keeps
-  // `selfCoord` fresh as the user moves so the arrow + ETA recompute live.
-  const watchIdRef = useRef<number | null>(null);
-  const enableLocation = useCallback(() => {
-    const geo = typeof navigator !== 'undefined' ? navigator.geolocation : undefined;
-    if (!geo) {
-      setGeoState('denied');
-      return;
-    }
-    if (watchIdRef.current != null) return; // already watching
-    setGeoState('locating');
-    watchIdRef.current = geo.watchPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-          setSelfCoord({ latitude, longitude });
-          setGeoState('on');
-        }
-      },
-      () => {
-        setGeoState('denied');
-        if (watchIdRef.current != null) {
-          geo.clearWatch(watchIdRef.current);
-          watchIdRef.current = null;
-        }
-      },
-      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 15_000 },
-    );
-  }, []);
-  // Tear the geolocation watch down on unmount.
-  useEffect(() => {
-    return () => {
-      const geo = typeof navigator !== 'undefined' ? navigator.geolocation : undefined;
-      if (geo && watchIdRef.current != null) {
-        geo.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-    };
-  }, []);
+  // Browser geolocation watch — the user's own GPS fix for pursue / nearest-X.
+  const { selfCoord, geoState, enableLocation } = useGeolocationWatch();
 
   const pins = useMemo<Pin[]>(
     () => extractMeetingPointPins(meetingPoints as unknown as CrewMeetingPoint[]),
@@ -346,9 +251,7 @@ export default function CrewMap({
     const sp = sosList.find((s) => s.position)?.position;
     if (sp) return { latitude: sp.lat, longitude: sp.lng };
     return null;
-    // Recompute only when the coord sources meaningfully change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [camera, peers.length, sosList]);
+  }, [camera, peers, sosList]);
 
   // Stable keys so marker effects re-run only when their own coords change.
   const pinsKey = useMemo(() => pins.map((p) => `${p.id}:${p.latitude},${p.longitude}`).join('|'), [pins]);
@@ -383,10 +286,7 @@ export default function CrewMap({
   // the build/reconcile + one-shot fly/open per new SOS, while the COORD set only
   // repositions the existing markers (no re-fly/re-open every tick). Keying the
   // build effect on lat/lng would yank the camera + reopen the popup on every tick.
-  const sosIdsKey = useMemo(
-    () => sosList.filter((s) => s.position).map((s) => s.userId).join('|'),
-    [sosList],
-  );
+  const sosIdsKey = useMemo(() => sosList.filter((s) => s.position).map((s) => s.userId).join('|'), [sosList]);
   const sosCoordsKey = useMemo(
     () => sosList.map((s) => (s.position ? `${s.userId}:${s.position.lat},${s.position.lng}` : '')).join('|'),
     [sosList],
@@ -562,471 +462,29 @@ export default function CrewMap({
       mapRef.current = null;
       glRef.current = null;
     };
-    // Only (re)create when content first appears / disappears.
+    // Only (re)create when content first appears / disappears. The refs read
+    // inside are intentionally not deps (mount-once map init).
   }, [shouldRenderMap]);
 
-  // ── Site-plan raster overlay (festival-mapped; UNDER zones + every marker) ──
-  // The organizer's georeferenced paper site-plan, drawn as a MapLibre `image`
-  // source + raster layer positioned by its 4 corners at the configured opacity.
-  // Declared BEFORE the zones effect so, on first load, this layer is added to
-  // the stack first and the zone fill/outline layers (added next) sit on top —
-  // and DOM markers (meeting/stage/amenity/peer/SOS) are always above all GL
-  // layers. Graceful: no siteplan ⇒ nothing added; clearing it removes the layer.
-  useEffect(() => {
-    const map = mapRef.current;
-    const gl = glRef.current;
-    if (status !== 'ready' || !map || !gl) return;
-
-    const SRC = 'festie-siteplan';
-    const LAYER = 'festie-siteplan-layer';
-    const src = siteplanImageSource(siteplan);
-    try {
-      if (!src) {
-        // Cleared (or never present): tear down the layer + source if we added them.
-        if (map.getLayer(LAYER)) map.removeLayer(LAYER);
-        if (map.getSource(SRC)) map.removeSource(SRC);
-        return;
-      }
-      // MapLibre's ImageSource wants a 4-tuple of [lng,lat]; our corners are
-      // already in TL/TR/BR/BL order — assert the tuple shape for the typings.
-      const coordinates = src.coordinates as unknown as [
-        [number, number],
-        [number, number],
-        [number, number],
-        [number, number],
-      ];
-      const existing = map.getSource(SRC) as import('maplibre-gl').ImageSource | undefined;
-      if (existing) {
-        existing.updateImage({ url: src.url, coordinates });
-        if (map.getLayer(LAYER)) map.setPaintProperty(LAYER, 'raster-opacity', src.opacity);
-      } else {
-        map.addSource(SRC, { type: 'image', url: src.url, coordinates });
-        map.addLayer({
-          id: LAYER,
-          type: 'raster',
-          source: SRC,
-          paint: { 'raster-opacity': src.opacity, 'raster-fade-duration': 0 },
-        });
-      }
-    } catch {
-      // Transient style-not-ready race: a later siteplanKey change re-attempts.
-      // Never tear the map down for a site-plan glitch.
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, siteplanKey]);
-
-  // ── Zone polygons (festival-mapped; filled translucent, UNDER every marker) ──
-  // Rendered as a single GeoJSON source + a fill + outline GL layer (data-driven
-  // color via ['get','color']) so they always sit beneath the DOM markers
-  // (meeting points / stages / amenities / peers / SOS). Zone labels are DOM
-  // markers at each centroid (no glyphs endpoint needed — same approach as the
-  // stage tag). The source/layers are added once, then `setData` updates them.
-  useEffect(() => {
-    const map = mapRef.current;
-    const gl = glRef.current;
-    if (status !== 'ready' || !map || !gl) return;
-
-    // Typed via maplibre's own setData param so we don't depend on the ambient
-    // GeoJSON namespace (not in scope in the web tsconfig). The struct from
-    // zonesGeoJSON is a GeoJSON FeatureCollection in all but nominal type.
-    type ZoneData = Parameters<import('maplibre-gl').GeoJSONSource['setData']>[0];
-    const data = zonesGeoJSON(zones) as unknown as ZoneData;
-    try {
-      const existing = map.getSource('festie-zones') as import('maplibre-gl').GeoJSONSource | undefined;
-      if (existing) {
-        existing.setData(data);
-      } else {
-        map.addSource('festie-zones', { type: 'geojson', data });
-        map.addLayer({
-          id: 'festie-zones-fill',
-          type: 'fill',
-          source: 'festie-zones',
-          paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.22 },
-        });
-        map.addLayer({
-          id: 'festie-zones-line',
-          type: 'line',
-          source: 'festie-zones',
-          paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-opacity': 0.85 },
-        });
-      }
-    } catch {
-      // A transient style-not-ready race: the next zonesKey change (or the fit
-      // effect) will re-attempt. Never tear the map down for a zone glitch.
-    }
-
-    // Rebuild the centroid label markers (DOM) for zones that carry a label.
-    for (const m of zoneLabelMarkersRef.current) m.remove();
-    zoneLabelMarkersRef.current = [];
-    for (const z of zoneLabels(zones)) {
-      const el = document.createElement('div');
-      el.className = 'festie-zone-label';
-      el.style.setProperty('--zone-color', z.color);
-      el.setAttribute('aria-hidden', 'true');
-      el.textContent = z.label;
-      const marker = new gl.Marker({ element: el }).setLngLat([z.longitude, z.latitude]).addTo(map);
-      zoneLabelMarkersRef.current.push(marker);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, zonesKey]);
-
-  // ── Meeting-point markers ──────────────────────────────────────────────────
-  useEffect(() => {
-    const map = mapRef.current;
-    const gl = glRef.current;
-    if (status !== 'ready' || !map || !gl) return;
-
-    for (const m of mpMarkersRef.current) m.remove();
-    mpMarkersRef.current = [];
-
-    for (const p of pins) {
-      const el = document.createElement('div');
-      el.className = 'festie-map-marker';
-      // a11y: each marker is a div MapLibre positions over the canvas. Expose it
-      // as a focusable button announcing the meeting point.
-      el.setAttribute('aria-label', p.label + (p.sublabel ? ' - ' + p.sublabel : ''));
-      el.setAttribute('role', 'button');
-      el.setAttribute('tabindex', '0');
-      const popupEl = popupContent([titleEl(p.label), p.sublabel ? subEl(p.sublabel) : null]);
-      const marker = new gl.Marker({ element: el })
-        .setLngLat([p.longitude, p.latitude])
-        .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setDOMContent(popupEl))
-        .addTo(map);
-      // Bridge Enter/Space → popup toggle (MapLibre only wires click).
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          marker.togglePopup();
-        }
-      });
-      mpMarkersRef.current.push(marker);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, pinsKey]);
-
-  // ── Stage markers (festival-mapped; stage-colored, labelled) ────────────────
-  useEffect(() => {
-    const map = mapRef.current;
-    const gl = glRef.current;
-    if (status !== 'ready' || !map || !gl) return;
-
-    for (const m of stageMarkersRef.current) m.remove();
-    stageMarkersRef.current = [];
-
-    for (const p of stagePins) {
-      const el = document.createElement('div');
-      el.className = 'festie-stage-marker';
-      // Tint the marker with the stage's own brand color (falls back to the CSS
-      // default in the stylesheet when absent).
-      if (p.color) el.style.setProperty('--stage-color', p.color);
-      el.setAttribute('aria-label', `Stage: ${p.label}`);
-      el.setAttribute('role', 'button');
-      el.setAttribute('tabindex', '0');
-      // A small always-on label tag so stages read at a glance, distinct from the
-      // coral meeting dots + aqua peer discs. Text via textContent (injection-safe).
-      const tag = document.createElement('span');
-      tag.className = 'festie-stage-tag';
-      tag.textContent = p.label;
-      el.appendChild(tag);
-      const popupEl = popupContent([titleEl(p.label), subEl('Stage')]);
-      const marker = new gl.Marker({ element: el })
-        .setLngLat([p.longitude, p.latitude])
-        .setPopup(new gl.Popup({ offset: 14, closeButton: false }).setDOMContent(popupEl))
-        .addTo(map);
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          marker.togglePopup();
-        }
-      });
-      stageMarkersRef.current.push(marker);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, stagesKey]);
-
-  // ── Amenity markers (festival-mapped; category glyph + color) ───────────────
-  useEffect(() => {
-    const map = mapRef.current;
-    const gl = glRef.current;
-    if (status !== 'ready' || !map || !gl) return;
-
-    for (const m of amenityMarkersRef.current) m.remove();
-    amenityMarkersRef.current = [];
-
-    for (const p of visibleAmenityPins) {
-      const { glyph, color } = amenityGlyph(p.amenityType);
-      const el = document.createElement('div');
-      el.className = 'festie-amenity-marker';
-      el.style.setProperty('--amenity-color', color);
-      el.setAttribute('aria-label', `${p.amenityType ?? 'Amenity'}: ${p.label}`);
-      el.setAttribute('role', 'button');
-      el.setAttribute('tabindex', '0');
-      el.textContent = glyph;
-      const popupEl = popupContent([titleEl(p.label), p.amenityType ? subEl(p.amenityType) : null]);
-      const marker = new gl.Marker({ element: el })
-        .setLngLat([p.longitude, p.latitude])
-        .setPopup(new gl.Popup({ offset: 14, closeButton: false }).setDOMContent(popupEl))
-        .addTo(map);
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          marker.togglePopup();
-        }
-      });
-      amenityMarkersRef.current.push(marker);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, amenitiesKey]);
-
-  // ── Live peer markers (rebuilt per tick — small N; keeps staleness honest) ──
-  useEffect(() => {
-    const map = mapRef.current;
-    const gl = glRef.current;
-    if (status !== 'ready' || !map || !gl) return;
-
-    for (const m of peerMarkersRef.current) m.remove();
-    peerMarkersRef.current = [];
-
-    const now = Date.now();
-    for (const peer of peers) {
-      const rel = relAge(peer.serverAt);
-      const stale = isPeerStale(peer.serverAt, now);
-      const initials = getInitials(peer.username || 'User') || '?';
-      const el = document.createElement('div');
-      // Stale (Snap Map-style): desaturated, no pulse, "last seen N ago" chip.
-      el.className = stale ? 'festie-peer-marker festie-peer-marker--stale' : 'festie-peer-marker';
-      el.setAttribute('role', 'button');
-      el.setAttribute('tabindex', '0');
-      el.setAttribute('aria-label', `${peer.username} — ${stale ? `last seen ${rel}` : `live location, ${rel}`}`);
-      // Pulsing ring (CSS ::before) + initials, then a chip for stale peers. All
-      // text via textContent keeps it injection-safe.
-      const iniEl = document.createElement('span');
-      iniEl.textContent = initials;
-      el.appendChild(iniEl);
-      // Phase 4C: direction-of-travel pointer — a caret rotated by the GPS course.
-      // Only for live peers with a real heading (a stationary fix reports none).
-      const arrowGlyph = stale ? null : headingToArrow(peer.heading);
-      if (arrowGlyph && typeof peer.heading === 'number') {
-        const dir = document.createElement('span');
-        dir.className = 'festie-peer-heading';
-        dir.setAttribute('aria-hidden', 'true');
-        dir.textContent = '▲';
-        dir.style.transform = `translateX(-50%) rotate(${peer.heading}deg)`;
-        el.appendChild(dir);
-      }
-      if (stale) {
-        const chip = document.createElement('span');
-        chip.className = 'festie-peer-chip';
-        chip.textContent = rel;
-        el.appendChild(chip);
-      }
-      const acc =
-        typeof peer.accuracy === 'number' && peer.accuracy > 0 ? subEl(`±${Math.round(peer.accuracy)} m`) : null;
-      // Phase 4C popup chips: heading arrow, battery ("8% — regroup"), and the
-      // remaining share window ("sharing ends in Nm"). Each omitted when absent.
-      const headingLabel = arrowGlyph ? subEl(`Heading ${arrowGlyph}`) : null;
-      const batteryLabel = !stale ? (formatBatteryLabel(peer.battery) ?? null) : null;
-      const batteryEl = batteryLabel ? subEl(`Battery ${batteryLabel}`) : null;
-      // Low-power cue (#5): mirrors the mobile OfflineMap "🍃 Low Power" chip —
-      // shown next to the battery chip when the sharer's device is in battery-saver
-      // mode. Omitted for stale peers and when the flag is absent.
-      const lowPowerEl = !stale && peer.lowPower === true ? subEl('🍃 Low Power') : null;
-      const windowLabel = !stale ? formatShareWindow(peer.expiresAt, now) : null;
-      const windowEl = windowLabel ? subEl(windowLabel) : null;
-      const popupEl = popupContent([
-        titleEl(peer.username),
-        subEl(stale ? `Last seen ${rel}` : `Live · ${rel}`),
-        headingLabel,
-        batteryEl,
-        lowPowerEl,
-        windowEl,
-        acc,
-      ]);
-      const marker = new gl.Marker({ element: el })
-        .setLngLat([peer.lng, peer.lat])
-        .setPopup(new gl.Popup({ offset: 16, closeButton: false }).setDOMContent(popupEl))
-        .addTo(map);
-      // Click/Enter selects this peer as the pursue target (arrow + ETA toward
-      // them). Tapping the same target again clears it (handled in selectPursue).
-      const target: PursueTarget = {
-        id: `peer:${peer.userId}`,
-        label: peer.username || 'Crew member',
-        coord: { latitude: peer.lat, longitude: peer.lng },
-      };
-      el.addEventListener('click', () => selectPursue(target));
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          marker.togglePopup();
-          selectPursue(target);
-        }
-      });
-      peerMarkersRef.current.push(marker);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, peersKey, selectPursue]);
-
-  // ── SOS markers (emphasized; one per active SOS) ────────────────────────────
-  // Reconcile a marker per active SOS keyed by raiser userId: build new ones,
-  // drop cleared ones, and frame each EXACTLY once on first appearance (fly +
-  // open popup). Keyed on the identity set so adding/removing an SOS rebuilds,
-  // while coord ticks only reposition (the effect below).
-  useEffect(() => {
-    const map = mapRef.current;
-    const gl = glRef.current;
-    if (status !== 'ready' || !map || !gl) return;
-
-    const markers = sosMarkersRef.current;
-    const present = new Set(sosList.filter((s) => s.position).map((s) => s.userId));
-
-    // Remove markers for SOS that cleared (and forget their framed flag so a
-    // later re-raise from the same user frames again).
-    for (const [uid, marker] of markers) {
-      if (!present.has(uid)) {
-        marker.remove();
-        markers.delete(uid);
-        sosFramedRef.current.delete(uid);
-      }
-    }
-
-    // Add a marker for each newly-present SOS.
-    for (const s of sosList) {
-      if (!s.position || markers.has(s.userId)) continue;
-      const { lat, lng } = s.position;
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      const el = document.createElement('div');
-      el.className = 'festie-sos-marker';
-      el.setAttribute('role', 'img');
-      el.setAttribute('aria-label', `SOS from ${s.username}`);
-      el.textContent = '!';
-      // Coords are numeric (range-checked server-side), so this URL is structurally
-      // safe; build it via the URL API and assert the https scheme as belt-and-braces.
-      const dir = `https://maps.google.com/?q=${lat},${lng}`;
-      const link = document.createElement('a');
-      if (/^https:/i.test(dir)) link.setAttribute('href', dir);
-      link.className = 'festie-sos-link';
-      link.setAttribute('target', '_blank');
-      link.setAttribute('rel', 'noopener noreferrer');
-      link.textContent = 'Get directions';
-      const popupEl = popupContent([
-        titleEl(`🆘 ${s.username} needs help`, 'festie-sos-title'),
-        s.message ? subEl(s.message) : null,
-        link,
-      ]);
-      const marker = new gl.Marker({ element: el })
-        .setLngLat([lng, lat])
-        .setPopup(new gl.Popup({ offset: 18, closeButton: false }).setDOMContent(popupEl))
-        .addTo(map);
-      // Tapping the SOS marker pursues it (arrow + ETA toward the person in need).
-      const sosTarget: PursueTarget = {
-        id: `sos:${s.userId}`,
-        label: `${s.username} — SOS`,
-        coord: { latitude: lat, longitude: lng },
-      };
-      el.addEventListener('click', () => selectPursue(sosTarget));
-      markers.set(s.userId, marker);
-      // Open the popup + fly to it ONCE on first appearance so it's impossible to
-      // miss. Subsequent coord ticks reposition via the effect below — they never
-      // re-fly or re-open. With several at once the last-framed wins the camera.
-      if (!sosFramedRef.current.has(s.userId)) {
-        sosFramedRef.current.add(s.userId);
-        marker.togglePopup();
-        map.flyTo({ center: [lng, lat], zoom: 15, duration: 600 });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, sosIdsKey, selectPursue]);
-
-  // ── SOS marker reposition (coord ticks only — no re-fly/re-open) ────────────
-  // The build effect above keys on the identity set, so it doesn't rebuild when an
-  // SOS person moves. Slide each existing marker to the latest coord here.
-  useEffect(() => {
-    if (status !== 'ready') return;
-    const markers = sosMarkersRef.current;
-    for (const s of sosList) {
-      if (!s.position) continue;
-      const marker = markers.get(s.userId);
-      if (!marker) continue;
-      const { lat, lng } = s.position;
-      if (Number.isFinite(lat) && Number.isFinite(lng)) marker.setLngLat([lng, lat]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, sosCoordsKey]);
-
-  // ── Draft authoring dots (web-parity with native OfflineMap) ────────────────
-  // A small aqua dot at each in-progress zone vertex / site-plan corner so taps
-  // give feedback below the polygon/overlay render threshold. Re-rendered
-  // wholesale on each change (tiny N). Empty/omitted ⇒ no dots.
-  useEffect(() => {
-    const map = mapRef.current;
-    const gl = glRef.current;
-    if (status !== 'ready' || !map || !gl) return;
-
-    for (const m of draftMarkersRef.current) m.remove();
-    draftMarkersRef.current = [];
-    for (const p of draftPoints ?? []) {
-      if (!Number.isFinite(p.latitude) || !Number.isFinite(p.longitude)) continue;
-      const el = document.createElement('div');
-      el.style.cssText = [
-        'width:12px',
-        'height:12px',
-        'border-radius:50%',
-        'background:#19e3d3',
-        'border:2px solid #fff',
-        'box-shadow:0 0 6px rgba(25,227,211,0.85)',
-        'pointer-events:none',
-      ].join(';');
-      el.setAttribute('aria-hidden', 'true');
-      const marker = new gl.Marker({ element: el }).setLngLat([p.longitude, p.latitude]).addTo(map);
-      draftMarkersRef.current.push(marker);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, draftPointsKey]);
-
-  // ── Frame once when the map first loads ─────────────────────────────────────
-  // Precedence (via pickFestivalCamera): explicit map-config bounds win — fit the
-  // festival grounds exactly. Otherwise fit the union of everything we can plot
-  // (meeting points + stages + amenities + live peers + SOS) so nothing's off
-  // screen. The map was already centered on camera.center at creation.
-  useEffect(() => {
-    const map = mapRef.current;
-    const gl = glRef.current;
-    if (status !== 'ready' || !map || !gl || fittedRef.current) return;
-
-    // 1. Explicit festival bounds — frame the grounds.
-    const cfgBounds = cameraRef.current.bounds;
-    if (cfgBounds) {
-      const [[west, south], [east, north]] = cfgBounds;
-      map.fitBounds(
-        new gl.LngLatBounds([west, south], [east, north]),
-        { padding: 56, maxZoom: 17, duration: 0 },
-      );
-      fittedRef.current = true;
-      return;
-    }
-
-    // 2. Fit the union of all plottable coords.
-    const coords: [number, number][] = [
-      ...pins.map((p) => [p.longitude, p.latitude] as [number, number]),
-      ...stagePins.map((p) => [p.longitude, p.latitude] as [number, number]),
-      ...amenityPins.map((p) => [p.longitude, p.latitude] as [number, number]),
-      // Every zone vertex so the grounds frame includes the drawn areas.
-      ...zones.flatMap((z) => z.rings.flat()),
-      // Site-plan corners so a siteplan-only festival still frames its grounds.
-      ...(siteplan ? siteplan.corners : []),
-      ...peers.map((p) => [p.lng, p.lat] as [number, number]),
-      ...sosList
-        .filter((s) => s.position)
-        .map((s) => [s.position!.lng, s.position!.lat] as [number, number]),
-    ];
-    if (coords.length > 1) {
-      let bounds = new gl.LngLatBounds(coords[0], coords[0]);
-      for (const c of coords) bounds = bounds.extend(c);
-      map.fitBounds(bounds, { padding: 56, maxZoom: 16, duration: 0 });
-    }
-    fittedRef.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, pinsKey, stagesKey, allAmenitiesKey, zonesKey, siteplanKey, peersKey, sosIdsKey]);
+  // ── Per-concern layers (each keys its own effect on a stable content string,
+  //    reads its live data through a ref → honest deps, no suppressions). ──────
+  useSiteplanLayer(mapRef, glRef, status, siteplan, siteplanKey);
+  useZoneLayer(mapRef, glRef, status, zones, zonesKey, zoneLabelMarkersRef);
+  useMeetingPointMarkers(mapRef, glRef, status, pins, pinsKey, mpMarkersRef);
+  useStageMarkers(mapRef, glRef, status, stagePins, stagesKey, stageMarkersRef);
+  useAmenityMarkers(mapRef, glRef, status, visibleAmenityPins, amenitiesKey, amenityMarkersRef);
+  usePeerMarkers(mapRef, glRef, status, peers, peersKey, peerMarkersRef, selectPursue);
+  useSosMarkers(mapRef, glRef, status, sosList, sosIdsKey, sosCoordsKey, sosMarkersRef, sosFramedRef, selectPursue);
+  useDraftMarkers(mapRef, glRef, status, draftPoints, draftPointsKey, draftMarkersRef);
+  useMapFraming(
+    mapRef,
+    glRef,
+    status,
+    { pins, stagePins, amenityPins, zones, siteplan, peers, sosList },
+    { pinsKey, stagesKey, allAmenitiesKey, zonesKey, siteplanKey, peersKey, sosIdsKey },
+    cameraRef,
+    fittedRef,
+  );
 
   // ── Empty state: nothing to plot ───────────────────────────────────────────
   if (!shouldRenderMap) {
