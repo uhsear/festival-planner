@@ -140,6 +140,26 @@
   min-height: 0 !important;
 }
 
+/* ── fk-grid horizontal scroll coupling (all widths) ─────────────────────
+   Head (.fk-grid__head) and body (.fk-grid__body) are separate flex
+   children; scrolling only the body desyncs the stage-name header from its
+   columns once total column width exceeds the 1600px cap. Fix: the outer
+   .fk-grid is the one horizontal scroller (both children forced to their
+   natural max-content width so they overflow identically and move
+   together); .fk-grid__body keeps its own vertical scroll. Previously this
+   coupling only applied under the mobile breakpoint below. */
+.fk-grid {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+.fk-grid__body {
+  overflow-x: visible !important;
+  min-width: max-content;
+}
+.fk-grid__head {
+  min-width: max-content;
+}
+
 /* ── Viewport-fill routes (mobile) ───────────────────────────────────── */
 @media (max-width: 768px) {
   /* Viewport-fill routes need to override the shell's overflow/height so the
@@ -162,14 +182,6 @@
     min-height: 0;
     overflow: auto !important;
   }
-  .fk-grid {
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-  }
-  .fk-grid__body {
-    overflow-x: visible !important;
-    min-width: max-content;
-  }
   #main-content:has(.fk-grid) .fk-grid__col {
     min-width: 92px !important;
   }
@@ -178,9 +190,6 @@
     text-overflow: clip !important;
     line-height: 1.15 !important;
     padding: 4px !important;
-  }
-  .fk-grid__head {
-    min-width: max-content;
   }
   #main-content:has(.fk-grid)::after,
   #main-content:has(.timeline-view)::after {
@@ -290,6 +299,46 @@
 .stage-filter-scroll.fade-left.fade-right .filter-stage {
   -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
   mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+}
+
+/* ── Day-tabs scroll fade masks (same pattern as stage-filter-scroll) ───── */
+.day-tabs-scroll .day-tabs {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.day-tabs-scroll.fade-right:not(.fade-left) .day-tabs {
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+}
+.day-tabs-scroll.fade-left:not(.fade-right) .day-tabs {
+  -webkit-mask-image: linear-gradient(to left, #000 0, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to left, #000 0, #000 calc(100% - 28px), transparent 100%);
+}
+.day-tabs-scroll.fade-left.fade-right .day-tabs {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+}
+
+/* ── SubHeader scroll rows: visible scrollbar on hover for mouse users ──
+   scrollbar-hide (theme.css) hides it entirely; on pointer:fine devices an
+   overflowing row with no scrollbar is undiscoverable, so reveal a slim one
+   on hover using the existing border token. */
+@media (pointer: fine) {
+  .hover-scroll:hover {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-light) transparent;
+  }
+  .hover-scroll:hover::-webkit-scrollbar {
+    display: block;
+    height: 6px;
+  }
+  .hover-scroll:hover::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-light);
+    border-radius: 3px;
+  }
+  .hover-scroll:hover::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
 /* ── Set card enter + card grid base ─────────────────────────────────── */

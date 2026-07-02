@@ -219,7 +219,7 @@ function TimelineViewInner() {
         {/* R11 — full-height content wrapper so the beam's % height resolves
             against scroll content, not the viewport. The beam fills top→current
             scroll position in the left gutter. */}
-        <div className="timeline-content relative min-h-full">
+        <div className="timeline-content relative min-h-full max-w-[1440px] mx-auto">
           <div className="timeline-beam" aria-hidden="true" />
           <div className="sticky top-0 z-20 bg-bg-sticky shadow-sticky [backdrop-filter:saturate(140%)_blur(8px)]">
             <div className="flex items-center justify-between gap-2 flex-wrap">
