@@ -196,6 +196,20 @@ export const test = base.extend<{ app: Awaited<ReturnType<typeof startServer>> }
     await use(app);
     await app.close();
   },
+  // The first-run onboarding modal (Onboarding.tsx, aria-modal) overlays the
+  // whole page and intercepts every pointer event, timing out any test that
+  // clicks the app. Pre-mark it completed so specs exercise the real flows;
+  // onboarding itself gets dedicated coverage by clearing this key.
+  page: async ({ page }, use) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('festie_onboarding_completed', 'true');
+      } catch {
+        /* storage unavailable — onboarding will just show */
+      }
+    });
+    await use(page);
+  },
 });
 
 export { expect, ADMIN_USER, ADMIN_PASSWORD, DEFAULT_PASSWORD };
