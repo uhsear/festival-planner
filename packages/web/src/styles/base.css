@@ -144,14 +144,6 @@ blockquote {
   text-wrap: pretty;
 }
 
-/* Reading measure cap for long-form copy. Opt-in via `.prose` (vs. forcing
-     on every <p>, which would break flexed row layouts). */
-.prose,
-.prose p {
-  max-width: var(--measure-prose);
-  line-height: var(--line-height-relaxed);
-}
-
 /* Digits in times/counters/prices shouldn't jitter when they tick. */
 .tabular,
 time,

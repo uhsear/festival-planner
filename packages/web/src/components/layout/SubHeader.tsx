@@ -48,6 +48,11 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
   const { select: selectHaptic } = useHaptics();
   const { toast } = useToast();
   const { ref: stageScrollRef, canScrollLeft, canScrollRight } = useScrollFade<HTMLDivElement>();
+  const {
+    ref: dayScrollRef,
+    canScrollLeft: dayCanScrollLeft,
+    canScrollRight: dayCanScrollRight,
+  } = useScrollFade<HTMLDivElement>();
 
   const { bind: swipeDaysBind } = useSwipeDays({
     days,
@@ -196,53 +201,62 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
         {showDayTabs && (
           <div
             className={cn(
-              'day-tabs',
-              'flex gap-[var(--space-3)] snap-x snap-mandatory scroll-smooth touch-pan-y overflow-x-auto scrollbar-hide min-w-0',
+              'day-tabs-scroll relative min-w-0',
+              dayCanScrollLeft && 'fade-left',
+              dayCanScrollRight && 'fade-right',
             )}
-            role="group"
-            aria-label="Festival days"
-            {...swipeDaysBind()}
           >
-            {days.map((day, i) => {
-              const isActive = selectedDay === i;
-              const isToday = !!day.date && day.date === todayStr;
-              return (
-                <button
-                  key={day.id || i}
-                  className={cn(
-                    'day-tab-underline',
-                    'py-2 px-4 rounded-full text-[length:var(--font-size-13)] font-semibold cursor-pointer',
-                    'whitespace-nowrap snap-center min-h-[44px] inline-flex items-center gap-1.5',
-                    'transition-[background,color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)]',
-                    'active:scale-[0.96]',
-                    'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua',
-                    isActive
-                      ? [
-                          'active',
-                          // Accent rule: aqua = selection/primary, dark ink = text.onLightAccent.
-                          'bg-day-tab-active text-[#080810] border-day-tab-active font-bold',
-                          'shadow-[0_0_0_1px_rgba(0,232,208,0.45),var(--shadow-glow-aqua),0_4px_12px_rgba(0,0,0,0.25)]',
-                        ]
-                      : 'bg-bg-card border border-border-light text-text-secondary',
-                  )}
-                  type="button"
-                  aria-pressed={isActive}
-                  aria-label={`Day: ${day.label || day.date}${isToday ? ' (today)' : ''}`}
-                  onClick={() => handleDaySelect(i)}
-                >
-                  {isToday && (
-                    <span
-                      className={cn(
-                        'inline-block w-1.5 h-1.5 rounded-full',
-                        isActive ? 'bg-[#080810]' : 'bg-accent-aqua',
-                      )}
-                      aria-hidden="true"
-                    />
-                  )}
-                  {day.label || day.date}
-                </button>
-              );
-            })}
+            <div
+              ref={dayScrollRef}
+              className={cn(
+                'day-tabs hover-scroll',
+                'flex gap-[var(--space-3)] snap-x snap-mandatory scroll-smooth touch-pan-y overflow-x-auto scrollbar-hide min-w-0',
+              )}
+              role="group"
+              aria-label="Festival days"
+              {...swipeDaysBind()}
+            >
+              {days.map((day, i) => {
+                const isActive = selectedDay === i;
+                const isToday = !!day.date && day.date === todayStr;
+                return (
+                  <button
+                    key={day.id || i}
+                    className={cn(
+                      'day-tab-underline',
+                      'py-2 px-4 rounded-full text-[length:var(--font-size-13)] font-semibold cursor-pointer',
+                      'whitespace-nowrap snap-center min-h-[44px] inline-flex items-center gap-1.5',
+                      'transition-[background,color,border-color,box-shadow,transform] duration-200 ease-[var(--ease-out)]',
+                      'active:scale-[0.96]',
+                      'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2 focus-visible:border-accent-aqua',
+                      isActive
+                        ? [
+                            'active',
+                            // Accent rule: aqua = selection/primary, dark ink = text.onLightAccent.
+                            'bg-day-tab-active text-[#080810] border-day-tab-active font-bold',
+                            'shadow-[0_0_0_1px_rgba(0,232,208,0.45),var(--shadow-glow-aqua),0_4px_12px_rgba(0,0,0,0.25)]',
+                          ]
+                        : 'bg-bg-card border border-border-light text-text-secondary',
+                    )}
+                    type="button"
+                    aria-pressed={isActive}
+                    aria-label={`Day: ${day.label || day.date}${isToday ? ' (today)' : ''}`}
+                    onClick={() => handleDaySelect(i)}
+                  >
+                    {isToday && (
+                      <span
+                        className={cn(
+                          'inline-block w-1.5 h-1.5 rounded-full',
+                          isActive ? 'bg-[#080810]' : 'bg-accent-aqua',
+                        )}
+                        aria-hidden="true"
+                      />
+                    )}
+                    {day.label || day.date}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -290,7 +304,10 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           >
             <div
               ref={stageScrollRef}
-              className={cn('filter-stage', 'flex gap-[var(--space-3)] flex-nowrap overflow-x-auto scrollbar-hide')}
+              className={cn(
+                'filter-stage hover-scroll',
+                'flex gap-[var(--space-3)] flex-nowrap overflow-x-auto scrollbar-hide',
+              )}
               role="group"
               aria-label="Filter by stage"
             >

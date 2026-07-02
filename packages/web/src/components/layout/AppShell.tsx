@@ -87,10 +87,17 @@ export default function AppShell() {
       <main
         className={cn(
           'auth-screen',
-          'flex flex-col items-center min-h-full overflow-y-auto text-center',
+          /* min-h-dvh (not min-h-full): the parent chain has no explicit height,
+             so min-h-full collapses to content height and justify-center becomes
+             a no-op — dvh sizes against the viewport directly. */
+          'flex flex-col items-center min-h-dvh overflow-y-auto text-center',
           'px-5 relative',
           '[padding-top:max(2.5rem,env(safe-area-inset-top,0px))]',
           'pb-10',
+          /* On tall desktop viewports the card left ~55% dead space below when
+             top-pinned; center it there while keeping the top-pinned safe-area
+             behavior on short/mobile heights. */
+          'lg:[@media(min-height:720px)]:justify-center',
         )}
         aria-label="Authentication"
       >
