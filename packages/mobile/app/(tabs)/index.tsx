@@ -622,7 +622,11 @@ export default function TimelineScreen() {
                     numberOfLines={1}
                     maxFontSizeMultiplier={MAX_FONT_SCALE}
                   >
-                    {day.label ?? day.date}
+                    {/* Trailing NBSP: Android intermittently under-measures this
+                        center/row single-line Text and tail-clips the last glyph
+                        ("Saturd…", "Sund…"); the sacrificial space absorbs the
+                        shortfall (same family as Button.tsx / useTokens.ts). */}
+                    {(day.label ?? day.date) + '\u00A0'}
                   </Text>
                 </TouchableOpacity>
               );
