@@ -6,9 +6,7 @@ import {
   TouchableOpacity,
   FlatList,
   ScrollView,
-  KeyboardAvoidingView,
   Keyboard,
-  Platform,
   Alert,
   ActivityIndicator,
   RefreshControl,
@@ -539,7 +537,12 @@ export default function CrewScreen() {
   // No active crew: show create / join forms.
   if (!activeCrew) {
     return (
-      <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      // KAV is dropped: behavior='padding' is a no-op on Android and
+      // behavior='height' doesn't scroll the focused field into view when it's
+      // deep in the list. automaticallyAdjustKeyboardInsets on the scroll
+      // container handles both platforms correctly (same pattern as
+      // account.tsx / app/set/[setId].tsx).
+      <View style={styles.screen}>
         <ScreenHeader title="Crew" subtitle="Coordinate with friends" icon="people" />
         <ScrollView
           style={styles.flex1}
@@ -547,6 +550,7 @@ export default function CrewScreen() {
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
         >
           <EmptyState
             icon="people-outline"
@@ -630,7 +634,7 @@ export default function CrewScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     );
   }
 
@@ -673,7 +677,12 @@ export default function CrewScreen() {
   );
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    // KAV is dropped: behavior='padding' is a no-op on Android and
+    // behavior='height' doesn't scroll the focused field into view when it's
+    // deep in the list (totem editor / force-add / expense inputs).
+    // automaticallyAdjustKeyboardInsets on each scroll body handles both
+    // platforms correctly (same pattern as account.tsx / app/set/[setId].tsx).
+    <View style={styles.screen}>
       <ScreenHeader
         title={crew.name}
         subtitle={`${members.length} ${members.length === 1 ? 'member' : 'members'}`}
@@ -808,6 +817,7 @@ export default function CrewScreen() {
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
           refreshControl={crewRefreshControl}
           renderItem={({ item }) => {
             const rowIsOwner = item.role === 'owner' || item.userId === crew.owner;
@@ -1054,6 +1064,7 @@ export default function CrewScreen() {
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
         >
           {/* Everyday primary: the offline-native "what's my crew's plan"
               digest. Emphasized (aqua-tinted fill + border) so the most-used
@@ -1222,6 +1233,7 @@ export default function CrewScreen() {
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
         >
           {/* DC2: SOS must be reachable without any scroll — top of the pane,
               always visible the instant the Find tab opens. */}
@@ -1300,6 +1312,7 @@ export default function CrewScreen() {
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
         >
           <View style={styles.sectionLabelRow}>
             <SectionLabel>Expenses</SectionLabel>
@@ -1310,7 +1323,7 @@ export default function CrewScreen() {
           <CrewExpenses crewId={crew.id} members={members} currentUserId={user.id} />
         </ScrollView>
       )}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

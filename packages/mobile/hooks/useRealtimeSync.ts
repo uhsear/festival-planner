@@ -418,6 +418,13 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
         if (!socket.connected) {
           socket.connect();
         }
+        // FOREGROUND BACKFILL: the socket was disconnected while backgrounded, so
+        // any festival/pick/crew events emitted meanwhile were missed. Fire the
+        // same debounced reloads the socket-event handlers use so state catches
+        // up automatically (debounce coalesces these with each other).
+        reloadFestival();
+        reloadProfiles();
+        reloadCrews();
       } else if (nextAppState.match(/inactive|background/) && prev === 'active') {
         // Going to background — disconnect to save battery / bandwidth.
         if (socket.connected) {
