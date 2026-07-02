@@ -102,6 +102,12 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
   const showStageFilter = !dayOnly && !festivalOnly && currentFestival && stages.length > 0;
   const showSearch = !dayOnly && !festivalOnly;
   const showMyPicks = !festivalOnly && !!currentFestival && !!currentProfile;
+  // CLS: while currentFestival is still loading, reserve the day-tab and
+  // stage-chip rows' height with skeletons instead of letting them pop in
+  // once data lands (was growing the sub-header 1 -> 2-3 rows post-paint).
+  const showDaySkeleton = !festivalOnly && !currentFestival;
+  const showStageSkeleton = !dayOnly && !festivalOnly && !currentFestival;
+  const currentStatus = currentFestival ? festivalStatus(currentFestival) : null;
 
   return (
     <div>
@@ -138,8 +144,8 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
             'text-text-primary text-sm font-semibold cursor-pointer',
             // Responsive cap: reserve room for the label + sibling controls on
             // narrow phones (down to 320px) instead of a hard 220px that could
-            // clip the dropdown arrow; relax to 220px once there's space.
-            'max-w-[min(220px,calc(100vw-160px))] sm:max-w-[220px]',
+            // clip the dropdown arrow; relax past 640px once there's space.
+            'max-w-[min(220px,calc(100vw-160px))] sm:max-w-[min(340px,40vw)]',
             'backdrop-blur-[8px]',
             'focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2',
           )}
@@ -148,21 +154,47 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
           onChange={handleFestivalChange}
         >
           <option value="">Select Festival</option>
-          {festivals.map((f) => {
-            const st = festivalStatus(f);
-            return (
-              <option key={f.id} value={f.id}>
-                {f.name}
-                {st ? ` · ${STATUS_LABEL[st]}` : ''}
-              </option>
-            );
-          })}
+          {festivals.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
         </select>
 
+        {/* Festival status pill — moved out of the (truncatable) option text
+            so long festival names don't push "· Live" off the visible edge. */}
+        {currentStatus && (
+          <span
+            className={cn(
+              'inline-block shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em]',
+              currentStatus === 'ongoing' && 'bg-[#c01d3a] text-[#080810]',
+              currentStatus === 'upcoming' && 'border border-[rgba(0,232,208,0.4)] text-accent-aqua',
+              currentStatus === 'past' && 'bg-[#3a3a3a] text-[#686868]',
+            )}
+            data-testid="festival-status-pill"
+          >
+            {STATUS_LABEL[currentStatus]}
+          </span>
+        )}
+
         {/* Day tabs */}
+        {showDaySkeleton && (
+          <div
+            className="day-tabs flex gap-[var(--space-3)] overflow-x-auto scrollbar-hide min-w-0"
+            aria-hidden="true"
+          >
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="skeleton-shimmer h-[44px] w-[84px] rounded-full shrink-0" />
+            ))}
+          </div>
+        )}
+
         {showDayTabs && (
           <div
-            className={cn('day-tabs', 'flex gap-[var(--space-3)] snap-x snap-mandatory scroll-smooth touch-pan-y')}
+            className={cn(
+              'day-tabs',
+              'flex gap-[var(--space-3)] snap-x snap-mandatory scroll-smooth touch-pan-y overflow-x-auto scrollbar-hide min-w-0',
+            )}
             role="group"
             aria-label="Festival days"
             {...swipeDaysBind()}
@@ -234,6 +266,16 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
         )}
 
         {/* Stage filter chips */}
+        {showStageSkeleton && (
+          <div className="stage-filter-scroll relative min-w-0 w-full" aria-hidden="true">
+            <div className="filter-stage flex gap-[var(--space-3)] flex-nowrap overflow-x-auto scrollbar-hide">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="skeleton-shimmer h-[44px] w-[76px] rounded-full shrink-0" />
+              ))}
+            </div>
+          </div>
+        )}
+
         {showStageFilter && (
           <div
             className={cn(

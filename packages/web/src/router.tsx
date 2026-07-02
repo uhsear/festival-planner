@@ -140,14 +140,8 @@ const picksRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/picks',
   component: PicksView,
-  // Guests were seeing an inline <GuestTeaser> on /picks while /crew, /wrap,
-  // /compare, /account all redirected to /login — inconsistent and the
-  // Playwright sweep flagged /picks as the odd one out. Match the rest:
-  // redirect at the router layer so the login flow is reached in one hop.
-  beforeLoad: async () => {
-    await authReady();
-    if (!isAuthenticated()) throw redirect({ to: '/login' });
-  },
+  // No guest guard: /picks renders <GuestTeaser mode="picks"/> in place for
+  // unauthenticated visitors (parity with the always-visible nav tabs).
 });
 
 const gridRoute = new Route({
@@ -196,10 +190,8 @@ const crewRoute = new Route({
   getParentRoute: () => rootRoute,
   path: '/crew',
   component: CrewView,
-  beforeLoad: async () => {
-    await authReady();
-    if (!isAuthenticated()) throw redirect({ to: '/login' });
-  },
+  // No guest guard: /crew renders <GuestTeaser mode="crew"/> in place for
+  // unauthenticated visitors (parity with the always-visible nav tabs).
 });
 
 // /crew-plan — one-screen offline-native "what's my crew's plan" digest.
@@ -301,7 +293,10 @@ export const router = new Router({
 // users land at the start of the new page instead of staying on the
 // link/button they clicked. Uses two rAFs to let lazy-loaded route
 // components mount before focusing (mirrors AppShell scroll-reset).
-let lastPath = '';
+// Seed with the current path so the initial page load (which resolves once at
+// startup) doesn't yank focus to #main-content — only genuine in-app
+// navigations, where nextPath differs from the seeded path, move focus.
+let lastPath = router.state.location.pathname;
 router.subscribe('onResolved', () => {
   const nextPath = router.state.location.pathname;
   if (nextPath === lastPath) return;

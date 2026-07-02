@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@festie/shared';
 import { useCrewStore } from '@festie/shared/stores';
@@ -18,6 +18,7 @@ import CrewInviteBar from '../components/crew/CrewInviteBar';
 import ReformCrewButton from '../components/crew/ReformCrewButton';
 import CrewTabBar from '../components/crew/CrewTabBar';
 import CrewTabContent from '../components/crew/CrewTabContent';
+import GuestTeaser from '../components/features/GuestTeaser';
 import { useCrewAdmin } from '../components/crew/useCrewAdmin';
 import { useToast } from '../lib/toastContext';
 import PromptDialog from '../components/ui/PromptDialog';
@@ -40,7 +41,6 @@ export default function CrewView() {
 }
 
 function CrewViewInner() {
-  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const crews = useCrewStore((state) => state.crews);
   const activeCrew = useCrewStore((state) => state.activeCrew);
@@ -76,10 +76,6 @@ function CrewViewInner() {
     }
   }, [user?.id, crews, activeCrew, selectCrew]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!user) navigate({ to: '/login' }).catch(() => {});
-  }, [user, navigate]);
-
   // Tab badge counts. These reuse the exact query keys + endpoints the Polls
   // and Expenses tabs use, so the data is shared from the react-query cache
   // (no extra backend calls beyond what the crew detail view already makes).
@@ -109,7 +105,7 @@ function CrewViewInner() {
     select: (balances) => Math.abs(balances.find((b) => b.userId === userId)?.balance ?? 0) > 0.01,
   });
 
-  if (!user) return null;
+  if (!user) return <GuestTeaser mode="crew" />;
 
   const handleSelectCrew = (crewId: string) => {
     selectCrew(crewId).catch((e: unknown) => {

@@ -79,10 +79,10 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
     <>
       {/* Avatar section */}
       <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
-        <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
           <Camera className="w-4 h-4" aria-hidden="true" />
           Avatar
-        </h2>
+        </h3>
 
         <div className="flex items-center gap-4">
           <Avatar name={user.name || user.username || 'User'} image={user.avatar} size="lg" />
@@ -124,10 +124,10 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
 
       {/* Display name section */}
       <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
-        <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
           <User className="w-4 h-4" aria-hidden="true" />
           Display name
-        </h2>
+        </h3>
 
         <form onSubmit={handleDisplayNameChange} className="flex gap-2">
           <Input

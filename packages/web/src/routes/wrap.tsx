@@ -280,7 +280,7 @@ function WrapPageInner() {
             gridTemplateColumns: '2fr 1fr',
             gridTemplateRows: 'auto auto',
             gap: '1px',
-            background: 'rgba(0,232,208,0.08)',
+            background: 'var(--color-aqua-a08)',
             borderRadius: '12px',
             overflow: 'hidden',
           }}
@@ -700,7 +700,7 @@ function Stat({
   return (
     <div
       className="flex flex-col gap-1 p-5 bg-bg-card"
-      style={dividerRight ? { borderRight: '1px solid rgba(0,232,208,0.12)' } : undefined}
+      style={dividerRight ? { borderRight: '1px solid var(--color-aqua-a12)' } : undefined}
     >
       {icon ? (
         <div className="flex items-center gap-1.5 text-xs text-text-muted uppercase tracking-[var(--letter-spacing-caps)]">

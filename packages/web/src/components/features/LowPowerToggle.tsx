@@ -42,24 +42,26 @@ export default function LowPowerToggle({ className }: Props) {
           working.
         </p>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={lowPowerMode}
-        aria-labelledby="low-power-label"
-        aria-describedby="low-power-desc"
-        onClick={handleToggle}
-        data-testid="low-power-toggle"
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua ${
-          lowPowerMode ? 'bg-accent-aqua' : 'bg-border-light'
-        }`}
-      >
-        <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-            lowPowerMode ? 'translate-x-[22px]' : 'translate-x-0.5'
+      <span className="inline-flex items-center justify-center min-h-11 min-w-11 shrink-0">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={lowPowerMode}
+          aria-labelledby="low-power-label"
+          aria-describedby="low-power-desc"
+          onClick={handleToggle}
+          data-testid="low-power-toggle"
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua ${
+            lowPowerMode ? 'bg-accent-aqua' : 'bg-border-light'
           }`}
-        />
-      </button>
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+              lowPowerMode ? 'translate-x-[22px]' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
+      </span>
     </div>
   );
 }

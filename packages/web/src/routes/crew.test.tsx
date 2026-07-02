@@ -35,6 +35,11 @@ vi.mock('../components/features/CrewSelector', () => ({
   default: () => <div data-testid="crew-selector" />,
 }));
 
+// Guests get the in-place teaser instead of a redirect; stub it here.
+vi.mock('../components/features/GuestTeaser', () => ({
+  default: ({ mode }: { mode: string }) => <div data-testid="guest-teaser">{mode}</div>,
+}));
+
 vi.mock('../components/ui/EmptyState', () => ({
   default: ({ title, description }: { title: string; description?: string }) => (
     <div data-testid="empty-state">
@@ -158,11 +163,11 @@ describe('CrewView', () => {
     setStoreState();
   });
 
-  it('renders nothing when no user', () => {
+  it('renders the guest teaser when no user', () => {
     setStoreState({ user: null });
-    const { container } = render(<CrewView />);
-    // Component returns null for unauthenticated users (redirect via useEffect)
-    expect(container.firstChild).toBeNull();
+    render(<CrewView />);
+    // Guests see <GuestTeaser mode="crew"/> in place of the crew UI.
+    expect(screen.getByTestId('guest-teaser')).toHaveTextContent('crew');
   });
 
   it('renders empty state when no crews and no active crew', () => {

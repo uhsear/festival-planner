@@ -61,10 +61,10 @@ export default function DangerZone() {
     <>
       {/* GDPR export section */}
       <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
-        <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
           <Download className="w-4 h-4" aria-hidden="true" />
           Export Data
-        </h2>
+        </h3>
 
         <p className="text-sm text-text-muted">
           Download all your data in JSON format.
@@ -88,10 +88,10 @@ export default function DangerZone() {
           'bg-accent-coral/5 border-accent-coral/30',
         )}
       >
-        <h2 className="text-sm font-semibold text-accent-coral flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-accent-coral flex items-center gap-2">
           <AlertTriangle className="w-4 h-4" aria-hidden="true" />
           Delete Account
-        </h2>
+        </h3>
 
         <p className="text-sm text-text-muted">
           This will permanently delete your account and all associated data. This action cannot be undone.

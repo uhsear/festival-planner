@@ -1,12 +1,10 @@
 import { useEffect, Suspense } from 'react';
-import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
+import { Outlet, useLocation } from '@tanstack/react-router';
 import { Loader } from 'lucide-react';
-import { useAuthStore } from '@festie/shared';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useOffline } from '@festie/shared/hooks';
 import Header from './Header';
 import BottomNav from './BottomNav';
-import Button from '../ui/Button';
 import SubHeader from './SubHeader';
 import ScheduleViewSwitcher, { isSchedulePath } from './ScheduleViewSwitcher';
 import PageTransition from './PageTransition';
@@ -55,8 +53,6 @@ const festivalOnlySubHeaderRoutes = ['/wrap'];
 
 export default function AppShell() {
   const location = useLocation();
-  const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
   const detailSet = useUIStore((s) => s.detailSet);
   const setDetailSet = useUIStore((s) => s.setDetailSet);
   const detailAutoSpotify = useUIStore((s) => s.detailAutoSpotify);
@@ -155,26 +151,6 @@ export default function AppShell() {
             </Suspense>
           </main>
         </div>
-
-        {/* Guest banner for unauthenticated users */}
-        {!user && (
-          <aside
-            className={cn(
-              'guest-banner',
-              'z-10 relative',
-              'flex items-center justify-between gap-[var(--space-6)]',
-              'py-3 px-4 bg-[var(--color-aqua-a08)] border border-[var(--color-aqua-a25)]',
-              'text-text-primary rounded-sm mb-0 font-semibold text-sm',
-              'pb-[max(12px,calc(env(safe-area-inset-bottom,0px)+8px))]',
-            )}
-            aria-label="Guest notice"
-          >
-            <span>Browsing as guest.</span>
-            <Button variant="primary" size="sm" type="button" onClick={() => navigate({ to: '/login' })}>
-              Sign in / Sign up
-            </Button>
-          </aside>
-        )}
 
         <BottomNav />
 

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useLocation, useNavigate } from '@tanstack/react-router';
+import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuthStore, useUIStore } from '@festie/shared';
 import { cn } from '@/lib/utils';
 import UserMenu from './UserMenu';
@@ -11,19 +11,16 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Desktop nav tabs — show picks/crew when logged in. Those views render
-  // their own empty state if the user hasn't joined the festival yet.
-  // Gating on user (instead of currentProfile) avoids races where the tabs
-  // disappear on reload before profiles have finished loading.
+  // Desktop nav tabs — all visible for guests (parity with mobile + BottomNav).
+  // Picks/Crew render their own GuestTeaser / empty state when unauthenticated
+  // or not yet joined; keeping them always-visible preserves feature discovery.
   // Schedule/Timeline/Grid collapse into one "Schedule" tab; the in-page
   // ScheduleViewSwitcher (rendered by AppShell) swaps between the three views.
-  const desktopTabs = useMemo(() => {
-    const base = [{ label: 'Schedule', href: '/cards' }];
-    if (user) {
-      base.push({ label: 'My Picks', href: '/picks' }, { label: 'Crew', href: '/crew' });
-    }
-    return base;
-  }, [user]);
+  const desktopTabs = [
+    { label: 'Schedule', href: '/cards' },
+    { label: 'My Picks', href: '/picks' },
+    { label: 'Crew', href: '/crew' },
+  ];
 
   const scheduleHrefs = ['/', '/cards', '/timeline', '/grid'];
   const isTabActive = (href: string) => {
@@ -144,9 +141,9 @@ export default function Header() {
               'max-md:transition-[font-size,line-height] max-md:duration-[280ms] max-md:[transition-timing-function:cubic-bezier(.22,.61,.36,1)]',
             )}
           >
-            <a href="/" aria-label="FESTIE home" className="text-[inherit] no-underline">
+            <Link to="/" aria-label="FESTIE home" className="text-[inherit] no-underline">
               FESTIE
-            </a>
+            </Link>
           </div>
           <div
             className={cn(

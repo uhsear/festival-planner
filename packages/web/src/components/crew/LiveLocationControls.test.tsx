@@ -30,7 +30,7 @@ vi.mock('@festie/shared/hooks', () => ({ useLiveLocationPublisher: (opts: unknow
 // liveLocationStore — a controllable in-memory state. Selector-based hook +
 // getState().clearSos() (used by the optimistic clear path).
 const { storeState, clearSosSpy } = vi.hoisted(() => ({
-  storeState: { sharingCrewId: null as string | null, sos: null as unknown },
+  storeState: { sharingCrewId: null as string | null, activeSosList: [] as unknown[] },
   clearSosSpy: vi.fn(),
 }));
 function useLiveLocationStore(selector: (s: typeof storeState) => unknown) {
@@ -61,7 +61,7 @@ const ME = 'user-me';
 
 function resetStore() {
   storeState.sharingCrewId = null;
-  storeState.sos = null;
+  storeState.activeSosList = [];
   fmState.lowPowerMode = false;
 }
 
@@ -199,37 +199,70 @@ describe('LiveLocationControls — active SOS banner', () => {
   };
 
   it('renders a prominent alert banner for a crew SOS raised by someone else', () => {
-    storeState.sos = { ...baseSos };
+    storeState.activeSosList = [{ ...baseSos }];
     render(<LiveLocationControls crewId={CREW_ID} currentUserId={ME} />);
 
     const banner = screen.getByTestId('sos-banner');
     expect(banner).toHaveAttribute('role', 'alert');
     expect(within(banner).getByText(/Dana raised an SOS/i)).toBeInTheDocument();
     expect(within(banner).getByText('Need help at the gate')).toBeInTheDocument();
-    // Not mine → no clear control (only the raiser may dismiss).
-    expect(within(banner).queryByRole('button', { name: /clear sos/i })).not.toBeInTheDocument();
+    // Any member may resolve any SOS (raiser's phone may be dead) — the clear
+    // control is present for someone else's SOS, worded for that raiser.
+    expect(within(banner).getByRole('button', { name: /mark dana's sos resolved/i })).toBeInTheDocument();
   });
 
-  it('only shows the "I\'m safe — clear SOS" action to the raiser', async () => {
+  it('lets ANY member resolve another member\'s SOS via a confirm dialog', async () => {
     const user = userEvent.setup();
     apiPost.mockResolvedValueOnce({});
-    storeState.sos = { ...baseSos, userId: ME, username: 'Me' };
+    storeState.activeSosList = [{ ...baseSos }];
+    render(<LiveLocationControls crewId={CREW_ID} currentUserId={ME} />);
+
+    await user.click(screen.getByRole('button', { name: /mark dana's sos resolved/i }));
+    // Confirm-gated — nothing posts until the user confirms in the dialog.
+    expect(apiPost).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /mark resolved/i }));
+
+    // Clears by raiserId so it targets that member's SOS (parity with mobile).
+    expect(apiPost).toHaveBeenCalledWith(`/crews/${CREW_ID}/sos/clear`, { raiserId: 'user-other' });
+    expect(clearSosSpy).toHaveBeenCalledWith('user-other');
+    expect(toastSpy).toHaveBeenCalledWith(expect.stringMatching(/sos cleared/i), 'success');
+  });
+
+  it('shows the "I\'m safe — clear SOS" action to the raiser and clears on confirm', async () => {
+    const user = userEvent.setup();
+    apiPost.mockResolvedValueOnce({});
+    storeState.activeSosList = [{ ...baseSos, userId: ME, username: 'Me' }];
     render(<LiveLocationControls crewId={CREW_ID} currentUserId={ME} />);
 
     const banner = screen.getByTestId('sos-banner');
     expect(within(banner).getByText(/you raised an sos/i)).toBeInTheDocument();
-    const clearBtn = within(banner).getByRole('button', { name: /clear sos/i });
+    await user.click(within(banner).getByRole('button', { name: /clear sos/i }));
 
-    await user.click(clearBtn);
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /i'?m safe/i }));
 
-    expect(apiPost).toHaveBeenCalledWith(`/crews/${CREW_ID}/sos/clear`, {});
+    expect(apiPost).toHaveBeenCalledWith(`/crews/${CREW_ID}/sos/clear`, { raiserId: ME });
     // Optimistic local clear so the banner dismisses immediately.
-    expect(clearSosSpy).toHaveBeenCalled();
+    expect(clearSosSpy).toHaveBeenCalledWith(ME);
     expect(toastSpy).toHaveBeenCalledWith(expect.stringMatching(/sos cleared/i), 'success');
   });
 
+  it('renders one banner per active SOS with an "N active" header when 2+ are live', () => {
+    storeState.activeSosList = [
+      { ...baseSos },
+      { ...baseSos, userId: 'user-3', username: 'Sam', message: 'Twisted ankle' },
+    ];
+    render(<LiveLocationControls crewId={CREW_ID} currentUserId={ME} />);
+
+    expect(screen.getAllByTestId('sos-banner')).toHaveLength(2);
+    expect(screen.getByText(/2 active sos/i)).toBeInTheDocument();
+  });
+
   it('offers a directions link when the SOS carries a position', () => {
-    storeState.sos = { ...baseSos, position: { lat: 41.88, lng: -87.62, capturedAt: new Date().toISOString() } };
+    storeState.activeSosList = [
+      { ...baseSos, position: { lat: 41.88, lng: -87.62, capturedAt: new Date().toISOString() } },
+    ];
     render(<LiveLocationControls crewId={CREW_ID} currentUserId={ME} />);
 
     expect(
@@ -238,7 +271,7 @@ describe('LiveLocationControls — active SOS banner', () => {
   });
 
   it('ignores an SOS targeting a different crew', () => {
-    storeState.sos = { ...baseSos, crewId: 'other-crew' };
+    storeState.activeSosList = [{ ...baseSos, crewId: 'other-crew' }];
     render(<LiveLocationControls crewId={CREW_ID} currentUserId={ME} />);
     expect(screen.queryByTestId('sos-banner')).not.toBeInTheDocument();
   });
