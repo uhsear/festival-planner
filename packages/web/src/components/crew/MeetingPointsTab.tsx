@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, meetingTimeDisplay, resolveFestivalTimeZone } from '@festie/shared';
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useFestivalStore } from '@festie/shared/stores';
+import { useCurrentPosition } from '@festie/shared/hooks';
 import { useLiveLocationStore } from '@festie/shared/stores/liveLocationStore';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
@@ -102,7 +103,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   const [recursDaily, setRecursDaily] = useState(false);
   // F4: optional captured GPS coords. null = no coord (free-text only).
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [locating, setLocating] = useState(false);
+  const { locating, getCurrentPosition } = useCurrentPosition();
   // List vs Map view. Map is lazy + reveals <CrewMap/> only when chosen.
   const [view, setView] = useState<'list' | 'map'>('list');
 
@@ -182,7 +183,6 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
     setMeetAt('');
     setRecursDaily(false);
     setCoords(null);
-    setLocating(false);
     setEditingId(null);
     setShowForm(false);
   }
@@ -205,29 +205,17 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   // F4: capture the device's current position via the browser Geolocation API.
   // Map-pick is deferred to the offline-map slice; denial gracefully falls back
   // to the existing free-text location field (coords stay null).
-  function captureLocation() {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      toast('Location is not available on this device', 'error');
-      return;
-    }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setLocating(false);
-        toast('Location captured', 'success');
-      },
-      (err) => {
-        setLocating(false);
-        toast(
-          err.code === err.PERMISSION_DENIED
-            ? 'Location permission denied — using the typed location instead'
-            : "Couldn't get your location — using the typed location instead",
-          'error',
-        );
-      },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+  async function captureLocation() {
+    const pos = await getCurrentPosition((message) =>
+      toast(
+        message === 'Location is not available on this device' ? message : `${message} — using the typed location instead`,
+        'error',
+      ),
     );
+    if (pos) {
+      setCoords({ lat: pos.lat, lng: pos.lng });
+      toast('Location captured', 'success');
+    }
   }
 
   function openDirections(loc: string) {

@@ -5,7 +5,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { RouterProvider } from '@tanstack/react-router';
 import { buildPersistOptions } from './lib/queryPersist';
-import { LazyMotion, domAnimation } from 'motion/react';
+import { LazyMotion } from 'motion/react';
 import { router } from './router';
 import { initWebVitals } from './lib/web-vitals';
 import { ToastProvider } from './lib/toastContext';
@@ -112,7 +112,7 @@ const root = ReactDOM.createRoot(document.getElementById('root')!);
 root.render(
   <React.StrictMode>
     <GlobalErrorBoundary>
-      <LazyMotion features={domAnimation} strict>
+      <LazyMotion features={() => import('motion/react').then((m) => m.domAnimation)} strict>
         <PersistQueryClientProvider client={queryClient} persistOptions={buildPersistOptions()}>
           <ToastProvider>
             <RouterProvider router={router} />

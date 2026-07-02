@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useCrewStore, formatStaleness, etaMinutes, type CrewMemberStatus } from '@festie/shared';
+import { useCurrentPosition } from '@festie/shared/hooks';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
 import { Navigation, LocateFixed, X, MapPin, Footprints, CircleCheck, Hourglass } from 'lucide-react';
@@ -58,7 +59,7 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
   const [manualEta, setManualEta] = useState<string>('');
   const [note, setNote] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [locating, setLocating] = useState(false);
+  const { locating, getCurrentPosition } = useCurrentPosition();
   const [busy, setBusy] = useState(false);
 
   // Load once per crew. Offline this resolves from the persisted read-cache.
@@ -96,31 +97,25 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
     setManualEta('');
     setNote('');
     setCoords(null);
-    setLocating(false);
     setShowForm(false);
   }
 
   // Capture the device position (browser Geolocation — no dep). Used to compute
   // a distance-based ETA to the target meeting point's saved coord. Denial
   // gracefully falls back to the manual estimate.
-  function captureLocation() {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      toast('Location is not available on this device', 'error');
-      return;
-    }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setLocating(false);
-        toast('Location captured for ETA', 'success');
-      },
-      () => {
-        setLocating(false);
-        toast("Couldn't get your location — type an ETA estimate instead", 'error');
-      },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+  async function captureLocation() {
+    const pos = await getCurrentPosition((message) =>
+      toast(
+        message === 'Location is not available on this device'
+          ? message
+          : "Couldn't get your location — type an ETA estimate instead",
+        'error',
+      ),
     );
+    if (pos) {
+      setCoords({ lat: pos.lat, lng: pos.lng });
+      toast('Location captured for ETA', 'success');
+    }
   }
 
   async function submit(e: React.FormEvent) {

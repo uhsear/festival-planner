@@ -129,7 +129,7 @@ export default function Header() {
           aria-label={connected ? 'Connected' : 'Disconnected'}
         />
         <div className={cn('flex flex-col gap-2', 'max-md:gap-0')}>
-          <h1
+          <div
             className={cn(
               'app-header-brand',
               'font-display text-base font-bold tracking-[3px] uppercase text-accent-coral whitespace-nowrap',
@@ -147,7 +147,7 @@ export default function Header() {
             <a href="/" aria-label="FESTIE home" className="text-[inherit] no-underline">
               FESTIE
             </a>
-          </h1>
+          </div>
           <div
             className={cn(
               'flex gap-4 items-center',

@@ -12,7 +12,7 @@ module.exports = [
 
   // Ignore patterns (replaces .eslintignore)
   {
-    ignores: ['node_modules/**', 'public/**', 'tests/**', 'scripts/**', 'ecosystem.config.js', 'playwright.config.js', 'db-schema.js', 'db-schema2.js', 'check_*.js'],
+    ignores: ['node_modules/**', 'public/**', 'tests/**', 'scripts/**', 'ecosystem.config.cjs', 'playwright.config.cjs'],
   },
 
   // Server-side TypeScript (lib/, routes/, server.ts)
@@ -124,31 +124,6 @@ module.exports = [
       'no-template-curly-in-string': 'warn',
       'require-atomic-updates': 'warn',
       'no-console': 'off',
-    },
-  },
-
-  // Test files
-  {
-    files: ['tests/**/*.ts'],
-    plugins: {
-      '@typescript-eslint': tseslint.plugin,
-    },
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: 'module',
-      parser: tseslint.parser,
-      globals: {
-        ...globals.node,
-      },
-    },
-    rules: {
-      'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-      'no-var': 'error',
-      'prefer-const': 'warn',
-      'eqeqeq': ['error', 'always', { null: 'ignore' }],
-      'no-console': 'off',
-      'no-undef': 'off',
     },
   },
 

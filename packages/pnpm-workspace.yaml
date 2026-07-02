@@ -10,3 +10,11 @@ packages:
 onlyBuiltDependencies:
   - "@sentry/cli"
   - "esbuild"
+
+# Supply-chain hardening (semgrep pnpm ruleset; pnpm >=10.26 supports all three).
+# minimumReleaseAge: resolve only versions published >=7 days (10080 min) ago —
+# already-locked versions are unaffected; bump security patches past it with
+# minimumReleaseAgeExclude if ever needed urgently.
+minimumReleaseAge: 10080
+trustPolicy: no-downgrade
+blockExoticSubdeps: true
