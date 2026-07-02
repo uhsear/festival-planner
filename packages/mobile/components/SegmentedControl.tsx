@@ -42,7 +42,11 @@ function Segment<T extends string>({ option, active, onPress }: SegmentProps<T>)
       accessibilityLabel={option.label}
     >
       <Text style={[s.label, active && s.labelActive]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-        {option.label}
+        {/* Trailing NBSP: Android under-measures a center-aligned single-line
+            Text node and tail-clips the last glyph ("Timeli…", "Car…") even
+            with ~300px to spare; the sacrificial space absorbs the shortfall
+            (same under-measurement family as Button.tsx / useTokens.ts). */}
+        {option.label + '\u00A0'}
       </Text>
     </PressableScale>
   );
