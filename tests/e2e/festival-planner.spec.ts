@@ -92,8 +92,8 @@ async function joinFestivalViaSet(page: Page, artist: string) {
 
 // ── Guest (unauthenticated) journeys ────────────────────────────────────────
 
-// NOTE (2026-06-20): the 4 guest/auth-surface tests below are CI-verified green
-// against the e2e-web.yml harness (Postgres+Redis+chromium). The 7 `test.fixme`
+// NOTE (2026-07-01): the 4 guest/auth-surface tests below are CI-verified green
+// against the e2e-web.yml harness (Postgres+Redis+chromium). The 7 authed
 // cases are re-ported + structurally correct but need a local-browser session to
 // finish: the authed flows time out at the post-register profile badge (the
 // controlled `<input type=date>` DOB fill needs a browser to confirm it sets
@@ -118,7 +118,7 @@ test.describe('festival planner browser regression', () => {
     await expect(page.locator('[data-testid="set-card"][data-artist="Omega"]')).toBeVisible();
   });
 
-  test.fixme('guest can open a set detail panel', async ({ app, page }) => {
+  test('guest can open a set detail panel', async ({ app, page }) => {
     await gotoApp(page, app);
     await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"]')).toBeVisible();
 
@@ -161,7 +161,7 @@ test.describe('festival planner browser regression', () => {
 
   // ── Authenticated planner journeys ──────────────────────────────────────────
 
-  test.fixme('authenticated user loads the schedule and sees their profile badge', async ({ app, page }) => {
+  test('authenticated user loads the schedule and sees their profile badge', async ({ app, page }) => {
     await registerUser(page, app, `alice_${Date.now()}`);
 
     // On /cards the schedule loads for fest-1.
@@ -176,7 +176,7 @@ test.describe('festival planner browser regression', () => {
     await expect(page.locator('[data-testid="user-menu-profile"]')).toBeVisible();
   });
 
-  test.fixme('saving a pick from the detail panel reflects on the card and in My Picks', async ({ app, page }) => {
+  test('saving a pick from the detail panel reflects on the card and in My Picks', async ({ app, page }) => {
     await registerUser(page, app, `picker_${Date.now()}`);
     await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"]')).toBeVisible();
 
@@ -202,7 +202,7 @@ test.describe('festival planner browser regression', () => {
     await expect(page.getByRole('region', { name: 'My picks' })).toContainText('Alpha');
   });
 
-  test.fixme('saving a pick directly from the card grid toggles its state', async ({ app, page }) => {
+  test('saving a pick directly from the card grid toggles its state', async ({ app, page }) => {
     await registerUser(page, app, `carder_${Date.now()}`);
 
     // Join first (card priority buttons only persist once a profile exists).
@@ -215,7 +215,7 @@ test.describe('festival planner browser regression', () => {
     await expect(wantBtn).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test.fixme('navigating between schedule views keeps the same festival', async ({ app, page }) => {
+  test('navigating between schedule views keeps the same festival', async ({ app, page }) => {
     await registerUser(page, app, `viewer_${Date.now()}`);
     await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"]')).toBeVisible();
 
@@ -234,7 +234,7 @@ test.describe('festival planner browser regression', () => {
     await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"]')).toBeVisible();
   });
 
-  test.fixme('switching the day filter changes the visible sets', async ({ app, page }) => {
+  test('switching the day filter changes the visible sets', async ({ app, page }) => {
     await registerUser(page, app, `dayswitch_${Date.now()}`);
     await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"]')).toBeVisible();
 
@@ -248,7 +248,7 @@ test.describe('festival planner browser regression', () => {
     await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"]')).toHaveCount(0);
   });
 
-  test.fixme('crew page loads for an authenticated user', async ({ app, page }) => {
+  test('crew page loads for an authenticated user', async ({ app, page }) => {
     await registerUser(page, app, `crewb_${Date.now()}`);
 
     await openCrew(page);
