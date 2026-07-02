@@ -190,4 +190,18 @@ describe('useKeyboardTrap', () => {
 
     expect(() => pressKey('Tab')).not.toThrow();
   });
+
+  it('excludes disabled controls from the focus trap boundaries', () => {
+    const onClose = vi.fn();
+    // Disable the last child → the last focusable becomes btn2, so a forward
+    // Tab from btn2 must wrap to btn1 (not sit on the disabled btn3).
+    btn3.disabled = true;
+    const ref = makeRef(container);
+
+    renderHook(() => useKeyboardTrap(ref, true, onClose));
+
+    btn2.focus();
+    pressKey('Tab', { shiftKey: false });
+    expect(document.activeElement).toBe(btn1);
+  });
 });

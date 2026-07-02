@@ -129,10 +129,10 @@ export default function HistorySection() {
       {/* Per-festival timeline */}
       {byFestival.length > 0 && (
         <section>
-          <h2 className="flex items-center gap-2 text-xs uppercase tracking-[var(--letter-spacing-caps)] text-text-secondary mb-3">
+          <h3 className="flex items-center gap-2 text-xs uppercase tracking-[var(--letter-spacing-caps)] text-text-secondary mb-3">
             <span className="w-2 h-2 rounded-full bg-accent-aqua" aria-hidden="true" />
             Your festival timeline
-          </h2>
+          </h3>
           <div className="space-y-3">
             {byFestival.map((f) => {
               const span = dateSpan(f.startDate, f.endDate);
@@ -159,10 +159,10 @@ export default function HistorySection() {
       {/* Top artists across all festivals */}
       {topArtists.length > 0 && (
         <section>
-          <h2 className="flex items-center gap-2 text-xs uppercase tracking-[var(--letter-spacing-caps)] text-text-secondary mb-3">
+          <h3 className="flex items-center gap-2 text-xs uppercase tracking-[var(--letter-spacing-caps)] text-text-secondary mb-3">
             <span className="w-2 h-2 rounded-full bg-accent-aqua" aria-hidden="true" />
             Your all-time top artists
-          </h2>
+          </h3>
           <div className="rounded-xl bg-bg-card border border-border p-4">
             {topArtists.map((a) => (
               <div

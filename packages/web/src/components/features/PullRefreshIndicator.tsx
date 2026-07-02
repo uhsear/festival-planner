@@ -21,7 +21,7 @@ export default function PullRefreshIndicator({ progress, isRefreshing }: PullRef
       role="status"
       aria-live="polite"
       aria-label={isRefreshing ? 'Refreshing content' : 'Pull to refresh'}
-      className="fixed top-4 left-1/2 z-50 flex items-center justify-center -translate-x-1/2"
+      className="fixed top-4 left-1/2 z-[var(--z-overlay)] flex items-center justify-center -translate-x-1/2"
       animate={{
         opacity: isRefreshing ? 1 : opacity,
         scale: isRefreshing ? 1 : scale,

@@ -117,7 +117,7 @@ export default function CrewSelector({
           aria-label="Crew list"
           onKeyDown={handlePanelKeyDown}
           className={cn(
-            'absolute top-full mt-1 left-0 right-0 z-50',
+            'absolute top-full mt-1 left-0 right-0 z-[var(--z-modal)]',
             'bg-bg-secondary border border-border rounded-lg overflow-hidden',
             'shadow-lg',
             'animate-[card-in_180ms_var(--ease-out,ease-out)_both] origin-top motion-reduce:!animate-none',

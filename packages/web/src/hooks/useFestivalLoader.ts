@@ -28,9 +28,34 @@ export function useFestivalLoader() {
   const { toast } = useToast();
   const joinAttemptedRef = useRef<string | null>(null);
 
-  // Check session on mount
+  // Check session on mount — but only if a user was persisted. A cold guest
+  // boot has no stored user, so an unconditional checkSession() guarantees a
+  // 401 on every load. Wait for zustand persist rehydration first (the store
+  // reads as logged-out until then), then probe only when a user is present.
   useEffect(() => {
-    checkSession().catch(() => {});
+    let cancelled = false;
+    const persist = (
+      useAuthStore as unknown as {
+        persist?: { hasHydrated: () => boolean; onFinishHydration: (cb: () => void) => () => void };
+      }
+    ).persist;
+    const probe = () => {
+      if (!cancelled && useAuthStore.getState().user) checkSession().catch(() => {});
+    };
+    if (!persist || persist.hasHydrated()) {
+      probe();
+      return () => {
+        cancelled = true;
+      };
+    }
+    const unsub = persist.onFinishHydration(() => {
+      unsub();
+      probe();
+    });
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, [checkSession]);
 
   // Auto-load festivals + select first one on boot (mirrors legacy init())

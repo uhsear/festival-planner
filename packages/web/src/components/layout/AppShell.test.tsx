@@ -79,15 +79,10 @@ describe('AppShell', () => {
     expect(document.getElementById('main-content')).toBeInTheDocument();
   });
 
-  it('shows guest banner when user is not logged in', () => {
+  // The guest banner was removed: guests get the full nav (parity with mobile)
+  // and in-place GuestTeasers on /picks + /crew, so no banner renders for anyone.
+  it('renders no guest banner regardless of auth state', () => {
     mockUser = null;
-    render(<AppShell />);
-    expect(screen.getByText('Browsing as guest.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign in / Sign up' })).toBeInTheDocument();
-  });
-
-  it('hides guest banner when user is logged in', () => {
-    mockUser = { id: '1', username: 'test' };
     render(<AppShell />);
     expect(screen.queryByText('Browsing as guest.')).not.toBeInTheDocument();
   });

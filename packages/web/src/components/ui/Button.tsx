@@ -41,7 +41,7 @@ export default function Button({
     // Single solid aqua per screen lives on `primary`; this is everything else.
     outline:
       'bg-transparent text-text-muted border border-accent-aqua/40 hover:border-accent-aqua/70 hover:text-text-primary focus-visible:outline-accent-aqua',
-    util: 'bg-[var(--color-overlay-2)] text-text-secondary border border-color-border text-[11px] font-semibold tracking-wide hover:border-accent-aqua hover:text-text-primary hover:bg-[var(--color-overlay-4)] focus-visible:outline-accent-aqua [&_svg]:w-[11px] [&_svg]:h-[11px]',
+    util: 'bg-[var(--color-overlay-2)] text-text-secondary border border-color-border text-[length:var(--font-size-11)] font-semibold tracking-wide hover:border-accent-aqua hover:text-text-primary hover:bg-[var(--color-overlay-4)] focus-visible:outline-accent-aqua [&_svg]:w-[11px] [&_svg]:h-[11px]',
     delete:
       'w-11 h-11 min-w-11 min-h-11 rounded-full bg-transparent text-accent-coral border border-transparent hover:bg-accent-coral/10 hover:border-accent-coral focus-visible:outline-accent-coral',
   };

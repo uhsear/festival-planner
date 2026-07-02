@@ -78,6 +78,12 @@ vi.mock('../components/features/PickConflicts', () => ({
   default: () => <div data-testid="pick-conflicts" />,
 }));
 
+// Guests get the in-place teaser instead of a redirect; stub it so this suite
+// stays focused on the authed picks UI.
+vi.mock('../components/features/GuestTeaser', () => ({
+  default: ({ mode }: { mode: string }) => <div data-testid="guest-teaser">{mode}</div>,
+}));
+
 vi.mock('lucide-react', () => ({
   Star: () => <span data-testid="star-icon" />,
   CalendarX: () => <span data-testid="calendar-x-icon" />,
@@ -120,11 +126,11 @@ describe('PicksView', () => {
     setStoreState();
   });
 
-  it('renders nothing when no user', () => {
+  it('renders the guest teaser when no user', () => {
     setStoreState({ user: null });
-    const { container } = render(<PicksView />);
-    // Component returns null for unauthenticated users (redirect via useEffect)
-    expect(container.firstChild).toBeNull();
+    render(<PicksView />);
+    // Guests see <GuestTeaser mode="picks"/> in place of the picks UI.
+    expect(screen.getByTestId('guest-teaser')).toHaveTextContent('picks');
   });
 
   it('shows "No festival selected" when no festival', () => {

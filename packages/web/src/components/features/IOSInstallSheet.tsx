@@ -18,9 +18,9 @@ export default function IOSInstallSheet() {
       dismissible
     >
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+        <Drawer.Overlay className="fixed inset-0 z-[var(--z-overlay)] bg-black/60 backdrop-blur-sm" />
         <Drawer.Content
-          className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl bg-bg-primary
+          className="fixed bottom-0 inset-x-0 z-[var(--z-modal)] rounded-t-2xl bg-bg-primary
                      border-t border-border-light shadow-2xl p-5 pb-8 space-y-4
                      max-h-[90vh] flex flex-col outline-none
                      lg:bottom-auto lg:inset-x-auto lg:top-1/2 lg:left-1/2

@@ -62,10 +62,10 @@ export default function PaymentHandlesSection() {
 
   return (
     <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
-      <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
+      <h3 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
         <Wallet className="w-4 h-4" aria-hidden="true" />
         Payment handles
-      </h2>
+      </h3>
       <p className="text-xs text-text-muted">
         Crewmates use these to pay you back when settling shared expenses. Leave blank to hide.
       </p>

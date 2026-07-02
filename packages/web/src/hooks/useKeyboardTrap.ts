@@ -1,7 +1,18 @@
 import { useEffect, useCallback, type RefObject } from 'react';
 
 const FOCUSABLE_SELECTOR =
-  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+// Collect focusable, visible children in DOM order. `:not([disabled])` above
+// drops disabled controls; the offsetParent/getClientRects filter drops
+// display:none / hidden nodes so Tab wrap + initial focus never land on an
+// invisible element. ponytail: jsdom has no layout (offsetParent always null),
+// so fall back to the unfiltered list there — real browsers still filter.
+function getFocusable(container: HTMLElement): HTMLElement[] {
+  const all = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+  const visible = all.filter((el) => el.offsetParent !== null || el.getClientRects().length > 0);
+  return visible.length > 0 ? visible : all;
+}
 
 /**
  * Traps keyboard focus inside a container while it is active.
@@ -25,8 +36,7 @@ export function useKeyboardTrap(
 
       if (e.key !== 'Tab' || !containerRef.current) return;
 
-      const focusable =
-        containerRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+      const focusable = getFocusable(containerRef.current);
       if (focusable.length === 0) return;
 
       const first = focusable[0]!;
@@ -58,9 +68,7 @@ export function useKeyboardTrap(
 
     // Delay one frame so the container's children are rendered
     const raf = requestAnimationFrame(() => {
-      const first =
-        containerRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
-      first?.focus();
+      if (containerRef.current) getFocusable(containerRef.current)[0]?.focus();
     });
 
     return () => {

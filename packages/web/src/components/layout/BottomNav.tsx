@@ -1,6 +1,5 @@
 import React, { useMemo, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
-import { useAuthStore } from '@festie/shared';
 import { useFestivalStore } from '@festie/shared/stores';
 import { isFestivalOver } from '@festie/shared/utils';
 import { cn } from '../../lib/utils';
@@ -90,7 +89,6 @@ const wrapTab: NavTab = { label: 'Wrap', href: '/wrap', icon: <WrapIcon /> };
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
   const currentFestival = useFestivalStore((state) => state.currentFestival);
   const days = useFestivalStore((state) => state.days);
   const footerRef = useRef<HTMLElement>(null);
@@ -114,14 +112,15 @@ export default function BottomNav() {
     };
   }, []);
 
-  // Show picks/crew tabs when user is logged in. Show Wrap tab ONLY after
-  // the festival has ended — otherwise it's noise. Empty-state inside /wrap
-  // handles the "coming soon" case for a direct URL visit before then.
+  // All tabs stay visible for guests (parity with mobile's NativeTabs): Picks/
+  // Crew advertise the features and gate in-place via GuestTeaser, Account is
+  // the sign-in entry (routes a guest to /login). Show Wrap tab ONLY after the
+  // festival has ended — otherwise it's noise. Empty-state inside /wrap handles
+  // the "coming soon" case for a direct URL visit before then.
   const tabs = useMemo(() => {
-    if (!user) return baseTabs;
     const wrapUnlocked = isFestivalOver(currentFestival, days);
     return wrapUnlocked ? [...baseTabs, ...authTabs, wrapTab] : [...baseTabs, ...authTabs];
-  }, [user, currentFestival, days]);
+  }, [currentFestival, days]);
 
   const isActive = (href: string) => {
     if (href === '/cards') return SCHEDULE_HREFS.includes(location.pathname);

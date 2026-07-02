@@ -49,36 +49,20 @@ export default function AuthTabs({ active, variant }: AuthTabsProps) {
   );
 
   return (
-    <div className={container} role="tablist" aria-label="Authentication method">
+    <nav className={container} aria-label="Authentication method">
       {TABS.map((tab) => {
         const isActive = tab.key === active;
-        if (isActive) {
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={true}
-              tabIndex={0}
-              className={cn(segBase, activeSeg)}
-            >
-              {tab.label}
-            </button>
-          );
-        }
         return (
           <Link
             key={tab.key}
             to={tab.to}
-            role="tab"
-            aria-selected={false}
-            tabIndex={-1}
-            className={cn(segBase, inactiveSeg)}
+            aria-current={isActive ? 'page' : undefined}
+            className={cn(segBase, isActive ? activeSeg : inactiveSeg)}
           >
             {tab.label}
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

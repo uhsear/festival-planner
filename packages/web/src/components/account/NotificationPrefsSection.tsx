@@ -25,24 +25,26 @@ function Toggle({
         <div className="text-sm text-text-primary">{label}</div>
         {hint ? <div className="text-xs text-text-muted">{hint}</div> : null}
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        onClick={() => onChange(!checked)}
-        className={cn(
-          'relative w-11 h-6 shrink-0 rounded-full transition-colors duration-200',
-          checked ? 'bg-accent-aqua' : 'bg-border',
-        )}
-      >
-        <span
+      <span className="inline-flex items-center justify-center min-h-11 min-w-11 shrink-0">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          aria-label={label}
+          onClick={() => onChange(!checked)}
           className={cn(
-            'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform duration-200',
-            checked && 'translate-x-5',
+            'relative w-11 h-6 shrink-0 rounded-full transition-colors duration-200',
+            checked ? 'bg-accent-aqua' : 'bg-border',
           )}
-        />
-      </button>
+        >
+          <span
+            className={cn(
+              'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform duration-200',
+              checked && 'translate-x-5',
+            )}
+          />
+        </button>
+      </span>
     </div>
   );
 }
@@ -119,10 +121,10 @@ export default function NotificationPrefsSection() {
 
   return (
     <section className="p-4 rounded-lg bg-bg-card border border-border">
-      <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2 mb-1">
+      <h3 className="text-sm font-semibold text-text-secondary flex items-center gap-2 mb-1">
         <SlidersHorizontal className="w-4 h-4" aria-hidden="true" />
         Notification types
-      </h2>
+      </h3>
       <Toggle
         label="Set reminders"
         checked={prefs.setReminders}

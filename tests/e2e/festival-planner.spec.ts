@@ -12,7 +12,7 @@ import type { Page } from '@playwright/test';
  * naturally — no storageState needed for these tests.
  *
  * Selectors are drawn ONLY from the real components:
- *   - #app, .guest-banner, .auth-screen .......... AppShell
+ *   - #app, .auth-screen ......................... AppShell
  *   - [data-testid="festival-select"] ............ SubHeader (festival dropdown)
  *   - .day-tab-underline ......................... SubHeader (day tabs)
  *   - [data-testid="set-card"][data-artist=…] .... SetCard
@@ -110,8 +110,9 @@ test.describe('festival planner browser regression', () => {
     await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"]')).toBeVisible();
     await expect(page.locator('[data-testid="set-card"][data-artist="Beta"]')).toBeVisible();
 
-    // Guest banner present; no authed nav.
-    await expect(page.locator('.guest-banner')).toContainText('Browsing as guest');
+    // Guests now get the full nav (parity with mobile) instead of a guest
+    // banner: the "My Picks" tab is visible even when logged out.
+    await expect(page.getByRole('button', { name: 'My Picks' })).toBeVisible();
 
     // Switch to fest-2 → Omega appears (Friday/Sunday differ; Sunday is the only day).
     await page.locator('[data-testid="festival-select"]').selectOption('fest-2');
@@ -167,9 +168,6 @@ test.describe('festival planner browser regression', () => {
     // On /cards the schedule loads for fest-1.
     await expect(page.locator('[data-testid="festival-select"]')).toHaveValue('fest-1');
     await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"]')).toBeVisible();
-
-    // Guest banner is gone now that we're authed.
-    await expect(page.locator('.guest-banner')).toHaveCount(0);
 
     // Profile badge in the header opens the user menu.
     await page.locator('[data-testid="profile-badge"]').click();
@@ -257,12 +255,11 @@ test.describe('festival planner browser regression', () => {
     await expect(page.getByRole('button', { name: 'Create Crew' })).toBeVisible();
   });
 
-  test('protected routes redirect guests to login', async ({ app, page }) => {
-    // /picks has a beforeLoad guard → guests bounce to /login.
+  test('guests see an in-place sign-up teaser on protected tabs', async ({ app, page }) => {
+    // /picks no longer redirects; it renders <GuestTeaser mode="picks"/> in place.
     await page.goto(`${app.baseUrl}/picks`);
-    await expect(page).toHaveURL(/\/login$/);
-    await expect(page.locator('.auth-screen')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+    await expect(page).toHaveURL(/\/picks$/);
+    await expect(page.getByRole('heading', { name: 'Save your festival picks' })).toBeVisible();
   });
 });
 

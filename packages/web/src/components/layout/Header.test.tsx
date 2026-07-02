@@ -7,6 +7,11 @@ const mockNavigate = vi.fn();
 vi.mock('@tanstack/react-router', () => ({
   useLocation: vi.fn(() => ({ pathname: '/cards' })),
   useNavigate: vi.fn(() => mockNavigate),
+  Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode; [k: string]: unknown }) => (
+    <a href={to} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 // Mock auth store
@@ -62,11 +67,11 @@ describe('Header', () => {
       expect(screen.queryByRole('button', { name: 'Grid' })).not.toBeInTheDocument();
     });
 
-    it('does not show My Picks or Crew tabs when not logged in', () => {
+    it('shows My Picks and Crew tabs for guests too (parity with mobile)', () => {
       mockAuthStore.mockReturnValue(null);
       render(<Header />);
-      expect(screen.queryByRole('button', { name: 'My Picks' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Crew' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'My Picks' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Crew' })).toBeInTheDocument();
     });
   });
 

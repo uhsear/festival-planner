@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useMemo, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
@@ -14,6 +14,7 @@ import RefreshableView from '../components/layout/RefreshableView';
 import PickBulkActions from '../components/PickBulkActions';
 import OfflineReadinessCard from '../components/features/OfflineReadinessCard';
 import CrewSuggestionStrip from '../components/features/CrewSuggestionStrip';
+import GuestTeaser from '../components/features/GuestTeaser';
 import PickConflicts from '../components/features/PickConflicts';
 // Lazy-loaded: PlanQRShare pulls in qrcode.react, which has no business in the
 // picks bundle until the user actually opens the share modal.
@@ -185,15 +186,9 @@ function PicksViewInner() {
     </>
   ) : null;
 
-  // /picks is a logged-in-only surface. Router `beforeLoad` normally catches
-  // this and redirects; this useEffect is a belt-and-suspenders fallback for
-  // the case where the user logs out while already sitting on /picks (no
-  // new `beforeLoad` fires on auth-state change). Render null while the
-  // redirect is in-flight so we never flash the picks UI to a guest.
-  useEffect(() => {
-    if (!user) navigate({ to: '/login' }).catch(() => {});
-  }, [user, navigate]);
-  if (!user) return null;
+  // Guests get the in-place sign-up teaser (parity with the always-visible nav
+  // tabs) instead of a redirect to /login.
+  if (!user) return <GuestTeaser mode="picks" />;
 
   if (!currentFestival) {
     return (
