@@ -352,7 +352,7 @@ Key PM2 settings:
 
 Secrets (`DATABASE_URL`, `SESSION_SECRET`, `FIREBASE_CREDENTIALS_PATH`, `WEBHOOK_TOKEN_HMAC_KEY`) are loaded from `.env` via dotenv — they are **not** in `ecosystem.config.cjs`.
 
-> **Note:** `ARCHITECTURE.md` describes "PM2 cluster mode with 4 workers" — this is outdated. The actual `ecosystem.config.cjs` uses fork mode with 1 instance. Cluster mode was abandoned because it cannot transpile TypeScript.
+> **Note:** `ecosystem.config.cjs` uses fork mode with 1 instance; PM2 cluster mode is not used because it cannot transpile TypeScript via tsx.
 
 **Uptime monitoring:** the `uptime.yml` GitHub Actions workflow pings `https://festie.us/` and `/api/ready` every 10 minutes and opens/closes a GitHub issue automatically on failures.
 
@@ -419,7 +419,7 @@ All workflows in `.github/workflows/`:
 
 ### PM2 fork vs cluster
 
-`ARCHITECTURE.md` says "PM2 cluster mode with 4 workers" — the actual `ecosystem.config.cjs` runs `exec_mode: 'fork', instances: 1`. PM2 cluster mode cannot load TypeScript via tsx. Horizontal scaling currently requires compiling the backend to JavaScript first. This is a documented intentional trade-off (see ADR-007).
+The backend runs under PM2 **fork mode** (`exec_mode: 'fork', instances: 1`). PM2 cluster mode cannot load TypeScript via tsx, so horizontal scaling currently requires compiling the backend to JavaScript first. This is a documented intentional trade-off (see ADR-007).
 
 ### Mobile import constraint
 

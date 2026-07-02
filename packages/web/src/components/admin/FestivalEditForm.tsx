@@ -163,6 +163,7 @@ export default function FestivalEditForm({
         <input
           type="text"
           placeholder="Festival Name"
+          aria-label="Festival name"
           value={formData.name || ''}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           className="px-4 py-2 rounded-lg bg-bg-primary border border-glass-border text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
@@ -170,6 +171,7 @@ export default function FestivalEditForm({
         <input
           type="text"
           placeholder="Location"
+          aria-label="Location"
           value={formData.location || ''}
           onChange={(e) => setFormData({ ...formData, location: e.target.value })}
           className="px-4 py-2 rounded-lg bg-bg-primary border border-glass-border text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
@@ -205,6 +207,7 @@ export default function FestivalEditForm({
               <input
                 type="text"
                 placeholder="Stage name"
+                aria-label="Stage name"
                 value={stage.name}
                 onChange={(e) => handleStageName(i, e.target.value)}
                 className="flex-1 px-3 py-2 rounded-lg bg-bg-primary border border-glass-border text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"

@@ -25,88 +25,88 @@ server.ts ─── orchestrator
 
 `server.ts` calls `createAppContext()` to build the dependency injection container, applies middleware, mounts routes, starts Socket.IO, and registers shutdown handlers. It validates startup configuration (PUBLIC_ORIGIN, SESSION_SECRET, webhook keys) before any initialization runs.
 
-### Dependency Injection: `lib/app-context/` (418 lines)
+### Dependency Injection: `lib/app-context/`
 
 `lib/app-context/index.ts` is the central composition root. It creates and wires together every infrastructure dependency into a single `deps` object that route factories receive. Extracted sub-modules:
 
-| File | Lines | Responsibility |
-|------|-------|----------------|
-| `index.ts` | 418 | Compose config, DB pool, Redis, caches, auth, sessions, utilities |
-| `csp.ts` | 36 | Content Security Policy header generation |
-| `avatar.ts` | 130 | Avatar upload validation, resizing (Sharp worker pool), storage |
-| `request-helpers.ts` | 118 | IP extraction, origin checks, CSRF enforcement |
-| `cookies.ts` | 103 | Session cookie management (set, clear, parse) |
+| File | Responsibility |
+|------|----------------|
+| `index.ts` | Compose config, DB pool, Redis, caches, auth, sessions, utilities |
+| `csp.ts` | Content Security Policy header generation |
+| `avatar.ts` | Avatar upload validation, resizing (Sharp worker pool), storage |
+| `request-helpers.ts` | IP extraction, origin checks, CSRF enforcement |
+| `cookies.ts` | Session cookie management (set, clear, parse) |
 
 ### Core Library Modules: `lib/`
 
-| Module | Lines | Purpose |
-|--------|-------|---------|
-| `config.ts` | 253 | Centralized env vars with typed readers (`readInt`, `readBool`, `readList`) and defaults |
-| `schemas.ts` | 538 | Zod validation schemas for all API inputs + normalization helpers |
-| `rate-limiting.ts` | 458 | Multi-tier rate limiting: in-memory (single process) or Redis-backed (cluster) |
-| `planner-db-pg.ts` | 441 | PostgreSQL connection pool, migration runner, store factory |
-| `redis.ts` | 405 | Redis client, rate limiter, presence store, cache invalidation bus, circuit breaker |
-| `middleware.ts` | 338 | Express middleware composition (Helmet, CORS, compression, body parsing, metrics, rate limits) |
-| `reset-pages.ts` | 306 | Password reset HTML page templates |
-| `metrics.ts` | 267 | Prometheus metrics (prom-client) collection and endpoint |
-| `shutdown.ts` | 254 | Graceful shutdown (drain requests, close DB/Redis, clear timers) + background task scheduling |
-| `openapi.ts` | 203 | OpenAPI 3.0 spec generation from route metadata |
-| `emitter.ts` | 208 | Typed event emitter for internal pub/sub |
-| `reminder-scheduler.ts` | 199 | Background scheduler for set reminders (push notifications) |
-| `invite-pages.ts` | 194 | Crew invite HTML page templates |
-| `presence.ts` | 191 | Socket.IO presence tracking (online users per festival) |
-| `helpers.ts` | 190 | Legacy utilities (being migrated to `lib/helpers/`) |
-| `logger.ts` | 180 | Pino logger with JSON output, sensitive field redaction |
-| `email.ts` | 143 | Transactional email via Resend (password reset, invites) |
-| `audit-middleware.ts` | 116 | Express middleware for audit log entries |
-| `avatar-pool.ts` | 116 | Worker thread pool for Sharp image processing |
-| `sentry.ts` | 114 | Sentry error tracking integration |
-| `spotify.ts` | 114 | Spotify API client for artist metadata |
-| `socket-setup.ts` | 96 | Socket.IO server creation + Redis adapter attachment |
-| `crypto-auth.ts` | 55 | Password hashing (scrypt) + session token hashing (SHA-256) |
+| Module | Purpose |
+|--------|---------|
+| `config.ts` | Centralized env vars with typed readers (`readInt`, `readBool`, `readList`) and defaults |
+| `schemas.ts` | Zod validation schemas for all API inputs + normalization helpers |
+| `rate-limiting.ts` | Multi-tier rate limiting: in-memory (single process) or Redis-backed (cluster) |
+| `planner-db-pg.ts` | PostgreSQL connection pool, migration runner, store factory |
+| `redis.ts` | Redis client, rate limiter, presence store, cache invalidation bus, circuit breaker |
+| `middleware.ts` | Express middleware composition (Helmet, CORS, compression, body parsing, metrics, rate limits) |
+| `reset-pages.ts` | Password reset HTML page templates |
+| `metrics.ts` | Prometheus metrics (prom-client) collection and endpoint |
+| `shutdown.ts` | Graceful shutdown (drain requests, close DB/Redis, clear timers) + background task scheduling |
+| `openapi.ts` | OpenAPI 3.0 spec generation from route metadata |
+| `emitter.ts` | Typed event emitter for internal pub/sub |
+| `reminder-scheduler.ts` | Background scheduler for set reminders (push notifications) |
+| `invite-pages.ts` | Crew invite HTML page templates |
+| `presence.ts` | Socket.IO presence tracking (online users per festival) |
+| `helpers.ts` | Legacy utilities (being migrated to `lib/helpers/`) |
+| `logger.ts` | Pino logger with JSON output, sensitive field redaction |
+| `email.ts` | Transactional email via Resend (password reset, invites) |
+| `audit-middleware.ts` | Express middleware for audit log entries |
+| `avatar-pool.ts` | Worker thread pool for Sharp image processing |
+| `sentry.ts` | Sentry error tracking integration |
+| `spotify.ts` | Spotify API client for artist metadata |
+| `socket-setup.ts` | Socket.IO server creation + Redis adapter attachment |
+| `crypto-auth.ts` | Password hashing (scrypt) + session token hashing (SHA-256) |
 
 Smaller modules (<100 lines): `analytics-template.ts`, `pagination.ts`, `error-codes.ts`, `tracing.ts`, `file-storage.ts`, `response.ts`, `swagger-ui-setup.ts`, `avatar-worker.ts`, `export-worker.ts`, `constants.ts`, `validation.ts`.
 
 ### Helpers: `lib/helpers/`
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| `export-utils.ts` | 353 | HTML + ICS export generation, crew filtering |
-| `sanitize.ts` | 186 | Input sanitization, HTML escaping, log field redaction |
-| `validation.ts` | 136 | Time, color, festival structure validation |
+| File | Purpose |
+|------|---------|
+| `export-utils.ts` | HTML + ICS export generation, crew filtering |
+| `sanitize.ts` | Input sanitization, HTML escaping, log field redaction |
+| `validation.ts` | Time, color, festival structure validation |
 
 ### Notifications: `lib/notifications/`
 
 FCM push notification subsystem with retry and do-not-disturb support.
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| `send.ts` | 491 | Firebase Cloud Messaging dispatch (batch + individual) |
-| `payload.ts` | 60 | Notification payload builders (crew updates, schedule changes, set reminders) |
-| `retry.ts` | 70 | Exponential backoff retry for failed sends |
-| `dnd.ts` | 23 | Do-not-disturb time window checks |
-| `index.ts` | 38 | Module barrel export |
+| File | Purpose |
+|------|---------|
+| `send.ts` | Firebase Cloud Messaging dispatch (batch + individual) |
+| `payload.ts` | Notification payload builders (crew updates, schedule changes, set reminders) |
+| `retry.ts` | Exponential backoff retry for failed sends |
+| `dnd.ts` | Do-not-disturb time window checks |
+| `index.ts` | Module barrel export |
 
 ### Data Access: `lib/db/stores/`
 
 14 store modules, each exporting CRUD functions that accept a `pool` (pg Pool) parameter. All queries use parameterized SQL (`$1, $2`).
 
-| Store | Lines | Tables |
-|-------|-------|--------|
-| `profiles.ts` | 283 | `festival_profiles` -- picks, notes, reminders, live status |
-| `crews.ts` | 278 | `crews`, `crew_members`, `crew_activity` |
-| `festivals.ts` | 248 | `festivals`, `festival_stages`, `festival_days`, `festival_sets` |
-| `users.ts` | 211 | `users` -- accounts, avatars, display names |
-| `sessions.ts` | 209 | `user_sessions`, `admin_sessions`, `refresh_tokens` |
-| `notifications.ts` | 186 | `device_tokens`, `notification_preferences` |
-| `roles.ts` | 126 | `user_roles`, `permissions` |
-| `audit.ts` | 119 | `audit_log` -- user actions, admin operations |
-| `polls.ts` | 112 | `crew_polls`, `poll_votes` |
-| `expenses.ts` | 93 | `crew_expenses`, `expense_splits` |
-| `ratings.ts` | 88 | `set_ratings` -- post-festival artist ratings |
-| `calendar-tokens.ts` | 36 | `calendar_tokens` -- ICS feed authentication |
-| `email-tokens.ts` | — | `email_tokens` -- magic-link and verification tokens |
-| `activity.ts` | 29 | `crew_activity` -- crew event feed |
+| Store | Tables |
+|-------|--------|
+| `profiles.ts` | `festival_profiles` -- picks, notes, reminders, live status |
+| `crews.ts` | `crews`, `crew_members`, `crew_activity` |
+| `festivals.ts` | `festivals`, `festival_stages`, `festival_days`, `festival_sets` |
+| `users.ts` | `users` -- accounts, avatars, display names |
+| `sessions.ts` | `user_sessions`, `admin_sessions`, `refresh_tokens` |
+| `notifications.ts` | `device_tokens`, `notification_preferences` |
+| `roles.ts` | `user_roles`, `permissions` |
+| `audit.ts` | `audit_log` -- user actions, admin operations |
+| `polls.ts` | `crew_polls`, `poll_votes` |
+| `expenses.ts` | `crew_expenses`, `expense_splits` |
+| `ratings.ts` | `set_ratings` -- post-festival artist ratings |
+| `calendar-tokens.ts` | `calendar_tokens` -- ICS feed authentication |
+| `email-tokens.ts` | `email_tokens` -- magic-link and verification tokens |
+| `activity.ts` | `crew_activity` -- crew event feed |
 
 ### Routes: `routes/`
 
@@ -123,46 +123,46 @@ export default function createFeatureRoutes({ pool, redis, config, io, log }: Ap
 }
 ```
 
-| Route | Lines | Responsibility |
-|-------|-------|----------------|
-| `crews.ts` | 641 | Crew CRUD, member management, invites, join/leave |
-| `auth.ts` | 503 | Register, login, logout, refresh tokens, change password |
-| `export.ts` | 485 | HTML/ICS exports, presence list, message export |
-| `admin-status.ts` | 433 | Admin dashboard: server status, connections, DB stats |
-| `share.ts` | 431 | Festival sharing, public schedule links |
-| `socket.ts` | 387 | Real-time: presence, crew updates, festival room management |
-| `email-auth.ts` | 368 | Email-based auth (magic links, verification, password reset) |
-| `account.ts` | 334 | Profile settings, avatar upload/delete, display name |
-| `admin-users.ts` | 283 | Admin user management, search, ban, password reset |
-| `festivals.ts` | 278 | Festival CRUD, clone, stage/day/set management |
-| `lineup-import.ts` | 273 | Festival lineup import (CSV, JSON, Clashfinder) |
-| `notifications.ts` | 269 | Push tokens, notification preferences, mark read |
-| `admin.ts` | 267 | Admin login, session management, role checks |
-| `admin-metrics.ts` | 255 | Prometheus metrics endpoint, custom dashboards |
-| `profiles.ts` | 237 | Join festival, update picks/notes/reminders, live status |
-| `crew-features.ts` | 237 | Crew feature aggregation (legacy; sub-features extracted below) |
-| `crew-invites.ts` | — | Crew invite link generation and redemption |
-| `crew-members.ts` | — | Crew member management (add, remove, role) |
-| `crew-meeting-points.ts` | — | Crew meeting point CRUD |
-| `crew-packing.ts` | — | Crew shared packing list |
-| `crew-polls.ts` | — | Crew polls and voting |
-| `crew-rides.ts` | — | Crew ride coordination |
-| `crew-sos.ts` | — | SOS signal and crew alert |
-| `crew-status.ts` | — | Live crew member status |
-| `admin-bulk.ts` | 187 | Bulk admin operations (mass email, data export) |
-| `health-core.ts` | 148 | Health checks (DB, Redis, disk), readiness probe |
-| `calendar-sync.ts` | 148 | ICS calendar feed generation and sync |
-| `pages.ts` | 140 | Static pages, password reset forms, SPA catch-all |
-| `spotify.ts` | 122 | Spotify artist search and metadata |
-| `expenses.ts` | 115 | Crew expense tracking and splitting |
-| `client-metrics.ts` | 96 | Client-side performance metrics ingestion |
-| `weather.ts` | 92 | Festival venue weather forecasts |
-| `ratings.ts` | 90 | Post-festival set ratings |
-| `deep-links.ts` | 72 | Universal/deep link handlers (mobile app) |
-| `admin-audit.ts` | 65 | Audit log viewer |
-| `health.ts` | 64 | Legacy health endpoint (delegates to health-core) |
-| `analytics-install.ts` | 57 | Install/first-launch analytics |
-| `activity.ts` | 25 | Crew activity feed |
+| Route | Responsibility |
+|-------|----------------|
+| `crews.ts` | Crew CRUD, member management, invites, join/leave |
+| `auth.ts` | Register, login, logout, refresh tokens, change password |
+| `export.ts` | HTML/ICS exports, presence list, message export |
+| `admin-status.ts` | Admin dashboard: server status, connections, DB stats |
+| `share.ts` | Festival sharing, public schedule links |
+| `socket.ts` | Real-time: presence, crew updates, festival room management |
+| `email-auth.ts` | Email-based auth (magic links, verification, password reset) |
+| `account.ts` | Profile settings, avatar upload/delete, display name |
+| `admin-users.ts` | Admin user management, search, ban, password reset |
+| `festivals.ts` | Festival CRUD, clone, stage/day/set management |
+| `lineup-import.ts` | Festival lineup import (CSV, JSON, Clashfinder) |
+| `notifications.ts` | Push tokens, notification preferences, mark read |
+| `admin.ts` | Admin login, session management, role checks |
+| `admin-metrics.ts` | Prometheus metrics endpoint, custom dashboards |
+| `profiles.ts` | Join festival, update picks/notes/reminders, live status |
+| `crew-features.ts` | Crew feature aggregation (legacy; sub-features extracted below) |
+| `crew-invites.ts` | Crew invite link generation and redemption |
+| `crew-members.ts` | Crew member management (add, remove, role) |
+| `crew-meeting-points.ts` | Crew meeting point CRUD |
+| `crew-packing.ts` | Crew shared packing list |
+| `crew-polls.ts` | Crew polls and voting |
+| `crew-rides.ts` | Crew ride coordination |
+| `crew-sos.ts` | SOS signal and crew alert |
+| `crew-status.ts` | Live crew member status |
+| `admin-bulk.ts` | Bulk admin operations (mass email, data export) |
+| `health-core.ts` | Health checks (DB, Redis, disk), readiness probe |
+| `calendar-sync.ts` | ICS calendar feed generation and sync |
+| `pages.ts` | Static pages, password reset forms, SPA catch-all |
+| `spotify.ts` | Spotify artist search and metadata |
+| `expenses.ts` | Crew expense tracking and splitting |
+| `client-metrics.ts` | Client-side performance metrics ingestion |
+| `weather.ts` | Festival venue weather forecasts |
+| `ratings.ts` | Post-festival set ratings |
+| `deep-links.ts` | Universal/deep link handlers (mobile app) |
+| `admin-audit.ts` | Audit log viewer |
+| `health.ts` | Legacy health endpoint (delegates to health-core) |
+| `analytics-install.ts` | Install/first-launch analytics |
+| `activity.ts` | Crew activity feed |
 
 ---
 
@@ -172,21 +172,21 @@ React 19 SPA with file-based routing via TanStack Router. Built with Vite 8 and 
 
 ### Routes (`packages/web/src/routes/`)
 
-| Route | Lines | View |
-|-------|-------|------|
-| `timeline.tsx` | 189 | Main schedule timeline (drag-scroll, time markers) |
-| `account.tsx` | 466 | User settings, avatar, notifications, sessions |
-| `grid.tsx` | 368 | Grid/spreadsheet schedule view |
-| `crew.tsx` | 273 | Crew management, member list |
-| `wrap.tsx` | 269 | Post-festival wrap-up / recap |
-| `picks.tsx` | 244 | Personal picks list with conflict detection |
-| `festival-mode.tsx` | 198 | Festival day-of mode (current/next set) |
-| `register.tsx` | 186 | User registration |
-| `compare.tsx` | 184 | Side-by-side crew schedule comparison |
-| `forgot-password.tsx` | 139 | Password reset flow |
-| `cards.tsx` | 124 | Card-style schedule view |
-| `login.tsx` | 118 | Login form |
-| `admin.tsx` | 72 | Admin panel |
+| Route | View |
+|-------|------|
+| `timeline.tsx` | Main schedule timeline (drag-scroll, time markers) |
+| `account.tsx` | User settings, avatar, notifications, sessions |
+| `grid.tsx` | Grid/spreadsheet schedule view |
+| `crew.tsx` | Crew management, member list |
+| `wrap.tsx` | Post-festival wrap-up / recap |
+| `picks.tsx` | Personal picks list with conflict detection |
+| `festival-mode.tsx` | Festival day-of mode (current/next set) |
+| `register.tsx` | User registration |
+| `compare.tsx` | Side-by-side crew schedule comparison |
+| `forgot-password.tsx` | Password reset flow |
+| `cards.tsx` | Card-style schedule view |
+| `login.tsx` | Login form |
+| `admin.tsx` | Admin panel |
 
 ### PWA
 
@@ -200,18 +200,18 @@ TypeScript package imported by the frontend via workspace aliases (`@festie/shar
 
 ### Stores (Zustand)
 
-| Store | Lines | State |
-|-------|-------|-------|
-| `festivalStore.ts` | 307 | Festival data, sets, stages, days |
-| `authStore.ts` | 263 | User session, tokens, login state |
-| `crewStore.ts` | 654 | Crew membership, activity |
-| `festivalModeStore.ts` | 122 | Day-of festival mode (current set tracking) |
-| `uiStore.ts` | 73 | UI state (modals, toasts, theme) |
+| Store | State |
+|-------|-------|
+| `festivalStore.ts` | Festival data, sets, stages, days |
+| `authStore.ts` | User session, tokens, login state |
+| `crewStore.ts` | Crew membership, activity |
+| `festivalModeStore.ts` | Day-of festival mode (current set tracking) |
+| `uiStore.ts` | UI state (modals, toasts, theme) |
 
 ### Services
 
-- `api.ts` (183 lines) -- HTTP client wrapping fetch with auth headers, error handling
-- `socket.ts` (66 lines) -- Socket.IO client with auto-reconnect, event listeners that push into Zustand stores
+- `api.ts` -- HTTP client wrapping fetch with auth headers, error handling
+- `socket.ts` -- Socket.IO client with auto-reconnect, event listeners that push into Zustand stores
 
 ### Hooks
 
@@ -225,7 +225,7 @@ TypeScript package imported by the frontend via workspace aliases (`@festie/shar
 
 ## Database
 
-PostgreSQL 16 with connection pooling (pg, min 2 / max 20). 49 migrations in `migrations/` (004 baseline through 052), all idempotent with parameterized queries.
+PostgreSQL 16 with connection pooling (pg, min 2 / max 20). 59 migrations in `migrations/` (004 baseline through 059), all idempotent with parameterized queries.
 
 Key tables: `users`, `user_sessions`, `festivals`, `festival_stages`, `festival_days`, `festival_sets`, `festival_profiles`, `crews`, `crew_members`, `crew_activity`, `crew_polls`, `crew_expenses`, `device_tokens`, `audit_log`, `user_roles`.
 
@@ -294,7 +294,7 @@ API docs available at `/api/docs` (Swagger UI), generated by `lib/openapi.ts`.
 
 ## Testing
 
-Tests use Node's built-in test runner (`node:test` + `node:assert`). ~28 test files covering:
+Tests use Node's built-in test runner (`node:test` + `node:assert`). 98 test files covering:
 
 - Unit tests (`tests/unit.test.ts`)
 - Integration tests (`tests/integration-*.test.ts`) -- auth, festivals, picks, crews, notifications, admin, export, sockets
