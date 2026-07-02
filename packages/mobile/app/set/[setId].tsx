@@ -503,7 +503,7 @@ export default function SetDetailScreen() {
                   accessibilityRole="link"
                   accessibilityLabel={`Open ${entry.name} on ${key}`}
                 >
-                  <Ionicons name="open-outline" size={14} color={t.colors.accent.aqua} />
+                  <Ionicons name="open-outline" size={t.iconSize.compact} color={t.colors.accent.aqua} />
                   <Text style={styles.linkText}>{key}</Text>
                 </TouchableOpacity>
               )),
@@ -739,7 +739,7 @@ function CloseButton({ onPress, top }: { onPress: () => void; top: number }) {
       accessibilityLabel="Close detail"
       hitSlop={8}
     >
-      <Ionicons name="close" size={22} color={t.colors.text.secondary} />
+      <Ionicons name="close" size={t.iconSize.md} color={t.colors.text.secondary} />
     </TouchableOpacity>
   );
 }

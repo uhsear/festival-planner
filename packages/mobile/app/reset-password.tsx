@@ -73,7 +73,7 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.primary,
   },
-  eyeButton: { padding: t.spacing[2] },
+  eyeButton: { padding: t.spacing[2], minWidth: 44, minHeight: 44, alignItems: 'center' as const, justifyContent: 'center' as const },
   hint: {
     ...typeStyle('caption'),
     color: t.colors.text.muted,

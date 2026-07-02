@@ -197,7 +197,7 @@ const useStyles = makeStyles((t) => ({
   resend: {
     backgroundColor: t.colors.accent.aqua,
     borderRadius: t.radii.pill,
-    minHeight: 36,
+    minHeight: 44,
     minWidth: 72,
     alignItems: 'center',
     justifyContent: 'center',

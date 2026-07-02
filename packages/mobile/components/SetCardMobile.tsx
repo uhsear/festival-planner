@@ -13,7 +13,7 @@ import type { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName, artistSubtitle, ensureWhiteContrast, PRIORITY_RANK } from '@festie/shared/utils';
 import { useCrewStore, useFestivalStore } from '@festie/shared/stores';
 import { duration, easing } from '@festie/shared/tokens';
-import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useSetStatus } from '../hooks/useSetStatus';
 import { useHaptics } from '../hooks/useHaptics';
 import { useReduceMotion } from '../hooks/useReduceMotion';
@@ -186,6 +186,7 @@ function PriorityButton({ option, active, onPress }: PriorityButtonProps) {
       <Text
         style={[styles.priorityLabel, { color: active ? t.colors.text.onLightAccent : t.colors.text.secondary }]}
         numberOfLines={1}
+        maxFontSizeMultiplier={MAX_FONT_SCALE}
       >
         {option.short}
       </Text>
@@ -245,7 +246,7 @@ function SetCardMobileImpl({
     <View style={[styles.card, isLive && styles.cardLive]}>
       <AppPressable style={styles.body} onPress={onPress} accessibilityRole="button" accessibilityLabel={a11yBody}>
         <View style={[styles.stagePill, { backgroundColor: pillBg }]}>
-          <Text style={styles.stageText} numberOfLines={1}>
+          <Text style={styles.stageText} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
             {stageName}
           </Text>
         </View>
@@ -413,7 +414,9 @@ function CrewCluster({ friendProfiles }: CrewClusterProps) {
   if (!hasAvatarData) {
     return (
       <View style={styles.crewCluster} accessibilityRole="text" accessibilityLabel={a11yLabel}>
-        <Text style={styles.countPill}>{countLabel}</Text>
+        <Text style={styles.countPill} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+          {countLabel}
+        </Text>
       </View>
     );
   }
@@ -427,7 +430,9 @@ function CrewCluster({ friendProfiles }: CrewClusterProps) {
       ))}
       {overflow > 0 ? (
         <View style={[styles.overflowBadge, styles.avatarOverlap]}>
-          <Text style={styles.overflowText}>+{overflow}</Text>
+          <Text style={styles.overflowText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+            +{overflow}
+          </Text>
         </View>
       ) : null}
     </View>

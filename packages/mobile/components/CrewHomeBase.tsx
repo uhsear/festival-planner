@@ -134,7 +134,7 @@ export default function CrewHomeBase({ crewId, location, time, isOwner }: CrewHo
           <Text style={styles.cardPlaceholder}>Tap to set a home base</Text>
         )}
       </View>
-      {isOwner ? <Ionicons name="pencil" size={14} color={t.colors.text.secondary} /> : null}
+      {isOwner ? <Ionicons name="pencil" size={t.iconSize.compact} color={t.colors.text.secondary} /> : null}
     </TouchableOpacity>
   );
 }

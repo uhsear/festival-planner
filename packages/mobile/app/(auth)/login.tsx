@@ -138,7 +138,10 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     Keyboard.dismiss();
-    if (!username.trim() || !password.trim()) return;
+    if (!username.trim() || !password.trim()) {
+      setError('Username and password are required');
+      return;
+    }
     setError(null);
     try {
       await login({ username: username.trim(), password });

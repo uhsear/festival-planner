@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import { useCrewStore } from '@festie/shared/stores';
 import { etaMinutes, formatStaleness } from '@festie/shared/utils';
 import type { CrewMemberStatus } from '@festie/shared/types';
-import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
 import Button from './Button';
 
@@ -214,7 +214,7 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
               accessibilityRole="button"
               accessibilityLabel="Cancel status"
             >
-              <Ionicons name="close" size={18} color={t.colors.text.secondary} />
+              <Ionicons name="close" size={t.iconSize.action} color={t.colors.text.secondary} />
             </TouchableOpacity>
           </View>
 
@@ -240,7 +240,7 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
                     size={16}
                     color={active ? t.colors.accent.aqua : t.colors.text.secondary}
                   />
-                  <Text style={[styles.statusChipText, active && styles.statusChipTextActive]}>{opt.label}</Text>
+                  <Text style={[styles.statusChipText, active && styles.statusChipTextActive]} maxFontSizeMultiplier={MAX_FONT_SCALE}>{opt.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -257,7 +257,7 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
               accessibilityState={{ selected: !targetId }}
               accessibilityLabel="No specific point"
             >
-              <Text style={[styles.targetChipText, !targetId && styles.targetChipTextActive]}>No specific point</Text>
+              <Text style={[styles.targetChipText, !targetId && styles.targetChipTextActive]} maxFontSizeMultiplier={MAX_FONT_SCALE}>No specific point</Text>
             </TouchableOpacity>
             {meetingPoints.map((m) => {
               const active = targetId === m.id;
@@ -275,7 +275,7 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
                   {hasCoord ? (
                     <Ionicons name="location" size={12} color={active ? t.colors.accent.aqua : t.colors.text.muted} />
                   ) : null}
-                  <Text style={[styles.targetChipText, active && styles.targetChipTextActive]}>{m.label}</Text>
+                  <Text style={[styles.targetChipText, active && styles.targetChipTextActive]} maxFontSizeMultiplier={MAX_FONT_SCALE}>{m.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -348,7 +348,7 @@ export default function CrewStatus({ crewId, currentUserId }: CrewStatusProps) {
             const targetLabel = labelFor(s.target_meeting_point_id);
             return (
               <View key={s.user_id} style={styles.statusRow}>
-                <Ionicons name={meta.icon} size={18} color={t.colors.accent.aqua} style={styles.statusRowIcon} />
+                <Ionicons name={meta.icon} size={t.iconSize.action} color={t.colors.accent.aqua} style={styles.statusRowIcon} />
                 <View style={styles.statusRowBody}>
                   <View style={styles.statusRowTitle}>
                     <Text style={styles.statusRowName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
@@ -475,6 +475,8 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[1],
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[2],
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: t.radii.pill,
     borderWidth: 1,
     borderColor: t.colors.border.default,
@@ -506,6 +508,8 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[1],
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[2],
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: t.radii.pill,
     borderWidth: 1,
     borderColor: t.colors.border.default,

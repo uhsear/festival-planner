@@ -7,7 +7,7 @@ import { useCrew, useFestival } from '@festie/shared/hooks';
 import { artistDisplayName, formatTime, byStartTime } from '@festie/shared/utils';
 import { PRIORITY_LABEL } from '@festie/shared/constants';
 import type { FestivalSet, Priority, Profile } from '@festie/shared/types';
-import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useTokens, makeStyles, typeStyle, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { safeStageColor } from '../lib/stageColor';
 import Avatar from '../components/Avatar';
 import EmptyState from '../components/EmptyState';
@@ -131,18 +131,21 @@ export default function CrewCompareScreen() {
     );
   }
 
+  if (error) {
+    return (
+      <Wrapper>
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="Couldn't load crew picks"
+          message={error}
+          action={{ label: 'Try again', onPress: () => void refresh() }}
+        />
+      </Wrapper>
+    );
+  }
+
   return (
     <Wrapper>
-      {error ? (
-        <TouchableOpacity
-          onPress={() => void refresh()}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={`${error}. Tap to retry.`}
-        >
-          <Text style={styles.error}>{error} · Tap to retry</Text>
-        </TouchableOpacity>
-      ) : null}
 
       {/* Day selector */}
       {days.length > 1 ? (
@@ -160,7 +163,11 @@ export default function CrewCompareScreen() {
                   accessibilityState={{ selected: active }}
                   accessibilityLabel={`Day: ${day.label ?? day.date}`}
                 >
-                  <Text style={[styles.dayText, active && styles.dayTextActive]} numberOfLines={1}>
+                  <Text
+                    style={[styles.dayText, active && styles.dayTextActive]}
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={MAX_FONT_SCALE}
+                  >
                     {day.label ?? day.date}
                   </Text>
                 </TouchableOpacity>
@@ -281,7 +288,9 @@ export default function CrewCompareScreen() {
                               },
                             ]}
                           >
-                            <Text style={styles.pillText}>{PRIORITY_LABEL[p]}</Text>
+                            <Text style={styles.pillText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                              {PRIORITY_LABEL[p]}
+                            </Text>
                           </View>
                         ) : (
                           <Text style={styles.dash}>—</Text>
@@ -325,12 +334,6 @@ const useStyles = makeStyles((t) => ({
   },
   flex1: {
     flex: 1,
-  },
-  error: {
-    ...typeStyle('caption'),
-    color: t.colors.text.danger,
-    textAlign: 'center',
-    padding: t.spacing[3],
   },
   daysWrap: {
     paddingVertical: t.spacing[3],

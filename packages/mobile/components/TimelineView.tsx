@@ -208,7 +208,7 @@ function StageColumn({
                 </Text>
               ) : null}
               {conflict ? (
-                <Ionicons name="warning" size={10} color={t.colors.accent.coral} style={styles.conflictIcon} />
+                <Ionicons name="warning" size={t.iconSize.xs} color={t.colors.accent.coral} style={styles.conflictIcon} />
               ) : null}
             </TouchableOpacity>
           );

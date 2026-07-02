@@ -32,7 +32,8 @@ import {
   type MapPin as Pin,
 } from '@festie/shared/utils';
 import type { CrewMeetingPoint, PeerLocation, SosEntry, Festival, Stage, AmenityType } from '@festie/shared/types';
-import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useFestivalModeStore } from '@festie/shared/stores';
+import { useTokens, makeStyles, typeStyle, iconSize } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
 import { useNow } from '../hooks/useNow';
 import { safeJsonForScript, isAllowedMapHost, buildSetAuthoringScript } from '../lib/webviewBridge';
@@ -866,6 +867,7 @@ export default function OfflineMap({
   const t = useTokens();
   const styles = useStyles();
   const bottomPad = useListBottomInset();
+  const lowPowerMode = useFestivalModeStore((s) => s.lowPowerMode);
   const webRef = useRef<WebView>(null);
   // Guards a single in-flight "find me" GPS request so a double-tap can't stack
   // permission prompts / location fixes.
@@ -1062,8 +1064,13 @@ export default function OfflineMap({
         setGeoState('denied');
         return;
       }
+      // Festival low-power mode (F-battery): trade GPS freshness for battery —
+      // Balanced accuracy + a slower 10s tick instead of High/4s. The pursue
+      // arrow just updates less often; nothing else about the feature changes.
       watchSubRef.current = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, distanceInterval: 3, timeInterval: 4000 },
+        lowPowerMode
+          ? { accuracy: Location.Accuracy.Balanced, distanceInterval: 3, timeInterval: 10000 }
+          : { accuracy: Location.Accuracy.High, distanceInterval: 3, timeInterval: 4000 },
         (pos) => {
           const { latitude, longitude } = pos.coords;
           if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
@@ -1075,7 +1082,7 @@ export default function OfflineMap({
     } catch {
       setGeoState('denied');
     }
-  }, []);
+  }, [lowPowerMode]);
   useEffect(() => {
     return () => {
       watchSubRef.current?.remove();
@@ -1566,7 +1573,7 @@ export default function OfflineMap({
     return (
       <ScrollView style={styles.screen} contentContainerStyle={[styles.fallbackContent, { paddingBottom: bottomPad }]}>
         <View style={styles.banner}>
-          <Ionicons name="cloud-offline-outline" size={18} color={t.colors.accent.amber} />
+          <Ionicons name="cloud-offline-outline" size={iconSize.action} color={t.colors.accent.amber} />
           <Text style={styles.bannerText}>
             Map needs the festival downloaded for offline. Showing your saved meeting points.
           </Text>
@@ -1608,7 +1615,7 @@ export default function OfflineMap({
             accessibilityLabel={`${p.label}, ${p.sublabel}`}
             accessibilityHint={`${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}`}
           >
-            <Ionicons name="navigate-circle" size={18} color={t.colors.accent.aqua} />
+            <Ionicons name="navigate-circle" size={iconSize.action} color={t.colors.accent.aqua} />
             <View style={styles.rowBody}>
               <Text style={styles.rowLabel}>{p.label}</Text>
               <Text style={styles.rowSub}>{p.sublabel}</Text>
@@ -1621,6 +1628,8 @@ export default function OfflineMap({
 
         {!hasAny ? (
           <View style={styles.emptyBlock}>
+            {/* One-off 32px: sits between iconSize.lg (24) and .xl (48) — neither
+                token fits this empty-state glyph without a visible size jump. */}
             <Ionicons name="location-outline" size={32} color={t.colors.text.muted} />
             <Text style={styles.emptyTitle}>No meeting points yet</Text>
             <Text style={styles.emptyMsg}>
@@ -1641,7 +1650,7 @@ export default function OfflineMap({
             accessibilityLabel={`Meeting point: ${pin.label}${pin.sublabel ? ', ' + pin.sublabel : ''}`}
             accessibilityHint={`${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}`}
           >
-            <Ionicons name="location" size={18} color={t.colors.accent.coral} />
+            <Ionicons name="location" size={iconSize.action} color={t.colors.accent.coral} />
             <View style={styles.rowBody}>
               <Text style={styles.rowLabel}>{pin.label}</Text>
               {pin.sublabel ? <Text style={styles.rowSub}>{pin.sublabel}</Text> : null}
@@ -1662,7 +1671,7 @@ export default function OfflineMap({
             accessibilityLabel={`Meeting point: ${p.label}${p.location ? ', ' + p.location : ''}`}
             accessibilityHint="No coordinates pinned"
           >
-            <Ionicons name="location-outline" size={18} color={t.colors.text.muted} />
+            <Ionicons name="location-outline" size={iconSize.action} color={t.colors.text.muted} />
             <View style={styles.rowBody}>
               <Text style={styles.rowLabel}>{p.label}</Text>
               {p.location ? <Text style={styles.rowSub}>{p.location}</Text> : null}
@@ -1731,7 +1740,7 @@ export default function OfflineMap({
             <>
               {placing ? (
                 <View style={styles.mapHint} pointerEvents="none">
-                  <Ionicons name="locate-outline" size={14} color={t.colors.text.onAccent} />
+                  <Ionicons name="locate-outline" size={iconSize.compact} color={t.colors.text.onAccent} />
                   <Text style={styles.mapHintText} numberOfLines={1}>
                     Tap the map to drop a meeting point
                   </Text>

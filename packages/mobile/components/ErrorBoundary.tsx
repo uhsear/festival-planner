@@ -1,7 +1,7 @@
 import { Component, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import * as Sentry from '@sentry/react-native';
-import { typeStyle, useTokens } from '../hooks/useTokens';
+import { typeStyle, useTokens, makeStyles } from '../hooks/useTokens';
 
 /**
  * App-wide render error boundary — the mobile analog of the web
@@ -28,6 +28,7 @@ interface ErrorBoundaryState {
  */
 function ErrorFallback({ onReset }: { onReset: () => void }) {
   const t = useTokens();
+  const styles = useStyles();
   return (
     <View
       style={[styles.container, { backgroundColor: t.colors.bg.primary, padding: t.spacing[12] }]}
@@ -82,7 +83,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
   }
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -95,8 +96,8 @@ const styles = StyleSheet.create({
   description: {
     ...typeStyle('body'),
     textAlign: 'center',
-    marginTop: 8,
-    maxWidth: 320,
+    marginTop: t.spacing[2],
+    maxWidth: 320, // fallback copy is short; fixed cap keeps it centered without a token
   },
   button: {
     alignItems: 'center',
@@ -105,4 +106,4 @@ const styles = StyleSheet.create({
   buttonLabel: {
     ...typeStyle('label'),
   },
-});
+}));

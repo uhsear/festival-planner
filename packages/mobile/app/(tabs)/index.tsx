@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   RefreshControl,
+  ActivityIndicator,
   Platform,
   useWindowDimensions,
   type ListRenderItem,
@@ -732,6 +733,24 @@ export default function TimelineScreen() {
   // LiveDot stays in the control row below as the now indicator.
   const headerActions = (
     <View style={styles.headerActions}>
+      {/* Manual refresh for ALL views — the RefreshControls only cover the Cards
+          list + fallback scroll, leaving Timeline with no pull-to-refresh. */}
+      <TouchableOpacity
+        style={styles.headerIconButton}
+        onPress={handleRefresh}
+        disabled={isLoading}
+        activeOpacity={0.7}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Refresh schedule"
+        accessibilityState={{ busy: isLoading }}
+      >
+        {isLoading ? (
+          <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+        ) : (
+          <Ionicons name="refresh" size={t.iconSize.lg} color={t.colors.accent.aqua} />
+        )}
+      </TouchableOpacity>
       <TouchableOpacity
         style={styles.headerIconButton}
         onPress={clearSelection}
