@@ -200,7 +200,7 @@ function CardsViewInner() {
                 // off-screen cards, with contain-intrinsic-size reserving an
                 // approximate box so the scrollbar stays stable. Cuts render cost
                 // on long single-day lineups without virtualization machinery.
-                className="[content-visibility:auto] [contain-intrinsic-size:auto_180px]"
+                className="[content-visibility:auto] [contain-intrinsic-size:auto_240px]"
                 // Softened stagger entrance on the motion tokens
                 // (duration.med + easing.out). Skipped entirely when the user
                 // prefers reduced motion.

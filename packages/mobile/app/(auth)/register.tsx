@@ -280,7 +280,10 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     Keyboard.dismiss();
-    if (!username.trim() || !password.trim()) return;
+    if (!username.trim() || !password.trim()) {
+      setError('Username and password are required');
+      return;
+    }
     // F33: email is required on mobile (needed for password reset); show an
     // explicit inline error instead of silently ignoring a blank submission.
     if (!email.trim()) {

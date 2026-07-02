@@ -503,7 +503,7 @@ export default function SetDetailScreen() {
                   accessibilityRole="link"
                   accessibilityLabel={`Open ${entry.name} on ${key}`}
                 >
-                  <Ionicons name="open-outline" size={14} color={t.colors.accent.aqua} />
+                  <Ionicons name="open-outline" size={t.iconSize.compact} color={t.colors.accent.aqua} />
                   <Text style={styles.linkText}>{key}</Text>
                 </TouchableOpacity>
               )),
@@ -739,7 +739,7 @@ function CloseButton({ onPress, top }: { onPress: () => void; top: number }) {
       accessibilityLabel="Close detail"
       hitSlop={8}
     >
-      <Ionicons name="close" size={22} color={t.colors.text.secondary} />
+      <Ionicons name="close" size={t.iconSize.md} color={t.colors.text.secondary} />
     </TouchableOpacity>
   );
 }
@@ -849,8 +849,11 @@ const useStyles = makeStyles((t) => ({
   artist: {
     ...typeStyle('display-lg'),
     color: t.colors.text.primary,
-    // Clear the absolute close button (40px + right inset) so long artist
-    // names wrap instead of running underneath the X.
+    // Inset the title past BOTH absolutely-positioned header controls (each
+    // 40px + spacing[4] inset = 56) so the Syncopate name wraps/shrinks between
+    // them instead of the share button (top-left) rendering under "BELLA RENEE"
+    // and the close button (top-right) under long names.
+    paddingLeft: 56,
     paddingRight: 56,
   },
   subtitle: {

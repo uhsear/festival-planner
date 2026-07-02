@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react
 import * as Dialog from '@radix-ui/react-dialog';
 import { Square, Siren, Navigation, ShieldCheck, X, MapPin } from 'lucide-react';
 import { api } from '@festie/shared';
+import type { SosEntry } from '@festie/shared/types';
 import { useLiveLocationStore } from '@festie/shared/stores/liveLocationStore';
 import { useFestivalModeStore } from '@festie/shared/stores/festivalModeStore';
 import { useLiveLocationPublisher, type GeoWatcher } from '@festie/shared/hooks';
@@ -45,7 +46,11 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
   const [sharing, setSharing] = useState(false);
   const sharingCrewId = useLiveLocationStore((s) => s.sharingCrewId);
   const sharingExpiresAt = useLiveLocationStore((s) => s.sharingExpiresAt);
-  const sos = useLiveLocationStore((s) => s.sos);
+  // Read the FULL active-SOS list (not just the newest `sos`) so a second
+  // concurrent SOS stays visible. The store is scoped to the active crew; filter
+  // anyway as defense in depth (parity with mobile CrewSos).
+  const activeSosList = useLiveLocationStore((s) => s.activeSosList);
+  const sosList = useMemo(() => activeSosList.filter((e) => e.crewId === crewId), [activeSosList, crewId]);
 
   // Phase 4C: tick once a minute so the own-side "sharing ends in Nm" countdown
   // stays current. Only runs while sharing (cleared otherwise).
@@ -82,6 +87,10 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
   const [sosMessage, setSosMessage] = useState('');
   const [sosBusy, setSosBusy] = useState(false);
   const [clearBusy, setClearBusy] = useState(false);
+  // The SOS pending a clear-confirm. Any member may resolve any SOS (parity with
+  // mobile — the raiser's phone may be dead), but a stray tap must not silently
+  // clear a live emergency, so clearing is confirm-gated like the raise. null = closed.
+  const [clearTarget, setClearTarget] = useState<SosEntry | null>(null);
 
   // Adapter: navigator.geolocation.watchPosition → the publisher's GeoWatcher
   // shape. Stable identity (the publisher assumes a stable watcher). Balanced
@@ -197,15 +206,19 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
     }
   }
 
-  async function clearSos() {
+  // Clear a specific raiser's SOS. Any crew member may resolve any SOS (the
+  // raiser's phone may be dead), so we always target by raiserId — mirroring
+  // mobile — rather than assuming the current user is the raiser.
+  async function clearSos(raiserId: string) {
     if (clearBusy) return;
     setClearBusy(true);
     try {
-      await api.post(`/crews/${crewId}/sos/clear`, {});
+      await api.post(`/crews/${crewId}/sos/clear`, { raiserId });
       // The server broadcasts sos:cleared back to the room (we're in it) which
       // clears the store; clear optimistically too so the banner dismisses now.
-      useLiveLocationStore.getState().clearSos();
+      useLiveLocationStore.getState().clearSos(raiserId);
       toast('SOS cleared', 'success');
+      setClearTarget(null);
     } catch {
       toast('Couldn’t clear the SOS — check your connection.', 'error');
     } finally {
@@ -214,53 +227,64 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
   }
 
   const isSharingThisCrew = sharing && sharingCrewId === crewId;
-  const showSos = sos && sos.crewId === crewId;
-  const sosIsMine = showSos && sos.userId === currentUserId;
+  const showSos = sosList.length > 0;
+  const clearMine = clearTarget?.userId === currentUserId;
 
   return (
     <div className="space-y-2">
-      {/* ── Active SOS banner (crew-wide, prominent) ───────────────────────── */}
-      {showSos && (
-        <div
-          role="alert"
-          aria-atomic="true"
-          data-testid="sos-banner"
-          className="rounded-lg border-2 border-accent-coral bg-accent-coral/15 p-3 space-y-2 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none"
-        >
-          <div className="flex items-start gap-2">
-            <Siren className="w-5 h-5 text-accent-coral shrink-0 mt-0.5" aria-hidden="true" />
-            <div className="min-w-0 flex-1">
-              <p className="font-bold text-text-primary">
-                {sosIsMine ? 'You raised an SOS' : `${sos!.username} raised an SOS`}
-              </p>
-              {sos!.message && <p className="text-sm text-text-secondary mt-0.5 break-words">{sos!.message}</p>}
-              <p className="text-xs text-text-muted mt-0.5">{formatStaleness(sos!.raisedAt)}</p>
+      {/* ── Active SOS banners (crew-wide, prominent) ──────────────────────────
+          One banner per active SOS. With 2+ live, a "{N} active" header labels
+          the stack (parity with mobile); a single SOS looks identical to before. */}
+      {sosList.length > 1 && (
+        <p role="heading" aria-level={2} className="text-sm font-bold text-accent-coral">
+          {sosList.length} active SOS
+        </p>
+      )}
+      {sosList.map((entry) => {
+        const isMine = entry.userId === currentUserId;
+        return (
+          <div
+            key={`${entry.userId}|${entry.raisedAt}`}
+            role="alert"
+            aria-atomic="true"
+            data-testid="sos-banner"
+            className="rounded-lg border-2 border-accent-coral bg-accent-coral/15 p-3 space-y-2 animate-[card-in_220ms_var(--ease-out,ease-out)_both] motion-reduce:!animate-none"
+          >
+            <div className="flex items-start gap-2">
+              <Siren className="w-5 h-5 text-accent-coral shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-text-primary">
+                  {isMine ? 'You raised an SOS' : `${entry.username} raised an SOS`}
+                </p>
+                {entry.message && <p className="text-sm text-text-secondary mt-0.5 break-words">{entry.message}</p>}
+                <p className="text-xs text-text-muted mt-0.5">{formatStaleness(entry.raisedAt)}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {entry.position && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    window.open(
+                      `https://maps.google.com/?q=${entry.position!.lat},${entry.position!.lng}`,
+                      '_blank',
+                      'noopener,noreferrer',
+                    )
+                  }
+                >
+                  <Navigation className="w-4 h-4" aria-hidden="true" /> Get directions
+                </Button>
+              )}
+              {/* Any member may resolve any SOS (raiser's phone may be dead). */}
+              <Button variant="primary" size="sm" onClick={() => setClearTarget(entry)}>
+                <ShieldCheck className="w-4 h-4" aria-hidden="true" />{' '}
+                {isMine ? "I'm safe — clear SOS" : `Mark ${entry.username}'s SOS resolved`}
+              </Button>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {sos!.position && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  window.open(
-                    `https://maps.google.com/?q=${sos!.position!.lat},${sos!.position!.lng}`,
-                    '_blank',
-                    'noopener,noreferrer',
-                  )
-                }
-              >
-                <Navigation className="w-4 h-4" aria-hidden="true" /> Get directions
-              </Button>
-            )}
-            {sosIsMine && (
-              <Button variant="primary" size="sm" onClick={clearSos} isLoading={clearBusy}>
-                <ShieldCheck className="w-4 h-4" aria-hidden="true" /> I&apos;m safe — clear SOS
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
+        );
+      })}
 
       {/* ── Sharing indicator (non-dismissible while active) ───────────────── */}
       {isSharingThisCrew && (
@@ -386,6 +410,52 @@ export default function LiveLocationControls({ crewId, currentUserId }: Props) {
                 {sosBusy ? 'Sending…' : 'Send SOS'}
               </Button>
             </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* ── Clear-SOS confirm dialog (parity with the raise: one stray tap must
+          not silently resolve a live emergency) ────────────────────────────── */}
+      <Dialog.Root open={!!clearTarget} onOpenChange={(o: boolean) => !clearBusy && !o && setClearTarget(null)}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-sm -translate-x-1/2 -translate-y-1/2 space-y-4 rounded-2xl border border-border-light bg-bg-card p-5 shadow-2xl data-[state=open]:animate-in data-[state=open]:zoom-in-95">
+            {clearTarget && (
+              <>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Dialog.Title className="flex items-center gap-2 text-base font-bold text-text-primary">
+                      <ShieldCheck className="w-5 h-5 text-accent-aqua" aria-hidden="true" />{' '}
+                      {clearMine ? 'Clear your SOS?' : `Mark ${clearTarget.username}'s SOS resolved?`}
+                    </Dialog.Title>
+                    <Dialog.Description className="mt-1 text-sm text-text-secondary">
+                      {clearMine
+                        ? "This tells your whole crew you're safe and removes the alert for everyone. Only do this once you're actually OK."
+                        : `This clears ${clearTarget.username}'s active emergency alert for everyone in the crew. Only do this if you know they are safe.`}
+                    </Dialog.Description>
+                  </div>
+                  <Dialog.Close asChild>
+                    <IconButton label="Close" icon={<X className="w-5 h-5" />} disabled={clearBusy} />
+                  </Dialog.Close>
+                </div>
+                <div className="flex gap-2">
+                  <Dialog.Close asChild>
+                    <Button variant="outline" type="button" className="flex-1 min-h-11" disabled={clearBusy}>
+                      Cancel
+                    </Button>
+                  </Dialog.Close>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => clearSos(clearTarget.userId)}
+                    isLoading={clearBusy}
+                    className="flex-1 min-h-11"
+                  >
+                    {clearMine ? "I'm safe" : 'Mark resolved'}
+                  </Button>
+                </div>
+              </>
+            )}
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

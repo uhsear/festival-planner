@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, meetingTimeDisplay, resolveFestivalTimeZone } from '@festie/shared';
 import type { CrewMeetingPoint } from '@festie/shared/types';
@@ -33,6 +33,7 @@ import IconButton from '../ui/IconButton';
 import { inputBase } from '../../lib/styles';
 import CrewStatus from './CrewStatus';
 import LiveLocationControls from './LiveLocationControls';
+import { useRovingTabs } from '@/hooks/useRovingTabs';
 
 // Lazy: CrewMap pulls in maplibre-gl (~200 kB gzip) at runtime. Keeping it behind
 // lazy() puts it in its own chunk so it never lands in the main bundle (mirrors
@@ -106,6 +107,8 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   const { locating, getCurrentPosition } = useCurrentPosition();
   // List vs Map view. Map is lazy + reveals <CrewMap/> only when chosen.
   const [view, setView] = useState<'list' | 'map'>('list');
+  const viewTablistRef = useRef<HTMLDivElement>(null);
+  useRovingTabs(viewTablistRef);
 
   // ── Live Location + SOS (ephemeral, flag-gated) ─────────────────────────────
   // Scope the (non-persisted) liveLocationStore to this crew so peer markers and
@@ -113,8 +116,11 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   // derive the array via useMemo — returning a fresh array from the selector
   // would loop useSyncExternalStore.
   const peersMap = useLiveLocationStore((s) => s.peers);
-  const sos = useLiveLocationStore((s) => s.sos);
+  // Full active-SOS list (crew-filtered as defense in depth) so a second
+  // concurrent SOS gets its own map marker — not just the newest one.
+  const activeSosList = useLiveLocationStore((s) => s.activeSosList);
   const peers = useMemo(() => Object.values(peersMap), [peersMap]);
+  const sosList = useMemo(() => activeSosList.filter((e) => e.crewId === crewId), [activeSosList, crewId]);
 
   useEffect(() => {
     if (!LIVE_LOCATION_ENABLED) return;
@@ -281,6 +287,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
 
       {/* List/Map toggle. Map lazy-loads MapLibre only when selected. */}
       <div
+        ref={viewTablistRef}
         className="inline-flex rounded-lg border border-border p-0.5 bg-bg-card"
         role="tablist"
         aria-label="Meeting points view"
@@ -320,7 +327,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
             </div>
           }
         >
-          <CrewMap meetingPoints={points} peers={peers} sos={sos} festival={mapFestival} />
+          <CrewMap meetingPoints={points} peers={peers} activeSosList={sosList} festival={mapFestival} />
         </Suspense>
       )}
 

@@ -18,7 +18,8 @@ describe('StageBadge', () => {
     render(<StageBadge stageName="Main" stageColor="#ff0000" />);
     const badge = screen.getByText('Main');
     expect(badge.className).toContain('rounded-full');
-    expect(badge.className).toContain('uppercase');
+    // uppercase/tracking/weight come from the type-micro utility (theme.css)
+    expect(badge.className).toContain('type-micro');
   });
 
   it('applies chip variant class', () => {
@@ -32,7 +33,7 @@ describe('StageBadge', () => {
     render(<StageBadge stageName="Main" stageColor="#ff0000" variant="pick" />);
     const badge = screen.getByText('Main');
     expect(badge.className).toContain('rounded-full');
-    expect(badge.className).toContain('font-bold');
+    expect(badge.className).toContain('type-micro');
   });
 
   it('adds active styling for active chip variant', () => {

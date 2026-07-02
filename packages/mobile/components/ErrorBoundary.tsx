@@ -1,7 +1,7 @@
 import { Component, type ReactNode } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import * as Sentry from '@sentry/react-native';
-import { typeStyle, useTokens } from '../hooks/useTokens';
+import { typeStyle, useTokens, makeStyles } from '../hooks/useTokens';
 
 /**
  * App-wide render error boundary — the mobile analog of the web
@@ -16,6 +16,10 @@ import { typeStyle, useTokens } from '../hooks/useTokens';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
+  // Optional escape hatch for a deterministic render crash: reset() alone just
+  // re-renders the same crashing tree (an unbreakable retry loop). The root
+  // boundary passes a handler that navigates away before resetting.
+  onEscape?: () => void;
 }
 
 interface ErrorBoundaryState {
@@ -26,8 +30,9 @@ interface ErrorBoundaryState {
  * Functional fallback so the on-brand styling can pull from the design tokens
  * via the useTokens hook (class components can't call hooks directly).
  */
-function ErrorFallback({ onReset }: { onReset: () => void }) {
+function ErrorFallback({ onReset, onEscape }: { onReset: () => void; onEscape?: () => void }) {
   const t = useTokens();
+  const styles = useStyles();
   return (
     <View
       style={[styles.container, { backgroundColor: t.colors.bg.primary, padding: t.spacing[12] }]}
@@ -54,6 +59,25 @@ function ErrorFallback({ onReset }: { onReset: () => void }) {
       >
         <Text style={[styles.buttonLabel, { color: t.colors.text.onAccent }]}>Retry</Text>
       </TouchableOpacity>
+      {onEscape && (
+        <TouchableOpacity
+          onPress={onEscape}
+          style={[
+            styles.button,
+            {
+              backgroundColor: t.colors.bg.secondary,
+              borderRadius: t.radii.default,
+              paddingVertical: t.spacing[3],
+              paddingHorizontal: t.spacing[6],
+              marginTop: t.spacing[3],
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Go to Schedule"
+        >
+          <Text style={[styles.buttonLabel, { color: t.colors.text.primary }]}>Go to Schedule</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -74,15 +98,24 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
     this.setState({ error: null });
   };
 
+  // Navigate away (via the passed handler) THEN clear the error so the recovered
+  // route — not the crashing tree — renders after escape.
+  private escape = () => {
+    this.props.onEscape?.();
+    this.reset();
+  };
+
   render() {
     if (this.state.error) {
-      return <ErrorFallback onReset={this.reset} />;
+      return (
+        <ErrorFallback onReset={this.reset} onEscape={this.props.onEscape ? this.escape : undefined} />
+      );
     }
     return this.props.children;
   }
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -95,8 +128,8 @@ const styles = StyleSheet.create({
   description: {
     ...typeStyle('body'),
     textAlign: 'center',
-    marginTop: 8,
-    maxWidth: 320,
+    marginTop: t.spacing[2],
+    maxWidth: 320, // fallback copy is short; fixed cap keeps it centered without a token
   },
   button: {
     alignItems: 'center',
@@ -105,4 +138,4 @@ const styles = StyleSheet.create({
   buttonLabel: {
     ...typeStyle('label'),
   },
-});
+}));

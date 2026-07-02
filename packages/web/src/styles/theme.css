@@ -457,6 +457,12 @@
      white text stays well above AA on the darker tone). */
   --color-accent-coral-strong-hover: #ac1a34;
 
+  /* Coral tint text — the lightened coral used as foreground text on a
+     translucent bg-accent-coral/20 chip (components.css), where the raw
+     #ff3366 fails AA on dark backgrounds. -hover is the /30 hover step. */
+  --color-coral-tint-text: #ff7a8c;
+  --color-coral-tint-text-hover: #ff8fa0;
+
   /* ── Timeline NOW label tokens (2026-06-04) ─────────────────────────────
      The "NOW" marker color/background, promoted so the coral marker can be
      retuned without editing the timeline-now-label utility inline. */

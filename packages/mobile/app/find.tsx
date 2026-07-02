@@ -98,7 +98,7 @@ export default function FindScreen() {
           accessibilityLabel="Open the live crew map"
         >
           <View style={styles.cardIcon}>
-            <Ionicons name="map" size={22} color={t.colors.accent.aqua} />
+            <Ionicons name="map" size={t.iconSize.md} color={t.colors.accent.aqua} />
           </View>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Live crew map</Text>
@@ -116,7 +116,7 @@ export default function FindScreen() {
           accessibilityLabel="Open the meeting-point compass"
         >
           <View style={styles.cardIcon}>
-            <Ionicons name="navigate" size={22} color={t.colors.accent.aqua} />
+            <Ionicons name="navigate" size={t.iconSize.md} color={t.colors.accent.aqua} />
           </View>
           <View style={styles.cardBody}>
             <Text style={styles.cardTitle}>Meeting-point compass</Text>
@@ -179,7 +179,7 @@ export default function FindScreen() {
           onPress={() => router.push({ pathname: '/(tabs)/crew', params: { tab: 'logistics' } })}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Raise an SOS to your crew"
+          accessibilityLabel="Open crew safety to send an SOS"
           accessibilityHint="Opens the crew safety screen to send an SOS"
         >
           <Ionicons name="alert-circle" size={20} color={t.colors.text.onAccent} />

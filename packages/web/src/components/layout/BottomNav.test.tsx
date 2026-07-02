@@ -41,11 +41,11 @@ describe('BottomNav', () => {
     expect(screen.queryByLabelText('View Grid')).not.toBeInTheDocument();
   });
 
-  it('does not show auth tabs for guest users', () => {
+  it('shows auth tabs for guest users too (parity with mobile)', () => {
     render(<BottomNav />);
-    expect(screen.queryByLabelText('View Picks')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('View Crew')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('View Account')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('View Picks')).toBeInTheDocument();
+    expect(screen.getByLabelText('View Crew')).toBeInTheDocument();
+    expect(screen.getByLabelText('View Account')).toBeInTheDocument();
   });
 
   it('shows auth tabs for logged-in users', () => {
@@ -98,10 +98,11 @@ describe('BottomNav', () => {
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
   });
 
-  it('renders a single nav button for guests (Schedule)', () => {
+  it('renders 4 nav buttons for guests (Schedule + Picks + Crew + Account)', () => {
     render(<BottomNav />);
     const nav = screen.getByRole('navigation', { name: 'Primary' });
-    expect(within(nav).getAllByRole('button').length).toBe(1); // Guest: Schedule only
+    // Guests get the full tab set now (Wrap stays gated on isFestivalOver=false).
+    expect(within(nav).getAllByRole('button').length).toBe(4);
   });
 
   it('renders 4 nav buttons for logged-in user', () => {

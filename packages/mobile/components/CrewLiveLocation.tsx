@@ -31,7 +31,7 @@ import {
   resolveLiveShareMs,
   type LiveShareDuration,
 } from '@festie/shared/constants';
-import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useTokens, makeStyles, typeStyle, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
 import { useLiveSocket } from '../lib/liveSocket';
 
@@ -329,7 +329,7 @@ export default function CrewLiveLocation({ crewId }: CrewLiveLocationProps) {
                   accessibilityRole="button"
                   accessibilityLabel={`Share for ${d.label}`}
                 >
-                  <Text style={[styles.durationChipText, isDefault && styles.durationChipTextDefault]}>{d.label}</Text>
+                  <Text style={[styles.durationChipText, isDefault && styles.durationChipTextDefault]} maxFontSizeMultiplier={MAX_FONT_SCALE}>{d.label}</Text>
                 </TouchableOpacity>
               );
             })}

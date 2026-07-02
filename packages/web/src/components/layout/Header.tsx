@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useLocation, useNavigate } from '@tanstack/react-router';
+import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuthStore, useUIStore } from '@festie/shared';
+import { useFestivalStore } from '@festie/shared/stores';
+import { isFestivalOver } from '@festie/shared/utils';
 import { cn } from '@/lib/utils';
 import UserMenu from './UserMenu';
 import FestivalModeToggle from '../features/FestivalModeToggle';
@@ -11,19 +13,22 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Desktop nav tabs — show picks/crew when logged in. Those views render
-  // their own empty state if the user hasn't joined the festival yet.
-  // Gating on user (instead of currentProfile) avoids races where the tabs
-  // disappear on reload before profiles have finished loading.
+  // Desktop nav tabs — all visible for guests (parity with mobile + BottomNav).
+  // Picks/Crew render their own GuestTeaser / empty state when unauthenticated
+  // or not yet joined; keeping them always-visible preserves feature discovery.
   // Schedule/Timeline/Grid collapse into one "Schedule" tab; the in-page
   // ScheduleViewSwitcher (rendered by AppShell) swaps between the three views.
-  const desktopTabs = useMemo(() => {
-    const base = [{ label: 'Schedule', href: '/cards' }];
-    if (user) {
-      base.push({ label: 'My Picks', href: '/picks' }, { label: 'Crew', href: '/crew' });
-    }
-    return base;
-  }, [user]);
+  // Wrap appears only after the festival ends — mirrors BottomNav's gate so the
+  // desktop nav (which hides BottomNav at lg+) doesn't lose the Wrap entry.
+  const currentFestival = useFestivalStore((state) => state.currentFestival);
+  const days = useFestivalStore((state) => state.days);
+  const wrapUnlocked = isFestivalOver(currentFestival, days);
+  const desktopTabs = [
+    { label: 'Schedule', href: '/cards' },
+    { label: 'My Picks', href: '/picks' },
+    { label: 'Crew', href: '/crew' },
+    ...(wrapUnlocked ? [{ label: 'Wrap', href: '/wrap' }] : []),
+  ];
 
   const scheduleHrefs = ['/', '/cards', '/timeline', '/grid'];
   const isTabActive = (href: string) => {
@@ -80,12 +85,16 @@ export default function Header() {
   }, []);
 
   // Capture the `beforeinstallprompt` event so the Install App button can
-  // actually trigger the PWA install flow. Browsers fire this once when
-  // the PWA is installable; we stash it on window for the click handler.
+  // actually trigger the PWA install flow. Browsers fire this once when the PWA
+  // is installable; we stash it on window for the click handler and mirror
+  // availability in state so the button can hide where it would no-op
+  // (Firefox/Safari, or after a successful install consumes the prompt).
+  const [installAvailable, setInstallAvailable] = useState(false);
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault();
       window.__festieInstallPrompt = e as BeforeInstallPromptEvent;
+      setInstallAvailable(true);
     };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -116,22 +125,15 @@ export default function Header() {
         'max-[380px]:![padding:6px_10px] max-[380px]:!gap-[6px]',
       )}
     >
-      {/* Left section: connection dot + brand + util strip */}
+      {/* Left section: brand (with connection dot) + util strip */}
       <div className={cn('flex items-center gap-3', 'max-md:min-w-0 max-md:overflow-hidden')}>
-        <div
-          className={cn(
-            'w-2 h-2 rounded-full mr-1 shrink-0',
-            connected
-              ? 'bg-accent-green shadow-[0_0_8px_var(--color-accent-green)]'
-              : 'bg-accent-coral shadow-[0_0_8px_var(--color-accent-coral)] animate-blink',
-          )}
-          role="status"
-          aria-label={connected ? 'Connected' : 'Disconnected'}
-        />
         <div className={cn('flex flex-col gap-2', 'max-md:gap-0')}>
           <div
             className={cn(
               'app-header-brand',
+              /* dot is anchored to the brand row so it annotates FESTIE at
+                 every breakpoint instead of floating between the two util rows */
+              'flex items-center gap-2',
               'font-display text-base font-bold tracking-[3px] uppercase text-accent-coral whitespace-nowrap',
               /* logo link touch target */
               '[&_a]:inline-flex [&_a]:items-center [&_a]:min-h-11 [&_a]:py-1.5',
@@ -144,9 +146,19 @@ export default function Header() {
               'max-md:transition-[font-size,line-height] max-md:duration-[280ms] max-md:[transition-timing-function:cubic-bezier(.22,.61,.36,1)]',
             )}
           >
-            <a href="/" aria-label="FESTIE home" className="text-[inherit] no-underline">
+            <span
+              className={cn(
+                'w-2 h-2 rounded-full shrink-0',
+                connected
+                  ? 'bg-accent-green shadow-[0_0_8px_var(--color-accent-green)]'
+                  : 'bg-accent-coral shadow-[0_0_8px_var(--color-accent-coral)] animate-blink',
+              )}
+              role="status"
+              aria-label={connected ? 'Connected' : 'Disconnected'}
+            />
+            <Link to="/" aria-label="FESTIE home" className="text-[inherit] no-underline">
               FESTIE
-            </a>
+            </Link>
           </div>
           <div
             className={cn(
@@ -155,7 +167,10 @@ export default function Header() {
               'max-md:!hidden',
             )}
           >
-            {/* Install App button */}
+            {/* Install App button — only rendered when a captured install prompt
+                is available; hidden on Firefox/Safari and after install where it
+                would silently no-op. */}
+            {installAvailable && (
             <Button
               variant="util"
               type="button"
@@ -178,10 +193,12 @@ export default function Header() {
                   /* user dismissed or prompt already consumed */
                 }
                 window.__festieInstallPrompt = null; // eslint-disable-line require-atomic-updates -- module-level flag, not a real race
+                setInstallAvailable(false);
               }}
             >
               {' Install App'}
             </Button>
+            )}
 
             {/* Support link */}
             <a
@@ -241,8 +258,24 @@ export default function Header() {
         {/* Festival Mode toggle — flips store flag + navigates to /festival-mode */}
         <FestivalModeToggle />
 
-        {/* User menu / profile badge */}
-        {user && <UserMenu user={user} />}
+        {/* User menu / profile badge — guests get an explicit Sign in entry
+            instead (desktop hides BottomNav's Account path). */}
+        {user ? (
+          <UserMenu user={user} />
+        ) : (
+          <Link
+            to="/login"
+            className={cn(
+              'inline-flex items-center justify-center min-h-11 min-w-11 px-4 rounded-lg no-underline whitespace-nowrap',
+              'text-accent-aqua text-[length:var(--font-size-13)] font-semibold tracking-[0.3px]',
+              'border border-accent-aqua/40 transition-colors duration-200',
+              'hover:bg-aqua-a12 hover:border-accent-aqua/70',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua',
+            )}
+          >
+            Sign in
+          </Link>
+        )}
       </div>
     </header>
   );

@@ -1,7 +1,6 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from '@tanstack/react-router';
 import { LayoutGrid, AlignLeft, Columns3 } from 'lucide-react';
-import { useRovingTabs } from '../../hooks/useRovingTabs';
 import { cn } from '../../lib/utils';
 
 /**
@@ -45,7 +44,7 @@ export default function ScheduleViewSwitcher() {
     const bar = tabBarRef.current;
     if (!bar) return;
     const measure = () => {
-      const active = bar.querySelector<HTMLButtonElement>('[aria-selected="true"]');
+      const active = bar.querySelector<HTMLButtonElement>('[aria-current="page"]');
       if (!active) return;
       setIndicator({ x: active.offsetLeft, w: active.offsetWidth });
     };
@@ -54,28 +53,22 @@ export default function ScheduleViewSwitcher() {
     return () => window.removeEventListener('resize', measure);
   }, [activeKey]);
 
-  // Arrow-key roving between the view tabs (WAI-ARIA tablist pattern).
-  useRovingTabs(tabBarRef);
-
   return (
-    <div
+    <nav
       className={cn(
         'flex items-center gap-1 px-[var(--space-3)] py-2 sm:px-6',
         'bg-[var(--color-bg-chrome)] border-b border-border shrink-0',
         '[backdrop-filter:saturate(150%)_blur(12px)]',
       )}
-      role="tablist"
       aria-label="Schedule view"
     >
-      <div ref={tabBarRef} className="relative flex gap-1 p-1 rounded-full bg-bg-secondary">
+      <div ref={tabBarRef} className="relative flex gap-1 p-1 rounded-full bg-bg-secondary" role="group">
         {VIEWS.map(({ key, label, Icon }) => {
           const active = key === activeKey;
           return (
             <button
               key={key}
               type="button"
-              role="tab"
-              aria-selected={active}
               aria-current={active ? 'page' : undefined}
               aria-label={`${label} view`}
               onClick={() => navigate({ to: key })}
@@ -107,6 +100,6 @@ export default function ScheduleViewSwitcher() {
           />
         )}
       </div>
-    </div>
+    </nav>
   );
 }

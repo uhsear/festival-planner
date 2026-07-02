@@ -5,12 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { useAuthStore, useCrewStore, useLiveLocationStore, useFestivalDataStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
-import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import OfflineMap from '../components/OfflineMap';
 import FreshnessChip from '../components/FreshnessChip';
 import EmptyState from '../components/EmptyState';
 import HeaderTitle from '../components/HeaderTitle';
+import { LowPowerIndicator } from '../components/LowPowerControls';
 
 /** Sweep stale peers off the map on this cadence while the screen is mounted. */
 const SWEEP_INTERVAL_MS = 15_000;
@@ -134,6 +135,9 @@ export default function MapScreen() {
       <Stack.Screen options={{ headerShown: true, headerTitle: () => <HeaderTitle>{activeCrew.name}</HeaderTitle> }} />
       <View style={styles.chipBar}>
         <FreshnessChip surface="crew" />
+        {/* Surfaces the shared low-power flag on the map so battery-saving GPS
+            degradation (see OfflineMap's watchPositionAsync) is visible, not silent. */}
+        <LowPowerIndicator />
       </View>
       <OfflineMap
         meetingPoints={meetingPoints}
@@ -161,7 +165,9 @@ export default function MapScreen() {
           accessibilityHint="Opens the crew safety screen to send an SOS"
         >
           <Ionicons name="alert-circle" size={20} color={t.colors.text.onAccent} />
-          <Text style={styles.sosFabText}>SOS</Text>
+          <Text style={styles.sosFabText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+            SOS
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -174,6 +180,10 @@ const useStyles = makeStyles((t) => ({
     backgroundColor: t.colors.bg.primary,
   },
   chipBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: t.spacing[2],
     paddingHorizontal: t.spacing[4],
     paddingVertical: t.spacing[2],
   },

@@ -50,14 +50,14 @@ export default function NotificationSection() {
 
   return (
     <section className="p-4 rounded-lg bg-bg-card border border-border space-y-3">
-      <h2 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
+      <h3 className="text-sm font-semibold text-text-secondary flex items-center gap-2">
         {push.permission === 'granted' ? (
           <Bell className="w-4 h-4" aria-hidden="true" />
         ) : (
           <BellOff className="w-4 h-4" aria-hidden="true" />
         )}
         Push Notifications
-      </h2>
+      </h3>
       {!push.isSupported ? (
         push.unsupportedReason === 'ios-needs-install' ? (
           <p className="text-sm text-text-muted">

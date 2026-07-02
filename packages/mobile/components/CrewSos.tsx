@@ -6,9 +6,12 @@
  *
  * Two responsibilities:
  *  1. RAISE — a large, reachable SOS button (guarded by a confirm dialog to
- *     prevent accidental triggers). On confirm it attaches a one-shot location
- *     fix (best-effort; never blocks the SOS) and POSTs /crews/:crewId/sos. SOS
- *     is online-only by design (excluded from the offline write-queue): a queued
+ *     prevent accidental triggers). On confirm it attaches a location fix and
+ *     POSTs /crews/:crewId/sos. The fix is bounded: we seed from the cached
+ *     last-known position (instant) and race a fresh reading against a 4s
+ *     timeout, so the POST fires within ~4s at worst with the freshest coords
+ *     available — a slow/denied GPS never delays the alert. SOS is online-only
+ *     by design (excluded from the offline write-queue): a queued
  *     rescue replayed hours later is dangerous, so an offline raise surfaces an
  *     explicit "No signal — SOS not sent" message instead of silently queuing.
  *  2. RECEIVE — when `sos:raised` broadcasts land in the liveLocationStore, a
@@ -98,19 +101,29 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
     if (raising) return;
     setRaising(true);
     haptics.warning();
-    // Best-effort one-shot fix so the crew can actually find the person. Never
-    // let a slow/denied GPS read block the SOS itself.
+    // Best-effort one-shot fix so the crew can actually find the person. The
+    // fix is bounded so it never delays the SOS: seed from the cached
+    // last-known position (returns instantly), then race a fresh reading
+    // against a 4s timeout and use whichever is freshest. The POST fires after
+    // the race regardless of outcome.
     let position: { lat: number; lng: number; accuracy?: number; capturedAt: string } | undefined;
     try {
       const perm = await Location.requestForegroundPermissionsAsync();
       if (perm.granted) {
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        position = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy ?? undefined,
-          capturedAt: new Date(pos.timestamp).toISOString(),
-        };
+        const seed = await Location.getLastKnownPositionAsync();
+        const fresh = await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).catch(() => null),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
+        ]);
+        const pos = fresh ?? seed;
+        if (pos) {
+          position = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy ?? undefined,
+            capturedAt: new Date(pos.timestamp).toISOString(),
+          };
+        }
       }
     } catch {
       // No location — still raise the SOS (the alert + push are the priority).
@@ -191,7 +204,7 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
     return (
       <View key={`${sos.userId}|${sos.raisedAt}`} style={styles.banner} accessible accessibilityRole="alert">
         <View style={styles.bannerHead}>
-          <Ionicons name="warning" size={22} color={t.colors.accent.coral} />
+          <Ionicons name="warning" size={t.iconSize.md} color={t.colors.accent.coral} />
           <Text style={styles.bannerTitle}>{isMine ? 'You raised an SOS' : `${sos.username} raised an SOS`}</Text>
         </View>
         <Text style={styles.bannerBody}>

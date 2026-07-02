@@ -188,6 +188,12 @@ export default function GridScreen() {
   const handleExport = useCallback(async () => {
     if (!currentFestival || sharing || !bounds) return;
     setSharing(true);
+    // The poster only mounts while `sharing` is true (it's otherwise ~950
+    // phantom off-screen Views). Wait two frames so React commits the poster and
+    // lays it out before captureRef looks up its native node.
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
     try {
       const uri = await captureRef(posterRef, {
         format: 'png',
@@ -294,6 +300,8 @@ export default function GridScreen() {
               ) : null}
               {overlap > 0 ? (
                 <View style={styles.overlapBadge}>
+                  {/* Sub-scale badge exception: iconSize.xs (12) overwhelms this
+                      tiny in-cell overlap pill (micro text, 1px vertical pad). */}
                   <Ionicons name="people" size={9} color={t.colors.accent.aqua} />
                   <Text style={styles.overlapCount}>{overlap}</Text>
                 </View>
@@ -410,7 +418,11 @@ export default function GridScreen() {
 
       {/* Off-screen export poster: a flat clone of the grid at explicit pixel
           dimensions. collapsable={false} keeps the View in the native tree so
-          react-native-view-shot can grab it on Android (matches wrap.tsx). */}
+          react-native-view-shot can grab it on Android (matches wrap.tsx). Only
+          mounted while sharing — otherwise it's a full phantom grid (~950 Views)
+          rendered on every screen paint. handleExport waits two frames after
+          setSharing(true) so this is committed + laid out before captureRef. */}
+      {sharing ? (
       <View
         ref={posterRef}
         collapsable={false}
@@ -441,6 +453,7 @@ export default function GridScreen() {
           <View style={styles.colsRow}>{visibleStages.map((st) => renderColumn(st, true))}</View>
         </View>
       </View>
+      ) : null}
     </View>
   );
 }

@@ -61,9 +61,11 @@ export default function Input({
             // surface, soft border, aqua focus ring, 16px body text (avoids the
             // iOS focus-zoom). Override the shared inputBase defaults.
             'rounded-xl bg-bg-card border-border text-base',
-            'focus-visible:ring-2 focus-visible:ring-accent-aqua',
+            // Standardize on the outline focus affordance used by Button/IconButton/AuthTabs;
+            // inputBase's own ring is inherited too, so cancel its width here.
+            'focus-visible:ring-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-aqua',
             isSearch && 'pl-10',
-            error && 'border-accent-coral focus-visible:border-accent-coral focus-visible:ring-coral-ring',
+            error && 'border-accent-coral focus-visible:border-accent-coral focus-visible:outline-accent-coral',
             className,
           )}
           {...props}

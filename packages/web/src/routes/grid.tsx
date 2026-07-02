@@ -2,13 +2,14 @@ import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { useFestivalStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
-import { resolveStageColor } from '@festie/shared/utils';
+import { resolveStageColor, resolveFestivalTimeZone, createDateInLocalFrame, zonedWallTimeToMs } from '@festie/shared/utils';
 import { RenderErrorBoundary } from '../components/layout/RouteErrorBoundary';
 import { getPxPerMin, getGutterW, toMin, fmtHour } from '../components/grid/gridUtils';
 import { useGridExport } from '../components/grid/useGridExport';
 import GridStageHeader from '../components/grid/GridStageHeader';
 import GridStageColumn from '../components/grid/GridStageColumn';
 import EmptyState from '../components/ui/EmptyState';
+import { useNow } from '../hooks/useSetStatus';
 import { CalendarX, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -124,23 +125,25 @@ function GridViewInner() {
     return out;
   }, [bounds, PX_PER_MIN]);
 
-  // Tick the "now" minute every 60 s so the indicator stays accurate. Reduced-
-  // motion: still ticks (positional accuracy isn't animation), but the bar's CSS
-  // pulse is already suppressed via motion-reduce:animate-none in the markup.
-  const [nowMin, setNowMin] = useState(() => {
-    const d = new Date();
-    return d.getHours() * 60 + d.getMinutes();
-  });
-  useEffect(() => {
-    const id = setInterval(() => {
-      const d = new Date();
-      setNowMin(d.getHours() * 60 + d.getMinutes());
-    }, 60_000);
-    return () => clearInterval(id);
-  }, []);
+  // Now-minute derived the same TZ-safe way timeline does (getSetTimeBounds'
+  // own primitives): minutes since local midnight of the SELECTED DAY, in the
+  // festival's zone when known. A raw `new Date().getHours()` read (the old
+  // approach) reads the DEVICE's wall clock, so a traveling user (device zone
+  // != festival zone) got a NOW bar offset by the zone delta.
+  const nowMs = useNow();
+  const timeZone = resolveFestivalTimeZone(currentFestival);
+  const selectedDayDate = days?.[selectedDay]?.date;
+  const nowMin = useMemo(() => {
+    if (!selectedDayDate) return null;
+    const dayStartMs = timeZone
+      ? zonedWallTimeToMs(selectedDayDate, 0, 0, timeZone)
+      : createDateInLocalFrame(selectedDayDate, 0, 0).getTime();
+    if (Number.isNaN(dayStartMs)) return null;
+    return Math.round((nowMs - dayStartMs) / 60_000);
+  }, [selectedDayDate, timeZone, nowMs]);
 
   const nowPx = useMemo(() => {
-    if (!bounds) return null;
+    if (!bounds || nowMin === null) return null;
     if (nowMin < bounds.lo || nowMin > bounds.hi) return null;
     return (nowMin - bounds.lo) * PX_PER_MIN;
   }, [bounds, PX_PER_MIN, nowMin]);

@@ -6,7 +6,7 @@ import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/sto
 import { artistDisplayName, formatTime, pickActiveMeetingPoint, buildSlots } from '@festie/shared/utils';
 import { PRIORITY_LABEL } from '@festie/shared/constants';
 import type { FestivalDay, FestivalSet, Profile } from '@festie/shared/types';
-import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useTokens, makeStyles, typeStyle, iconSize, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
 import { useNow } from '../hooks/useNow';
 import FreshnessChip from '../components/FreshnessChip';
@@ -77,7 +77,7 @@ export default function CrewPlanScreen() {
         {/* Active meeting point */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="location" size={18} color={t.colors.accent.coral} />
+            <Ionicons name="location" size={iconSize.action} color={t.colors.accent.coral} />
             <Text style={styles.cardTitle}>Meet up</Text>
           </View>
           {meetingPoint ? (
@@ -102,7 +102,7 @@ export default function CrewPlanScreen() {
         {/* Crew home base */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="home" size={18} color={t.colors.accent.aqua} />
+            <Ionicons name="home" size={iconSize.action} color={t.colors.accent.aqua} />
             <Text style={styles.cardTitle}>Home base</Text>
           </View>
           {activeCrew.homeBaseLocation || activeCrew.homeBaseTime ? (
@@ -120,7 +120,7 @@ export default function CrewPlanScreen() {
         {/* Who's seeing what next */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="time" size={18} color={t.colors.accent.amber} />
+            <Ionicons name="time" size={iconSize.action} color={t.colors.accent.amber} />
             <Text style={styles.cardTitle}>Up next</Text>
           </View>
           {slotsWithPicks.length === 0 ? (
@@ -133,12 +133,14 @@ export default function CrewPlanScreen() {
                   {slot.picks.map((p) => (
                     <View key={p.memberId} style={styles.pickRow}>
                       <View style={styles.priorityBadge}>
-                        <Text style={styles.priorityText}>{PRIORITY_LABEL[p.priority]}</Text>
+                        <Text style={styles.priorityText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+                          {PRIORITY_LABEL[p.priority]}
+                        </Text>
                       </View>
                       <Text style={styles.pickMember} numberOfLines={1}>
                         {p.memberName}
                       </Text>
-                      <Ionicons name="arrow-forward" size={12} color={t.colors.text.secondary} />
+                      <Ionicons name="arrow-forward" size={iconSize.xs} color={t.colors.text.secondary} />
                       <Text style={styles.pickSet} numberOfLines={1}>
                         {artistDisplayName(p.set)}
                       </Text>
@@ -217,7 +219,7 @@ const useStyles = makeStyles((t) => ({
   },
   priorityBadge: {
     paddingHorizontal: t.spacing[2],
-    paddingVertical: 1,
+    paddingVertical: t.spacing[1],
     borderRadius: t.radii.pill,
     backgroundColor: t.colors.amberAlpha[12],
   },

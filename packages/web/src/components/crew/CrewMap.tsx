@@ -599,7 +599,7 @@ export default function CrewMap({
             <button
               type="button"
               onClick={clearPursue}
-              className="shrink-0 rounded p-1 text-text-muted hover:text-text-primary"
+              className="shrink-0 rounded p-1 min-h-11 min-w-11 inline-flex items-center justify-center text-text-muted hover:text-text-primary"
               aria-label="Stop pursuing"
             >
               <X className="w-4 h-4" aria-hidden="true" />
@@ -619,7 +619,7 @@ export default function CrewMap({
                 key={type}
                 type="button"
                 onClick={() => pursueNearest(type, label)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-bg-secondary px-2.5 py-1 text-xs text-text-secondary hover:border-accent-aqua hover:text-text-primary"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-bg-secondary px-2.5 py-1 min-h-11 text-xs text-text-secondary hover:border-accent-aqua hover:text-text-primary"
                 aria-label={`Find and pursue the nearest ${label}`}
               >
                 <span aria-hidden="true">{glyph}</span>
@@ -649,7 +649,7 @@ export default function CrewMap({
                   })
                 }
                 aria-pressed={on}
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 min-h-11 text-xs ${
                   on
                     ? 'border-accent-aqua bg-accent-aqua/10 text-text-primary'
                     : 'border-border bg-bg-secondary text-text-muted'

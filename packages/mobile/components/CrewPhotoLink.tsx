@@ -135,7 +135,7 @@ export default function CrewPhotoLink({ crewId, photoAlbumUrl }: CrewPhotoLinkPr
         accessibilityRole="button"
         accessibilityLabel="Open crew photo album"
       >
-        <Ionicons name="open-outline" size={14} color={t.colors.accent.aqua} />
+        <Ionicons name="open-outline" size={t.iconSize.compact} color={t.colors.accent.aqua} />
         <Text style={styles.actionText}>Open</Text>
       </TouchableOpacity>
       <TouchableOpacity
@@ -145,7 +145,7 @@ export default function CrewPhotoLink({ crewId, photoAlbumUrl }: CrewPhotoLinkPr
         accessibilityRole="button"
         accessibilityLabel="Edit crew photo album link"
       >
-        <Ionicons name="pencil" size={14} color={t.colors.text.secondary} />
+        <Ionicons name="pencil" size={t.iconSize.compact} color={t.colors.text.secondary} />
       </TouchableOpacity>
     </View>
   );

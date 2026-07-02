@@ -219,7 +219,7 @@ function TimelineViewInner() {
         {/* R11 — full-height content wrapper so the beam's % height resolves
             against scroll content, not the viewport. The beam fills top→current
             scroll position in the left gutter. */}
-        <div className="timeline-content relative min-h-full">
+        <div className="timeline-content relative min-h-full max-w-[1440px] mx-auto">
           <div className="timeline-beam" aria-hidden="true" />
           <div className="sticky top-0 z-20 bg-bg-sticky shadow-sticky [backdrop-filter:saturate(140%)_blur(8px)]">
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -272,14 +272,14 @@ function TimelineViewInner() {
                 'lg:bottom-6',
                 'inline-flex items-center gap-1.5',
                 'px-3.5 py-2.5 rounded-full',
-                'bg-[var(--color-accent-coral)]',
-                'text-[var(--color-bg-primary)]',
+                'bg-accent-aqua',
+                'text-[var(--text-on-light-accent)]',
                 'border-none text-[length:var(--font-size-13)] font-bold tracking-[var(--letter-spacing-caps)]',
                 'cursor-pointer z-30 min-h-11',
-                'shadow-[var(--shadow-glow-coral),0_1px_3px_rgba(0,0,0,0.25)]',
+                'shadow-[var(--shadow-glow-aqua),0_1px_3px_rgba(0,0,0,0.25)]',
                 'transition-[transform,box-shadow] duration-150',
                 'ease-out',
-                'hover:shadow-[0_8px_24px_rgba(255,51,102,0.45),0_1px_4px_rgba(0,0,0,0.3)]',
+                'hover:shadow-[0_8px_24px_rgba(0,232,208,0.45),0_1px_4px_rgba(0,0,0,0.3)]',
                 'active:scale-[0.96]',
               )}
               aria-label="Scroll to current time"

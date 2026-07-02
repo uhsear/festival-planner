@@ -23,8 +23,8 @@ interface StageBadgeProps {
 // role (10px / 600 / 0.08em caps) at spacing[2]/spacing[1] padding.
 const VARIANT_CLASS: Record<StageBadgeVariant, string> = {
   chip: 'inline-flex items-center rounded-full px-3 py-2 text-xs font-semibold cursor-pointer border-2 border-transparent transition-[color,background-color,border-color,box-shadow] duration-200',
-  pick: 'inline-block rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em]',
-  default: 'inline-block rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em]',
+  pick: 'type-micro inline-block rounded-full px-2 py-1',
+  default: 'type-micro inline-block rounded-full px-2 py-1',
 };
 
 // --- WCAG 2.2 contrast helpers (SC 1.4.3) ---

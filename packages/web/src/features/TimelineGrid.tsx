@@ -149,6 +149,11 @@ export default function TimelineGrid({
     return m;
   }, [timedSets, getOtherPicks]);
 
+  // Single source of truth for the gutter width — the now-line offset below
+  // must match this exactly, or it starts inside the first column instead of
+  // at its edge.
+  const gutterW = vpW <= 430 ? 42 : 70;
+
   return (
     <div
       ref={gridRef}
@@ -157,7 +162,7 @@ export default function TimelineGrid({
       aria-label="Timeline view of festival sets by stage and time"
       data-day={selectedDay}
       style={{
-        gridTemplateColumns: `${vpW <= 430 ? '42px' : '70px'} repeat(${visibleStages.length}, minmax(${vpW <= 430 ? '100px' : '140px'}, 1fr))`,
+        gridTemplateColumns: `${gutterW}px repeat(${visibleStages.length}, minmax(${vpW <= 430 ? '100px' : '140px'}, 1fr))`,
         gridTemplateRows: `auto repeat(${timeBounds.totalSlots}, ${rowHeight}px)`,
       }}
     >
@@ -251,14 +256,13 @@ export default function TimelineGrid({
           className={cn(
             'timeline-now-label',
             'absolute right-0 h-[3px]',
-            'left-[56px] sm:left-[70px] lg:left-[84px] min-[1440px]:left-[96px]',
             'bg-[var(--color-accent-coral)]',
             'z-[8] pointer-events-none',
             'shadow-[0_0_12px_rgba(var(--accent-coral-rgb),0.75)]',
             'transition-[top] duration-[900ms] ease-out',
             'motion-reduce:!transition-none',
           )}
-          style={{ top: `calc(${nowIndicator}% + 38px)` }}
+          style={{ top: `calc(${nowIndicator}% + 38px)`, left: gutterW }}
         >
           <div
             className={cn(

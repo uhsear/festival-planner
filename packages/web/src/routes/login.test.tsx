@@ -60,8 +60,10 @@ describe('LoginPage', () => {
 
   it('renders Sign in and Create Account tabs', () => {
     render(<LoginPage />);
-    expect(screen.getByRole('tab', { name: 'Sign in' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Create Account' })).toBeInTheDocument();
+    // Both auth-method segments are nav links now; "Sign in" also appears on the
+    // submit button, so scope to the link role.
+    expect(screen.getByRole('link', { name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Create Account' })).toBeInTheDocument();
   });
 
   it('renders username and password inputs', () => {

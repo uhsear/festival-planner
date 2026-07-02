@@ -128,6 +128,8 @@ export default function AccountDangerSection({ onDeleted }: AccountDangerSection
             autoComplete="current-password"
             textContentType="password"
             editable={!submitting}
+            returnKeyType="done"
+            onSubmitEditing={confirmDelete}
             accessibilityLabel="Account password to confirm deletion"
           />
 

@@ -4,7 +4,7 @@ import '../bootstrap';
 import { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
+import { Stack, useRouter, useSegments, useRootNavigationState, router as globalRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { configureApi, setAuthToken } from '@festie/shared/services';
@@ -89,6 +89,17 @@ configureApi({
   },
 });
 
+// Route a tapped notification's data payload to its deep-link target. Shared by
+// the warm-tap listener and the cold-start useLastNotificationResponse handler
+// so both paths route identically.
+function routeNotification(r: ReturnType<typeof useRouter>, data: Record<string, unknown> | undefined) {
+  if (typeof data?.deepLink === 'string') {
+    r.push(data.deepLink as any);
+  } else if (typeof data?.setId === 'string') {
+    r.push(`/set/${data.setId}`);
+  }
+}
+
 function AuthGate() {
   const user = useAuthStore((s) => s.user);
   const isAdmin = useAuthStore((s) => s.isAdmin);
@@ -160,19 +171,38 @@ function AuthGate() {
   // screen. The data payload from FCM/APNs includes a `deepLink` or `setId`
   // field that maps to an expo-router path.
   const notificationResponseRef = useRef<Notifications.Subscription | null>(null);
+  // Identifier of the last notification response we've routed. Shared across the
+  // warm listener and the cold-start effect below so a single tap can't route
+  // twice (both paths observe the same response for a warm tap).
+  const handledResponseRef = useRef<string | null>(null);
   useEffect(() => {
     notificationResponseRef.current = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      if (data?.deepLink && typeof data.deepLink === 'string') {
-        router.push(data.deepLink as any);
-      } else if (data?.setId && typeof data.setId === 'string') {
-        router.push(`/set/${data.setId}`);
-      }
+      handledResponseRef.current = response.notification.request.identifier;
+      routeNotification(router, response.notification.request.content.data);
     });
     return () => {
       notificationResponseRef.current?.remove();
     };
   }, [router]);
+
+  // COLD-START PUSH: a notification tapped while the app was KILLED is delivered
+  // as the *launching* response via useLastNotificationResponse — the runtime
+  // listener above mounts after launch and never sees it. Route it once the
+  // navigator is ready (navState.key + rAF, same gating as the AuthGate redirect
+  // effect), guarding against handling the same response twice.
+  const lastNotificationResponse = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    if (!navState?.key) return;
+    if (!lastNotificationResponse) return;
+    const id = lastNotificationResponse.notification.request.identifier;
+    if (handledResponseRef.current === id) return;
+    const data = lastNotificationResponse.notification.request.content.data;
+    const raf = requestAnimationFrame(() => {
+      handledResponseRef.current = id;
+      routeNotification(router, data);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [lastNotificationResponse, navState?.key, router]);
 
   // M1: pre-computed on-device set reminders. Reconciles local notifications
   // whenever picks/reminders change (fires even in airplane mode); FCM stays the
@@ -289,7 +319,10 @@ function AuthGate() {
       {!loading && <OfflineBanner onActiveChange={setBannerActive} />}
       <TopBannerContext.Provider value={bannerActive}>
         <View style={styles.appShell}>
-          <ErrorBoundary>
+          {/* Use expo-router's global router singleton (not the local useRouter
+              instance): the root boundary sits OUTSIDE the Stack, so it must
+              navigate imperatively rather than via router context. */}
+          <ErrorBoundary onEscape={() => globalRouter.replace('/(tabs)')}>
           {/*
             Default headerShown:false — tabs/auth manage their own chrome. But
             several pushed routes (map, compass, plan-share, crew-plan,

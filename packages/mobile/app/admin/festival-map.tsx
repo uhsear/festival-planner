@@ -34,7 +34,7 @@ import type { AmenityType, Festival, FestivalMapConfig, Stage } from '@festie/sh
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
 import SectionLabel from '../../components/SectionLabel';
-import { LabeledTextInput } from '../../components/admin';
+import { ConfirmDialog, LabeledTextInput } from '../../components/admin';
 import OfflineMap from '../../components/OfflineMap';
 import type { AuthoringMode } from '../../lib/webviewBridge';
 import { makeStyles, typeStyle, useTokens } from '../../hooks/useTokens';
@@ -135,6 +135,19 @@ export default function FestivalMapEditorScreen() {
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Dirty flag: flipped by the geo edit handlers only (never by the initial
+  // load hydration), so Cancel can tell an untouched map from one with
+  // unsaved pin/zone/amenity/siteplan edits. Simplest honest signal — no deep compare.
+  const [touched, setTouched] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const updateStages = useCallback((updater: (prev: StageEdit[]) => StageEdit[]) => {
+    setTouched(true);
+    setStages(updater);
+  }, []);
+  const updateMapConfig = useCallback((updater: (prev: FestivalMapConfig | null) => FestivalMapConfig | null) => {
+    setTouched(true);
+    setMapConfig(updater);
+  }, []);
   const [armed, setArmed] = useState<ArmedTarget>(null);
   // New-amenity label buffer (used when an amenity target is armed).
   const [amenityLabel, setAmenityLabel] = useState('');
@@ -264,18 +277,18 @@ export default function FestivalMapEditorScreen() {
       }
       if (armed.kind === 'stage') {
         const next = stageCoordFromTap(coord);
-        setStages((prev) =>
+        updateStages((prev) =>
           prev.map((s) => (s.id === armed.stageId ? { ...s, latitude: next.latitude, longitude: next.longitude } : s)),
         );
       } else {
         const feature = buildAmenityFeature(coord, armed.amenityType, amenityLabel);
-        if (feature) setMapConfig((prev) => appendAmenity(prev, feature));
+        if (feature) updateMapConfig((prev) => appendAmenity(prev, feature));
         setAmenityLabel('');
       }
       // One-shot: disarm after a placement (matches the WebView's one-shot tap).
       setArmed(null);
     },
-    [armed, amenityLabel],
+    [armed, amenityLabel, updateStages, updateMapConfig],
   );
 
   const armStage = (stageId: string) =>
@@ -286,8 +299,8 @@ export default function FestivalMapEditorScreen() {
     );
 
   const clearStagePin = (stageId: string) =>
-    setStages((prev) => prev.map((s) => (s.id === stageId ? { ...s, latitude: null, longitude: null } : s)));
-  const removeAmenityById = (amenityId: string) => setMapConfig((prev) => removeAmenity(prev, amenityId));
+    updateStages((prev) => prev.map((s) => (s.id === stageId ? { ...s, latitude: null, longitude: null } : s)));
+  const removeAmenityById = (amenityId: string) => updateMapConfig((prev) => removeAmenity(prev, amenityId));
 
   // ── Zone drawing controls ───────────────────────────────────────────────────
   const startZone = () => {
@@ -301,12 +314,12 @@ export default function FestivalMapEditorScreen() {
   };
   const finishZone = () => {
     const feature = buildZoneFeature(draftVertices, { color: zoneColor, label: zoneLabel });
-    if (feature) setMapConfig((prev) => appendZone(prev, feature));
+    if (feature) updateMapConfig((prev) => appendZone(prev, feature));
     setDraftVertices([]);
     setZoneLabel('');
     setArmed(null);
   };
-  const removeZoneById = (zoneId: string) => setMapConfig((prev) => removeZone(prev, zoneId));
+  const removeZoneById = (zoneId: string) => updateMapConfig((prev) => removeZone(prev, zoneId));
 
   // ── Site-plan overlay controls (Phase 4B) ──────────────────────────────────
   // The committed site plan (corners + url + opacity), if any. The URL is an
@@ -321,7 +334,7 @@ export default function FestivalMapEditorScreen() {
   // Re-commit a site plan through the shared validator; no-op if it doesn't build.
   const recommitSiteplan = (url: string, corners: Vertex[], opacity: number) => {
     const sp = buildSiteplan(url, corners, opacity);
-    if (sp) setMapConfig((prev) => setSiteplan(prev, sp));
+    if (sp) updateMapConfig((prev) => setSiteplan(prev, sp));
     return !!sp;
   };
   const startSiteplanCorners = () => {
@@ -352,7 +365,7 @@ export default function FestivalMapEditorScreen() {
     if (committedSiteplan) recommitSiteplan(committedSiteplan.imageUrl, cornersToLatLng(committedSiteplan.corners), op);
   };
   const removeSiteplanOverlay = () => {
-    setMapConfig((prev) => removeSiteplan(prev));
+    updateMapConfig((prev) => removeSiteplan(prev));
     setDraftCorners([]);
     setArmed((prev) => (prev?.kind === 'siteplan' ? null : prev));
   };
@@ -856,7 +869,7 @@ export default function FestivalMapEditorScreen() {
 
           <View style={styles.actions}>
             <TouchableOpacity
-              onPress={goBack}
+              onPress={() => (touched ? setShowCancelConfirm(true) : goBack())}
               style={[styles.actionBtn, styles.cancelBtn]}
               activeOpacity={0.7}
               disabled={saving}
@@ -880,6 +893,19 @@ export default function FestivalMapEditorScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <ConfirmDialog
+        visible={showCancelConfirm}
+        title="Discard changes?"
+        message="You have unsaved map edits. Leaving now discards them."
+        confirmLabel="Discard"
+        destructive
+        onConfirm={() => {
+          setShowCancelConfirm(false);
+          goBack();
+        }}
+        onCancel={() => setShowCancelConfirm(false)}
+      />
     </View>
   );
 }

@@ -106,9 +106,9 @@ function FestivalModeViewInner() {
       data-testid="festival-mode-view"
     >
       <div className="flex justify-between items-baseline mb-5 gap-2">
-        <div className="text-2xl font-bold font-display tracking-[0.06em] text-text-primary min-w-0 truncate">
+        <h1 className="text-2xl font-bold font-display tracking-[0.06em] text-text-primary min-w-0 truncate">
           {currentFestival.name}
-        </div>
+        </h1>
         <div className="flex items-center gap-2 flex-shrink-0">
           <LowPowerIndicator />
           <div className="text-base text-text-secondary tabular-nums" aria-label="Current time">

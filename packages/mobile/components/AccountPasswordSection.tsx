@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@festie/shared/hooks';
+import { colors } from '@festie/shared/tokens';
 import Button from './Button';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
@@ -15,7 +16,8 @@ import { passwordStrength } from '../lib/accountFormat';
  * The shared method is fully platform-neutral, so this is just the UI: two
  * secure fields, an 8-char minimum check, in-flight spinner, and inline errors.
  */
-const STRENGTH_COLORS = ['#f87171', '#ffb020', '#00e8d0', '#39ff14'] as const; // weak→strong
+// weak→strong. All four map exactly onto existing semantic tokens.
+const STRENGTH_COLORS = [colors.text.danger, colors.accent.amber, colors.accent.aqua, colors.accent.green] as const;
 
 export default function AccountPasswordSection() {
   const t = useTokens();

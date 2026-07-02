@@ -133,7 +133,7 @@ export default function ClashPrompt({ currentSet, conflicts, b2bSeparator, getPr
         const card = (
           <View style={styles.card} accessibilityRole="alert">
             <View style={styles.header}>
-              <Ionicons name="alert-circle" size={16} color={t.colors.accent.coral} />
+              <Ionicons name="alert-circle" size={t.iconSize.sm} color={t.colors.accent.coral} />
               <Text style={styles.title} maxFontSizeMultiplier={MAX_FONT_SCALE}>
                 {title}
               </Text>
@@ -232,9 +232,11 @@ const useStyles = makeStyles((t) => ({
   keepButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: t.spacing[1],
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[2],
+    minHeight: 44,
     borderRadius: t.radii.pill,
     borderWidth: 1,
     borderColor: t.colors.accent.aqua,
@@ -250,6 +252,8 @@ const useStyles = makeStyles((t) => ({
   dismissButton: {
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[2],
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: t.radii.pill,
   },
   dismissText: {

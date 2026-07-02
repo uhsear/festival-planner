@@ -571,7 +571,7 @@ export default function AdminCrewsScreen() {
 
       {/* Destructive confirm — gates delete-crew / force-logout / archive. */}
       <ConfirmDialog
-        visible={!!confirm}
+        visible={!!confirm && !busy}
         title={confirm?.title || ''}
         message={confirm?.message || ''}
         confirmLabel={

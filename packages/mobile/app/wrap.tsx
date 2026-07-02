@@ -9,7 +9,7 @@ import { api } from '@festie/shared/services';
 import { useFestivalDataStore, useCrewStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
 import { isFestivalOver } from '@festie/shared/utils';
-import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens, iconSize, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useSharedValue, withTiming, Easing, useDerivedValue, runOnJS } from 'react-native-reanimated';
 import EmptyState from '../components/EmptyState';
@@ -204,7 +204,7 @@ export default function WrapScreen() {
       >
         <View style={styles.headerBlock}>
           <View style={styles.kicker}>
-            <Ionicons name="sparkles" size={14} color={t.colors.accent.aqua} />
+            <Ionicons name="sparkles" size={iconSize.compact} color={t.colors.accent.aqua} />
             <Text style={styles.kickerText}>Your Festival Wrap</Text>
           </View>
           <Text style={styles.festivalName}>{currentFestival.name}</Text>
@@ -314,7 +314,9 @@ export default function WrapScreen() {
             accessibilityRole="tab"
             accessibilityState={{ selected: tab === 'me' }}
           >
-            <Text style={[styles.tabText, tab === 'me' && styles.tabTextActive]}>You</Text>
+            <Text style={[styles.tabText, tab === 'me' && styles.tabTextActive]} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              You
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, tab === 'crew' && styles.tabActive]}
@@ -322,7 +324,12 @@ export default function WrapScreen() {
             accessibilityRole="tab"
             accessibilityState={{ selected: tab === 'crew' }}
           >
-            <Text style={[styles.tabText, tab === 'crew' && styles.tabTextActive]}>Crew wrap</Text>
+            <Text
+              style={[styles.tabText, tab === 'crew' && styles.tabTextActive]}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+            >
+              Crew wrap
+            </Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -589,7 +596,7 @@ function CrewWrapTab({
       >
         <View style={styles.headerBlock}>
           <View style={styles.kicker}>
-            <Ionicons name="people" size={14} color={t.colors.accent.aqua} />
+            <Ionicons name="people" size={iconSize.compact} color={t.colors.accent.aqua} />
             <Text style={styles.kickerText}>Crew Wrap</Text>
           </View>
           <Text style={styles.festivalName}>{crewName}</Text>
@@ -816,7 +823,8 @@ const useStyles = makeStyles((t) => ({
   },
   topMeta: {
     ...typeStyle('micro'),
-    color: t.colors.text.muted,
+    // Load-bearing (rank + stage name), not decorative — bumped from muted for contrast.
+    color: t.colors.text.secondary,
   },
   topArtist: {
     ...typeStyle('label'),
@@ -845,7 +853,8 @@ const useStyles = makeStyles((t) => ({
   },
   allStage: {
     ...typeStyle('micro'),
-    color: t.colors.text.muted,
+    // Load-bearing (stage name), not decorative — bumped from muted for contrast.
+    color: t.colors.text.secondary,
   },
   shareButton: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 import { Modal, View, Text, TouchableOpacity, Pressable } from 'react-native';
-import { makeStyles, typeStyle } from '../../hooks/useTokens';
+import { makeStyles, typeStyle, MAX_FONT_SCALE } from '../../hooks/useTokens';
 
 /**
  * Reusable destructive-confirm dialog for the admin surface.
@@ -75,7 +75,7 @@ export default function ConfirmDialog({
               <Text
                 style={destructive ? styles.confirmDangerLabel : styles.confirmPrimaryLabel}
                 numberOfLines={1}
-                maxFontSizeMultiplier={1.4}
+                maxFontSizeMultiplier={MAX_FONT_SCALE}
               >
                 {confirmLabel}
               </Text>

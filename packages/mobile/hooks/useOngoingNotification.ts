@@ -82,6 +82,17 @@ async function cancelOngoing(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(ONGOING_ID).catch(() => {});
 }
 
+// expo-widgets has no clearSnapshot/reset API (Widget only exposes
+// updateSnapshot/updateTimeline/reload) — the least-surprise way to un-stick a
+// stale "Now: X" on the home-screen widget is to push a neutral placeholder.
+function clearWidgetSnapshot(): void {
+  try {
+    NowNextWidgetInstance.updateSnapshot({ title: 'Festie', subtitle: 'Open the app to plan your sets' });
+  } catch {
+    // Never let a widget-timeline failure surface to the user.
+  }
+}
+
 /**
  * Mounts the ongoing-notification lifecycle. Call once from the festival/live
  * screen. Returns nothing — its effect is the Android notification.
@@ -209,6 +220,10 @@ export function useOngoingNotification(enabled: boolean = true): void {
       }
     } else {
       endLiveActivity();
+      // Covers festival end, logout, and account switch: model.active/currentFestival
+      // goes falsy while this effect is still mounted, so the stale "Now: X" snapshot
+      // must be cleared here too, not just on unmount.
+      clearWidgetSnapshot();
     }
   }, [enabled, currentFestival, model, sets, days]);
 
@@ -217,7 +232,10 @@ export function useOngoingNotification(enabled: boolean = true): void {
   useEffect(() => {
     return () => {
       void cancelOngoing();
-      if (Platform.OS === 'ios') endLiveActivity();
+      if (Platform.OS === 'ios') {
+        endLiveActivity();
+        clearWidgetSnapshot();
+      }
     };
   }, []);
 }

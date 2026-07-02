@@ -239,7 +239,7 @@ export default function CrewMeetingPoints({
               accessibilityRole="button"
               accessibilityLabel="Cancel new meeting point"
             >
-              <Ionicons name="close" size={18} color={t.colors.text.secondary} />
+              <Ionicons name="close" size={t.iconSize.action} color={t.colors.text.secondary} />
             </TouchableOpacity>
           </View>
           <View style={styles.typeGrid}>
@@ -387,7 +387,7 @@ export default function CrewMeetingPoints({
                   <Text style={styles.pointType}>{typeLabel(point.type)}</Text>
                   {point.recurs_daily ? (
                     <View style={styles.recurBadge} accessibilityLabel="Repeats daily">
-                      <Ionicons name="repeat" size={11} color={t.colors.accent.aqua} />
+                      <Ionicons name="repeat" size={t.iconSize.xs} color={t.colors.accent.aqua} />
                       <Text style={styles.recurBadgeText}>Daily</Text>
                     </View>
                   ) : null}
@@ -417,7 +417,7 @@ export default function CrewMeetingPoints({
                   accessibilityRole="button"
                   accessibilityLabel={`Directions to ${point.label}`}
                 >
-                  <Ionicons name="navigate-outline" size={18} color={t.colors.accent.aqua} />
+                  <Ionicons name="navigate-outline" size={t.iconSize.action} color={t.colors.accent.aqua} />
                 </TouchableOpacity>
                 {canRemove ? (
                   <>
@@ -428,7 +428,7 @@ export default function CrewMeetingPoints({
                       accessibilityRole="button"
                       accessibilityLabel={`Edit meeting point ${point.label}`}
                     >
-                      <Ionicons name="create-outline" size={18} color={t.colors.accent.aqua} />
+                      <Ionicons name="create-outline" size={t.iconSize.action} color={t.colors.accent.aqua} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleRemove(point)}
@@ -437,7 +437,7 @@ export default function CrewMeetingPoints({
                       accessibilityRole="button"
                       accessibilityLabel={`Remove meeting point ${point.label}`}
                     >
-                      <Ionicons name="trash-outline" size={18} color={t.colors.text.danger} />
+                      <Ionicons name="trash-outline" size={t.iconSize.action} color={t.colors.text.danger} />
                     </TouchableOpacity>
                   </>
                 ) : null}

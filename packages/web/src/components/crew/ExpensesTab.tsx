@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@festie/shared';
 import { useCrewStore } from '@festie/shared/stores';
@@ -15,6 +15,7 @@ import ExpenseItem from './ExpenseItem';
 import { DollarSign, Plus, HandCoins, X } from 'lucide-react';
 import IconButton from '../ui/IconButton';
 import { useAnimatedNumber } from '../../hooks/useAnimatedNumber';
+import { useRovingTabs } from '@/hooks/useRovingTabs';
 
 interface RawExpense {
   id: string;
@@ -73,6 +74,10 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
   // Settle-up view. 'simplified' = the netted greedy min-cash-flow plan (fewest
   // transfers, never a stranger-to-pay); 'raw' = every member's gross net balance.
   const [settleView, setSettleView] = useState<'simplified' | 'raw'>('simplified');
+  const filterTablistRef = useRef<HTMLDivElement>(null);
+  const settleTablistRef = useRef<HTMLDivElement>(null);
+  useRovingTabs(filterTablistRef);
+  useRovingTabs(settleTablistRef);
 
   const {
     data: expenses = [],
@@ -232,6 +237,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
       {/* 'Planned' is the budget/forecast view. */}
       {expenses.length > 0 && (
         <div
+          ref={filterTablistRef}
           role="tablist"
           aria-label="Filter expenses"
           className="flex gap-1 p-1 rounded-lg bg-bg-card border border-border"
@@ -264,6 +270,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs text-text-muted uppercase tracking-wide">Settle up</div>
             <div
+              ref={settleTablistRef}
               role="tablist"
               aria-label="Settle-up view"
               className="flex gap-1 p-0.5 rounded-md bg-bg-secondary border border-border"
@@ -277,7 +284,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
                   aria-controls="settle-view-panel"
                   onClick={() => setSettleView(v)}
                   className={cn(
-                    'px-2.5 py-1 rounded text-[11px] font-medium capitalize',
+                    'min-h-11 px-2.5 py-1 rounded text-[11px] font-medium capitalize',
                     settleView === v
                       ? 'bg-accent-aqua/15 text-accent-aqua'
                       : 'text-text-secondary hover:text-text-primary',

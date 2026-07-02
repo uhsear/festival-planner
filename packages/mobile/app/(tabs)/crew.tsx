@@ -6,9 +6,7 @@ import {
   TouchableOpacity,
   FlatList,
   ScrollView,
-  KeyboardAvoidingView,
   Keyboard,
-  Platform,
   Alert,
   ActivityIndicator,
   RefreshControl,
@@ -539,7 +537,12 @@ export default function CrewScreen() {
   // No active crew: show create / join forms.
   if (!activeCrew) {
     return (
-      <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      // KAV is dropped: behavior='padding' is a no-op on Android and
+      // behavior='height' doesn't scroll the focused field into view when it's
+      // deep in the list. automaticallyAdjustKeyboardInsets on the scroll
+      // container handles both platforms correctly (same pattern as
+      // account.tsx / app/set/[setId].tsx).
+      <View style={styles.screen}>
         <ScreenHeader title="Crew" subtitle="Coordinate with friends" icon="people" />
         <ScrollView
           style={styles.flex1}
@@ -547,6 +550,7 @@ export default function CrewScreen() {
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
         >
           <EmptyState
             icon="people-outline"
@@ -630,7 +634,7 @@ export default function CrewScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     );
   }
 
@@ -673,7 +677,12 @@ export default function CrewScreen() {
   );
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    // KAV is dropped: behavior='padding' is a no-op on Android and
+    // behavior='height' doesn't scroll the focused field into view when it's
+    // deep in the list (totem editor / force-add / expense inputs).
+    // automaticallyAdjustKeyboardInsets on each scroll body handles both
+    // platforms correctly (same pattern as account.tsx / app/set/[setId].tsx).
+    <View style={styles.screen}>
       <ScreenHeader
         title={crew.name}
         subtitle={`${members.length} ${members.length === 1 ? 'member' : 'members'}`}
@@ -703,6 +712,20 @@ export default function CrewScreen() {
         <View style={styles.crewMetaRow}>
           <UpdatedAgoBadge surface="crew" />
           <LowPowerIndicator />
+          {/* Always-visible SOS entry: the full SOS panel lives in the Logistics
+              tab, so this chip jumps there rather than duplicating the raise
+              flow — safety must be reachable from every crew tab. */}
+          <TouchableOpacity
+            testID="crew-action-sos"
+            style={styles.sosChip}
+            onPress={() => setCrewTab('logistics')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Open crew safety to send an SOS"
+          >
+            <Ionicons name="alert-circle" size={t.iconSize.compact} color={t.colors.text.onAccent} />
+            <Text style={styles.sosChipText} maxFontSizeMultiplier={MAX_FONT_SCALE}>SOS</Text>
+          </TouchableOpacity>
         </View>
 
         {crew.inviteCode ? (
@@ -794,6 +817,7 @@ export default function CrewScreen() {
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
           refreshControl={crewRefreshControl}
           renderItem={({ item }) => {
             const rowIsOwner = item.role === 'owner' || item.userId === crew.owner;
@@ -1040,6 +1064,7 @@ export default function CrewScreen() {
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
         >
           {/* Everyday primary: the offline-native "what's my crew's plan"
               digest. Emphasized (aqua-tinted fill + border) so the most-used
@@ -1160,7 +1185,7 @@ export default function CrewScreen() {
             <SectionLabel>Polls</SectionLabel>
             {openPollCount > 0 ? (
               <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{openPollCount}</Text>
+                <Text style={styles.countBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{openPollCount}</Text>
               </View>
             ) : null}
           </View>
@@ -1174,14 +1199,14 @@ export default function CrewScreen() {
             {packingDone ? (
               <View style={styles.donePill} accessibilityLabel="All packing items claimed">
                 <Ionicons name="checkmark" size={12} color={t.colors.accent.aqua} />
-                <Text style={styles.donePillText}>All packed</Text>
+                <Text style={styles.donePillText} maxFontSizeMultiplier={MAX_FONT_SCALE}>All packed</Text>
               </View>
             ) : packingLeft > 0 ? (
               <View
                 style={styles.countBadge}
                 accessibilityLabel={`${packingLeft} packing ${packingLeft === 1 ? 'item' : 'items'} unclaimed`}
               >
-                <Text style={styles.countBadgeText}>{packingLeft}</Text>
+                <Text style={styles.countBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{packingLeft}</Text>
               </View>
             ) : null}
           </View>
@@ -1194,7 +1219,7 @@ export default function CrewScreen() {
                 style={styles.countBadge}
                 accessibilityLabel={`${rideCount} ${rideCount === 1 ? 'ride' : 'rides'} on the board`}
               >
-                <Text style={styles.countBadgeText}>{rideCount}</Text>
+                <Text style={styles.countBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{rideCount}</Text>
               </View>
             ) : null}
           </View>
@@ -1208,6 +1233,7 @@ export default function CrewScreen() {
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
         >
           {/* DC2: SOS must be reachable without any scroll — top of the pane,
               always visible the instant the Find tab opens. */}
@@ -1286,6 +1312,7 @@ export default function CrewScreen() {
           refreshControl={crewRefreshControl}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
         >
           <View style={styles.sectionLabelRow}>
             <SectionLabel>Expenses</SectionLabel>
@@ -1296,7 +1323,7 @@ export default function CrewScreen() {
           <CrewExpenses crewId={crew.id} members={members} currentUserId={user.id} />
         </ScrollView>
       )}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -1332,6 +1359,24 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: t.spacing[2],
+  },
+  // Compact always-visible SOS entry, right-aligned in the header meta row.
+  // coralStrong bg + white text mirrors the Button danger pattern; jumps to the
+  // Logistics tab where the full CrewSos panel renders.
+  sosChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    marginLeft: 'auto',
+    paddingHorizontal: t.spacing[3],
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: t.radii.default,
+    backgroundColor: t.colors.accent.coralStrong,
+  },
+  sosChipText: {
+    ...typeStyle('label', 700),
+    color: t.colors.text.onAccent,
   },
   // Crew totem chip shown in the header (emoji + name rally marker).
   totemChip: {
