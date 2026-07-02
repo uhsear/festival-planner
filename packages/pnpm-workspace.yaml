@@ -18,3 +18,18 @@ onlyBuiltDependencies:
 minimumReleaseAge: 10080
 trustPolicy: no-downgrade
 blockExoticSubdeps: true
+# Expo SDK packages ship coordinated patch trains from Expo's own release
+# pipeline; expo-doctor demands the exact latest patch, which is often <7 days
+# old. Exclude the expo scope from the release-age floor so doctor and the
+# supply-chain rule stop fighting.
+minimumReleaseAgeExclude:
+  - expo
+  - "expo-*"
+  - "@expo/*"
+  - babel-preset-expo
+  - jest-expo
+# semver@5.7.2 (transitive via @lhci/cli>lighthouse) predates npm provenance;
+# a later semver version has attestation, so no-downgrade false-positives on
+# the old-but-locked pin. Trusted legacy dev-tool dep — excluded.
+trustPolicyExclude:
+  - semver
