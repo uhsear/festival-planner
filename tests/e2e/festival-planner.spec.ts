@@ -58,10 +58,12 @@ async function registerUser(page: Page, app: { baseUrl: string }, username: stri
   await expect(page.locator('[data-testid="profile-badge"]')).toBeVisible();
 }
 
-// Navigate to one of the three schedule views via the in-page ScheduleViewSwitcher
-// (role="tab", aria-label "Cards view" / "Timeline view" / "Grid view").
+// Navigate to one of the three schedule views via the in-page ScheduleViewSwitcher.
+// The switcher uses honest nav semantics (plain buttons + aria-current, no
+// tablist — it navigates routes rather than swapping panels), aria-label
+// "Cards view" / "Timeline view" / "Grid view".
 async function openScheduleView(page: Page, label: 'Cards' | 'Timeline' | 'Grid') {
-  await page.getByRole('tab', { name: `${label} view` }).click();
+  await page.getByRole('button', { name: `${label} view` }).click();
 }
 
 // Open a set's detail panel by clicking its card's click-target button.
