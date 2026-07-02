@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, View, Text, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
@@ -56,16 +56,66 @@ export default function OfflineBanner({ onActiveChange }: OfflineBannerProps = {
 
   const failedCount = failedSync.length;
 
+  // Bounded retry timer for a drain that leaves items queued while we're
+  // still online (e.g. a transient 5xx) — the only other drain triggers are
+  // NetInfo transitions and AppState foreground, neither of which fires again
+  // on their own if the device never goes offline in between.
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backoffRef = useRef(15_000); // 15s, doubling to a 60s cap
+
+  const clearRetryTimer = () => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    backoffRef.current = 15_000;
+  };
+
+  const scheduleRetry = () => {
+    if (retryTimerRef.current) return; // already scheduled
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      runDrain();
+    }, backoffRef.current);
+    backoffRef.current = Math.min(backoffRef.current * 2, 60_000);
+  };
+
+  // Single entry point for every drain trigger (NetInfo, AppState, retry
+  // timer) so drain logic itself stays in the shared queue module.
+  const runDrain = () => {
+    drainQueue()
+      .catch((e) => Sentry.captureException(e))
+      .finally(() => {
+        const { offlineMode: stillOffline, pendingSync: stillPending } = useUIStore.getState();
+        if (!stillOffline && stillPending > 0) scheduleRetry();
+        else clearRetryTimer();
+      });
+  };
+
   // Drive shared offline state from device connectivity.
   useEffect(() => {
     refreshPendingCount().catch((e) => Sentry.captureException(e));
     const unsubscribe = NetInfo.addEventListener((state) => {
       const online = state.isConnected === true && state.isInternetReachable !== false;
       setOfflineMode(!online);
-      if (online) drainQueue().catch((e) => Sentry.captureException(e));
+      if (online) runDrain();
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      clearRetryTimer();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runDrain closes over refs only, stable across renders
   }, [setOfflineMode]);
+
+  // Re-drain on foreground: a transient failure or a dropped background
+  // reconnect can otherwise strand "Syncing N…" until the next NetInfo flip.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && !offlineMode && pendingSync > 0) runDrain();
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runDrain closes over refs only, stable across renders
+  }, [offlineMode, pendingSync]);
 
   // Re-arm the offline banner for the next offline episode once back online.
   useEffect(() => {

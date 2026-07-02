@@ -151,6 +151,15 @@ export default function FestivalEditScreen() {
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [confirm, setConfirm] = useState<'delete' | 'backfill' | null>(null);
   const [busy, setBusy] = useState(false);
+  // Dirty flag: flipped by user edit handlers only (never by the initial load
+  // hydration below), so Cancel can tell an untouched form from one with
+  // unsaved edits. Simplest honest signal — no deep compare.
+  const [touched, setTouched] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const updateForm = useCallback((updater: (f: FormState) => FormState) => {
+    setTouched(true);
+    setForm(updater);
+  }, []);
 
   // ── Load (edit only) ──────────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -225,27 +234,27 @@ export default function FestivalEditScreen() {
 
   // ── Stage editing ─────────────────────────────────────────────────────────
   const addStage = () =>
-    setForm((f) =>
+    updateForm((f) =>
       addStageReducer(f, { id: uid('stage'), name: '', color: DEFAULT_STAGE_COLOR, latitude: null, longitude: null }),
     );
-  const removeStage = (stageId: string) => setForm((f) => removeStageReducer(f, stageId));
+  const removeStage = (stageId: string) => updateForm((f) => removeStageReducer(f, stageId));
   const setStageField = (stageId: string, field: 'name' | 'color', value: string) =>
-    setForm((f) => setStageFieldReducer(f, stageId, field, value));
+    updateForm((f) => setStageFieldReducer(f, stageId, field, value));
 
   // ── Day editing ───────────────────────────────────────────────────────────
   const addDay = () => {
     const day: DayRow = { id: uid('day'), label: '', date: '', sets: [] };
-    setForm((f) => addDayReducer(f, day));
+    updateForm((f) => addDayReducer(f, day));
     setExpandedDays((prev) => new Set(prev).add(day.id));
   };
-  const removeDay = (dayId: string) => setForm((f) => removeDayReducer(f, dayId));
+  const removeDay = (dayId: string) => updateForm((f) => removeDayReducer(f, dayId));
   const setDayField = (dayId: string, field: 'label' | 'date', value: string) =>
-    setForm((f) => setDayFieldReducer(f, dayId, field, value));
+    updateForm((f) => setDayFieldReducer(f, dayId, field, value));
   const toggleDay = (dayId: string) => setExpandedDays((prev) => toggleDayReducer(prev, dayId));
 
   // ── Set editing (nested under each day) ───────────────────────────────────
   const addSet = (dayId: string) =>
-    setForm((f) =>
+    updateForm((f) =>
       addSetReducer(f, dayId, {
         id: uid('set'),
         artist: '',
@@ -255,9 +264,9 @@ export default function FestivalEditScreen() {
         linkUrl: '',
       }),
     );
-  const removeSet = (dayId: string, setId: string) => setForm((f) => removeSetReducer(f, dayId, setId));
+  const removeSet = (dayId: string, setId: string) => updateForm((f) => removeSetReducer(f, dayId, setId));
   const setSetField = (dayId: string, setId: string, field: keyof SetRow, value: string) =>
-    setForm((f) => setSetFieldReducer(f, dayId, setId, field, value));
+    updateForm((f) => setSetFieldReducer(f, dayId, setId, field, value));
 
   // Stage options for the per-set ModalSelect.
   const stageOptions: SelectOption[] = form.stages.map((s) => ({
@@ -448,14 +457,14 @@ export default function FestivalEditScreen() {
             <LabeledTextInput
               label="Name"
               value={form.name}
-              onChangeText={(v) => setForm((f) => ({ ...f, name: v }))}
+              onChangeText={(v) => updateForm((f) => ({ ...f, name: v }))}
               placeholder="Festival name"
               autoCapitalize="words"
             />
             <LabeledTextInput
               label="Location"
               value={form.location}
-              onChangeText={(v) => setForm((f) => ({ ...f, location: v }))}
+              onChangeText={(v) => updateForm((f) => ({ ...f, location: v }))}
               placeholder="City, venue"
               autoCapitalize="words"
             />
@@ -463,7 +472,7 @@ export default function FestivalEditScreen() {
               label="Time zone"
               value={form.timeZone}
               options={timeZoneOptions}
-              onSelect={(v) => setForm((f) => ({ ...f, timeZone: v }))}
+              onSelect={(v) => updateForm((f) => ({ ...f, timeZone: v }))}
               hint="Anchors set status & reminders in the festival's zone."
             />
           </View>
@@ -736,7 +745,7 @@ export default function FestivalEditScreen() {
           {/* Primary actions */}
           <View style={styles.actions}>
             <TouchableOpacity
-              onPress={goBack}
+              onPress={() => (touched ? setShowCancelConfirm(true) : goBack())}
               style={[styles.actionBtn, styles.cancelBtn]}
               activeOpacity={0.7}
               disabled={saving}
@@ -777,7 +786,7 @@ export default function FestivalEditScreen() {
       </KeyboardAvoidingView>
 
       <ConfirmDialog
-        visible={confirm === 'delete'}
+        visible={confirm === 'delete' && !busy}
         title="Delete this festival?"
         message="This soft-deletes the festival and hides it from users. Users with picks for it will lose access."
         confirmLabel={busy ? 'Deleting…' : 'Delete'}
@@ -786,13 +795,25 @@ export default function FestivalEditScreen() {
         onCancel={() => !busy && setConfirm(null)}
       />
       <ConfirmDialog
-        visible={confirm === 'backfill'}
+        visible={confirm === 'backfill' && !busy}
         title="Backfill Spotify links?"
         message="Searches Spotify for every artist in this festival and attaches a link where a confident match is found. Existing links are preserved."
         confirmLabel={busy ? 'Working…' : 'Backfill'}
         destructive
         onConfirm={() => void doBackfill()}
         onCancel={() => !busy && setConfirm(null)}
+      />
+      <ConfirmDialog
+        visible={showCancelConfirm}
+        title="Discard changes?"
+        message="You have unsaved edits. Leaving now discards them."
+        confirmLabel="Discard"
+        destructive
+        onConfirm={() => {
+          setShowCancelConfirm(false);
+          goBack();
+        }}
+        onCancel={() => setShowCancelConfirm(false)}
       />
     </View>
   );
