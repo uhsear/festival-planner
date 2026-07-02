@@ -384,7 +384,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
               accessibilityRole="button"
               accessibilityLabel="Cancel new expense"
             >
-              <Ionicons name="close" size={18} color={t.colors.text.secondary} />
+              <Ionicons name="close" size={t.iconSize.action} color={t.colors.text.secondary} />
             </TouchableOpacity>
           </View>
           <TextInput
@@ -551,7 +551,7 @@ export default function CrewExpenses({ crewId, members, currentUserId }: CrewExp
                     accessibilityRole="button"
                     accessibilityLabel={`Remove expense ${e.description}`}
                   >
-                    <Ionicons name="trash-outline" size={18} color={t.colors.text.danger} />
+                    <Ionicons name="trash-outline" size={t.iconSize.action} color={t.colors.text.danger} />
                   </TouchableOpacity>
                 ) : null}
               </RowContainer>

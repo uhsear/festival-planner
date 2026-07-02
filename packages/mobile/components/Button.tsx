@@ -87,7 +87,7 @@ export default function Button({
         <ActivityIndicator size="small" color={iconColor} />
       ) : (
         <>
-          {icon ? <Ionicons name={icon} size={size === 'sm' ? 16 : 18} color={iconColor} style={styles.icon} /> : null}
+          {icon ? <Ionicons name={icon} size={size === 'sm' ? t.iconSize.sm : t.iconSize.action} color={iconColor} style={styles.icon} /> : null}
           <Text style={[styles.label, VARIANT_TEXT[variant](styles)]} numberOfLines={numberOfLines}>
             {/* Trailing NBSP when a leading icon exists: Android under-measures
                 a Text following an icon-font sibling and clips the last glyph;

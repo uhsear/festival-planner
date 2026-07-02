@@ -311,6 +311,8 @@ const useStyles = makeStyles((t) => ({
   retryBtn: {
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[2],
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: t.radii.default,
     backgroundColor: t.colors.aquaAlpha[15],
   },
@@ -321,6 +323,8 @@ const useStyles = makeStyles((t) => ({
   dismissBtn: {
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[2],
+    minHeight: 44,
+    justifyContent: 'center',
   },
   dismissText: {
     ...typeStyle('caption'),

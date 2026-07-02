@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useTokens, makeStyles, typeStyle, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useHaptics } from '../hooks/useHaptics';
 import PlanQRShare from '../components/PlanQRShare';
 import PlanQRScan from '../components/PlanQRScan';
@@ -63,7 +63,11 @@ export default function PlanShareScreen() {
                 size={16}
                 color={active ? t.colors.text.onLightAccent : t.colors.text.secondary}
               />
-              <Text style={[styles.tabText, active && styles.tabTextActive]} numberOfLines={1}>
+              <Text
+                style={[styles.tabText, active && styles.tabTextActive]}
+                numberOfLines={1}
+                maxFontSizeMultiplier={MAX_FONT_SCALE}
+              >
                 {item.label}
               </Text>
             </TouchableOpacity>

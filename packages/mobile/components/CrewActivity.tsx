@@ -115,7 +115,7 @@ export default function CrewActivity({ crewId }: CrewActivityProps) {
         return (
           <Animated.View key={it.id} entering={entering} style={styles.row}>
             <View style={[styles.iconBadge, { borderColor: color }]}>
-              <Ionicons name={visual.icon} size={14} color={color} />
+              <Ionicons name={visual.icon} size={t.iconSize.compact} color={color} />
             </View>
             <View style={styles.info}>
               <Text style={styles.line}>
@@ -141,7 +141,7 @@ export default function CrewActivity({ crewId }: CrewActivityProps) {
           <Text style={styles.moreText}>
             {expanded ? 'Show less' : `Show ${dedupedActivity.length - COLLAPSED_LIMIT} more`}
           </Text>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={t.colors.accent.aqua} />
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={t.iconSize.compact} color={t.colors.accent.aqua} />
         </TouchableOpacity>
       ) : null}
     </View>

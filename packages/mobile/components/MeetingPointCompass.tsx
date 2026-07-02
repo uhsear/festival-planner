@@ -168,6 +168,7 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
   if (phase === 'no-coords') {
     return (
       <View style={styles.stateCard}>
+        {/* hero exception: full-screen state glyph, not a token-scale icon */}
         <Ionicons name="navigate-outline" size={40} color={t.colors.text.muted} />
         <Text style={styles.stateTitle}>No saved coordinates</Text>
         <Text style={styles.stateBody}>
@@ -180,6 +181,7 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
   if (phase === 'denied') {
     return (
       <View style={styles.stateCard}>
+        {/* hero exception: full-screen state glyph, not a token-scale icon */}
         <Ionicons name="location-outline" size={40} color={t.colors.accent.amber} />
         <Text style={styles.stateTitle}>Location permission needed</Text>
         <Text style={styles.stateBody}>
@@ -193,6 +195,7 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
   if (phase === 'no-sensor') {
     return (
       <View style={styles.stateCard}>
+        {/* hero exception: full-screen state glyph, not a token-scale icon */}
         <Ionicons name="compass-outline" size={40} color={t.colors.text.muted} />
         <Text style={styles.stateTitle}>No compass on this device</Text>
         <Text style={styles.stateBody}>
@@ -236,6 +239,7 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
       */}
       <View style={styles.dial} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
         <View style={[styles.arrow, { transform: [{ rotate: `${arrowAngle}deg` }] }]}>
+          {/* hero exception: the compass dial's arrow, not a token-scale icon */}
           <Ionicons name="navigate" size={96} color={t.colors.accent.aqua} />
         </View>
       </View>

@@ -1,6 +1,6 @@
 import { View, Text } from 'react-native';
 import type { SetStatus } from '@festie/shared/utils';
-import { makeStyles, typeStyle } from '../hooks/useTokens';
+import { makeStyles, typeStyle, MAX_FONT_SCALE } from '../hooks/useTokens';
 
 interface LiveBadgeProps {
   status: SetStatus;
@@ -26,7 +26,7 @@ export default function LiveBadge({ status, label }: LiveBadgeProps) {
     return (
       <View style={[styles.pill, styles.livePill]} accessibilityRole="text" accessibilityLabel="Live">
         <View style={styles.liveDot} />
-        <Text style={styles.liveText} maxFontSizeMultiplier={1.2}>
+        <Text style={styles.liveText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
           {label}
         </Text>
       </View>
@@ -37,7 +37,7 @@ export default function LiveBadge({ status, label }: LiveBadgeProps) {
     return (
       <View style={[styles.pill, styles.soonPill]} accessibilityRole="text" accessibilityLabel="Starting soon">
         <View style={styles.soonDot} />
-        <Text style={styles.soonText} maxFontSizeMultiplier={1.2}>
+        <Text style={styles.soonText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
           {label}
         </Text>
       </View>
@@ -47,7 +47,7 @@ export default function LiveBadge({ status, label }: LiveBadgeProps) {
   if (status === 'upcoming') {
     return (
       <View style={[styles.pill, styles.upcomingPill]} accessibilityRole="text" accessibilityLabel={label}>
-        <Text style={styles.upcomingText} maxFontSizeMultiplier={1.2}>
+        <Text style={styles.upcomingText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
           {label}
         </Text>
       </View>
@@ -110,7 +110,7 @@ const useStyles = makeStyles((t) => ({
   upcomingPill: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: 'rgba(0, 232, 208, 0.4)',
+    borderColor: t.colors.aquaAlpha[40],
   },
   upcomingText: {
     ...PILL_TEXT_BASE,

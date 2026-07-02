@@ -703,6 +703,20 @@ export default function CrewScreen() {
         <View style={styles.crewMetaRow}>
           <UpdatedAgoBadge surface="crew" />
           <LowPowerIndicator />
+          {/* Always-visible SOS entry: the full SOS panel lives in the Logistics
+              tab, so this chip jumps there rather than duplicating the raise
+              flow — safety must be reachable from every crew tab. */}
+          <TouchableOpacity
+            testID="crew-action-sos"
+            style={styles.sosChip}
+            onPress={() => setCrewTab('logistics')}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Open crew safety to send an SOS"
+          >
+            <Ionicons name="alert-circle" size={t.iconSize.compact} color={t.colors.text.onAccent} />
+            <Text style={styles.sosChipText} maxFontSizeMultiplier={MAX_FONT_SCALE}>SOS</Text>
+          </TouchableOpacity>
         </View>
 
         {crew.inviteCode ? (
@@ -1160,7 +1174,7 @@ export default function CrewScreen() {
             <SectionLabel>Polls</SectionLabel>
             {openPollCount > 0 ? (
               <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{openPollCount}</Text>
+                <Text style={styles.countBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{openPollCount}</Text>
               </View>
             ) : null}
           </View>
@@ -1174,14 +1188,14 @@ export default function CrewScreen() {
             {packingDone ? (
               <View style={styles.donePill} accessibilityLabel="All packing items claimed">
                 <Ionicons name="checkmark" size={12} color={t.colors.accent.aqua} />
-                <Text style={styles.donePillText}>All packed</Text>
+                <Text style={styles.donePillText} maxFontSizeMultiplier={MAX_FONT_SCALE}>All packed</Text>
               </View>
             ) : packingLeft > 0 ? (
               <View
                 style={styles.countBadge}
                 accessibilityLabel={`${packingLeft} packing ${packingLeft === 1 ? 'item' : 'items'} unclaimed`}
               >
-                <Text style={styles.countBadgeText}>{packingLeft}</Text>
+                <Text style={styles.countBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{packingLeft}</Text>
               </View>
             ) : null}
           </View>
@@ -1194,7 +1208,7 @@ export default function CrewScreen() {
                 style={styles.countBadge}
                 accessibilityLabel={`${rideCount} ${rideCount === 1 ? 'ride' : 'rides'} on the board`}
               >
-                <Text style={styles.countBadgeText}>{rideCount}</Text>
+                <Text style={styles.countBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{rideCount}</Text>
               </View>
             ) : null}
           </View>
@@ -1332,6 +1346,24 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: t.spacing[2],
+  },
+  // Compact always-visible SOS entry, right-aligned in the header meta row.
+  // coralStrong bg + white text mirrors the Button danger pattern; jumps to the
+  // Logistics tab where the full CrewSos panel renders.
+  sosChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[1],
+    marginLeft: 'auto',
+    paddingHorizontal: t.spacing[3],
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: t.radii.default,
+    backgroundColor: t.colors.accent.coralStrong,
+  },
+  sosChipText: {
+    ...typeStyle('label', 700),
+    color: t.colors.text.onAccent,
   },
   // Crew totem chip shown in the header (emoji + name rally marker).
   totemChip: {

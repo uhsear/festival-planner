@@ -26,15 +26,22 @@ import type { TypeRoleName } from '@festie/shared/tokens';
  * this scale. Map to the nearest step (13→xs/12, 15→sm/16 are the historical
  * off-grid values; both are explicitly snapped here).
  *
- *   xs: 12  — inline badge / meta-row indicators
- *   sm: 16  — in-line action icons (buttons, tab icons)
- *   md: 20  — medium stand-alone controls
- *   lg: 24  — screen-level leading icons, header icons
- *   xl: 48  — empty-state / hero icons
+ * Scale: 12/14/16/18/20/24/48. `compact` (14) and `action` (18) were promoted
+ * from de-facto usage in this audit — 18 alone covers 56 row-action call sites.
+ *
+ *   xs: 12       — inline badge / meta-row indicators
+ *   compact: 14  — inline meta/link icons
+ *   sm: 16       — in-line action icons (buttons, tab icons)
+ *   action: 18   — row-action icons (most-used size in the app)
+ *   md: 20       — medium stand-alone controls
+ *   lg: 24       — screen-level leading icons, header icons
+ *   xl: 48       — empty-state / hero icons
  */
 export const iconSize = {
   xs: 12,
+  compact: 14,
   sm: 16,
+  action: 18,
   md: 20,
   lg: 24,
   xl: 48,

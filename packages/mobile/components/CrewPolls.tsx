@@ -297,7 +297,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
               accessibilityRole="button"
               accessibilityLabel="Cancel schedule poll"
             >
-              <Ionicons name="close" size={18} color={t.colors.text.secondary} />
+              <Ionicons name="close" size={t.iconSize.action} color={t.colors.text.secondary} />
             </TouchableOpacity>
           </View>
           {slots.length === 0 ? (
@@ -342,7 +342,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
                 accessibilityRole="button"
                 accessibilityLabel="Change timeslot"
               >
-                <Ionicons name="chevron-back" size={14} color={t.colors.accent.aqua} />
+                <Ionicons name="chevron-back" size={t.iconSize.compact} color={t.colors.accent.aqua} />
                 <Text style={styles.changeSlotText}>
                   {dayLabel(selectedSlot.dayIndex)} · {formatTime(selectedSlot.startTime)} — change
                 </Text>
@@ -383,7 +383,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
                   >
                     <Ionicons
                       name={checked ? 'checkbox' : 'square-outline'}
-                      size={18}
+                      size={t.iconSize.action}
                       color={checked ? t.colors.accent.aqua : t.colors.text.secondary}
                     />
                     <Text style={styles.optionPickText} numberOfLines={1}>
@@ -416,7 +416,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
               accessibilityRole="button"
               accessibilityLabel="Cancel new poll"
             >
-              <Ionicons name="close" size={18} color={t.colors.text.secondary} />
+              <Ionicons name="close" size={t.iconSize.action} color={t.colors.text.secondary} />
             </TouchableOpacity>
           </View>
           <TextInput
@@ -585,7 +585,7 @@ export default function CrewPolls({ crewId, currentUserId, isOwner }: CrewPollsP
                   accessibilityRole="button"
                   accessibilityLabel="Close poll"
                 >
-                  <Ionicons name="trash-outline" size={14} color={t.colors.accent.coral} />
+                  <Ionicons name="trash-outline" size={t.iconSize.compact} color={t.colors.accent.coral} />
                   <Text style={styles.closeText}>Close poll</Text>
                 </TouchableOpacity>
               ) : null}

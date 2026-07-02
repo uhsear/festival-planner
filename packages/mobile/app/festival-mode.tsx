@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
 import { artistDisplayName, fmtClock, fmtCountdown } from '@festie/shared/utils';
-import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens, iconSize } from '../hooks/useTokens';
 import { useOngoingNotification } from '../hooks/useOngoingNotification';
 import { useNowNext } from '../hooks/useNowNext';
 import Button from '../components/Button';
@@ -111,7 +111,7 @@ export default function FestivalModeScreen() {
 
           {/* UP NEXT — extra top margin keeps NOW and UP NEXT sections balanced */}
           <View style={[styles.sectionHead, styles.upNextHead]}>
-            <Ionicons name="play-skip-forward" size={14} color={t.colors.text.secondary} />
+            <Ionicons name="play-skip-forward" size={iconSize.compact} color={t.colors.text.secondary} />
             <SectionLabel style={styles.sectionHeadLabel}>Up next</SectionLabel>
           </View>
           {upcoming.length > 0 ? (
@@ -140,8 +140,10 @@ export default function FestivalModeScreen() {
           ) : (
             <View style={styles.upNextEmpty}>
               <Ionicons
+                // Empty-state glyph, not a hero — snapped to the shared 48px
+                // empty-state size (matches components/EmptyState's icon).
                 name="musical-notes-outline"
-                size={40}
+                size={iconSize.xl}
                 style={styles.upNextEmptyIcon}
                 accessibilityElementsHidden
               />

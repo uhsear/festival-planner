@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { duration, easing } from '@festie/shared/tokens';
-import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
+import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
 import { useHaptics } from '../hooks/useHaptics';
 
@@ -124,10 +124,10 @@ export default function CrewTabBar({ activeTab, onTabChange, badges }: CrewTabBa
             >
               {/* DC25: 15 is off-grid; snap to iconSize.sm (16). */}
               <Ionicons name={tab.icon} size={16} color={active ? t.colors.accent.aqua : t.colors.text.secondary} />
-              <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
+              <Text style={[styles.label, active && styles.labelActive]} maxFontSizeMultiplier={MAX_FONT_SCALE}>{tab.label}</Text>
               {typeof badge === 'number' && badge > 0 ? (
                 <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>{badge}</Text>
+                  <Text style={styles.countBadgeText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{badge}</Text>
                 </View>
               ) : badge === true ? (
                 <View style={styles.dotBadge} />

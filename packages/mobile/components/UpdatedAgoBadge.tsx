@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
 import { useCrewStore, useFestivalDataStore, useUIStore } from '@festie/shared/stores';
 import { formatLastSynced, offlineReadyLabel } from '@festie/shared/utils';
-import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
+import { useTokens, makeStyles, typeStyle, MAX_FONT_SCALE } from '../hooks/useTokens';
 
 type Surface = 'crew' | 'schedule';
 
@@ -61,7 +61,11 @@ export default function UpdatedAgoBadge({ surface }: UpdatedAgoBadgeProps) {
         style={[styles.dot, { backgroundColor: showOfflineReady ? t.colors.accent.amber : t.colors.text.muted }]}
         accessible={false}
       />
-      <Text style={[styles.text, showOfflineReady && styles.textOffline]} numberOfLines={1}>
+      <Text
+        style={[styles.text, showOfflineReady && styles.textOffline]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={MAX_FONT_SCALE}
+      >
         {label}
       </Text>
     </View>
