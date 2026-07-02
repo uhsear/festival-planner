@@ -43,7 +43,8 @@
     "test:visual:auth": "playwright test --project=visreg-auth",
     "test:visual:auth:update": "playwright test --project=visreg-auth --update-snapshots",
     "depcruise": "depcruise \"lib/**/*.ts\" \"routes/**/*.ts\" server.ts --config .dependency-cruiser.cjs",
-    "knip": "knip"
+    "knip": "knip",
+    "syncpack": "syncpack lint"
   },
   "dependencies": {
     "@sentry/node": "^10.48.0",
