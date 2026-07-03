@@ -11,8 +11,7 @@ import type {
   meetingPointCreateSchema,
   meetingPointUpdateSchema,
 } from '../lib/schemas';
-
-const MAX_MEETING_POINTS_PER_CREW = 20;
+import { MAX_MEETING_POINTS_PER_CREW } from '../lib/constants';
 
 export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
   const {

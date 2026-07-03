@@ -125,7 +125,7 @@ describe('Phase 1B: Meeting Points Store', () => {
     assert.ok(MEETING_POINT_TYPES.includes('pre-show'));
     assert.ok(MEETING_POINT_TYPES.includes('post-event'));
     assert.ok(MEETING_POINT_TYPES.includes('emergency'));
-    assert.equal(MAX_MEETING_POINTS_PER_CREW, 5);
+    assert.equal(MAX_MEETING_POINTS_PER_CREW, 20);
   });
 
   it('meeting point update schema requires at least one field', () => {
