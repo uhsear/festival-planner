@@ -20,4 +20,4 @@ export const MAX_ARTISTS_PER_SET = 4;
 export const MAX_LINKS_PER_ARTIST = 6;
 
 export const MEETING_POINT_TYPES = ['pre-show', 'during', 'post-show', 'post-event', 'emergency', 'general'] as const;
-export const MAX_MEETING_POINTS_PER_CREW = 5;
+export const MAX_MEETING_POINTS_PER_CREW = 20;

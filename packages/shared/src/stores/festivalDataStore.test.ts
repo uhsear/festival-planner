@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useFestivalDataStore } from './festivalDataStore';
 import { useFestivalUIStore } from './festivalUIStore';
 import { useAuthStore } from './authStore';
+import { useUIStore } from './uiStore';
 import { api } from '../services/api';
 import type { Festival, Profile } from '../types/domain';
 
@@ -53,6 +54,7 @@ function resetStores() {
     activeStages: [],
     searchQuery: '',
   });
+  useUIStore.setState({ pendingSync: 0 });
 }
 
 describe('festivalDataStore', () => {
@@ -373,6 +375,42 @@ describe('festivalDataStore', () => {
       await useFestivalDataStore.getState().loadProfiles('fest-1');
       expect(useFestivalDataStore.getState().allProfiles).toEqual([mockProfile]);
       expect(useFestivalDataStore.getState().currentProfile).toBeNull();
+    });
+
+    it('preserves optimistic picks when offline queue has pending writes (drain-race guard)', async () => {
+      // Reproduce: user makes pick offline → optimistic state in store, PUT queued.
+      // AppState foreground-return fires reloadProfiles BEFORE drain completes.
+      // loadProfiles fetches stale server state (pre-drain) and overwrites picks → disappear.
+      useAuthStore.setState({
+        user: { id: 'user-1', username: 'alice', createdAt: '', updatedAt: '' },
+      });
+
+      // Local optimistic state: includes an offline pick, note, and reminder
+      // ('set-offline') not yet on server — the full optimistic PUT payload.
+      const optimisticProfile: Profile = {
+        ...mockProfile,
+        picks: { 'set-1': 'must', 'set-offline': 'want-to-see' },
+        notes: { ...mockProfile.notes, 'set-offline': 'meet at rail' },
+        reminders: { ...mockProfile.reminders, 'set-offline': 15 },
+      };
+      useFestivalDataStore.setState({ currentProfile: optimisticProfile });
+
+      // Drain in progress: pendingSync > 0 means the PUT hasn't reached the server yet
+      useUIStore.setState({ pendingSync: 1 });
+
+      // Server returns the stale profile (pre-drain — 'set-offline' data not there yet)
+      const staleServerProfile: Profile = { ...mockProfile, picks: { 'set-1': 'must' } };
+      vi.mocked(api.get).mockResolvedValueOnce([staleServerProfile]);
+
+      await useFestivalDataStore.getState().loadProfiles('fest-1');
+
+      // The whole offline payload must survive — drain hasn't written it to the server yet
+      const cp = useFestivalDataStore.getState().currentProfile;
+      expect(cp?.picks['set-offline']).toBe('want-to-see');
+      expect(cp?.notes['set-offline']).toBe('meet at rail');
+      expect(cp?.reminders?.['set-offline']).toBe(15);
+      // Existing picks must also survive
+      expect(cp?.picks['set-1']).toBe('must');
     });
   });
 
