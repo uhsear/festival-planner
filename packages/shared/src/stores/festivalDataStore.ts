@@ -49,6 +49,7 @@ import {
 } from '../types';
 
 import { useFestivalUIStore } from './festivalUIStore';
+import { useUIStore } from './uiStore';
 
 /** Shape returned by GET /festivals/:id (after envelope unwrap). */
 interface FestivalDetailResponse extends Festival {
@@ -267,7 +268,23 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
     try {
       const profiles = await api.get<Profile[]>(`/profiles/${festivalId}`);
       const userId = useAuthStore.getState().user?.id;
-      const currentProfile = userId ? profiles.find((p) => p.userId === userId) || null : null;
+      const serverProfile = userId ? profiles.find((p) => p.userId === userId) || null : null;
+      const prevState = get();
+      // Guard: if offline queue has pending writes, the server profile is pre-drain
+      // (stale). Preserve local picks/notes/reminders (the full optimistic PUT payload)
+      // so a mid-drain reloadProfiles call — e.g. from AppState foreground return —
+      // doesn't clobber optimistic state that hasn't been synced yet. The drain's
+      // socket event (profile:updated) re-syncs when it lands.
+      const hasPendingWrites = useUIStore.getState().pendingSync > 0;
+      const currentProfile =
+        hasPendingWrites && serverProfile && prevState.currentProfile?.id === serverProfile.id
+          ? {
+              ...serverProfile,
+              picks: prevState.currentProfile.picks,
+              notes: prevState.currentProfile.notes,
+              reminders: prevState.currentProfile.reminders,
+            }
+          : serverProfile;
       set({
         allProfiles: profiles,
         currentProfile,
