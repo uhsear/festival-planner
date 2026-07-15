@@ -88,9 +88,9 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: 'Users', value: stats.users, icon: <Users />, color: 'text-accent-aqua' },
-            { label: 'Festivals', value: stats.festivals, icon: <Tent />, color: 'text-accent-coral' },
-            { label: 'Profiles', value: stats.profiles, icon: <ClipboardList />, color: 'text-accent-amber' },
-            { label: 'Total Picks', value: stats.picks, icon: <Music />, color: 'text-accent-green' },
+            { label: 'Festivals', value: stats.festivals, icon: <Tent />, color: 'text-accent-aqua' },
+            { label: 'Profiles', value: stats.profiles, icon: <ClipboardList />, color: 'text-accent-aqua' },
+            { label: 'Total Picks', value: stats.picks, icon: <Music />, color: 'text-accent-aqua' },
           ].map((card) => (
             <div key={card.label} className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-4">
               <div className={cn('mb-2 [&_svg]:w-6 [&_svg]:h-6', card.color)} aria-hidden="true">

@@ -104,10 +104,10 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
                 size="sm"
                 isLoading={removingAvatar}
                 onClick={handleAvatarRemove}
+                icon={<Trash2 className="w-4 h-4" aria-hidden="true" />}
+                aria-label="Remove avatar"
                 className="min-h-[44px] min-w-[44px]"
-              >
-                <Trash2 className="w-4 h-4" aria-hidden="true" />
-              </Button>
+              />
             )}
           </div>
         </div>
