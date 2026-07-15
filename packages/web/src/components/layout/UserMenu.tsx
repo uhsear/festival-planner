@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { useAuthStore } from '@festie/shared';
-import { getAvatarColor, getInitials } from '@festie/shared/utils';
 import { useNavigate } from '@tanstack/react-router';
 import { useToast } from '../../lib/toastContext';
+import Avatar from '../ui/Avatar';
 import ChangePasswordModal from './ChangePasswordModal';
 import UserMenuPanel from './UserMenuPanel';
 import UserMenuProfileCard from './UserMenuProfileCard';
@@ -72,24 +72,7 @@ export default function UserMenu({ user }: UserMenuProps) {
         aria-label="Open user menu"
         data-testid="profile-badge"
       >
-        {user.avatarUrl ? (
-          <img
-            src={user.avatarUrl}
-            alt={avatarName}
-            width={32}
-            height={32}
-            loading="lazy"
-            decoding="async"
-            className="h-8 w-8 rounded-full object-cover max-sm:h-[30px] max-sm:w-[30px]"
-          />
-        ) : (
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[length:var(--font-size-13)] font-semibold text-white max-sm:h-[30px] max-sm:w-[30px] max-sm:text-xs"
-            style={{ backgroundColor: getAvatarColor(avatarName) }}
-          >
-            {getInitials(avatarName)}
-          </div>
-        )}
+        <Avatar name={avatarName} image={user.avatarUrl} size="sm" />
       </button>
 
       {/* Dropdown panel */}

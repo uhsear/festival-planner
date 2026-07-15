@@ -16,25 +16,27 @@ interface LiveBadgeProps {
 export default function LiveBadge({ status, label, className }: LiveBadgeProps) {
   const prefersReducedMotion = useReducedMotion();
 
-  // Live: coral exception — deliberate danger-accent read (AA: coralStrong
-  // #c01d3a fill + dark-ink #080810 text, ~6.04:1). The pulsing dot signals
-  // the NOW moment at a glance. This is the sole coral-fill exception per the
-  // accent rule (live = time-critical alert, not a CTA).
+  // Live: coral exception — deliberate danger-accent read. coralStrong #c01d3a
+  // fill + WHITE text (text-on-accent, ~6.04:1, passes AA). Dark ink on this
+  // fill fails AA (~3.3:1) — white is the AA-safe pairing, matching the live
+  // pill in SubHeader. The pulsing dot signals the NOW moment at a glance. This
+  // is the sole coral-fill exception per the accent rule (live = time-critical
+  // alert, not a CTA).
   if (status === 'live') {
     return (
       <div
         className={cn(
           PILL_BASE,
-          'gap-1.5 bg-[#c01d3a] text-[#080810] ring-1 ring-accent-coral/60 shadow-[0_0_10px_rgba(var(--accent-coral-rgb),0.45)]',
+          'gap-1.5 bg-accent-coral-strong text-text-on-accent ring-1 ring-accent-coral/60 shadow-[0_0_10px_rgba(var(--accent-coral-rgb),0.45)]',
           className,
         )}
         aria-label="Live"
       >
         {prefersReducedMotion ? (
-          <div className="w-1.5 h-1.5 rounded-full bg-[#080810]" aria-hidden="true" />
+          <div className="w-1.5 h-1.5 rounded-full bg-text-on-accent" aria-hidden="true" />
         ) : (
           <m.div
-            className="w-1.5 h-1.5 rounded-full bg-[#080810]"
+            className="w-1.5 h-1.5 rounded-full bg-text-on-accent"
             aria-hidden="true"
             animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
             transition={{ duration: 2, repeat: Infinity }}

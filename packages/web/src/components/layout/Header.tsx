@@ -151,7 +151,7 @@ export default function Header() {
                 'w-2 h-2 rounded-full shrink-0',
                 connected
                   ? 'bg-accent-green shadow-[0_0_8px_var(--color-accent-green)]'
-                  : 'bg-accent-coral shadow-[0_0_8px_var(--color-accent-coral)] animate-blink',
+                  : 'bg-accent-amber shadow-[0_0_8px_var(--color-accent-amber)] animate-blink',
               )}
               role="status"
               aria-label={connected ? 'Connected' : 'Disconnected'}

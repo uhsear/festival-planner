@@ -15,6 +15,7 @@ import { timeToMinutes, formatTime, artistDisplayName, getSetTimeBounds } from '
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { safeStageColor } from '../lib/stageColor';
 import { useNowIndicator, type TimeBounds } from '../hooks/useNowIndicator';
+import { useReduceMotion } from '../hooks/useReduceMotion';
 
 const SLOT_MINUTES = 15;
 /**
@@ -266,6 +267,7 @@ export default function TimelineView({
   const styles = useStyles();
   const { width } = useWindowDimensions();
   const { nowIndicator, scrollRef, scrollToNow } = useNowIndicator(timeBounds, selectedDay, ROW_HEIGHT);
+  const reduceMotion = useReduceMotion();
 
   // --- Live mode ----------------------------------------------------------
   // 60s device-clock tick drives the "up next" countdown + the auto-scroll.
@@ -356,10 +358,10 @@ export default function TimelineView({
   );
   const jumpToStage = useCallback(
     (index: number) => {
-      carouselRef.current?.scrollToOffset({ offset: index * pageStride, animated: true });
+      carouselRef.current?.scrollToOffset({ offset: index * pageStride, animated: !reduceMotion });
       setActivePage(index);
     },
-    [pageStride],
+    [pageStride, reduceMotion],
   );
 
   // --- Active-page scroll target ------------------------------------------

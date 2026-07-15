@@ -1,6 +1,6 @@
 import React from 'react';
-import { getAvatarColor, getInitials } from '@festie/shared/utils';
 import { useFestivalStore } from '@festie/shared';
+import Avatar from '../ui/Avatar';
 
 interface UserMenuProfileCardProps {
   user: {
@@ -43,24 +43,7 @@ export default function UserMenuProfileCard({ user }: UserMenuProfileCardProps) 
         className="flex items-center gap-[var(--space-6)] px-0.5 pt-1 pb-3.5 border-b border-border mb-3"
         data-testid="user-menu-profile"
       >
-        {user.avatarUrl ? (
-          <img
-            src={user.avatarUrl}
-            alt={avatarName}
-            width={52}
-            height={52}
-            loading="lazy"
-            decoding="async"
-            className="h-[52px] w-[52px] rounded-full object-cover"
-          />
-        ) : (
-          <div
-            className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white"
-            style={{ backgroundColor: getAvatarColor(avatarName) }}
-          >
-            {getInitials(avatarName)}
-          </div>
-        )}
+        <Avatar name={avatarName} image={user.avatarUrl} size="lg" />
         <div className="flex flex-col gap-[5px] min-w-0">
           <div className="text-base font-bold max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
             {user.username}

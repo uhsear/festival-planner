@@ -31,6 +31,7 @@ import { safeStageColor } from '../../lib/stageColor';
 import { useUI, type ViewMode } from '../../contexts/UIContext';
 import type { TimeBounds } from '../../hooks/useNowIndicator';
 import { useHaptics } from '../../hooks/useHaptics';
+import { useReduceMotion } from '../../hooks/useReduceMotion';
 import SegmentedControl from '../../components/SegmentedControl';
 import NowNextStrip from '../../components/NowNextStrip';
 import PhaseHomeActions from '../../components/PhaseHomeActions';
@@ -61,6 +62,7 @@ export default function TimelineScreen() {
   const styles = useStyles();
   const router = useRouter();
   const haptics = useHaptics();
+  const reduceMotion = useReduceMotion();
   const { viewMode, setViewMode } = useUI();
   const { width, height } = useWindowDimensions();
 
@@ -334,9 +336,9 @@ export default function TimelineScreen() {
 
   const scrollCardsToTop = useCallback(() => {
     haptics.select();
-    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    listRef.current?.scrollToOffset({ offset: 0, animated: !reduceMotion });
     setShowScrollTop(false);
-  }, [haptics]);
+  }, [haptics, reduceMotion]);
 
   const renderRow = useCallback<ListRenderItem<ListRow>>(
     ({ item }) => {
@@ -574,7 +576,7 @@ export default function TimelineScreen() {
               onPress={() => handleSearch('')}
               accessibilityRole="button"
               accessibilityLabel="Clear search"
-              hitSlop={8}
+              hitSlop={13}
             >
               <Ionicons name="close-circle" size={18} color={t.colors.text.muted} />
             </TouchableOpacity>
@@ -719,7 +721,7 @@ export default function TimelineScreen() {
           </Text>
           <TouchableOpacity
             onPress={clearAllFilters}
-            hitSlop={8}
+            hitSlop={14}
             accessibilityRole="button"
             accessibilityLabel="Clear all filters"
           >

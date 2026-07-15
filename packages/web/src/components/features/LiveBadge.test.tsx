@@ -7,8 +7,8 @@ describe('LiveBadge', () => {
     render(<LiveBadge status="live" label="LIVE" />);
     expect(screen.getByText('LIVE')).toBeInTheDocument();
     const wrapper = screen.getByLabelText('Live');
-    // R6: live uses coralStrong (#c01d3a) fill, not plain coral
-    expect(wrapper.className).toContain('bg-[#c01d3a]');
+    // R6: live uses the coralStrong fill token (not plain coral)
+    expect(wrapper.className).toContain('bg-accent-coral-strong');
   });
 
   it('renders soon status with aqua fill (R6 NOW PLAYING)', () => {
@@ -49,8 +49,8 @@ describe('LiveBadge', () => {
     const { container } = render(<LiveBadge status="live" label="LIVE" />);
     const dot = container.querySelector('[aria-hidden="true"]');
     expect(dot).toBeInTheDocument();
-    // R6: coralStrong fill uses dark-ink dot (#080810) for AA contrast.
-    expect(dot!.className).toContain('bg-[#080810]');
+    // coralStrong fill pairs with white text + white dot (text-on-accent, AA-safe).
+    expect(dot!.className).toContain('bg-text-on-accent');
   });
 
   it('has a dot for soon status (R6 NOW PLAYING)', () => {

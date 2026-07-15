@@ -235,7 +235,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     >
       <Drawer.Portal>
         {/* R4: scrim rgba(0,0,0,0.6) per spec (was bg-black/50 = 0.5) */}
-        <Drawer.Overlay className="fixed inset-0 z-[var(--z-overlay)] bg-[rgba(0,0,0,0.6)]" />
+        <Drawer.Overlay className="fixed inset-0 z-[var(--z-overlay)] bg-black/60" />
         {/* R4: glassmorphic surface — rgba(29,29,29,0.82) + blur(20px) +
             1px rgba(255,255,255,0.08) border + inset top highlight.
             Radii: 24px top-corners on mobile sheet, 16px full on lg dialog.
@@ -255,7 +255,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
         >
           <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-border-light flex-shrink-0 lg:hidden" />
           {/* R4: aqua hairline divider below drag handle (interior header boundary) */}
-          <div className="h-px w-full bg-[rgba(0,232,208,0.12)] flex-shrink-0 lg:hidden" />
+          <div className="h-px w-full bg-[var(--color-aqua-a12)] flex-shrink-0 lg:hidden" />
           <Drawer.Title className="sr-only">{artistDisplayName(set, b2bSeparator)}</Drawer.Title>
           <Drawer.Description className="sr-only">
             Set details, schedule, and crew info for {artistDisplayName(set, b2bSeparator)}
@@ -315,7 +315,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
 
             {spotifyPreview && (
               <>
-                <hr className="border-t border-[rgba(255,255,255,0.06)] -mx-7" />
+                <hr className="border-t border-border -mx-7" />
                 <DetailSpotifySection
                   preview={spotifyPreview}
                   visible={spotifyVisible}
@@ -344,7 +344,7 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
               onSwitch={handleConflictSwitch}
             />
 
-            <hr className="border-t border-[rgba(255,255,255,0.06)] -mx-7" />
+            <hr className="border-t border-border -mx-7" />
 
             {currentProfile ? (
               <>
@@ -385,12 +385,12 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
               </div>
             )}
 
-            <hr className="border-t border-[rgba(255,255,255,0.06)] -mx-7" />
+            <hr className="border-t border-border -mx-7" />
             <DetailCrewSection title={whoTitle} others={others} crewNotes={crewNotes} />
 
             {currentProfile && (
               <>
-                <hr className="border-t border-[rgba(255,255,255,0.06)] -mx-7" />
+                <hr className="border-t border-border -mx-7" />
                 <DetailNotesSection
                   personalNote={personalNote}
                   crewNote={crewNote}

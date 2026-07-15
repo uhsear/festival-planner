@@ -105,6 +105,10 @@ function TBACard({
                 key={option.value}
                 style={[styles.pickButton, active && { backgroundColor: accent, borderColor: accent }]}
                 onPress={() => onSavePick(set.id, active ? null : option.value)}
+                // Visual size stays 32px (3-up row in a ~150px card can't fit
+                // a 44px button); hitSlop(6) lifts the effective target to the
+                // 44pt WCAG 2.5.5 floor without widening the layout.
+                hitSlop={6}
                 activeOpacity={0.7}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
@@ -236,6 +240,8 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: t.spacing[2],
+    // WCAG 2.5.5 / 2.5.8 minimum 44px touch target.
+    minHeight: 44,
   },
   headerText: {
     ...typeStyle('label'),

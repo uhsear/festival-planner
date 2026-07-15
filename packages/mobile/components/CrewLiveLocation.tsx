@@ -423,7 +423,7 @@ const useStyles = makeStyles((t) => ({
   bannerDot: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: t.radii.pill,
     backgroundColor: t.colors.accent.aqua,
   },
   bannerBody: {
