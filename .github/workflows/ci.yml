@@ -206,10 +206,7 @@ jobs:
         working-directory: packages/web
         env:
           STORYBOOK_TELEMETRY_DISABLED: '1'
-        run: |
-          npx -y concurrently -k -s first -n SB,A11Y \
-            "npx -y http-server storybook-static -p 6006 -a 127.0.0.1 --silent" \
-            "npx -y wait-on tcp:127.0.0.1:6006 && pnpm test-storybook --url http://127.0.0.1:6006 --maxWorkers=2"
+        run: pnpm test-storybook:ci
 
   mobile-typecheck:
     needs: changes
