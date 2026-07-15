@@ -28,8 +28,20 @@ export default function UserMenuPanel({ ariaLabel, onClose, children }: UserMenu
   return createPortal(
     <div
       className="fixed inset-0 z-[var(--z-overlay)]"
+      role="button"
+      tabIndex={0}
+      aria-label="Close"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        // Mirror the onClick target check: only fire when the backdrop itself
+        // is focused, not when a keypress bubbles up from a real control
+        // inside the panel (e.g. Enter on a menu item shouldn't also close it).
+        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+          e.preventDefault();
+          onClose();
+        }
       }}
     >
       <div

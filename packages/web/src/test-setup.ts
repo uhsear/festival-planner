@@ -1,5 +1,23 @@
 /// <reference types="vitest/globals" />
 import '@testing-library/jest-dom/vitest';
+import { expect } from 'vitest';
+import { toBeAccessible } from '@sa11y/vitest';
+
+// Register sa11y's `toBeAccessible()` matcher for fast, per-component structural
+// a11y checks in the unit suite (roles/names/aria) — complements the slower
+// real-browser axe gates (Storybook test-runner + e2e). jsdom can't do
+// layout/contrast rules, so this catches structural regressions, not contrast.
+expect.extend({ toBeAccessible });
+
+declare module 'vitest' {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- must mirror vitest's own `Assertion<T = any>` signature (TS2428).
+  interface Assertion<T = any> {
+    toBeAccessible(config?: unknown): Promise<T>;
+  }
+  interface AsymmetricMatchersContaining {
+    toBeAccessible(config?: unknown): Promise<void>;
+  }
+}
 
 // Stub matchMedia — jsdom doesn't implement it, but motion/react and some
 // components query prefers-reduced-motion. Default: no preference.

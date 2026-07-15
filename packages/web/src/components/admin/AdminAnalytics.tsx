@@ -84,7 +84,7 @@ export default function AdminAnalytics() {
           <h2 className="type-heading text-text-primary mb-4">Most Active Users</h2>
           <div
             role="region"
-            tabIndex={0}
+            tabIndex={0} // eslint-disable-line jsx-a11y/no-noninteractive-tabindex -- intentional: keeps this overflow-x-auto table keyboard-scrollable; rule only exempts role=tabpanel
             aria-label="Most active users table"
             className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua"
           >
@@ -119,7 +119,7 @@ export default function AdminAnalytics() {
           <h2 className="type-heading text-text-primary mb-4">Crews</h2>
           <div
             role="region"
-            tabIndex={0}
+            tabIndex={0} // eslint-disable-line jsx-a11y/no-noninteractive-tabindex -- intentional: keeps this overflow-x-auto table keyboard-scrollable; rule only exempts role=tabpanel
             aria-label="Crews table"
             className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua"
           >

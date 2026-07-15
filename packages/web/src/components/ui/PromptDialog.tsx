@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import Button from './Button';
@@ -46,6 +46,11 @@ export default function PromptDialog({
   useEffect(() => { if (open) setValue(defaultValue); }, [open, defaultValue]);
   const uid = useId();
   const errorId = error ? `${uid}-error` : undefined;
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,7 +83,7 @@ export default function PromptDialog({
 
           <form onSubmit={submit} className="space-y-3" {...(busy ? { 'aria-busy': true } : {})}>
             <input
-              autoFocus
+              ref={inputRef}
               type={inputType}
               value={value}
               maxLength={maxLength}

@@ -199,8 +199,10 @@ export default function PollsTab({ crewId, currentUserId, isOwner }: Props) {
             required
           />
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">Options (2–4)</label>
-            <div className="space-y-2">
+            <span id="poll-options-label" className="block text-sm font-medium text-text-primary mb-2">
+              Options (2–4)
+            </span>
+            <div className="space-y-2" role="group" aria-labelledby="poll-options-label">
               {options.map((o, i) => (
                 <div key={`opt-${i}`} className="flex items-center gap-2">
                   <input

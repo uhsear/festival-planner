@@ -20,7 +20,7 @@ export default function FestivalStats({ stats }: FestivalStatsProps) {
       <h2 className="type-heading text-text-primary mb-4">Festival Stats</h2>
       <div
         role="region"
-        tabIndex={0}
+        tabIndex={0} // eslint-disable-line jsx-a11y/no-noninteractive-tabindex -- intentional: keeps this overflow-x-auto table keyboard-scrollable; rule only exempts role=tabpanel
         aria-label="Festival stats table"
         className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg overflow-x-auto focus:outline-none focus:ring-2 focus:ring-accent-aqua"
       >

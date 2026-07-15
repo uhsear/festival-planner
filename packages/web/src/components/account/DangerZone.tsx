@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared/stores/authStore';
 import { api, mapErrorToUserMessage } from '@festie/shared/services/api';
@@ -17,6 +17,11 @@ export default function DangerZone() {
   const [deletePassword, setDeletePassword] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const deleteFormRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (showDeleteConfirm) deleteFormRef.current?.querySelector('input')?.focus();
+  }, [showDeleteConfirm]);
 
   const handleExport = async () => {
     setExporting(true);
@@ -108,6 +113,7 @@ export default function DangerZone() {
           </Button>
         ) : (
           <form
+            ref={deleteFormRef}
             className="space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
@@ -122,7 +128,6 @@ export default function DangerZone() {
               onChange={(e) => setDeletePassword(e.target.value)}
               placeholder="Password"
               autoComplete="current-password"
-              autoFocus
             />
 
             <div className="flex gap-2">

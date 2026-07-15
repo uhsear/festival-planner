@@ -433,8 +433,14 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
             required
           />
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">Category</label>
-            <div className="crew-category-grid grid grid-cols-3 gap-2">
+            <span id="expense-category-label" className="block text-sm font-medium text-text-primary mb-2">
+              Category
+            </span>
+            <div
+              className="crew-category-grid grid grid-cols-3 gap-2"
+              role="group"
+              aria-labelledby="expense-category-label"
+            >
               {EXPENSE_CATEGORIES.map((c) => (
                 <button
                   key={c.id}
@@ -455,8 +461,14 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-2">Split between</label>
-            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+            <span id="expense-split-label" className="block text-sm font-medium text-text-primary mb-2">
+              Split between
+            </span>
+            <div
+              className="flex flex-wrap gap-2 max-h-32 overflow-y-auto"
+              role="group"
+              aria-labelledby="expense-split-label"
+            >
               {members.map((m) => {
                 const active = splitWith.includes(m.userId);
                 return (
