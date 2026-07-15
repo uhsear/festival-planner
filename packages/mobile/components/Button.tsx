@@ -41,7 +41,13 @@ interface ButtonProps extends Omit<TouchableOpacityProps, 'style'> {
   icon?: keyof typeof Ionicons.glyphMap;
   /** Loading copy substituted for the label while `loading` is true. */
   loadingLabel?: string;
-  /** Max label lines. Defaults to 1; pass 2 for long dynamic CTA copy. */
+  /**
+   * Max label lines. Default (undefined) lets the label lay out naturally —
+   * short labels stay one line; long ones wrap instead of tail-clipping. A hard
+   * `numberOfLines={1}` triggers Android/Fabric's centered single-line
+   * under-measurement, which false-clips the last glyph even with room to spare
+   * ("Switch fest…"). Pass an explicit value only if a hard line cap is required.
+   */
   numberOfLines?: number;
   style?: StyleProp<ViewStyle>;
 }
@@ -55,7 +61,7 @@ export default function Button({
   disabled = false,
   icon,
   loadingLabel,
-  numberOfLines = 1,
+  numberOfLines,
   style,
   accessibilityLabel,
   ...rest

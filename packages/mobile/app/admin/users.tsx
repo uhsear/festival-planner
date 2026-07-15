@@ -438,16 +438,19 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('caption'),
     color: t.colors.text.secondary,
   },
+  // Aqua, not coral: "admin" is a role/status, not a danger state. Coral is
+  // reserved for danger/SOS (one-accent rule), and the Account screen's own
+  // ADMIN badge is aqua — this list badge was an inconsistent misuse.
   adminBadge: {
     paddingHorizontal: t.spacing[2],
     paddingVertical: 2,
     borderRadius: t.radii.pill,
     borderWidth: 1,
-    borderColor: t.colors.accent.coral,
+    borderColor: t.colors.accent.aqua,
   },
   adminBadgeText: {
     ...typeStyle('caption', 700),
-    color: t.colors.accent.coral,
+    color: t.colors.accent.aqua,
   },
   expandButton: {
     width: 32,

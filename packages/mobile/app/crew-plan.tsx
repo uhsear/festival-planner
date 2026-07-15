@@ -77,7 +77,11 @@ export default function CrewPlanScreen() {
         {/* Active meeting point */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="location" size={iconSize.action} color={t.colors.accent.coral} />
+            {/* Aqua, not coral: "Meet up" is a neutral location/navigation
+                feature. Coral is reserved for danger/SOS only (one-accent rule);
+                the live map's equivalent meeting-point pin is neutral, so a coral
+                icon here was an inconsistent accent misuse. */}
+            <Ionicons name="location" size={iconSize.action} color={t.colors.accent.aqua} />
             <Text style={styles.cardTitle}>Meet up</Text>
           </View>
           {meetingPoint ? (

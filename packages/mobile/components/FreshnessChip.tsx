@@ -53,22 +53,23 @@ export default function FreshnessChip({ surface }: FreshnessChipProps) {
 
   return (
     <View style={styles.row} accessibilityRole="text" accessibilityLabel={a11yLabel}>
-      <View style={[styles.chip, offlineMode ? styles.chipOffline : styles.chipOnline]}>
+      <View style={styles.chip}>
+        <View style={[styles.chipBg, offlineMode ? styles.chipBgOffline : styles.chipBgOnline]} pointerEvents="none" />
         <View
           style={[styles.dot, { backgroundColor: offlineMode ? t.colors.accent.amber : t.colors.accent.aqua }]}
           accessible={false}
         />
-        <Text
-          style={[styles.chipText, offlineMode && styles.chipTextOffline]}
-          numberOfLines={1}
-          maxFontSizeMultiplier={MAX_FONT_SCALE}
-        >
-          {label}
+        <Text style={[styles.chipText, offlineMode && styles.chipTextOffline]} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+          {/* Trailing NBSP absorbs Fabric's single-line self-under-measure (the
+              bg-sibling already prevents the rounded-pill clip) so "…just now"
+              doesn't drop its last glyph. */}
+          {label + ' '}
         </Text>
       </View>
 
       {pendingSync > 0 ? (
         <View style={styles.queuedBadge} accessible={false}>
+          <View style={styles.queuedBadgeBg} pointerEvents="none" />
           <Text style={styles.queuedText}>{pendingSync} queued</Text>
         </View>
       ) : null}
@@ -89,12 +90,22 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[2],
     paddingHorizontal: t.spacing[2],
     paddingVertical: t.spacing[1],
+  },
+  // Bg/border + radius live on this absolutely-positioned sibling, painted
+  // behind the dot + label — not on chip itself — so the Text child is never
+  // clipped to the rounded bounds on Android (see dayChipBg for the pattern).
+  chipBg: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     borderRadius: t.radii.pill,
   },
-  chipOnline: {
+  chipBgOnline: {
     backgroundColor: t.colors.bg.secondary,
   },
-  chipOffline: {
+  chipBgOffline: {
     backgroundColor: t.colors.amberAlpha[12],
     borderWidth: 1,
     borderColor: t.colors.accent.amber,
@@ -115,6 +126,15 @@ const useStyles = makeStyles((t) => ({
   queuedBadge: {
     paddingHorizontal: t.spacing[2],
     paddingVertical: t.spacing[1],
+  },
+  // Same pattern as chipBg: the "N queued" Text is a sibling of its rounded
+  // fill, not a child of it, so Android can't clip the trailing glyph.
+  queuedBadgeBg: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     borderRadius: t.radii.pill,
     backgroundColor: t.colors.aquaAlpha[15],
   },

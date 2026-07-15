@@ -608,7 +608,7 @@ export default function TimelineScreen() {
               return (
                 <TouchableOpacity
                   key={day.index}
-                  style={[styles.dayChip, active && styles.dayChipActive]}
+                  style={styles.dayChip}
                   onPress={() => {
                     haptics.select();
                     setSelectedDay(day.index);
@@ -618,17 +618,18 @@ export default function TimelineScreen() {
                   accessibilityState={{ selected: active }}
                   accessibilityLabel={`Day: ${day.label ?? day.date}${isToday ? ' (today)' : ''}`}
                 >
+                  <View style={[styles.dayChipBg, active && styles.dayChipBgActive]} pointerEvents="none" />
                   {isToday ? <View style={[styles.todayDot, active && styles.todayDotActive]} /> : null}
                   <Text
                     style={[styles.dayText, active && styles.dayTextActive]}
-                    numberOfLines={1}
                     maxFontSizeMultiplier={MAX_FONT_SCALE}
+                    textBreakStrategy="simple"
                   >
-                    {/* Trailing NBSP: Android intermittently under-measures this
-                        center/row single-line Text and tail-clips the last glyph
-                        ("Saturd…", "Sund…"); the sacrificial space absorbs the
-                        shortfall (same family as Button.tsx / useTokens.ts). */}
-                    {(day.label ?? day.date) + '\u00A0'}
+                    {/* Trailing NBSP: the bg-sibling above stops the rounded pill
+                        from clipping, but Fabric still self-under-measures this
+                        single-line node and drops the last glyph ("Frida"). The
+                        sacrificial space is dropped instead, leaving the word intact. */}
+                    {(day.label ?? day.date) + ' '}
                   </Text>
                 </TouchableOpacity>
               );
@@ -1106,16 +1107,30 @@ const useStyles = makeStyles((t) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: t.spacing[1],
-    paddingHorizontal: t.spacing[4],
+    // spacing[6] (was [4]): enough horizontal room that the longest day labels
+    // ("Saturday"/"Sunday") clear the pill's rounded edge comfortably — the
+    // bg-sibling stops the clip, this keeps the trailing glyph off the edge.
+    paddingHorizontal: t.spacing[6],
     paddingVertical: t.spacing[3],
     // WCAG 2.5.5 / 2.5.8 minimum 44x44px touch target (motor accessibility).
     minHeight: 44,
+  },
+  // Visual (bg/border/radius) lives on this absolutely-positioned sibling,
+  // painted behind the label — not on dayChip itself. A Text that's a CHILD of
+  // a bg+borderRadius View gets clipped to the rounded bounds on Android; as a
+  // sibling it can't be (see SegmentedControl's thumb for the same pattern).
+  dayChipBg: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     borderRadius: t.radii.pill,
     borderWidth: 1,
     borderColor: t.colors.border.default,
     backgroundColor: t.colors.bg.secondary,
   },
-  dayChipActive: {
+  dayChipBgActive: {
     backgroundColor: t.colors.accent.aqua,
     borderColor: t.colors.accent.aqua,
   },
