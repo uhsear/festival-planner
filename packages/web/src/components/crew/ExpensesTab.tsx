@@ -273,7 +273,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
               ref={settleTablistRef}
               role="tablist"
               aria-label="Settle-up view"
-              className="flex gap-1 p-0.5 rounded-md bg-bg-secondary border border-border"
+              className="flex gap-1 p-1 rounded-lg bg-bg-secondary border border-border"
             >
               {(['simplified', 'raw'] as const).map((v) => (
                 <button
@@ -284,7 +284,7 @@ export default function ExpensesTab({ crewId, members, currentUserId }: Props) {
                   aria-controls="settle-view-panel"
                   onClick={() => setSettleView(v)}
                   className={cn(
-                    'min-h-11 px-2.5 py-1 rounded text-[11px] font-medium capitalize',
+                    'min-h-11 px-2.5 py-1 rounded-md text-xs font-medium capitalize',
                     settleView === v
                       ? 'bg-accent-aqua/15 text-accent-aqua'
                       : 'text-text-secondary hover:text-text-primary',

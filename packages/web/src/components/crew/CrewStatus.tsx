@@ -3,6 +3,8 @@ import { useCrewStore, formatStaleness, etaMinutes, type CrewMemberStatus } from
 import { useCurrentPosition } from '@festie/shared/hooks';
 import { useToast } from '../../lib/toastContext';
 import Button from '../ui/Button';
+import EmptyState from '../ui/EmptyState';
+import Skeleton from '../ui/Skeleton';
 import { Navigation, LocateFixed, X, MapPin, Footprints, CircleCheck, Hourglass } from 'lucide-react';
 import { inputBase } from '../../lib/styles';
 
@@ -61,10 +63,32 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const { locating, getCurrentPosition } = useCurrentPosition();
   const [busy, setBusy] = useState(false);
+  // Local load state around crewStore's loadStatuses: the store's crewLoading/error
+  // aren't scoped per sub-resource (crewLoading never toggles for loadStatuses, and
+  // error is shared across every crew tab), so real isLoading/isError needs to be
+  // tracked here rather than pulled from the store.
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   // Load once per crew. Offline this resolves from the persisted read-cache.
   useEffect(() => {
-    if (crewId) loadStatuses(crewId).catch(() => {});
+    if (!crewId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
+    loadStatuses(crewId)
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [crewId, loadStatuses]);
 
   // Realtime crew:status-updated patching is wired centrally in
@@ -287,7 +311,29 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
       )}
 
       {/* Crew status list with HONEST staleness. */}
-      {statuses.filter((s) => s.status).length > 0 && (
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+        </div>
+      ) : loadError ? (
+        <EmptyState
+          icon={<Navigation className="w-12 h-12" aria-hidden="true" />}
+          title="Couldn't load crew status"
+          description="Something went wrong loading crew status."
+          cta={{
+            label: 'Retry',
+            onClick: () => {
+              setLoading(true);
+              setLoadError(false);
+              loadStatuses(crewId)
+                .catch(() => setLoadError(true))
+                .finally(() => setLoading(false));
+            },
+          }}
+        />
+      ) : (
+        statuses.filter((s) => s.status).length > 0 && (
         <ul className="space-y-2">
           {statuses
             .filter((s) => s.status)
@@ -353,6 +399,7 @@ export default function CrewStatus({ crewId, currentUserId, meetingPoints }: Pro
               );
             })}
         </ul>
+        )
       )}
     </div>
   );

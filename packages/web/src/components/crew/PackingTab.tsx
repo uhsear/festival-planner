@@ -5,6 +5,7 @@ import { useHaptics } from '../../hooks/useHaptics';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import EmptyState from '../ui/EmptyState';
+import Skeleton from '../ui/Skeleton';
 import IconButton from '../ui/IconButton';
 import { Backpack, Check, Plus, Trash2, X } from 'lucide-react';
 
@@ -35,9 +36,31 @@ export default function PackingTab({ crewId, currentUserId, isOwner }: Props) {
   const [label, setLabel] = useState('');
   const [createBusy, setCreateBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Local load state around crewStore's loadPacking: the store's crewLoading/error
+  // aren't scoped per sub-resource (crewLoading never toggles for loadPacking, and
+  // error is shared across every crew tab), so real isLoading/isError needs to be
+  // tracked here rather than pulled from the store.
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    if (crewId) loadPacking(crewId).catch(() => {});
+    if (!crewId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
+    loadPacking(crewId)
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [crewId, loadPacking]);
 
   function reset() {
@@ -121,7 +144,28 @@ export default function PackingTab({ crewId, currentUserId, isOwner }: Props) {
         </form>
       )}
 
-      {items.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2">
+          <Skeleton variant="card" />
+          <Skeleton variant="card" />
+        </div>
+      ) : loadError ? (
+        <EmptyState
+          icon={<Backpack className="w-12 h-12" aria-hidden="true" />}
+          title="Couldn't load packing list"
+          description="Something went wrong loading the packing list."
+          cta={{
+            label: 'Retry',
+            onClick: () => {
+              setLoading(true);
+              setLoadError(false);
+              loadPacking(crewId)
+                .catch(() => setLoadError(true))
+                .finally(() => setLoading(false));
+            },
+          }}
+        />
+      ) : items.length === 0 ? (
         <EmptyState
           icon={<Backpack className="w-12 h-12" aria-hidden="true" />}
           title="Nothing on the list yet"

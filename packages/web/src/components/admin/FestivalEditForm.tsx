@@ -160,22 +160,32 @@ export default function FestivalEditForm({
   return (
     <div className="bg-bg-card/60 backdrop-blur-xl border border-glass-border rounded-lg p-6 space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <input
-          type="text"
-          placeholder="Festival Name"
-          aria-label="Festival name"
-          value={formData.name || ''}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className="px-4 py-2 rounded-lg bg-bg-primary border border-glass-border text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
-        />
-        <input
-          type="text"
-          placeholder="Location"
-          aria-label="Location"
-          value={formData.location || ''}
-          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-          className="px-4 py-2 rounded-lg bg-bg-primary border border-glass-border text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
-        />
+        <div>
+          <label htmlFor="festival-name" className="block text-sm font-medium text-text-primary mb-2">
+            Festival Name
+          </label>
+          <input
+            id="festival-name"
+            type="text"
+            placeholder="Festival Name"
+            value={formData.name || ''}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="w-full px-4 py-2 rounded-lg bg-bg-primary border border-glass-border text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
+          />
+        </div>
+        <div>
+          <label htmlFor="festival-location" className="block text-sm font-medium text-text-primary mb-2">
+            Location
+          </label>
+          <input
+            id="festival-location"
+            type="text"
+            placeholder="Location"
+            value={formData.location || ''}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            className="w-full px-4 py-2 rounded-lg bg-bg-primary border border-glass-border text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent-aqua"
+          />
+        </div>
         <label className="flex flex-col gap-1 text-xs text-text-muted md:col-span-2">
           Time zone
           <select

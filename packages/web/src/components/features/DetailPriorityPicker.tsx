@@ -19,10 +19,14 @@ const priorityOptions: Array<{ value: Priority | null; Icon: LucideIcon; label: 
   { value: null, Icon: X, label: 'Clear' },
 ];
 
+// Selected fill mirrors SetCard's active priority buttons (solid fill + glow,
+// not a border/tint) so the same concept reads identically in both places.
 const activeStyles: Record<string, string> = {
-  must: 'border-priority-must bg-accent-coral/[0.08]',
-  'want-to-see': 'border-priority-want bg-[var(--color-aqua-a08)]',
-  maybe: 'border-priority-maybe bg-[var(--color-amber-a08)]',
+  must: 'border-priority-must bg-accent-coral-strong text-text-on-accent shadow-[var(--shadow-glow-coral),0_0_0_1px_var(--color-coral-a3)]',
+  'want-to-see':
+    'border-priority-want bg-priority-want text-[var(--text-on-light-accent)] shadow-[var(--shadow-glow-aqua),0_0_0_1px_var(--color-aqua-a3)]',
+  maybe:
+    'border-priority-maybe bg-priority-maybe text-[var(--text-on-light-accent)] shadow-[var(--shadow-glow-amber),0_0_0_1px_var(--color-amber-a3)]',
   clear: 'border-text-muted bg-[var(--color-overlay-1)]',
 };
 
