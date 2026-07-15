@@ -524,7 +524,7 @@ export default function CrewMap({
           ref={containerRef}
           className="festie-map-canvas h-72 w-full"
           role="region"
-          tabIndex={0}
+          tabIndex={0} // eslint-disable-line jsx-a11y/no-noninteractive-tabindex -- intentional: focus enables arrow-key map pan/zoom (see aria-describedby help below); rule only exempts role=tabpanel
           aria-label="Crew map with meeting points and live locations"
           aria-describedby="festie-map-help"
         />

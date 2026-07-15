@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, CalendarPlus } from 'lucide-react';
 import { useCrewStore } from '@festie/shared/stores';
@@ -33,11 +33,17 @@ export default function ReformCrewButton({ crewId, sourceFestivalId, crewName }:
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [target, setTarget] = useState('');
+  const selectRef = useRef<HTMLSelectElement>(null);
 
   // Load the festival list lazily when the dialog opens.
   useEffect(() => {
     if (open && festivals.length === 0) loadFestivals().catch(() => {});
   }, [open, festivals.length, loadFestivals]);
+
+  // Focus the festival select when the dialog opens (was autoFocus).
+  useEffect(() => {
+    if (open) selectRef.current?.focus();
+  }, [open]);
 
   // Offer every festival except the source crew's own.
   const options = useMemo(() => festivals.filter((f) => f.id !== sourceFestivalId), [festivals, sourceFestivalId]);
@@ -90,7 +96,7 @@ export default function ReformCrewButton({ crewId, sourceFestivalId, crewName }:
 
           <form onSubmit={submit} className="space-y-3" {...(busy ? { 'aria-busy': true } : {})}>
             <select
-              autoFocus
+              ref={selectRef}
               value={target}
               onChange={(e) => setTarget(e.target.value)}
               disabled={busy}

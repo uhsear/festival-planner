@@ -5,6 +5,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 
 export default tseslint.config(
   // Base recommended rules
@@ -17,6 +18,7 @@ export default tseslint.config(
     files: ['src/**/*.{ts,tsx}'],
     plugins: {
       'react-hooks': reactHooks,
+      'jsx-a11y': jsxA11y,
     },
     languageOptions: {
       ecmaVersion: 2022,
@@ -26,6 +28,10 @@ export default tseslint.config(
       },
     },
     rules: {
+      // Accessibility (prevention-side): catch a11y defects at author/lint time.
+      // Adopted as the recommended ruleset; the config is dark-only single-accent,
+      // so these guard semantics (labels, roles, keyboard handlers), not styling.
+      ...jsxA11y.flatConfigs.recommended.rules,
       // React Hooks rules
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',

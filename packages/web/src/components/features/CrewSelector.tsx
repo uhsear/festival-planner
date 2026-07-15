@@ -115,6 +115,7 @@ export default function CrewSelector({
           ref={panelRef}
           role="listbox"
           aria-label="Crew list"
+          tabIndex={0}
           onKeyDown={handlePanelKeyDown}
           className={cn(
             'absolute top-full mt-1 left-0 right-0 z-[var(--z-modal)]',

@@ -65,17 +65,31 @@ export default function PendingSyncSheet({ onClose }: PendingSyncSheetProps) {
   if (failedSync.length === 0) return null;
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- role="dialog" is required for screen readers; onClick is the backdrop-dismiss pattern, kept keyboard-operable via onKeyDown below plus Escape/focus-trap (useKeyboardTrap) and the Close button
     <div
       className="fixed inset-0 z-[var(--z-modal)] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label="Changes that couldn't sync"
       onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClose();
+        }
+      }}
     >
       <div
         ref={panelRef}
+        role="presentation"
         className="w-full sm:max-w-md max-h-[80vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-bg-secondary border border-border-default shadow-2xl"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          // Only swallow Enter/Space: stopping propagation unconditionally would
+          // also block Escape/Tab from reaching the document-level listener
+          // useKeyboardTrap relies on for close/focus-trap.
+          if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
+        }}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border-default sticky top-0 bg-bg-secondary">
           <h2 className="text-sm font-bold text-text-primary">
