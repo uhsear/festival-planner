@@ -56,7 +56,7 @@ export default function DetailArtistHeader({
 
       {/* Artist name */}
       <div
-        className="text-[26px] font-bold mb-1 tracking-[-0.5px] leading-[1.1] text-text-primary"
+        className="type-heading mb-1 text-text-primary"
         id="detail-panel-title"
       >
         {artistName}
@@ -98,7 +98,7 @@ export default function DetailArtistHeader({
                     href={/^https?:/i.test(url) ? url : undefined}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[length:var(--font-size-13)] text-accent-aqua no-underline hover:underline"
+                    className="inline-flex items-center min-h-11 text-[length:var(--font-size-13)] text-accent-aqua no-underline hover:underline"
                   >
                     {(PLATFORM_LABELS[platform] || platform) + ' ↗'}
                   </a>

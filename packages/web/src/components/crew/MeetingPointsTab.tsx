@@ -288,7 +288,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
       {/* List/Map toggle. Map lazy-loads MapLibre only when selected. */}
       <div
         ref={viewTablistRef}
-        className="inline-flex rounded-lg border border-border p-0.5 bg-bg-card"
+        className="inline-flex gap-1 p-1 rounded-lg bg-bg-card border border-border"
         role="tablist"
         aria-label="Meeting points view"
       >
@@ -298,7 +298,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
           aria-selected={view === 'list'}
           aria-controls="meeting-points-panel"
           onClick={() => setView('list')}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium min-h-11 transition-colors ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium min-h-11 ${
             view === 'list' ? 'bg-accent-aqua/15 text-accent-aqua' : 'text-text-secondary hover:text-text-primary'
           }`}
         >
@@ -310,7 +310,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
           aria-selected={view === 'map'}
           aria-controls="meeting-points-panel"
           onClick={() => setView('map')}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium min-h-11 transition-colors ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium min-h-11 ${
             view === 'map' ? 'bg-accent-aqua/15 text-accent-aqua' : 'text-text-secondary hover:text-text-primary'
           }`}
         >

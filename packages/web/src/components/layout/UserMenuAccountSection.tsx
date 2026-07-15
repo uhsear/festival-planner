@@ -196,7 +196,7 @@ export default function UserMenuAccountSection({
             Admin Panel
           </Button>
         )}
-        <Button variant="danger" size="sm" type="button" onClick={onLogout}>
+        <Button variant="ghost" size="sm" type="button" onClick={onLogout}>
           Logout
         </Button>
       </div>

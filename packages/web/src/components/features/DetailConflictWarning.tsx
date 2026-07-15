@@ -46,7 +46,7 @@ export default function DetailConflictWarning({
                 {cOthers.length ? cOthers.length + ' crew going' : 'No crew'}
               </div>
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 type="button"
                 aria-label={`Switch to ${artistDisplayName(c, b2bSeparator)}`}
