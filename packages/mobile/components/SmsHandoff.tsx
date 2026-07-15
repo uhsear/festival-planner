@@ -138,7 +138,9 @@ export default function SmsHandoff() {
     <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomPad }]}>
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Ionicons name="navigate" size={18} color={t.colors.accent.coral} />
+          {/* Aqua, not coral: sharing a meeting point is a neutral navigation
+              action; coral is reserved for danger/SOS (one-accent rule). */}
+          <Ionicons name="navigate" size={18} color={t.colors.accent.aqua} />
           <Text style={styles.cardTitle}>Text the meeting point to your crew</Text>
         </View>
         <Text style={styles.previewLabel}>Message preview:</Text>

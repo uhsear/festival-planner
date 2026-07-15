@@ -185,10 +185,11 @@ function PriorityButton({ option, active, onPress }: PriorityButtonProps) {
       <Ionicons name={option.icon} size={16} color={active ? t.colors.text.onLightAccent : accent} />
       <Text
         style={[styles.priorityLabel, { color: active ? t.colors.text.onLightAccent : t.colors.text.secondary }]}
-        numberOfLines={1}
         maxFontSizeMultiplier={MAX_FONT_SCALE}
       >
-        {option.short}
+        {/* Trailing NBSP: sacrificial glyph that absorbs Fabric's single-line
+            self-under-measure so "MUST"/"MAYBE" keep their last letter. */}
+        {option.short + ' '}
       </Text>
     </AnimatedPressable>
   );
@@ -245,9 +246,13 @@ function SetCardMobileImpl({
   return (
     <View style={[styles.card, isLive && styles.cardLive]}>
       <AppPressable style={styles.body} onPress={onPress} accessibilityRole="button" accessibilityLabel={a11yBody}>
-        <View style={[styles.stagePill, { backgroundColor: pillBg }]}>
-          <Text style={styles.stageText} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-            {stageName}
+        <View style={styles.stagePill}>
+          <View style={[styles.stagePillBg, { backgroundColor: pillBg }]} pointerEvents="none" />
+          <Text style={styles.stageText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+            {/* Trailing NBSP absorbs Fabric's single-line self-under-measure so a
+                longer stage name doesn't drop its last glyph (the bg-sibling
+                already prevents the rounded-pill clip). */}
+            {stageName + ' '}
           </Text>
         </View>
 
@@ -476,8 +481,18 @@ const useStyles = makeStyles((t) => ({
     alignSelf: 'flex-start',
     paddingHorizontal: t.spacing[2],
     paddingVertical: t.spacing[1],
-    borderRadius: t.radii.pill,
     marginBottom: t.spacing[1],
+  },
+  // Dynamic (per-stage) bg color lives on this absolutely-positioned sibling —
+  // not on stagePill itself — so the Text child is never clipped to the
+  // rounded bounds on Android (see dayChipBg for the same pattern).
+  stagePillBg: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: t.radii.pill,
   },
   stageText: {
     ...typeStyle('micro'),
@@ -584,5 +599,12 @@ const useStyles = makeStyles((t) => ({
     // F4: typeStyle('micro', 700) selects SpaceGrotesk_700Bold instead of the
     // inert raw fontWeight override.
     ...typeStyle('micro', 700),
+    // Android/Fabric under-measures uppercase, letter-spaced text and the pill's
+    // rounded bounds clip the trailing glyph ("MUS", "MAYB") — a trailing pad
+    // alone did NOT clear it. The micro role's caps tracking (0.08em) is the
+    // aggravator: the tracking-0 label-role chips never clipped. Zero the
+    // tracking here and keep a trailing pad as density-flakiness slack.
+    letterSpacing: 0,
+    paddingRight: t.spacing[2],
   },
 }));

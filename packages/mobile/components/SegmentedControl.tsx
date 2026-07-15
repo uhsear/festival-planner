@@ -41,7 +41,7 @@ function Segment<T extends string>({ option, active, onPress }: SegmentProps<T>)
       accessibilityState={{ selected: active }}
       accessibilityLabel={option.label}
     >
-      <Text style={[s.label, active && s.labelActive]} numberOfLines={1} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+      <Text style={[s.label, active && s.labelActive]} maxFontSizeMultiplier={MAX_FONT_SCALE} textBreakStrategy="simple">
         {/* Trailing NBSP: Android under-measures a center-aligned single-line
             Text node and tail-clips the last glyph ("Timeli…", "Car…") even
             with ~300px to spare; the sacrificial space absorbs the shortfall
@@ -169,7 +169,10 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: t.spacing[2],
-    paddingHorizontal: t.spacing[3],
+    // spacing[2] (was [3]): tighter side padding frees room for the longest
+    // label ("Timeline") to clear the flex:1 half-track at 360dp; the active
+    // aqua fill still reads as a comfortable pill.
+    paddingHorizontal: t.spacing[2],
     borderRadius: t.radii.pill,
     minHeight: 44, // WCAG 2.5.5 / Apple HIG minimum touch target
   },

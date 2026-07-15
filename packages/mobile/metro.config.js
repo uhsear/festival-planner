@@ -12,6 +12,17 @@ const config = getDefaultConfig(projectRoot);
 // 1. Watch all files within the monorepo (extend Expo's defaults, don't replace them)
 config.watchFolders = [...(config.watchFolders ?? []), monorepoRoot];
 
+// 1b. Never bundle test/spec files into the app. They're colocated under app/
+// (e.g. app/admin/festivalEditState.test.ts) and expo-router's require.context
+// would otherwise treat them as routes — calling vitest's `describe()` at
+// runtime crashes the web bundle (and needlessly bloats the native/OTA bundle).
+const existingBlockList = config.resolver.blockList
+  ? Array.isArray(config.resolver.blockList)
+    ? config.resolver.blockList
+    : [config.resolver.blockList]
+  : [];
+config.resolver.blockList = [...existingBlockList, /.*\.(test|spec)\.[jt]sx?$/];
+
 // 2. Let Metro know where to resolve packages and in what order
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),

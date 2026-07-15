@@ -1650,7 +1650,9 @@ export default function OfflineMap({
             accessibilityLabel={`Meeting point: ${pin.label}${pin.sublabel ? ', ' + pin.sublabel : ''}`}
             accessibilityHint={`${pin.latitude.toFixed(5)}, ${pin.longitude.toFixed(5)}`}
           >
-            <Ionicons name="location" size={iconSize.action} color={t.colors.accent.coral} />
+            {/* Aqua, not coral: a meeting-point pin is a neutral location cue;
+                coral is danger/SOS-only per the one-accent rule. */}
+            <Ionicons name="location" size={iconSize.action} color={t.colors.accent.aqua} />
             <View style={styles.rowBody}>
               <Text style={styles.rowLabel}>{pin.label}</Text>
               {pin.sublabel ? <Text style={styles.rowSub}>{pin.sublabel}</Text> : null}
