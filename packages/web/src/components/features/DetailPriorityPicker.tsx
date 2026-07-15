@@ -31,7 +31,7 @@ const activeStyles: Record<string, string> = {
 };
 
 const baseButtonClass =
-  'flex-1 py-3 min-h-[44px] rounded-DEFAULT text-center bg-bg-card border-2 border-border cursor-pointer transition-[background-color,border-color,transform] duration-200 ease-[var(--ease-standard)] text-text-primary touch-manipulation appearance-none overflow-hidden hover:border-text-muted hover:bg-bg-card-hover active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2';
+  'flex-1 py-3 min-h-[44px] rounded-DEFAULT text-center bg-bg-card border-2 border-border cursor-pointer transition-[background-color,border-color,transform,box-shadow,color] duration-200 ease-[var(--ease-standard)] text-text-primary touch-manipulation appearance-none overflow-hidden hover:border-text-muted hover:bg-bg-card-hover active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-accent-aqua focus-visible:outline-offset-2';
 
 export default function DetailPriorityPicker({ myPick, priorityBusy, onPriorityClick }: Props) {
   return (

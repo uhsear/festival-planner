@@ -336,6 +336,11 @@ function AuthGate() {
           <Stack
             screenOptions={{
               headerShown: false,
+              // ELEVATED-HEADER RULE (design decision, 2026-07-15): pushed-route
+              // native headers sit one tonal step ABOVE the body — header
+              // bg.secondary (#1a1a1a) over content bg.primary (#0a0a0a). This is
+              // a deliberate depth cue, NOT drift. Do not flatten header→primary;
+              // if unifying chrome elevation, converge on bg.secondary/bg.elevated.
               headerStyle: { backgroundColor: colors.bg.secondary },
               headerTintColor: colors.text.primary,
               // headerTitleStyle cannot set fontFamily on Android (the native
