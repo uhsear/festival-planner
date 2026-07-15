@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AppState, type ScrollView } from 'react-native';
+import { useReduceMotion } from './useReduceMotion';
 
 /** Time bounds for the visible day window (minutes-from-midnight). */
 export interface TimeBounds {
@@ -19,6 +20,7 @@ export interface TimeBounds {
  * (px per 15-minute slot) — matching the web grid's slot model.
  */
 export function useNowIndicator(timeBounds: TimeBounds | null, selectedDay: number, rowHeight: number) {
+  const reduceMotion = useReduceMotion();
   const [nowTick, setNowTick] = useState(() => Date.now());
 
   useEffect(() => {
@@ -60,8 +62,8 @@ export function useNowIndicator(timeBounds: TimeBounds | null, selectedDay: numb
     // offset up by ~120px so it lands roughly centered rather than at the top.
     const contentHeight = timeBounds.totalSlots * rowHeight;
     const targetY = (nowIndicator / 100) * contentHeight;
-    el.scrollTo({ y: Math.max(0, targetY - 120), animated: true });
-  }, [nowIndicator, timeBounds, rowHeight]);
+    el.scrollTo({ y: Math.max(0, targetY - 120), animated: !reduceMotion });
+  }, [nowIndicator, timeBounds, rowHeight, reduceMotion]);
 
   // Keep a ref to the latest scrollToNow so the day-switch effect can call it
   // without listing it (or nowIndicator) as a dep — depending on nowIndicator
