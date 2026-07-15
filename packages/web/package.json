@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test-storybook": "test-storybook"
   },
   "dependencies": {
     "@festie/shared": "workspace:*",
@@ -46,6 +47,7 @@
     "@storybook/addon-a11y": "^10.4.2",
     "@storybook/addon-docs": "^10.4.2",
     "@storybook/react-vite": "^10.4.2",
+    "@storybook/test-runner": "^0.24.4",
     "@tailwindcss/vite": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -55,6 +57,7 @@
     "@typescript/native-preview": "latest",
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.8",
+    "axe-playwright": "^2.2.2",
     "bundlemon": "^3.1.0",
     "caniuse-lite": "^1.0.30001799",
     "eslint-plugin-jsx-a11y": "^6.10.2",

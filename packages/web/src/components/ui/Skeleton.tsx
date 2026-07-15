@@ -23,6 +23,10 @@ export default function Skeleton({
         variantStyles[variant],
         className
       )}
+      // role=status is the ARIA loading-indicator role: it supports an accessible
+      // name, so aria-label is valid here (a bare <div> prohibits it → axe
+      // `aria-prohibited-attr`). Keeps aria-busy + the "Loading" name intact.
+      role="status"
       aria-busy="true"
       aria-label="Loading"
     />

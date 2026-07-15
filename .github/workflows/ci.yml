@@ -181,6 +181,36 @@ jobs:
           COVERAGE: '1'
         run: pnpm --filter @festie/web test -- --coverage
 
+  storybook-a11y:
+    # Runs axe over every Storybook story via @storybook/test-runner and fails on
+    # serious/critical WCAG violations (see packages/web/.storybook/test-runner.ts).
+    # The addon-a11y already surfaces these in the Storybook UI; this makes a PR
+    # actually fail on them. Web/shared-gated (P8); not a required check yet.
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: ./.github/actions/pnpm-setup
+      - name: Install web workspace deps
+        working-directory: packages
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright chromium (test-runner engine)
+        working-directory: packages/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build Storybook
+        working-directory: packages/web
+        run: pnpm build-storybook --quiet
+      - name: Storybook a11y scan (axe — serious/critical fail the run)
+        working-directory: packages/web
+        env:
+          STORYBOOK_TELEMETRY_DISABLED: '1'
+        run: |
+          npx -y concurrently -k -s first -n SB,A11Y \
+            "npx -y http-server storybook-static -p 6006 -a 127.0.0.1 --silent" \
+            "npx -y wait-on tcp:127.0.0.1:6006 && pnpm test-storybook --url http://127.0.0.1:6006 --maxWorkers=2"
+
   mobile-typecheck:
     needs: changes
     if: needs.changes.outputs.mobile == 'true'
