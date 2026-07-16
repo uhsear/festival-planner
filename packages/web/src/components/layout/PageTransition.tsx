@@ -27,14 +27,10 @@ export default function PageTransition({ children }: PageTransitionProps) {
   return (
     <m.div
       key={key}
-      initial={reduce ? false : { opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      /* ease-out cubic-bezier matches --ease-out token in globals.css;
-         180ms is long enough to read the hierarchy shift (4px Y translate)
-         without delaying first interaction. transform-only Y keeps this on
-         the compositor — no layout thrash. */
-      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-      className="will-change-[opacity,transform] h-full flex flex-col min-h-0"
+      initial={reduce ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+      className="h-full flex flex-col min-h-0"
     >
       {children}
     </m.div>

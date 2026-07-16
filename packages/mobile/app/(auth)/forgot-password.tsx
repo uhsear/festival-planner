@@ -109,6 +109,8 @@ const useStyles = makeStyles((t) => ({
   linkButton: {
     marginTop: t.spacing[5],
     alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    minHeight: 44,
   },
   linkTextAccent: {
     ...typeStyle('label', 600),
@@ -226,7 +228,11 @@ export default function ForgotPasswordScreen() {
         )}
 
         <Link href="/(auth)/login" asChild>
-          <TouchableOpacity style={styles.linkButton}>
+          <TouchableOpacity
+            style={styles.linkButton}
+            accessibilityRole="link"
+            accessibilityLabel="Back to sign in"
+          >
             <Text style={styles.linkTextAccent}>Back to sign in</Text>
           </TouchableOpacity>
         </Link>

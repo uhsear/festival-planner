@@ -262,11 +262,17 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   selectCrew: async (crewId: string) => {
     _lastSelectCrewId = crewId;
     set((state) => {
-      const sameCrew = state._cachedCrewId === crewId;
+      const sameActiveCrew = state.activeCrew?.id === crewId;
+      // A freshly-created crew can be active before its persistence metadata is
+      // stamped. Its in-memory data is still authoritative for revalidation.
+      const sameCrew = state._cachedCrewId === crewId || sameActiveCrew;
       return {
         crewLoading: true,
         error: null,
-        activeCrew: null,
+        // Same-crew foreground revalidation must not blank every crew-backed
+        // screen while the request is in flight (or forever when offline / 429).
+        // A different target still clears immediately to prevent cross-crew data.
+        activeCrew: sameActiveCrew ? state.activeCrew : null,
         crewMembers: sameCrew ? state.crewMembers : [],
         polls: sameCrew ? state.polls : [],
         meetingPoints: sameCrew ? state.meetingPoints : [],

@@ -1,7 +1,13 @@
 import Button from '../ui/Button';
 
 interface Props {
-  preview: { embedUrl: string; label: string; embedType: string };
+  preview: {
+    embedUrl: string;
+    embedType: string;
+    label?: string;
+    trackName?: string;
+    artistName?: string;
+  };
   visible: boolean;
   onToggle: () => void;
 }
@@ -21,7 +27,7 @@ export default function DetailSpotifySection({ preview, visible, onToggle }: Pro
             frameBorder="0"
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             loading="lazy"
-            title={'Spotify: ' + preview.label}
+            title={`Spotify: ${preview.label || preview.trackName || preview.artistName || 'player'}`}
             className="block w-full rounded-xl"
           />
         </div>

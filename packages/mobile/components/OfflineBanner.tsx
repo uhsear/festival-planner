@@ -202,7 +202,10 @@ export default function OfflineBanner({ onActiveChange }: OfflineBannerProps = {
       <Modal visible={sheetOpen} transparent animationType="slide" onRequestClose={() => setSheetOpen(false)}>
         <View style={styles.modalBackdrop}>
           <TouchableOpacity style={styles.modalDismissArea} activeOpacity={1} onPress={() => setSheetOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + t.spacing[3] }]}>
+          <View
+            style={[styles.sheet, { paddingBottom: insets.bottom + t.spacing[3] }]}
+            accessibilityViewIsModal
+          >
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>
                 {failedCount} change{failedCount === 1 ? '' : 's'} couldn&apos;t sync
@@ -300,7 +303,10 @@ const useStyles = makeStyles((t) => ({
     flex: 1,
   },
   dismiss: {
-    padding: t.spacing[1],
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // ── Failed-items modal ──────────────────────────────────────────
   modalBackdrop: {

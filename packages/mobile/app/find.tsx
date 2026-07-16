@@ -16,6 +16,7 @@ import { useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { useCrewStore, useLiveLocationStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
@@ -38,7 +39,8 @@ function hasCoords(mp: CrewMeetingPoint): mp is CrewMeetingPoint & { latitude: n
 export default function FindScreen() {
   const t = useTokens();
   const styles = useStyles();
-  const bottomPad = useListBottomInset({ base: t.spacing[4] });
+  const insets = useSafeAreaInsets();
+  const bottomPad = useListBottomInset({ base: 52 + t.spacing[5] + t.spacing[4] });
 
   const activeCrew = useCrewStore((s) => s.activeCrew);
   const meetingPoints = useCrewStore((s) => s.meetingPoints);
@@ -171,7 +173,7 @@ export default function FindScreen() {
           flow — an absolute child of a relative-flow parent collapses to 0x0 on
           Android New Arch. Pulsing coral RING (a real View, not shadow*) while
           an active SOS exists for this crew; reduce-motion shows a static ring. */}
-      <View style={styles.sosFabWrap} pointerEvents="box-none">
+      <View style={[styles.sosFabWrap, { bottom: insets.bottom + t.spacing[5] }]} pointerEvents="box-none">
         {sosActive ? <Animated.View pointerEvents="none" style={[styles.sosRing, sosRingStyle]} /> : null}
         <TouchableOpacity
           testID="find-sos-fab"
@@ -270,7 +272,6 @@ const useStyles = makeStyles((t) => ({
   sosFabWrap: {
     position: 'absolute',
     right: t.spacing[4],
-    bottom: t.spacing[5],
     alignItems: 'center',
     justifyContent: 'center',
   },

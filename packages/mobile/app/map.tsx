@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { useAuthStore, useCrewStore, useLiveLocationStore, useFestivalDataStore } from '@festie/shared/stores';
 import type { CrewMeetingPoint } from '@festie/shared/types';
@@ -28,6 +29,7 @@ const SWEEP_INTERVAL_MS = 15_000;
 export default function MapScreen() {
   const t = useTokens();
   const styles = useStyles();
+  const insets = useSafeAreaInsets();
 
   const user = useAuthStore((s) => s.user);
   const activeCrew = useCrewStore((s) => s.activeCrew);
@@ -107,7 +109,7 @@ export default function MapScreen() {
 
   if (!user) {
     return (
-      <View style={styles.screen}>
+      <View testID="map-screen" style={styles.screen}>
         <Stack.Screen options={{ title: 'Map', headerShown: true }} />
         <EmptyState icon="lock-closed" title="Sign in required" message="Log in to see the crew map." />
       </View>
@@ -116,7 +118,7 @@ export default function MapScreen() {
 
   if (!activeCrew) {
     return (
-      <View style={styles.screen}>
+      <View testID="map-screen" style={styles.screen}>
         <Stack.Screen options={{ title: 'Map', headerShown: true }} />
         <EmptyState
           icon="people-outline"
@@ -128,7 +130,7 @@ export default function MapScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View testID="map-screen" style={styles.screen}>
       {/* Drop the " · Map" suffix and shrink-to-fit: the screen context already
           makes "Map" obvious, and a long crew name + suffix used to clip in the
           notch-narrowed native title region. */}
@@ -153,7 +155,7 @@ export default function MapScreen() {
           collapses to 0x0 on Android New Arch. Pulsing coral RING (a real View,
           not shadow*) while an active SOS exists for this crew; reduce-motion
           shows a static ring. */}
-      <View style={styles.sosFabWrap} pointerEvents="box-none">
+      <View style={[styles.sosFabWrap, { bottom: insets.bottom + t.spacing[5] }]} pointerEvents="box-none">
         {sosActive ? <Animated.View pointerEvents="none" style={[styles.sosRing, sosRingStyle]} /> : null}
         <TouchableOpacity
           testID="map-sos-fab"
@@ -192,7 +194,6 @@ const useStyles = makeStyles((t) => ({
   sosFabWrap: {
     position: 'absolute',
     right: t.spacing[4],
-    bottom: t.spacing[5],
     alignItems: 'center',
     justifyContent: 'center',
   },

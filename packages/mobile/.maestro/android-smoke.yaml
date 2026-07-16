@@ -1,23 +1,6 @@
-# Android UI smoke for CI (local Gradle release APK on a KVM emulator via
-# reactivecircus/android-emulator-runner — no EAS credit). Standalone build
-# (appId us.festie.app) hitting prod https://festie.us/api/v1.
-#
-# Two phases:
-#  1. GUEST (always runs, secret-free): launch -> onboarding -> picker -> schedule
-#     views -> tabs. Proves the build launches/renders/navigates.
-#  2. AUTHED (guarded — runs only when TEST_USERNAME/TEST_PASSWORD are passed via
-#     -e; CI provides them from repo secrets): login -> crew -> assert the
-#     Live-Location control + SOS button render and the SOS confirm dialog appears
-#     (it CANCELS — never actually sends an SOS/shares, to avoid prod side effects).
-#     Android exposes RN a11y labels reliably, so authed nav works here (unlike the
-#     iOS cloud sim). Content taps are optional + screenshotted; final assertVisible
-#     on app chrome is the hard gate.
+# Deterministic, read-only Android route smoke. It uses the same hard assertions
+# as iOS and never performs a production mutation.
 appId: us.festie.app
-# smoke: the GUEST phase (launch → picker → schedule → Picks bounce → login
-# screen assertion) runs unconditionally and finishes in under 3 min on a
-# warm emulator — safe for the fast PR subset.
-# authed: the post-login walk (crew sub-tabs, SOS dialog) needs repo secrets.
-# nightly: full run including authed sections.
 tags:
   - smoke
   - authed
@@ -30,209 +13,229 @@ env:
     clearState: true
 - extendedWaitUntil:
     visible:
-      text: "Skip|Build your festival|Select a Festival|Festie"
+      text: "Plan your whole weekend|Select a Festival"
     timeout: 120000
 - takeScreenshot: 01-launch
-- tapOn:
-    text: "Skip"
-    optional: true
+- runFlow:
+    when:
+      visible: "Plan your whole weekend"
+    commands:
+      - assertVisible: "Plan your whole weekend"
+      - tapOn:
+          id: "intro-skip"
 - extendedWaitUntil:
-    visible:
-      text: "Select a Festival|North Coast|Timeline"
+    visible: "Select a Festival"
     timeout: 30000
+- assertVisible: "Select a Festival"
 - takeScreenshot: 02-festival-picker
-# ── Guest festival selection (HARD gate) ──
-# Regression guard for the guest bounce-back bug: a stale persist rehydration
-# clobbered currentFestivalId mid-selectFestival, so the schedule rendered for
-# ~2s then bounced back to the picker. The tap and BOTH assertions are
-# non-optional: select as a guest, confirm the schedule rendered, wait past
-# the bounce window, then confirm the picker did NOT come back.
 - tapOn:
-    text: "Schedule"
-    optional: true
+    id: "festival-card-nc-2026"
 - extendedWaitUntil:
     visible:
-      text: "North Coast Festival 2026|Select a Festival|Timeline"
-    timeout: 30000
-- runFlow:
-    when:
-      visible: "Select a Festival"
-    commands:
-      # Tap by testID (the whole TouchableOpacity), not by inner Text — under
-      # RN 0.85 New Architecture the accessible container exposes one combined
-      # a11y label and a text-center tap can land on a non-interactive node.
-      - tapOn:
-          id: "festival-card-nc-2026"
-      # Diagnostic: capture whatever rendered right after the tap, BEFORE any
-      # assertion, so a failure leaves evidence (spinner vs picker vs schedule).
-      - waitForAnimationToEnd:
-          timeout: 3000
-      - takeScreenshot: 03a-after-tap
-      # Schedule must render. 90s: a cold CI emulator fetching a 121-set lineup
-      # from prod over the public internet can exceed 30s without being a bug.
-      # "Switch" is the SubHeader's switch-festival affordance (proven text in
-      # two-festival.yaml); Timeline/Cards are the view-switcher labels.
-      - extendedWaitUntil:
-          visible:
-            text: "Switch|Timeline|Cards"
-          # 150 s: a cold CI emulator fetching a 121-set lineup from prod over the
-          # public internet regularly approached the old 90 s cap on flaky runs.
-          # This is still a real gate — 150 s only elapses if the server is
-          # genuinely unreachable or the app silently failed to navigate.
-          timeout: 150000
-      - takeScreenshot: 03b-festival-selected
-      # …and must STILL be rendered well past the ~2s bounce window.
-      - waitForAnimationToEnd:
-          timeout: 6000
-      - assertNotVisible: "Select a Festival"
-      - assertVisible:
-          text: "Switch|Timeline|Cards"
+      text: "Timeline|Cards"
+    timeout: 150000
 - waitForAnimationToEnd:
-    timeout: 4000
-- takeScreenshot: 03-timeline
-- tapOn:
-    text: "Grid"
-    optional: true
-- takeScreenshot: 04-grid
-- tapOn:
-    text: "Cards"
-    optional: true
-- takeScreenshot: 05-cards
-# Scroll the Cards page — chrome now rides in the list header, so the whole page
-# should scroll as one and reveal more cards (not just a tiny window).
-- scroll
-- scroll
-- takeScreenshot: 05a-cards-scrolled
-# Bounce-back gate, part 2: we are now 10s+ past the guest festival selection.
-# If the selection silently unwound to the picker (the rehydration-clobber
-# regression), this fails the flow loudly instead of the walk continuing.
+    timeout: 6000
 - assertNotVisible: "Select a Festival"
-# ── Tab-bar interactivity gate + guest AuthGate (NON-optional) ──
-# All four tabs are visible to guests (the Account tab is the sign-in entry).
-# Picks is AuthGate-guarded: tapping it as a GUEST must bounce to login. This
-# single non-optional tap proves the tab is tappable (dead-tab-bar guard) AND
-# the guard fires — and lands us on login, flowing into the authed phase below.
+- takeScreenshot: 03-schedule-guest
+
+- openLink: "festie://register"
+- extendedWaitUntil:
+    visible: "Create your account"
+    timeout: 30000
+- takeScreenshot: 04-register
+- openLink: "festie://forgot-password"
+- extendedWaitUntil:
+    visible: "Reset your password|Forgot password"
+    timeout: 30000
+- takeScreenshot: 05-forgot-password
+- openLink: "festie://login"
+- extendedWaitUntil:
+    visible: "Sign in to your account"
+    timeout: 30000
 - tapOn:
-    text: "Picks"
-- assertVisible: "Sign in to your account"
-# ── Guarded login (runs only when creds are passed) ──
+    id: "login-username-input"
+- inputText: "${TEST_USERNAME}"
+- hideKeyboard
 - tapOn:
-    text: "Account"
+    id: "login-password-input"
+- inputText: "${TEST_PASSWORD}"
+- hideKeyboard
+- tapOn: "Sign in"
+- tapOn:
+    text: "Not Now"
     optional: true
-- waitForAnimationToEnd:
-    timeout: 3000
-- runFlow:
-    when:
-      visible: "Username"
-    commands:
-      - tapOn: "Username"
-      - inputText: "${TEST_USERNAME}"
-      - hideKeyboard
-      - tapOn: "Password"
-      - inputText: "${TEST_PASSWORD}"
-      - hideKeyboard
-      - tapOn: "Sign in"
-      - tapOn:
-          text: "Not Now"
-          optional: true
-      - extendedWaitUntil:
-          notVisible: "Username"
-          timeout: 25000
-- takeScreenshot: 06-account
-# ── Authed tab-bar interactivity gate (the real dead-tab-bar guard, post-login) ──
-# Runs only when login succeeded (Picks is now reachable as an authed user). If
-# creds were skipped we're still a guest on login here, so guard the authed walk.
-- runFlow:
-    when:
-      notVisible: "Username"
-      visible: "Picks"
-    commands:
-      - tapOn:
-          text: "Picks"
-      - assertVisible: "My Picks"
-      - tapOn:
-          text: "Schedule"
-      - assertVisible:
-          text: "North Coast Festival 2026|Select a Festival|Timeline|Cards"
-# ── Crew + Live Location + SOS (authed; guarded by the login runFlow above) ──
-# The entire crew walk is wrapped in a runFlow:when guard: if login was skipped
-# (no creds supplied) or the account has no crew, the outer tap on "Crew" won't
-# land on an authed crew screen and the sub-tab taps would hard-fail.
-# P25: the sub-tab taps (crew-tab-plan/money/logistics) are now NON-optional inside
-# the guard — a broken segmented bar will fail loudly instead of silently passing.
-# scrollUntilVisible for "Share my live location"/"Send SOS" remain optional because
-# those controls only appear when the account is a crew member; the non-optional
-# sub-tab navigation already guards against a structurally broken Logistics pane.
-- tapOn:
-    text: "Crew"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 2500
-- takeScreenshot: 07-crew
-- runFlow:
-    when:
-      visible:
-        id: "crew-tab-plan"
-    commands:
-      # Crew sub-tabs: non-optional inside the guard (P25).
-      - tapOn:
-          id: "crew-tab-plan"
-      - waitForAnimationToEnd:
-          timeout: 1500
-      - takeScreenshot: 07a-crew-plan
-      - tapOn:
-          id: "crew-tab-money"
-      - waitForAnimationToEnd:
-          timeout: 1500
-      - takeScreenshot: 07b-crew-money
-      - tapOn:
-          id: "crew-tab-logistics"
-      - waitForAnimationToEnd:
-          timeout: 1500
-      - takeScreenshot: 07c-crew-logistics
-      # Live location + SOS live in the Logistics tab (now selected above).
-      # scrollUntilVisible + tapOn remain optional: requires crew membership.
-      # Accepted trade-off until a setup/teardown crew-join step is added.
-      - scrollUntilVisible:
-          element:
-            text: "Share my live location"
-          direction: DOWN
-          timeout: 12000
-          optional: true
-      - takeScreenshot: 08-live-location
-      - scrollUntilVisible:
-          element:
-            text: "Send SOS"
-          direction: DOWN
-          # 16s (was 8s): SOS sits below live-location + meeting-points + crew-
-          # status in Logistics, so it needs a longer scroll budget than the
-          # live-location control above to come into view.
-          timeout: 16000
-          optional: true
-      - takeScreenshot: 09-sos
-      # Open the SOS confirm dialog to prove it guards, then CANCEL (never send).
-      - tapOn:
-          text: "Send SOS"
-          optional: true
-      - waitForAnimationToEnd:
-          timeout: 1500
-      - takeScreenshot: 10-sos-confirm-dialog
-      - tapOn:
-          text: "Cancel"
-          optional: true
-# ── Remaining tabs ──
-- tapOn:
-    text: "Picks"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: 11-picks
-- tapOn:
-    text: "Account"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: 12-account
-# Hard gate: app chrome present (no crash through the whole walk)
+- extendedWaitUntil:
+    notVisible: "Sign in to your account"
+    timeout: 30000
+
+# Exercise the real native tab controls before using deep links for secondary
+# routes. Stable screen IDs prevent a generic tab label from passing in the
+# wrong navigation state.
+- openLink: "festie://cards"
 - assertVisible:
-    text: "Timeline|Picks|Crew|Account|Festie"
+    id: "schedule-screen"
+- tapOn: "Picks"
+- assertVisible:
+    id: "picks-screen"
+- tapOn: "Crew"
+- assertVisible:
+    id: "crew-screen"
+- tapOn: "Account"
+- assertVisible:
+    id: "account-screen"
+- tapOn: "Schedule"
+- assertVisible:
+    id: "schedule-screen"
+
+- openLink: "festie://cards"
+- extendedWaitUntil:
+    visible:
+      id: "schedule-screen"
+    timeout: 30000
+- assertVisible:
+    id: "segment-cards"
+    selected: true
+- assertVisible: "Friday"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 06-cards
+- tapOn:
+    text: "Day: Saturday"
+- assertVisible:
+    text: "Day: Saturday"
+    selected: true
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 07-cards-saturday
+- openLink: "festie://timeline"
+- extendedWaitUntil:
+    visible:
+      id: "segment-timeline"
+      selected: true
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 08-timeline
+- openLink: "festie://grid"
+- extendedWaitUntil:
+    visible: "Schedule grid"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 09-grid
+- openLink: "festie://picks"
+- assertVisible:
+    id: "picks-screen"
+- takeScreenshot: 10-picks
+- openLink: "festie://crew"
+- extendedWaitUntil:
+    visible:
+      id: "crew-tab-members"
+      selected: true
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 11-crew
+- openLink: "festie://crew-plan"
+- extendedWaitUntil:
+    visible: "Meet up"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 12-crew-plan
+- openLink: "festie://crew-compare"
+- extendedWaitUntil:
+    notVisible: "Loading crew picks…"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "No crew picks yet|Couldn't load crew picks|No picks on this day yet|Day: Saturday"
+    timeout: 30000
+- assertNotVisible:
+    text: "^No crew$"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 13-crew-compare
+- openLink: "festie://festival-mode"
+- extendedWaitUntil:
+    visible: "Now & Next"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 14-now-next
+- openLink: "festie://find"
+- extendedWaitUntil:
+    visible:
+      id: "find-action-map"
+    timeout: 30000
+- assertVisible:
+    id: "find-action-compass"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 15-find
+- openLink: "festie://map"
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+- assertVisible:
+    id: "map-sos-fab"
+- extendedWaitUntil:
+    visible:
+      text: "Drop pin|Map needs the festival downloaded for offline.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 6000
+- assertNotVisible: "Find each other"
+- takeScreenshot: 16-map
+- openLink: "festie://compass"
+- extendedWaitUntil:
+    visible:
+      text: "Save a meeting point with a captured location.*"
+    timeout: 30000
+- assertNotVisible:
+    text: "Pick a crew and save a meeting point.*"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 17-compass
+- openLink: "festie://plan-share"
+- assertVisible: "Share plan"
+- tapOn: "Text crew"
+- assertVisible:
+    id: "plan-share-tab-text"
+    selected: true
+- extendedWaitUntil:
+    visible:
+      text: "Texting isn't available|No meeting point to text|Text the meeting point to your crew"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 18-plan-share
+- openLink: "festie://privacy"
+- extendedWaitUntil:
+    visible: "1. Data Controller & Contact Information"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 19-privacy
+- openLink: "festie://account"
+- extendedWaitUntil:
+    visible:
+      id: "account-screen"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 20-account
+- openLink: "festie://admin"
+- extendedWaitUntil:
+    notVisible: "Loading admin data"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "Users|Couldn't load admin data"
+    timeout: 30000
+- assertNotVisible: "Admins only"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 21-admin

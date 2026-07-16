@@ -18,8 +18,8 @@ const DEFAULT_PASSWORD = 'Str0ngTest!Pw';
 // The functional E2E server is Postgres-backed (Festie has no JSON data layer —
 // see lib/app-context). The e2e-web.yml CI job provides a `festie_test` database
 // via the postgres service and runs the migrations before Playwright starts, so
-// the schema already exists here; we connect with the SAME DATABASE_URL the
-// in-process server resolves, then TRUNCATE + seed a deterministic two-festival
+// the schema already exists here; we connect only through TEST_DATABASE_URL,
+// then TRUNCATE + seed a deterministic two-festival
 // fixture (mirrors tests/_integration-helpers.ts). The fixture data — fest-1
 // "Test Fest" (Alpha/Beta/Gamma/Delta) and fest-2 "Campfire Fest" (Omega) — is
 // what every assertion in festival-planner.spec.ts reads back through the SPA.
@@ -70,24 +70,33 @@ function createFestivalFixture() {
   ];
 }
 
-// Resolve the database the in-process server will use. Prefer the same env the
-// CI server step + migration step use (DATABASE_URL). A SAFETY guard refuses to
-// truncate anything that isn't an obvious test database so this can never wipe a
-// real environment if someone runs the suite locally with prod creds in .env.
-function resolveTestDatabaseUrl(): string {
-  const url = process.env.DATABASE_URL || process.env.TEST_DATABASE_URL || '';
-  if (!url) {
+// Resolve the disposable database the in-process server will use. Never fall
+// back to DATABASE_URL: developers commonly keep their real app database there.
+// Requiring the exact database name makes the destructive fixture fail closed.
+export function resolveTestDatabaseUrl(
+  env: { TEST_DATABASE_URL?: string } = process.env,
+): string {
+  const rawUrl = env.TEST_DATABASE_URL;
+  if (!rawUrl) {
     throw new Error(
-      'festival-planner E2E requires DATABASE_URL (a Postgres test DB). CI provides one via the postgres service.',
+      'E2E fixture requires explicit TEST_DATABASE_URL ending in /festie_test. DATABASE_URL is never used.',
     );
   }
-  if (!/_test|festie_test|localhost|127\.0\.0\.1/.test(url)) {
+
+  let databaseName: string;
+  try {
+    databaseName = decodeURIComponent(new URL(rawUrl).pathname.replace(/^\/+/, ''));
+  } catch {
+    throw new Error('E2E fixture requires TEST_DATABASE_URL to be a valid Postgres URL.');
+  }
+
+  if (databaseName !== 'festie_test') {
     throw new Error(
-      'SAFETY: refusing to seed/truncate — DATABASE_URL does not look like a test database (expected "_test"/localhost). ' +
-        'Point DATABASE_URL at a disposable Postgres test DB.',
+      `SAFETY: refusing to seed/truncate database "${databaseName || '(missing)'}"; ` +
+        'TEST_DATABASE_URL must name the disposable database exactly "festie_test".',
     );
   }
-  return url;
+  return rawUrl;
 }
 
 async function truncateAllTables(pool: InstanceType<typeof Pool>) {

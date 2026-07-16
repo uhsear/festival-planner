@@ -256,18 +256,23 @@ npm run lint        # eslint lib/ routes/ server.ts
 # Full E2E suite (requires a running backend + real DB)
 npm run test:e2e
 
-# Nightly subset (what CI runs — chromium only, no screenshot tests)
-npx playwright test --project=chromium --grep-invert screenshot \
-  tests/e2e/festival-planner.spec.ts tests/e2e/responsive-design.spec.ts
+# Deterministic local suite (requires a disposable DB named festie_test)
+TEST_DATABASE_URL=postgresql://festie:festie@localhost:5433/festie_test \
+  npx playwright test --project=chromium \
+  tests/e2e/festival-planner.spec.ts tests/e2e/accessibility.spec.ts \
+  tests/e2e/reduced-motion.spec.ts tests/e2e/responsive-design.spec.ts
 
 # Visual regression baselines (committed snapshots required)
 npm run test:visual
 npm run test:visual:update   # regenerate baseline snapshots
 ```
 
-The `responsive-design.spec.ts` tests require `FESTIE_TEST_USER` and `FESTIE_TEST_PASSWORD` env vars and skip gracefully when absent.
-
-**Quarantine note:** `tests/e2e/festival-planner.spec.ts` wraps its entire describe block in `test.describe.fixme(...)`. These tests are structurally intact but intentionally disabled — they provide zero running coverage today and will fail if un-fixme'd without wiring up the full fixture stack. Do not remove the `.fixme` annotation without first completing the fixture setup.
+E2E fixtures ignore `DATABASE_URL` and refuse to start unless `TEST_DATABASE_URL`
+names a database exactly `festie_test`. Tests seed that disposable database and
+never use production credentials. Nightly CI runs functional, axe, and reduced-motion
+coverage in Chromium, Firefox, and WebKit, then gates reviewed responsive screenshots
+in Chromium. A manual `update_snapshots` workflow run uploads Linux baseline candidates
+for review; scheduled runs always compare and fail on drift.
 
 Visual regression snapshots in `tests/__snapshots__/` cover 6 device profiles (iphone-se, iphone-14, pixel-7, ipad, laptop, desktop). Updating these requires intentional review — run `npm run test:visual:update` only when UI changes are intentional.
 
@@ -405,11 +410,11 @@ All workflows in `.github/workflows/`:
 
 ## 11. Known blockers and caveats
 
-### E2E tests partially quarantined
+### E2E tests require a disposable database
 
-`tests/e2e/festival-planner.spec.ts` is wrapped in `test.describe.fixme(...)`. The describe block and the sole test inside it are both marked `.fixme` — they run as "expected failures" in Playwright (skipped in most reporter outputs). Un-fixme'ing them without completing the fixture stack will cause failures.
-
-`tests/e2e/responsive-design.spec.ts` has per-test `test.skip()` guards inside some `beforeAll` blocks that skip individual tests when the live server is unreachable — this is intentional defensive behaviour, not a bug.
+Browser fixtures truncate and reseed `festie_test` for deterministic runs. Set
+`TEST_DATABASE_URL` explicitly; `DATABASE_URL` is ignored and any other database
+name is rejected before a connection is opened.
 
 ### Windows local development
 

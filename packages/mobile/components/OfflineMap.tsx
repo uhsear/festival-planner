@@ -1985,7 +1985,7 @@ const useStyles = makeStyles((t) => ({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: t.spacing[5] + 64 + 56 + 8,
+    bottom: t.spacing[5] + 64 + 56 + 40 + t.spacing[2],
   },
   chipRow: {
     flexDirection: 'row',

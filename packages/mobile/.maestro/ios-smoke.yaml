@@ -1,12 +1,7 @@
-# Comprehensive iOS UI smoke for the EAS Workflows `maestro` job (iOS Simulator on
-# Expo's macOS cloud — no Mac). Logs in via EAS secret env vars (TEST_USERNAME /
-# TEST_PASSWORD, bound through `environment: preview` on the job) and walks the full
-# app: onboarding -> login -> festival -> schedule views -> picks -> crew + the new
-# map/compass/QR features -> account, screenshotting each step.
-#
-# iOS robustness: tabs are tapped by testID (tab-*; iOS doesn't expose the tab title
-# to the a11y tree otherwise), and async content (festival cards) is waited for
-# before tapping so taps land instead of firing before the list hydrates.
+# Deterministic, read-only iOS route smoke. Every screenshot follows a hard,
+# screen-specific assertion; only the optional OS notification prompt may be
+# absent. This flow intentionally avoids picks, crew creation, preferences,
+# admin mutations, SOS sends, and account changes against the production API.
 appId: us.festie.app
 env:
   TEST_USERNAME: ${TEST_USERNAME}
@@ -16,134 +11,270 @@ env:
     clearState: true
 - extendedWaitUntil:
     visible:
-      text: "Skip|Build your festival|Select a Festival|Festie"
+      text: "Plan your whole weekend|Select a Festival"
     timeout: 90000
 - takeScreenshot: 01-launch
-- tapOn:
-    text: "Skip"
-    optional: true
-- extendedWaitUntil:
-    visible:
-      text: "Select a Festival|North Coast|Timeline"
-    timeout: 30000
-- takeScreenshot: 02-festival-picker
-# ── Best-effort login via the Account tab ──
-# NOTE: the iOS cloud Simulator + Maestro can't reliably find the login TextInput
-# (RN TextInput accessibilityLabels aren't exposed to the iOS a11y tree the way
-# Maestro matches), so login is best-effort and GUARDED — if the Username field
-# isn't found the runFlow simply SKIPS and the smoke continues at the guest level
-# (launch / onboarding / picker / tab-nav / render), which is what this cloud iOS
-# smoke reliably validates. Authed-feature coverage on iOS is done on the real
-# TestFlight device; Android Maestro (identical RN code) drives the full authed
-# flow locally.
-- tapOn:
-    id: "tab-account"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 3000
 - runFlow:
     when:
-      visible: "Username"
+      visible: "Plan your whole weekend"
     commands:
-      - tapOn: "Username"
-      - inputText: "${TEST_USERNAME}"
-      - hideKeyboard
-      - tapOn: "Password"
-      - inputText: "${TEST_PASSWORD}"
-      - hideKeyboard
-      - tapOn: "Sign in"
-      - tapOn:
-          text: "Not Now"
-          optional: true
-      - extendedWaitUntil:
-          notVisible: "Username"
-          timeout: 25000
-- takeScreenshot: 03-account-authed
-# ── Timeline + select a festival (wait for the card to hydrate first) ──
+      - assertVisible: "Plan your whole weekend"
+      - tapOn: "Skip intro"
+- extendedWaitUntil:
+    visible: "Select a Festival"
+    timeout: 30000
+- assertVisible: "Select a Festival"
+- takeScreenshot: 02-festival-picker
 - tapOn:
-    id: "tab-timeline"
-    optional: true
+    id: "festival-card-nc-2026"
 - extendedWaitUntil:
     visible:
-      text: "North Coast Festival 2026|Select a Festival|Timeline"
-    timeout: 20000
+      text: "Timeline|Cards"
+    timeout: 150000
+- assertNotVisible: "Select a Festival"
+- takeScreenshot: 03-schedule-guest
+
+# Public/auth screens.
+- openLink: "festie://register"
+- extendedWaitUntil:
+    visible:
+      text: "Create your account|^Open$"
+    timeout: 30000
 - tapOn:
-    text: "North Coast Festival 2026"
+    text: "^Open$"
     optional: true
-- waitForAnimationToEnd:
-    timeout: 4000
-- takeScreenshot: 04-timeline
-# ── Schedule views ──
+- extendedWaitUntil:
+    visible: "Create your account"
+    timeout: 30000
+- takeScreenshot: 04-register
+- openLink: "festie://forgot-password"
+- extendedWaitUntil:
+    visible: "Reset your password|Forgot password"
+    timeout: 30000
+- takeScreenshot: 05-forgot-password
+- openLink: "festie://login"
+- extendedWaitUntil:
+    visible: "Sign in to your account"
+    timeout: 30000
 - tapOn:
-    text: "Grid"
-    optional: true
-- takeScreenshot: 05-grid
+    id: "login-username-input"
+- inputText: "${TEST_USERNAME}"
+- hideKeyboard
+# Focus the password field by its placeholder/label. Its testID doesn't resolve
+# on iOS — it's a secureTextEntry field nested in a row, and iOS hides secure
+# fields' accessibility identifiers from XCUITest (the top-level username id works).
 - tapOn:
-    text: "Cards"
-    optional: true
-- takeScreenshot: 06-cards
-# ── Picks ──
+    text: "Password"
+- inputText: "${TEST_PASSWORD}"
+# Submit via the Sign in button (Maestro's pressKey Enter is a hardware key on the
+# iOS sim and doesn't fire the password field's onSubmitEditing, so the form never
+# submitted and the flow ran as an unauthenticated guest — every AuthGate-gated tab
+# then bounced to login). hideKeyboard fails on the secure field, and with the
+# keyboard up the button sits behind it, out of Maestro's hierarchy ("^Sign in$ not
+# found"). Dismiss the keyboard by tapping the non-input subtitle — the login screen
+# sets keyboardShouldPersistTaps="handled", so a tap on plain text closes it — then
+# tap the button. Anchor ^Sign in$ so it hits the button, not this subtitle.
 - tapOn:
-    id: "tab-picks"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 2500
-- takeScreenshot: 07-picks
-# ── Crew + logistics ──
+    text: "Sign in to your account"
+- takeScreenshot: 05b-login-ready
 - tapOn:
-    id: "tab-crew"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 2500
-- takeScreenshot: 08-crew
-- scrollUntilVisible:
-    element:
-      text: "Open the crew map"
-    direction: DOWN
-    timeout: 10000
-    optional: true
-- takeScreenshot: 09-crew-logistics
-# ── New native features ──
+    text: "^Sign in$"
 - tapOn:
-    text: "Open the crew map"
+    text: "Not Now"
     optional: true
-- waitForAnimationToEnd:
-    timeout: 4000
-- takeScreenshot: 10-map
-- back
-- scrollUntilVisible:
-    element:
-      text: "Open the meeting-point compass"
-    direction: DOWN
-    timeout: 8000
-    optional: true
-- tapOn:
-    text: "Open the meeting-point compass"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 4000
-- takeScreenshot: 11-compass
-- back
-- scrollUntilVisible:
-    element:
-      text: "Share your plan"
-    direction: DOWN
-    timeout: 8000
-    optional: true
-- tapOn:
-    text: "Share your plan.*"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 4000
-- takeScreenshot: 12-plan-share
-- back
-# ── Account ──
-- tapOn:
-    id: "tab-account"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 2500
-- takeScreenshot: 13-account
-# Sanity: app chrome present (no crash)
+# hideKeyboard above keeps this honest: with the keyboard down, a failed login
+# still shows this subtitle, so notVisible can't false-pass the way it did while
+# the keyboard covered it. The picks-screen assertion later is the real auth gate.
+- extendedWaitUntil:
+    notVisible: "Sign in to your account"
+    timeout: 30000
+
+# Authenticated, read-only product routes.
+- openLink: "festie://cards"
+- extendedWaitUntil:
+    visible:
+      id: "schedule-screen"
+    timeout: 30000
 - assertVisible:
-    text: "Timeline|Picks|Crew|Account|Festie"
+    id: "segment-cards"
+    selected: true
+- assertVisible:
+    text: "Day: Friday"
+    selected: true
+- extendedWaitUntil:
+    visible: "^Must See.*"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 06-cards
+- tapOn:
+    text: "Day: Saturday"
+- assertVisible:
+    text: "Day: Saturday"
+    selected: true
+- extendedWaitUntil:
+    visible: "^Must See.*"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 07-cards-saturday
+
+# Switch the Picks/Crew/Schedule NativeTabs by their label, exactly as the
+# passing Android smoke does. Each screenshot is taken BEFORE its assertion so a
+# failure still captures the real screen — the "Remove credential-bearing Maestro
+# metadata" CI step strips Maestro's own debug hierarchy from the artifact.
+- tapOn: "Picks"
+- takeScreenshot: 10-picks
+- extendedWaitUntil:
+    visible:
+      id: "picks-screen"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 6000
+- tapOn: "Crew"
+- takeScreenshot: 11-crew
+- extendedWaitUntil:
+    visible:
+      id: "crew-screen"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 6000
+- tapOn: "Schedule"
+- extendedWaitUntil:
+    visible:
+      id: "schedule-screen"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 6000
+
+- tapOn:
+    id: "segment-timeline"
+- extendedWaitUntil:
+    visible:
+      id: "segment-timeline"
+      selected: true
+    timeout: 30000
+- extendedWaitUntil:
+    visible: "Set times not announced yet"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 08-timeline
+- openLink: "festie://grid"
+- extendedWaitUntil:
+    visible: "Schedule grid"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 09-grid
+- openLink: "festie://crew-plan"
+- extendedWaitUntil:
+    visible: "Meet up"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 12-crew-plan
+- openLink: "festie://crew-compare"
+- extendedWaitUntil:
+    notVisible: "Loading crew picks…"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "No crew picks yet|Couldn't load crew picks|No picks on this day yet|Day: Saturday"
+    timeout: 30000
+- assertNotVisible:
+    text: "^No crew$"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 13-crew-compare
+- openLink: "festie://festival-mode"
+- extendedWaitUntil:
+    visible: "Now & Next"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 14-now-next
+- openLink: "festie://find"
+- extendedWaitUntil:
+    visible:
+      id: "find-action-map"
+    timeout: 30000
+- assertVisible:
+    id: "find-action-compass"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 15-find
+- openLink: "festie://map"
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+- assertVisible:
+    id: "map-sos-fab"
+- extendedWaitUntil:
+    visible:
+      text: "Drop pin|Map needs the festival downloaded for offline.*"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 6000
+- assertNotVisible: "Find each other"
+- takeScreenshot: 16-map
+- openLink: "festie://compass"
+- extendedWaitUntil:
+    visible:
+      text: "Save a meeting point with a captured location.*"
+    timeout: 30000
+- assertNotVisible:
+    text: "Pick a crew and save a meeting point.*"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 17-compass
+- openLink: "festie://plan-share"
+- extendedWaitUntil:
+    visible: "Share plan"
+    timeout: 30000
+- tapOn: "Text crew"
+- assertVisible:
+    id: "plan-share-tab-text"
+    selected: true
+- extendedWaitUntil:
+    visible:
+      text: "Texting isn't available|No meeting point to text|Text the meeting point to your crew"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 18-plan-share
+- openLink: "festie://privacy"
+- extendedWaitUntil:
+    visible: "1. Data Controller & Contact Information"
+    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 19-privacy
+# Return to the tabs (privacy is a standalone route), then switch to Account by
+# its NativeTab label, matching the Android smoke. Screenshot before the assert.
+- openLink: "festie://cards"
+- extendedWaitUntil:
+    visible:
+      id: "schedule-screen"
+    timeout: 20000
+- tapOn: "Account"
+- takeScreenshot: 20-account
+- extendedWaitUntil:
+    visible:
+      id: "account-screen"
+    timeout: 20000
+- waitForAnimationToEnd:
+    timeout: 6000
+- openLink: "festie://admin"
+- extendedWaitUntil:
+    notVisible: "Loading admin data"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "Users|Couldn't load admin data"
+    timeout: 30000
+- assertNotVisible: "Admins only"
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 21-admin

@@ -40,6 +40,8 @@ function resetStore() {
     activity: [],
     crewLoading: false,
     error: null,
+    _cachedAt: null,
+    _cachedCrewId: null,
   });
 }
 
@@ -105,14 +107,14 @@ describe('crewStore', () => {
   });
 
   describe('selectCrew', () => {
-    it('clears previous crew data before fetching', async () => {
+    it('clears a different crew before fetching', async () => {
       useCrewStore.setState({
-        activeCrew: mockCrew,
+        activeCrew: { ...mockCrew, id: 'crew-old' },
         crewMembers: mockMembers,
       });
       vi.mocked(api.get).mockResolvedValueOnce({ ...mockCrew, members: mockMembers });
       const promise = useCrewStore.getState().selectCrew('crew-1');
-      // During the fetch, activeCrew should be null
+      // A different crew must never remain visible while the new one loads.
       expect(useCrewStore.getState().activeCrew).toBeNull();
       expect(useCrewStore.getState().crewMembers).toEqual([]);
       await promise;
@@ -124,6 +126,24 @@ describe('crewStore', () => {
       expect(useCrewStore.getState().activeCrew).toEqual({ ...mockCrew, members: mockMembers });
       expect(useCrewStore.getState().crewMembers).toEqual(mockMembers);
       expect(useCrewStore.getState().crewLoading).toBe(false);
+    });
+
+    it('keeps the active crew when same-crew revalidation fails', async () => {
+      useCrewStore.setState({
+        activeCrew: mockCrew,
+        crewMembers: mockMembers,
+        _cachedAt: null,
+        _cachedCrewId: null,
+      });
+      vi.mocked(api.get).mockRejectedValueOnce(new Error('Rate limited'));
+
+      const refresh = useCrewStore.getState().selectCrew(mockCrew.id);
+      expect(useCrewStore.getState().activeCrew).toEqual(mockCrew);
+      expect(useCrewStore.getState().crewMembers).toEqual(mockMembers);
+
+      await expect(refresh).rejects.toThrow('Rate limited');
+      expect(useCrewStore.getState().activeCrew).toEqual(mockCrew);
+      expect(useCrewStore.getState().crewMembers).toEqual(mockMembers);
     });
 
     it('handles missing members gracefully', async () => {

@@ -210,7 +210,8 @@ function RegisterPageInner() {
             id="authTos"
             checked={tosAccepted}
             onChange={(e) => setTosAccepted(e.target.checked)}
-            className="mt-0.5 h-[22px] w-[22px] min-w-[22px] p-0 accent-[var(--color-accent-aqua)]"
+            disabled={isLoading}
+            className="auth-tos-checkbox mt-0.5 h-[22px] w-[22px] min-w-[22px] p-0"
           />
           <span>
             I agree to the{' '}

@@ -8,12 +8,14 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  BackHandler,
   Platform,
   useWindowDimensions,
   type ListRenderItem,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFestivalDataStore, useFestivalStore, useAuthStore, useCrewStore } from '@festie/shared/stores';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import {
@@ -44,6 +46,7 @@ import TimelineView from '../../components/TimelineView';
 import TBASection from '../../components/TBASection';
 
 const SLOT_MINUTES = 15;
+const IOS_NATIVE_TAB_BAR_HEIGHT = 49;
 
 // Mobile schedule views: Timeline (single-axis, time-gutter + now line) and a
 // flat Cards list. The dense 2D stage×time Grid is intentionally web/tablet-only
@@ -64,7 +67,15 @@ export default function TimelineScreen() {
   const haptics = useHaptics();
   const reduceMotion = useReduceMotion();
   const { viewMode, setViewMode } = useUI();
+  const { scheduleView } = useLocalSearchParams<{ scheduleView?: string | string[] }>();
+  const requestedViewMode: ViewMode | null =
+    (Array.isArray(scheduleView) ? scheduleView[0] : scheduleView) === 'cards'
+      ? 'cards'
+      : (Array.isArray(scheduleView) ? scheduleView[0] : scheduleView) === 'timeline'
+        ? 'timeline'
+        : null;
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   // Responsive horizontal gutter. Phones keep the standard spacing[4] (16px)
   // edge padding. On tablet-class widths a flat 16px gutter leaves the chrome
@@ -72,10 +83,12 @@ export default function TimelineScreen() {
   // sidebars, so we widen the gutter and cap the content column — when the
   // window is wider than maxContentWidth the extra space is split evenly,
   // centering the content instead of stretching it edge-to-edge.
-  // Cards now scroll as one page (chrome rides in the list header), so the list
-  // owns the last-card cushion. This is a tab screen — the opaque tab bar already
-  // absorbs the home-indicator inset, so just a visible cushion (no safe-area).
-  const cardsBottomPad = useListBottomInset({ includeSafeArea: false });
+  // NativeTabs floats above screen content on iOS, so shrink the scroll viewport
+  // by its chrome + home-indicator height. Keep the normal 24pt list-end cushion
+  // inside that viewport; padding alone still lets rows paint under the tab bar.
+  // Android's Material tab bar already lays the body out above itself.
+  const listBottomPad = useListBottomInset({ includeSafeArea: false });
+  const scheduleViewportBottomInset = Platform.OS === 'ios' ? IOS_NATIVE_TAB_BAR_HEIGHT + insets.bottom : 0;
   const isTablet = width >= 700;
   const maxContentWidth = 760;
   const hPad = useMemo(() => {
@@ -127,7 +140,10 @@ export default function TimelineScreen() {
   // updates, search keystrokes, etc., so this stays current in practice.
   const todayStr = new Date().toLocaleDateString('en-CA');
 
+  const previousFestivalIdRef = useRef<string | null>(null);
+
   const clearSelection = useCallback(() => {
+    previousFestivalIdRef.current = currentFestival?.id ?? currentFestivalId;
     useFestivalDataStore.setState({
       currentFestivalId: null,
       currentFestival: null,
@@ -136,7 +152,7 @@ export default function TimelineScreen() {
       stages: [],
       days: [],
     });
-  }, []);
+  }, [currentFestival?.id, currentFestivalId]);
 
   useEffect(() => {
     if (festivals.length === 0) {
@@ -194,13 +210,29 @@ export default function TimelineScreen() {
   // empty Timeline). Runs once per festival load — after that the user's manual
   // view choice stands until they switch festivals.
   const defaultedFestivalRef = useRef<string | null>(null);
+  // Shared /cards and /timeline links carry an explicit mobile view request.
+  // Apply it before the per-festival default below; otherwise an all-TBA
+  // festival remount immediately overwrites a requested Timeline with Cards.
   useEffect(() => {
+    if (!requestedViewMode) return;
+    setViewMode(requestedViewMode);
+    const id = currentFestival?.id;
+    if (!id) return;
+    // The deep-link request is one-shot. Mark this festival as intentionally
+    // chosen before removing the param so the default effect below cannot
+    // immediately overwrite it; future festival switches regain their default.
+    defaultedFestivalRef.current = id;
+    router.setParams({ scheduleView: undefined });
+  }, [currentFestival?.id, requestedViewMode, router, setViewMode]);
+
+  useEffect(() => {
+    if (requestedViewMode) return;
     const id = currentFestival?.id;
     if (!id || allSets.length === 0) return;
     if (defaultedFestivalRef.current === id) return;
     defaultedFestivalRef.current = id;
     setViewMode(festivalHasTimedSets ? 'timeline' : 'cards');
-  }, [currentFestival?.id, allSets.length, festivalHasTimedSets, setViewMode]);
+  }, [currentFestival?.id, allSets.length, festivalHasTimedSets, requestedViewMode, setViewMode]);
 
   // Keep the local search box in sync with the shared store (debounce-free; the
   // store filter recomputes filteredSets on every keystroke, matching web).
@@ -210,6 +242,32 @@ export default function TimelineScreen() {
       setSearchQuery(text);
     },
     [setSearchQuery],
+  );
+
+  // Android Back should dismiss transient schedule chrome before it exits the
+  // root tab. useFocusEffect matters because native tabs keep screens mounted.
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (showSearch) {
+          handleSearch('');
+          setShowSearch(false);
+          return true;
+        }
+        if (showFilters) {
+          setShowFilters(false);
+          return true;
+        }
+        if (!currentFestival && previousFestivalIdRef.current) {
+          const festivalId = previousFestivalIdRef.current;
+          previousFestivalIdRef.current = null;
+          selectFestival(festivalId).catch(() => {});
+          return true;
+        }
+        return false;
+      });
+      return () => subscription.remove();
+    }, [currentFestival, handleSearch, selectFestival, showFilters, showSearch]),
   );
 
   const days = useMemo(() => getDays(), [getDays]);
@@ -549,6 +607,26 @@ export default function TimelineScreen() {
           _festivalCachedAt; renders nothing until the schedule is cached once. */}
       <View style={[styles.freshnessRow, { paddingHorizontal: hPad }]}>
         <FreshnessChip surface="schedule" />
+        {/* Cards and fallback views support pull-to-refresh. Timeline owns both
+            scroll axes, so narrow phones need this compact manual action after
+            the header sheds secondary icons to preserve the festival title. */}
+        {width < 400 && viewMode === 'timeline' ? (
+          <TouchableOpacity
+            style={styles.compactRefreshButton}
+            onPress={handleRefresh}
+            disabled={isLoading}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Refresh schedule"
+            accessibilityState={{ busy: isLoading }}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+            ) : (
+              <Ionicons name="refresh" size={18} color={t.colors.accent.aqua} />
+            )}
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {/* DC1 — search and the stage / my-picks + phase-action setup chrome are
@@ -625,11 +703,7 @@ export default function TimelineScreen() {
                     maxFontSizeMultiplier={MAX_FONT_SCALE}
                     textBreakStrategy="simple"
                   >
-                    {/* Trailing NBSP: the bg-sibling above stops the rounded pill
-                        from clipping, but Fabric still self-under-measures this
-                        single-line node and drops the last glyph ("Frida"). The
-                        sacrificial space is dropped instead, leaving the word intact. */}
-                    {(day.label ?? day.date) + ' '}
+                    {day.label ?? day.date}
                   </Text>
                 </TouchableOpacity>
               );
@@ -742,22 +816,24 @@ export default function TimelineScreen() {
     <View style={styles.headerActions}>
       {/* Manual refresh for ALL views — the RefreshControls only cover the Cards
           list + fallback scroll, leaving Timeline with no pull-to-refresh. */}
-      <TouchableOpacity
-        style={styles.headerIconButton}
-        onPress={handleRefresh}
-        disabled={isLoading}
-        activeOpacity={0.7}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel="Refresh schedule"
-        accessibilityState={{ busy: isLoading }}
-      >
-        {isLoading ? (
-          <ActivityIndicator size="small" color={t.colors.accent.aqua} />
-        ) : (
-          <Ionicons name="refresh" size={t.iconSize.lg} color={t.colors.accent.aqua} />
-        )}
-      </TouchableOpacity>
+      {width >= 400 ? (
+        <TouchableOpacity
+          style={styles.headerIconButton}
+          onPress={handleRefresh}
+          disabled={isLoading}
+          activeOpacity={0.7}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Refresh schedule"
+          accessibilityState={{ busy: isLoading }}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color={t.colors.accent.aqua} />
+          ) : (
+            <Ionicons name="refresh" size={t.iconSize.lg} color={t.colors.accent.aqua} />
+          )}
+        </TouchableOpacity>
+      ) : null}
       <TouchableOpacity
         style={styles.headerIconButton}
         onPress={clearSelection}
@@ -789,7 +865,7 @@ export default function TimelineScreen() {
           <Ionicons name="grid-outline" size={20} color={t.colors.text.secondary} />
         </TouchableOpacity>
       ) : null}
-      {activeCrew ? (
+      {activeCrew && width >= 400 ? (
         <TouchableOpacity
           style={styles.headerIconButton}
           onPress={() => router.push('/find')}
@@ -809,7 +885,7 @@ export default function TimelineScreen() {
     // ScreenHeader owns the top safe-area inset (insets.top + spacing[4]) — the
     // native Tabs nav header is hidden (see (tabs)/_layout.tsx), so this is the
     // single top of the screen, sitting above the consolidated control row.
-    <View style={styles.container}>
+    <View style={styles.container} testID="schedule-screen">
       <ScreenHeader title={currentFestival.name} icon="calendar-outline" right={headerActions} />
       {/* DC1 — one consolidated control row: LiveDot now-indicator, the
           view switcher, and the search/filter toggles. The search bar and the
@@ -880,12 +956,12 @@ export default function TimelineScreen() {
         <>
           <FlatList
             ref={listRef}
-            style={styles.scrollBody}
+            style={[styles.scrollBody, { marginBottom: scheduleViewportBottomInset }]}
             data={rows}
             renderItem={renderRow}
             keyExtractor={keyExtractor}
             ListHeaderComponent={controls}
-            contentContainerStyle={[styles.listContent, { paddingHorizontal: hPad, paddingBottom: cardsBottomPad }]}
+            contentContainerStyle={[styles.listContent, { paddingHorizontal: hPad, paddingBottom: listBottomPad }]}
             refreshControl={refreshControl}
             ItemSeparatorComponent={cardsSeparator}
             // F2 — a failed festival load surfaces the error + retry rather than a
@@ -904,7 +980,7 @@ export default function TimelineScreen() {
           />
           {showScrollTop ? (
             <TouchableOpacity
-              style={[styles.scrollTopFab, { right: hPad }]}
+              style={[styles.scrollTopFab, { right: hPad, bottom: t.spacing[5] + scheduleViewportBottomInset }]}
               onPress={scrollCardsToTop}
               activeOpacity={0.85}
               accessibilityRole="button"
@@ -920,7 +996,7 @@ export default function TimelineScreen() {
       ) : timeBounds && visibleStages.length > 0 ? (
         <>
           {controls}
-          <View style={styles.viewBody}>
+          <View style={[styles.viewBody, { marginBottom: scheduleViewportBottomInset }]}>
             <TimelineView
               visibleStages={visibleStages}
               timedSets={timedSets}
@@ -948,8 +1024,8 @@ export default function TimelineScreen() {
         </>
       ) : (
         <ScrollView
-          style={styles.scrollBody}
-          contentContainerStyle={styles.fallbackScroll}
+          style={[styles.scrollBody, { marginBottom: scheduleViewportBottomInset }]}
+          contentContainerStyle={[styles.fallbackScroll, { paddingBottom: listBottomPad }]}
           refreshControl={refreshControl}
           contentInsetAdjustmentBehavior="automatic"
         >
@@ -1063,6 +1139,13 @@ const useStyles = makeStyles((t) => ({
     paddingTop: t.spacing[2],
     paddingBottom: t.spacing[1],
   },
+  compactRefreshButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: t.radii.default,
+  },
   resultsText: {
     ...typeStyle('caption'),
     color: t.colors.text.muted,
@@ -1136,6 +1219,9 @@ const useStyles = makeStyles((t) => ({
   },
   dayText: {
     ...typeStyle('label'),
+    // Android Fabric under-measures the final Space Grotesk glyph in these
+    // centered pills. The system face preserves the complete day label.
+    fontFamily: Platform.OS === 'android' ? undefined : typeStyle('label').fontFamily,
     color: t.colors.text.secondary,
   },
   dayTextActive: {

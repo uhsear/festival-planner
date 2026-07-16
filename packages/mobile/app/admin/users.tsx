@@ -453,8 +453,8 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.accent.aqua,
   },
   expandButton: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

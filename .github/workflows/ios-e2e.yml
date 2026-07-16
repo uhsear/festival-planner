@@ -51,6 +51,14 @@ jobs:
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
+      - name: Require smoke-test credentials
+        env:
+          TEST_USERNAME: ${{ secrets.TEST_USERNAME }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+        run: |
+          test -n "$TEST_USERNAME" || { echo "::error::TEST_USERNAME is not configured"; exit 1; }
+          test -n "$TEST_PASSWORD" || { echo "::error::TEST_PASSWORD is not configured"; exit 1; }
+
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '22'
@@ -194,7 +202,7 @@ jobs:
 
       - name: Install Maestro
         run: |
-          export MAESTRO_VERSION=2.6.0
+          export MAESTRO_VERSION=2.6.1
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
@@ -213,15 +221,48 @@ jobs:
           # first (failed) attempt, so the retry starts instantly.
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '240000'
         run: |
+          set -o pipefail
           run_maestro() {
             MAESTRO_CLI_NO_ANALYTICS=1 maestro test \
               -e TEST_USERNAME="$TEST_USERNAME" \
               -e TEST_PASSWORD="$TEST_PASSWORD" \
+              --test-output-dir="$PWD/maestro-ios-debug" \
+              --debug-output="$PWD/maestro-ios-debug" \
+              --flatten-debug-output \
               --format junit \
               --output maestro-ios-report.xml \
               .maestro/ios-smoke.yaml
           }
-          run_maestro || { echo "::warning::First Maestro attempt failed (likely cold iOS driver startup); retrying once."; sleep 10; run_maestro; }
+          if ! run_maestro 2>&1 | tee maestro-ios.log; then
+            if grep -Eq 'IOSDriverTimeoutException|iOS driver not ready' maestro-ios.log; then
+              echo "::warning::Cold iOS driver startup failed; retrying once."
+              sleep 10
+              run_maestro 2>&1 | tee -a maestro-ios.log
+            else
+              exit 1
+            fi
+          fi
+
+      - name: Verify route screenshot coverage
+        working-directory: packages/mobile
+        run: |
+          SCREENSHOT_DIR=maestro-ios-debug/screenshots
+          COUNT=$(find "$SCREENSHOT_DIR" -maxdepth 1 -type f -name '[0-9][0-9]-*.png' | wc -l | tr -d ' ')
+          UNIQUE=$(find "$SCREENSHOT_DIR" -maxdepth 1 -type f -name '[0-9][0-9]-*.png' -exec shasum -a 256 {} \; | awk '{print $1}' | sort -u | wc -l | tr -d ' ')
+          echo "screenshots=$COUNT unique=$UNIQUE"
+          test "$COUNT" -ge 21 || { echo "::error::Expected at least 21 route screenshots"; exit 1; }
+          test "$UNIQUE" -ge 15 || { echo "::error::Screenshots are not diverse enough; navigation likely stalled"; exit 1; }
+
+      # Maestro records every -e value in commands-*.json and maestro.log.
+      # Keep only screenshots in the debug tree so Actions artifacts can never
+      # publish the smoke credentials from this public repository.
+      - name: Remove credential-bearing Maestro metadata
+        if: always()
+        working-directory: packages/mobile
+        run: |
+          if [ -d maestro-ios-debug ]; then
+            find maestro-ios-debug -type f ! -path '*/screenshots/*.png' -delete
+          fi
 
       - name: Upload Maestro artifacts
         if: always()
@@ -231,7 +272,10 @@ jobs:
           path: |
             packages/mobile/*.png
             packages/mobile/maestro-ios-report.xml
-          if-no-files-found: ignore
+            packages/mobile/maestro-ios-debug/**
+            !packages/mobile/maestro-ios-debug/commands-*.json
+            !packages/mobile/maestro-ios-debug/maestro.log
+          if-no-files-found: error
 
       # Publish the Maestro JUnit report as a PR/run check annotation so failures
       # surface inline. if: always() + continue-on-error: true ensures this step

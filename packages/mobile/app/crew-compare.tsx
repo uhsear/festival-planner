@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, FlatList, TouchableOpacity, RefreshControl, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { useAuthStore, useCrewStore, useFestivalStore } from '@festie/shared/stores';
@@ -156,17 +156,18 @@ export default function CrewCompareScreen() {
               return (
                 <TouchableOpacity
                   key={day.index}
-                  style={[styles.dayChip, active && styles.dayChipActive]}
+                  style={styles.dayChip}
                   onPress={() => setSelectedDay(day.index)}
                   activeOpacity={0.7}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
                   accessibilityLabel={`Day: ${day.label ?? day.date}`}
                 >
+                  <View style={[styles.dayChipBg, active && styles.dayChipBgActive]} pointerEvents="none" />
                   <Text
                     style={[styles.dayText, active && styles.dayTextActive]}
-                    numberOfLines={1}
                     maxFontSizeMultiplier={MAX_FONT_SCALE}
+                    textBreakStrategy="simple"
                   >
                     {day.label ?? day.date}
                   </Text>
@@ -348,17 +349,25 @@ const useStyles = makeStyles((t) => ({
     // WCAG 2.5.5 / 2.5.8 minimum 44x44px (F36) — matches (tabs)/index.tsx dayChip.
     minHeight: 44,
     justifyContent: 'center',
+  },
+  dayChipBg: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     borderRadius: t.radii.pill,
     borderWidth: 1,
     borderColor: t.colors.border.default,
     backgroundColor: t.colors.bg.secondary,
   },
-  dayChipActive: {
+  dayChipBgActive: {
     backgroundColor: t.colors.accent.aqua,
     borderColor: t.colors.accent.aqua,
   },
   dayText: {
     ...typeStyle('label'),
+    fontFamily: Platform.OS === 'android' ? undefined : typeStyle('label').fontFamily,
     color: t.colors.text.secondary,
   },
   dayTextActive: {

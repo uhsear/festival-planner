@@ -1,12 +1,12 @@
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, Stack } from 'expo-router';
+import { useFocusEffect, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFestivalDataStore } from '@festie/shared/stores';
 import { useFestival } from '@festie/shared/hooks';
 import { artistDisplayName, fmtClock, fmtCountdown } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens, iconSize } from '../hooks/useTokens';
-import { useOngoingNotification } from '../hooks/useOngoingNotification';
 import { useNowNext } from '../hooks/useNowNext';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
@@ -35,15 +35,21 @@ export default function FestivalModeScreen() {
   const currentProfile = useFestivalDataStore((s) => s.currentProfile);
   const { getStageName } = useFestival();
 
-  // M6: present the Android ongoing (sticky) notification with the current/next
-  // set + active meeting point while this festival is active. Android-only;
-  // on-device/offline. iOS equivalent (ActivityKit Live Activity) is DEFERRED —
-  // a separate native widget-extension spike; see useOngoingNotification docblock.
-  // Its own 'ongoing' channel + stable id keep it isolated from set reminders.
-  useOngoingNotification();
-
   const picks = currentProfile?.picks;
   const { now, current, upcoming } = useNowNext(5);
+
+  // Native tabs can leave this pushed stack screen without an Android history
+  // entry. Always return hardware Back to Schedule instead of exiting the app.
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (router.canGoBack()) router.back();
+        else router.replace('/(tabs)');
+        return true;
+      });
+      return () => subscription.remove();
+    }, [router]),
+  );
 
   return (
     <View style={styles.screen}>

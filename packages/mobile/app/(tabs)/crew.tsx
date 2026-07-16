@@ -492,7 +492,7 @@ export default function CrewScreen() {
 
   if (!user) {
     return (
-      <View style={styles.screen}>
+      <View style={styles.screen} testID="crew-screen">
         <ScreenHeader title="Crew" icon="people" />
         <EmptyState
           icon="lock-closed-outline"
@@ -510,7 +510,7 @@ export default function CrewScreen() {
   // this branch entirely — this is the cold-start case only.)
   if (crewLoading && crews.length === 0 && !activeCrew) {
     return (
-      <View style={styles.screen}>
+      <View style={styles.screen} testID="crew-screen">
         <ScreenHeader title="Crew" icon="people" />
         <View
           style={[styles.crewChrome, tabletInset]}
@@ -542,7 +542,7 @@ export default function CrewScreen() {
       // deep in the list. automaticallyAdjustKeyboardInsets on the scroll
       // container handles both platforms correctly (same pattern as
       // account.tsx / app/set/[setId].tsx).
-      <View style={styles.screen}>
+      <View style={styles.screen} testID="crew-screen">
         <ScreenHeader title="Crew" subtitle="Coordinate with friends" icon="people" />
         <ScrollView
           style={styles.flex1}
@@ -682,7 +682,7 @@ export default function CrewScreen() {
     // deep in the list (totem editor / force-add / expense inputs).
     // automaticallyAdjustKeyboardInsets on each scroll body handles both
     // platforms correctly (same pattern as account.tsx / app/set/[setId].tsx).
-    <View style={styles.screen}>
+    <View style={styles.screen} testID="crew-screen">
       <ScreenHeader
         title={crew.name}
         subtitle={`${members.length} ${members.length === 1 ? 'member' : 'members'}`}
