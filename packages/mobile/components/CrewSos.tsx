@@ -290,7 +290,7 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
         onRequestClose={() => setNavTarget(null)}
         presentationStyle="pageSheet"
       >
-        <View style={styles.modal}>
+        <View style={styles.modal} accessibilityViewIsModal>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle} numberOfLines={1}>
               Walk toward {navTarget?.name}

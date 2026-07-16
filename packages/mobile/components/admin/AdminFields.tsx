@@ -143,8 +143,9 @@ export function ModalSelect({
         onRequestClose={() => setOpen(false)}
         statusBarTranslucent
       >
-        <Pressable style={styles.scrim} onPress={() => setOpen(false)} accessibilityLabel="Dismiss picker">
-          <Pressable style={styles.sheet} onPress={() => {}}>
+        <View style={styles.scrim}>
+          <Pressable style={styles.backdrop} onPress={() => setOpen(false)} accessible={false} />
+          <View style={styles.sheet} accessibilityViewIsModal>
             <Text style={styles.sheetTitle} accessibilityRole="header">
               {label}
             </Text>
@@ -174,8 +175,8 @@ export function ModalSelect({
                 );
               })}
             </ScrollView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -428,6 +429,13 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     paddingHorizontal: t.spacing[5],
   },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
   sheet: {
     width: '100%',
     maxWidth: 400,
@@ -489,8 +497,8 @@ const useStyles = makeStyles((t) => ({
     marginTop: t.spacing[1],
   },
   swatch: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: t.radii.sm,
     borderWidth: 1,
     borderColor: t.colors.border.light,

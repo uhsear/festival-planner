@@ -26,13 +26,11 @@ import { NowNextWidgetInstance } from '../widgets/NowNextActivity';
  *
  * Cross-platform: the Android sticky-notification effects are guarded by
  * Platform.OS === 'android'. On iOS the SAME model is presented as a Live
- * Activity via the optional native bridge (lib/liveActivity.ts) — a no-op until
- * the ActivityKit Widget Extension is built into the app (config-plugin + Swift,
- * see docs/plans/ios-live-activity-runbook.md), so the JS wiring ships safely
- * over-the-air and activates the moment the native widget lands in a build.
+ * Activity via expo-widgets (lib/liveActivity.ios.ts). The widget extension is
+ * native-build functionality, so Expo Go keeps the platform boundary inert.
  *
  * Offline-honest + on-device: no network, no push. Cancels itself when the
- * festival window ends (or when the screen unmounts / festival is cleared).
+ * festival window ends (or when the app root unmounts / festival is cleared).
  */
 
 // Stable identifier so each refresh UPDATES the same notification rather than
@@ -94,8 +92,8 @@ function clearWidgetSnapshot(): void {
 }
 
 /**
- * Mounts the ongoing-notification lifecycle. Call once from the festival/live
- * screen. Returns nothing — its effect is the Android notification.
+ * Mounts the ongoing-notification lifecycle once at the app root. Returns
+ * nothing — its effect is the platform glanceable surface.
  *
  * `enabled` lets the host gate the behavior (e.g. a settings toggle); defaults
  * to true. On non-Android platforms the hook short-circuits to a no-op.
@@ -165,10 +163,10 @@ export function useOngoingNotification(enabled: boolean = true): void {
     (async () => {
       try {
         if (!enabled || !currentFestival || !model.active || !model.title || !model.body) {
-          if (lastShownRef.current !== null) {
-            await cancelOngoing();
-            lastShownRef.current = null;
-          }
+          // Reconcile the stable notification ID even after process relaunch:
+          // the OS can retain a sticky card while this in-memory ref resets.
+          await cancelOngoing();
+          lastShownRef.current = null;
           return;
         }
         await ensureOngoingChannel();
@@ -188,11 +186,8 @@ export function useOngoingNotification(enabled: boolean = true): void {
     };
   }, [enabled, currentFestival, model]);
 
-  // iOS: drive the Live Activity from the SAME model via the optional native
-  // bridge (lib/liveActivity.ts). No-op until the ActivityKit Widget Extension
-  // is built into the app; the JS wiring ships safely over-the-air and activates
-  // the moment the native widget lands in a build. Plumbs endsAt so the native
-  // widget can render a live countdown timer (ActivityKit's Text.DateStyle).
+  // iOS: drive the Live Activity from the SAME model through expo-widgets.
+  // Plumb endsAt so SwiftUI renders a native countdown while JS is suspended.
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
     if (enabled && currentFestival && model.active && model.title && model.body) {
@@ -204,17 +199,18 @@ export function useOngoingNotification(enabled: boolean = true): void {
         const focusSetData = sets.find((s) => s.id === model.focusSet!.id);
         if (focusSetData && days) {
           const bounds = getSetTimeBounds(focusSetData, days);
-          if (bounds) endsAt = new Date(bounds.endMs).toISOString();
+          if (bounds) {
+            const targetMs = model.focusSet.kind === 'now' ? bounds.endMs : bounds.startMs;
+            endsAt = new Date(targetMs).toISOString();
+          }
         }
       }
       startOrUpdateLiveActivity({ title: model.title, body: model.body, endsAt });
       // Home-screen widget: push the same model snapshot so the WidgetKit
       // timeline reflects the current set without waiting for a background
-      // refresh. updateSnapshot is a no-op when the native widget extension
-      // is not present in the running binary (same safe pattern as the Live
-      // Activity bridge).
+      // refresh. Widget failures remain isolated from the main app.
       try {
-        NowNextWidgetInstance.updateSnapshot({ title: model.title, subtitle: model.body });
+        NowNextWidgetInstance.updateSnapshot({ title: model.title, subtitle: model.body, endsAt });
       } catch {
         // Never let a widget-timeline failure surface to the user.
       }
@@ -227,7 +223,7 @@ export function useOngoingNotification(enabled: boolean = true): void {
     }
   }, [enabled, currentFestival, model, sets, days]);
 
-  // Final cleanup: when the hook unmounts (leave the screen / sign out), tear
+  // Final cleanup: when the app root unmounts, tear
   // down the sticky notification / Live Activity so it can't linger with stale data.
   useEffect(() => {
     return () => {

@@ -76,6 +76,7 @@ describe('RegisterPage', () => {
 
   it('renders TOS checkbox and links', () => {
     render(<RegisterPage />);
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
     expect(screen.getByText(/I agree to the/)).toBeInTheDocument();
     expect(screen.getByText('Terms of Service')).toBeInTheDocument();
     expect(screen.getByText('Privacy Policy')).toBeInTheDocument();
@@ -146,6 +147,7 @@ describe('RegisterPage', () => {
     render(<RegisterPage />);
     expect(screen.getByText('Creating account…')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Creating account…' })).toBeDisabled();
+    expect(screen.getByRole('checkbox')).toBeDisabled();
   });
 
   it('calls register on valid submit', async () => {

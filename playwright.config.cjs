@@ -1,5 +1,7 @@
 const { defineConfig, devices } = require('@playwright/test');
 
+const artifactDir = process.env.PLAYWRIGHT_ARTIFACT_DIR || 'output/playwright';
+
 module.exports = defineConfig({
   testDir: './tests/e2e',
   timeout: 60_000,
@@ -16,9 +18,9 @@ module.exports = defineConfig({
   workers: 1,
   reporter: [
     ['list'],
-    ['html', { open: 'never', outputFolder: 'output/playwright/report' }],
+    ['html', { open: 'never', outputFolder: `${artifactDir}/report` }],
   ],
-  outputDir: 'output/playwright/test-results',
+  outputDir: `${artifactDir}/test-results`,
   use: {
     headless: true,
     screenshot: 'only-on-failure',

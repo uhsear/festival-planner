@@ -234,8 +234,9 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
         with the live magnetometer heading, which a static image role/label can
         neither convey nor keep current. So the dial itself is hidden from the
         a11y tree (importantForAccessibility/accessibilityElementsHidden) and the
-        meaningful data — direction + distance — is surfaced together as a single
-        live "status" region below, announced on each magnetometer tick.
+        meaningful distance is surfaced as text below. It is not a live region:
+        distance stays fixed during heading updates, so repeated announcements
+        on every magnetometer tick would drown out navigation.
       */}
       <View style={styles.dial} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
         <View style={[styles.arrow, { transform: [{ rotate: `${arrowAngle}deg` }] }]}>
@@ -247,8 +248,7 @@ export default function MeetingPointCompass({ target }: MeetingPointCompassProps
       <Text
         style={styles.distance}
         accessibilityRole="text"
-        accessibilityLiveRegion="polite"
-        accessibilityLabel={`${formatDistance(distanceM)} to ${target.label}, straight-line direction`}
+        accessibilityLabel={`${formatDistance(distanceM)} to ${target.label}, straight-line distance`}
       >
         {formatDistance(distanceM)}
       </Text>

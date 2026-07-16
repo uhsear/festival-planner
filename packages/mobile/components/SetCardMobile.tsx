@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, Pressable, Platform } from 'react-native';
 import Animated, {
   Easing,
@@ -115,6 +115,7 @@ function PriorityButton({ option, active, onPress }: PriorityButtonProps) {
   const t = useTokens();
   const styles = useStyles();
   const haptics = useHaptics();
+  const [pressed, setPressed] = useState(false);
   const reduceMotion = useReduceMotion();
   const accent = priorityColor(t, option.value);
 
@@ -170,12 +171,10 @@ function PriorityButton({ option, active, onPress }: PriorityButtonProps) {
 
   return (
     <AnimatedPressable
-      style={({ pressed }) => [
-        styles.priorityButton,
-        animatedStyle,
-        Platform.OS !== 'android' && pressed ? { opacity: 0.7 } : null,
-      ]}
+      style={[styles.priorityButton, animatedStyle, Platform.OS !== 'android' && pressed ? styles.priorityPressed : null]}
       onPress={handlePress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
       android_ripple={android_ripple}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
@@ -187,8 +186,6 @@ function PriorityButton({ option, active, onPress }: PriorityButtonProps) {
         style={[styles.priorityLabel, { color: active ? t.colors.text.onLightAccent : t.colors.text.secondary }]}
         maxFontSizeMultiplier={MAX_FONT_SCALE}
       >
-        {/* Trailing NBSP: sacrificial glyph that absorbs Fabric's single-line
-            self-under-measure so "MUST"/"MAYBE" keep their last letter. */}
         {option.short + ' '}
       </Text>
     </AnimatedPressable>
@@ -594,6 +591,9 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.border.light,
     flexShrink: 1,
+  },
+  priorityPressed: {
+    opacity: 0.7,
   },
   priorityLabel: {
     // F4: typeStyle('micro', 700) selects SpaceGrotesk_700Bold instead of the

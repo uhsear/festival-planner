@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@festie/shared/hooks';
 import { useAuthStore } from '@festie/shared/stores';
@@ -222,10 +222,7 @@ export default function AccountAvatarSection() {
           accessibilityState={{ disabled: busy !== null }}
         >
           <Ionicons name="cloud-upload-outline" size={18} color={t.colors.accent.aqua} style={styles.btnIcon} />
-          {/* Trailing NBSP: Android under-measures a Text that follows an
-              icon-font sibling and clips the last glyph ("Uploa") — the
-              sacrificial space absorbs the shortfall. */}
-          <Text style={styles.btnPrimaryText}>{(avatarUrl ? 'Change' : 'Upload') + ' '}</Text>
+          <Text style={styles.btnPrimaryText}>{`${avatarUrl ? 'Change' : 'Upload'}\u00a0`}</Text>
         </TouchableOpacity>
 
         {avatarUrl ? (
@@ -352,9 +349,15 @@ const useStyles = makeStyles((t) => ({
   },
   btnPrimaryText: {
     ...typeStyle('label'),
+    // Android 16 under-measures this short Space Grotesk label by one glyph in
+    // a centered icon/text row even with unconstrained width. The system face
+    // measures reliably here; retain the brand face on iOS.
+    fontFamily: Platform.OS === 'android' ? undefined : typeStyle('label').fontFamily,
     color: t.colors.accent.aqua,
-    // Last knob in the "Uploa" clip saga — forbid the centered row from
-    // shrinking the label below its measured width.
+    // Reserve the full label width at large Android font scales. Android can
+    // otherwise lay out this centered icon/text row one glyph too narrowly.
+    minWidth: 64,
+    textAlign: 'center',
     flexShrink: 0,
   },
   btnGhost: {

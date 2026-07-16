@@ -576,7 +576,7 @@ const useFilterStyles = makeStyles((t) => ({
     borderColor: t.colors.border.light,
     paddingHorizontal: t.spacing[3],
     paddingVertical: t.spacing[2],
-    minHeight: 40,
+    minHeight: 44,
   },
   inputFocused: {
     borderColor: t.colors.accent.aqua,
@@ -603,8 +603,8 @@ const useStyles = makeStyles((t) => ({
     paddingBottom: t.spacing[4],
   },
   backButton: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -623,8 +623,8 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.secondary,
   },
   filterButton: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: t.radii.default,
@@ -655,7 +655,7 @@ const useStyles = makeStyles((t) => ({
     justifyContent: 'flex-end',
   },
   filterActionBtn: {
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: t.spacing[4],
     borderRadius: t.radii.default,
     alignItems: 'center',

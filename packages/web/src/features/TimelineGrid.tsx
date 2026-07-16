@@ -152,7 +152,9 @@ export default function TimelineGrid({
   // Single source of truth for the gutter width — the now-line offset below
   // must match this exactly, or it starts inside the first column instead of
   // at its edge.
-  const gutterW = vpW <= 430 ? 42 : 70;
+  // 52px matches TimelineSkeleton and leaves enough room for labels such as
+  // "10:30a" at the 320px viewport without clipping the leading digit.
+  const gutterW = vpW <= 430 ? 52 : 70;
 
   return (
     <div

@@ -116,19 +116,19 @@ function StepRow({
       </Text>
 
       {/* Right-side: time label or retry */}
-      {timeLabel ? (
-        <Text style={[styles.timeLabel, isError && styles.timeLabelError]} numberOfLines={1}>
-          {timeLabel}
-        </Text>
-      ) : isError && onRetry ? (
+      {isError && onRetry ? (
         <TouchableOpacity
+          style={styles.retryButton}
           onPress={onRetry}
           accessibilityRole="button"
           accessibilityLabel={`Retry ${label}`}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
+      ) : timeLabel ? (
+        <Text style={[styles.timeLabel, isError && styles.timeLabelError]} numberOfLines={1}>
+          {timeLabel}
+        </Text>
       ) : null}
     </View>
   );
@@ -253,7 +253,7 @@ const useCardStyles = makeStyles((t) => ({
     paddingVertical: t.spacing[2],
     paddingHorizontal: t.spacing[3],
     flexShrink: 0,
-    minHeight: 36,
+    minHeight: 44,
   },
   buttonBusy: {
     opacity: 0.7,
@@ -315,6 +315,12 @@ const useRowStyles = makeStyles((t) => ({
   },
   timeLabelError: {
     color: t.colors.accent.coral,
+  },
+  retryButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   retryText: {
     ...typeStyle('micro', 600),

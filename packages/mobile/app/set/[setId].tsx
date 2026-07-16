@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Linking, Share, Image } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  Linking,
+  Share,
+  Image,
+  BackHandler,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFestivalDataStore, useAuthStore } from '@festie/shared/stores';
 import { usePicks, useFestival, useCrew } from '@festie/shared/hooks';
 import { api } from '@festie/shared/services';
@@ -139,6 +149,16 @@ export default function SetDetailScreen() {
       router.replace('/(tabs)');
     }
   }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        dismiss();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [dismiss]),
+  );
 
   const sets = useFestivalDataStore((s) => s.sets);
   const currentFestival = useFestivalDataStore((s) => s.currentFestival);
@@ -464,6 +484,10 @@ export default function SetDetailScreen() {
             <View style={styles.artistPhotoScrim} pointerEvents="none" />
           </View>
         ) : null}
+
+        {/* Without a hero image the floating share/close controls occupy this
+            first row. Keep variable-size stage text below their hit targets. */}
+        {!artistPhoto ? <View style={styles.headerControlSpacer} /> : null}
 
         {/* Stage pill */}
         <View style={[styles.stagePill, { backgroundColor: stageColor + '25' }]}>
@@ -837,6 +861,9 @@ const useStyles = makeStyles((t) => ({
     height: '28%',
     backgroundColor: 'rgba(10,10,10,0.35)',
   },
+  headerControlSpacer: {
+    height: 44,
+  },
   stagePill: {
     alignSelf: 'flex-start',
     paddingHorizontal: t.spacing[3],
@@ -849,12 +876,6 @@ const useStyles = makeStyles((t) => ({
   artist: {
     ...typeStyle('display-lg'),
     color: t.colors.text.primary,
-    // Inset the title past BOTH absolutely-positioned header controls (each
-    // 40px + spacing[4] inset = 56) so the Syncopate name wraps/shrinks between
-    // them instead of the share button (top-left) rendering under "BELLA RENEE"
-    // and the close button (top-right) under long names.
-    paddingLeft: 56,
-    paddingRight: 56,
   },
   subtitle: {
     ...typeStyle('body'),

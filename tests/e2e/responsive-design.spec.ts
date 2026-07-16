@@ -1,12 +1,6 @@
-import { test, expect, type BrowserContext, type Page } from '@playwright/test';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
+import type { Page } from '@playwright/test';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const BASE_URL = process.env.FESTIE_BASE_URL || 'https://festie.us';
-const AUTH_STATE = path.join(__dirname, '.auth', 'responsive-state.json');
+import { test, expect, DEFAULT_PASSWORD } from './fixtures.js';
 
 const viewports = [
   { name: 'iphone-se', width: 320, height: 568 },
@@ -14,184 +8,174 @@ const viewports = [
   { name: 'ipad', width: 768, height: 1024 },
   { name: 'laptop', width: 1024, height: 768 },
   { name: 'desktop', width: 1440, height: 900 },
-];
+] as const;
 
-test.describe.configure({ mode: 'serial' });
+async function gotoSchedule(
+  page: Page,
+  app: { baseUrl: string },
+  route: '/cards' | '/timeline' = '/cards',
+) {
+  // The suite verifies settled layout, not entrance-animation keyframes. This
+  // also avoids Chromium's screenshot animation fast-forward leaving
+  // content-visibility/staggered cards in an unpainted first frame.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`${app.baseUrl}${route}`);
+  await expect(page.locator('#app')).toBeVisible();
+  await expect(page.locator('[data-testid="festival-select"]')).toHaveValue('fest-1');
 
-let sharedContext: BrowserContext;
-let sharedPage: Page;
-
-test.beforeAll(async ({ browser }) => {
-  sharedContext = await browser.newContext();
-  sharedPage = await sharedContext.newPage();
-
-  // Creds come from env so no live account secret is committed. Set
-  // FESTIE_TEST_USER / FESTIE_TEST_PASSWORD (CI provides them from repo
-  // secrets); this spec is skipped when they're absent.
-  const TEST_USER = process.env.FESTIE_TEST_USER;
-  const TEST_PASSWORD = process.env.FESTIE_TEST_PASSWORD;
-  test.skip(!TEST_USER || !TEST_PASSWORD, 'FESTIE_TEST_USER/PASSWORD not set');
-
-  await sharedPage.goto(`${BASE_URL}/login`, { waitUntil: 'networkidle' });
-  await sharedPage.fill('input[name="username"], input[type="text"]', TEST_USER!);
-  await sharedPage.fill('input[type="password"]', TEST_PASSWORD!);
-  await sharedPage.click('button[type="submit"]');
-  await sharedPage.waitForURL(/\/(cards|$)/, { timeout: 20000 });
-  await sharedPage.waitForTimeout(2000);
-
-  const skipBtn = sharedPage.locator('button:has-text("Skip")');
-  if (await skipBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await skipBtn.click();
-    await sharedPage.waitForTimeout(500);
+  if (route === '/cards') {
+    await expect(page.locator('[data-testid="set-card"][data-artist="Alpha"]')).toBeVisible();
+  } else {
+    await expect(page.getByRole('region', { name: 'Timeline view' })).toBeVisible();
   }
 
-  await sharedContext.storageState({ path: AUTH_STATE });
-});
-
-test.afterAll(async () => {
-  await sharedContext?.close();
-});
-
-for (const vp of viewports) {
-  test(`card grid fills width at ${vp.name} (${vp.width}px)`, async () => {
-    await sharedPage.setViewportSize({ width: vp.width, height: vp.height });
-    await sharedPage.goto(`${BASE_URL}/cards`, { waitUntil: 'networkidle' });
-    await sharedPage.waitForTimeout(500);
-
-    const grid = sharedPage.locator('.card-grid');
-    const isVisible = await grid.isVisible().catch(() => false);
-    if (!isVisible) {
-      test.skip();
-      return;
-    }
-
-    const gridBox = await grid.boundingBox();
-    expect(gridBox).toBeTruthy();
-    expect(gridBox!.width).toBeGreaterThan(Math.min(vp.width * 0.7, 700));
-
-    const cards = grid.locator('.set-card');
-    const cardCount = await cards.count();
-    if (cardCount === 0) {
-      test.skip();
-      return;
-    }
-
-    const firstCard = await cards.first().boundingBox();
-    expect(firstCard).toBeTruthy();
-    expect(firstCard!.width).toBeGreaterThan(200);
-  });
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  // Give Chromium two painted frames after lazy route/content-visibility work.
+  // Without this, the 320px timeline intermittently captures blank chrome.
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+  );
+  await page.waitForTimeout(100);
 }
 
-for (const vp of viewports) {
-  test(`no horizontal overflow at ${vp.name} (${vp.width}px)`, async () => {
-    await sharedPage.setViewportSize({ width: vp.width, height: vp.height });
-    await sharedPage.goto(`${BASE_URL}/cards`, { waitUntil: 'networkidle' });
-    await sharedPage.waitForTimeout(500);
+async function createJoinedUser(page: Page, app: { baseUrl: string }) {
+  const headers = { 'content-type': 'application/json', 'x-festie-request': '1' };
+  const username = `responsive_${Date.now()}`;
+  const register = await page.context().request.post(`${app.baseUrl}/api/v1/auth/register`, {
+    headers,
+    data: {
+      username,
+      password: DEFAULT_PASSWORD,
+      confirmPassword: DEFAULT_PASSWORD,
+      dateOfBirth: '1995-01-01',
+      tosAccepted: true,
+    },
+  });
+  expect(register.ok(), `registration failed (${register.status()})`).toBe(true);
 
-    const overflow = await sharedPage.evaluate(() => {
-      return document.documentElement.scrollWidth > document.documentElement.clientWidth;
+  const join = await page.context().request.post(`${app.baseUrl}/api/v1/profiles`, {
+    headers,
+    data: { festivalId: 'fest-1' },
+  });
+  expect(join.ok(), `festival join failed (${join.status()})`).toBe(true);
+
+  // APIRequestContext shares cookies with the page, but the app's in-memory
+  // auth store still starts as a guest. Sign in through the UI so this test
+  // exercises the same profile-loading path that exposes pick controls.
+  await page.goto(`${app.baseUrl}/login`);
+  await page.getByLabel('Username').fill(username);
+  await page.locator('input[aria-label="Password"]').fill(DEFAULT_PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/cards$/);
+}
+
+async function expectViewportScreenshot(page: Page, name: string) {
+  // toHaveScreenshot's animation fast-forward drops composited chrome on the
+  // Timeline route. The page already emulates reduced motion, so compare a raw
+  // settled viewport capture and keep the same snapshot/update workflow.
+  const image = await page.screenshot({ animations: 'allow', fullPage: false });
+  expect(image).toMatchSnapshot(name, { maxDiffPixelRatio: 0.05 });
+}
+
+test.describe('responsive design', () => {
+  for (const vp of viewports) {
+    test(`card grid fills width at ${vp.name} (${vp.width}px)`, async ({ app, page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await gotoSchedule(page, app);
+
+      const grid = page.locator('.card-grid');
+      await expect(grid).toBeVisible();
+      await expect(grid.locator('.set-card')).toHaveCount(3);
+
+      const gridBox = await grid.boundingBox();
+      expect(gridBox).toBeTruthy();
+      expect(gridBox!.width).toBeGreaterThan(Math.min(vp.width * 0.7, 700));
+
+      const firstCard = await grid.locator('.set-card').first().boundingBox();
+      expect(firstCard).toBeTruthy();
+      expect(firstCard!.width).toBeGreaterThan(200);
     });
-    expect(overflow).toBe(false);
-  });
-}
-
-test('header stays above scrolled content', async () => {
-  await sharedPage.setViewportSize({ width: 390, height: 844 });
-  await sharedPage.goto(`${BASE_URL}/cards`, { waitUntil: 'networkidle' });
-  await sharedPage.waitForTimeout(500);
-
-  await sharedPage.evaluate(() => {
-    const main = document.getElementById('main-content');
-    if (main) main.scrollTop = 500;
-  });
-  await sharedPage.waitForTimeout(200);
-
-  const header = sharedPage.locator('header').first();
-  const headerBox = await header.boundingBox();
-  expect(headerBox).toBeTruthy();
-  expect(headerBox!.y).toBeLessThanOrEqual(5);
-});
-
-test('detail panel opens above header', async () => {
-  await sharedPage.setViewportSize({ width: 390, height: 844 });
-  await sharedPage.goto(`${BASE_URL}/cards`, { waitUntil: 'networkidle' });
-  await sharedPage.waitForTimeout(500);
-
-  const firstCard = sharedPage.locator('.set-card').first();
-  const cardVisible = await firstCard.isVisible().catch(() => false);
-  if (!cardVisible) {
-    test.skip();
-    return;
-  }
-  await firstCard.click();
-  await sharedPage.waitForTimeout(600);
-
-  const drawer = sharedPage.locator('[aria-label="Set detail panel"]');
-  const drawerVisible = await drawer.isVisible().catch(() => false);
-  expect(drawerVisible).toBe(true);
-
-  // Close drawer
-  await sharedPage.keyboard.press('Escape');
-  await sharedPage.waitForTimeout(300);
-});
-
-test('priority buttons meet 44px minimum', async () => {
-  await sharedPage.setViewportSize({ width: 390, height: 844 });
-  await sharedPage.goto(`${BASE_URL}/cards`, { waitUntil: 'networkidle' });
-  await sharedPage.waitForTimeout(500);
-
-  const buttons = sharedPage.locator('.card-priority-btn');
-  const count = await buttons.count();
-  if (count === 0) {
-    test.skip();
-    return;
   }
 
-  for (let i = 0; i < Math.min(count, 6); i++) {
-    const box = await buttons.nth(i).boundingBox();
+  for (const vp of viewports) {
+    test(`no horizontal overflow at ${vp.name} (${vp.width}px)`, async ({ app, page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await gotoSchedule(page, app);
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      );
+      expect(overflow).toBe(false);
+    });
+  }
+
+  test('header stays above scrolled content', async ({ app, page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoSchedule(page, app);
+
+    await page.locator('#main-content').evaluate((main) => {
+      main.scrollTop = 500;
+    });
+
+    const header = page.locator('header').first();
+    await expect(header).toBeVisible();
+    const headerBox = await header.boundingBox();
+    expect(headerBox).toBeTruthy();
+    expect(headerBox!.y).toBeLessThanOrEqual(5);
+  });
+
+  test('detail panel opens above schedule', async ({ app, page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoSchedule(page, app);
+
+    const firstCard = page.locator('[data-testid="set-card"]').first();
+    await firstCard.getByRole('button', { name: /^Alpha — / }).click();
+
+    const drawer = page.locator('[aria-label="Set detail panel"]');
+    await expect(drawer).toBeVisible();
+    await page.getByRole('button', { name: 'Close detail panel' }).click();
+    await expect(drawer).toHaveCount(0);
+  });
+
+  test('priority buttons meet 44px minimum', async ({ app, page }) => {
+    await createJoinedUser(page, app);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoSchedule(page, app);
+
+    const buttons = page.locator('.card-priority-btn');
+    await expect(buttons).toHaveCount(9);
+
+    for (let i = 0; i < 6; i++) {
+      const box = await buttons.nth(i).boundingBox();
+      expect(box).toBeTruthy();
+      expect(box!.width).toBeGreaterThanOrEqual(44);
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test('search input fits within viewport at 320px', async ({ app, page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await gotoSchedule(page, app);
+
+    const searchInput = page.getByLabel('Search festival artists');
+    await expect(searchInput).toBeVisible();
+    const box = await searchInput.boundingBox();
     expect(box).toBeTruthy();
-    expect(box!.width).toBeGreaterThanOrEqual(44);
-    expect(box!.height).toBeGreaterThanOrEqual(44);
-  }
-});
-
-test('search input fits within viewport at 320px', async () => {
-  await sharedPage.setViewportSize({ width: 320, height: 568 });
-  await sharedPage.goto(`${BASE_URL}/cards`, { waitUntil: 'networkidle' });
-  await sharedPage.waitForTimeout(500);
-
-  const searchInput = sharedPage.locator('.search-input');
-  const visible = await searchInput.isVisible().catch(() => false);
-  if (!visible) {
-    test.skip();
-    return;
-  }
-
-  const box = await searchInput.boundingBox();
-  expect(box).toBeTruthy();
-  expect(box!.x + box!.width).toBeLessThanOrEqual(320);
-});
-
-for (const vp of viewports) {
-  test(`cards view screenshot ${vp.name}`, async () => {
-    await sharedPage.setViewportSize({ width: vp.width, height: vp.height });
-    await sharedPage.goto(`${BASE_URL}/cards`, { waitUntil: 'networkidle' });
-    await sharedPage.waitForTimeout(800);
-    await expect(sharedPage).toHaveScreenshot(`cards-${vp.name}.png`, {
-      fullPage: false,
-      maxDiffPixelRatio: 0.05,
-      animations: 'disabled',
-    });
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(320);
   });
 
-  test(`timeline view screenshot ${vp.name}`, async () => {
-    await sharedPage.setViewportSize({ width: vp.width, height: vp.height });
-    await sharedPage.goto(`${BASE_URL}/timeline`, { waitUntil: 'networkidle' });
-    await sharedPage.waitForTimeout(800);
-    await expect(sharedPage).toHaveScreenshot(`timeline-${vp.name}.png`, {
-      fullPage: false,
-      maxDiffPixelRatio: 0.05,
-      animations: 'disabled',
+  for (const vp of viewports) {
+    test(`cards view screenshot ${vp.name}`, async ({ app, page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await gotoSchedule(page, app);
+      await expectViewportScreenshot(page, `cards-${vp.name}.png`);
     });
-  });
-}
+
+    test(`timeline view screenshot ${vp.name}`, async ({ app, page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await gotoSchedule(page, app, '/timeline');
+      await expectViewportScreenshot(page, `timeline-${vp.name}.png`);
+    });
+  }
+});

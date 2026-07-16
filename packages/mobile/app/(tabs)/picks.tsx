@@ -782,10 +782,10 @@ export default function PicksScreen() {
         />
         {search.length > 0 ? (
           <TouchableOpacity
+            style={styles.clearSearchButton}
             onPress={() => setSearch('')}
             accessibilityRole="button"
             accessibilityLabel="Clear search"
-            hitSlop={8}
           >
             <Ionicons name="close-circle" size={18} color={t.colors.text.muted} />
           </TouchableOpacity>
@@ -1008,7 +1008,7 @@ export default function PicksScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="picks-screen">
       <ScreenHeader title="My Picks" icon="star" />
       <View style={styles.body}>{body}</View>
       {showScrollTop ? (
@@ -1413,7 +1413,7 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.border.light,
     backgroundColor: t.colors.bg.card,
-    minHeight: 34,
+    minHeight: 44,
   },
   statChipActive: {
     borderColor: t.colors.accent.aqua,
@@ -1461,7 +1461,7 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[1],
     paddingVertical: t.spacing[2],
     borderRadius: t.radii.sm,
-    minHeight: 36,
+    minHeight: 44,
   },
   segmentBtnActive: {
     backgroundColor: t.colors.aquaAlpha[12],
@@ -1505,6 +1505,12 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('body'),
     color: t.colors.text.primary,
     padding: 0,
+  },
+  clearSearchButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // ── Cold-load skeleton ────────────────────────────────────────────────────
   skeletonDay: {
@@ -1577,6 +1583,7 @@ const useStyles = makeStyles((t) => ({
     borderRadius: t.radii.default,
     borderWidth: 1,
     borderColor: t.colors.border.default,
+    minHeight: 44,
   },
   bulkChipDot: {
     width: 8,
@@ -1609,7 +1616,7 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.accent.aqua,
     backgroundColor: t.colors.bg.secondary,
-    minHeight: 34,
+    minHeight: 44,
     maxWidth: '100%',
   },
   bulkActionPillDisabled: {
@@ -1638,6 +1645,7 @@ const useStyles = makeStyles((t) => ({
     gap: t.spacing[3],
     marginTop: t.spacing[4],
     marginBottom: t.spacing[2],
+    minHeight: 44,
   },
   dayLabel: {
     ...typeStyle('title'),

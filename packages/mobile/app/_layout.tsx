@@ -29,6 +29,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import HeaderTitle from '../components/HeaderTitle';
 import { TopBannerContext } from '../components/ScreenHeader';
 import { useLocalReminders } from '../hooks/useLocalReminders';
+import { useOngoingNotification } from '../hooks/useOngoingNotification';
 import { ensureAndroidChannels } from '../hooks/useMobilePush';
 
 // Hold the native splash until fonts + hydration + session check complete.
@@ -210,6 +211,14 @@ function AuthGate() {
   // every screen.
   useLocalReminders();
 
+  // Keep Android's sticky festival status and iOS's Live Activity/widget alive
+  // across route changes. The hook cancels them when the profile/festival model
+  // becomes inactive, including logout and festival-window expiry.
+  // Persisted festival/profile data can render before the saved session has
+  // been revalidated. Never publish those personal picks to a notification or
+  // Live Activity until auth is known-good for this launch.
+  useOngoingNotification(sessionChecked && !!user);
+
   useEffect(() => {
     AsyncStorage.getItem(INTRO_KEY)
       .then((v) => setIntroSeen(v === 'true'))
@@ -378,6 +387,7 @@ function AuthGate() {
             */}
             <Stack.Screen name="(tabs)" options={{ gestureResponseDistance: { start: 8 } }} />
             <Stack.Screen name="(auth)" />
+            <Stack.Screen name="grid" options={{ headerBackTitle: 'Schedule' }} />
             <Stack.Screen
               name="set/[setId]"
               options={{

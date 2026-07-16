@@ -32,11 +32,16 @@ function FestivalTopicsRows() {
   const t = useTokens();
   const haptics = useHaptics();
   const currentFestival = useFestivalStore((s) => s.currentFestival);
+  const currentProfile = useFestivalStore((s) => s.currentProfile);
   // Auth gate: /notifications/topics is an authenticated endpoint, and this
   // section can be mounted eagerly (NativeTabs pre-renders the Account tab).
   // A guest fetch here 401s for nothing.
   const user = useAuthStore((s) => s.user);
-  const festivalId = user ? (currentFestival?.id ?? null) : null;
+  // Festival topics are member-scoped. An authenticated user may browse a
+  // public festival without joining it; calling this endpoint then always
+  // returns 403 and previously rendered a permanent settings error.
+  const festivalId =
+    user && currentFestival && currentProfile?.festivalId === currentFestival.id ? currentFestival.id : null;
 
   // null = not yet resolved (renders a skeleton); the real subscription state
   // loads on mount. We no longer assume "subscribed" before the GET lands — a

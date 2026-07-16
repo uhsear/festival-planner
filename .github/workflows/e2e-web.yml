@@ -5,6 +5,12 @@ on:
     # 07:30 UTC daily
     - cron: '30 7 * * *'
   workflow_dispatch:
+    inputs:
+      update_snapshots:
+        description: Generate reviewed Linux responsive baselines instead of comparing
+        required: false
+        default: false
+        type: boolean
 
 # Non-blocking by nature: scheduled workflow, not wired into branch protection.
 # Failures surface in the Actions tab and notification emails only.
@@ -33,15 +39,6 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - uses: ./.github/actions/pnpm-setup
@@ -55,8 +52,8 @@ jobs:
         working-directory: packages
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright (chromium only)
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Apply database migrations
         env:
@@ -70,50 +67,44 @@ jobs:
         working-directory: packages
         run: pnpm --filter @festie/web build
 
-      - name: Start server in background
+      - name: Run functional and accessibility E2E (browser matrix)
+        if: ${{ !inputs.update_snapshots }}
         env:
-          DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
-          REDIS_URL: redis://localhost:6379
-          NODE_ENV: test
-          MAX_USERS: '10000'
-          PORT: '3000'
-        run: npm start &
-
-      - name: Wait for server to be ready
-        run: |
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:3000/api/ready && break
-            echo "Waiting for server... attempt $i"
-            sleep 2
-          done
-
-      # Functional E2E only. The visual-regression specs (toHaveScreenshot) need
-      # committed baseline snapshots + a deliberate update workflow — they can't
-      # pass on a fresh headless runner (no baseline, font/AA drift), so they are
-      # NOT part of the functional nightly. The festival-planner suite is currently
-      # quarantined (.fixme) pending its React-SPA migration; responsive-design runs
-      # when the FESTIE_TEST_* secrets are present and skips cleanly otherwise.
-      - name: Run Playwright E2E (functional, chromium)
-        env:
-          DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
-          REDIS_URL: redis://localhost:6379
-          NODE_ENV: test
-          FESTIE_TEST_USER: ${{ secrets.TEST_USERNAME }}
-          FESTIE_TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
-        # --grep-invert screenshot skips the toHaveScreenshot visual-regression
-        # tests inside responsive-design (cards/timeline-view snapshots) — they
-        # need committed baselines like the dedicated visual-regression specs and
-        # can't pass on a fresh runner. The functional layout/overflow/a11y
-        # assertions still run.
+          TEST_DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
+          PLAYWRIGHT_ARTIFACT_DIR: output/playwright/browser-matrix
         run: >-
-          npx playwright test --project=chromium --grep-invert screenshot
+          npx playwright test
+          --project=chromium --project=firefox --project=webkit
           tests/e2e/festival-planner.spec.ts
-          tests/e2e/responsive-design.spec.ts
+          tests/e2e/accessibility.spec.ts
+          tests/e2e/reduced-motion.spec.ts
+
+      - name: Run responsive visual regression (chromium)
+        if: always()
+        env:
+          TEST_DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
+          PLAYWRIGHT_ARTIFACT_DIR: output/playwright/responsive
+          UPDATE_SNAPSHOTS: ${{ inputs.update_snapshots || 'false' }}
+        run: |
+          args=()
+          if [[ "$UPDATE_SNAPSHOTS" == "true" ]]; then
+            args+=(--update-snapshots)
+          fi
+          npx playwright test --project=chromium tests/e2e/responsive-design.spec.ts "${args[@]}"
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report
-          path: playwright-report/
+          path: output/playwright/
           retention-days: 14
+
+      - name: Upload generated responsive baselines
+        if: ${{ always() && inputs.update_snapshots }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: responsive-linux-baselines
+          path: tests/__snapshots__/responsive-design.spec.ts/*.png
+          if-no-files-found: error
+          retention-days: 7

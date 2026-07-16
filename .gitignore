@@ -56,6 +56,8 @@ mobile-loop-capture.js
 # Playwright MCP and test artifacts
 .playwright-mcp/
 *.png
+# Reviewed Linux baselines for deterministic responsive regression tests.
+!tests/__snapshots__/responsive-design.spec.ts/*.png
 # but DO track the mobile app icons/splash (required by EAS prebuild)
 !packages/mobile/assets/*.png
 # and DO track the Play Store listing assets (icon, feature graphic, screenshots)

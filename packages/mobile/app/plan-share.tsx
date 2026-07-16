@@ -51,6 +51,7 @@ export default function PlanShareScreen() {
           return (
             <TouchableOpacity
               key={item.key}
+              testID={`plan-share-tab-${item.key}`}
               style={[styles.tab, active && styles.tabActive]}
               activeOpacity={0.7}
               onPress={() => selectTab(item.key)}
@@ -107,6 +108,7 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.border.default,
     backgroundColor: t.colors.bg.secondary,
+    minHeight: 44,
   },
   tabActive: {
     backgroundColor: t.colors.accent.aqua,

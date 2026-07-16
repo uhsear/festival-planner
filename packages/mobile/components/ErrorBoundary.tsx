@@ -47,7 +47,7 @@ function ErrorFallback({ onReset, onEscape }: { onReset: () => void; onEscape?: 
         style={[
           styles.button,
           {
-            backgroundColor: t.colors.accent.coral,
+            backgroundColor: t.colors.accent.aqua,
             borderRadius: t.radii.default,
             paddingVertical: t.spacing[3],
             paddingHorizontal: t.spacing[6],
@@ -57,7 +57,7 @@ function ErrorFallback({ onReset, onEscape }: { onReset: () => void; onEscape?: 
         accessibilityRole="button"
         accessibilityLabel="Retry"
       >
-        <Text style={[styles.buttonLabel, { color: t.colors.text.onAccent }]}>Retry</Text>
+        <Text style={[styles.buttonLabel, { color: t.colors.text.onLightAccent }]}>Retry</Text>
       </TouchableOpacity>
       {onEscape && (
         <TouchableOpacity

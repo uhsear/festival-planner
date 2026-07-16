@@ -1,5 +1,5 @@
-import { Modal, View, Text, TouchableOpacity, Pressable } from 'react-native';
-import { makeStyles, typeStyle, MAX_FONT_SCALE } from '../../hooks/useTokens';
+import { Modal, View, Text, TouchableOpacity, Pressable, ScrollView } from 'react-native';
+import { makeStyles, typeStyle } from '../../hooks/useTokens';
 
 /**
  * Reusable destructive-confirm dialog for the admin surface.
@@ -45,44 +45,47 @@ export default function ConfirmDialog({
       onRequestClose={onCancel}
       statusBarTranslucent
     >
-      {/* Tap-outside-to-cancel scrim. */}
-      <Pressable style={styles.scrim} onPress={onCancel} accessibilityLabel="Dismiss dialog">
-        {/* Stop propagation: taps inside the card must not dismiss. */}
-        <Pressable style={styles.card} onPress={() => {}}>
-          <Text style={styles.title} accessibilityRole="header">
-            {title}
-          </Text>
-          <Text style={styles.message}>{message}</Text>
+      <View style={styles.scrim}>
+        {/* A sibling backdrop avoids Pressable grouping the entire dialog into
+            one screen-reader target. The visible Cancel action stays explicit. */}
+        <Pressable style={styles.backdrop} onPress={onCancel} accessible={false} />
+        <View style={styles.card} accessibilityViewIsModal>
+          <ScrollView
+            contentContainerStyle={styles.cardContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <Text style={styles.title} accessibilityRole="header">
+              {title}
+            </Text>
+            <Text style={styles.message}>{message}</Text>
 
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={onCancel}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel"
-            >
-              <Text style={styles.cancelLabel}>Cancel</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.button, destructive ? styles.confirmDanger : styles.confirmPrimary]}
-              onPress={onConfirm}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={confirmLabel}
-            >
-              <Text
-                style={destructive ? styles.confirmDangerLabel : styles.confirmPrimaryLabel}
-                numberOfLines={1}
-                maxFontSizeMultiplier={MAX_FONT_SCALE}
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
+                onPress={onCancel}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
               >
-                {confirmLabel}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Pressable>
+                <Text style={styles.cancelLabel}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.button, destructive ? styles.confirmDanger : styles.confirmPrimary]}
+                onPress={onConfirm}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={confirmLabel}
+              >
+                <Text style={destructive ? styles.confirmDangerLabel : styles.confirmPrimaryLabel}>
+                  {confirmLabel}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -95,6 +98,13 @@ const useStyles = makeStyles((t) => ({
     alignItems: 'center',
     paddingHorizontal: t.spacing[5],
   },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
   card: {
     width: '100%',
     maxWidth: 400,
@@ -103,6 +113,9 @@ const useStyles = makeStyles((t) => ({
     borderWidth: 1,
     borderColor: t.colors.border.light,
     padding: t.spacing[5],
+    maxHeight: '85%',
+  },
+  cardContent: {
     gap: t.spacing[3],
   },
   title: {
@@ -114,16 +127,15 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.text.secondary,
   },
   actions: {
-    flexDirection: 'row',
     gap: t.spacing[3],
     marginTop: t.spacing[2],
   },
   button: {
-    flex: 1,
     minHeight: 48,
     borderRadius: t.radii.default,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: t.spacing[3],
     paddingHorizontal: t.spacing[4],
   },
   cancelButton: {

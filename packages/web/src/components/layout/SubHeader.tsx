@@ -342,10 +342,10 @@ export default function SubHeader({ dayOnly, festivalOnly }: SubHeaderProps) {
 
         {/* Artist search */}
         {showSearch && (
-          <div className="search-box ml-auto flex-1 min-w-0" role="search">
+          <div className="search-box ml-auto w-full min-w-0 sm:w-auto sm:flex-1" role="search">
             <Input
               variant="search"
-              className="min-h-[44px] w-full max-w-[clamp(80px,25vw,140px)] text-[length:var(--font-size-13)] sm:max-w-[clamp(100px,30vw,180px)]"
+              className="min-h-[44px] w-full text-[length:var(--font-size-13)] sm:max-w-[clamp(100px,30vw,180px)]"
               placeholder="Search artist…"
               value={searchQuery}
               aria-label="Search festival artists"

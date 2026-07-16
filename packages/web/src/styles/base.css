@@ -78,6 +78,21 @@ textarea {
   appearance: none;
 }
 
+/* Restore native checkbox rendering after the form reset above. Native
+   controls provide reliable unchecked, checked, focus, and forced-colors
+   states; accent-color keeps the selected state on-brand. */
+.auth-tos-checkbox {
+  -webkit-appearance: checkbox;
+  appearance: auto;
+  accent-color: var(--color-accent-aqua);
+  color-scheme: dark;
+}
+
+.auth-tos-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 /* Force the native date/time picker chrome to render in dark mode so the
    DOB calendar and other date inputs don't flash a white/light background
    inside the dark card. The top-level html already sets color-scheme:dark,

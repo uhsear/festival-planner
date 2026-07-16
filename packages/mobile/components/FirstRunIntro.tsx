@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Button from './Button';
@@ -91,7 +91,8 @@ export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
   const [index, setIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
-  const screenWidth = Dimensions.get('window').width;
+  const { width: screenWidth } = useWindowDimensions();
+  const previousWidth = useRef(screenWidth);
   const isLast = index === SLIDES.length - 1;
 
   // Scroll to the target page programmatically (used by the Next button).
@@ -121,10 +122,34 @@ export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
     }
   }, [isLast, index, onDone, scrollToPage]);
 
+  // Keep current slide aligned after rotation or split-screen resize.
+  useEffect(() => {
+    if (previousWidth.current === screenWidth) return;
+    previousWidth.current = screenWidth;
+    scrollRef.current?.scrollTo({ x: index * screenWidth, animated: false });
+  }, [index, screenWidth]);
+
+  const handleAccessibilityAction = useCallback(
+    (actionName: string) => {
+      const nextIndex =
+        actionName === 'increment'
+          ? Math.min(index + 1, SLIDES.length - 1)
+          : actionName === 'decrement'
+            ? Math.max(index - 1, 0)
+            : index;
+      if (nextIndex === index) return;
+      setIndex(nextIndex);
+      scrollToPage(nextIndex);
+    },
+    [index, scrollToPage],
+  );
+
   return (
     <View style={[styles.overlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.skipRow}>
         <TouchableOpacity
+          testID="intro-skip"
+          style={styles.skipButton}
           onPress={onDone}
           accessibilityRole="button"
           accessibilityLabel="Skip intro"
@@ -146,9 +171,21 @@ export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
         contentContainerStyle={styles.pagerContent}
         accessibilityRole="adjustable"
         accessibilityLabel="Intro slides"
+        accessibilityValue={{ min: 1, max: SLIDES.length, now: index + 1, text: `Slide ${index + 1} of ${SLIDES.length}` }}
+        accessibilityActions={[
+          { name: 'increment', label: 'Next slide' },
+          { name: 'decrement', label: 'Previous slide' },
+        ]}
+        onAccessibilityAction={(event) => handleAccessibilityAction(event.nativeEvent.actionName)}
       >
         {SLIDES.map((slide, i) => (
-          <View key={i} style={[styles.slide, { width: screenWidth }]}>
+          <ScrollView
+            key={i}
+            style={{ width: screenWidth }}
+            contentContainerStyle={styles.slide}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
             {/* Upper region. The product card (slide 1) anchors high — it has
                 enough visual mass to own the top third. The bare icon slides
                 center in the region instead: a 112px circle pinned to the top
@@ -174,7 +211,7 @@ export default function FirstRunIntro({ onDone }: { onDone: () => void }) {
               </Text>
               <Text style={styles.text}>{slide.body}</Text>
             </View>
-          </View>
+          </ScrollView>
         ))}
       </ScrollView>
 
@@ -206,6 +243,12 @@ const useStyles = makeStyles((t) => ({
     ...typeStyle('label'),
     color: t.colors.text.secondary,
   },
+  skipButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   // DC16: pager container takes all remaining vertical space above the footer.
   pager: {
     flex: 1,
@@ -219,6 +262,7 @@ const useStyles = makeStyles((t) => ({
   // Each slide is exactly one screen-width wide (set inline from Dimensions).
   // Height is inherited from the content container's alignItems: 'stretch'.
   slide: {
+    flexGrow: 1,
     paddingHorizontal: t.spacing[6],
   },
   // Upper region: visual sits in the top third, not dead-centered. flex:1

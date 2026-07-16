@@ -121,7 +121,11 @@ export function typeStyle(role: TypeRoleName, weight?: number): TextStyle {
     // display ramp remains web-only via theme.css.
     letterSpacing: Math.max(0, r.letterSpacing * r.size),
   };
-  const family = nativeFontFamily(r.family, clampedWeight);
+  // Native text layout can under-measure the bundled Space Grotesk label cut
+  // and clip trailing glyphs even in unconstrained controls. Labels are the
+  // high-risk role (buttons, legal links, compact actions), so use each OS's
+  // native face there while preserving branded body/display typography.
+  const family = role === 'label' ? undefined : nativeFontFamily(r.family, clampedWeight);
   if (family) {
     // The weight-specific family IS the weight on native. Do NOT also set
     // fontWeight: Android applies synthetic (fake) bold on top of the already

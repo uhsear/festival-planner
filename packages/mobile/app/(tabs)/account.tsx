@@ -124,7 +124,7 @@ export default function AccountScreen() {
     // doesn't scroll the focused field into view when it's deep in the list.
     // automaticallyAdjustKeyboardInsets on the ScrollView handles both platforms
     // correctly (same pattern as app/set/[setId].tsx).
-    <View style={styles.container}>
+    <View style={styles.container} testID="account-screen">
       <ScreenHeader title="Account" subtitle="Settings & preferences" icon="person-circle-outline" />
 
       <ScrollView
@@ -176,8 +176,10 @@ export default function AccountScreen() {
             ) : null}
             {hasEmail ? (
               <View style={styles.identityMeta}>
+                {/* Sacrificial NBSP absorbs Android's final-glyph under-measurement
+                    without rendering the visible punctuation used by the old sentinel. */}
                 <Text style={styles.email} numberOfLines={1} ellipsizeMode="middle">
-                  {user?.email}
+                  {`${user?.email}\u00A0`}
                 </Text>
               </View>
             ) : null}
