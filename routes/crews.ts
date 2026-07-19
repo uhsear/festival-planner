@@ -89,6 +89,36 @@ export default function createCrewRoutes(deps: any) {
     return { crew, membership };
   }
 
+  /**
+   * H1 (owner whole-crew delete): evict EVERY member's live socket(s) from the
+   * crew room before the row + its members cascade away (crew_members.crew_id
+   * REFERENCES crews(id) ON DELETE CASCADE — migrations/004_postgresql_baseline.sql:174).
+   * Without this, a member who was live-location-sharing when the owner deleted
+   * the crew keeps receiving live location/SOS/status broadcasts for a crew that
+   * no longer exists, and keeps a stamped sharingCrewId they could inject from,
+   * until they happen to disconnect. Mirrors evictAllFromCrewRoom in
+   * routes/admin-bulk.ts. The crew:deleted event is already emitted by the delete
+   * handler (with festivalId), so it is not re-emitted here.
+   *
+   * Best-effort: a failure must never fail the HTTP delete (the DB rows are
+   * already gone); io may be absent in some test/CLI contexts.
+   */
+  async function evictAllFromCrewRoom(crewId: string) {
+    if (!io || typeof io.in !== 'function') return;
+    const room = `crew:${crewId}`;
+    try {
+      const sockets = await io.in(room).fetchSockets();
+      for (const s of sockets) {
+        if (s.data?.sharingCrewId === crewId) delete s.data.sharingCrewId;
+        delete s.data.crewMembershipCheckedAt;
+        delete s.data.crewMembershipUpdateCount;
+        s.leave(room);
+      }
+    } catch (error: any) {
+      log.warn('crew room full eviction failed', { error: error?.message, crewId });
+    }
+  }
+
   function serializeCrew(crew: any, membership: any): SerializedCrew {
     const result: SerializedCrew = {
       id: crew.id,
@@ -571,6 +601,13 @@ export default function createCrewRoutes(deps: any) {
         const { crew } = resolved;
 
         if (io) io.to(`crew:${crewId}`).emit('crew:deleted', { crewId, festivalId: crew.festivalId });
+        // H1: force every remaining member's still-connected socket(s) out of the
+        // crew room so they stop receiving live location/SOS/status broadcasts for
+        // a crew that's about to vanish and can no longer inject into it. Mirrors
+        // kick/leave (routes/crew-members.ts) and admin whole-crew delete
+        // (routes/admin-bulk.ts). Must run BEFORE the cascade, while the room
+        // still holds its sockets.
+        await evictAllFromCrewRoom(crewId);
 
         await stores.crews.delete(crewId);
 

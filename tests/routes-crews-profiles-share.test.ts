@@ -533,6 +533,44 @@ describe('routes/crews.js', () => {
       assert.equal(res.body.error, null);
       assert.ok(deps.io.to.mock.calls.length > 0);
     });
+
+    test('evicts live sockets from the crew room on owner-delete', async () => {
+      const crew = { id: 'c1', festivalId: 'f1', name: 'Crew' };
+      const crewStore = {
+        ...makeCrewDeps().stores.crews,
+        getById: mock.fn(async () => crew),
+        getMember: mock.fn(async () => ({ role: 'owner', userId: 'user-1' })),
+        delete: mock.fn(async () => {}),
+      };
+
+      // makeIo() has no .in(), which is exactly why this gap was never caught.
+      // Build a local io mock that adds .in() plus one still-connected fake
+      // socket standing in for a live sharer.
+      const fakeSocket: any = {
+        data: { sharingCrewId: 'c1', crewMembershipCheckedAt: 111, crewMembershipUpdateCount: 5 },
+        leave: mock.fn(),
+      };
+      const emitFn = mock.fn(() => {});
+      const io: any = {
+        to: mock.fn(() => ({ emit: emitFn })),
+        in: mock.fn(() => ({ fetchSockets: async () => [fakeSocket] })),
+      };
+
+      const { app } = await buildCrewApp({
+        sanitizeIdentifier: (s: any) => s,
+        stores: { ...makeCrewDeps().stores, crews: crewStore },
+        io,
+      });
+
+      const res = await request(app).delete('/crews/c1');
+
+      assert.equal(res.status, 200);
+      assert.equal(io.in.mock.calls.length, 1);
+      assert.equal(io.in.mock.calls[0].arguments[0], 'crew:c1');
+      assert.equal(fakeSocket.leave.mock.calls.length, 1);
+      assert.equal(fakeSocket.leave.mock.calls[0].arguments[0], 'crew:c1');
+      assert.equal(fakeSocket.data.sharingCrewId, undefined);
+    });
   });
 
   // ── POST /join — Join crew via invite code ──────────────────────

@@ -179,6 +179,24 @@ describe('middleware: audit-middleware', () => {
     assert.equal(entry.action, 'replace:festivals');
   });
 
+  it('extracts target and action for nested crew sub-routes', async () => {
+    const deps = makeDeps();
+    const middleware = createAuditMiddleware(deps);
+    const req = mockReq({
+      method: 'POST',
+      route: { path: '/:crewId/polls' },
+      params: { crewId: 'crew-1' },
+    });
+    const res = mockRes();
+    middleware(req, res, () => {});
+    res._emit('finish');
+    await new Promise((r) => setTimeout(r, 50));
+    const entry = (deps.stores.auditLog.insert.mock.calls as any[])[0]?.arguments[0];
+    assert.equal(entry.target_type, 'polls');
+    assert.equal(entry.target_id, 'crew-1');
+    assert.equal(entry.action, 'create:polls');
+  });
+
   it('handles missing route in extractTarget', async () => {
     const deps = makeDeps();
     const middleware = createAuditMiddleware(deps);
@@ -204,7 +222,7 @@ describe('middleware: audit-middleware', () => {
     res._emit('finish');
     await new Promise((r) => setTimeout(r, 50));
     const entry = (deps.stores.auditLog.insert.mock.calls as any[])[0]?.arguments[0];
-    assert.equal(entry.action, 'update::id');
+    assert.equal(entry.action, 'update:unknown');
   });
 
   it('captures failure status for 4xx responses', async () => {

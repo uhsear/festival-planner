@@ -21,7 +21,7 @@ vi.mock('../api', () => {
 import { api, ApiClientError } from '../api';
 import { enqueueMutation, drainQueue, refreshPendingCount, retryFailed, clearQueue, type QueuedMutation } from '../offlineQueue';
 import { useUIStore } from '../../stores/uiStore';
-import { getStorage } from '../../platform/storage';
+import { getStorage, configureStorage } from '../../platform/storage';
 
 const QUEUE_KEY = 'festie-offline-queue';
 
@@ -210,6 +210,85 @@ describe('offlineQueue', () => {
       expect(q).toHaveLength(1);
       expect(q[0]!.clientId).toBe('fresh');
       expect(useUIStore.getState().pendingSync).toBe(1);
+    });
+  });
+
+  // Finding #13: readQueue's internal stale-prune writeQueue must run under the
+  // queue lock, or it clobbers a concurrent enqueue that commits between the
+  // snapshot read and the prune-write. Needs a pausable ASYNC adapter (mimics
+  // AsyncStorage) — sync localStorage can't deterministically lose the write
+  // because enqueue's extra awaits always land its write last.
+  describe('mutex / lost-write race', () => {
+    function pausable(initial: Record<string, string>) {
+      const data = new Map(Object.entries(initial));
+      let release: (() => void) | null = null;
+      let pauseQueueSet = false;
+      const adapter = {
+        getItem: (k: string) => Promise.resolve(data.get(k) ?? null),
+        setItem: (k: string, v: string) => {
+          if (pauseQueueSet && k === QUEUE_KEY) {
+            pauseQueueSet = false;
+            return new Promise<void>((res) => {
+              release = () => {
+                data.set(k, v);
+                res();
+              };
+            });
+          }
+          data.set(k, v);
+          return Promise.resolve();
+        },
+        removeItem: (k: string) => {
+          data.delete(k);
+          return Promise.resolve();
+        },
+      };
+      return {
+        adapter,
+        pauseNextQueueSet() {
+          pauseQueueSet = true;
+        },
+        releasePausedSet() {
+          release?.();
+          release = null;
+        },
+        peek(k: string) {
+          return data.get(k);
+        },
+      };
+    }
+
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+
+    it('unlocked prune-write must not clobber a concurrent enqueue', async () => {
+      const original = getStorage();
+      const s = pausable({
+        [QUEUE_KEY]: JSON.stringify([
+          { clientId: 'stale', url: '/x', method: 'PUT', body: {}, createdAt: Date.now() - 25 * 3600 * 1000 },
+        ]),
+      });
+      configureStorage(s.adapter);
+      useUIStore.setState({ offlineMode: false, pendingSync: 0, failedSync: [] });
+      try {
+        // A: reads [stale], computes fresh=[], and PAUSES at the prune-write
+        // (holding the queue lock only after the fix).
+        s.pauseNextQueueSet();
+        const pRefresh = refreshPendingCount();
+        await tick();
+        // B: a concurrent enqueue of a FRESH mutation, committed under the lock.
+        const pEnq = enqueueMutation({ clientId: 'fresh', url: '/x', method: 'PUT', body: { v: 1 } });
+        await tick();
+        // Let A's paused prune-write land, then settle both.
+        s.releasePausedSet();
+        await Promise.all([pRefresh, pEnq]);
+
+        const persisted: QueuedMutation[] = JSON.parse(s.peek(QUEUE_KEY) ?? '[]');
+        // Current code: A's stale prune-write [] lands after B's [fresh] → 'fresh' lost.
+        // After fix: B blocks on the mutex until A's prune completes, then appends → [fresh].
+        expect(persisted.map((m) => m.clientId)).toContain('fresh');
+      } finally {
+        configureStorage(original);
+      }
     });
   });
 

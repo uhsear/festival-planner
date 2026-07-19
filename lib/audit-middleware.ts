@@ -11,28 +11,18 @@ export default function createAuditMiddleware(deps: any) {
       return next();
     }
 
-    let responseStatus = 200;
-    let _responseJson: any = null;
-
-    const originalJson = res.json;
-    res.json = function(data: any) {
-      _responseJson = data;
-      return originalJson.call(this, data);
-    };
-
     res.on('finish', () => {
-      responseStatus = res.statusCode || 200;
-      logAuditEntry(req, responseStatus);
+      logAuditEntry(req, res, res.statusCode || 200);
     });
 
     return next();
   };
 
-  async function logAuditEntry(req: any, statusCode: any) {
+  async function logAuditEntry(req: any, res: any, statusCode: any) {
     try {
       const actor = extractActor(req);
       const target = extractTarget(req);
-      const action = deriveAction(req);
+      const action = deriveAction(req, target);
 
       const entry = {
         id: req.id,
@@ -45,7 +35,7 @@ export default function createAuditMiddleware(deps: any) {
         request_id: req.id,
         ip: getRequestIp(req),
         status: statusCode >= 200 && statusCode < 300 ? 'success' : 'failure',
-        details_json: null,
+        details_json: res.locals?.auditDetail ?? null,
       };
 
       await stores.auditLog.insert(entry);
@@ -72,10 +62,12 @@ export default function createAuditMiddleware(deps: any) {
     const routePath = req.route.path || '';
     const parts = routePath.split('/').filter(Boolean);
 
-    let type = 'unknown';
-    if (parts.length >= 1 && parts[0] && !parts[0].startsWith(':')) {
-      type = parts[0];
-    }
+    // Nested routers (every crew sub-router, mounted at '/' by
+    // routes/crews.ts:161-168) register leaf paths as '/:crewId/polls', so
+    // the resource name is never parts[0] -- walk past every leading :param
+    // segment instead of only checking the first one.
+    const resourceSegment = parts.find((part: string) => !part.startsWith(':'));
+    const type = resourceSegment || 'unknown';
 
     let id = null;
     const routeParamKeys = Object.keys(req.params || {});
@@ -86,14 +78,12 @@ export default function createAuditMiddleware(deps: any) {
     return { type, id };
   }
 
-  function deriveAction(req: any) {
-    const method = req.method;
-    const routePath = req.route?.path || req.path;
-
-    const resourceMatch = routePath.split('/').filter(Boolean)[0] || 'unknown';
-    const verb = getVerbForMethod(method);
-
-    return `${verb}:${resourceMatch}`.toLowerCase();
+  function deriveAction(req: any, target: any) {
+    // Reuse extractTarget's resolved resource name instead of re-deriving it
+    // from the path independently -- that duplicate logic used to skip the
+    // ':'-prefix check entirely, producing garbage like 'create::crewid'.
+    const verb = getVerbForMethod(req.method);
+    return `${verb}:${target.type}`.toLowerCase();
   }
 
   function getVerbForMethod(method: any) {
