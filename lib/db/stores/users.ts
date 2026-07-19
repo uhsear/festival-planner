@@ -246,6 +246,34 @@ export default function createUsersStore(pool: Pool, utils: any) {
         await client.query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
         await client.query('DELETE FROM user_sessions WHERE user_id = $1', [userId]);
         await client.query('DELETE FROM user_roles WHERE user_id = $1', [userId]);
+
+        // Crews the user created are ON DELETE RESTRICT (migration 031, deliberate —
+        // a user deletion must not silently destroy a crew that other members are in).
+        // Transfer ownership to the longest-standing remaining member; delete the crew
+        // only if the departing user was its sole member (crew_id children all cascade).
+        // Runs before the user row is deleted so created_by no longer references it.
+        const { rows: ownedCrews } = await client.query('SELECT id FROM crews WHERE created_by = $1', [
+          userId,
+        ]);
+        for (const owned of ownedCrews) {
+          const { rows: heirs } = await client.query(
+            'SELECT user_id FROM crew_members WHERE crew_id = $1 AND user_id <> $2 ORDER BY joined_at ASC LIMIT 1',
+            [owned.id, userId],
+          );
+          if (heirs[0]) {
+            await client.query('UPDATE crews SET created_by = $1, updated_at = NOW() WHERE id = $2', [
+              heirs[0].user_id,
+              owned.id,
+            ]);
+            await client.query("UPDATE crew_members SET role = 'owner' WHERE crew_id = $1 AND user_id = $2", [
+              owned.id,
+              heirs[0].user_id,
+            ]);
+          } else {
+            await client.query('DELETE FROM crews WHERE id = $1', [owned.id]);
+          }
+        }
+
         const { rows } = await client.query('DELETE FROM users WHERE id = $1 RETURNING *', [userId]);
         return rows[0] ? normalizeRow(rows[0]) : null;
       });

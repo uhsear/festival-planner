@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { parseJsonObject } from '../lib/db/connection';
 
 export default function createCrewMemberRoutes(deps: any) {
   const {
@@ -261,12 +262,11 @@ export default function createCrewMemberRoutes(deps: any) {
         // Aggregate picks by setId — use null-prototype object to prevent pollution
         const overlap: any = Object.create(null);
         for (const row of rows) {
-          let picks;
-          try {
-            picks = row.picksJson ? JSON.parse(row.picksJson) : {};
-          } catch {
-            picks = {};
-          }
+          // picks_json is a JSONB column — node-postgres returns it as a JS object
+          // (a string only on legacy paths). parseJsonObject handles object, string,
+          // and null uniformly; a bare JSON.parse here threw on the object and was
+          // swallowed, so overlap silently returned {} in production.
+          const picks = parseJsonObject(row.picksJson, {});
           for (const [setId, priority] of Object.entries(picks)) {
             if (typeof setId !== 'string' || setId === '__proto__' || setId === 'constructor' || setId === 'prototype')
               continue;
