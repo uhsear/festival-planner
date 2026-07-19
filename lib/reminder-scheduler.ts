@@ -112,7 +112,7 @@ function createReminderScheduler({ pool, stores, notificationService, log, confi
 
       // Fire FCM
       try {
-        await notify({
+        const result = await notify({
           userId: profile.userId,
           type: 'set_reminder',
           title: `${setInfo.artistName} in ${minutesBefore} min`,
@@ -125,8 +125,16 @@ function createReminderScheduler({ pool, stores, notificationService, log, confi
           },
           threadId: `reminder-${festival.id}`,
         });
-        _firedCache.set(dedupKey, now);
-        logger.debug('reminder fired', { userId: profile.userId, setId, minutesBefore });
+        if (result?.sent > 0) {
+          _firedCache.set(dedupKey, now);
+          logger.debug('reminder fired', { userId: profile.userId, setId, minutesBefore });
+        } else {
+          logger.warn('reminder not delivered', {
+            userId: profile.userId,
+            setId,
+            reason: result?.reason,
+          });
+        }
       } catch (err: any) {
         logger.warn('reminder send failed', { userId: profile.userId, setId, error: err.message });
       }

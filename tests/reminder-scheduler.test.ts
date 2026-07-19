@@ -242,6 +242,66 @@ describe('reminder-scheduler: processProfileReminders (via tick)', () => {
     assert.equal(notifyFn.mock.calls.length, 0);
   });
 
+  it('does not dedupe or mark delivered when notify resolves sent:0', async () => {
+    const now = Date.now();
+    const setStartMs = now + 15 * 60000 + 60000; // 16 min from now (fireAt ≈ now+60s, within 65s window)
+
+    const notifyFn = mock.fn(async () => ({ sent: 0, reason: 'no_tokens' }));
+    const prefsFn = mock.fn(async () => null);
+
+    const setDate = new Date(setStartMs);
+    const localDateStr = `${setDate.getFullYear()}-${String(setDate.getMonth() + 1).padStart(2, '0')}-${String(setDate.getDate()).padStart(2, '0')}`;
+    const localHours = setDate.getHours();
+    const localMinutes = setDate.getMinutes();
+
+    const queryFn = mock.fn(async (sql: string) => {
+      if (sql.includes('festivals')) {
+        return { rows: [{ id: 'fest-1', name: 'Test Fest' }] };
+      }
+      if (sql.includes('festival_days')) {
+        return { rows: [{ day_index: 0, label: 'Day 1', date: localDateStr }] };
+      }
+      if (sql.includes('festival_stages')) {
+        return { rows: [{ id: 'stage-1', name: 'Main Stage' }] };
+      }
+      if (sql.includes('festival_sets')) {
+        const startTime = `${String(localHours).padStart(2, '0')}:${String(localMinutes).padStart(2, '0')}`;
+        return {
+          rows: [{
+            id: 'set-1', day_index: 0, artist: 'DJ Alpha',
+            artists: null, stage_id: 'stage-1',
+            startTime, endTime: '23:00',
+          }],
+        };
+      }
+      if (sql.includes('festival_profiles')) {
+        return {
+          rows: [{
+            id: 'fp-1',
+            userId: 'user-1',
+            remindersJson: JSON.stringify({ 'set-1': 15 }),
+            picksJson: '{}',
+          }],
+        };
+      }
+      return { rows: [] };
+    });
+
+    const deps = makeDeps({
+      pool: { query: queryFn },
+      stores: {
+        notificationPrefs: { get: prefsFn },
+      },
+      notificationService: { send: notifyFn },
+    });
+
+    const scheduler = createReminderScheduler(deps);
+    await scheduler.tick();
+    await scheduler.tick();
+
+    assert.equal(notifyFn.mock.calls.length, 2, 'a zero-sent notify() must not be treated as delivered/deduped');
+  });
+
   it('skips profiles with setReminders disabled', async () => {
     const now = Date.now();
     const setStartMs = now + 15 * 60000;

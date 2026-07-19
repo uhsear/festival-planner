@@ -784,6 +784,35 @@ describe('routes/crew-members.js — GET /:crewId/overlap', () => {
     assert.equal(res.body.data.overlap['set-B'].length, 1);
   });
 
+  // ── Real node-pg JSONB shape: picks_json arrives as an OBJECT, not a string ──
+  // node-postgres decodes JSONB columns to JS objects before the route sees them.
+  // Every other overlap mock in this file supplies a STRING — a shape the database
+  // never returns for a JSONB column — which is exactly why JSON.parse-on-an-object
+  // (routes/crew-members GET /overlap) silently returned {} in production.
+  test('returns pick overlap when picksJson arrives as an object (real node-pg JSONB shape)', async () => {
+    const overlapRows = [
+      { userId: 'u-1', username: 'alice', picksJson: { 'set-A': 1, 'set-B': 2 } },
+      { userId: 'u-2', username: 'bob', picksJson: { 'set-A': 3 } },
+    ];
+    const { app } = await buildApp({
+      stores: {
+        crews: {
+          getById: mock.fn(async () => ({ ...DEFAULT_CREW })),
+          getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
+          getCrewPickOverlap: mock.fn(async () => overlapRows),
+        },
+      },
+    });
+
+    const res = await request(app).get('/crew-1/overlap');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.error, null);
+    assert.equal(res.body.data.memberCount, 2);
+    assert.equal(res.body.data.overlap['set-A'].length, 2);
+    assert.equal(res.body.data.overlap['set-B'].length, 1);
+  });
+
   // ── Non-member rejected ───────────────────────────────────────────
   test('returns 403 when user is not a member', async () => {
     const { app } = await buildApp({

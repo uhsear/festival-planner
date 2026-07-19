@@ -533,9 +533,10 @@ describe('createUsersStore', () => {
   describe('hardDelete', () => {
     it('deletes child rows then user within transaction', async () => {
       const row = fakeUserRow();
-      // BEGIN(1) + 20 child DELETEs + DELETE FROM users RETURNING(1) + COMMIT(1) = 23
+      // BEGIN(1) + 20 child DELETEs + SELECT owned crews(1) + DELETE FROM users RETURNING(1) + COMMIT(1) = 24
       const results: any[] = [{ rows: [] }]; // BEGIN
       for (let i = 0; i < 20; i++) results.push({ rows: [] }); // 20 child deletes
+      results.push({ rows: [] }); // SELECT id FROM crews WHERE created_by (none owned → loop skips)
       results.push({ rows: [row], rowCount: 1 }); // DELETE FROM users RETURNING
       results.push({ rows: [] }); // COMMIT
       const pool = mockPool(results);
@@ -553,6 +554,7 @@ describe('createUsersStore', () => {
     it('returns null when user does not exist in hard delete', async () => {
       const results: any[] = [{ rows: [] }]; // BEGIN
       for (let i = 0; i < 20; i++) results.push({ rows: [] }); // 20 child deletes
+      results.push({ rows: [] }); // SELECT id FROM crews WHERE created_by (none owned → loop skips)
       results.push({ rows: [], rowCount: 0 }); // DELETE FROM users RETURNING (no match)
       results.push({ rows: [] }); // COMMIT
       const pool = mockPool(results);

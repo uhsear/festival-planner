@@ -58,6 +58,11 @@ async function readQueueRaw(): Promise<QueuedMutation[]> {
  * No silent drops: an aged-out write isn't just discarded — it's surfaced via
  * uiStore.failedSync (keyed by clientId, so re-reads are idempotent) so the user
  * can still see and retry/dismiss it instead of it vanishing.
+ *
+ * Precondition: callers MUST hold the queue lock (withQueueLock) — this may
+ * prune-WRITE (below), so an unserialized call races a concurrent enqueue/drain
+ * write. The in-lock callers already satisfy this; the two public entry points
+ * (refreshPendingCount, drainQueue) wrap their call.
  */
 async function readQueue(): Promise<QueuedMutation[]> {
   const all = await readQueueRaw();
@@ -93,7 +98,7 @@ function updatePendingCount(count: number): void {
 
 /** Read the persisted queue, publish its count, and hydrate failed items (call on app start). */
 export async function refreshPendingCount(): Promise<void> {
-  updatePendingCount((await readQueue()).length);
+  updatePendingCount((await withQueueLock(() => readQueue())).length);
   await hydrateFailedSync();
 }
 
@@ -304,7 +309,7 @@ export async function drainQueue(): Promise<void> {
   if (_draining || isOffline()) return;
   _draining = true;
   try {
-    const snapshot = (await readQueue()).sort((a, b) => a.createdAt - b.createdAt);
+    const snapshot = (await withQueueLock(() => readQueue())).sort((a, b) => a.createdAt - b.createdAt);
     for (const m of snapshot) {
       try {
         const serverResponse = await replay(m);
