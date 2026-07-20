@@ -670,6 +670,85 @@ describe('festivalDataStore', () => {
     });
   });
 
+  describe('concurrent sibling mutations (per-key rollback)', () => {
+    // A failing mutator must roll back ONLY the key(s) it itself changed against
+    // the LATEST profile — never a whole-profile snapshot taken before a
+    // concurrent sibling committed its own change while our PUT was in flight.
+
+    it('does not clobber a concurrent saveNote change when savePick fails (cross-field)', async () => {
+      useFestivalDataStore.setState({ currentProfile: mockProfile });
+
+      let rejectPick!: (err: Error) => void;
+      vi.mocked(api.put)
+        .mockImplementationOnce(() => new Promise((_, reject) => (rejectPick = reject))) // savePick PUT stays pending
+        .mockResolvedValueOnce(undefined); // saveNote PUT resolves immediately
+
+      const pickPromise = useFestivalDataStore
+        .getState()
+        .savePick({ festivalId: 'fest-1', setId: 'set-2', priority: 'must' });
+
+      await useFestivalDataStore.getState().saveNote({ festivalId: 'fest-1', setId: 'set-3', note: 'meet at rail' });
+
+      rejectPick(new Error('Server error'));
+      await expect(pickPromise).rejects.toThrow('Server error');
+
+      const profile = useFestivalDataStore.getState().currentProfile!;
+      expect(profile.notes['set-3']).toBe('meet at rail'); // sibling's change survives
+      expect(profile.picks['set-2']).toBeUndefined(); // failed call's own change rolled back
+      expect(profile.picks['set-1']).toBe('must'); // untouched
+      expect(profile.notes['set-1']).toBe('great show'); // untouched
+    });
+
+    it('does not clobber a concurrent savePick on a different setId when an earlier savePick fails (same-field)', async () => {
+      // The historical trigger: conflict-switch fires two savePick calls at once,
+      // both writing the SAME picks field on DIFFERENT setIds. A field-granular
+      // rollback would still wipe the sibling; only a key-granular one survives.
+      useFestivalDataStore.setState({ currentProfile: mockProfile });
+
+      let rejectFirst!: (err: Error) => void;
+      vi.mocked(api.put)
+        .mockImplementationOnce(() => new Promise((_, reject) => (rejectFirst = reject)))
+        .mockResolvedValueOnce(undefined);
+
+      const first = useFestivalDataStore
+        .getState()
+        .savePick({ festivalId: 'fest-1', setId: 'set-2', priority: 'must' });
+
+      await useFestivalDataStore.getState().savePick({ festivalId: 'fest-1', setId: 'set-3', priority: 'maybe' });
+
+      rejectFirst(new Error('Server error'));
+      await expect(first).rejects.toThrow('Server error');
+
+      const profile = useFestivalDataStore.getState().currentProfile!;
+      expect(profile.picks['set-3']).toBe('maybe'); // sibling savePick survives
+      expect(profile.picks['set-2']).toBeUndefined(); // failed call rolled back
+      expect(profile.picks['set-1']).toBe('must'); // untouched
+    });
+
+    it('does not clobber a concurrent saveReminder change when savePick fails', async () => {
+      useFestivalDataStore.setState({ currentProfile: mockProfile });
+
+      let rejectPick!: (err: Error) => void;
+      vi.mocked(api.put)
+        .mockImplementationOnce(() => new Promise((_, reject) => (rejectPick = reject)))
+        .mockResolvedValueOnce(undefined);
+
+      const pickPromise = useFestivalDataStore
+        .getState()
+        .savePick({ festivalId: 'fest-1', setId: 'set-2', priority: 'must' });
+
+      await useFestivalDataStore.getState().saveReminder({ festivalId: 'fest-1', setId: 'set-3', minutes: 15 });
+
+      rejectPick(new Error('Server error'));
+      await expect(pickPromise).rejects.toThrow('Server error');
+
+      const profile = useFestivalDataStore.getState().currentProfile!;
+      expect(profile.reminders?.['set-3']).toBe(15); // sibling's reminder survives
+      expect(profile.picks['set-2']).toBeUndefined(); // failed call rolled back
+      expect(profile.picks['set-1']).toBe('must'); // untouched
+    });
+  });
+
   describe('offline queue integration', () => {
     // offlinePut now delegates to api.put, which owns offline interception
     // (api routes to the platform queue when offlineMode is set). Here api is

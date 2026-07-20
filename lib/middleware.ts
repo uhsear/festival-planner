@@ -14,6 +14,99 @@ import { mountSwaggerUI } from './swagger-ui-setup.js';
 import { default as createAuditMiddleware } from './audit-middleware.js';
 
 /**
+ * Idempotency-Key middleware: caches the JSON response per `${userId||ip}:${key}`
+ * and replays it for a repeat of the same key within `ttl`.
+ *
+ * The cache slot is RESERVED synchronously, before next(). That reservation is
+ * the whole point: the response body is only known at res.json time — i.e. after
+ * the handler's mutation has already run — so without it, a retry arriving while
+ * the first request is still in flight sees an empty cache and re-executes the
+ * mutation (double-write). A concurrent duplicate now finds the pending
+ * reservation, awaits the first request's outcome, and replays its response.
+ */
+function createIdempotencyMiddleware({ ttl, maxEntries }: { ttl: number; maxEntries: number }) {
+  const cache = new Map<string, any>();
+  const timer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of cache) {
+      if (now - entry.ts > ttl) cache.delete(key);
+    }
+  }, 60_000);
+  timer.unref();
+
+  function middleware(req: any, res: any, next: any) {
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+    const key = req.headers['idempotency-key'];
+    if (!key || typeof key !== 'string' || key.length > 128) return next();
+    const userId = req.user?.userId || req.ip;
+    const cacheKey = `${userId}:${key}`;
+
+    const run = () => {
+      // Reserve the slot synchronously, before next(): a concurrent duplicate
+      // that arrives while this request's handler is still running finds a
+      // pending reservation and waits on `settled` instead of re-executing.
+      let resolveSettled: (v: any) => void;
+      const settled = new Promise<any>((r) => { resolveSettled = r; });
+      const reservation = { pending: true, ts: Date.now(), settled };
+      cache.set(cacheKey, reservation);
+
+      let done = false;
+      const release = (value: any) => {
+        if (done) return;
+        done = true;
+        resolveSettled(value);
+      };
+
+      const originalJson = res.json.bind(res);
+      res.json = (body: any) => {
+        if (cache.size >= maxEntries) {
+          const oldestKey = cache.keys().next().value;
+          if (oldestKey) cache.delete(oldestKey);
+        }
+        const record = { status: res.statusCode, body, ts: Date.now() };
+        cache.set(cacheKey, record);
+        release(record);
+        return originalJson(body);
+      };
+
+      // The handler ended without producing a JSON body (client disconnect or
+      // error mid-flight): drop the reservation so it neither blocks a later
+      // retry nor leaves a waiter hanging past the request-timeout backstop.
+      const onEnd = () => {
+        if (done) return;
+        if (cache.get(cacheKey) === reservation) cache.delete(cacheKey);
+        release(null);
+      };
+      res.on('finish', onEnd);
+      res.on('close', onEnd);
+
+      next();
+    };
+
+    const cached = cache.get(cacheKey);
+    if (!cached) return run();
+
+    // Completed response already cached -> replay synchronously.
+    if (!cached.pending) {
+      res.setHeader('X-Idempotency-Replayed', 'true');
+      return res.status(cached.status).json(cached.body);
+    }
+
+    // A same-key request is still in flight -> wait for its outcome, then
+    // replay it. If it ended without a response, this request executes now.
+    cached.settled.then((value: any) => {
+      if (value) {
+        res.setHeader('X-Idempotency-Replayed', 'true');
+        return res.status(value.status).json(value.body);
+      }
+      return run();
+    });
+  }
+
+  return { middleware, cache, timer };
+}
+
+/**
  * Configure all Express middleware on the app instance.
  * @returns {{ inFlightRequests: { count: number } }} References needed by shutdown
  */
@@ -384,40 +477,15 @@ function configureMiddleware(app: Application, ctx: any) {
   app.use('/api/v1/crews', rateLimit(config.OVERLAP_RATE_LIMIT_MAX, 'crews'));
 
   // ── Idempotency key middleware ────────────────────────────────────────
-  const _idempotencyCache = new Map();
-  const IDEMPOTENCY_TTL = 5 * 60 * 1000;
-  const IDEMPOTENCY_MAX_ENTRIES = 5000;
-  const _idempotencyCleanup = setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of _idempotencyCache) {
-      if (now - entry.ts > IDEMPOTENCY_TTL) _idempotencyCache.delete(key);
-    }
-  }, 60_000);
-  _idempotencyCleanup.unref();
+  // ponytail: values stay the literals they were — lib/config.ts already defines
+  // env-overridable IDEMPOTENCY_TTL/IDEMPOTENCY_MAX_ENTRIES that this block has
+  // never read. The {ttl,maxEntries} params are the seam to wire them, but that
+  // drift is a separate audit finding with its own review; keep behavior
+  // byte-identical here.
+  const { middleware: idempotencyMiddleware, timer: _idempotencyCleanup } =
+    createIdempotencyMiddleware({ ttl: 5 * 60 * 1000, maxEntries: 5000 });
   state.timers.push(_idempotencyCleanup);
-
-  app.use('/api/v1', (req: any, res: any, next: any) => {
-    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
-    const key = req.headers['idempotency-key'];
-    if (!key || typeof key !== 'string' || key.length > 128) return next();
-    const userId = req.user?.userId || req.ip;
-    const cacheKey = `${userId}:${key}`;
-    const cached = _idempotencyCache.get(cacheKey);
-    if (cached) {
-      res.setHeader('X-Idempotency-Replayed', 'true');
-      return res.status(cached.status).json(cached.body);
-    }
-    const originalJson = res.json.bind(res);
-    res.json = (body: any) => {
-      if (_idempotencyCache.size >= IDEMPOTENCY_MAX_ENTRIES) {
-        const oldestKey = _idempotencyCache.keys().next().value;
-        if (oldestKey) _idempotencyCache.delete(oldestKey);
-      }
-      _idempotencyCache.set(cacheKey, { status: res.statusCode, body, ts: Date.now() });
-      return originalJson(body);
-    };
-    next();
-  });
+  app.use('/api/v1', idempotencyMiddleware);
 
   // ── In-flight request tracking ────────────────────────────────────────
   const inFlightRequests = { count: 0 };
@@ -443,4 +511,4 @@ function configureMiddleware(app: Application, ctx: any) {
   return { inFlightRequests };
 }
 
-export { configureMiddleware };
+export { configureMiddleware, createIdempotencyMiddleware };

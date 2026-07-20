@@ -13,3 +13,6 @@ tests/coverage-routes.test.js
 tests/integration-notifications.test.js
 tests/app-context-schemas.test.js
 tests/hardening.test.js
+
+# Test fixture — fake webhook HMAC key used to exercise the PII-stripping path
+tests/notifications-webhook-pii.test.ts

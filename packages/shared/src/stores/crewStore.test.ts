@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useCrewStore } from './crewStore';
+import { useAuthStore } from './authStore';
 import { api } from '../services/api';
-import type { Crew, CrewMember, CrewPoll, PollSetRef } from '../types/domain';
+import type { Crew, CrewMember, CrewMemberStatus, CrewPoll, PollSetRef } from '../types/domain';
 
 vi.mock('../services/api', () => ({
   api: {
@@ -763,6 +764,80 @@ describe('crewStore', () => {
       vi.mocked(api.get).mockRejectedValueOnce(new Error('nope'));
       await expect(useCrewStore.getState().loadActivity('crew-1')).rejects.toThrow('nope');
       expect(useCrewStore.getState().error).toBe('nope');
+    });
+  });
+
+  // WF4: both votePoll and updateMyStatus write optimistically, await a round-
+  // trip, then on an ONLINE reject roll back. A whole-array snapshot restore
+  // clobbers a sibling change (another member's vote/status) that a socket
+  // setter applied while the write was in flight; the rollback must scope to
+  // only the row this action touched, against the LATEST state.
+  describe('optimistic rollback preserves concurrent socket updates', () => {
+    it('votePoll rolls back only my vote, keeping a concurrent peer vote', async () => {
+      useAuthStore.setState({ user: { id: 'user-1' } as never });
+      const poll: CrewPoll = {
+        id: 'poll-1',
+        crew_id: 'crew-1',
+        created_by: 'user-1',
+        question: 'Which stage?',
+        options: ['A', 'B', 'C'],
+        votes: [{ option: 2, user_id: 'user-1' }],
+        closes_at: null,
+        closed: false,
+        created_at: '2026-01-01T00:00:00Z',
+      };
+      useCrewStore.setState({ polls: [poll] });
+
+      // The in-flight POST: a peer's vote lands via the socket setter, THEN the
+      // write rejects — modelling a concurrent update during the round-trip.
+      vi.mocked(api.post).mockImplementationOnce(async () => {
+        useCrewStore.getState().applyPollVote('poll-1', 'user-2', 0);
+        throw new Error('poll closed');
+      });
+
+      await expect(useCrewStore.getState().votePoll('crew-1', 'poll-1', 1)).rejects.toThrow('poll closed');
+
+      const votes = useCrewStore.getState().polls[0]!.votes;
+      // Peer's concurrent vote survived the rollback (the bug clobbered it).
+      expect(votes.find((v) => v.user_id === 'user-2')?.option).toBe(0);
+      // My optimistic vote rolled back to my PRIOR vote (option 2), not dropped.
+      expect(votes.find((v) => v.user_id === 'user-1')?.option).toBe(2);
+    });
+
+    it('updateMyStatus rolls back only my row, keeping a concurrent peer status', async () => {
+      const mine: CrewMemberStatus = {
+        crew_id: 'crew-1',
+        user_id: 'user-1',
+        status: 'here',
+        target_meeting_point_id: null,
+        eta_minutes: null,
+        note: null,
+        updated_at: '2026-01-01T00:00:00Z',
+      };
+      useCrewStore.setState({ crewStatuses: [mine] });
+
+      vi.mocked(api.put).mockImplementationOnce(async () => {
+        useCrewStore.getState().applyStatusUpdate({
+          crew_id: 'crew-1',
+          user_id: 'user-2',
+          status: 'on-my-way',
+          target_meeting_point_id: null,
+          eta_minutes: null,
+          note: null,
+          updated_at: '2026-01-01T00:05:00Z',
+        });
+        throw new Error('rejected');
+      });
+
+      await expect(useCrewStore.getState().updateMyStatus('crew-1', { status: 'on-my-way' }, 'user-1')).rejects.toThrow(
+        'rejected',
+      );
+
+      const statuses = useCrewStore.getState().crewStatuses;
+      // Peer's concurrent status survived the rollback (the bug clobbered it).
+      expect(statuses.find((s) => s.user_id === 'user-2')?.status).toBe('on-my-way');
+      // My row rolled back to my PRIOR status ('here'), not dropped.
+      expect(statuses.find((s) => s.user_id === 'user-1')?.status).toBe('here');
     });
   });
 });

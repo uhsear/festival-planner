@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@festie/shared';
 import { useFestivalStore } from '@festie/shared/stores';
@@ -11,7 +11,9 @@ import { useToast } from '../lib/toastContext';
  * - Session check on mount
  * - Auto-load festivals + select first one
  * - Load crews when user logs in
- * - ?joinCrew=<code> deep-link handling + post-login replay
+ * - ?joinCrew=<code> deep-link handling: stages the code as `pendingJoinCode`
+ *   for the caller to confirm via `confirmJoinCrew()` -- it is never joined
+ *   automatically without explicit user consent -- + post-login replay
  * - Re-fetch profiles on login
  */
 export function useFestivalLoader() {
@@ -27,6 +29,8 @@ export function useFestivalLoader() {
   const joinByCode = useCrewStore((s) => s.joinByCode);
   const { toast } = useToast();
   const joinAttemptedRef = useRef<string | null>(null);
+  const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null);
+  const [joinBusy, setJoinBusy] = useState(false);
 
   // Check session on mount — but only if a user was persisted. A cold guest
   // boot has no stored user, so an unconditional checkSession() guarantees a
@@ -77,53 +81,78 @@ export function useFestivalLoader() {
     }
   }, [user?.id, loadCrews]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional: use user.id to avoid re-fetching on every auth object change
 
-  // ?joinCrew=<inviteCode> deep-link handler
+  // ?joinCrew=<inviteCode> deep-link handler. Validates the code's shape
+  // (mirrors routes/crew-invites.ts:156's own check) and STAGES it for
+  // explicit confirmation -- see confirmJoinCrew/cancelJoinCrew below -- a
+  // bare link must never be able to silently enroll a logged-in visitor.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const code = params.get('joinCrew');
-    if (!code) return;
-    if (joinAttemptedRef.current === code) return;
+    const raw = params.get('joinCrew');
+    if (!raw) return;
+    if (joinAttemptedRef.current === raw) return;
 
     // Unauthenticated: stash and redirect to /register
     if (!user) {
       try {
-        sessionStorage.setItem('fk.pendingJoinCrew', code);
+        sessionStorage.setItem('fk.pendingJoinCrew', raw);
       } catch {
         /* sessionStorage unavailable */
       }
-      joinAttemptedRef.current = code;
+      joinAttemptedRef.current = raw;
       navigate({ to: '/register' });
       return;
     }
     // Authenticated: wait for festival context to be ready
     if (!currentFestival) return;
 
-    joinAttemptedRef.current = code;
-    (async () => {
-      try {
-        if (!currentProfile) {
-          await api.post('/profiles', { festivalId: currentFestival.id });
-          await loadProfiles(currentFestival.id);
-        }
-        await joinByCode({ inviteCode: code });
-        toast('Joined crew', 'success');
-        const url = new URL(window.location.href);
-        url.searchParams.delete('joinCrew');
-        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
-        navigate({ to: '/crew' });
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "Couldn't join crew";
-        if (/already/i.test(msg)) {
-          toast('You are already in this crew', 'info');
-        } else {
-          toast("Couldn't join crew: " + msg, 'error');
-        }
-        const url = new URL(window.location.href);
-        url.searchParams.delete('joinCrew');
-        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    joinAttemptedRef.current = raw;
+    if (!/^[a-zA-Z0-9]{4,12}$/.test(raw)) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('joinCrew');
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+      toast('Invalid invite link', 'error');
+      return;
+    }
+    setPendingJoinCode(raw);
+  }, [user?.id, currentFestival?.id, navigate, toast]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional: use ?.id to avoid re-running on every object reference change
+
+  // Performs the join after the user explicitly confirms the pending
+  // ?joinCrew= code staged above.
+  const confirmJoinCrew = async () => {
+    const code = pendingJoinCode;
+    if (!code || !currentFestival) return;
+    setJoinBusy(true);
+    try {
+      if (!currentProfile) {
+        await api.post('/profiles', { festivalId: currentFestival.id });
+        await loadProfiles(currentFestival.id);
       }
-    })();
-  }, [user?.id, currentFestival?.id, currentProfile?.id, joinByCode, loadProfiles, navigate, toast]); // eslint-disable-line react-hooks/exhaustive-deps -- intentional: use ?.id to avoid re-running on every object reference change
+      await joinByCode({ inviteCode: code });
+      toast('Joined crew', 'success');
+      navigate({ to: '/crew' });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Couldn't join crew";
+      if (/already/i.test(msg)) {
+        toast('You are already in this crew', 'info');
+      } else {
+        toast("Couldn't join crew: " + msg, 'error');
+      }
+    } finally {
+      setJoinBusy(false);
+      setPendingJoinCode(null);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('joinCrew');
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    }
+  };
+
+  // Dismisses the pending join prompt without joining.
+  const cancelJoinCrew = () => {
+    setPendingJoinCode(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('joinCrew');
+    window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+  };
 
   // Replay pending crew join after registration/login
   useEffect(() => {
@@ -152,4 +181,6 @@ export function useFestivalLoader() {
       selectFestival(currentFestival.id).catch(() => {});
     }
   }, [user?.id, currentFestival?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return { pendingJoinCode, joinBusy, confirmJoinCrew, cancelJoinCrew };
 }

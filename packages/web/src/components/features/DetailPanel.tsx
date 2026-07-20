@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FestivalSet, Priority } from '@festie/shared/types';
 import { formatTime, artistDisplayName, hasSetStarted, buildHomeUrl } from '@festie/shared/utils';
-import { api } from '@festie/shared/services/api';
+import { api, mapErrorToUserMessage } from '@festie/shared/services/api';
 import { useFestivalStore } from '@festie/shared/stores/festivalStore';
 import { Drawer } from 'vaul';
 import RatingButtons from './RatingButtons';
@@ -121,12 +121,13 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
         try {
           await saveNote(currentFestival.id, set.id, value);
           successHaptic();
-        } catch {
+        } catch (err) {
           warningHaptic();
+          toast(mapErrorToUserMessage(err, "Couldn't save your note. Try again."), 'error');
         }
       }, 500);
     },
-    [currentFestival, set.id, saveNote, successHaptic, warningHaptic],
+    [currentFestival, set.id, saveNote, successHaptic, warningHaptic, toast],
   );
 
   // Debounced crew note save
@@ -139,12 +140,13 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
         try {
           await saveNote(currentFestival.id, 'crew:' + set.id, value);
           successHaptic();
-        } catch {
+        } catch (err) {
           warningHaptic();
+          toast(mapErrorToUserMessage(err, "Couldn't save your crew note. Try again."), 'error');
         }
       }, 500);
     },
-    [currentFestival, set.id, saveNote, successHaptic, warningHaptic],
+    [currentFestival, set.id, saveNote, successHaptic, warningHaptic, toast],
   );
 
   // Cleanup timers
@@ -163,13 +165,13 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
       setPriorityBusy(priority ?? 'clear');
       try {
         await savePick(currentFestival.id, set.id, priority);
-      } catch {
-        /* store surfaces error */
+      } catch (err) {
+        toast(mapErrorToUserMessage(err, "Couldn't save your pick. Try again."), 'error');
       } finally {
         setPriorityBusy(null);
       }
     },
-    [currentFestival, set.id, savePick, selectHaptic],
+    [currentFestival, set.id, savePick, selectHaptic, toast],
   );
 
   const handleReminderClick = useCallback(
@@ -179,23 +181,31 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
       setReminderBusy(minutes ?? 'clear');
       try {
         await saveReminder(currentFestival.id, set.id, minutes);
-      } catch {
-        /* store surfaces error */
+      } catch (err) {
+        toast(mapErrorToUserMessage(err, "Couldn't save your reminder. Try again."), 'error');
       } finally {
         setReminderBusy(null);
       }
     },
-    [currentFestival, set.id, saveReminder, selectHaptic],
+    [currentFestival, set.id, saveReminder, selectHaptic, toast],
   );
 
-  // Conflict switch handler
+  // Conflict switch handler. Sequenced (was two independent un-awaited
+  // calls) so a mid-switch failure produces exactly one toast instead of two
+  // writes racing silently, and so the first call's rollback
+  // (festivalDataStore.ts's `set({ currentProfile: prev })`) can never fire
+  // after the second call's optimistic apply has already landed.
   const handleConflictSwitch = useCallback(
-    (fromSetId: string, toSet: FestivalSet, priority: Priority) => {
+    async (fromSetId: string, toSet: FestivalSet, priority: Priority) => {
       if (!currentFestival) return;
-      savePick(currentFestival.id, fromSetId, null).catch(() => {});
-      savePick(currentFestival.id, toSet.id, priority).catch(() => {});
+      try {
+        await savePick(currentFestival.id, fromSetId, null);
+        await savePick(currentFestival.id, toSet.id, priority);
+      } catch (err) {
+        toast(mapErrorToUserMessage(err, "Couldn't switch your pick. Try again."), 'error');
+      }
     },
-    [currentFestival, savePick],
+    [currentFestival, savePick, toast],
   );
 
   // Clash-prompt clear handler — demote one side of a clash to null. savePick is
@@ -204,9 +214,11 @@ export default function DetailPanel({ set, onClose, autoOpenSpotify = false }: D
     (setId: string) => {
       if (!currentFestival) return;
       selectHaptic();
-      savePick(currentFestival.id, setId, null).catch(() => {});
+      savePick(currentFestival.id, setId, null).catch((err) => {
+        toast(mapErrorToUserMessage(err, "Couldn't clear your pick. Try again."), 'error');
+      });
     },
-    [currentFestival, savePick, selectHaptic],
+    [currentFestival, savePick, selectHaptic, toast],
   );
 
   // Join festival handler

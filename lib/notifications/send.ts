@@ -32,7 +32,7 @@ let firebaseMessaging: any = null;
 export function initFirebase(config: any, log: any) {
   if (firebaseMessaging) return firebaseMessaging;
   if (!config.FIREBASE_CREDENTIALS_PATH) {
-    log.info('push notifications disabled — FIREBASE_CREDENTIALS_PATH not set');
+    log.info('FCM push disabled — FIREBASE_CREDENTIALS_PATH not set');
     return null;
   }
   try {
@@ -348,7 +348,13 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
           data: { type, ...safeData },
         };
         deviceRetryQueue.enqueue({ userId, sendFn: () => messaging.send(fcmMsg) });
-        postToWebhookRetry(device.token, { title: safeTitle, body: safeBody, type, ...safeData }, 0);
+        // Never forward notification content to this external, operator-configured
+        // webhook — title/body/data may carry GPS coords or a username (e.g.
+        // crew_sos embeds the raiser's name in the title and lat/lng in data).
+        // The in-process deviceRetryQueue above already re-sends the real payload;
+        // this call only needs to tell the external system WHICH notification
+        // type needs attention.
+        postToWebhookRetry(device.token, { type }, 0);
       }
 
       log.debug('push send failed', { userId, platform: device.platform, error: error.message });
@@ -367,7 +373,9 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
   }
 
   async function send({ userId, type, title, body, data = {}, threadId = null }: any) {
-    if (!messaging) return { sent: 0, reason: 'firebase_not_configured' };
+    // Bail only when NEITHER transport exists. FCM-less + APNs-configured is a
+    // valid deploy: the per-device branch below routes iOS to APNs.
+    if (!messaging && !getApns()) return { sent: 0, reason: 'firebase_not_configured' };
     if (!ALLOWED_NOTIFICATION_TYPES.has(type)) {
       log.warn('invalid notification type rejected', { type, userId });
       return { sent: 0, reason: 'invalid_type' };
@@ -435,7 +443,12 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
         continue;
       }
 
-      // Android / web (or unknown) → unchanged FCM path.
+      // Android / web (or unknown) → FCM path. Not configured: skip (counted as
+      // not-sent), do NOT unregister — mirrors the iOS/APNs skip above.
+      if (!messaging) {
+        log.debug('fcm not configured — skipping non-ios token', { userId });
+        continue;
+      }
       const fcmMessage = buildFcmMessage({
         token: device.token,
         title: safeTitle,
@@ -537,7 +550,7 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
     topic = null,
     threadId = null,
   }: any) {
-    if (!messaging) return { sent: 0 };
+    if (!messaging && !getApns()) return { sent: 0 };
     if (!ALLOWED_NOTIFICATION_TYPES.has(type)) return { sent: 0, reason: 'invalid_type' };
 
     const targetUserIds = await resolveFestivalTargets(stores, festivalId, excludeUserIds);
@@ -594,7 +607,10 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
           continue;
         }
 
-        // Android / web → FCM batch (unchanged).
+        // Android / web → FCM batch. Not configured → skip. sendBatch would
+        // no-op anyway, but skipping keeps the token out of tokenUserMap so we
+        // don't incrementUnread for a push that was never delivered.
+        if (!messaging) continue;
         tokenUserMap.set(device.token, userId);
         const msg = buildFcmMessage({
           token: device.token,
@@ -695,7 +711,7 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
 
   // #30: Silent push for background data sync — data-only, no visible notification
   async function sendSilentSync({ festivalId, syncType, excludeUserIds = [] }: any) {
-    if (!messaging) return { sent: 0 };
+    if (!messaging && !getApns()) return { sent: 0 };
 
     const allTargetIds = await resolveFestivalTargets(stores, festivalId, excludeUserIds);
     const targetUserIds = allTargetIds.slice(0, MAX_PUSH_BATCH);
@@ -739,7 +755,8 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
           continue;
         }
 
-        // Android / web → unchanged FCM path.
+        // Android / web → FCM path; skip when FCM is not configured.
+        if (!messaging) continue;
         try {
           await messaging.send({
             token: device.token,

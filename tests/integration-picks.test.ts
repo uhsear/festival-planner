@@ -81,7 +81,10 @@ describe('Integration — Picks', { concurrency: 1 }, () => {
     assert.match(exportResponse.headers['content-security-policy'] as string, /style-src-attr 'unsafe-inline'/);
     assert.ok(!exportResponse.text.includes('const EXPORT_DATA'));
     // Reminders feature removed (migration 013) — reminders no longer in export
-    assert.ok(exportResponse.text.includes('bob also saved this'));
+    // The "Crew Schedules" export section is scoped to the exporter's actual crew
+    // members. alice and bob share a festival but NOT a crew, so bob's overlap must
+    // NOT appear in alice's export (previously it leaked every festival-goer's picks).
+    assert.ok(!exportResponse.text.includes('bob also saved this'));
     assert.ok(exportResponse.text.includes('Meet by the rail'));
     assert.ok(!exportResponse.text.includes('Private bob note'));
 

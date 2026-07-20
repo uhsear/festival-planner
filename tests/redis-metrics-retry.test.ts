@@ -824,11 +824,11 @@ describe('metrics.js', () => {
       assert.ok(body!.includes('unavailable'));
     });
 
-    it('returns 403 for non-internal IP', async () => {
+    it('returns 403 with no Authorization header', async () => {
       if (!sharedMetrics.available) return;
       const handler = metricsHandler(sharedMetrics);
       let statusCode: any, body: any;
-      const req = { ip: '8.8.8.8', connection: {} };
+      const req = { ip: '8.8.8.8', connection: {}, headers: {} };
       const res: any = {
         status(s: any) {
           statusCode = s;
@@ -846,218 +846,159 @@ describe('metrics.js', () => {
       assert.equal(statusCode, 403);
     });
 
-    it('returns metrics for internal IP 127.0.0.1', async () => {
+    it('returns 403 for a wrong metrics token', async () => {
       if (!sharedMetrics.available) return;
-      const handler = metricsHandler(sharedMetrics);
-      const headers: any = {};
-      let responseBody: any;
-      const req = { ip: '127.0.0.1', connection: {} };
-      const res: any = {
-        set(k: any, v: any) {
-          headers[k] = v;
-          return res;
-        },
-        end(b: any) {
-          responseBody = b;
-          return res;
-        },
-        status(s: any) {
-          return res;
-        },
-        type(t: any) {
-          return res;
-        },
-        send(b: any) {
-          responseBody = b;
-          return res;
-        },
-      };
-      await handler(req as any, res);
-      assert.ok(responseBody);
+      const originalToken = process.env.METRICS_TOKEN;
+      process.env.METRICS_TOKEN = 'test-metrics-token';
+      try {
+        const handler = metricsHandler(sharedMetrics);
+        let statusCode: any;
+        const req = { ip: '127.0.0.1', connection: {}, headers: { authorization: 'Bearer wrong-token' } };
+        const res: any = {
+          status(s: any) {
+            statusCode = s;
+            return res;
+          },
+          type() {
+            return res;
+          },
+          send() {
+            return res;
+          },
+        };
+        await handler(req as any, res);
+        assert.equal(statusCode, 403);
+      } finally {
+        process.env.METRICS_TOKEN = originalToken;
+      }
     });
 
-    it('returns metrics for 10.x.x.x IP', async () => {
+    it('SECURITY: denies a request presenting as 127.0.0.1 with no metrics token — req.ip alone must not grant access', async () => {
+      // Behind the Cloudflare Tunnel (single-host topology, docs/adrs/014),
+      // req.ip collapses to 127.0.0.1 for ALL traffic, and any caller can
+      // additionally force this by forging X-Forwarded-For (see
+      // docs/security/trust-proxy-hardening.md). An IP-only gate can't tell
+      // an internal caller from a public one here, so presenting as
+      // 127.0.0.1 must NOT be sufficient on its own.
       if (!sharedMetrics.available) return;
-      const handler = metricsHandler(sharedMetrics);
-      let responseBody: any;
-      const req = { ip: '10.0.0.5', connection: {} };
-      const res: any = {
-        set() {
-          return res;
-        },
-        end(b: any) {
-          responseBody = b;
-          return res;
-        },
-        status() {
-          return res;
-        },
-        type() {
-          return res;
-        },
-        send(b: any) {
-          responseBody = b;
-          return res;
-        },
-      };
-      await handler(req as any, res);
-      assert.ok(responseBody);
+      const originalToken = process.env.METRICS_TOKEN;
+      process.env.METRICS_TOKEN = 'test-metrics-token';
+      try {
+        const handler = metricsHandler(sharedMetrics);
+        let statusCode = 200;
+        const req = { ip: '127.0.0.1', connection: {}, headers: {} };
+        const res: any = {
+          status(s: any) {
+            statusCode = s;
+            return res;
+          },
+          type() {
+            return res;
+          },
+          send() {
+            return res;
+          },
+          set() {
+            return res;
+          },
+          end() {
+            return res;
+          },
+        };
+        await handler(req as any, res);
+        assert.equal(statusCode, 403);
+      } finally {
+        process.env.METRICS_TOKEN = originalToken;
+      }
     });
 
-    it('returns metrics for 192.168.x.x IP', async () => {
+    it('returns metrics for a valid token, regardless of the caller IP', async () => {
+      // IP no longer gates access (see hasValidMetricsToken doc comment in
+      // lib/metrics.ts) — a public, non-internal-looking IP proves the point.
       if (!sharedMetrics.available) return;
-      const handler = metricsHandler(sharedMetrics);
-      let responseBody: any;
-      const req = { ip: '192.168.1.100', connection: {} };
-      const res: any = {
-        set() {
-          return res;
-        },
-        end(b: any) {
-          responseBody = b;
-          return res;
-        },
-        status() {
-          return res;
-        },
-        type() {
-          return res;
-        },
-        send(b: any) {
-          responseBody = b;
-          return res;
-        },
-      };
-      await handler(req as any, res);
-      assert.ok(responseBody);
-    });
-
-    it('returns metrics for 172.16-31.x.x IP', async () => {
-      if (!sharedMetrics.available) return;
-      const handler = metricsHandler(sharedMetrics);
-      let responseBody: any;
-      const req = { ip: '172.20.0.1', connection: {} };
-      const res: any = {
-        set() {
-          return res;
-        },
-        end(b: any) {
-          responseBody = b;
-          return res;
-        },
-        status() {
-          return res;
-        },
-        type() {
-          return res;
-        },
-        send(b: any) {
-          responseBody = b;
-          return res;
-        },
-      };
-      await handler(req as any, res);
-      assert.ok(responseBody);
-    });
-
-    it('returns metrics for ::1 IP', async () => {
-      if (!sharedMetrics.available) return;
-      const handler = metricsHandler(sharedMetrics);
-      let responseBody: any;
-      const req = { ip: '::1', connection: {} };
-      const res: any = {
-        set() {
-          return res;
-        },
-        end(b: any) {
-          responseBody = b;
-          return res;
-        },
-        status() {
-          return res;
-        },
-        type() {
-          return res;
-        },
-        send(b: any) {
-          responseBody = b;
-          return res;
-        },
-      };
-      await handler(req as any, res);
-      assert.ok(responseBody);
-    });
-
-    it('returns metrics for ::ffff: mapped IP', async () => {
-      if (!sharedMetrics.available) return;
-      const handler = metricsHandler(sharedMetrics);
-      let responseBody: any;
-      const req = { ip: '::ffff:127.0.0.1', connection: {} };
-      const res: any = {
-        set() {
-          return res;
-        },
-        end(b: any) {
-          responseBody = b;
-          return res;
-        },
-        status() {
-          return res;
-        },
-        type() {
-          return res;
-        },
-        send(b: any) {
-          responseBody = b;
-          return res;
-        },
-      };
-      await handler(req as any, res);
-      assert.ok(responseBody);
+      const originalToken = process.env.METRICS_TOKEN;
+      process.env.METRICS_TOKEN = 'test-metrics-token';
+      try {
+        const handler = metricsHandler(sharedMetrics);
+        const headers: any = {};
+        let responseBody: any;
+        const req = { ip: '203.0.113.5', connection: {}, headers: { authorization: 'Bearer test-metrics-token' } };
+        const res: any = {
+          set(k: any, v: any) {
+            headers[k] = v;
+            return res;
+          },
+          end(b: any) {
+            responseBody = b;
+            return res;
+          },
+          status() {
+            return res;
+          },
+          type() {
+            return res;
+          },
+          send(b: any) {
+            responseBody = b;
+            return res;
+          },
+        };
+        await handler(req as any, res);
+        assert.ok(responseBody);
+      } finally {
+        process.env.METRICS_TOKEN = originalToken;
+      }
     });
 
     it('handles registry.metrics() error with 500', async () => {
       if (!sharedMetrics.available) return;
+      const originalToken = process.env.METRICS_TOKEN;
+      process.env.METRICS_TOKEN = 'test-metrics-token';
       // Monkey-patch registry to throw
       const origMetrics = sharedMetrics.registry!.metrics;
       sharedMetrics.registry!.metrics = async () => {
         throw new Error('boom');
       };
-      const handler = metricsHandler(sharedMetrics);
-      let statusCode: any, body: any;
-      const req = { ip: '127.0.0.1', connection: {} };
-      const res: any = {
-        set() {
-          return res;
-        },
-        end(b: any) {
-          body = b;
-          return res;
-        },
-        status(s: any) {
-          statusCode = s;
-          return res;
-        },
-        type() {
-          return res;
-        },
-        send(b: any) {
-          body = b;
-          return res;
-        },
-      };
-      await handler(req as any, res);
-      assert.equal(statusCode, 500);
-      assert.ok(body!.includes('boom'));
-      // Restore
-      sharedMetrics.registry!.metrics = origMetrics;
+      try {
+        const handler = metricsHandler(sharedMetrics);
+        let statusCode: any, body: any;
+        const req = { ip: '127.0.0.1', connection: {}, headers: { authorization: 'Bearer test-metrics-token' } };
+        const res: any = {
+          set() {
+            return res;
+          },
+          end(b: any) {
+            body = b;
+            return res;
+          },
+          status(s: any) {
+            statusCode = s;
+            return res;
+          },
+          type() {
+            return res;
+          },
+          send(b: any) {
+            body = b;
+            return res;
+          },
+        };
+        await handler(req as any, res);
+        assert.equal(statusCode, 500);
+        assert.ok(body!.includes('boom'));
+      } finally {
+        // Restore, even if an assertion above throws — otherwise every later
+        // test in this file that hits the registry gets the monkey-patched throw.
+        sharedMetrics.registry!.metrics = origMetrics;
+        process.env.METRICS_TOKEN = originalToken;
+      }
     });
 
-    it('returns 403 for empty IP', async () => {
+    it('returns 403 for empty IP and no token', async () => {
       if (!sharedMetrics.available) return;
       const handler = metricsHandler(sharedMetrics);
       let statusCode: any;
-      const req = { ip: '', connection: {} };
+      const req = { ip: '', connection: {}, headers: {} };
       const res: any = {
         status(s: any) {
           statusCode = s;
@@ -1275,6 +1216,10 @@ describe('notifications/retry.js', () => {
       // First drain at 2s — entry will be expired by then (maxAgeMs: 1ms)
       await tickAndDrain(t, 2000);
       assert.equal(q.pending, 0);
+      // Should have logged the age-out drop, not dropped it silently
+      const warnCalls = log.warn.mock.calls;
+      const agedOutWarning = warnCalls.some((c) => c.arguments[0] === 'fcm retry: entry aged out');
+      assert.ok(agedOutWarning, 'should log entry aged out');
       q.shutdown();
     });
 

@@ -297,7 +297,11 @@ export default function createCrewRoutes(deps: any) {
   //   • everyone else → invited via the returned link, never silently added
   // Idempotent: if a crew already reformed FROM this source INTO this target by
   // this requester exists, we return it (and top up any newly-eligible
-  // auto-adds) instead of creating a duplicate.
+  // auto-adds) instead of creating a duplicate. The guarantee is the DB's, not
+  // the read's: crews_reform_idem_uidx (migration 061) is UNIQUE on
+  // (created_by, festival_id, reformed_from), so a concurrent/retried request
+  // that the read below can't yet see loses on the index and is re-read, never
+  // duplicated.
   router.post(
     '/:crewId/reform',
     userAuth,
@@ -334,6 +338,9 @@ export default function createCrewRoutes(deps: any) {
 
         // ── Idempotency: reuse an existing reform of this source by this
         // requester in the target festival rather than creating a duplicate. ──
+        // This read is the fast path, NOT the guarantee — it cannot see a
+        // concurrent request's uncommitted crew. crews_reform_idem_uidx
+        // (migration 061) is the guarantee; the persist below absorbs its 23505.
         const requesterTargetCrews = await stores.crews.listByUserAndFestival(req.user.userId, targetFestivalId);
         let newCrew = (requesterTargetCrews || []).find(
           (c: any) => c.reformedFrom === sourceCrewId && c.createdBy === req.user.userId,
@@ -351,17 +358,35 @@ export default function createCrewRoutes(deps: any) {
           }
           const newCrewId = createOpaqueId('crew');
           const inviteCode = await generateUniqueInviteCode(stores);
-          await persistCrew({
-            id: newCrewId,
-            festivalId: targetFestivalId,
-            name: sanitizeString(sourceCrew.name, 60) || sourceCrew.name,
-            createdBy: req.user.userId,
-            inviteCode,
-            inviteExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            maxMembers: sourceCrew.maxMembers || 30,
-            reformedFrom: sourceCrewId,
-          });
-          newCrew = await stores.crews.getById(newCrewId);
+          try {
+            await persistCrew({
+              id: newCrewId,
+              festivalId: targetFestivalId,
+              name: sanitizeString(sourceCrew.name, 60) || sourceCrew.name,
+              createdBy: req.user.userId,
+              inviteCode,
+              inviteExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+              maxMembers: sourceCrew.maxMembers || 30,
+              reformedFrom: sourceCrewId,
+            });
+            newCrew = await stores.crews.getById(newCrewId);
+          } catch (persistErr: any) {
+            // Lost the reform race: a concurrent/retried request already inserted
+            // the crew for this (createdBy, festivalId, reformedFrom) and won the
+            // unique key on crews_reform_idem_uidx (migration 061), so our INSERT
+            // raised 23505 and rolled back cleanly (createWithOwner is
+            // transactional — no orphan crew or member row). Re-read and reuse
+            // the winner so the losing request returns the same crew instead of
+            // 500ing. Any non-23505 error (or a 23505 with no matching winner,
+            // e.g. an unrelated unique collision) is unexpected — rethrow to the
+            // outer 500 handler.
+            if (persistErr?.code !== '23505') throw persistErr;
+            const raced = await stores.crews.listByUserAndFestival(req.user.userId, targetFestivalId);
+            newCrew = (raced || []).find(
+              (c: any) => c.reformedFrom === sourceCrewId && c.createdBy === req.user.userId,
+            );
+            if (!newCrew) throw persistErr;
+          }
           if (!newCrew) {
             log.error('crew reform creation incomplete', { sourceCrewId, targetFestivalId });
             return sendError(res, 500, 'Failed to reform crew', ErrorCodes.INTERNAL_ERROR);

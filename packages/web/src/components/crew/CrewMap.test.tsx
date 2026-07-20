@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, renderHook } from '@testing-library/react';
+import type { SosEntry } from '@festie/shared/types';
+import { useSosMarkers } from './crew-map/useSosMarkers';
+import type { GlRefObject, MapRefObject, GlMarker } from './crew-map/mapDom';
 
 // --- Mocks ---
 // Guard the maplibre-gl import: the component dynamic-import()s it inside an
@@ -174,5 +177,79 @@ describe('CrewMap', () => {
     render(<CrewMap meetingPoints={[]} sos={sos} />);
     expect(screen.getByText('No mapped meeting points yet')).toBeInTheDocument();
     expect(mapInstances).toHaveLength(0);
+  });
+});
+
+// The SOS marker DOM element is built inside the useSosMarkers hook (never
+// reached via a full CrewMap render in jsdom — see the "marker code is inert
+// there" note atop CrewMap.tsx). Drive the hook directly with fake map/gl
+// handles so the SOS marker's a11y attributes and Enter/Space handling — the
+// same treatment the other four marker hooks already give theirs — are
+// actually exercised.
+describe('useSosMarkers keyboard accessibility', () => {
+  const sos: SosEntry = {
+    crewId: 'c1',
+    userId: 'u1',
+    username: 'Dana',
+    raisedAt: 'x',
+    position: { lat: 41.88, lng: -87.62, capturedAt: 'x' },
+  };
+
+  class FakeMarker {
+    element: HTMLElement;
+    togglePopup = vi.fn();
+    constructor(opts: { element: HTMLElement }) {
+      this.element = opts.element;
+    }
+    setLngLat() {
+      return this;
+    }
+    setPopup() {
+      return this;
+    }
+    addTo() {
+      return this;
+    }
+  }
+  class FakePopup {
+    setDOMContent() {
+      return this;
+    }
+  }
+
+  function setup() {
+    const fakeMap = { flyTo: vi.fn() } as unknown as MapRefObject['current'];
+    const fakeGl = { Marker: FakeMarker, Popup: FakePopup } as unknown as GlRefObject['current'];
+    const mapRef: MapRefObject = { current: fakeMap };
+    const glRef: GlRefObject = { current: fakeGl };
+    const markersRef = { current: new Map<string, GlMarker>() };
+    const framedRef = { current: new Set<string>() };
+    const selectPursue = vi.fn();
+    renderHook(() =>
+      useSosMarkers(mapRef, glRef, 'ready', [sos], sos.userId, `${sos.userId}:41.88,-87.62`, markersRef, framedRef, selectPursue),
+    );
+    const marker = markersRef.current.get('u1') as unknown as FakeMarker;
+    return { marker, selectPursue };
+  }
+
+  it('makes the SOS marker a keyboard-focusable button (role + tabindex), matching the other marker types', () => {
+    const { marker } = setup();
+    expect(marker.element.getAttribute('role')).toBe('button');
+    expect(marker.element.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('opens the popup and pursues the raiser on Enter, same as clicking it', () => {
+    const { marker, selectPursue } = setup();
+    // The build effect already toggles the popup once itself (frame-once on
+    // first appearance) — assert the keydown triggers one MORE toggle, not an
+    // absolute count.
+    const togglesBeforeKeydown = marker.togglePopup.mock.calls.length;
+    marker.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(marker.togglePopup.mock.calls.length).toBe(togglesBeforeKeydown + 1);
+    expect(selectPursue).toHaveBeenCalledWith({
+      id: 'sos:u1',
+      label: 'Dana — SOS',
+      coord: { latitude: 41.88, longitude: -87.62 },
+    });
   });
 });

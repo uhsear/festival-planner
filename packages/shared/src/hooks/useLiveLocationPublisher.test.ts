@@ -110,6 +110,37 @@ describe('useLiveLocationPublisher', () => {
     expect(s.crewId).toBe('crew-1');
   });
 
+  it('rolls back store + tears down watcher + notifies onShareRejected when the server rejects location:share', () => {
+    const { socket, emit } = makeSocket();
+    const w = makeWatcher();
+    const onShareRejected = vi.fn();
+    renderHook(() =>
+      useLiveLocationPublisher({
+        socket,
+        crewId: 'crew-1',
+        enabled: true,
+        watchPosition: w.watchPosition,
+        onShareRejected,
+      }),
+    );
+
+    // Pull the real ack callback the hook handed to socket.emit and invoke it
+    // exactly as socket.io would when the server rejects the share.
+    const ack = emit.mock.calls.find((c) => c[0] === 'location:share')![2] as (res: {
+      ok: boolean;
+      code?: string;
+    }) => void;
+    ack({ ok: false, code: 'NOT_A_MEMBER' });
+
+    expect(useLiveLocationStore.getState().sharingCrewId).toBeNull();
+    expect(onShareRejected).toHaveBeenCalledWith('NOT_A_MEMBER');
+    expect(w.teardown).toHaveBeenCalledTimes(1);
+    // The server never granted this share, so there is nothing to tell it to
+    // stop -- must NOT emit location:stop (that handler has no membership
+    // check, so firing it here would broadcast a false peer-stopped event).
+    expect(emit).not.toHaveBeenCalledWith('location:stop', expect.anything());
+  });
+
   it('publishes the first fix and records it (location:update)', () => {
     const { socket, emit } = makeSocket();
     const w = makeWatcher();

@@ -335,6 +335,34 @@ describe('schemas: festivalCreate', () => {
   });
 });
 
+describe('schemas: setLink', () => {
+  it('accepts a valid https URL', () => {
+    const result = schemas.setLink.safeParse({ linkUrl: 'https://open.spotify.com/track/abc' });
+    assert.ok(result.success);
+  });
+
+  it('accepts null, omitted, and empty string (clears the link)', () => {
+    assert.ok(schemas.setLink.safeParse({ linkUrl: null }).success);
+    assert.ok(schemas.setLink.safeParse({}).success);
+    assert.ok(schemas.setLink.safeParse({ linkUrl: '' }).success);
+  });
+
+  it('rejects a javascript: URI', () => {
+    const result = schemas.setLink.safeParse({ linkUrl: 'javascript:alert(1)' });
+    assert.ok(!result.success);
+  });
+
+  it('rejects a data: URI', () => {
+    const result = schemas.setLink.safeParse({ linkUrl: 'data:text/html,<script>alert(1)</script>' });
+    assert.ok(!result.success);
+  });
+
+  it('rejects a plain http URL (https-only, mirrors crewPhotoAlbumSchema)', () => {
+    const result = schemas.setLink.safeParse({ linkUrl: 'http://example.com' });
+    assert.ok(!result.success);
+  });
+});
+
 // ── Payload normalizers ─────────────────────────────────────────────────
 
 describe('schemas: normalizePickPayload', () => {

@@ -114,7 +114,7 @@ export function buildIcsEventsFromPicks(festival: any, profile: any, origin: str
     const dtend = set.date.replace(/-/g, '') + 'T' + endTime.replace(':', '') + '00';
     const priority = picks[set.id] || '';
     const note = notes[set.id] || '';
-    const description = [priority && `Priority: ${priority}`, note].filter(Boolean).join('\\n');
+    const description = [priority && `Priority: ${priority}`, note].filter(Boolean).join('\n');
     const location = stage
       ? stage.name + (festival.location ? ' - ' + festival.location : '')
       : undefined;

@@ -139,7 +139,6 @@ async function createFestieApp(overrides: any = {}) {
 
   // 2. Create Express app + configure all middleware
   const app = express();
-  app.use(sentry.requestHandler());
   app.use(metricsMiddleware(metrics));
   app.get('/metrics', metricsHandler(metrics));
   const { inFlightRequests } = configureMiddleware(app, ctx);
@@ -292,7 +291,7 @@ async function createFestieApp(overrides: any = {}) {
   _errorDedupCleanup.unref();
   state.timers.push(_errorDedupCleanup);
 
-  app.use(sentry.errorHandler());
+  sentry.setupExpressErrorHandler(app);
 
   app.use(((error: any, req: Request, res: Response, _next: NextFunction) => {
     const status = error.status || error.statusCode || 500;
@@ -438,7 +437,10 @@ if (isMainModule) {
       if (error.code) errMeta.code = error.code;
       log.error('shutdown error', errMeta);
     }
-    const forceExitTimer = setTimeout(() => process.exit(1), 33_000);
+    // Must exceed the graceful-drain budget (SHUTDOWN_TIMEOUT_MS) plus the other
+    // bounded waits inside close() (io.engine close ~2s, sentry.close ~2s) so a
+    // longer-than-default SHUTDOWN_TIMEOUT_MS can't get cut off mid-drain.
+    const forceExitTimer = setTimeout(() => process.exit(1), planner.config.SHUTDOWN_TIMEOUT_MS + 10_000);
     forceExitTimer.unref();
     planner
       .close()

@@ -5,7 +5,8 @@ title = "Festie gitleaks config"
 useDefault = true
 
 [allowlist]
-description = "Android google-services.json is the public Firebase client config — it ships inside every APK and contains no real secret (the API key is restricted by app package/SHA)."
+description = "Public/test-only fixtures with no real secrets: the Android google-services.json (public Firebase client config, shipped in every APK, key restricted by package/SHA) and the webhook PII test fixture (a hard-coded fake HMAC key used to exercise the PII-stripping path)."
 paths = [
   '''packages/mobile/google-services\.json''',
+  '''tests/notifications-webhook-pii\.test\.ts''',
 ]

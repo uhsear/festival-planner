@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFestivalDataStore, useAuthStore } from '@festie/shared/stores';
 import { usePicks, useFestival, useCrew } from '@festie/shared/hooks';
-import { api } from '@festie/shared/services';
+import { api, mapErrorToUserMessage } from '@festie/shared/services';
 import {
   formatTime,
   artistDisplayName,
@@ -293,10 +293,17 @@ export default function SetDetailScreen() {
 
   useEffect(() => {
     if (!set) return;
+    // Deps are set?.id/currentProfile?.id, NOT the whole objects: festivalDataStore's
+    // loadProfiles()/selectFestival() hand back a brand-new set/currentProfile object
+    // reference on every background refresh (AppState foreground, offline-readiness
+    // download) even when the note text is unchanged. Keying this effect on the whole
+    // objects reseeds -- and clobbers whatever the user is mid-typing -- on every such
+    // refresh; keying on id only reseeds when the set or profile actually changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- seed the editable note drafts from the store when the set/profile changes; can't be derived state because the user then edits these locally (debounced save back to the store)
     setPersonalNote(currentProfile?.notes?.[set.id] || '');
     setCrewNote(currentProfile?.notes?.['crew:' + set.id] || '');
-  }, [set, currentProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: reseed only on set/profile identity change, not on every background-refresh object-reference churn (see comment above)
+  }, [set?.id, currentProfile?.id]);
 
   const handlePersonalNoteChange = useCallback(
     (value: string) => {
@@ -386,6 +393,7 @@ export default function SetDetailScreen() {
 
   const user = useAuthStore((s) => s.user);
   const [joinBusy, setJoinBusy] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
   const handleJoin = useCallback(async () => {
     if (!currentFestival) return;
     // A guest has no account yet — send them to sign in first. After auth they
@@ -395,11 +403,15 @@ export default function SetDetailScreen() {
       return;
     }
     setJoinBusy(true);
+    setJoinError(null);
     try {
       await api.post('/profiles', { festivalId: currentFestival.id });
       await loadProfiles(currentFestival.id);
-    } catch {
-      /* Join failed — store surfaces error */
+    } catch (err) {
+      // The store does NOT surface this failure (loadProfiles is never called
+      // when the join itself rejects), so map and show it here — mirrors web's
+      // DetailPanel handleJoinFestival catch (toast on join failure).
+      setJoinError(mapErrorToUserMessage(err, "Couldn't join festival. Try again."));
     } finally {
       setJoinBusy(false);
     }
@@ -675,6 +687,11 @@ export default function SetDetailScreen() {
                 ? 'Join this festival to save picks, keep private notes, and compare crew overlap.'
                 : 'Sign in to save picks, keep private notes, and compare crew overlap.'}
             </Text>
+            {joinError ? (
+              <Text style={styles.joinErrorText} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+                {joinError}
+              </Text>
+            ) : null}
             <Button
               label={user ? 'Join Festival' : 'Sign in to join'}
               onPress={handleJoin}
@@ -1016,6 +1033,11 @@ const useStyles = makeStyles((t) => ({
   joinCopy: {
     ...typeStyle('body'),
     color: t.colors.text.secondary,
+  },
+  // Mirrors app/(auth)/login.tsx's `error` style — same danger token + role.
+  joinErrorText: {
+    ...typeStyle('label'),
+    color: t.colors.text.danger,
   },
   // Join CTA migrated to components/Button (F8).
   crewRow: {

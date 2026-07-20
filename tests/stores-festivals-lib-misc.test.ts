@@ -833,27 +833,15 @@ describe('lib/sentry.js — additional coverage', () => {
     });
   });
 
-  describe('requestHandler/errorHandler in noop (lines 96, 103)', () => {
+  describe('setupExpressErrorHandler in noop (Sentry unavailable)', () => {
     beforeEach(() => {
       sentryModule.initSentry({ dsn: '' });
     });
 
-    it('requestHandler returns pass-through that calls next', () => {
-      const mw = sentryModule.sentry.requestHandler();
-      assert.equal(typeof mw, 'function');
-      const next = mock.fn();
-      mw({}, {}, next);
-      assert.equal(next.mock.calls.length, 1);
-    });
-
-    it('errorHandler returns pass-through that forwards error', () => {
-      const mw = sentryModule.sentry.errorHandler();
-      assert.equal(typeof mw, 'function');
-      const next = mock.fn();
-      const err = new Error('boom');
-      mw(err, {}, {}, next);
-      assert.equal(next.mock.calls.length, 1);
-      assert.equal((next.mock.calls[0]! as any).arguments[0], err);
+    it('does not wire any middleware onto app when Sentry is unavailable', () => {
+      const app = { use: mock.fn() };
+      sentryModule.sentry.setupExpressErrorHandler(app);
+      assert.equal(app.use.mock.calls.length, 0);
     });
   });
 

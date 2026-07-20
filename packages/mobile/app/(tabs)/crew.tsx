@@ -145,6 +145,7 @@ export default function CrewScreen() {
   const [regenBusy, setRegenBusy] = useState(false);
   const [overlapBusy, setOverlapBusy] = useState(false);
   const [overlapError, setOverlapError] = useState<string | null>(null);
+  const [sectionLoadError, setSectionLoadError] = useState<string | null>(null);
   const [showOverlap, setShowOverlap] = useState(false);
   const [forceAddOpen, setForceAddOpen] = useState(false);
   const [forceAddId, setForceAddId] = useState('');
@@ -206,17 +207,38 @@ export default function CrewScreen() {
     }
   }, [tabParam]);
 
-  // Load polls + meeting points for the active crew (best-effort; errors land
-  // in the shared store and surface in the header error line).
+  // Load polls + meeting points for the active crew (best-effort). These five
+  // loaders all write the SAME shared store `error` field, so firing them
+  // concurrently let a later failure silently clobber an earlier one (e.g. a
+  // packing failure went invisible if polls failed after it). Promise.allSettled
+  // + a local aggregate message reports every failed section instead of just
+  // whichever loader lost the race last.
+  const loadCrewSections = useCallback(
+    async (id: string) => {
+      const [polls, meetingPoints, packing, rides, expenses] = await Promise.allSettled([
+        loadPolls(id),
+        loadMeetingPoints(id),
+        loadPacking(id),
+        loadRides(id),
+        loadExpenses(id),
+      ]);
+      const failed = [
+        polls.status === 'rejected' && 'polls',
+        meetingPoints.status === 'rejected' && 'meeting points',
+        packing.status === 'rejected' && 'packing',
+        rides.status === 'rejected' && 'rides',
+        expenses.status === 'rejected' && 'expenses',
+      ].filter((name): name is string => name !== false);
+      setSectionLoadError(failed.length ? `Failed to load: ${failed.join(', ')}` : null);
+    },
+    [loadPolls, loadMeetingPoints, loadPacking, loadRides, loadExpenses],
+  );
+
   useEffect(() => {
     const id = activeCrew?.id;
     if (!id) return;
-    loadPolls(id).catch(() => {});
-    loadMeetingPoints(id).catch(() => {});
-    loadPacking(id).catch(() => {});
-    loadRides(id).catch(() => {});
-    loadExpenses(id).catch(() => {});
-  }, [activeCrew?.id, loadPolls, loadMeetingPoints, loadPacking, loadRides, loadExpenses]);
+    loadCrewSections(id).catch(() => {});
+  }, [activeCrew?.id, loadCrewSections]);
 
   // Pull-to-refresh: re-fetch the crew list and the active crew (members,
   // polls, meeting points, expenses all reload off selectCrew + the effect).
@@ -224,13 +246,9 @@ export default function CrewScreen() {
     loadCrews().catch(() => {});
     if (activeCrew) {
       selectCrew(activeCrew.id).catch(() => {});
-      loadPolls(activeCrew.id).catch(() => {});
-      loadMeetingPoints(activeCrew.id).catch(() => {});
-      loadPacking(activeCrew.id).catch(() => {});
-      loadRides(activeCrew.id).catch(() => {});
-      loadExpenses(activeCrew.id).catch(() => {});
+      loadCrewSections(activeCrew.id).catch(() => {});
     }
-  }, [loadCrews, activeCrew, selectCrew, loadPolls, loadMeetingPoints, loadPacking, loadRides, loadExpenses]);
+  }, [loadCrews, activeCrew, selectCrew, loadCrewSections]);
 
   // Fast set lookup by id for overlap labels.
   const setsById = useMemo(() => {
@@ -694,6 +712,7 @@ export default function CrewScreen() {
           hides behind a tab. */}
       <View style={[styles.crewChrome, tabletInset]}>
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {sectionLoadError ? <Text style={styles.error}>{sectionLoadError}</Text> : null}
 
         {/* Crew totem (rally marker) + low-power status, shown in the header so
             the crew's flag is always visible. The totem chip renders only when

@@ -57,16 +57,16 @@ export default function UpdatedAgoBadge({ surface }: UpdatedAgoBadgeProps) {
 
   return (
     <View style={styles.badge} accessibilityRole="text" accessibilityLabel={label}>
+      <View style={styles.badgeBg} pointerEvents="none" />
       <View
         style={[styles.dot, { backgroundColor: showOfflineReady ? t.colors.accent.amber : t.colors.text.muted }]}
         accessible={false}
       />
-      <Text
-        style={[styles.text, showOfflineReady && styles.textOffline]}
-        numberOfLines={1}
-        maxFontSizeMultiplier={MAX_FONT_SCALE}
-      >
-        {label}
+      <Text style={[styles.text, showOfflineReady && styles.textOffline]} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+        {/* Trailing NBSP absorbs Fabric's single-line self-under-measure (the
+            bg-sibling already prevents the rounded-pill clip) so the label
+            doesn't drop its last glyph. */}
+        {label + ' '}
       </Text>
     </View>
   );
@@ -80,6 +80,16 @@ const useStyles = makeStyles((t) => ({
     alignSelf: 'flex-start',
     paddingHorizontal: t.spacing[2],
     paddingVertical: t.spacing[1],
+  },
+  // Bg + radius live on this absolutely-positioned sibling, painted behind the
+  // dot + label — not on badge itself — so the Text child is never clipped to
+  // the rounded bounds on Android (see FreshnessChip.tsx for the pattern).
+  badgeBg: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     borderRadius: t.radii.pill,
     backgroundColor: t.colors.bg.secondary,
   },

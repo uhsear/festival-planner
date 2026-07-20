@@ -74,6 +74,15 @@ export interface UseLiveLocationPublisherOptions {
   onAutoStop?: () => void;
   /** Called if the geolocation source errors (permission revoked, etc.). */
   onError?: (err: unknown) => void;
+  /**
+   * Called when the server rejects `location:share` (NOT_A_MEMBER,
+   * NOT_IN_CREW_ROOM, TOO_MANY_SHARING_SOCKETS, FEATURE_DISABLED, ...). By the
+   * time this fires the hook has already rolled back the optimistic sharing
+   * state and torn down the GPS watcher; the caller only needs to update its
+   * own UI. Deliberately NOT followed by a `location:stop` emit — the server
+   * never granted this share, so there is nothing server-side to stop.
+   */
+  onShareRejected?: (code?: string) => void;
 }
 
 export function useLiveLocationPublisher({
@@ -84,6 +93,7 @@ export function useLiveLocationPublisher({
   durationMs,
   onAutoStop,
   onError,
+  onShareRejected,
 }: UseLiveLocationPublisherOptions): void {
   useEffect(() => {
     if (!enabled || !socket || !crewId) return;
@@ -103,7 +113,7 @@ export function useLiveLocationPublisher({
 
     // 1. Declare intent to share. Send the first fix inline once we have it.
     store.getState().startSharing(crewId, sessionExpiresAt);
-    socket.emit('location:share', { _v: 1, crewId, expiresAt: sessionExpiresAt }, () => {});
+    socket.emit('location:share', { _v: 1, crewId, expiresAt: sessionExpiresAt }, handleShareAck);
 
     // Re-announce on reconnect: the server keeps the share grant on
     // per-connection state (socket.data.sharingCrewId), so a disconnect/
@@ -111,7 +121,7 @@ export function useLiveLocationPublisher({
     // NOT_SHARING until we re-emit the intent.
     const onReconnect = () => {
       if (!stopped) {
-        socket.emit('location:share', { _v: 1, crewId, expiresAt: sessionExpiresAt }, () => {});
+        socket.emit('location:share', { _v: 1, crewId, expiresAt: sessionExpiresAt }, handleShareAck);
       }
     };
     socket.on('connect', onReconnect);
@@ -160,7 +170,14 @@ export function useLiveLocationPublisher({
       onAutoStop?.();
     }, cap);
 
-    function stop() {
+    // Local (non-network) teardown shared by stop() and a rejected-share ack:
+    // stops the timer/listener/watcher and rolls back the optimistic store
+    // write. Split out so a rejection (never granted server-side) can clean
+    // up WITHOUT stop()'s location:stop emit below — that handler currently
+    // broadcasts into the crew room without re-checking membership (a
+    // separate finding), so firing it for a share the server just refused
+    // would needlessly exercise that unguarded path.
+    function teardownLocal() {
       if (stopped) return;
       stopped = true;
       clearTimeout(sessionTimer);
@@ -170,9 +187,28 @@ export function useLiveLocationPublisher({
       } catch {
         /* watcher already torn down */
       }
-      // 5. Tell the server + peers we stopped, then clear local sharing state.
-      if (socket && socket.connected) socket.emit('location:stop', { _v: 1, crewId: crewId as string });
       store.getState().stopSharing();
+    }
+
+    // Ack handler for `location:share` (both the initial emit above and the
+    // reconnect re-announce): the server can reject after we've already
+    // optimistically started sharing. Roll the optimistic state back and let
+    // the caller know — otherwise every location:update keeps coming back
+    // NOT_SHARING while the UI still claims we're sharing. Guarded on
+    // `!stopped` so a late/stale ack arriving after a normal stop (unmount,
+    // auto-stop, manual toggle-off) is a no-op.
+    function handleShareAck(response: { ok: boolean; code?: string }) {
+      if (response.ok || stopped) return;
+      teardownLocal();
+      onShareRejected?.(response.code);
+    }
+
+    function stop() {
+      if (stopped) return;
+      // 5. Tell the server + peers we stopped, then run the same local
+      // teardown a rejected share uses.
+      if (socket && socket.connected) socket.emit('location:stop', { _v: 1, crewId: crewId as string });
+      teardownLocal();
     }
 
     return stop;

@@ -630,7 +630,15 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
     set({ error: null });
 
     const userId = useAuthStore.getState().user?.id ?? null;
-    const prevPolls = useCrewStore.getState().polls;
+    // Capture ONLY my prior vote on this poll (the delta this action touches),
+    // not a whole-array snapshot — so a failure rolls my vote back against the
+    // LATEST state and never clobbers a concurrent socket-applied vote (another
+    // member voting on the same poll via applyPollVote) that landed during the
+    // round-trip.
+    const prevVote = userId
+      ? ((useCrewStore.getState().polls.find((p) => p.id === pollId)?.votes ?? []).find((v) => v.user_id === userId) ??
+        null)
+      : null;
 
     if (userId) {
       set((state) => ({
@@ -651,8 +659,19 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
         /* refetch is best-effort; the write succeeded */
       }
     } catch (err) {
-      // Roll back the optimistic vote so the UI matches reality.
-      if (userId) set({ polls: prevPolls });
+      // Roll back ONLY my vote against the LATEST polls: drop my optimistic vote
+      // and restore my prior one (if any), leaving other members' votes and any
+      // other poll that changed mid-flight intact. A poll concurrently closed/
+      // removed is simply absent here and not resurrected.
+      if (userId) {
+        set((state) => ({
+          polls: state.polls.map((p) => {
+            if (p.id !== pollId) return p;
+            const others = (p.votes ?? []).filter((v) => v.user_id !== userId);
+            return { ...p, votes: prevVote ? [...others, prevVote] : others };
+          }),
+        }));
+      }
       const message = mapErrorToUserMessage(err, 'Failed to vote');
       set({ error: message });
       throw err;
@@ -1163,16 +1182,19 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
   // staleness reads honestly until the server confirms. Never implies live.
   updateMyStatus: async (crewId: string, request: UpdateCrewMemberStatusRequest, myUserId: string) => {
     set({ error: null });
-    // Snapshot before the optimistic upsert so an online server rejection can
-    // restore the pre-update list (the offline path returns successfully below
-    // and never reaches the catch, so this only ever rolls back a real reject).
-    // Captured inside the updater since this store creator only exposes `set`.
-    let prevStatuses: CrewMemberStatus[] = [];
+    // Capture ONLY my prior status row (the delta this action touches), not a
+    // whole-array snapshot — so an online rejection rolls just my row back
+    // against the LATEST state and never clobbers a concurrent socket-applied
+    // status (another member via applyStatusUpdate) that landed during the
+    // round-trip. The offline path returns successfully below and never reaches
+    // the catch, so this only ever rolls back a real reject. Captured inside the
+    // updater since this store creator only exposes `set`.
+    let prevMine: CrewMemberStatus | undefined;
     // Optimistically upsert my own row up front (covers both online + offline).
     const nowIso = new Date().toISOString();
     set((state) => {
-      prevStatuses = state.crewStatuses;
       const mine = state.crewStatuses.find((s) => s.user_id === myUserId);
+      prevMine = mine;
       // 055: optimistically reflect the breadcrumb only when a position is
       // supplied. Omitting `position` must leave the prior coords untouched
       // (mirrors the server COALESCE) — so fall back to my existing row's values.
@@ -1222,10 +1244,14 @@ const crewStore: StateCreator<CrewStore> = (set) => ({
       }
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to update status');
-      // Roll back the optimistic upsert so the user never keeps seeing a status
-      // the server rejected. Only reached on an ONLINE reject (the offline path
-      // returns above without throwing).
-      set({ crewStatuses: prevStatuses, error: message });
+      // Roll back ONLY my row against the LATEST list: drop my optimistic row and
+      // restore my prior one (if any), leaving other members' rows that a socket
+      // update applied mid-flight intact. Only reached on an ONLINE reject (the
+      // offline path returns above without throwing).
+      set((state) => {
+        const others = state.crewStatuses.filter((s) => s.user_id !== myUserId);
+        return { crewStatuses: prevMine ? [prevMine, ...others] : others, error: message };
+      });
       throw err;
     }
   },

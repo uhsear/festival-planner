@@ -18,6 +18,7 @@ import {
   classifyApnsResponse,
   createApnsProvider,
 } from '../lib/notifications/apns.js';
+import { createNotificationService } from '../lib/notifications/index.js';
 
 // ── enforcePayloadLimits ────────────────────────────────────────────────
 
@@ -516,6 +517,37 @@ describe('notifications/send: platform routing', () => {
     assert.equal(payload.aps.category, 'CREW_UPDATE');
   });
 
+  it('FCM unconfigured + APNs configured → ios still delivered via APNs', async () => {
+    const stores = makeStores({
+      deviceTokens: {
+        listByUser: mock.fn(async () => [{ token: validIosToken, platform: 'ios' }]),
+        unregister: mock.fn(async () => {}),
+      },
+    });
+    const apnsProvider = {
+      send: mock.fn(async () => ({ sent: true, stale: false })),
+      close() {},
+      _resetTokenCache() {},
+    };
+    const svc = createSendService({
+      stores,
+      config: apnsConfig,
+      log: fakeLog,
+      messaging: null, // ← Firebase NOT configured; APNs is
+      retryQueue: { enqueue() {} },
+      apnsProvider,
+    });
+    const result = await svc.send({
+      userId: 'u1',
+      type: 'crew_update',
+      title: 'T',
+      body: 'B',
+      data: { festivalId: 'f1' },
+    });
+    assert.equal(result.sent, 1);
+    assert.equal((apnsProvider.send.mock.calls as any[]).length, 1);
+  });
+
   it('ios + APNs NOT configured → token SKIPPED and NOT unregistered (the bug fix)', async () => {
     const unregister = mock.fn(async () => {});
     const stores = makeStores({
@@ -688,5 +720,34 @@ describe('notifications/send: platform routing', () => {
     assert.equal(payload.aps['content-available'], 1);
     assert.equal(opts.pushType, 'background');
     assert.equal(opts.priority, '5');
+  });
+});
+
+// ── notifications/index: isConfigured spans both transports ─────────────
+
+describe('notifications/index: createNotificationService isConfigured', () => {
+  const makeStores = () => ({
+    notificationPrefs: { get: async () => null },
+    deviceTokens: { listByUser: async () => [], unregister: async () => {} },
+    notificationCounts: { getByUser: async () => [], increment: async () => {}, reset: async () => {} },
+    notificationLog: { insert: async () => null },
+    profiles: { userIdsByFestival: async () => [] },
+  });
+  const fakeLog = { info() {}, warn() {}, error() {}, debug() {} };
+
+  it('isConfigured=true when APNs is configured and firebase is not', () => {
+    const svc = createNotificationService({
+      stores: makeStores(),
+      config: {
+        PUBLIC_ORIGIN: 'https://festie.us',
+        FIREBASE_CREDENTIALS_PATH: '',
+        APNS_KEY_PATH: '/k.p8',
+        APNS_KEY_ID: 'K',
+        APNS_TEAM_ID: 'T',
+        APNS_BUNDLE_ID: 'us.festie.app',
+      },
+      log: fakeLog,
+    });
+    assert.equal(svc.isConfigured, true);
   });
 });

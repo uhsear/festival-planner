@@ -227,22 +227,10 @@ describe('lib/sentry.js', () => {
       });
     });
 
-    it('requestHandler returns pass-through middleware', () => {
-      const mw = sentryModule.sentry.requestHandler();
-      assert.equal(typeof mw, 'function');
-      const next = mock.fn();
-      mw({}, {}, next);
-      assert.equal(next.mock.calls.length, 1);
-    });
-
-    it('errorHandler returns pass-through error middleware', () => {
-      const mw = sentryModule.sentry.errorHandler();
-      assert.equal(typeof mw, 'function');
-      const next = mock.fn();
-      const err = new Error('test');
-      mw(err, {}, {}, next);
-      assert.equal(next.mock.calls.length, 1);
-      assert.equal(next.mock.calls[0]!.arguments[0], err);
+    it('setupExpressErrorHandler no-ops on app when Sentry unavailable', () => {
+      const fakeApp = { use: mock.fn() };
+      sentryModule.sentry.setupExpressErrorHandler(fakeApp);
+      assert.equal(fakeApp.use.mock.calls.length, 0);
     });
 
     it('close resolves without error', async () => {
@@ -251,6 +239,24 @@ describe('lib/sentry.js', () => {
 
     it('raw is null in noop mode', () => {
       assert.equal(sentryModule.sentry.raw, null);
+    });
+  });
+
+  describe('setupExpressErrorHandler — wires the real SDK once Sentry is available (regression for the removed Handlers API)', () => {
+    it("registers Sentry's real Express middleware when Sentry has actually initialized", () => {
+      sentryModule.initSentry({ dsn: 'https://fake@sentry.io/1' });
+      assert.equal(sentryModule.sentry.available, true); // sanity: prove Sentry is NOT in noop mode for this test
+
+      const fakeApp = { use: mock.fn() };
+      sentryModule.sentry.setupExpressErrorHandler(fakeApp);
+
+      // @sentry/node's real setupExpressErrorHandler(app) calls app.use()
+      // exactly twice (request-metadata middleware, then the capturing
+      // error middleware) — verified directly against installed
+      // node_modules/@sentry/core source.
+      assert.equal(fakeApp.use.mock.calls.length, 2);
+      assert.equal(typeof fakeApp.use.mock.calls[0]!.arguments[0], 'function');
+      assert.equal(typeof fakeApp.use.mock.calls[1]!.arguments[0], 'function');
     });
   });
 });

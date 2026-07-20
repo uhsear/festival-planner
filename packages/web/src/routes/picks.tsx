@@ -5,7 +5,14 @@ import { useFestivalStore, useAuthStore } from '@festie/shared/stores';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { usePicks, useFestival } from '@festie/shared/hooks';
 import { Priority } from '@festie/shared/types';
-import { formatTime, artistDisplayName, buildPicksIcs, buildPicksShareUrl, resolveStageColor } from '@festie/shared/utils';
+import {
+  formatTime,
+  artistDisplayName,
+  buildPicksIcs,
+  buildPicksShareUrl,
+  resolveStageColor,
+  isSetScheduled,
+} from '@festie/shared/utils';
 import StageBadge from '../components/ui/StageBadge';
 import EmptyState from '../components/ui/EmptyState';
 import Badge from '../components/ui/Badge';
@@ -57,10 +64,15 @@ function PicksViewInner() {
   );
   const { toast } = useToast();
 
-  // Filter sets by selected day using dayIndex
+  // Sets for the selected day, PLUS any unscheduled (TBA — schedule not yet
+  // announced) picks. A pick on a set with an undefined/out-of-range dayIndex
+  // matches no day tab under a plain `dayIndex === selectedDay` filter, so
+  // without this OR it becomes permanently invisible and unremovable (see
+  // docs/audits/tech-debt-2026-07-16-deep-findings.md, "Picks grouping/sorting
+  // logic re-implemented (not shared) on web").
   const daySets = useMemo(() => {
-    return sets.filter((s) => s.dayIndex === selectedDay);
-  }, [sets, selectedDay]);
+    return sets.filter((s) => s.dayIndex === selectedDay || !isSetScheduled(s, days));
+  }, [sets, selectedDay, days]);
 
   // Group picks by priority
   const picksGrouped = useMemo(() => {
@@ -270,7 +282,7 @@ function PicksViewInner() {
                 const sc = getStageColor(set.stageId);
                 const sn = getStageName(set.stageId) || '';
                 const dn = artistDisplayName(set, currentFestival?.b2bSeparator);
-                const dayLabel = days[set.dayIndex ?? 0]?.label || '';
+                const dayLabel = isSetScheduled(set, days) ? days[set.dayIndex ?? 0]?.label || '' : 'Unscheduled';
 
                 return (
                   <button

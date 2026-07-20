@@ -46,7 +46,7 @@ export default function createCrewSosRoutes(deps: RouteDeps) {
     io,
     notificationService,
     redis,
-  } = deps as any;
+  } = deps;
 
   const router = Router({ mergeParams: true });
 
@@ -108,7 +108,7 @@ export default function createCrewSosRoutes(deps: RouteDeps) {
 
         let activityId: string | null = null;
         try {
-          activityId = await stores.activity.log({ crewId, userId, type: 'sos_raised', detail });
+          activityId = (await stores.activity.log({ crewId, userId, type: 'sos_raised', detail })) as string;
         } catch (err: any) {
           // The activity row is the durable record of the SOS — if it fails we
           // still broadcast + push (best-effort), but log loudly.
@@ -182,7 +182,7 @@ export default function createCrewSosRoutes(deps: RouteDeps) {
 
         let activityId: string | null = null;
         try {
-          activityId = await stores.activity.log({ crewId, userId, type: 'sos_cleared', detail: null });
+          activityId = (await stores.activity.log({ crewId, userId, type: 'sos_cleared', detail: null })) as string;
         } catch (err: any) {
           log.error('sos clear activity log failed', { error: err?.message, crewId, userId });
         }

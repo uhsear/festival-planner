@@ -38,6 +38,10 @@ vi.mock('@festie/shared/utils', () => ({
   buildPicksIcs: vi.fn(() => 'BEGIN:VCALENDAR\r\nEND:VCALENDAR'),
   buildPicksShareUrl: vi.fn((profileId: string) => `https://festie.us/s/${profileId}`),
   resolveStageColor: (c: string | null | undefined, fallback: string) => c || fallback,
+  // Mirrors the real @festie/shared/utils/setStatus.isSetScheduled: a set is
+  // scheduled only when dayIndex resolves to a real position in `days`.
+  isSetScheduled: (set: { dayIndex?: number }, days: unknown[]) =>
+    typeof set.dayIndex === 'number' && set.dayIndex >= 0 && set.dayIndex < days.length,
 }));
 
 vi.mock('../components/ui/StageBadge', () => ({
@@ -177,6 +181,28 @@ describe('PicksView', () => {
     expect(screen.getByText('Must See')).toBeInTheDocument();
     expect(screen.getByText('Want to See')).toBeInTheDocument();
     expect(screen.getByText('Maybe')).toBeInTheDocument();
+  });
+
+  it('renders a pick on an unscheduled (TBA) set regardless of the selected day', () => {
+    // s2 has no dayIndex (schedule not yet announced) — it must never be
+    // filtered out by the `dayIndex === selectedDay` day check, or the pick
+    // becomes permanently invisible/unremovable on every day tab.
+    const sets = [
+      { id: 's1', artist: 'Daft Punk', stageId: 'st1', startTime: '14:00', dayIndex: 0 },
+      { id: 's2', artist: 'Four Tet', stageId: 'st2' },
+    ];
+    setStoreState({ sets, selectedDay: 0, days: [{ date: '2026-06-10', label: 'Day 1' }] });
+    vi.mocked(usePicks).mockReturnValue({
+      getMyPick: vi.fn((id: string) => {
+        if (id === 's1') return 'must';
+        if (id === 's2') return 'want-to-see';
+        return null;
+      }),
+      savePick: vi.fn(),
+      getMyNote: vi.fn(() => ''),
+    });
+    render(<PicksView />);
+    expect(screen.getByText('Four Tet')).toBeInTheDocument();
   });
 
   it('renders pick items with artist names', () => {

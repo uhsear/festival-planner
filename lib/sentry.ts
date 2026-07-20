@@ -86,19 +86,17 @@ const sentry = {
     if (noop || !Sentry) return;
     try { Sentry.setTag(key, value); } catch { /* noop */ }
   },
-  /** Returns Express request handler middleware (or a pass-through). */
-  requestHandler() {
-    if (noop || !Sentry || !Sentry.Handlers || !Sentry.Handlers.requestHandler) {
-      return (req: any, res: any, next: any) => next();
-    }
-    return Sentry.Handlers.requestHandler();
-  },
-  /** Returns Express error handler middleware (or a pass-through). */
-  errorHandler() {
-    if (noop || !Sentry || !Sentry.Handlers || !Sentry.Handlers.errorHandler) {
-      return (err: any, req: any, res: any, next: any) => next(err);
-    }
-    return Sentry.Handlers.errorHandler();
+  /**
+   * Wires Sentry's Express request+error capture directly onto `app` (no-op
+   * if Sentry is unavailable). @sentry/node v8+ removed `Sentry.Handlers` —
+   * the SDK now exposes a single `setupExpressErrorHandler(app)` that calls
+   * `app.use()` itself, so this takes `app` rather than returning a
+   * middleware for the caller to `.use()`. Call once, after all routes are
+   * mounted and before any other error-handling middleware.
+   */
+  setupExpressErrorHandler(app: any) {
+    if (noop || !Sentry || typeof Sentry.setupExpressErrorHandler !== 'function') return;
+    try { Sentry.setupExpressErrorHandler(app); } catch { /* noop */ }
   },
   /** Flush pending events before shutdown. */
   async close(timeoutMs = 2000) {

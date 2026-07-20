@@ -90,12 +90,54 @@ configureApi({
   },
 });
 
+type DeepLinkTarget = string | { pathname: string; params: Record<string, string> };
+
+// Static top-level path segments a push-notification `deepLink` is allowed to
+// resolve to. `crew` lands on the crew tab's logistics sub-tab -- the same
+// {pathname, params} shortcut find.tsx/map.tsx already use to jump straight
+// to the SOS panel (crew.tsx's `tab=logistics` deep-link contract) -- so a
+// crew_sos push actually opens SOS instead of silently no-op'ing.
+const DEEPLINK_ROUTES: Record<string, DeepLinkTarget> = {
+  wrap: '/wrap',
+  crew: { pathname: '/(tabs)/crew', params: { tab: 'logistics' } },
+  'crew-compare': '/crew-compare',
+  'crew-plan': '/crew-plan',
+  'festival-mode': '/festival-mode',
+  find: '/find',
+  grid: '/grid',
+  map: '/map',
+  'plan-share': '/plan-share',
+  privacy: '/privacy',
+  timeline: '/timeline',
+};
+
+// Recognized scheme/origin prefixes a server-emitted deepLink may arrive
+// with: festie:// is the app's registered scheme (app.json), rave:// is a
+// legacy scheme some server producers still emit (routes/crew-sos.ts,
+// lib/reminder-scheduler.ts), and https://festie.us is the web origin used
+// by lib/notifications/reengagement.ts.
+const DEEPLINK_PREFIXES = ['festie://', 'rave://', 'https://festie.us'];
+
+// Validates a push-notification deepLink against the allowlist above instead
+// of trusting it as an expo-router Href. A deepLink with an unrecognized
+// scheme/host, or a path this app has no matching route for, returns null --
+// exactly today's (broken) no-op behavior for those cases, so this can only
+// fix known-good targets, never regress an already-silently-failing one.
+export function parseDeepLink(raw: string): DeepLinkTarget | null {
+  const prefix = DEEPLINK_PREFIXES.find((p) => raw.startsWith(p));
+  if (!prefix) return null;
+  const rest = raw.slice(prefix.length);
+  const segment = (rest.startsWith('/') ? rest.slice(1) : rest).split(/[/?#]/)[0] ?? '';
+  return DEEPLINK_ROUTES[segment] ?? null;
+}
+
 // Route a tapped notification's data payload to its deep-link target. Shared by
 // the warm-tap listener and the cold-start useLastNotificationResponse handler
 // so both paths route identically.
 function routeNotification(r: ReturnType<typeof useRouter>, data: Record<string, unknown> | undefined) {
   if (typeof data?.deepLink === 'string') {
-    r.push(data.deepLink as any);
+    const target = parseDeepLink(data.deepLink);
+    if (target) r.push(target);
   } else if (typeof data?.setId === 'string') {
     r.push(`/set/${data.setId}`);
   }

@@ -90,6 +90,16 @@ describe('withTransaction', () => {
     assert.equal(pool.queries[1].sql, 'ROLLBACK');
   });
 
+  it('rethrows the original error (not the ROLLBACK error) when ROLLBACK itself fails', async () => {
+    const pool = mockPoolThatFailsOnQuery((sql: any) => sql === 'ROLLBACK');
+    await assert.rejects(
+      () => withTransaction(pool, async () => { throw new Error('original failure'); }),
+      { message: 'original failure' },
+    );
+    // client must still be released even though ROLLBACK itself threw
+    assert.equal(pool.released.length, 1);
+  });
+
   it('always releases the client on success', async () => {
     const pool = mockPool();
     await withTransaction(pool, async () => 'done');

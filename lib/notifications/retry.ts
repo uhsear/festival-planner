@@ -36,7 +36,10 @@ export function createRetryQueue({ log, maxRetries = 3, maxAgeMs = 15 * 60 * 100
     const batch: any[] = [];
     while (queue.length > 0 && batch.length < 10) {
       const entry = queue.shift()!;
-      if (now - entry.enqueuedAt > maxAgeMs) continue;
+      if (now - entry.enqueuedAt > maxAgeMs) {
+        log.warn('fcm retry: entry aged out', { userId: entry.userId, retries: entry.retries });
+        continue;
+      }
       batch.push(entry);
     }
     for (const entry of batch) {

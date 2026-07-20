@@ -109,6 +109,7 @@ export default function createPollsStore(pool: Pool, _utils: any) {
         WHERE
           crew_id = $1
           AND closed = FALSE
+          AND (closes_at IS NULL OR closes_at > NOW())
       `,
         [crewId],
       );

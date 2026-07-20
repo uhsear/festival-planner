@@ -64,7 +64,12 @@ export function useSosMarkers(
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
       const el = document.createElement('div');
       el.className = 'festie-sos-marker';
-      el.setAttribute('role', 'img');
+      // a11y: keyboard-focusable like the other four marker types (peer,
+      // meeting-point, stage, amenity) — this is the one marker for a crew
+      // member's live emergency, so it can't be the one a keyboard/switch user
+      // can't reach.
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
       el.setAttribute('aria-label', `SOS from ${s.username}`);
       el.textContent = '!';
       // Coords are numeric (range-checked server-side), so this URL is structurally
@@ -92,6 +97,14 @@ export function useSosMarkers(
         coord: { latitude: lat, longitude: lng },
       };
       el.addEventListener('click', () => selectPursue(sosTarget));
+      // Bridge Enter/Space → popup toggle + pursue (MapLibre only wires click).
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          marker.togglePopup();
+          selectPursue(sosTarget);
+        }
+      });
       markers.set(s.userId, marker);
       // Open the popup + fly to it ONCE on first appearance so it's impossible to
       // miss. Subsequent coord ticks reposition via the effect below — they never
