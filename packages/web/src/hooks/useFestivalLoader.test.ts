@@ -1,10 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
 
 // Shared mutable refs, hoisted so the vi.mock factories below can read them.
 const h = vi.hoisted(() => ({
   checkSession: vi.fn(async () => {}),
-  state: { user: null as unknown, hydrated: true, cb: null as null | (() => void) },
+  joinByCode: vi.fn(async () => {}),
+  state: {
+    user: null as unknown,
+    hydrated: true,
+    cb: null as null | (() => void),
+    currentFestival: null as unknown,
+    currentProfile: null as unknown,
+  },
 }));
 
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }));
@@ -29,8 +36,12 @@ vi.mock('@festie/shared/stores', () => {
   const slice = {
     loadFestivals: vi.fn(async () => {}),
     selectFestival: vi.fn(async () => {}),
-    currentFestival: null,
-    currentProfile: null,
+    get currentFestival() {
+      return h.state.currentFestival;
+    },
+    get currentProfile() {
+      return h.state.currentProfile;
+    },
     loadProfiles: vi.fn(async () => {}),
   };
   const useFestivalStore = Object.assign((sel: (s: typeof slice) => unknown) => sel(slice), {
@@ -41,7 +52,7 @@ vi.mock('@festie/shared/stores', () => {
 
 vi.mock('@festie/shared/stores/crewStore', () => ({
   useCrewStore: (sel: (s: Record<string, unknown>) => unknown) =>
-    sel({ loadCrews: vi.fn(async () => {}), joinByCode: vi.fn(async () => {}) }),
+    sel({ loadCrews: vi.fn(async () => {}), joinByCode: h.joinByCode }),
 }));
 
 vi.mock('@festie/shared/services', () => ({ api: { post: vi.fn(async () => {}) } }));
@@ -56,6 +67,8 @@ describe('useFestivalLoader session probe', () => {
     h.state.user = null;
     h.state.hydrated = true;
     h.state.cb = null;
+    h.state.currentFestival = null;
+    h.state.currentProfile = null;
   });
 
   it('does not call checkSession when no user is persisted', () => {
@@ -77,5 +90,24 @@ describe('useFestivalLoader session probe', () => {
     expect(h.checkSession).not.toHaveBeenCalled();
     h.state.cb?.(); // simulate onFinishHydration firing
     expect(h.checkSession).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useFestivalLoader ?joinCrew consent gate', () => {
+  beforeEach(() => {
+    h.state.user = { id: 'u1' };
+    h.state.currentFestival = { id: 'f1' };
+    h.state.currentProfile = { id: 'p1' };
+    window.history.pushState({}, '', '/?joinCrew=ABC123');
+  });
+
+  afterEach(() => {
+    window.history.pushState({}, '', '/');
+  });
+
+  it('stages the code instead of auto-joining -- never calls joinByCode without explicit confirmation', async () => {
+    renderHook(() => useFestivalLoader());
+    await act(async () => {});
+    expect(h.joinByCode).not.toHaveBeenCalled();
   });
 });

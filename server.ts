@@ -139,7 +139,6 @@ async function createFestieApp(overrides: any = {}) {
 
   // 2. Create Express app + configure all middleware
   const app = express();
-  app.use(sentry.requestHandler());
   app.use(metricsMiddleware(metrics));
   app.get('/metrics', metricsHandler(metrics));
   const { inFlightRequests } = configureMiddleware(app, ctx);
@@ -292,7 +291,7 @@ async function createFestieApp(overrides: any = {}) {
   _errorDedupCleanup.unref();
   state.timers.push(_errorDedupCleanup);
 
-  app.use(sentry.errorHandler());
+  sentry.setupExpressErrorHandler(app);
 
   app.use(((error: any, req: Request, res: Response, _next: NextFunction) => {
     const status = error.status || error.statusCode || 500;

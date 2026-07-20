@@ -230,12 +230,14 @@ export default function setupSocketHandlers(deps: any) {
       return { ok: false, error: 'Not a member of this festival' };
     }
 
-    // Leave previous festival room and clear all non-default rooms
+    // Leave only the PREVIOUS festival room (leaveFestivalRealtime does the
+    // socket.leave). Do NOT blanket-leave every room: this socket may also be in
+    // its crew:${crewId} room, and evicting it there while socket.data.crewId
+    // still points at that crew makes the location:share/sync gates (which only
+    // check socket.data.crewId) keep passing while every crew broadcast —
+    // sos:raised, location:peer-update — silently misses this socket.
     const previousFestivalId = leaveFestivalRealtime(socket, io);
     if (previousFestivalId && previousFestivalId !== festivalId) emitPresence(previousFestivalId, io);
-    for (const room of socket.rooms) {
-      if (room !== socket.id) socket.leave(room);
-    }
 
     // Join new room and set socket state
     socket.join(festivalId);

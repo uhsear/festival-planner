@@ -348,7 +348,13 @@ export function createSendService({ stores, config, log, messaging, retryQueue, 
           data: { type, ...safeData },
         };
         deviceRetryQueue.enqueue({ userId, sendFn: () => messaging.send(fcmMsg) });
-        postToWebhookRetry(device.token, { title: safeTitle, body: safeBody, type, ...safeData }, 0);
+        // Never forward notification content to this external, operator-configured
+        // webhook — title/body/data may carry GPS coords or a username (e.g.
+        // crew_sos embeds the raiser's name in the title and lat/lng in data).
+        // The in-process deviceRetryQueue above already re-sends the real payload;
+        // this call only needs to tell the external system WHICH notification
+        // type needs attention.
+        postToWebhookRetry(device.token, { type }, 0);
       }
 
       log.debug('push send failed', { userId, platform: device.platform, error: error.message });

@@ -58,13 +58,28 @@ export default function createAuditStore(pool: Pool, _utils: any) {
       const maxLimit = 200;
       const finalLimit = Math.min(Math.max(1, limit || 50), maxLimit);
 
+      // Keyset cursor is `${createdAt ISO}|${id}` so pagination walks the same
+      // (created_at DESC, id DESC) order as the ORDER BY below -- id alone is a
+      // random UUID (see insert()/randomUUID()) with no time ordering, so a
+      // single-column id sort/cursor scrambled history. A stale pre-fix cursor
+      // (bare id, no '|') has no createdAt half and is dropped, so callers
+      // holding one just restart from page 1 instead of crashing the cast.
+      let cursorCreatedAt: string | null = null;
+      let cursorId: string | null = null;
+      if (typeof cursor === 'string' && cursor.includes('|')) {
+        const sep = cursor.indexOf('|');
+        cursorCreatedAt = cursor.slice(0, sep) || null;
+        cursorId = cursor.slice(sep + 1) || null;
+      }
+
       const params: any[] = [
         actorId || null,
         action || null,
         resourceType || null,
         from || null,
         to || null,
-        cursor || null,
+        cursorCreatedAt,
+        cursorId,
         finalLimit,
       ];
 
@@ -88,9 +103,9 @@ export default function createAuditStore(pool: Pool, _utils: any) {
           AND ($3::TEXT IS NULL OR target_type = $3::TEXT)
           AND ($4::TIMESTAMPTZ IS NULL OR created_at >= $4::TIMESTAMPTZ)
           AND ($5::TIMESTAMPTZ IS NULL OR created_at <= $5::TIMESTAMPTZ)
-          AND ($6::TEXT IS NULL OR id < $6::TEXT)
-        ORDER BY id DESC
-        LIMIT $7
+          AND ($6::TIMESTAMPTZ IS NULL OR (created_at, id) < ($6::TIMESTAMPTZ, $7::TEXT))
+        ORDER BY created_at DESC, id DESC
+        LIMIT $8
       `, params);
 
       const rows = result.rows.map((row: any) => {
@@ -105,7 +120,9 @@ export default function createAuditStore(pool: Pool, _utils: any) {
         return { ...row, details };
       });
 
-      const nextCursor = rows.length === finalLimit ? rows[rows.length - 1].id : null;
+      const nextCursor = rows.length === finalLimit
+        ? `${new Date(rows[rows.length - 1].createdAt).toISOString()}|${rows[rows.length - 1].id}`
+        : null;
 
       return { rows, nextCursor };
     },

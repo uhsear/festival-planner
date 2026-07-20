@@ -32,7 +32,9 @@ Notifications.setNotificationHandler({
  * DC7: 'updates' has been split into two channels so users can tune them
  * independently in Android system settings:
  *   - 'set-reminders' (HIGH)   — on-device local set alarms (time-critical).
- *   - 'crew' (DEFAULT)          — FCM crew activity (member actions, SOS etc.).
+ *   - 'crew' (DEFAULT)          — FCM crew activity (member actions, status changes).
+ *   - 'sos' (MAX, bypassDnd)    — crew_sos alerts (lib/notifications/send.ts
+ *                                 CRITICAL_CHANNEL routes type 'crew_sos' here).
  *
  * The legacy 'updates' channel is kept so existing scheduled local
  * notifications (that still carry channelId='updates') land on a valid
@@ -54,6 +56,14 @@ export async function ensureAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('crew', {
     name: 'Crew updates',
     importance: Notifications.AndroidImportance.DEFAULT,
+  });
+  // Emergency SOS alerts — MAX importance + bypassDnd so it reaches the crew
+  // regardless of Do Not Disturb settings. Without this channel, backend
+  // pushes routed to channelId 'sos' (crew_sos) have no channel to land on.
+  await Notifications.setNotificationChannelAsync('sos', {
+    name: 'Crew SOS alerts',
+    importance: Notifications.AndroidImportance.MAX,
+    bypassDnd: true,
   });
   // Transition channel: keep until all devices have received a build with the
   // new channels above. Previously bundled set reminders + crew updates.

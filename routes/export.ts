@@ -233,9 +233,20 @@ export default function createExportRoutes(deps: any) {
         return sendError(res, 429, 'Please wait a few seconds before exporting again', ErrorCodes.RATE_LIMITED);
       }
 
-      const festivalProfiles = deps.stores.profiles.getByFestival
-        ? await deps.stores.profiles.getByFestival(festivalId)
-        : (await getProfiles()).filter((p: any) => p.festivalId === festivalId);
+      // Crew-scoped, not festival-wide (Finding #6): only users who share an
+      // actual crew with the exporter for this festival can appear in the
+      // exported "Crew Schedules" section / friend-avatars / crew-overlap card.
+      const userCrews = await deps.stores.crews.listByUserAndFestival(req.user.userId, festivalId);
+      const membersByCrew = await deps.stores.crews.getMembersForCrews(userCrews.map((c: any) => c.id));
+      const crewUserIds = new Set<string>();
+      for (const members of membersByCrew.values()) {
+        for (const m of members) crewUserIds.add(m.userId);
+      }
+      const festivalProfiles = crewUserIds.size === 0
+        ? []
+        : deps.stores.profiles.getByFestival
+          ? (await deps.stores.profiles.getByFestival(festivalId)).filter((p: any) => crewUserIds.has(p.userId))
+          : (await getProfiles()).filter((p: any) => p.festivalId === festivalId && crewUserIds.has(p.userId));
       const crewProfiles = festivalProfiles
         .map((crewProfile: any) => serializeExportCrewProfile(crewProfile))
         .slice(0, MAX_CREW_IN_EXPORT);

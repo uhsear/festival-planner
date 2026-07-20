@@ -993,6 +993,40 @@ describe('routes/socket', () => {
     // emitPresence should NOT be called if no festivalId
     assert.equal(deps.emitPresence.mock.calls.length, 0);
   });
+
+  test('join:festival — does not evict the socket from its active crew room (C4)', async () => {
+    // Regression: join:festival must not blanket-leave every room. When a socket
+    // is already in its crew:${crewId} room (join:crew won the race, or the
+    // client's documented double-emit), a re-fired join:festival used to wipe
+    // crew:${crewId} while socket.data.crewId kept pointing at it — the only
+    // thing the location:share/sync gates check — so the socket looked in-crew
+    // while silently missing every crew broadcast (sos:raised, peer-update).
+    const deps = buildSocketDeps();
+    const handlers = await setupAndGetHandlers(deps);
+    const socket = makeSocket();
+    const socketHandlers: Record<string, any> = {};
+    socket.on = mock.fn((event: any, handler: any) => {
+      socketHandlers[event] = handler;
+    });
+
+    handlers.connection(socket);
+
+    // Join the crew room first.
+    await socketHandlers['join:crew']({ crewId: 'crew-1' }, mock.fn());
+    assert.ok(socket.rooms.has('crew:crew-1'), 'socket should be in its crew room after join:crew');
+    assert.equal(socket.data.crewId, 'crew-1');
+
+    // Now join a festival — this must leave the crew room untouched.
+    await socketHandlers['join:festival']('fest-1', {}, mock.fn());
+
+    // socket.data.crewId is never cleared on this path, so actual room
+    // membership must still agree with it or crew broadcasts silently miss.
+    assert.equal(socket.data.crewId, 'crew-1', 'socket.data.crewId should still be the crew');
+    assert.ok(
+      socket.rooms.has('crew:crew-1'),
+      'join:festival must not evict the socket from its active crew room',
+    );
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════════

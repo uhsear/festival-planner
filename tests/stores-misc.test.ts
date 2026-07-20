@@ -267,7 +267,7 @@ describe('AuditStore', () => {
       const store = createAuditStore(pool, mockUtils);
       await store.query({ limit: 500 });
 
-      assert.equal(pool.queries[0].params[6], 200);
+      assert.equal(pool.queries[0].params[7], 200);
     });
 
     it('clamps limit to min 1', async () => {
@@ -275,16 +275,19 @@ describe('AuditStore', () => {
       const store = createAuditStore(pool, mockUtils);
       await store.query({ limit: -5 });
 
-      assert.equal(pool.queries[0].params[6], 1);
+      assert.equal(pool.queries[0].params[7], 1);
     });
 
     it('returns nextCursor when rows fill the limit', async () => {
-      const rows = [{ id: 'r1', action: 'a', detailsJson: null }, { id: 'r2', action: 'b', detailsJson: null }];
+      const rows = [
+        { id: 'r1', action: 'a', detailsJson: null, createdAt: '2026-07-16T10:00:00.000Z' },
+        { id: 'r2', action: 'b', detailsJson: null, createdAt: '2026-07-16T09:00:00.000Z' },
+      ];
       const pool = mockPool([{ rows }]);
       const store = createAuditStore(pool, mockUtils);
       const result = await store.query({ limit: 2 });
 
-      assert.equal(result.nextCursor, 'r2');
+      assert.equal(result.nextCursor, '2026-07-16T09:00:00.000Z|r2');
     });
 
     it('returns null nextCursor when rows < limit', async () => {
@@ -293,6 +296,28 @@ describe('AuditStore', () => {
       const result = await store.query({ limit: 50 });
 
       assert.equal(result.nextCursor, null);
+    });
+
+    it('orders results by created_at, not by the random UUID id', async () => {
+      const pool = mockPool([{ rows: [] }]);
+      const store = createAuditStore(pool, mockUtils);
+      await store.query();
+
+      const sql = normSql(pool.queries[0].sql);
+      assert.ok(sql.includes('ORDER BY created_at DESC'), `expected chronological ORDER BY, got: ${sql}`);
+      assert.ok(!sql.includes('ORDER BY id DESC'), 'must not sort by the random-UUID id column');
+    });
+
+    it('encodes nextCursor as createdAt|id so pagination follows time order', async () => {
+      const rows = [
+        { id: 'r1', action: 'a', detailsJson: null, createdAt: '2026-07-16T10:00:00.000Z' },
+        { id: 'r2', action: 'b', detailsJson: null, createdAt: '2026-07-16T09:00:00.000Z' },
+      ];
+      const pool = mockPool([{ rows }]);
+      const store = createAuditStore(pool, mockUtils);
+      const result = await store.query({ limit: 2 });
+
+      assert.equal(result.nextCursor, '2026-07-16T09:00:00.000Z|r2');
     });
   });
 

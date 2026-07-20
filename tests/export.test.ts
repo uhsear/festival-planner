@@ -10,10 +10,12 @@ import 'dotenv/config';
 import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
-import { after, afterEach, describe, test } from 'node:test';
+import { after, afterEach, describe, test, mock } from 'node:test';
 import request from 'supertest';
+import express from 'express';
 import { Pool } from 'pg';
 import { createFestivalPlanner } from '../server';
+import { serializeExportCrewProfile } from '../lib/helpers/export-utils.js';
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -349,5 +351,107 @@ describe('export routes', { skip, concurrency: 1 }, () => {
       .expect(429);
 
     assert.ok(res.body.error, '429 returns error envelope');
+  });
+});
+
+// Finding #6: Crew Schedules must be scoped to the exporter's actual crew
+// members, not every profile ever created for the festival. Mocked-deps route
+// test (no live DB) — drives routes/export.js directly so the crew-vs-
+// festival-wide scoping is provable without a live Postgres instance.
+describe('GET /export/:festivalId/:profileId — crew scoping (Finding #6)', () => {
+  function makeExportDeps(overrides: any = {}) {
+    return {
+      express,
+      log: { info() {}, warn() {}, error() {}, debug() {} },
+      config: {
+        PUBLIC_DIR: __dirname, // no export-template.html here -> falls back to the built-in template
+        MAX_CONCURRENT_EXPORTS: -1, // POOL_SIZE=-1 -> pool init loop never runs -> deterministic inline export path
+        EXPORT_COOLDOWN_MS: 0,
+      },
+      userAuth: (req: any, _res: any, next: any) => {
+        req.user = { userId: 'user-1' };
+        next();
+      },
+      setNoStore: () => {},
+      getFestivalById: mock.fn(async (id: any) =>
+        id === 'f1'
+          ? {
+              id: 'f1',
+              name: 'Scope Test Fest',
+              location: 'TN',
+              stages: [{ id: 'st1', name: 'Main Stage', color: '#ff3366' }],
+              days: [
+                {
+                  date: '2026-06-10',
+                  label: 'Day 1',
+                  sets: [{ id: 's1', artist: 'DJ Test', stageId: 'st1', startTime: '14:00', endTime: '15:00' }],
+                },
+              ],
+            }
+          : null,
+      ),
+      getProfiles: mock.fn(async () => []),
+      getUserFestivalProfile: mock.fn(async () => null),
+      getUserById: mock.fn(async (id: any) => ({ id, username: 'exporter' })),
+      serializeOwnProfile: (profile: any, user: any) => ({ ...profile, username: user?.username }),
+      // Real fn, not a stub — a stub that strips `picks` would hide the leak this test proves.
+      serializeExportCrewProfile,
+      sendSuccess: (res: any, data: any) => res.json({ data, error: null }),
+      sendError: (res: any, status: any, msg: any, code: any) =>
+        res.status(status).json({ data: null, error: { message: msg, status, code } }),
+      ErrorCodes: {
+        INVALID_INPUT: 'INVALID_INPUT',
+        NOT_FOUND: 'NOT_FOUND',
+        FORBIDDEN: 'FORBIDDEN',
+        RATE_LIMITED: 'RATE_LIMITED',
+        INTERNAL_ERROR: 'INTERNAL_ERROR',
+      },
+      sanitizeIdentifier: (s: any) => (s ? String(s).trim() : null),
+      rateLimit: () => (_req: any, _res: any, next: any) => next(),
+      schemas: { festivalIdParams: {} },
+      validateParams: () => (req: any, _res: any, next: any) => {
+        req.validatedParams = req.params;
+        next();
+      },
+      exportContentSecurityPolicy: "default-src 'self'",
+      encodeContentDispositionFilename: (f: any) => encodeURIComponent(f),
+      stores: {
+        profiles: {
+          getById: mock.fn(async (id: any) =>
+            id === 'p1'
+              ? { id: 'p1', userId: 'user-1', festivalId: 'f1', name: 'MyProfile', picks: { s1: 'must' }, notes: {} }
+              : null,
+          ),
+          // Festival-wide store: still contains a totally unrelated stranger (user-999)
+          // who also joined f1 and picked set s1 — this is what the bug leaks.
+          getByFestival: mock.fn(async (fid: any) =>
+            fid === 'f1'
+              ? [
+                  { id: 'p1', userId: 'user-1', festivalId: 'f1', name: 'MyProfile', picks: { s1: 'must' }, notes: {} },
+                  { id: 'p2', userId: 'user-999', festivalId: 'f1', name: 'StrangerName', picks: { s1: 'want-to-see' }, notes: {} },
+                ]
+              : [],
+          ),
+        },
+        crews: {
+          // Exporting user (user-1) belongs to NO crew for festival f1.
+          listByUserAndFestival: mock.fn(async () => []),
+          getMembersForCrews: mock.fn(async () => new Map()),
+        },
+      },
+      ...overrides,
+    };
+  }
+
+  test("only shows actual crew members, not every festival profile", async () => {
+    const { default: createExportRoutes } = await import('../routes/export.js');
+    const deps = makeExportDeps();
+    const router = createExportRoutes(deps);
+    const app = express();
+    app.use(router);
+
+    const res = await request(app).get('/export/f1/p1').expect(200);
+    assert.ok(!res.text.includes('StrangerName'), "export leaked a non-crewmate's name into the Crew Schedules section");
+    assert.ok(res.text.includes('DJ Test'), "sanity: the exporter's own picks must still render");
   });
 });
