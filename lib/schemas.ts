@@ -485,8 +485,16 @@ export const crewAddMemberSchema = z.object({
 export type CrewAddMemberInput = z.infer<typeof crewAddMemberSchema>;
 
 // ── Set link schema (admin) ──────────────────────────────────────
+// https-only to avoid javascript:/data: schemes (mirrors crewPhotoAlbumSchema).
 export const setLinkSchema = z.object({
-  linkUrl: z.string().url('Must be a valid URL').max(500).nullable().optional().or(z.literal('')),
+  linkUrl: z
+    .string()
+    .url('Must be a valid URL')
+    .max(500)
+    .refine((u) => u.startsWith('https://'), 'Must be an https URL')
+    .nullable()
+    .optional()
+    .or(z.literal('')),
 });
 export type SetLinkInput = z.infer<typeof setLinkSchema>;
 

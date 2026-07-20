@@ -1,17 +1,73 @@
 import assert from 'node:assert/strict';
 import { describe, it, mock } from 'node:test';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import express from 'express';
+import request from 'supertest';
 
 // middleware.js exports configureMiddleware which requires a full Express app + context.
-// Instead of testing the monolith, we test the individual middleware patterns it uses:
+// Instead of testing the monolith with a live DB (see tests/_integration-helpers.ts), we
+// mount it on a real (DB-less) Express app with stubbed deps -- see makeMiddlewareApp below
+// -- so CORS and the request-timeout block run the actual registered handlers, not copies.
 //   - audit-middleware (factory function, testable in isolation)
-//   - CORS logic
+//   - CORS logic (real configureMiddleware registration, via makeMiddlewareApp)
 //   - JSON body parser error handling
-//   - Idempotency key logic
+//   - Idempotency key logic (real createIdempotencyMiddleware export)
 //   - In-flight request tracking
+//   - Request timeout (real configureMiddleware registration, via makeMiddlewareApp)
 // We also test the tracing middleware that configureMiddleware uses.
 
 import createAuditMiddleware from '../lib/audit-middleware.js';
-import { createIdempotencyMiddleware } from '../lib/middleware.js';
+import { configureMiddleware, createIdempotencyMiddleware } from '../lib/middleware.js';
+import { sendError, ErrorCodes } from '../lib/response.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+
+/**
+ * Mounts the REAL configureMiddleware on a fresh, DB-less Express app so CORS
+ * and the request-timeout block can be exercised as actually registered,
+ * instead of via a hand-copied reimplementation of their logic.
+ */
+function makeMiddlewareApp(overrides: { isAllowedOrigin?: (origin: string, host?: string) => boolean; config?: Record<string, any> } = {}) {
+  const app = express();
+  const ctx = {
+    express,
+    config: {
+      TRUST_PROXY: false,
+      PUBLIC_ORIGIN: '',
+      NODE_ENV: 'production', // skips OpenAPI/Swagger UI mounting -- out of scope here
+      PUBLIC_DIR,
+      WEB_DIST: path.join(PUBLIC_DIR, '__no-build__'), // guaranteed absent -> skip SPA static mount
+      JSON_LIMIT: '1mb',
+      API_VERSION: '1',
+      REQUEST_TIMEOUT_MS: 10_000,
+      MOBILE_ORIGINS: ['app://festie'],
+      PROFILE_RATE_LIMIT_MAX: 100,
+      OVERLAP_RATE_LIMIT_MAX: 100,
+      ...overrides.config,
+    },
+    log: { info() {}, warn() {}, error() {} },
+    state: {
+      metrics: { totalRequests: 0, totalDuration: 0, requestCount: 0, totalErrors: 0, statusCodes: {}, endpointLatency: {} },
+      timers: [],
+    },
+    contentSecurityPolicy: "default-src 'self'",
+    enforceAllowedOrigin: (req: any, res: any, next: any) => next(),
+    avatarDirPath: () => path.join(PUBLIC_DIR, 'uploads', 'avatars'),
+    isAllowedOrigin: overrides.isAllowedOrigin || (() => false),
+    setNoStore: () => {},
+    getRequestIp: (req: any) => req.ip || '127.0.0.1',
+    rateLimit: (..._args: any[]) => (req: any, res: any, next: any) => next(),
+    authRateLimit: (req: any, res: any, next: any) => next(),
+    sendError,
+    ErrorCodes,
+    generateOpenAPISpec: () => ({}),
+    stores: { auditLog: { insert: async () => {} } },
+  };
+  const result = configureMiddleware(app as any, ctx as any);
+  return { app, ...result };
+}
 
 // ── audit-middleware ────────────────────────────────────────────────────
 
@@ -252,88 +308,52 @@ describe('middleware: audit-middleware', () => {
   });
 });
 
-// ── CORS logic (reimplemented from middleware.js inline) ─────────────────
+// ── CORS logic (real configureMiddleware registration) ───────────────────
 
-describe('middleware: CORS logic (unit test of pattern)', () => {
-  function corsMiddleware(isAllowedOrigin: any, mobileOrigins: string[] = []) {
-    return (req: any, res: any, next: any) => {
-      const origin = req.headers.origin;
-      if (!origin) return next();
-      const isAllowed = isAllowedOrigin(origin, req.headers.host)
-        || mobileOrigins.some((mo: string) => origin === mo);
-      if (isAllowed) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Vary', 'Origin');
-      }
-      if (req.method === 'OPTIONS') {
-        if (!isAllowed) return res.status(403).end();
-        return res.status(204).end();
-      }
-      return next();
-    };
-  }
-
-  function mockReq(headers: any = {}) {
-    return { method: 'GET', headers };
-  }
-
-  function mockRes() {
-    const h: Record<string, string> = {};
-    let s: number | null = null;
-    return {
-      setHeader(k: string, v: string) { h[k] = v; },
-      _headers: h,
-      status(code: number) { s = code; return { end() {} }; },
-      _status: () => s,
-    };
-  }
-
-  it('passes through when no origin header', () => {
-    const mw = corsMiddleware(() => false);
-    let nextCalled = false;
-    mw(mockReq({}), mockRes(), () => { nextCalled = true; });
-    assert.ok(nextCalled);
+describe('middleware: CORS logic (real configureMiddleware)', () => {
+  it('passes through when no origin header', async () => {
+    const { app } = makeMiddlewareApp();
+    const res = await request(app).get('/health/live');
+    assert.equal(res.status, 200);
+    assert.equal(res.headers['access-control-allow-origin'], undefined);
   });
 
-  it('sets CORS headers for allowed origin', () => {
-    const mw = corsMiddleware(() => true);
-    const res = mockRes();
-    let nextCalled = false;
-    mw(mockReq({ origin: 'https://festie.us', host: 'festie.us' }), res, () => { nextCalled = true; });
-    assert.ok(nextCalled);
-    assert.equal(res._headers['Access-Control-Allow-Origin'], 'https://festie.us');
-    assert.equal(res._headers['Vary'], 'Origin');
+  it('sets CORS headers for allowed origin', async () => {
+    const { app } = makeMiddlewareApp({ isAllowedOrigin: () => true });
+    const res = await request(app).get('/health/live').set('Origin', 'https://festie.us');
+    assert.equal(res.headers['access-control-allow-origin'], 'https://festie.us');
+    assert.equal(res.headers['access-control-allow-credentials'], 'true');
+    // Real stack note: `compression` (mounted first in configureMiddleware) also
+    // appends 'Accept-Encoding' to Vary, so check the 'Origin' token rather than
+    // an exact string -- the hand-copied fake this replaced never surfaced that.
+    assert.ok(res.headers['vary']?.split(',').map((s: string) => s.trim()).includes('Origin'));
+    assert.equal(res.headers['access-control-allow-methods'], 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    assert.equal(res.headers['access-control-max-age'], '86400');
+    assert.ok(res.headers['access-control-allow-headers']?.includes('Idempotency-Key'));
   });
 
-  it('does not set CORS headers for disallowed origin', () => {
-    const mw = corsMiddleware(() => false);
-    const res = mockRes();
-    mw(mockReq({ origin: 'https://evil.com', host: 'festie.us' }), res, () => {});
-    assert.ok(!('Access-Control-Allow-Origin' in res._headers));
+  it('does not set CORS headers for disallowed origin', async () => {
+    const { app } = makeMiddlewareApp({ isAllowedOrigin: () => false });
+    const res = await request(app).get('/health/live').set('Origin', 'https://evil.com');
+    assert.equal(res.headers['access-control-allow-origin'], undefined);
   });
 
-  it('returns 204 for OPTIONS preflight with allowed origin', () => {
-    const mw = corsMiddleware(() => true);
-    const res = mockRes();
-    mw({ method: 'OPTIONS', headers: { origin: 'https://festie.us', host: 'festie.us' } }, res, () => {});
-    assert.equal(res._status(), 204);
+  it('returns 204 for OPTIONS preflight with allowed origin', async () => {
+    const { app } = makeMiddlewareApp({ isAllowedOrigin: () => true });
+    const res = await request(app).options('/health/live').set('Origin', 'https://festie.us');
+    assert.equal(res.status, 204);
   });
 
-  it('returns 403 for OPTIONS preflight with disallowed origin', () => {
-    const mw = corsMiddleware(() => false);
-    const res = mockRes();
-    mw({ method: 'OPTIONS', headers: { origin: 'https://evil.com', host: 'festie.us' } }, res, () => {});
-    assert.equal(res._status(), 403);
+  it('returns 403 for OPTIONS preflight with disallowed origin', async () => {
+    const { app } = makeMiddlewareApp({ isAllowedOrigin: () => false });
+    const res = await request(app).options('/health/live').set('Origin', 'https://evil.com');
+    assert.equal(res.status, 403);
   });
 
-  it('allows mobile origins', () => {
-    const mw = corsMiddleware(() => false, ['app://festie']);
-    const res = mockRes();
-    let nextCalled = false;
-    mw(mockReq({ origin: 'app://festie' }), res, () => { nextCalled = true; });
-    assert.ok(nextCalled);
-    assert.equal(res._headers['Access-Control-Allow-Origin'], 'app://festie');
+  it('allows mobile origins', async () => {
+    const { app } = makeMiddlewareApp({ isAllowedOrigin: () => false });
+    const res = await request(app).get('/health/live').set('Origin', 'app://festie');
+    assert.equal(res.headers['access-control-allow-origin'], 'app://festie');
   });
 });
 
@@ -537,52 +557,27 @@ describe('middleware: in-flight request tracking', () => {
   });
 });
 
-// ── Request timeout pattern ─────────────────────────────────────────────
+// ── Request timeout (real configureMiddleware registration) ──────────────
 
-describe('middleware: request timeout pattern', () => {
-  it('calls sendError after timeout', async () => {
-    let errorSent = false;
-    const sendError = () => { errorSent = true; };
-    const middleware = (req: any, res: any, next: any) => {
-      const timeout = setTimeout(() => {
-        if (!res.headersSent) sendError();
-      }, 50);
-      timeout.unref();
-      res.on('finish', () => clearTimeout(timeout));
-      next();
-    };
-
-    const listeners: Record<string, any> = {};
-    const res = {
-      headersSent: false,
-      on(event: string, fn: any) { listeners[event] = fn; },
-    };
-    middleware({}, res, () => {});
-    await new Promise((r) => setTimeout(r, 100));
-    assert.ok(errorSent);
+describe('middleware: request timeout (real configureMiddleware)', () => {
+  it('returns 408 via the real sendError/ErrorCodes wiring once the real timeout fires', async () => {
+    const { app } = makeMiddlewareApp({ config: { REQUEST_TIMEOUT_MS: 50 } });
+    // Nothing under /api responds, so the real timeout middleware's setTimeout
+    // wins the race and calls the real sendError(res, 408, ..., ErrorCodes.INTERNAL_ERROR).
+    app.use('/api', (_req: any, _res: any) => {});
+    const res = await request(app).get('/api/v1/__hang__');
+    assert.equal(res.status, 408);
+    assert.equal(res.body.error.code, 'INTERNAL_ERROR');
   });
 
-  it('clears timeout when response finishes', async () => {
-    let errorSent = false;
-    const sendError = () => { errorSent = true; };
-    const middleware = (req: any, res: any, next: any) => {
-      const timeout = setTimeout(() => {
-        if (!res.headersSent) sendError();
-      }, 100);
-      timeout.unref();
-      res.on('finish', () => clearTimeout(timeout));
-      next();
-    };
-
-    const listeners: Record<string, any> = {};
-    const res = {
-      headersSent: false,
-      on(event: string, fn: any) { listeners[event] = fn; },
-    };
-    middleware({}, res, () => {});
-    // Simulate finishing early
-    listeners.finish();
-    await new Promise((r) => setTimeout(r, 150));
-    assert.ok(!errorSent);
+  it('does not double-respond once the response already finished', async () => {
+    const { app } = makeMiddlewareApp({ config: { REQUEST_TIMEOUT_MS: 50 } });
+    app.get('/api/v1/__fast__', (_req: any, res: any) => res.json({ ok: true }));
+    const res = await request(app).get('/api/v1/__fast__');
+    assert.equal(res.status, 200);
+    // Wait past the timeout window: if the real code's headersSent guard (and
+    // clearTimeout) were broken, the stale timer would try to write a second,
+    // now-invalid response here.
+    await new Promise((r) => setTimeout(r, 120));
   });
 });

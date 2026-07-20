@@ -2,10 +2,13 @@
 // All Rights Reserved. See the LICENSE file.
 
 import { Pool } from 'pg';
+import { createLogger } from '../logger.js';
 
 // Simple LRU cache for parsed JSON objects to reduce allocation
 const parseJsonCache = new Map<string, any>();
 const MAX_PARSE_CACHE_SIZE = 1000;
+
+const txLog = createLogger('db:connection');
 
 /**
  * Execute a function within a transaction
@@ -20,8 +23,14 @@ export async function withTransaction(pool: Pool, fn: (client: any) => Promise<a
     const result = await fn(client);
     await client.query('COMMIT');
     return result;
-  } catch (err) {
-    await client.query('ROLLBACK');
+  } catch (err: any) {
+    // ROLLBACK failing (e.g. connection already dropped) must never mask the
+    // real error that triggered the rollback — log it separately and rethrow err.
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr: any) {
+      txLog.error('withTransaction:rollback-failed', { rollbackError: rollbackErr?.message, originalError: err?.message });
+    }
     throw err;
   } finally {
     client.release();

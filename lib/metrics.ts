@@ -10,6 +10,8 @@
 
 import http from 'http';
 
+import { timingSafeEqualString } from './crypto-auth.js';
+
 let client: any = null;
 let available = false;
 try {
@@ -207,14 +209,14 @@ function metricsMiddleware(metrics: any) {
   };
 }
 
-/** Returns a GET /metrics handler, locked to internal IPs. */
+/** Returns a GET /metrics handler, gated on a METRICS_TOKEN bearer token. */
 function metricsHandler(metrics: any) {
   return async function metricsHandlerFn(req: any, res: any) {
     if (!metrics || !metrics.available) {
       res.status(503).type('text/plain').send('metrics unavailable (prom-client not installed)');
       return;
     }
-    if (!isInternalIp(req)) {
+    if (!hasValidMetricsToken(req)) {
       res.status(403).type('text/plain').send('forbidden');
       return;
     }
@@ -227,15 +229,30 @@ function metricsHandler(metrics: any) {
   };
 }
 
-function isInternalIp(req: any) {
-  const ip = (req.ip || req.connection?.remoteAddress || '').replace(/^::ffff:/, '');
-  if (!ip) return false;
-  if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') return true;
-  if (ip.startsWith('10.')) return true;
-  if (ip.startsWith('192.168.')) return true;
-  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(ip)) return true;
-  // Cloudflare Tunnel often presents 127.0.0.1; also allow explicit header-based override.
-  return false;
+/**
+ * Gate for GET /metrics: requires `Authorization: Bearer <METRICS_TOKEN>`.
+ *
+ * Replaces an internal-IP allowlist that was spoofable in prod: behind the
+ * Cloudflare Tunnel (single-host topology, docs/adrs/014-pm2-cloudflare-tunnel-single-host.md)
+ * req.ip collapses to 127.0.0.1 for ALL traffic, and any caller can force
+ * that shape themselves by forging X-Forwarded-For — see the "spoofable /
+ * collapsed to 127.0.0.1" analysis in docs/security/trust-proxy-hardening.md.
+ * An IP check cannot tell an internal caller from a public one in this
+ * topology, so it is no longer trusted as a gate on its own.
+ *
+ * No METRICS_TOKEN configured => deny everyone (fail closed). Real
+ * Prometheus scraping uses the loopback-only per-worker listener
+ * (startMetricsListener below), which needs no gate since it is never
+ * reachable through the tunnel.
+ */
+function hasValidMetricsToken(req: any) {
+  const configured = process.env.METRICS_TOKEN;
+  if (!configured) return false;
+  const header = req?.headers?.authorization;
+  if (typeof header !== 'string' || !header.startsWith('Bearer ')) return false;
+  const presented = header.slice('Bearer '.length);
+  if (!presented) return false;
+  return timingSafeEqualString(presented, configured);
 }
 
 /** Periodically sample pg pool + socket counts. Returns a stop() function. */

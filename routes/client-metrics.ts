@@ -25,6 +25,15 @@ const VALID_METRICS: Record<string, { min: number; max: number; unitDivisor: num
   TTFB:  { min: 0, max: 60_000, unitDivisor: 1000 }, // ms -> s
 });
 
+// This endpoint is unauthenticated (fire-and-forget beacon), and `nav` is a
+// Prometheus label on the histogram below — every distinct value becomes its
+// own time series. Allowlisting to the web-vitals NavigationType union (same
+// values the Navigation Timing API reports) caps cardinality; anything else
+// (including attacker-injected strings) collapses to 'unknown'.
+const VALID_NAV_TYPES: ReadonlySet<string> = new Set([
+  'navigate', 'reload', 'back-forward', 'back-forward-cache', 'prerender', 'restore',
+]);
+
 export default function createClientMetricsRoutes(deps: any) {
   const { log, rateLimit, promMetrics } = deps;
   const router = Router();
@@ -71,7 +80,7 @@ export default function createClientMetricsRoutes(deps: any) {
     if (value < spec.min || value > spec.max) return res.status(204).end();
 
     const recorded = value / spec.unitDivisor;
-    const nav = typeof navigationType === 'string' && navigationType.length <= 32
+    const nav = typeof navigationType === 'string' && VALID_NAV_TYPES.has(navigationType)
       ? navigationType
       : 'unknown';
 

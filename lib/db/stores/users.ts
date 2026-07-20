@@ -238,6 +238,10 @@ export default function createUsersStore(pool: Pool, utils: any) {
         await client.query('DELETE FROM crew_polls WHERE created_by = $1', [userId]);
         await client.query('DELETE FROM crew_meeting_points WHERE created_by = $1', [userId]);
         await client.query('DELETE FROM crew_members WHERE user_id = $1', [userId]);
+        // crew_member_status.user_id has no FK to users (migration 051) — RESTRICT
+        // wouldn't even block this delete, the rows (incl. GPS/ETA breadcrumbs) would
+        // just orphan silently, so purge explicitly.
+        await client.query('DELETE FROM crew_member_status WHERE user_id = $1', [userId]);
         await client.query('DELETE FROM crew_expenses WHERE paid_by = $1', [userId]);
         await client.query('DELETE FROM crew_activity WHERE user_id = $1', [userId]);
         await client.query('DELETE FROM login_failures WHERE user_id = $1', [userId]);

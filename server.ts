@@ -437,7 +437,10 @@ if (isMainModule) {
       if (error.code) errMeta.code = error.code;
       log.error('shutdown error', errMeta);
     }
-    const forceExitTimer = setTimeout(() => process.exit(1), 33_000);
+    // Must exceed the graceful-drain budget (SHUTDOWN_TIMEOUT_MS) plus the other
+    // bounded waits inside close() (io.engine close ~2s, sentry.close ~2s) so a
+    // longer-than-default SHUTDOWN_TIMEOUT_MS can't get cut off mid-drain.
+    const forceExitTimer = setTimeout(() => process.exit(1), planner.config.SHUTDOWN_TIMEOUT_MS + 10_000);
     forceExitTimer.unref();
     planner
       .close()
