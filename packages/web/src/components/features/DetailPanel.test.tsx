@@ -32,8 +32,9 @@ vi.mock('vaul', () => ({
 }));
 
 // Mock useToast
+const mockToast = vi.fn();
 vi.mock('../../lib/toastContext', () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: mockToast }),
 }));
 
 // Mock useDetailPanelData
@@ -70,6 +71,7 @@ vi.mock('./useDetailPanelData', () => ({
 
 vi.mock('@festie/shared/services/api', () => ({
   api: { get: vi.fn(async () => null), post: vi.fn(async () => {}) },
+  mapErrorToUserMessage: (_err: unknown, fallback: string) => fallback,
 }));
 
 vi.mock('@festie/shared/stores/festivalStore', () => ({
@@ -249,6 +251,15 @@ describe('DetailPanel', () => {
     expect(mockSavePick).toHaveBeenCalledWith('fest-1', 'set-1', 'must');
   });
 
+  it('shows an error toast when savePick rejects', async () => {
+    const user = userEvent.setup();
+    mockSavePick.mockRejectedValueOnce(new Error('network'));
+    render(<DetailPanel {...defaultProps} />);
+    await user.click(screen.getByText('Pick Must'));
+    expect(mockSavePick).toHaveBeenCalledWith('fest-1', 'set-1', 'must');
+    expect(mockToast).toHaveBeenCalledWith("Couldn't save your pick. Try again.", 'error');
+  });
+
   it('renders accessible title and description for screen readers', () => {
     render(<DetailPanel {...defaultProps} />);
     // Drawer.Title with sr-only renders the artist name
@@ -278,15 +289,16 @@ describe('DetailPanel', () => {
     expect(mockSaveReminder).toHaveBeenCalledWith('fest-1', 'set-1', null);
   });
 
-  it('surfaces no error and resets busy when saveReminder rejects', async () => {
+  it('shows an error toast and resets busy when saveReminder rejects', async () => {
     const user = userEvent.setup();
     mockSaveReminder.mockRejectedValueOnce(new Error('network'));
     render(<DetailPanel {...defaultProps} />);
     const btn = screen.getByRole('button', { name: 'Remind me 5m before' });
     await user.click(btn);
     expect(mockSaveReminder).toHaveBeenCalledWith('fest-1', 'set-1', 5);
-    // handleReminderClick swallows the error and clears reminderBusy in finally,
-    // so the buttons become interactive again (not stuck disabled).
+    expect(mockToast).toHaveBeenCalledWith("Couldn't save your reminder. Try again.", 'error');
+    // handleReminderClick clears reminderBusy in finally, so the buttons
+    // become interactive again (not stuck disabled).
     expect(screen.getByRole('button', { name: 'Remind me 5m before' })).not.toBeDisabled();
   });
 });

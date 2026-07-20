@@ -490,4 +490,116 @@ describe('crews routes', { concurrency: 1, skip }, () => {
       .send({ inviteCode: newCode })
       .expect(200);
   });
+
+  // Regression: POST /:crewId/reform used to be a read-then-create with no lock
+  // or unique constraint, so a concurrent/retried reform of the same source into
+  // the same festival by the same user created TWO crews (finding #5). Migration
+  // 061 adds the partial UNIQUE crews_reform_idem_uidx and the route absorbs the
+  // 23505. We model the concurrent request AS a DB fact — an uncommitted INSERT
+  // holding the reform's unique key — which is deterministic in both directions
+  // rather than the timing-flaky Promise.all([reform, reform]).
+  test('POST /:crewId/reform is serialized by the unique index — a racing reform returns the same crew, never a duplicate', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const owner = await createMember(server, 'reform-owner'); // profile in the seeded (source) festival
+    const sourceCrew = await createCrew(server, owner.token, 'Reform Source');
+
+    const targetFestivalId = `fest-${RUN_TAG}-target`;
+    const rivalId = `crew-rival-${RUN_TAG}`;
+    const pool = new Pool({ connectionString: TEST_DATABASE_URL });
+    let side: any;
+    try {
+      // Target festival must exist and the requester must have a profile there
+      // (the route requires both) — commit these before the reform runs.
+      await pool.query(
+        'INSERT INTO festivals (id, name, location, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW())',
+        [targetFestivalId, 'Target Fest', 'Test Grounds'],
+      );
+      // Seed the requester's target-festival profile directly (the reform route
+      // requires it via a live store read). POST /api/v1/profiles can't be used
+      // here — it validates the festival through the boot-time festival cache,
+      // which never sees a festival inserted after the server started.
+      await pool.query(
+        'INSERT INTO festival_profiles (id, festival_id, user_id, name, created_at, updated_at) VALUES ($1, $2, $3, $4, NOW(), NOW())',
+        [`profile-${RUN_TAG}-target`, targetFestivalId, owner.id, 'reform-owner'],
+      );
+
+      // Plant the winning reform UNCOMMITTED on a dedicated connection — this IS
+      // the concurrent request, expressed at the DB layer. It holds the reform's
+      // unique key (owner, target, sourceCrew.id) without committing.
+      side = await pool.connect();
+      await side.query('BEGIN');
+      await side.query(
+        "INSERT INTO crews (id, festival_id, name, created_by, invite_code, max_members, reformed_from, created_at, updated_at) VALUES ($1, $2, 'Reform Source', $3, $4, 30, $5, NOW(), NOW())",
+        [rivalId, targetFestivalId, owner.id, `RIVAL${Date.now() % 100000}`, sourceCrew.id],
+      );
+      await side.query(
+        "INSERT INTO crew_members (crew_id, user_id, role, joined_at) VALUES ($1, $2, 'owner', NOW())",
+        [rivalId, owner.id],
+      );
+
+      // Fire the reform and ACTUALLY dispatch it. supertest requests are lazy —
+      // .send() only sets the body; the request is sent by .then()/.end(). Using
+      // .end() keeps it genuinely in flight while we poll, so its INSERT reaches
+      // and BLOCKS on crews_reform_idem_uidx behind the uncommitted rival.
+      const reformDone = new Promise<any>((resolve, reject) => {
+        server.request
+          .post(`/api/v1/crews/${sourceCrew.id}/reform`)
+          .set('x-user-token', owner.token)
+          .set(TRUSTED_MUTATION_HEADER, '1')
+          .send({ targetFestivalId })
+          .end((err: any, res: any) => (err ? reject(err) : resolve(res)));
+      });
+
+      // Wait until the reform's INSERT is provably lock-blocked. pid <>
+      // pg_backend_pid() excludes this observer's own query text (which contains
+      // the literal pattern); the blocked INSERT is a different backend, active,
+      // Lock-waiting. Bounded so a pre-fix run reports instead of hanging.
+      const observer = new Pool({ connectionString: TEST_DATABASE_URL });
+      let blocked = false;
+      try {
+        for (let i = 0; i < 150; i++) {
+          const { rows } = await observer.query(
+            `SELECT 1 FROM pg_stat_activity
+             WHERE pid <> pg_backend_pid()
+               AND state = 'active'
+               AND wait_event_type = 'Lock'
+               AND query ILIKE '%INSERT%crews%'
+             LIMIT 1`,
+          );
+          if (rows.length) {
+            blocked = true;
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 20));
+        }
+      } finally {
+        await observer.end();
+      }
+
+      // Release the winner. The blocked INSERT now wakes, gets 23505, rolls back
+      // cleanly (createWithOwner is transactional), and the route re-reads/reuses
+      // the committed rival.
+      await side.query('COMMIT');
+      const res = await reformDone;
+
+      // `blocked` first — it is what makes a false-green impossible. Pre-fix
+      // there is no unique index, so the INSERT never blocks: blocked stays
+      // false AND the route creates its own second crew (id !== rival, 2 rows).
+      assert.ok(blocked, 'reform INSERT must be serialized by crews_reform_idem_uidx — migration 061 missing?');
+      assert.equal(res.status, 200, 'a lost reform race must return the winning crew, not 500');
+      assert.equal(res.body.data.id, rivalId, 'both reforms resolve to the SAME crew');
+      const { rows: finalRows } = await pool.query(
+        'SELECT id FROM crews WHERE reformed_from = $1 AND created_by = $2 AND festival_id = $3',
+        [sourceCrew.id, owner.id, targetFestivalId],
+      );
+      assert.equal(finalRows.length, 1, 'exactly one reformed crew exists');
+    } finally {
+      if (side) {
+        await side.query('ROLLBACK').catch(() => {});
+        side.release();
+      }
+      await pool.end();
+    }
+  });
 });

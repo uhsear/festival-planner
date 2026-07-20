@@ -4,6 +4,7 @@
 import { isInDndWindow } from './dnd.js';
 import { createRetryQueue } from './retry.js';
 import { initFirebase, createSendService } from './send.js';
+import { isApnsConfigured } from './apns.js';
 
 /**
  * Create the notification service.
@@ -31,7 +32,16 @@ export function createNotificationService({ stores, config, log, _io, pushClient
   const { send, sendToOfflineUsers, sendSilentSync, markRead } =
     createSendService({ stores, config, log, messaging, retryQueue, promMetrics });
 
-  return { send, sendToOfflineUsers, sendSilentSync, markRead, retryQueue, isConfigured: !!messaging };
+  return {
+    send,
+    sendToOfflineUsers,
+    sendSilentSync,
+    markRead,
+    retryQueue,
+    // Either transport counts — emitter.ts and reengagement.ts gate every push
+    // on this flag, so FCM-only here would keep the APNs path dead.
+    isConfigured: !!messaging || isApnsConfigured(config),
+  };
 }
 
 export { isInDndWindow };

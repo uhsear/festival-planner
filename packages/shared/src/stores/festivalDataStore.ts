@@ -128,6 +128,38 @@ function slimProfileForCache(p: Profile): Pick<Profile, 'id' | 'userId' | 'name'
   return { id: p.id, userId: p.userId, name: p.name, picks: p.picks };
 }
 
+/**
+ * Roll back ONLY the map keys a failed mutation touched, re-reading the LATEST
+ * currentProfile at catch time rather than restoring a whole-profile snapshot
+ * taken before the call. Between an optimistic set() and the catch there is an
+ * awaited PUT during which a sibling mutation (another pick/note/reminder write,
+ * or an applyProfilePatch socket push) can commit its own change to the SAME
+ * currentProfile; a whole-object restore silently erased it. `prev` maps each
+ * touched key to its pre-call value — `undefined` means the key did not exist, so
+ * it is deleted on rollback. Restores nothing (only surfaces the error) if the
+ * profile is gone at catch time (navigated away / logged out mid-flight).
+ */
+function rollbackKeys<T>(
+  get: () => FestivalDataStore,
+  set: (partial: Partial<FestivalDataStore>) => void,
+  field: 'picks' | 'notes' | 'reminders',
+  prev: Record<string, T | undefined>,
+  message: string,
+): void {
+  const cur = get().currentProfile;
+  if (!cur) {
+    set({ error: message });
+    return;
+  }
+  const next: Record<string, T> = { ...((cur[field] as Record<string, T> | undefined) ?? {}) };
+  for (const key of Object.keys(prev)) {
+    const value = prev[key];
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+  }
+  set({ currentProfile: { ...cur, [field]: next } as Profile, error: message });
+}
+
 let _lastSelectFestivalId: string | null = null;
 
 const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
@@ -321,7 +353,8 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   // FIX: PUT /profiles/:profileId with full picks map.
   //      Was incorrectly hitting PUT /profiles/:festivalId/picks.
   savePick: async (request: SavePickRequest) => {
-    const prev = get().currentProfile;
+    // Snapshot only the ONE key this call owns, not the whole profile (see rollbackKeys).
+    const prevPriority = get().currentProfile?.picks[request.setId];
     set({ error: null });
     try {
       const { currentProfile } = get();
@@ -354,9 +387,10 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       );
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to save pick');
-      // Roll back the optimistic update so the UI never shows a pick as saved
-      // when the write actually failed (e.g. offline with no queue on mobile).
-      set({ currentProfile: prev, error: message });
+      // Roll back ONLY this set's pick against the LATEST state so the UI never
+      // shows a pick as saved when the write failed, WITHOUT discarding a
+      // concurrent sibling mutation that committed while this PUT was in flight.
+      rollbackKeys(get, set, 'picks', { [request.setId]: prevPriority }, message);
       throw err;
     }
   },
@@ -367,7 +401,9 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   // the write entirely rather than queue a redundant replay. Returns the real
   // count of sets changed so the caller never reports "Added N" on 0 changes.
   bulkSavePicks: async (setIds: string[], priority: Priority): Promise<number> => {
-    const prev = get().currentProfile;
+    // Snapshot only the picks this call actually changes (filled in the loop
+    // below), not the whole profile (see rollbackKeys).
+    const prevValues: Record<string, Priority | undefined> = {};
     set({ error: null });
     try {
       const { currentProfile } = get();
@@ -387,6 +423,7 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
         // Never DOWNGRADE a stronger existing pick — only set unpicked sets or
         // upgrade a weaker one. Count only the sets we actually change.
         if (existing && rank[existing] >= rank[priority]) continue;
+        prevValues[setId] = existing; // remember only the keys we touch, for rollback
         mergedPicks[setId] = priority;
         changed += 1;
       }
@@ -411,7 +448,8 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       return changed;
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to save picks');
-      set({ currentProfile: prev, error: message });
+      // Roll back only the picks this call changed, against the latest state.
+      rollbackKeys(get, set, 'picks', prevValues, message);
       throw err;
     }
   },
@@ -419,7 +457,8 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   // FIX: PUT /profiles/:profileId with full picks map (key removed).
   //      Was incorrectly hitting DELETE /profiles/:festivalId/picks/:setId.
   removePick: async (_festivalId: string, setId: string) => {
-    const prev = get().currentProfile;
+    // Snapshot only the removed key, not the whole profile (see rollbackKeys).
+    const prevPriority = get().currentProfile?.picks[setId];
     set({ error: null });
     try {
       const { currentProfile } = get();
@@ -441,7 +480,8 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       await offlinePut(`/profiles/${currentProfile.id}`, { picks: mergedPicks }, `pick-${currentProfile.id}-${setId}`);
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to remove pick');
-      set({ currentProfile: prev, error: message });
+      // Roll back only this set's pick against the latest state.
+      rollbackKeys(get, set, 'picks', { [setId]: prevPriority }, message);
       throw err;
     }
   },
@@ -449,7 +489,8 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   // FIX: PUT /profiles/:profileId with full notes map.
   //      Was incorrectly hitting PUT /profiles/:festivalId/notes.
   saveNote: async (request: SaveNoteRequest) => {
-    const prev = get().currentProfile;
+    // Snapshot only this set's note, not the whole profile (see rollbackKeys).
+    const prevNote = get().currentProfile?.notes[request.setId];
     set({ error: null });
     try {
       const { currentProfile } = get();
@@ -476,7 +517,8 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       );
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to save note');
-      set({ currentProfile: prev, error: message });
+      // Roll back only this set's note against the latest state.
+      rollbackKeys(get, set, 'notes', { [request.setId]: prevNote }, message);
       throw err;
     }
   },
@@ -485,7 +527,8 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
   // The reminder backend (scheduler/FCM/DND) is live; this is the write path
   // no client previously exercised. minutes=null clears the set's reminder.
   saveReminder: async (request: SaveReminderRequest) => {
-    const prev = get().currentProfile;
+    // Snapshot only this set's reminder, not the whole profile (see rollbackKeys).
+    const prevReminder = get().currentProfile?.reminders?.[request.setId];
     set({ error: null });
     try {
       const { currentProfile } = get();
@@ -516,7 +559,8 @@ const festivalDataStore: StateCreator<FestivalDataStore> = (set, get) => ({
       );
     } catch (err) {
       const message = mapErrorToUserMessage(err, 'Failed to save reminder');
-      set({ currentProfile: prev, error: message });
+      // Roll back only this set's reminder against the latest state.
+      rollbackKeys(get, set, 'reminders', { [request.setId]: prevReminder }, message);
       throw err;
     }
   },

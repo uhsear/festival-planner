@@ -490,6 +490,21 @@ describe('lib/db/stores/polls.js', () => {
 
       assert.strictEqual(result, '0');
     });
+
+    it('excludes expired-but-unclosed polls, mirroring listByCrew (polls.ts:39)', async () => {
+      const pool = makePool([{ rows: [{ count: '0' }] }]);
+      const store = createPollsStore(pool);
+
+      await store.countActiveByCrew('crew-1');
+
+      const call = pool.query.mock.calls[0]!;
+      const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+      const sql = norm((call.arguments as any[])[0]);
+      assert.ok(
+        /closes_at\s+IS\s+NULL\s+OR\s+closes_at\s*>\s*NOW\(\)/i.test(sql),
+        'countActiveByCrew must exclude expired polls the same way listByCrew does',
+      );
+    });
   });
 
   // =========================================================================

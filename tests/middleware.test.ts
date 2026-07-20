@@ -11,6 +11,7 @@ import { describe, it, mock } from 'node:test';
 // We also test the tracing middleware that configureMiddleware uses.
 
 import createAuditMiddleware from '../lib/audit-middleware.js';
+import { createIdempotencyMiddleware } from '../lib/middleware.js';
 
 // ── audit-middleware ────────────────────────────────────────────────────
 
@@ -339,35 +340,12 @@ describe('middleware: CORS logic (unit test of pattern)', () => {
 // ── Idempotency key logic (unit test of pattern) ────────────────────────
 
 describe('middleware: idempotency key logic', () => {
-  function createIdempotencyMiddleware() {
-    const cache = new Map();
-    const TTL = 5 * 60 * 1000;
-    const MAX = 5000;
-    return {
-      middleware(req: any, res: any, next: any) {
-        if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
-        const key = req.headers['idempotency-key'];
-        if (!key || typeof key !== 'string' || key.length > 128) return next();
-        const userId = req.user?.userId || req.ip;
-        const cacheKey = `${userId}:${key}`;
-        const cached = cache.get(cacheKey);
-        if (cached) {
-          res.setHeader('X-Idempotency-Replayed', 'true');
-          return res.status(cached.status).json(cached.body);
-        }
-        const originalJson = res.json.bind(res);
-        res.json = (body: any) => {
-          cache.set(cacheKey, { status: res.statusCode, body, ts: Date.now() });
-          return originalJson(body);
-        };
-        next();
-      },
-      cache,
-    };
-  }
+  // Exercises the REAL exported factory from lib/middleware.ts — the previous
+  // local reimplementation here could (and did) drift from shipped behavior.
+  const makeIdem = () => createIdempotencyMiddleware({ ttl: 5 * 60 * 1000, maxEntries: 5000 });
 
   it('passes through GET requests', () => {
-    const { middleware } = createIdempotencyMiddleware();
+    const { middleware } = makeIdem();
     let nextCalled = false;
     middleware(
       { method: 'GET', headers: { 'idempotency-key': 'abc' } },
@@ -378,7 +356,7 @@ describe('middleware: idempotency key logic', () => {
   });
 
   it('passes through POST without idempotency key', () => {
-    const { middleware } = createIdempotencyMiddleware();
+    const { middleware } = makeIdem();
     let nextCalled = false;
     middleware(
       { method: 'POST', headers: {}, ip: '1.2.3.4' },
@@ -389,7 +367,7 @@ describe('middleware: idempotency key logic', () => {
   });
 
   it('caches and replays POST response', () => {
-    const { middleware } = createIdempotencyMiddleware();
+    const { middleware } = makeIdem();
 
     // First request
     let calledBody1: any = null;
@@ -397,6 +375,9 @@ describe('middleware: idempotency key logic', () => {
       statusCode: 200,
       setHeader() {},
       json(body: any) { calledBody1 = body; },
+      // Real Express responses always emit finish/close; the middleware
+      // registers a reservation-release listener on them.
+      on() {},
     };
     middleware(
       { method: 'POST', headers: { 'idempotency-key': 'key-1' }, ip: '1.2.3.4' },
@@ -422,7 +403,7 @@ describe('middleware: idempotency key logic', () => {
   });
 
   it('rejects idempotency key longer than 128 chars', () => {
-    const { middleware } = createIdempotencyMiddleware();
+    const { middleware } = makeIdem();
     let nextCalled = false;
     middleware(
       { method: 'POST', headers: { 'idempotency-key': 'a'.repeat(129) }, ip: '1.2.3.4' },
@@ -430,6 +411,85 @@ describe('middleware: idempotency key logic', () => {
       () => { nextCalled = true; },
     );
     assert.ok(nextCalled, 'should pass through (ignore long key)');
+  });
+
+  it('does not re-execute the handler for a concurrent duplicate key', async () => {
+    const { middleware } = makeIdem();
+    const req = { method: 'POST', headers: { 'idempotency-key': 'dup-1' }, ip: '1.2.3.4' };
+    let executions = 0;
+    let finishA: any;
+
+    function mkRes() {
+      const res: any = {
+        statusCode: 200,
+        headersSent: false,
+        body: null,
+        replayed: null,
+        setHeader(k: string, v: string) { if (k === 'X-Idempotency-Replayed') res.replayed = v; },
+        status(s: number) { res.statusCode = s; return res; },
+        json(b: any) { res.body = b; res.headersSent = true; return b; },
+        on() {},
+      };
+      return res;
+    }
+
+    // A: handler starts the mutation but has not responded yet.
+    const resA = mkRes();
+    middleware(req, resA, () => {
+      executions += 1;
+      finishA = () => resA.json({ ok: true, id: 'expense-1' });
+    });
+
+    // B: same key, arrives while A is still in flight.
+    const resB = mkRes();
+    middleware(req, resB, () => {
+      executions += 1;
+      resB.json({ ok: true, id: 'expense-2' });
+    });
+
+    assert.equal(executions, 1, 'concurrent duplicate must not re-execute the mutation');
+
+    finishA();
+    await new Promise((r) => setImmediate(r));   // let B's waiter resolve
+    assert.equal(resB.replayed, 'true');
+    assert.deepEqual(resB.body, { ok: true, id: 'expense-1' });
+  });
+
+  it('lets a waiting duplicate execute when the original ends without a response', async () => {
+    const { middleware } = makeIdem();
+    const req = { method: 'POST', headers: { 'idempotency-key': 'dc-1' }, ip: '1.2.3.4' };
+    let executions = 0;
+
+    function mkRes() {
+      const listeners: Record<string, any> = {};
+      const res: any = {
+        statusCode: 200,
+        replayed: null,
+        body: null,
+        setHeader(k: string, v: string) { if (k === 'X-Idempotency-Replayed') res.replayed = v; },
+        status(s: number) { res.statusCode = s; return res; },
+        json(b: any) { res.body = b; return b; },
+        on(ev: string, fn: any) { listeners[ev] = fn; },
+        emit(ev: string) { listeners[ev]?.(); },
+      };
+      return res;
+    }
+
+    // A reserves the key; its handler is in flight (no res.json yet).
+    const resA = mkRes();
+    middleware(req, resA, () => { executions += 1; });
+
+    // B arrives with the same key and waits on A's reservation.
+    const resB = mkRes();
+    middleware(req, resB, () => { executions += 1; resB.json({ ok: true }); });
+
+    // A disconnects mid-handler: 'close' fires with no JSON body.
+    resA.emit('close');
+    await new Promise((r) => setImmediate(r));   // let B's waiter resolve
+
+    assert.equal(executions, 2, 'duplicate must execute after the original disconnects');
+    assert.equal(resB.body?.ok, true);
+    assert.equal(resB.replayed, null, 'nothing to replay from a disconnected original');
   });
 });
 
