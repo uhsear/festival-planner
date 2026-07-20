@@ -606,7 +606,19 @@ export default function OfflineMap({
           // Older GL builds may lack these handlers — rotation stays at the
           // constructor defaults above; never fatal.
         }
-        map.on('error', () => {
+        map.on('error', (e) => {
+          // MapLibre's 'error' event is its general error-reporting channel: it
+          // fires for routine per-source tile/data fetch failures (a dropped
+          // tile on a saturated venue link) as well as truly fatal ones. MapLibre
+          // tags source-scoped failures with a sourceId when forwarding them up
+          // to the map; a source-less error is the fatal case (style load/parse
+          // failure, WebGL loss) that actually means "no map" — only that should
+          // tear the map down to the fallback list.
+          const sourceId = (e as unknown as { sourceId?: string }).sourceId;
+          if (sourceId) {
+            console.warn('[OfflineMap] transient tile error', sourceId);
+            return;
+          }
           if (!cancelled) setStatus('error');
         });
         map.on('load', () => {

@@ -4,6 +4,8 @@ import { useFestivalDataStore } from './festivalDataStore';
 import { useFestivalUIStore } from './festivalUIStore';
 import { useFestivalModeStore } from './festivalModeStore';
 import { useLiveLocationStore } from './liveLocationStore';
+import { useOfflineReadinessStore } from './offlineReadinessStore';
+import { useNotificationPrefsStore, DEFAULT_NOTIFICATION_PREFS } from './notificationPrefsStore';
 import { clearPersistedFailed, clearQueue } from '../services/offlineQueue';
 
 export function resetAllStores(): void {
@@ -62,6 +64,17 @@ export function resetAllStores(): void {
     lowPowerMode: false,
   });
   useLiveLocationStore.getState().reset();
+  // Offline-readiness (disk-persisted per-festival download state) and
+  // notification prefs are account-scoped too -- clear them so a shared-device
+  // account switch can't inherit the previous user's downloaded-festival
+  // checklist or notification settings (tech-debt audit 2026-07-16 #23).
+  useOfflineReadinessStore.setState({ byFestival: {}, downloadingFestivalId: null });
+  useNotificationPrefsStore.setState({
+    prefs: DEFAULT_NOTIFICATION_PREFS,
+    loaded: false,
+    isLoading: false,
+    error: null,
+  });
   void clearPersistedFailed();
   // Drop any pending offline writes so user A's unsynced mutations can't replay
   // under user B's session on a shared device (the RN queue; web clears its own

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { getSetTimeBounds, getSetStatus, zonedWallTimeToMs } from './setStatus';
+import { getSetTimeBounds, getSetStatus, zonedWallTimeToMs, isSetScheduled } from './setStatus';
 import type { FestivalSet, FestivalDay } from '../types/domain';
 
 function makeSet(overrides: Partial<FestivalSet> = {}): FestivalSet {
@@ -256,5 +256,23 @@ describe('getSetStatus timezone consistency', () => {
     // 00:00 is a clean 60m before the 01:00 start (>30m → upcoming, not "soon").
     expect(getSetStatus(dstSet, new Date(localMs('2026-03-08', 0, 0))).status).toBe('upcoming');
     expect(getSetStatus(dstSet, new Date(localMs('2026-03-08', 4, 30))).status).toBe('past');
+  });
+});
+
+describe('isSetScheduled', () => {
+  const days: FestivalDay[] = [{ date: '2026-09-04' }, { date: '2026-09-05' }] as FestivalDay[];
+
+  it('is true for a dayIndex within range', () => {
+    expect(isSetScheduled({ dayIndex: 0 }, days)).toBe(true);
+    expect(isSetScheduled({ dayIndex: 1 }, days)).toBe(true);
+  });
+
+  it('is false for an undefined dayIndex (TBA — schedule not yet announced)', () => {
+    expect(isSetScheduled({ dayIndex: undefined }, days)).toBe(false);
+  });
+
+  it('is false for an out-of-range dayIndex', () => {
+    expect(isSetScheduled({ dayIndex: 2 }, days)).toBe(false);
+    expect(isSetScheduled({ dayIndex: -1 }, days)).toBe(false);
   });
 });

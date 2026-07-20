@@ -164,6 +164,17 @@ export function getSetTimeBounds(
 }
 
 /**
+ * Whether `set.dayIndex` resolves to a real position in `days` — days are
+ * stored positionally (`days[i]` IS day `i`, see `getSetTimeBounds` above). A
+ * pick on a set with an undefined/out-of-range dayIndex ("TBA": lineup slot
+ * not yet announced) matches no day tab under a naive `dayIndex === selectedDay`
+ * filter and becomes permanently unreachable in a day-scoped picks view.
+ */
+export function isSetScheduled(set: Pick<FestivalSet, 'dayIndex'>, days: FestivalDay[]): boolean {
+  return typeof set.dayIndex === 'number' && set.dayIndex >= 0 && set.dayIndex < days.length;
+}
+
+/**
  * Compute a set's status relative to a given `now`. Pure — the time source is
  * injected so it stays testable and works identically on web and native. Shared
  * single source of truth consumed by both web's and mobile's useSetStatus hooks.

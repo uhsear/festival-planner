@@ -727,7 +727,17 @@ function buildHtml(
           renderPins(map, PINS);
           post({ type: 'ready', pins: PINS.length });
         });
-        map.on('error', function (e) { post({ type: 'error', reason: 'map-error' }); });
+        map.on('error', function (e) {
+          // MapLibre's 'error' event is its general error-reporting channel: it
+          // fires for routine per-source tile/data fetch failures (a dropped
+          // tile on a saturated venue link) as well as truly fatal ones. MapLibre
+          // tags source-scoped failures with a sourceId when forwarding them up
+          // to the map; a source-less error is the fatal case (style load/parse
+          // failure, WebGL loss) that actually means "no map" — only that should
+          // tear the map down to the fallback list.
+          if (e && e.sourceId) { console.warn('[OfflineMap] transient tile error', e.sourceId); return; }
+          post({ type: 'error', reason: 'map-error' });
+        });
 
         // Tap-to-create: a long-press (contextmenu) is unreliable on touch, so we
         // use an explicit "placement mode" instead. RN toggles PLACEMENT via

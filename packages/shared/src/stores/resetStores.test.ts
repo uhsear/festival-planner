@@ -6,6 +6,8 @@ import { useFestivalDataStore } from './festivalDataStore';
 import { useFestivalUIStore } from './festivalUIStore';
 import { useFestivalModeStore } from './festivalModeStore';
 import { useLiveLocationStore } from './liveLocationStore';
+import { useOfflineReadinessStore } from './offlineReadinessStore';
+import { useNotificationPrefsStore, DEFAULT_NOTIFICATION_PREFS } from './notificationPrefsStore';
 
 describe('resetAllStores', () => {
   beforeEach(() => {
@@ -50,6 +52,24 @@ describe('resetAllStores', () => {
       autoScrollToNow: true,
       manuallyDisabled: true,
       lowPowerMode: true,
+    });
+    useOfflineReadinessStore.setState({
+      byFestival: {
+        'fest-1': {
+          schedule: { status: 'ready', syncedAt: 1 },
+          picks: { status: 'ready', syncedAt: 1 },
+          crew: { status: 'ready', syncedAt: 1 },
+          weather: { status: 'ready', syncedAt: 1 },
+          art: { status: 'ready', syncedAt: 1 },
+        },
+      },
+      downloadingFestivalId: 'fest-1',
+    });
+    useNotificationPrefsStore.setState({
+      prefs: { ...DEFAULT_NOTIFICATION_PREFS, setReminders: false, dndStart: '23:00', dndEnd: '08:00' },
+      loaded: true,
+      isLoading: false,
+      error: 'stale error',
     });
   });
 
@@ -118,5 +138,20 @@ describe('resetAllStores', () => {
     // lowPowerMode must reset too, or user A's power preference leaks to user B
     // on a shared device (persisted by festivalModeStore's partialize).
     expect(state.lowPowerMode).toBe(false);
+  });
+
+  it('resets offlineReadinessStore.byFestival to defaults', () => {
+    resetAllStores();
+    const state = useOfflineReadinessStore.getState();
+    expect(state.byFestival).toEqual({});
+    expect(state.downloadingFestivalId).toBeNull();
+  });
+
+  it('resets notificationPrefsStore to defaults', () => {
+    resetAllStores();
+    const state = useNotificationPrefsStore.getState();
+    expect(state.prefs).toEqual(DEFAULT_NOTIFICATION_PREFS);
+    expect(state.loaded).toBe(false);
+    expect(state.error).toBeNull();
   });
 });
