@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 // Mock all external dependencies to keep this a unit test on AppShell's
 // rendering logic. The AppShell is a thin orchestrator — we verify basic
@@ -47,7 +47,17 @@ vi.mock('../../hooks/useRealtimeSync', () => ({ useRealtimeSync: vi.fn() }));
 vi.mock('../../hooks/usePushNotifications', () => ({ usePushNotifications: vi.fn() }));
 vi.mock('../../hooks/useScrollReset', () => ({ useScrollReset: vi.fn() }));
 vi.mock('../../hooks/useOfflineQueueBridge', () => ({ useOfflineQueueBridge: vi.fn() }));
-vi.mock('../../hooks/useFestivalLoader', () => ({ useFestivalLoader: vi.fn() }));
+// Must return the real hook's shape: AppShell destructures it to render the
+// ?joinCrew= consent prompt, so a bare vi.fn() (undefined) would throw.
+let mockJoinLoader: {
+  pendingJoinCode: string | null;
+  joinBusy: boolean;
+  confirmJoinCrew: () => void;
+  cancelJoinCrew: () => void;
+} = { pendingJoinCode: null, joinBusy: false, confirmJoinCrew: () => {}, cancelJoinCrew: () => {} };
+vi.mock('../../hooks/useFestivalLoader', () => ({
+  useFestivalLoader: vi.fn(() => mockJoinLoader),
+}));
 vi.mock('../../hooks/useFestivalMode', () => ({ useFestivalMode: vi.fn(() => ({ showDayBanner: false })) }));
 vi.mock('../../router', () => ({ prefetchMainRoutes: vi.fn() }));
 
@@ -58,6 +68,12 @@ describe('AppShell', () => {
     vi.clearAllMocks();
     mockUser = null;
     mockPathname = '/cards';
+    mockJoinLoader = {
+      pendingJoinCode: null,
+      joinBusy: false,
+      confirmJoinCrew: vi.fn(),
+      cancelJoinCrew: vi.fn(),
+    };
   });
 
   it('renders the app shell structure with header, main content, and bottom nav', () => {
@@ -99,5 +115,28 @@ describe('AppShell', () => {
     mockPathname = '/register';
     render(<AppShell />);
     expect(screen.queryByTestId('header')).not.toBeInTheDocument();
+  });
+
+  // ?joinCrew= consent prompt. The hook stages the code instead of enrolling the
+  // visitor; without this UI the invite link silently does nothing.
+  it('shows no join-crew prompt when no invite code is staged', () => {
+    render(<AppShell />);
+    expect(screen.queryByText('Join this crew?')).not.toBeInTheDocument();
+  });
+
+  it('prompts for consent when a ?joinCrew= code is staged, and joins on confirm', async () => {
+    mockJoinLoader.pendingJoinCode = 'abc123';
+    render(<AppShell />);
+
+    expect(screen.getByText('Join this crew?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Join crew' }));
+    expect(mockJoinLoader.confirmJoinCrew).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the join-crew prompt on auth routes too (post-registration replay)', () => {
+    mockPathname = '/register';
+    mockJoinLoader.pendingJoinCode = 'abc123';
+    render(<AppShell />);
+    expect(screen.getByText('Join this crew?')).toBeInTheDocument();
   });
 });

@@ -173,10 +173,10 @@ export function useLiveLocationPublisher({
     // Local (non-network) teardown shared by stop() and a rejected-share ack:
     // stops the timer/listener/watcher and rolls back the optimistic store
     // write. Split out so a rejection (never granted server-side) can clean
-    // up WITHOUT stop()'s location:stop emit below — that handler currently
-    // broadcasts into the crew room without re-checking membership (a
-    // separate finding), so firing it for a share the server just refused
-    // would needlessly exercise that unguarded path.
+    // up WITHOUT stop()'s location:stop emit below — the server never granted
+    // the share, so there is nothing server-side to stop. (The handler is now
+    // gated on admission to the named crew, so an emit here would simply be
+    // refused; skipping it keeps the pointless round-trip off the path.)
     function teardownLocal() {
       if (stopped) return;
       stopped = true;

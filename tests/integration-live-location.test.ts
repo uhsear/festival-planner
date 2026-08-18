@@ -249,6 +249,38 @@ describe('Integration — Live Location (ephemeral sockets)', { concurrency: 1 }
     bobSocket.close();
   });
 
+  test('location:stop for a crew the socket never joined is rejected and never reaches that crew', async () => {
+    const { server, alice, bob, crewId } = await setupCrew();
+    // Bob is a real member sitting in the crew room — he is the victim who must
+    // NOT be told that a peer stopped sharing.
+    const bobSocket = await joinedCrewSocket(server, server.baseUrl, bob.token, crewId);
+
+    // Mallory authenticates (join:festival) but never joins the crew room and is
+    // not a member, then names the crew directly in a location:stop payload.
+    const mallory = await registerUser(server, 'mallory');
+    await joinFestivalProfile(server, mallory.token);
+    const mallorySocket = connectSocket(server.baseUrl);
+    await waitForEvent(mallorySocket, 'connect');
+    mallorySocket.emit('join:festival', 'fest-1', { userToken: mallory.token });
+    await waitForEvent(mallorySocket, 'presence:update', () => true);
+
+    let bobGotStopped = false;
+    bobSocket.on('location:peer-stopped', () => {
+      bobGotStopped = true;
+    });
+
+    const ack: any = await emitWithAck(mallorySocket, 'location:stop', { crewId });
+    assert.equal(ack.ok, false, 'a stop naming a crew the socket never joined must be refused');
+
+    // Give any (erroneous) broadcast a chance to arrive — it must not.
+    await new Promise((r) => setTimeout(r, 150));
+    assert.equal(bobGotStopped, false, 'an unadmitted stop must not reach the crew room');
+
+    mallorySocket.close();
+    bobSocket.close();
+    void alice;
+  });
+
   test('disconnect while sharing emits location:peer-stopped (reason disconnect) to peers', async () => {
     const { server, alice, bob, crewId } = await setupCrew();
     const aliceSocket = await joinedCrewSocket(server, server.baseUrl, alice.token, crewId);
