@@ -610,6 +610,19 @@ export default function setupSocketHandlers(deps: any) {
         const { crewId } = validation.data;
         const userId = socket.data?.userId;
 
+        // `crewId` is client-supplied and only shape-validated above, so a stop
+        // must be proven against a crew this socket was actually admitted to —
+        // otherwise any client can spray location:peer-stopped (bearing its real
+        // userId) into arbitrary crew rooms and evict peers' cached positions.
+        // `socket.data.crewId` is set only after join:crew's membership check and
+        // `socket.data.sharingCrewId` only after location:share's, so matching
+        // either is proof of admission and needs no extra round-trip on this hot
+        // teardown path. Both are accepted because a socket that shared to crew A
+        // and later joined crew B must still be able to stop A.
+        if (socket.data?.crewId !== crewId && socket.data?.sharingCrewId !== crewId) {
+          return respond({ ok: false });
+        }
+
         if (socket.data?.sharingCrewId === crewId) {
           delete socket.data.sharingCrewId;
           unregisterSharingSocket(redis, userId, socket.id).catch(() => {});

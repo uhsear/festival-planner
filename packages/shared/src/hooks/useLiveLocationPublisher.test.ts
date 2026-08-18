@@ -136,8 +136,9 @@ describe('useLiveLocationPublisher', () => {
     expect(onShareRejected).toHaveBeenCalledWith('NOT_A_MEMBER');
     expect(w.teardown).toHaveBeenCalledTimes(1);
     // The server never granted this share, so there is nothing to tell it to
-    // stop -- must NOT emit location:stop (that handler has no membership
-    // check, so firing it here would broadcast a false peer-stopped event).
+    // stop -- must NOT emit location:stop. The handler now refuses a stop for a
+    // crew the socket was never admitted to, so the emit would be a wasted
+    // round-trip rather than a false peer-stopped broadcast.
     expect(emit).not.toHaveBeenCalledWith('location:stop', expect.anything());
   });
 
