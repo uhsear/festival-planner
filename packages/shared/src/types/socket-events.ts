@@ -291,6 +291,8 @@ export interface ServerToClientEvents {
   'crew:member-joined': (data: CrewMemberEventPayload) => void;
   'crew:member-left': (data: CrewMemberEventPayload) => void;
   'crew:member-kicked': (data: { crewId: string; userId: string }) => void;
+  /** Sent only to the evicted member's own socket(s) — tear down that crew. */
+  'crew:access-revoked': (data: { crewId: string }) => void;
   'crew:member-added': (data: CrewMemberEventPayload) => void;
   'crew:member-removed': (data: CrewMemberEventPayload) => void;
   'crew:home-base-updated': (data: CrewHomeBaseUpdatedPayload) => void;

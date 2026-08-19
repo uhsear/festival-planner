@@ -157,6 +157,23 @@ function normalizeSameSite(value: any): 'strict' | 'lax' | 'none' {
 
 export type AppConfig = ReturnType<typeof loadConfig>;
 
+// Every real config key is SCREAMING_SNAKE_CASE. A camelCase override (e.g. "databaseUrl"
+// instead of "DATABASE_URL") is silently ignored by the `overrides.KEY ||` reads below and
+// falls back to process.env/defaults — in a test harness that can mean connecting to
+// production. Catch that whole class of typo loudly instead of one at a time.
+function assertNoMiscasedOverrides(overrides: Record<string, any>, resultKeys: readonly string[]) {
+  const knownKeys = new Set(resultKeys);
+  for (const key of Object.keys(overrides)) {
+    if (!/[a-z]/.test(key)) continue; // already SCREAMING_SNAKE_CASE
+    const screaming = key.replace(/([A-Z])/g, '_$1').toUpperCase();
+    if (screaming !== key && knownKeys.has(screaming)) {
+      throw new Error(
+        `loadConfig: override key "${key}" is not a real config key and is silently ignored — did you mean "${screaming}"?`,
+      );
+    }
+  }
+}
+
 export function loadConfig(overrides: Record<string, any> = {}): {
   NODE_ENV: string;
   PORT: number;
@@ -295,6 +312,24 @@ export function loadConfig(overrides: Record<string, any> = {}): {
   if (!process.env.DATABASE_URL && !overrides.DATABASE_URL && process.env.NODE_ENV === 'production') {
     throw new Error('DATABASE_URL environment variable is required in production. Set it in .env.');
   }
+  // The implicit fallback above points at localhost:5432. On a developer machine that port is
+  // routinely an SSH tunnel to PRODUCTION, so a test run that simply FORGETS to set DATABASE_URL
+  // silently aims mutating suites at real user data — mis-casing the key (caught above) is only
+  // one way to end up here. Refuse the implicit fallback whenever this looks like a test process.
+  // Node's own runner does not set NODE_ENV, so detect --test and TEST_DATABASE_URL as well.
+  if (!process.env.DATABASE_URL && !overrides.DATABASE_URL) {
+    const looksLikeTest =
+      process.env.NODE_ENV === 'test' ||
+      Boolean(process.env.TEST_DATABASE_URL) ||
+      process.execArgv.some((a) => a === '--test' || a.startsWith('--test-'));
+    if (looksLikeTest) {
+      throw new Error(
+        'loadConfig: refusing the implicit "postgresql://localhost/festival_planner" fallback in a test ' +
+          'process — localhost:5432 is a production tunnel on developer machines. Pass DATABASE_URL ' +
+          'explicitly (tests should use the same value as TEST_DATABASE_URL).',
+      );
+    }
+  }
   const publicOrigin = 'PUBLIC_ORIGIN' in overrides ? overrides.PUBLIC_ORIGIN || '' : process.env.PUBLIC_ORIGIN || '';
   const allowedOrigins = new Set([...readList(process.env.ALLOWED_ORIGINS), ...readList(overrides.ALLOWED_ORIGINS)]);
   if (publicOrigin) allowedOrigins.add(publicOrigin);
@@ -305,7 +340,7 @@ export function loadConfig(overrides: Record<string, any> = {}): {
   const maxUsers = readInt(overrides.MAX_USERS || process.env.MAX_USERS, DEFAULTS.MAX_USERS, 1);
   const avatarSize = readInt(overrides.AVATAR_SIZE || process.env.AVATAR_SIZE, DEFAULTS.AVATAR_SIZE, 32, 1024);
 
-  return {
+  const result = {
     NODE_ENV: nodeEnv,
     PORT: port,
     BIND_ADDRESS: overrides.BIND_ADDRESS || process.env.BIND_ADDRESS || '127.0.0.1',
@@ -667,4 +702,7 @@ export function loadConfig(overrides: Record<string, any> = {}): {
     // See ADR-004 for the CSRF/session security design rationale.
     SESSION_SECRET: overrides.SESSION_SECRET || process.env.SESSION_SECRET || '',
   };
+
+  assertNoMiscasedOverrides(overrides, Object.keys(result));
+  return result;
 }

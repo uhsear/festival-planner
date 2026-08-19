@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
+import { useRouter } from 'expo-router';
 import { createSocket } from '@festie/shared/services';
 // Import the Socket type from the shared barrel (which re-exports it) rather
 // than from 'socket.io-client' directly: socket.io-client is a dependency of
@@ -14,7 +15,7 @@ import {
   useCrewStore,
   useLiveLocationStore,
 } from '@festie/shared/stores';
-import { useCrewRealtime } from '@festie/shared/hooks';
+import { useCrewRealtime, useRevocationRealtime } from '@festie/shared/hooks';
 // createStoreSink lives in @festie/shared's realtime module, re-exported by the
 // package root barrel (src/index.ts). There is no dedicated `./realtime` subpath
 // export, so it is imported from the bare '@festie/shared' entry, which the
@@ -79,6 +80,16 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
   const getActiveCrewId = useCallback(() => useCrewStore.getState().activeCrew?.id ?? null, []);
   const crewSink = useMemo(() => createStoreSink(useCrewStore, useLiveLocationStore), []);
   useCrewRealtime({ socket: liveSocket, getActiveCrewId, sink: crewSink, joinRoom: true });
+
+  // ── Authorization revocation ────────────────────────────────────────────
+  // session:revoked / crew:access-revoked / crew:member-kicked. State teardown
+  // lives in @festie/shared; only the route-out is mobile-specific (mirrors the
+  // account screen's sign-out, which also router.replace's to the auth stack).
+  const router = useRouter();
+  useRevocationRealtime({
+    socket: liveSocket,
+    onSessionRevoked: () => router.replace('/(auth)/login'),
+  });
 
   // Debounce timers to coalesce bursty socket events into single store reloads.
   const debouncersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});

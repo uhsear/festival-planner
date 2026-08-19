@@ -253,6 +253,14 @@ jobs:
         with:
           node-cache: 'npm'
       - run: npm ci
+      - name: Lockfile integrity (blocking)
+        # The pnpm side already refuses exotic subdeps and downgrades via
+        # blockExoticSubdeps + trustPolicy in packages/pnpm-workspace.yaml; the npm
+        # root had no equivalent, so a lockfile entry silently repointed at a
+        # non-npm host would have gone unnoticed. Blocking on purpose: unlike a
+        # fresh CVE advisory, a resolved URL leaving the registry is never routine.
+        # Verified locally 2026-08-18 against the current lockfile: "No issues detected".
+        run: npx --yes lockfile-lint@4 --path package-lock.json --validate-https --allowed-hosts npm
       - name: npm audit (advisory — non-blocking)
         # Advisory only: the blocking owner of this check is security-audit.yml
         # (daily cron). Keeping it non-fatal here stops a fresh advisory from
