@@ -2,10 +2,14 @@
 # then run the Maestro smoke flow against it — automated iOS UI testing with NO Mac.
 # Run manually from Windows:  npx eas-cli@latest workflow:run .eas/workflows/e2e-ios.yml
 #
-# Scheduled Mon/Wed/Fri rather than nightly, ON PURPOSE: each run consumes one iOS
-# build and the EAS free tier allows 15 per month, so a nightly schedule (~30) would
-# overrun it while 3x/week (~13) fits. Still no `pull_request`/`push` trigger — an
-# iOS build per push would blow the same budget in a day.
+# Scheduled WEEKLY, and the frequency is a budget decision rather than a testing one.
+# Each run consumes one iOS build; the EAS free tier allows 15/month. Nightly (~30)
+# overruns it outright, and even 3x/week (~13) would leave almost nothing for actual
+# release builds — see packages/mobile/CLAUDE.md, which requires sign-off before
+# spending EAS credits. Weekly (~4/month) catches regressions while leaving ~11 for
+# releases. Raise it only if the owner decides the build budget is better spent here.
+# Still no `pull_request`/`push` trigger — an iOS build per push would exhaust the
+# month's allowance in a day.
 #
 # This is deliberately NOT a GitHub Actions job. GitHub-hosted macOS runners bill
 # private repos at a 10x minute multiplier ($0.062/min), whereas this runs on Expo's
@@ -18,7 +22,7 @@ name: e2e-ios
 
 on:
   schedule:
-    - cron: '17 7 * * 1,3,5'
+    - cron: '17 7 * * 1'
   workflow_dispatch: {}
 
 jobs:
