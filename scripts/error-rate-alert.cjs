@@ -23,6 +23,20 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 
+// Load .env. cron runs this as `cd <app> && node scripts/error-rate-alert.cjs`
+// with a bare environment, so without this every setting below silently fell
+// back to its default — including ALERT_WEBHOOK_URL, which is configured in
+// .env but was invisible here. Measured 2026-08-19: 1128 of 104507 log lines
+// were "No ALERT_WEBHOOK_URL configured", i.e. 1128 real alerts were computed
+// and then thrown away. Loading it here (rather than fixing the crontab) keeps
+// the fix in version control. Never overrides a var already set in the
+// environment, so an explicit override still wins.
+try {
+  require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+} catch {
+  // dotenv missing (or no .env present) — fall through to process.env only.
+}
+
 // ── Config ──
 const HEALTH_URL = process.env.HEALTH_URL || 'http://127.0.0.1:4000/api/health';
 const ALERT_WEBHOOK_URL = process.env.ALERT_WEBHOOK_URL || '';

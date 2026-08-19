@@ -71,6 +71,23 @@ function validateStartupConfig(config: any) {
 
 validateStartupConfig(_bootConfig);
 
+// Sentry. Position of this call is NOT what it looks like: this package is
+// "type": "module", so every import in this file is hoisted and evaluated
+// before any statement here runs. initSentry() therefore always runs AFTER
+// express has been imported, and Sentry logs on every boot:
+//   [Sentry] express is not instrumented …
+//
+// Measured 2026-08-18, so nobody re-derives it:
+//   * Error capture still WORKS. setupExpressErrorHandler (see below) is a plain
+//     express error middleware; a probe confirmed both route exceptions and
+//     direct captureException produce events. Sentry is NOT blind.
+//   * What is missing is the OpenTelemetry layer: tracing spans and per-request
+//     isolation/context on those events.
+//   * Sentry's documented ESM fix is `node --import ./instrument.mjs`. Both
+//     moving init into an early-imported module AND `tsx --import ./instrument.ts`
+//     were tried and neither silenced the warning — tsx installs its own ESM
+//     loader, which appears to defeat Sentry's import-in-the-middle hooks. Do not
+//     re-attempt either without new evidence; the blocker is tsx, not ordering.
 import { initSentry, sentry } from './lib/sentry';
 initSentry({ release: _bootConfig.APP_VERSION || 'dev' });
 

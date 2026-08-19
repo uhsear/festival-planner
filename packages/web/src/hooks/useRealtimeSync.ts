@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
+import { useNavigate } from '@tanstack/react-router';
 import { useSocket } from '@festie/shared/hooks/useSocket';
 import { useCrewRealtime } from '@festie/shared/hooks/useCrewRealtime';
+import { useRevocationRealtime } from '@festie/shared/hooks';
 import { useUIStore } from '@festie/shared/stores/uiStore';
 import { useFestivalStore } from '@festie/shared/stores/festivalStore';
 import { useCrewStore } from '@festie/shared/stores/crewStore';
@@ -86,6 +88,17 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
     getActiveCrewId,
     sink: crewSink,
     joinRoom: true,
+  });
+
+  // ── Authorization revocation (NOT flag-gated) ───────────────────────────
+  // session:revoked / crew:access-revoked / crew:member-kicked. State teardown
+  // lives in @festie/shared; only the navigation is web-specific.
+  const navigate = useNavigate();
+  useRevocationRealtime({
+    socket,
+    onSessionRevoked: () => {
+      void navigate({ to: '/login' });
+    },
   });
 
   // Set up Socket.IO event listeners

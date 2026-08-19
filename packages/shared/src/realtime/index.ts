@@ -3,3 +3,4 @@
 
 export * from './crewEventRouter';
 export * from './crewRealtimeSink';
+export * from './revocationHandlers';

@@ -246,12 +246,36 @@ describe('loadConfig: edge cases and defaults', () => {
     assert.equal(config.COOKIE_SECURE, false);
   });
 
-  it('DATABASE_URL defaults to localhost when not in production', () => {
+  // This used to assert that omitting DATABASE_URL silently yields
+  // 'postgresql://localhost/festival_planner'. That default is a trap: on a
+  // developer machine localhost:5432 is routinely an SSH tunnel to PRODUCTION,
+  // so a suite that merely forgot to set DATABASE_URL aimed mutating tests at
+  // real user data. loadConfig now refuses the implicit fallback in a test
+  // process, and this test pins that contract instead.
+  it('DATABASE_URL: the implicit localhost fallback is refused in a test process', () => {
     const saved = process.env.DATABASE_URL;
     delete process.env.DATABASE_URL;
     try {
-      const config = loadConfig({ PUBLIC_ORIGIN: '', NODE_ENV: 'development' });
-      assert.equal(config.DATABASE_URL, 'postgresql://localhost/festival_planner');
+      assert.throws(
+        () => loadConfig({ PUBLIC_ORIGIN: '', NODE_ENV: 'development' }),
+        /refusing the implicit .* fallback in a test process/,
+        'omitting DATABASE_URL under the test runner must fail loudly, not default to localhost',
+      );
+    } finally {
+      if (saved !== undefined) process.env.DATABASE_URL = saved;
+    }
+  });
+
+  it('DATABASE_URL: an explicitly supplied value is honoured', () => {
+    const saved = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    try {
+      const config = loadConfig({
+        PUBLIC_ORIGIN: '',
+        NODE_ENV: 'development',
+        DATABASE_URL: 'postgresql://explicit-host/explicit_db',
+      });
+      assert.equal(config.DATABASE_URL, 'postgresql://explicit-host/explicit_db');
     } finally {
       if (saved !== undefined) process.env.DATABASE_URL = saved;
     }

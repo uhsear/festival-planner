@@ -2,11 +2,14 @@
 import { defineConfig, mergeConfig } from 'vite';
 import viteConfig from './vite.config';
 
-// Coverage thresholds are set ~2-3 pts below current actuals (measured 2026-06-11):
+// Coverage thresholds are set ~2-3 pts below actuals measured 2026-06-11:
 //   statements=34.7%, branches=33.5%, functions=35.1%, lines=34.5%
-// They only enforce when COVERAGE=1 to avoid slowing ordinary local/CI runs.
-// The frontend-tests CI job does not pass --coverage; set COVERAGE=1 in that job
-// (or add a separate coverage step) to make the gate active.
+// They only enforce when COVERAGE=1, to avoid slowing ordinary local runs.
+// THE GATE IS LIVE IN CI: .github/workflows/ci.yml's frontend-tests job sets
+// COVERAGE: '1' and runs `pnpm --filter @festie/web test -- --coverage`, so these
+// thresholds do fail PRs. (An earlier version of this comment said the job did not
+// pass --coverage; that was wrong and made the gate look decorative.)
+// The numbers are stale as of 2026-08-18 — re-baseline them against a fresh run.
 const withThresholds = process.env.COVERAGE === '1';
 
 export default mergeConfig(

@@ -14,3 +14,54 @@ updates:
       actions:
         patterns:
           - "*"
+
+  # Application dependencies. Until 2026-08-18 this file covered ONLY
+  # github-actions, so npm/pnpm bumps happened solely when someone remembered —
+  # there was no automated flow for the runtime dependencies at all.
+  # Note: pnpm workspaces are declared under the `npm` ecosystem (Dependabot has
+  # no separate `pnpm` value). Groups are deliberately broad so the weekly PR
+  # count stays reviewable for a solo maintainer; security bumps still arrive
+  # individually and are not suppressed by grouping.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+    groups:
+      backend-prod:
+        dependency-type: production
+        patterns:
+          - "*"
+      backend-dev:
+        dependency-type: development
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directories:
+      - /packages/shared
+      - /packages/web
+      - /packages/mobile
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+    ignore:
+      # Expo pins the versions of its own SDK packages; bump these via
+      # `expo install --check` during a deliberate SDK upgrade, never piecemeal.
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "react-native"
+      - dependency-name: "@expo/*"
+    groups:
+      workspace-prod:
+        dependency-type: production
+        patterns:
+          - "*"
+      workspace-dev:
+        dependency-type: development
+        patterns:
+          - "*"

@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { after, describe, test } from 'node:test';
 import request from 'supertest';
 import { createFestivalPlanner } from '../server';
 
@@ -28,14 +28,20 @@ function assertEnvelopeError(body: any) {
 
 describe('API response shape contracts', () => {
   let app: any;
+  let planner: any;
 
   test('setup', async () => {
-    const result = await createFestivalPlanner({
-      databaseUrl: TEST_DATABASE_URL,
-      skipMigrations: false,
+    planner = await createFestivalPlanner({
+      DATABASE_URL: TEST_DATABASE_URL,
+      NODE_ENV: 'test',
+      REDIS_ENABLED: 'false',
       PUBLIC_ORIGIN: '',
     });
-    app = result.app;
+    app = planner.app;
+  });
+
+  after(async () => {
+    await planner?.close();
   });
 
   describe('envelope structure', () => {
