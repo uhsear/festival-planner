@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { validateStartupConfig } from '../server.js';
+import { isMissingTableError, validateStartupConfig } from '../server.js';
 
 
 // ---------------------------------------------------------------------------
@@ -206,5 +206,24 @@ describe('validateStartupConfig: combined scenarios', () => {
 
   it('minimal empty dev config passes (all fields missing)', () => {
     assert.doesNotThrow(() => validateStartupConfig({ NODE_ENV: 'development' }));
+  });
+});
+
+// ===========================================================================
+// 6. isMissingTableError — startup token purge race classifier
+// ===========================================================================
+describe('isMissingTableError', () => {
+  it('is true for Postgres 42P01 (undefined_table)', () => {
+    assert.equal(isMissingTableError({ code: '42P01', message: 'relation "refresh_tokens" does not exist' }), true);
+  });
+
+  it('is false for other Postgres error codes', () => {
+    assert.equal(isMissingTableError({ code: '23505', message: 'duplicate key' }), false);
+  });
+
+  it('is false for null/undefined/non-error values', () => {
+    assert.equal(isMissingTableError(null), false);
+    assert.equal(isMissingTableError(undefined), false);
+    assert.equal(isMissingTableError({}), false);
   });
 });

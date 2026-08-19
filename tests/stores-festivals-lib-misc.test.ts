@@ -604,6 +604,10 @@ describe('lib/socket-setup.js — allowRequest coverage', async () => {
       log: { info: mock.fn(), warn: mock.fn(), error: mock.fn(), debug: mock.fn() },
       redis: null,
       stores: {},
+      // configureSocketIO keys its connect rate limiter on getSocketRequestIp, not
+      // getRawRequestIp: behind the Cloudflare Tunnel the raw peer is 127.0.0.1 for
+      // every user, which collapsed the per-IP limit into one global bucket.
+      getSocketRequestIp: mock.fn(() => '203.0.113.10'),
       getRawRequestIp: mock.fn(() => '127.0.0.1'),
       isAllowedOrigin: mock.fn(() => true),
       consumeSocketConnectRateLimitAsync: mock.fn(async () => true),

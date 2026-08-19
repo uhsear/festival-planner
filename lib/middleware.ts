@@ -12,6 +12,7 @@ import type { Application } from 'express';
 import { createTracingMiddleware } from './tracing.js';
 import { mountSwaggerUI } from './swagger-ui-setup.js';
 import { default as createAuditMiddleware } from './audit-middleware.js';
+import { sentry } from './sentry.js';
 
 /**
  * Idempotency-Key middleware: caches the JSON response per `${userId||ip}:${key}`
@@ -132,6 +133,12 @@ function configureMiddleware(app: Application, ctx: any) {
 
   app.disable('x-powered-by');
   app.set('trust proxy', config.TRUST_PROXY);
+
+  // ── Sentry per-request isolation scope ──────────────────────────────────
+  // Mounted FIRST so its wrapped next() covers every middleware, route, and
+  // the error handler that follow (see lib/sentry.ts requestScope() for why
+  // this is needed instead of Sentry's normal auto-instrumentation).
+  app.use(sentry.requestScope());
 
   // ── Compression ───────────────────────────────────────────────────────
   app.use(

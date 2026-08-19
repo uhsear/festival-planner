@@ -87,15 +87,58 @@ const sentry = {
     try { Sentry.setTag(key, value); } catch { /* noop */ }
   },
   /**
+   * Per-request isolation scope. No-op passthrough when Sentry is disabled.
+   *
+   * Sentry's Node httpIntegration normally creates one isolation scope per
+   * request automatically, via import-in-the-middle patching of `http`. tsx
+   * installs its own ESM loader that defeats that patching (see server.ts),
+   * so nothing else does this here — without it, concurrent requests would
+   * read/write the SAME scope and bleed tags/user into each other's events.
+   * `withIsolationScope`/`getIsolationScope` only need AsyncLocalStorage,
+   * which tsx does NOT break, so this still isolates correctly per request.
+   *
+   * Mount FIRST in the middleware chain (see lib/middleware.ts) so its
+   * wrapped `next()` covers every later middleware, route, and the error
+   * handler below.
+   */
+  requestScope() {
+    return (_req: any, _res: any, next: any) => {
+      if (noop || !Sentry) return next();
+      Sentry.withIsolationScope(() => next());
+    };
+  },
+  /**
    * Wires Sentry's Express request+error capture directly onto `app` (no-op
    * if Sentry is unavailable). @sentry/node v8+ removed `Sentry.Handlers` —
    * the SDK now exposes a single `setupExpressErrorHandler(app)` that calls
    * `app.use()` itself, so this takes `app` rather than returning a
    * middleware for the caller to `.use()`. Call once, after all routes are
    * mounted and before any other error-handling middleware.
+   *
+   * Also mounts an error-handling middleware, just before Sentry's own, that
+   * attaches request attribution to the isolation scope opened by
+   * requestScope() above: an opaque user id (never email/username/IP), the
+   * request id + trace id, the route PATTERN (req.route.path — not the raw
+   * URL, which may contain ids), and the HTTP method. Reading these off
+   * `req` here (at error time) rather than eagerly means req.user is
+   * already set for authenticated routes (userAuth/adminAuth run earlier,
+   * before an error can reach this handler) and req.route is already
+   * matched.
    */
   setupExpressErrorHandler(app: any) {
     if (noop || !Sentry || typeof Sentry.setupExpressErrorHandler !== 'function') return;
+    app.use((err: any, req: any, _res: any, next: any) => {
+      try {
+        const scope = Sentry.getIsolationScope();
+        if (req?.user?.userId) scope.setUser({ id: String(req.user.userId) });
+        if (req?.id) scope.setTag('requestId', req.id);
+        if (req?.traceId) scope.setTag('traceId', req.traceId);
+        if (req?.method) scope.setTag('method', req.method);
+        const routePath = req?.route?.path ? `${req.baseUrl || ''}${req.route.path}` : undefined;
+        if (routePath) scope.setTag('route', routePath);
+      } catch { /* noop */ }
+      next(err);
+    });
     try { Sentry.setupExpressErrorHandler(app); } catch { /* noop */ }
   },
   /** Flush pending events before shutdown. */

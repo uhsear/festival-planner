@@ -48,6 +48,7 @@ describe('server.js module exports', () => {
       'collectInlineHashes',
       'createFestieApp',
       'createFestivalPlanner',
+      'isMissingTableError',
       'loadConfig',
       'validateStartupConfig',
     ]);

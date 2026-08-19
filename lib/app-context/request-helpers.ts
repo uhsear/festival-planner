@@ -72,6 +72,37 @@ export function createRequestHelpers({
     return 'unknown';
   }
 
+  /**
+   * Client IP for a raw Node IncomingMessage — i.e. the Socket.IO `allowRequest`
+   * handshake, which is NOT an Express request and so has no `req.get()`.
+   *
+   * Same trust model as getRequestIp: behind the trusted edge, believe only
+   * Cloudflare's `cf-connecting-ip` (Cloudflare overwrites it, and the origin
+   * binds to loopback so nothing reaches it except through the tunnel), then the
+   * raw socket peer. `x-forwarded-for` is never consulted — it is client-forgeable
+   * and would let a caller move its own rate-limit key.
+   *
+   * This exists because using getRawRequestIp here was a production bug: behind the
+   * Cloudflare Tunnel the socket peer is 127.0.0.1 for EVERY user, so the
+   * per-IP socket connect limiter collapsed into ONE shared bucket and capped the
+   * whole app at SOCKET_CONNECT_RATE_LIMIT new websockets per window. Measured
+   * 2026-08-19: connections from two different public IPs shared one 30/60s budget
+   * — a second machine was refused immediately after the first exhausted it, and
+   * connected fine once the window cleared.
+   */
+  function getSocketRequestIp(req: any) {
+    const candidates: any[] = [];
+    if (config.TRUST_PROXY) {
+      const cf = req.headers?.['cf-connecting-ip'];
+      candidates.push(Array.isArray(cf) ? cf[0] : cf);
+    }
+    candidates.push(req.socket?.remoteAddress, req.connection?.remoteAddress);
+    for (const candidate of candidates) {
+      if (candidate && net.isIP(candidate)) return candidate;
+    }
+    return 'unknown';
+  }
+
   function isAllowedOrigin(origin: any, host: any) {
     if (!origin) return true;
     try {
@@ -145,6 +176,7 @@ export function createRequestHelpers({
   return {
     getRequestIp,
     getRawRequestIp,
+    getSocketRequestIp,
     isAllowedOrigin,
     hasBearerToken,
     hasDirectAuthHeader,

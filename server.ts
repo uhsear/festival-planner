@@ -24,6 +24,17 @@ import { loadConfig as _loadConfigEarly } from './lib/config';
 const _bootConfig = _loadConfigEarly();
 
 /**
+ * True for Postgres "relation does not exist" (42P01) errors — the shape
+ * the startup token purge hits when it races ahead of the background
+ * migration runner (migrations apply async; the purge doesn't await them,
+ * see lib/planner-db-pg.ts). Used to keep that benign, self-healing race
+ * out of the warn-level boot log.
+ */
+function isMissingTableError(err: any): boolean {
+  return !!err && err.code === '42P01';
+}
+
+/**
  * Startup configuration validator.
  * Fails fast on misconfiguration before any middleware/socket/DB init runs.
  * Called immediately after loadConfig() at boot time.
@@ -403,6 +414,16 @@ async function createFestieApp(overrides: any = {}) {
         });
       })
       .catch((err: any) => {
+        // Migrations run asynchronously in the background (see the
+        // `migrationsReady` promise in lib/planner-db-pg.ts) and this purge
+        // does not wait on them, so on a fresh boot it can race ahead of the
+        // migration that creates these tables. That's expected and
+        // self-heals on the very next boot — not a real failure, so don't
+        // warn. Anything else (bad connection, permissions, etc.) is real.
+        if (isMissingTableError(err)) {
+          log.info('startup token purge skipped: table not ready yet', { error: err.message });
+          return;
+        }
         log.warn('startup token purge failed', { error: err.message });
       });
   }
@@ -554,6 +575,7 @@ export {
   collectInlineHashes,
   createFestieApp,
   createFestieApp as createFestivalPlanner, // backward compat alias
+  isMissingTableError,
   loadConfig,
   validateStartupConfig,
 };

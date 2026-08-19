@@ -109,9 +109,27 @@ export default function createExportRoutes(deps: any) {
     }
   }
 
-  for (let i = 0; i < POOL_SIZE; i++) {
-    const entry = _createPoolWorker();
-    if (entry) workerPool.push(entry);
+  // Running from TypeScript source (tsx in dev AND in production — this app has
+  // no JS build step) means the worker pool CANNOT work, so do not attempt it.
+  // A worker thread does not inherit tsx's ESM loader, and the
+  // `--experimental-strip-types` execArgv above does not help: stripping types
+  // does not change module RESOLUTION, so the worker's
+  // `import ... from './helpers/export-utils.js'` looks for a .js file that does
+  // not exist (the file is .ts) and dies with ERR_MODULE_NOT_FOUND.
+  //
+  // The error path below already falls back to inline export, so exports have
+  // always WORKED — but each attempt threw first. Sentry recorded 286 of these
+  // between 2026-05-29 and 2026-08-19, and they were the single loudest error in
+  // production. Skipping the doomed spawn changes no behaviour and removes the
+  // noise. The pool still builds normally for the bundled .js entry.
+  if (EXPORT_WORKER_PATH.href.endsWith('.ts')) {
+    useInlineExport = true;
+    log.info('export: running from TS source — using inline export (worker threads cannot load .ts)');
+  } else {
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const entry = _createPoolWorker();
+      if (entry) workerPool.push(entry);
+    }
   }
   if (deps.state && deps.state.shutdownCallbacks) {
     deps.state.shutdownCallbacks.push(() => workerPool.forEach(e => e.worker.terminate()));
