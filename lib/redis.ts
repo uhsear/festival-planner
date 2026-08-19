@@ -7,11 +7,64 @@ const REDIS_URL = _cfg.REDIS_URL;
 const REDIS_PREFIX = _cfg.REDIS_PREFIX;
 const REDIS_ENABLED = _cfg.REDIS_ENABLED;
 
+// ─── Connection tuning ───────────────────────────────────────────────────────
+
+/**
+ * Hard ceiling on how long any single Redis command may stay unsettled.
+ * Healthy p99 for this deployment is single-digit milliseconds, so 1.5s is
+ * ~200x headroom while still covering several reconnect attempts.
+ */
+const COMMAND_TIMEOUT_MS = 1500;
+
+/**
+ * Reconnect backoff: linear ramp capped at 5s that NEVER gives up.
+ * The previous strategy returned null after 10 attempts, which puts the client
+ * in the terminal "end" state — a 15-second Redis restart would then disable
+ * rate limiting, presence and the Socket.IO adapter until the worker itself was
+ * restarted. A backend worker outlives any Redis restart, so it must keep
+ * trying. Always non-negative, always <= 5000, never null.
+ */
+function redisRetryDelay(times: number): number {
+  return Math.min(Math.max(1, times) * 200, 5000);
+}
+
+/**
+ * Reconnect — but never resend — when the server answers READONLY, i.e. this
+ * connection now points at a replica after a failover.
+ * Returning 2 (reconnect AND resend) is unsafe here: our Redis traffic is
+ * INCR/HSET, not idempotent reads, so a resent rate-limit INCR double-counts.
+ */
+function shouldReconnectOnError(err: Error): boolean {
+  return /READONLY/i.test(err?.message ?? '');
+}
+
+/**
+ * Connection-level failures expected during a Redis restart or failover.
+ * retryStrategy is already handling these, so they are warn-worthy, not
+ * error-worthy — logging every reconnect attempt at error level buries the
+ * real bugs (this is what produced the repeated prod noise).
+ */
+const TRANSIENT_REDIS_ERROR_CODES = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EPIPE',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+]);
+
+function isTransientRedisError(err: any): boolean {
+  if (!err) return false;
+  if (err.code && TRANSIENT_REDIS_ERROR_CODES.has(err.code)) return true;
+  return /Connection is closed|Command timed out|READONLY/i.test(err.message ?? '');
+}
+
 /**
  * Create a Redis client (or null if disabled).
- * SECURITY: Redis client has built-in failover via ioredis retry strategy.
- * When Redis is unavailable, the client will retry up to 10 times with exponential backoff.
- * Callers must implement fallback logic to in-memory storage when Redis operations fail.
+ * SECURITY: every Redis-backed subsystem must still fail OPEN when this client
+ * cannot reach the server — see createRedisRateLimiter, redisRateCheck and
+ * createRedisCircuitBreaker. The options below are chosen so those catch blocks
+ * are reachable in bounded time rather than being bypassed by a hung promise.
  */
 function createRedisClient(opts: any = {}): Redis | null {
   const enabled = opts.enabled !== undefined ? opts.enabled : REDIS_ENABLED;
@@ -19,18 +72,52 @@ function createRedisClient(opts: any = {}): Redis | null {
 
   const log = opts.log || { info() {}, warn() {}, error() {} };
   const client = new Redis(REDIS_URL, {
-    maxRetriesPerRequest: 3,
-    retryStrategy(times: number) {
-      if (times > 10) return null; // stop retrying after 10 attempts
-      return Math.min(times * 200, 5000); // exponential backoff with 5s max
-    },
+    // WHY THESE OPTIONS — single-worker backend where Redis backs rate
+    // limiting, sessions, the Socket.IO adapter, presence and the
+    // live-location cache:
+    //
+    // maxRetriesPerRequest: null — the ioredis default of 3 makes ioredis flush
+    //   the entire command queue with MaxRetriesPerRequestError from its own
+    //   `close` handler on every 4th reconnect attempt. Those rejections land
+    //   on callers that do not all have a catch (presence writes, adapter
+    //   publishes) and surfaced in production as unhandled rejections. null
+    //   hands reconnect ownership to retryStrategy; commandTimeout below is
+    //   what guarantees a command still settles.
+    // enableOfflineQueue: FALSE — deliberately off, and it must stay off while
+    //   maxRetriesPerRequest is null. Buffering looks attractive (a short blip
+    //   becomes invisible) but the two options interact badly:
+    //     * commandTimeout rejects the CALLER after 1.5s, but ioredis never
+    //       splices the timed-out command out of offlineQueue
+    //       (Command.js only calls this.reject()).
+    //     * the periodic flushQueue(MaxRetriesPerRequestError) that used to
+    //       drain that queue is guarded by
+    //       `typeof maxRetriesPerRequest === "number"`, so null disables it.
+    //   Together those make the queue grow unbounded for the length of an
+    //   outage and then REPLAY the whole backlog on reconnect — stale rate-limit
+    //   INCRs and stale presence writes applied minutes late. Failing fast is
+    //   strictly better here because every consumer already fails open:
+    //   lib/redis.ts:171-173/:349-351/:388-389 return { limited:false,
+    //   fallback:true } and lib/presence.ts:15/32/42 all catch. A dropped
+    //   presence tick self-heals on the next one; a replayed one lies.
+    // commandTimeout — still the backstop for the connected-but-wedged case, so
+    //   a command always settles and the fail-open catches engage.
+    // retryStrategy / reconnectOnError — see the functions above.
+    maxRetriesPerRequest: null,
+    enableOfflineQueue: false,
+    commandTimeout: COMMAND_TIMEOUT_MS,
+    retryStrategy: redisRetryDelay,
+    reconnectOnError: shouldReconnectOnError,
     lazyConnect: false,
     enableReadyCheck: true,
     keyPrefix: REDIS_PREFIX,
   });
 
   client.on('connect', () => log.info('redis connected', { url: REDIS_URL.replace(/\/\/.*@/, '//***@') }));
-  client.on('error', (err: any) => log.error('redis error', { error: err.message }));
+  client.on('error', (err: any) => {
+    // Expected reconnect churn is a warn; anything else is a real error.
+    const level = isTransientRedisError(err) ? 'warn' : 'error';
+    log[level]('redis error', { error: err.message, code: err.code });
+  });
   client.on('close', () => log.warn('redis connection closed'));
 
   return client;
@@ -40,11 +127,15 @@ function createRedisClient(opts: any = {}): Redis | null {
  * Create a duplicate Redis client for Socket.IO adapter (needs two connections).
  */
 function duplicateClient(client: Redis): Redis {
-  // Socket.IO adapter + pub/sub clients must use maxRetriesPerRequest: null
-  // so ioredis retries via retryStrategy instead of throwing
-  // MaxRetriesPerRequestError (which becomes an unhandled rejection inside
-  // the adapter and crashes the worker).
+  // maxRetriesPerRequest: null is now inherited from the parent, but keep it
+  // explicit — an adapter/pub-sub client must never throw
+  // MaxRetriesPerRequestError, which becomes an unhandled rejection inside the
+  // adapter and crashes the worker.
   const dup = client.duplicate({ maxRetriesPerRequest: null });
+  // Swallowed on purpose: this connection targets the same server as the
+  // parent, whose `error` handler already logs every connectivity failure.
+  // Logging here only duplicates it. The listener itself is required — an
+  // ioredis client with no `error` listener throws on emit.
   dup.on('error', () => {});
   return dup;
 }
@@ -162,7 +253,11 @@ function createCacheInvalidationBus(redis: Redis | null, { log, onInvalidateUser
   // Must use maxRetriesPerRequest: null so ioredis retries via retryStrategy
   // instead of throwing MaxRetriesPerRequestError (unhandled rejection → crash).
   const sub = redis.duplicate({ maxRetriesPerRequest: null });
-  sub.on('error', (err: any) => log.error('cache-bus subscriber error', { error: err.message }));
+  sub.on('error', (err: any) => {
+    // Same rule as the primary client: reconnect churn is warn, not error.
+    const level = isTransientRedisError(err) ? 'warn' : 'error';
+    log[level]('cache-bus subscriber error', { error: err.message, code: err.code });
+  });
 
   sub.subscribe(CHANNEL_USERS, CHANNEL_FESTIVALS, (err: any) => {
     if (err) {
@@ -312,6 +407,11 @@ export {
   createCacheInvalidationBus,
   createRedisCircuitBreaker,
   redisRateCheck,
+  // Exported for tests — pure connection-tuning helpers, no Redis required.
+  redisRetryDelay,
+  shouldReconnectOnError,
+  isTransientRedisError,
+  COMMAND_TIMEOUT_MS,
   REDIS_ENABLED,
   REDIS_PREFIX,
 };

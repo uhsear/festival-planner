@@ -28,6 +28,10 @@ describe('config: DEFAULTS object', () => {
     assert.equal(DEFAULTS.MAX_STAGES, 20);
     assert.equal(DEFAULTS.MAX_DAYS, 10);
     assert.equal(DEFAULTS.MAX_SETS_PER_DAY, 200);
+    // Shared festival wifi/CGNAT put many real users behind one IP; must stay
+    // generous so a silent regression doesn't throttle legitimate crews.
+    assert.equal(DEFAULTS.SOCKET_CONNECT_RATE_LIMIT, 300);
+    assert.equal(DEFAULTS.SOCKET_CONNECT_WINDOW, 60000);
   });
 
   it('has string defaults', () => {

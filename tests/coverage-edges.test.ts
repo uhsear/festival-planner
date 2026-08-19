@@ -17,7 +17,7 @@ import 'dotenv/config';
 import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
-import { describe, test } from 'node:test';
+import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -502,6 +502,27 @@ describe('Notification Service — markRead / retryQueue / isConfigured', () => 
 // ════════════════════════════════════════════════════════════════════════
 // lib/spotify edge cases
 // ════════════════════════════════════════════════════════════════════════
+
+// The three tests below make REAL HTTPS calls to accounts.spotify.com. When the
+// runner is started with --test-force-exit (which `npm test` uses), node calls
+// process.exit() the instant the last test resolves. On Windows that raced the
+// still-in-flight TLS teardown for those connections: the threadpool posted a
+// completion back to a libuv async handle the exiting loop had already begun
+// closing, and libuv aborted the whole runner with
+//   Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), .../win/async.c:76
+// — after all 65 tests had passed. Releasing undici's pooled connections is not
+// enough on its own (verified: dispatcher.close() alone still aborted 5/5 runs);
+// the loop needs a slice of wall-clock to finish the teardown it has started.
+// So: release the sockets, then yield long enough for libuv to drain them.
+after(async () => {
+  const dispatcher: any = (globalThis as any)[Symbol.for('undici.globalDispatcher.1')];
+  if (typeof dispatcher?.close === 'function') await dispatcher.close();
+  // ponytail: fixed drain, not a handle poll — the pending work is threadpool
+  // TLS teardown and is not visible in process._getActiveHandles(), so there is
+  // nothing to poll on. 250ms is 5x the smallest reliable value measured here
+  // (50ms was 0/5, 10ms was 4/5). Raise it if this ever flakes on slower CI.
+  await new Promise((resolve) => setTimeout(resolve, 250));
+});
 
 describe('lib/spotify edge cases', () => {
   test('getToken throws on empty credentials', async () => {

@@ -61,6 +61,77 @@ describe('request-helpers: module constants', () => {
   });
 });
 
+// ─── getSocketRequestIp ──────────────────────────────────────────────────────
+// Regression cover for a production bug measured 2026-08-19: the Socket.IO
+// allowRequest handler used getRawRequestIp, which reads only the TCP peer.
+// Behind the Cloudflare Tunnel that is 127.0.0.1 for EVERY user, so the per-IP
+// socket connect limiter collapsed into one shared bucket and capped the whole
+// app at SOCKET_CONNECT_RATE_LIMIT new websockets per window. Proven live: a
+// second machine on a different public IP was refused immediately after the
+// first exhausted the window, then connected once the window cleared.
+//
+// NOTE: the handshake req is a raw Node IncomingMessage — no req.get() — so
+// these mocks deliberately expose headers only.
+describe('request-helpers: getSocketRequestIp', () => {
+  const socketReq = (headers: any, remoteAddress?: string) => ({
+    headers,
+    socket: remoteAddress ? { remoteAddress } : {},
+  });
+
+  it('uses cf-connecting-ip behind the trusted edge, NOT the loopback tunnel peer', () => {
+    const helpers = makeHelpers({ TRUST_PROXY: true });
+    const req = socketReq({ 'cf-connecting-ip': '203.0.113.9' }, '127.0.0.1');
+    assert.equal(helpers.getSocketRequestIp(req), '203.0.113.9');
+  });
+
+  it('distinguishes two users arriving through the same tunnel', () => {
+    // The actual bug: both of these returned 127.0.0.1 and shared one budget.
+    const helpers = makeHelpers({ TRUST_PROXY: true });
+    const a = helpers.getSocketRequestIp(socketReq({ 'cf-connecting-ip': '198.51.100.1' }, '127.0.0.1'));
+    const b = helpers.getSocketRequestIp(socketReq({ 'cf-connecting-ip': '198.51.100.2' }, '127.0.0.1'));
+    assert.notEqual(a, b, 'two clients behind the tunnel must not share a rate-limit key');
+  });
+
+  it('works without req.get() — the handshake is not an Express request', () => {
+    const helpers = makeHelpers({ TRUST_PROXY: true });
+    const req: any = socketReq({ 'cf-connecting-ip': '203.0.113.5' }, '127.0.0.1');
+    assert.equal(typeof req.get, 'undefined');
+    assert.doesNotThrow(() => helpers.getSocketRequestIp(req));
+  });
+
+  it('never trusts x-forwarded-for (a client must not move its own key)', () => {
+    const helpers = makeHelpers({ TRUST_PROXY: true });
+    const req = socketReq({ 'x-forwarded-for': '9.9.9.9' }, '203.0.113.7');
+    assert.equal(helpers.getSocketRequestIp(req), '203.0.113.7');
+  });
+
+  it('takes the first value if cf-connecting-ip arrives as an array', () => {
+    const helpers = makeHelpers({ TRUST_PROXY: true });
+    const req = socketReq({ 'cf-connecting-ip': ['203.0.113.4', '10.0.0.1'] }, '127.0.0.1');
+    assert.equal(helpers.getSocketRequestIp(req), '203.0.113.4');
+  });
+
+  it('ignores cf-connecting-ip when TRUST_PROXY is false (local dev, no edge)', () => {
+    const helpers = makeHelpers({ TRUST_PROXY: false });
+    const req = socketReq({ 'cf-connecting-ip': '203.0.113.9' }, '198.51.100.20');
+    assert.equal(helpers.getSocketRequestIp(req), '198.51.100.20');
+  });
+
+  it('falls back to the socket peer when cf-connecting-ip is absent or malformed', () => {
+    const helpers = makeHelpers({ TRUST_PROXY: true });
+    assert.equal(helpers.getSocketRequestIp(socketReq({}, '198.51.100.30')), '198.51.100.30');
+    assert.equal(
+      helpers.getSocketRequestIp(socketReq({ 'cf-connecting-ip': 'not-an-ip' }, '198.51.100.31')),
+      '198.51.100.31',
+    );
+  });
+
+  it('returns "unknown" when nothing usable is present', () => {
+    const helpers = makeHelpers({ TRUST_PROXY: true });
+    assert.equal(helpers.getSocketRequestIp({ headers: {}, socket: {} }), 'unknown');
+  });
+});
+
 // ─── getRequestIp ────────────────────────────────────────────────────────────
 
 describe('request-helpers: getRequestIp', () => {

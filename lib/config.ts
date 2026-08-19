@@ -16,7 +16,24 @@ export const DEFAULTS = {
   SESSION_CLEANUP_INTERVAL_MS: 60_000,
   SESSION_TTL: 24 * 60 * 60 * 1000,
   SOCKET_CONNECT_WINDOW: 60_000,
-  SOCKET_CONNECT_RATE_LIMIT: 30,
+  // Shared festival wifi (NAT) and mobile carrier CGNAT put dozens of distinct
+  // real users behind one IP, so a per-IP connect limit must stay generous or it
+  // throttles exactly the scenario this product exists for. Raised 30 -> 300 on
+  // 2026-08-19.
+  //
+  // Honest note on what does and does not backstop this: the real control is the
+  // 5s post-connect auth timeout (lib/socket-setup.ts AUTH_TIMEOUT_MS), which
+  // disconnects any socket that never joins a festival room. There is NO general
+  // per-user concurrent-socket cap — registerSharingSocket caps concurrent
+  // LIVE-LOCATION sharing only, not connections. So the worst case here is ~25
+  // unauthenticated sockets per IP alive at once (300/min each held <=5s).
+  // Bounded and modest, but it IS a widening; tighten via env if abuse appears.
+  //
+  // Read together with the 2026-08-19 handshake fix: this limiter used to key on
+  // the raw TCP peer, which behind the Cloudflare Tunnel is 127.0.0.1 for EVERY
+  // user, so the cap was effectively global. It is now per real client IP, which
+  // means this 10x raise compounds with that repair.
+  SOCKET_CONNECT_RATE_LIMIT: 300,
   SOCKET_HEADERS_TIMEOUT: 66_000,
   SOCKET_KEEPALIVE_TIMEOUT: 65_000,
   SOCKET_MAX_HTTP_BUFFER: 100_000,

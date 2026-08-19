@@ -16,7 +16,7 @@ import { duplicateClient } from './redis.js';
 function configureSocketIO(app: Application, ctx: any) {
   const {
     config, log, redis, stores,
-    getRawRequestIp, isAllowedOrigin,
+    getSocketRequestIp, isAllowedOrigin,
     consumeSocketConnectRateLimitAsync,
     buildAvatarUrl, getUserById,
     hashSessionToken,
@@ -37,7 +37,11 @@ function configureSocketIO(app: Application, ctx: any) {
       credentials: true,
     },
     allowRequest: async (req: any, callback: any) => {
-      const ip = getRawRequestIp(req);
+      // getSocketRequestIp, NOT getRawRequestIp: behind the Cloudflare Tunnel the
+      // raw socket peer is 127.0.0.1 for every user, which collapsed this per-IP
+      // limiter into a single shared bucket and capped the WHOLE app at
+      // SOCKET_CONNECT_RATE_LIMIT new websockets per window (300/60s by default).
+      const ip = getSocketRequestIp(req);
       const withinLimit = await consumeSocketConnectRateLimitAsync(ip);
       if (!withinLimit) {
         callback('Connection rate limit exceeded', false);

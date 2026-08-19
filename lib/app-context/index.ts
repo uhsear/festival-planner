@@ -287,6 +287,7 @@ async function createAppContext(overrides: any = {}): Promise<AppContext> {
   const {
     getRequestIp,
     getRawRequestIp,
+    getSocketRequestIp,
     isAllowedOrigin,
     hasBearerToken,
     hasDirectAuthHeader,
@@ -470,6 +471,7 @@ async function createAppContext(overrides: any = {}): Promise<AppContext> {
     // Request helpers
     getRequestIp,
     getRawRequestIp,
+    getSocketRequestIp,
     isAllowedOrigin,
     enforceAllowedOrigin,
     hasBearerToken,

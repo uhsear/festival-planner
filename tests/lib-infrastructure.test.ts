@@ -1,5 +1,7 @@
 import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import express from 'express';
+import request from 'supertest';
 import {
   generateTraceId,
   resolveTraceId,
@@ -233,6 +235,13 @@ describe('lib/sentry.js', () => {
       assert.equal(fakeApp.use.mock.calls.length, 0);
     });
 
+    it('requestScope() is a passthrough no-op that never throws', () => {
+      const mw = sentryModule.sentry.requestScope();
+      let nextCalled = false;
+      assert.doesNotThrow(() => mw({}, {}, () => { nextCalled = true; }));
+      assert.ok(nextCalled);
+    });
+
     it('close resolves without error', async () => {
       await assert.doesNotReject(() => sentryModule.sentry.close(100));
     });
@@ -243,20 +252,127 @@ describe('lib/sentry.js', () => {
   });
 
   describe('setupExpressErrorHandler — wires the real SDK once Sentry is available (regression for the removed Handlers API)', () => {
-    it("registers Sentry's real Express middleware when Sentry has actually initialized", () => {
+    it("registers our request-context middleware plus Sentry's real Express middleware when Sentry has actually initialized", () => {
       sentryModule.initSentry({ dsn: 'https://fake@sentry.io/1' });
       assert.equal(sentryModule.sentry.available, true); // sanity: prove Sentry is NOT in noop mode for this test
 
       const fakeApp = { use: mock.fn() };
       sentryModule.sentry.setupExpressErrorHandler(fakeApp);
 
-      // @sentry/node's real setupExpressErrorHandler(app) calls app.use()
-      // exactly twice (request-metadata middleware, then the capturing
-      // error middleware) — verified directly against installed
+      // Call 0 is our own request-context error middleware (4-arg), mounted
+      // before @sentry/node's real setupExpressErrorHandler(app), which
+      // itself calls app.use() twice (request-metadata middleware, then the
+      // capturing error middleware) — verified directly against installed
       // node_modules/@sentry/core source.
-      assert.equal(fakeApp.use.mock.calls.length, 2);
+      assert.equal(fakeApp.use.mock.calls.length, 3);
       assert.equal(typeof fakeApp.use.mock.calls[0]!.arguments[0], 'function');
+      assert.equal(fakeApp.use.mock.calls[0]!.arguments[0].length, 4); // (err, req, res, next)
       assert.equal(typeof fakeApp.use.mock.calls[1]!.arguments[0], 'function');
+      assert.equal(typeof fakeApp.use.mock.calls[2]!.arguments[0], 'function');
+    });
+  });
+
+  // ── Request/user attribution (Task 2) ──────────────────────────────────
+  // Full end-to-end wiring through a real Express app + supertest, with a
+  // custom Sentry transport standing in for the network, so we assert on the
+  // actual captured event Sentry would send — not a hand-rolled shape.
+  describe('request scope + error attribution', () => {
+    function makeApp(sentryModule: any) {
+      // Collect every envelope sent, not just the last one: Sentry's default
+      // session-tracking integration also sends periodic 'sessions' envelopes
+      // on flush(), interleaved with our 'event' envelope.
+      const sent: any[] = [];
+      sentryModule.initSentry({
+        dsn: 'https://fake@sentry.io/1',
+        extra: {
+          transport: () => ({
+            send: async (envelope: any) => { sent.push(envelope); return {}; },
+            flush: async () => true,
+          }),
+        },
+      });
+
+      const app = express();
+      app.use(sentryModule.sentry.requestScope());
+      app.use((req: any, _res: any, next: any) => {
+        req.id = 'req-123';
+        req.traceId = 'trace-abc';
+        next();
+      });
+      app.get('/api/v1/crews/:crewId/members', (req: any, _res: any, next: any) => {
+        req.user = { userId: 'user-42', username: 'shouldnotleak', email: 'shouldnotleak@example.com' };
+        // Sentry's built-in Dedupe integration drops consecutive captures of
+        // an identical message+stack, which would otherwise suppress this
+        // across the several tests below that all hit this same route —
+        // a unique message per call sidesteps that (not a workaround for
+        // anything this task's logic does).
+        next(new Error(`boom-${Math.random()}`));
+      });
+      app.get('/api/v1/anon', (_req: any, _res: any, next: any) => {
+        next(new Error(`anon-boom-${Math.random()}`));
+      });
+      sentryModule.sentry.setupExpressErrorHandler(app);
+      app.use((_err: any, _req: any, res: any, _next: any) => {
+        res.status(500).json({ ok: false });
+      });
+
+      async function getCapturedEvent() {
+        await sentryModule.sentry.raw.flush(500);
+        for (const envelope of sent) {
+          const eventItem = envelope[1].find(([hdr]: any) => hdr.type === 'event');
+          if (eventItem) return eventItem[1];
+        }
+        return null;
+      }
+      return { app, getCapturedEvent };
+    }
+
+    it('attaches an opaque user id, request id, trace id, route pattern, and HTTP method for an authenticated request', async () => {
+      const { app, getCapturedEvent } = makeApp(sentryModule);
+      const res = await request(app).get('/api/v1/crews/crew-1/members');
+      assert.equal(res.status, 500);
+
+      const event = await getCapturedEvent();
+      assert.ok(event, 'expected an event to have been captured');
+      assert.deepEqual(event.user, { id: 'user-42' });
+      assert.equal(event.tags.requestId, 'req-123');
+      assert.equal(event.tags.traceId, 'trace-abc');
+      assert.equal(event.tags.method, 'GET');
+      // Route PATTERN, not the raw URL with the crew id interpolated in.
+      assert.equal(event.tags.route, '/api/v1/crews/:crewId/members');
+    });
+
+    it('attaches no user (and no throw) for an anonymous/unauthenticated request', async () => {
+      const { app, getCapturedEvent } = makeApp(sentryModule);
+      const res = await request(app).get('/api/v1/anon');
+      assert.equal(res.status, 500);
+
+      const event = await getCapturedEvent();
+      assert.ok(event, 'expected an event to have been captured');
+      assert.equal(event.user, undefined);
+      assert.equal(event.tags.route, '/api/v1/anon');
+    });
+
+    it('never attaches PII fields (email, username, ip) — user carries only an opaque id', async () => {
+      const { app, getCapturedEvent } = makeApp(sentryModule);
+      await request(app).get('/api/v1/crews/crew-1/members');
+
+      const event = await getCapturedEvent();
+      assert.deepEqual(Object.keys(event.user), ['id']);
+      assert.equal(event.user.email, undefined);
+      assert.equal(event.user.username, undefined);
+      assert.equal(event.user.ip_address, undefined);
+    });
+
+    it('keeps the existing cookie/authorization header scrubbing from beforeSend', async () => {
+      const { app, getCapturedEvent } = makeApp(sentryModule);
+      await request(app).get('/api/v1/anon').set('Cookie', 'session=secret').set('Authorization', 'Bearer secret');
+
+      const event = await getCapturedEvent();
+      if (event.request?.headers) {
+        assert.equal(event.request.headers.cookie, undefined);
+        assert.equal(event.request.headers.authorization, undefined);
+      }
     });
   });
 });

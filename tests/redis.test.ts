@@ -9,6 +9,10 @@ import {
   createCacheInvalidationBus,
   createRedisCircuitBreaker,
   redisRateCheck,
+  redisRetryDelay,
+  shouldReconnectOnError,
+  isTransientRedisError,
+  COMMAND_TIMEOUT_MS,
   REDIS_ENABLED,
   REDIS_PREFIX,
 } from '../lib/redis.js';
@@ -510,5 +514,105 @@ describe('redis: redisRateCheck', () => {
     const result = await redisRateCheck(redis, 'k1', 10, 60000);
     assert.equal(result.limited, false);
     assert.equal(result.fallback, true);
+  });
+});
+
+// ─── Connection tuning (pure helpers) ────────────────────────────────────────
+
+describe('redis: redisRetryDelay', () => {
+  it('never returns null — the client must not enter the terminal end state', () => {
+    for (const times of [1, 5, 10, 11, 100, 10_000]) {
+      assert.equal(typeof redisRetryDelay(times), 'number');
+    }
+  });
+
+  it('is non-negative and capped at 5000ms', () => {
+    for (const times of [-5, 0, 1, 2, 24, 25, 26, 1000]) {
+      const delay = redisRetryDelay(times);
+      assert.ok(delay >= 0, `delay ${delay} for attempt ${times} is negative`);
+      assert.ok(delay <= 5000, `delay ${delay} for attempt ${times} exceeds the 5s cap`);
+    }
+  });
+
+  it('backs off monotonically until it saturates', () => {
+    assert.equal(redisRetryDelay(1), 200);
+    assert.equal(redisRetryDelay(2), 400);
+    assert.equal(redisRetryDelay(25), 5000);
+    assert.equal(redisRetryDelay(26), 5000);
+    let prev = 0;
+    for (let times = 1; times <= 40; times++) {
+      const delay = redisRetryDelay(times);
+      assert.ok(delay >= prev, `attempt ${times} backed off less than attempt ${times - 1}`);
+      prev = delay;
+    }
+  });
+
+  it('treats a zero/negative attempt count as the first attempt', () => {
+    assert.equal(redisRetryDelay(0), 200);
+    assert.equal(redisRetryDelay(-3), 200);
+  });
+});
+
+describe('redis: shouldReconnectOnError', () => {
+  it('reconnects on READONLY (replica after failover)', () => {
+    assert.equal(shouldReconnectOnError(new Error('READONLY You can not write against a read only replica.')), true);
+    assert.equal(shouldReconnectOnError(new Error('-readonly')), true);
+  });
+
+  it('does not reconnect on ordinary command errors', () => {
+    assert.equal(shouldReconnectOnError(new Error('WRONGTYPE Operation against a key holding the wrong kind of value')), false);
+    assert.equal(shouldReconnectOnError(new Error('ERR unknown command')), false);
+  });
+
+  it('returns a boolean (never 2) so the failed command is not resent', () => {
+    // Resending would double-count a rate-limit INCR.
+    assert.equal(typeof shouldReconnectOnError(new Error('READONLY')), 'boolean');
+  });
+
+  it('tolerates a malformed error object', () => {
+    assert.equal(shouldReconnectOnError(undefined as any), false);
+    assert.equal(shouldReconnectOnError({} as any), false);
+  });
+});
+
+describe('redis: isTransientRedisError', () => {
+  it('classifies connection-level codes as transient (warn, not error)', () => {
+    for (const code of ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE', 'ENOTFOUND', 'EAI_AGAIN']) {
+      const err: any = new Error('connect failed');
+      err.code = code;
+      assert.equal(isTransientRedisError(err), true, `${code} should be transient`);
+    }
+  });
+
+  it('classifies reconnect-window messages as transient', () => {
+    assert.equal(isTransientRedisError(new Error('Connection is closed.')), true);
+    assert.equal(isTransientRedisError(new Error('Command timed out')), true);
+    assert.equal(isTransientRedisError(new Error('READONLY You can not write against a read only replica.')), true);
+  });
+
+  it('does not mask real errors', () => {
+    const err: any = new Error('WRONGTYPE Operation against a key holding the wrong kind of value');
+    err.code = 'WRONGTYPE';
+    assert.equal(isTransientRedisError(err), false);
+    assert.equal(isTransientRedisError(new Error('NOSCRIPT No matching script')), false);
+  });
+
+  it('tolerates null/empty errors', () => {
+    assert.equal(isTransientRedisError(null), false);
+    assert.equal(isTransientRedisError(undefined), false);
+    assert.equal(isTransientRedisError({}), false);
+  });
+});
+
+describe('redis: createRedisClient', () => {
+  it('returns null when explicitly disabled (no connection attempted)', () => {
+    assert.equal(createRedisClient({ enabled: false }), null);
+  });
+
+  it('bounds every command with a positive timeout so callers cannot hang', () => {
+    // The fail-open catches in createRedisRateLimiter / redisRateCheck /
+    // createRedisCircuitBreaker are only reachable if commands actually settle.
+    assert.equal(typeof COMMAND_TIMEOUT_MS, 'number');
+    assert.ok(COMMAND_TIMEOUT_MS > 0 && COMMAND_TIMEOUT_MS <= 5000);
   });
 });
