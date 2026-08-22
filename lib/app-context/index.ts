@@ -118,7 +118,13 @@ async function createAppContext(overrides: any = {}): Promise<AppContext> {
   });
 
   // ── Database ──────────────────────────────────────────────────────────
-  const { pool } = openPlannerDatabase({
+  // migrationsReady is deliberately kept, not discarded. The boot migration
+  // runner is fire-and-forget by design (it must not block listening), but until
+  // 2026-08-22 NOTHING consumed this promise, so a failed migration produced one
+  // log line and the server then served traffic against a half-migrated schema —
+  // surfacing hours later as scattered 42P01/42703 500s with no boot failure to
+  // correlate against. server.ts now gates readiness on it.
+  const { pool, migrationsReady } = openPlannerDatabase({
     databaseUrl: config.DATABASE_URL,
     log,
     poolSize: config.PG_POOL_MAX,
@@ -417,6 +423,8 @@ async function createAppContext(overrides: any = {}): Promise<AppContext> {
     state,
     stores: stores as unknown as Stores,
     pool,
+    // Consumed by server.ts to gate readiness — see the note at openPlannerDatabase above.
+    migrationsReady,
     log,
     redis,
     redisCircuitBreaker,
