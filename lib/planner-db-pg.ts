@@ -411,7 +411,10 @@ async function runPostgresMigrations(pool: any, opts: any = {}) {
  * UNCHANGED. We only ADD a `migrationsReady` promise as a non-breaking
  * extension.
  */
-function openPlannerDatabase(opts: any = {}) {
+// Explicit return type: the three returns below otherwise infer a UNION in which
+// one branch (the no-pool bail-out) lacks `migrationsReady`, so callers cannot
+// destructure it. Optional because that bail-out genuinely has none.
+function openPlannerDatabase(opts: any = {}): { pool: any; migrationsReady?: Promise<any> } {
   const result = openPlannerDatabaseRaw(opts);
   const pool = result && result.pool;
   const databaseUrl = opts.databaseUrl || process.env.DATABASE_URL || '';

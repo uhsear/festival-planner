@@ -450,14 +450,18 @@ async function createFestieApp(overrides: any = {}) {
     reengagementQueue,
   });
 
-  return { app, server, io, config, state, close, setHealthReady };
+  return { app, server, io, config, state, close, setHealthReady, migrationsReady: ctx.migrationsReady };
 }
 
 // ── Main entry point ──────────────────────────────────────────────────────
 const isMainModule = import.meta.filename === process.argv[1] || process.argv[1]?.endsWith('server.ts');
 
 if (isMainModule) {
-  const planner = await createFestieApp();
+  // `planner` is assigned AFTER the crash handlers below are registered, and
+  // stays null until then — see the ordering note at the registrations.
+  // `any` rather than the inferred type: `shutdown` closes over this binding, and
+  // TS cannot narrow a closure-captured `let` after the null guard inside it.
+  let planner: any = null;
   let shuttingDown = false;
 
   const shutdown = (signal: string, error: any = null) => {
@@ -466,14 +470,22 @@ if (isMainModule) {
     const meta: any = {
       signal,
       uptime: Math.round(process.uptime()),
-      connections: (planner.io as any)?.engine?.clientsCount || 0,
-      totalRequests: planner.state?.metrics?.totalRequests || 0,
+      connections: (planner?.io as any)?.engine?.clientsCount || 0,
+      totalRequests: planner?.state?.metrics?.totalRequests || 0,
     };
     log.info('shutdown initiated', meta);
     if (error) {
       const errMeta: any = { signal, error: error.message, stack: error.stack };
       if (error.code) errMeta.code = error.code;
       log.error('shutdown error', errMeta);
+    }
+    // Died before the app finished constructing: there is nothing to drain, and
+    // planner.config/planner.close() do not exist yet. Exit immediately rather
+    // than throwing a TypeError inside the crash handler and losing the original
+    // error. Logged distinctly so a boot-window death is obvious in the log.
+    if (!planner) {
+      log.error('shutdown before the app finished constructing — nothing to close', { signal });
+      process.exit(1);
     }
     // Must exceed the graceful-drain budget (SHUTDOWN_TIMEOUT_MS) plus the other
     // bounded waits inside close() (io.engine close ~2s, sentry.close ~2s) so a
@@ -510,6 +522,21 @@ if (isMainModule) {
     });
   });
 
+  // Construct the app ONLY AFTER the handlers above are installed.
+  //
+  // This used to be the first statement in the block, which left the entire boot
+  // — app context, middleware, Socket.IO adapter attach, route factories — in a
+  // window with NO unhandledRejection/uncaughtException handler. A rejection
+  // there was killed by Node's default handling: no `shutdown initiated` line,
+  // no uptime/connection counts, no Sentry flush, and nothing for
+  // scripts/deploy/verify_staging.py to match on (it greps for exactly those two
+  // markers, so a boot-window death could pass the staging gate).
+  //
+  // That window is where the 2026-08-19 outage lived: the Socket.IO Redis
+  // adapter rejected during construction. Registering first means the next one
+  // is reported through the same path as any other crash.
+  planner = await createFestieApp();
+
   async function listenWithRetry(server: any, port: number, host: string, maxRetries = 5, initialDelay = 1000) {
     const isCluster = typeof process.send === 'function';
 
@@ -532,8 +559,33 @@ if (isMainModule) {
         server.listen(port, host);
       });
       log.info('server started', { bind: host, port, origin: planner.config.PUBLIC_ORIGIN || 'not set' });
-      if (planner.setHealthReady) planner.setHealthReady(true);
-      if (isCluster) process.send!('ready');
+
+      // Readiness is gated on migrations, liveness is NOT. The runner stays
+      // fire-and-forget so a slow migration cannot stop the process listening,
+      // but until 2026-08-22 nothing consumed its promise at all: a failed
+      // migration logged one line, readiness flipped true anyway, and production
+      // served a half-migrated schema — surfacing hours later as scattered
+      // 42P01/42703 500s with no boot failure to correlate against.
+      //
+      // Gating readiness makes that a deploy-time failure instead: deploy.py
+      // polls /api/ready and aborts (printing the rollback command) rather than
+      // leaving a broken schema live. Almost always already resolved by now, so
+      // this adds no measurable boot latency.
+      const markReady = () => {
+        if (planner.setHealthReady) planner.setHealthReady(true);
+        if (isCluster) process.send!('ready');
+      };
+      if (planner.migrationsReady && typeof planner.migrationsReady.then === 'function') {
+        planner.migrationsReady.then(markReady, (err: any) => {
+          log.error('migrations failed — NOT marking ready; /api/ready will report unhealthy', {
+            error: err?.message,
+            version: err?.migrationVersion,
+            file: err?.migrationFile,
+          });
+        });
+      } else {
+        markReady();
+      }
     }
 
     if (isCluster) {

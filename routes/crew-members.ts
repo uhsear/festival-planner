@@ -40,11 +40,29 @@ export default function createCrewMemberRoutes(deps: any) {
    * @param crewId - the crew the user was removed from
    * @param removedUserId - the user whose sockets must leave the room
    */
+  /**
+   * Bound on the adapter round-trip below. Generous enough that a healthy Redis
+   * never trips it (observed ~2ms), short enough that a member-removal request
+   * cannot hang on a Redis outage.
+   */
+  const EVICTION_TIMEOUT_MS = 3_000;
+
   async function evictUserFromCrewRoom(crewId: string, removedUserId: string) {
     if (!io || typeof io.in !== 'function') return;
     const room = `crew:${crewId}`;
     try {
-      const sockets = await io.in(room).fetchSockets();
+      // fetchSockets() goes through the Redis adapter, which issues PUBSUB NUMSUB
+      // on the pub connection. That connection now buffers while Redis is
+      // unavailable (the offline queue is ON for pub/sub clients — see
+      // PUBSUB_CLIENT_OPTIONS), which is right for correctness but means this
+      // call can HANG for the length of an outage rather than failing. This is a
+      // revocation path reached from an HTTP request, so it must be bounded.
+      const sockets: any[] = await Promise.race([
+        io.in(room).fetchSockets(),
+        new Promise((_resolve, reject) =>
+          setTimeout(() => reject(new Error('fetchSockets timed out')), EVICTION_TIMEOUT_MS).unref?.(),
+        ),
+      ]);
       for (const s of sockets) {
         if (s.data?.userId !== removedUserId) continue;
         // If this socket was sharing live GPS, tell peers its marker is gone.
@@ -69,7 +87,18 @@ export default function createCrewMemberRoutes(deps: any) {
         s.leave(room);
       }
     } catch (error: any) {
-      log.warn('crew room eviction failed', { error: error?.message, crewId, removedUserId });
+      // ERROR, not warn: this is the enforcement half of a revocation. The DB
+      // membership row is already gone, but a socket that was not evicted keeps
+      // its crew room, so it continues receiving crew broadcasts — including
+      // other members' live GPS — until it disconnects. Silence here reads
+      // exactly like success, which is the worst property a security control can
+      // have. Surfaced loudly so it reaches Sentry and the error-rate alert.
+      log.error('crew room eviction FAILED — removed user may still receive crew broadcasts', {
+        error: error?.message,
+        crewId,
+        removedUserId,
+        consequence: 'socket not evicted from crew room',
+      });
     }
   }
 
