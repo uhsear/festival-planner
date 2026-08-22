@@ -43,7 +43,24 @@ export const DEFAULTS = {
   SOCKET_JOIN_RATE_LIMIT: 12,
   SOCKET_LEAVE_RATE_LIMIT: 20,
   JSON_LIMIT: '256kb',
-  MAX_USERS: 200,
+  // Total REGISTERED accounts, enforced at signup (routes/auth.ts:195). Raised
+  // 200 -> 2000 on 2026-08-22, after measuring rather than guessing. The old 200
+  // existed only because the box had never been load-tested, and a earlier
+  // attempt to test it accidentally measured a bug instead: the socket connect
+  // limiter keyed on the raw tunnel peer, so the run flat-lined at exactly 30.
+  //
+  // What WAS measured (staging, same hardware as prod): 2000 concurrent
+  // Socket.IO connections at 100% success, connect p95 2ms, RSS flat at 58MB,
+  // CPU ~0%. No ceiling was reached — 2000 was simply where the ramp stopped.
+  // Storage is not the constraint either: 34 users occupy ~21MB total, and the
+  // disk has 737GB free.
+  //
+  // What was NOT measured, and why this is not unlimited: those were idle
+  // connections, not users actively streaming GPS, and this is one PM2 fork
+  // worker on a home laptop that also runs game servers, with no autoscaling.
+  // A finite cap also stops a runaway signup script growing the DB without
+  // bound. Env-overridable; raise again with fresh measurements, not optimism.
+  MAX_USERS: 2000,
   PG_POOL_MIN: 2,
   PG_POOL_MAX: 20,
   MAX_PROFILES_PER_FESTIVAL: 100,
