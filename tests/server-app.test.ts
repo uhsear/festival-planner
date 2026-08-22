@@ -460,12 +460,12 @@ describe('loadConfig: type coercion and bounds', () => {
     assert.equal(config.AUTH_RATE_LIMIT_WINDOW, 300_000);
   });
 
-  it('MAX_USERS defaults to 200', () => {
+  it('MAX_USERS defaults to 2000', () => {
     const saved = process.env.MAX_USERS;
     delete process.env.MAX_USERS;
     try {
       const config = loadConfig({ PUBLIC_ORIGIN: '' });
-      assert.equal(config.MAX_USERS, 200);
+      assert.equal(config.MAX_USERS, 2000);
     } finally {
       if (saved !== undefined) process.env.MAX_USERS = saved;
     }
