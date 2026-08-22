@@ -95,7 +95,27 @@ function configureSocketIO(app: Application, ctx: any) {
   // Attach Redis adapter for multi-instance Socket.IO broadcasting
   if (redis) {
     try {
-      const pubClient = redis;
+      // BOTH sides must be duplicates. Passing the main client as pubClient —
+      // which this did until 2026-08-22 — routes every outbound broadcast through
+      // a connection with enableOfflineQueue:false, and the adapter drops the
+      // publish promise on the floor (redis-adapter index.js:473 and ~10 sibling
+      // call sites: `this.pubClient.publish(channel, msg)`, no callback, no
+      // .catch). So the first presence:update / pick:set / location:peer-update
+      // emitted during ANY Redis blip rejects instantly with "Stream isn't
+      // writeable...", goes unhandled, and this app turns an unhandled rejection
+      // into a shutdown — the new worker then broadcasts and dies the same way.
+      //
+      // That needed only a Redis restart under traffic, not a deploy, which made
+      // it strictly worse than the boot-time bug that caused the 2026-08-19
+      // outage. It stayed invisible because Redis had not restarted under load
+      // since the adapter was attached.
+      //
+      // The publish connection gets a REAL error logger rather than
+      // duplicateClient's default swallow: it carries all outbound broadcast
+      // traffic, so silent failure there is indistinguishable from silence.
+      const pubClient = duplicateClient(redis, (err: any) => {
+        log.warn('socket.io redis pub client error', { error: err?.message, code: err?.code });
+      });
       const subClient = duplicateClient(redis);
       io.adapter(createAdapter(pubClient, subClient, { key: 'fp-sio' }));
       log.info('socket.io redis adapter attached');
