@@ -158,17 +158,43 @@ function createRedisClient(opts: any = {}): Redis | null {
 const PUBSUB_CLIENT_OPTIONS = {
   maxRetriesPerRequest: null,
   enableOfflineQueue: true,
+  // commandTimeout MUST be cleared here, and this is not optional.
+  // ioredis's duplicate() MERGES rather than replaces —
+  //   duplicate(override) { return new Redis({ ...this.options, ...override }); }
+  // so without this the dup inherits the parent's COMMAND_TIMEOUT_MS (1500).
+  // ioredis arms that timer BEFORE it checks writability (Redis.js:352 vs :375),
+  // so a psubscribe buffered by enableOfflineQueue sits in the offline queue with
+  // a live 1500ms fuse and then rejects with "Command timed out" — unhandled,
+  // which this app turns into a shutdown. Enabling the offline queue without
+  // clearing the timeout merely moves the boot crash from 0ms to 1500ms; a Redis
+  // restart takes longer than that, which is exactly the outage scenario.
+  //
+  // Use undefined, NEVER 0: Command.setTimeout(ms) calls setTimeout(fn, ms), and
+  // 0 still satisfies the `typeof === "number"` gate, so it would fire on the very
+  // next tick — strictly worse. undefined fails the gate and arms no timer.
+  //
+  // A SUBSCRIBE control command has no request-path deadline to honour anyway.
+  commandTimeout: undefined,
 } as const;
 
-function duplicateClient(client: Redis): Redis {
+/**
+ * Duplicate a client for pub/sub use.
+ *
+ * `onError` exists for the adapter's PUBLISH connection. The default swallow
+ * below is defensible for a subscriber that shadows the parent (the parent's own
+ * handler already logs the same connectivity failure), but the publish
+ * connection carries every outbound broadcast, so losing its errors silently is
+ * not acceptable — pass a logger for that one.
+ */
+function duplicateClient(client: Redis, onError?: (err: any) => void): Redis {
   // Options intentionally differ from the parent client — see
   // PUBSUB_CLIENT_OPTIONS above for the full reasoning.
   const dup = client.duplicate({ ...PUBSUB_CLIENT_OPTIONS });
-  // Swallowed on purpose: this connection targets the same server as the
-  // parent, whose `error` handler already logs every connectivity failure.
-  // Logging here only duplicates it. The listener itself is required — an
-  // ioredis client with no `error` listener throws on emit.
-  dup.on('error', () => {});
+  // A listener is REQUIRED either way — an ioredis client with no `error`
+  // listener throws on emit. Without onError it is swallowed on purpose: a
+  // subscriber targets the same server as the parent, whose own handler already
+  // logs every connectivity failure, so logging here just duplicates it.
+  dup.on('error', onError ?? (() => {}));
   return dup;
 }
 
