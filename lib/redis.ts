@@ -126,12 +126,44 @@ function createRedisClient(opts: any = {}): Redis | null {
 /**
  * Create a duplicate Redis client for Socket.IO adapter (needs two connections).
  */
+/**
+ * Connection options for every pub/sub duplicate (Socket.IO adapter, cache bus).
+ *
+ * Single source of truth ON PURPOSE: this policy was previously spelled out at
+ * each duplicate() call site, one of them drifted, and the result was a silent
+ * boot failure. Add new pub/sub connections by spreading this, never by hand.
+ *
+ * maxRetriesPerRequest: null — a pub/sub client must never throw
+ *   MaxRetriesPerRequestError; inside the adapter that becomes an unhandled
+ *   rejection and crash-loops the worker.
+ *
+ * enableOfflineQueue: TRUE — deliberately the OPPOSITE of the parent client,
+ *   which keeps it off so an outage fails fast rather than replaying a stale
+ *   backlog. Pub/sub has the inverse requirement: @socket.io/redis-adapter calls
+ *   psubscribe inside its CONSTRUCTOR, synchronously, while the duplicate is
+ *   still opening, and the cache bus subscribes at boot the same way. With the
+ *   queue off those throw
+ *     "Stream isn't writeable and enableOfflineQueue options is false"
+ *   — fatal for the adapter (unhandled rejection at boot; this took production
+ *   down for ~90s on 2026-08-19) and silent for the cache bus (logged, never
+ *   subscribed). Buffering is safe here because these connections carry
+ *   SUBSCRIBE control commands, not data writes: a replay re-establishes
+ *   subscriptions rather than applying stale state, so there is no equivalent of
+ *   a stale rate-limit INCR.
+ *
+ * NOTE FOR TESTS: no local suite catches regressions here — the harness builds
+ * the app without attaching the adapter to a real connecting client. Verify
+ * changes against a real boot (staging), not the test suite.
+ */
+const PUBSUB_CLIENT_OPTIONS = {
+  maxRetriesPerRequest: null,
+  enableOfflineQueue: true,
+} as const;
+
 function duplicateClient(client: Redis): Redis {
-  // maxRetriesPerRequest: null is now inherited from the parent, but keep it
-  // explicit — an adapter/pub-sub client must never throw
-  // MaxRetriesPerRequestError, which becomes an unhandled rejection inside the
-  // adapter and crashes the worker.
-  const dup = client.duplicate({ maxRetriesPerRequest: null });
+  // Options intentionally differ from the parent client — see
+  // PUBSUB_CLIENT_OPTIONS above for the full reasoning.
+  const dup = client.duplicate({ ...PUBSUB_CLIENT_OPTIONS });
   // Swallowed on purpose: this connection targets the same server as the
   // parent, whose `error` handler already logs every connectivity failure.
   // Logging here only duplicates it. The listener itself is required — an
@@ -249,10 +281,13 @@ function createCacheInvalidationBus(redis: Redis | null, { log, onInvalidateUser
   const CHANNEL_USERS = 'cache:invalidate:users';
   const CHANNEL_FESTIVALS = 'cache:invalidate:festivals';
 
-  // Need a dedicated subscriber connection (ioredis in subscribe mode can't do commands)
-  // Must use maxRetriesPerRequest: null so ioredis retries via retryStrategy
-  // instead of throwing MaxRetriesPerRequestError (unhandled rejection → crash).
-  const sub = redis.duplicate({ maxRetriesPerRequest: null });
+  // Need a dedicated subscriber connection (ioredis in subscribe mode can't do commands).
+  // PUBSUB_CLIENT_OPTIONS — same policy as every other pub/sub duplicate; see the
+  // constant for why the offline queue must be ON here even though the parent
+  // client has it OFF. This call site previously spelled the options out by hand,
+  // missed enableOfflineQueue, and so logged "cache-bus subscribe failed" on every
+  // boot — the bus silently never subscribed.
+  const sub = redis.duplicate({ ...PUBSUB_CLIENT_OPTIONS });
   sub.on('error', (err: any) => {
     // Same rule as the primary client: reconnect churn is warn, not error.
     const level = isTransientRedisError(err) ? 'warn' : 'error';
