@@ -54,6 +54,28 @@ REQUIRED_PATTERNS = [
 shq = lambda s: "'" + s.replace("'", "'\\''") + "'"
 
 
+def _current_boot_only(log_text: str) -> str:
+    """Trim the log to the CURRENT process's boot.
+
+    `pm2 restart` sends SIGINT to the outgoing process, which logs
+    "shutdown initiated" / "closing server" AFTER we truncate the file. Scanning
+    the whole file therefore reports a shutdown that belongs to the previous
+    instance — a false positive on the single check this script exists for, which
+    would quickly teach a reader to ignore it.
+
+    Every boot begins by logging "startup config", so the current boot is
+    everything from the LAST such line onward. If it is absent (the process never
+    got that far) return the text unchanged, since that is itself a real failure
+    and must not be trimmed away.
+    """
+    marker = "startup config"
+    idx = log_text.rfind(marker)
+    if idx == -1:
+        return log_text
+    line_start = log_text.rfind("\n", 0, idx) + 1
+    return log_text[line_start:]
+
+
 def run(c, cmd, timeout=1800, login=False):
     if login:
         cmd = f"bash -lc {shq(cmd)}"
@@ -98,9 +120,10 @@ def main():
              f"pm2 restart festie-staging --update-env >/dev/null 2>&1 && sleep 25 && "
              f"pm2 list --no-color | grep festie", login=True)
 
-        boot = step(c, "BOOT LOG (this is the actual check)",
-                    f"cat {STAGE}/logs/pm2-out.log; echo '--- stderr ---'; cat {STAGE}/logs/pm2-error.log",
-                    fatal=False)
+        boot_raw = step(c, "BOOT LOG (this is the actual check)",
+                        f"cat {STAGE}/logs/pm2-out.log; echo '--- stderr ---'; cat {STAGE}/logs/pm2-error.log",
+                        fatal=False)
+        boot = _current_boot_only(boot_raw)
 
         step(c, f"Health / readiness on :{STAGE_PORT}",
              f"curl -s -o /dev/null -w 'health=%{{http_code}}\\n' http://127.0.0.1:{STAGE_PORT}/api/health; "
