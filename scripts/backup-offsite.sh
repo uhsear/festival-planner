@@ -26,6 +26,10 @@ fi
 log "Starting off-site sync to $OFFSITE_TARGET"
 
 if [[ "$OFFSITE_TARGET" == rclone:* ]]; then
+  if ! command -v rclone >/dev/null 2>&1; then
+    log "ERROR: OFFSITE_TARGET uses rclone: but rclone is not installed. Install it or use an rsync target."
+    exit 1
+  fi
   rclone sync "$BACKUP_SRC" "$OFFSITE_TARGET" --log-file="$LOG_FILE" --log-level INFO
 else
   rsync -az --delete "$BACKUP_SRC" "$OFFSITE_TARGET/" >> "$LOG_FILE" 2>&1

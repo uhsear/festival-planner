@@ -80,6 +80,7 @@ storybook-static
 
 # Orphaned root pnpm lock — the real workspace is packages/ (uses packages/pnpm-lock.yaml). Root installs via npm.
 /pnpm-lock.yaml
+packages/*/pnpm-lock.yaml
 
 # Playwright auth storage-state (contains live session cookies — never commit)
 tests/e2e/.auth/
