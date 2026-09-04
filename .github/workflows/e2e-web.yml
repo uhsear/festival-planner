@@ -70,6 +70,7 @@ jobs:
       - name: Run functional and accessibility E2E (browser matrix)
         if: ${{ !inputs.update_snapshots }}
         env:
+          DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
           TEST_DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
           PLAYWRIGHT_ARTIFACT_DIR: output/playwright/browser-matrix
         run: >-
@@ -82,6 +83,7 @@ jobs:
       - name: Run responsive visual regression (chromium)
         if: always()
         env:
+          DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
           TEST_DATABASE_URL: postgres://test_user:test_password@localhost:5432/festie_test
           PLAYWRIGHT_ARTIFACT_DIR: output/playwright/responsive
           UPDATE_SNAPSHOTS: ${{ inputs.update_snapshots || 'false' }}

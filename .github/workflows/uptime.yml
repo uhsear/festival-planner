@@ -75,6 +75,11 @@ jobs:
       # The health steps above must both pass before we reach this step.
       - name: Close any open DOWN issue (site is healthy)
         if: success()
+        # Housekeeping only: the site is already known healthy at this point.
+        # Without this, a transient api.github.com socket drop here fails the
+        # job, and the `if: failure()` alarm step below then files a false
+        # "festie.us DOWN" issue. That happened in run 33866845896 (issue #21).
+        continue-on-error: true
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
