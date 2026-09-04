@@ -49,7 +49,7 @@ jobs:
           sudo swapoff -a && sudo rm -f /swapfile || true
           df -h /
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Require smoke-test credentials
         env:
@@ -65,7 +65,7 @@ jobs:
 
       # RN 0.85 / Expo SDK 56 build with AGP 8 -> still JDK 17 (RN docs warn
       # against higher JDKs; do NOT bump to 21).
-      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           distribution: temurin
           java-version: '17'
@@ -74,7 +74,7 @@ jobs:
           # setup-java to key a cache on (it hard-fails). Single-ABI build keeps
           # the time reasonable without caching.
 
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10
           run_install: false
