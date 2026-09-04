@@ -1,7 +1,10 @@
 node_modules
 
 # Environment files
-.env
+.env*
+!.env.example
+# local backup copies of env/scripts (secrets)
+*.bak-*
 .env.local
 .env.production
 .env.*.local
@@ -101,3 +104,7 @@ scripts/deploy/__pycache__/
 /AGENTS.md
 /.cursorrules
 /.github/copilot-instructions.md
+
+# runtime output: never publish
+logs/
+public/uploads/
