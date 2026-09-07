@@ -592,7 +592,10 @@ export function loadConfig(overrides: Record<string, any> = {}): {
     ANDROID_CERT_FINGERPRINTS: overrides.ANDROID_CERT_FINGERPRINTS || process.env.ANDROID_CERT_FINGERPRINTS || '',
 
     // Resend transactional email (optional — email features disabled when unset)
-    RESEND_API_KEY: overrides.RESEND_API_KEY || process.env.RESEND_API_KEY || '',
+    // `??`, not `||`: an explicit '' override means "outbound email is off".
+    // With `||` an empty override fell through to the ambient key, so a test
+    // that passed '' to disable sending got the real key and hit the provider.
+    RESEND_API_KEY: overrides.RESEND_API_KEY ?? process.env.RESEND_API_KEY ?? '',
     EMAIL_FROM: overrides.EMAIL_FROM || process.env.EMAIL_FROM || 'Festie <no-reply@festie.us>',
 
     REFRESH_TOKEN_TTL: readInt(

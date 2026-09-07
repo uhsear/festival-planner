@@ -305,3 +305,24 @@ describe('config: no module reads a field loadConfig does not produce', () => {
     assert.deepEqual(missing, [], 'fields read but never produced by loadConfig:\n' + missing.join('\n'));
   });
 });
+
+// Outbound email is the one capability where a wrong config read reaches the
+// outside world, so an explicit empty override must disable it rather than
+// falling through to whatever key happens to be in the ambient environment.
+describe('config: an explicit empty RESEND_API_KEY override disables email', () => {
+  it('does not fall through to process.env', () => {
+    const saved = process.env.RESEND_API_KEY;
+    process.env.RESEND_API_KEY = 'rk_ambient_should_not_be_used';
+    try {
+      assert.equal(loadConfig({ PUBLIC_ORIGIN: '', RESEND_API_KEY: '' }).RESEND_API_KEY, '');
+      assert.equal(
+        loadConfig({ PUBLIC_ORIGIN: '' }).RESEND_API_KEY,
+        'rk_ambient_should_not_be_used',
+        'an absent override must still read the environment',
+      );
+    } finally {
+      if (saved === undefined) delete process.env.RESEND_API_KEY;
+      else process.env.RESEND_API_KEY = saved;
+    }
+  });
+});
