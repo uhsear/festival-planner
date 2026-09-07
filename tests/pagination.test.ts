@@ -4,12 +4,14 @@ import { describe, it } from 'node:test';
 import {
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
+  MAX_PUBLIC_PAGE_SIZE,
   encodeCursor,
   decodeCursor,
   parsePageParams,
   paginateArray,
   buildPaginatedResponse,
 } from '../lib/pagination';
+import { paginationQuery, adminAuditQuery } from '../lib/schemas';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -22,6 +24,24 @@ describe('pagination: constants', () => {
 
   it('MAX_PAGE_SIZE is 200', () => {
     assert.equal(MAX_PAGE_SIZE, 200);
+  });
+
+  it('MAX_PUBLIC_PAGE_SIZE is 100', () => {
+    assert.equal(MAX_PUBLIC_PAGE_SIZE, 100);
+  });
+
+  // Each Zod query schema must reject above the named constant it references, so a
+  // cap can never be raised in one place and silently left behind in the other.
+  it('paginationQuery caps at MAX_PUBLIC_PAGE_SIZE', () => {
+    assert.equal(paginationQuery.parse({ limit: String(MAX_PUBLIC_PAGE_SIZE) }).limit, MAX_PUBLIC_PAGE_SIZE);
+    assert.equal(paginationQuery.safeParse({ limit: String(MAX_PUBLIC_PAGE_SIZE + 1) }).success, false);
+    assert.equal(paginationQuery.parse({}).limit, DEFAULT_PAGE_SIZE);
+  });
+
+  it('adminAuditQuery caps at MAX_PAGE_SIZE', () => {
+    assert.equal(adminAuditQuery.parse({ limit: String(MAX_PAGE_SIZE) }).limit, MAX_PAGE_SIZE);
+    assert.equal(adminAuditQuery.safeParse({ limit: String(MAX_PAGE_SIZE + 1) }).success, false);
+    assert.equal(adminAuditQuery.parse({}).limit, DEFAULT_PAGE_SIZE);
   });
 });
 

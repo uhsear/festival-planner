@@ -5,7 +5,11 @@
 // Cursors are opaque base64-encoded JSON: {field, value, id}
 
 export const DEFAULT_PAGE_SIZE = 50;
+// Clamp ceiling for parsePageParams and the cap the admin audit query rejects above.
 export const MAX_PAGE_SIZE = 200;
+// Public list endpoints stay at the lower cap they have always enforced. The two
+// numbers differ on purpose; naming both is what stops them drifting silently.
+export const MAX_PUBLIC_PAGE_SIZE = 100;
 
 export function encodeCursor(data: Record<string, any>): string {
   return Buffer.from(JSON.stringify(data)).toString('base64url');

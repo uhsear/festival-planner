@@ -28,6 +28,7 @@
  */
 
 import { z } from 'zod';
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MAX_PUBLIC_PAGE_SIZE } from './pagination';
 import {
   PICK_PRIORITY_VALUES,
   REMINDER_MINUTE_VALUES,
@@ -1017,7 +1018,7 @@ export type AdminAddRoleInput = z.infer<typeof adminAddRoleSchema>;
 // ── Pagination query schema ────────────────────────────────────
 export const paginationQuery = z.object({
   cursor: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+  limit: z.coerce.number().int().min(1).max(MAX_PUBLIC_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
 });
 export type PaginationQueryInput = z.infer<typeof paginationQuery>;
 
@@ -1028,7 +1029,7 @@ export const adminAuditQuery = z.object({
   action: z.string().trim().max(100).optional(),
   resource_type: z.string().trim().max(100).optional(),
   cursor: z.string().trim().max(200).optional(),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
+  limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
   from: validDateString.optional(),
   to: validDateString.optional(),
 });
