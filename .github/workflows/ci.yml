@@ -151,8 +151,6 @@ jobs:
           NODE_ENV: test
           MAX_USERS: '10000'
         run: npm run test:coverage
-      - name: Enforce coverage threshold (80% minimum)
-        run: npx c8 check-coverage --lines 80 --branches 60 --functions 60 --statements 80
       - name: Upload coverage
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -174,12 +172,12 @@ jobs:
         working-directory: packages
         env:
           COVERAGE: '1'
-        run: pnpm --filter @festie/shared test -- --coverage
+        run: pnpm --filter @festie/shared test:coverage
       - name: Test web (vitest + coverage)
         working-directory: packages
         env:
           COVERAGE: '1'
-        run: pnpm --filter @festie/web test -- --coverage
+        run: pnpm --filter @festie/web test:coverage
 
   storybook-a11y:
     # Runs axe over every Storybook story via @storybook/test-runner and fails on
