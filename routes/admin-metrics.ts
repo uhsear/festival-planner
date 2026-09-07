@@ -1,12 +1,11 @@
 // Copyright (c) 2026 Asir Khan. All rights reserved.
 // All Rights Reserved. See the LICENSE file.
 //
-// Prometheus-compatible metrics exposition + cert-pin + internal metrics JSON.
+// Prometheus-compatible metrics exposition + internal metrics JSON.
 // Split out of routes/health.js on 2026-04-14 to isolate the large
 // `/metrics` builder and keep health.js focused on liveness.
 //
 //   GET /metrics                   — Prometheus text exposition (admin-auth)
-//   GET /cert-pins                 — public cert-pin hashes for mobile clients
 //   GET /internal/metrics-json     — localhost-only metrics JSON (cron use)
 //
 // The client-side Web-Vitals counters (`clientMetrics`, `clientMetricsBuckets`)
@@ -23,7 +22,6 @@ export default function createAdminMetricsRoutes(deps: any): { router: Router } 
   } = deps;
 
   const router = Router();
-  const config = deps.config;
 
   // Shared client-perf counters (set by routes/health.js on POST /metrics/client).
   // Optional — default to empty shapes so the exposition logic is safe when the
@@ -215,25 +213,6 @@ export default function createAdminMetricsRoutes(deps: any): { router: Router } 
       log.error('metrics endpoint failed', { error: error.message });
       return sendError(res, 500, 'Failed to generate metrics', ErrorCodes.INTERNAL_ERROR);
     }
-  });
-
-  // Certificate Pinning — public key pin hashes for mobile clients
-  router.get('/cert-pins', (req: any, res: any) => {
-    const pinConfig = {
-      primary: config.CERT_PIN_PRIMARY || '',
-      backup: config.CERT_PIN_BACKUP || '',
-    };
-
-    // Only expose pins if at least one is configured
-    if (!pinConfig.primary && !pinConfig.backup) {
-      return sendError(res, 503, 'Certificate pinning not configured', ErrorCodes.SERVICE_UNAVAILABLE);
-    }
-
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    return sendSuccess(res, {
-      cert_pins: pinConfig,
-      timestamp: new Date().toISOString(),
-    });
   });
 
   // Internal metrics JSON endpoint — localhost-only, no auth required.

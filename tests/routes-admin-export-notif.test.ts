@@ -20,8 +20,6 @@ function makeDeps(overrides: any = {}) {
       RESET_TOKEN_TTL: 3600000,
       SPOTIFY_CLIENT_ID: '',
       SPOTIFY_CLIENT_SECRET: '',
-      CERT_PIN_PRIMARY: '',
-      CERT_PIN_BACKUP: '',
       PUBLIC_DIR: __dirname,
       EXPORT_TIMEOUT_MS: 10000,
       MAX_CONCURRENT_EXPORTS: 4,
@@ -601,30 +599,6 @@ describe('routes/admin-metrics.js', () => {
     assert.ok(res.text.includes('fp_client_fid_avg_ms'));
     assert.ok(res.text.includes('fp_client_cls_avg'));
     assert.ok(res.text.includes('fp_client_samples 10'));
-  });
-
-  test('GET /cert-pins returns 503 when pins not configured', async () => {
-    const { default: createAdminMetricsRoutes } = await import('../routes/admin-metrics.js');
-    const deps = makeDeps();
-    const { router } = createAdminMetricsRoutes(deps);
-    const app = buildApp(router);
-
-    const res = await request(app).get('/cert-pins').expect(503);
-    assert.equal(res.body.data, null);
-  });
-
-  test('GET /cert-pins returns pins when configured', async () => {
-    const { default: createAdminMetricsRoutes } = await import('../routes/admin-metrics.js');
-    const deps = makeDeps();
-    deps.config.CERT_PIN_PRIMARY = 'sha256/abc123';
-    deps.config.CERT_PIN_BACKUP = 'sha256/def456';
-    const { router } = createAdminMetricsRoutes(deps);
-    const app = buildApp(router);
-
-    const res = await request(app).get('/cert-pins').expect(200);
-    assert.equal(res.body.error, null);
-    assert.equal(res.body.data.cert_pins.primary, 'sha256/abc123');
-    assert.equal(res.body.data.cert_pins.backup, 'sha256/def456');
   });
 
   test('GET /internal/metrics-json returns 403 for non-localhost', async () => {
