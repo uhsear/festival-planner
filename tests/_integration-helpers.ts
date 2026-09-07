@@ -31,6 +31,8 @@ if (!TEST_DATABASE_URL.includes('_test')) { console.error('SAFETY: TEST_DATABASE
 
 let testDbReady = false;
 
+// Deliberately duplicated in tests/e2e/fixtures.ts, which documents why a shared
+// factory is not possible. Keep the fest-1 object below in sync with that copy.
 function createFestivalFixture() {
   return [
     {
