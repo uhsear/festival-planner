@@ -1047,6 +1047,23 @@ describe('routes/admin-bulk.js', () => {
     assert.ok(deps.stores.auditLog.insert.mock.calls.length > 0);
   });
 
+  test('DELETE /crews/:id emits crew:deleted with crewId and festivalId', async () => {
+    // makeDeps().io has no .in(), so evictAllFromCrewRoom bails before emitting.
+    // A local io mock with .in() exercises the real eviction broadcast.
+    const emitFn = mock.fn((..._args: any[]) => {});
+    const io: any = {
+      to: mock.fn((..._args: any[]) => ({ emit: emitFn })),
+      in: mock.fn((..._args: any[]) => ({ fetchSockets: async () => [] })),
+    };
+    const { app } = await buildBulkRouter({ io });
+
+    await request(app).delete('/crews/crew-1').expect(200);
+
+    assert.equal(io.to.mock.calls[0]!.arguments[0], 'crew:crew-1');
+    assert.equal(emitFn.mock.calls[0]!.arguments[0], 'crew:deleted');
+    assert.deepEqual(emitFn.mock.calls[0]!.arguments[1], { crewId: 'crew-1', festivalId: 'f1' });
+  });
+
   test('DELETE /crews/:id returns 404 for missing crew', async () => {
     const { app } = await buildBulkRouter();
     const res = await request(app).delete('/crews/missing-crew').expect(404);

@@ -444,19 +444,16 @@ Crew details or the member list changed. Sent to the whole `crew:<crewId>` room.
 - **Rate limit:** 10 per 60s per userId on the edit path (`crew-update`), 5 per 60s per userId on the transfer path (`crew-transfer`)
 
 ### `crew:deleted`
-The crew is gone. Sent to the whole `crew:<crewId>` room before the sockets are evicted, so every member still receives it. **Two shapes.**
+The crew is gone. Sent to the whole `crew:<crewId>` room before the sockets are evicted, so every member still receives it. All three producers send the same shape.
 
 ```json
 // routes/crews.ts:628 — DELETE /api/v1/crews/:crewId (owner)
+// routes/admin-bulk.ts:80 — DELETE /api/v1/admin/crews/:id and POST /api/v1/admin/bulk/archive-festivals
+// routes/festivals.ts:64 — DELETE /api/v1/festivals/:id
 { "crewId": "crew-abc", "festivalId": "fest-abc" }
 ```
 
-```json
-// routes/admin-bulk.ts:80 and routes/festivals.ts:64
-{ "crewId": "crew-abc" }
-```
-
-- The admin and festival-delete paths send `crewId` only, so a client that reads `festivalId` gets `undefined` there
+- `festivalId` is declared optional in `CrewDeletedPayload`, so a client must still tolerate its absence from an older server
 - routes/festivals.ts:64 fans the event out once per crew under the deleted festival
 - **Rate limit:** 5 per 60s per userId on `DELETE /api/v1/crews/:crewId` (`crew-delete`) and on `DELETE /api/v1/festivals/:id` (`festival-delete`); 30 per 60s per admin on `DELETE /api/v1/admin/crews/:id` and `POST /api/v1/admin/bulk/archive-festivals` (`admin-write`, `ADMIN_WRITE_RATE_LIMIT_MAX`)
 

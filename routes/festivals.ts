@@ -61,7 +61,7 @@ export default function createFestivalsRoutes(deps: any) {
         const crewId = crew?.id;
         if (!crewId) continue;
         const room = `crew:${crewId}`;
-        io.to(room).emit('crew:deleted', { crewId });
+        io.to(room).emit('crew:deleted', { crewId, festivalId });
         const sockets = await io.in(room).fetchSockets();
         for (const s of sockets) {
           if (s.data?.sharingCrewId === crewId) delete s.data.sharingCrewId;
