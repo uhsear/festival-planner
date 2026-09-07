@@ -292,9 +292,19 @@ describe('loadConfig: edge cases and defaults', () => {
     assert.equal(config.PG_POOL_MAX, 20);
   });
 
+  // loadConfig reads process.env, and the suite loads the project env file via
+  // dotenv, so a default-value assertion has to clear the variable first or it
+  // passes in CI (no env file) and fails on any developer machine that has one.
   it('SESSION_SECRET defaults to empty string', () => {
-    const config = loadConfig({ PUBLIC_ORIGIN: '' });
-    assert.equal(config.SESSION_SECRET, '');
+    const saved = process.env.SESSION_SECRET;
+    delete process.env.SESSION_SECRET;
+    try {
+      const config = loadConfig({ PUBLIC_ORIGIN: '' });
+      assert.equal(config.SESSION_SECRET, '');
+    } finally {
+      if (saved === undefined) delete process.env.SESSION_SECRET;
+      else process.env.SESSION_SECRET = saved;
+    }
   });
 
   it('REDIS_PREFIX defaults to fp:', () => {
@@ -512,8 +522,15 @@ describe('loadConfig: type coercion and bounds', () => {
   });
 
   it('EMAIL_FROM defaults to Festie <no-reply@festie.us>', () => {
-    const config = loadConfig({ PUBLIC_ORIGIN: '' });
-    assert.equal(config.EMAIL_FROM, 'Festie <no-reply@festie.us>');
+    const saved = process.env.EMAIL_FROM;
+    delete process.env.EMAIL_FROM;
+    try {
+      const config = loadConfig({ PUBLIC_ORIGIN: '' });
+      assert.equal(config.EMAIL_FROM, 'Festie <no-reply@festie.us>');
+    } finally {
+      if (saved === undefined) delete process.env.EMAIL_FROM;
+      else process.env.EMAIL_FROM = saved;
+    }
   });
 
   it('MAX_CONCURRENT_EXPORTS defaults to 4', () => {
