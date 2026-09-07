@@ -213,7 +213,6 @@ export default function mountAdminUserRoutes({ router, deps, ctx }: any): void {
         // Generate a one-time reset token (stored in DB for cross-worker access)
         const resetToken = crypto.randomBytes(32).toString('hex');
         const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
-        const _expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
         // Store reset token in password_reset_tokens (proper table for this purpose)
         const expiresAt = new Date(Date.now() + config.RESET_TOKEN_TTL);

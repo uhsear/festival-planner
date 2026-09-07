@@ -109,6 +109,7 @@ export const DEFAULTS = {
   RESET_TOKEN_TTL: 60 * 60 * 1000,
   EMAIL_VERIFY_TOKEN_TTL_HOURS: 24,
   MAX_IMPORT_SETS: 500,
+  MAX_REMINDERS: 200,
   SPOTIFY_CACHE_TTL_MS: 86_400_000,
   SPOTIFY_CACHE_MAX: 500,
   MAX_EXPORT_COOLDOWN_ENTRIES: 1_000,
@@ -301,7 +302,9 @@ export function loadConfig(overrides: Record<string, any> = {}): {
   PG_POOL_MIN: number;
   PG_POOL_MAX: number;
   EMAIL_VERIFY_TOKEN_TTL_HOURS: number;
+  RESET_TOKEN_TTL: number;
   MAX_IMPORT_SETS: number;
+  MAX_REMINDERS: number;
   SPOTIFY_CACHE_TTL_MS: number;
   SPOTIFY_CACHE_MAX: number;
   MAX_EXPORT_COOLDOWN_ENTRIES: number;
@@ -648,7 +651,9 @@ export function loadConfig(overrides: Record<string, any> = {}): {
       168,
     ),
 
+    RESET_TOKEN_TTL: readInt(overrides.RESET_TOKEN_TTL || process.env.RESET_TOKEN_TTL, DEFAULTS.RESET_TOKEN_TTL, 60_000),
     MAX_IMPORT_SETS: readInt(overrides.MAX_IMPORT_SETS || process.env.MAX_IMPORT_SETS, DEFAULTS.MAX_IMPORT_SETS, 1),
+    MAX_REMINDERS: readInt(overrides.MAX_REMINDERS || process.env.MAX_REMINDERS, DEFAULTS.MAX_REMINDERS, 1),
     SPOTIFY_CACHE_TTL_MS: readInt(
       overrides.SPOTIFY_CACHE_TTL_MS || process.env.SPOTIFY_CACHE_TTL_MS,
       DEFAULTS.SPOTIFY_CACHE_TTL_MS,

@@ -268,3 +268,40 @@ describe('config: string fields', () => {
     assert.equal(typeof config.APP_VERSION, 'string');
   });
 });
+
+// Every config lookup in the codebase must name a field loadConfig actually returns.
+// loadConfig builds an explicit allowlist object, so a field present only in DEFAULTS
+// reads back as undefined at runtime: RESET_TOKEN_TTL made the admin password-reset
+// route throw RangeError, and MAX_REMINDERS silently disabled a payload-size guard.
+// Both stayed invisible because test fixtures injected the fields by hand.
+describe('config: no module reads a field loadConfig does not produce', () => {
+  it('every config lookup in lib/ and routes/ exists on the loaded config', async () => {
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const { join } = await import('node:path');
+
+    const produced = new Set(Object.keys(loadConfig({ PUBLIC_ORIGIN: '' })));
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (full.endsWith('.ts')) files.push(full);
+      }
+    };
+    walk('lib');
+    walk('routes');
+
+    const lookup = new RegExp('\\bconfig\\.([A-Z][A-Z0-9_]{2,})\\b', 'g');
+    const missing: string[] = [];
+    for (const file of files) {
+      readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
+        for (const match of line.matchAll(lookup)) {
+          const field = match[1];
+          if (field && !produced.has(field)) missing.push(field + ' at ' + file + ':' + (index + 1));
+        }
+      });
+    }
+
+    assert.deepEqual(missing, [], 'fields read but never produced by loadConfig:\n' + missing.join('\n'));
+  });
+});
