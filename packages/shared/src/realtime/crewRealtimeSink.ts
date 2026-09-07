@@ -47,7 +47,7 @@ export interface LiveLocationStoreSinkApi {
     applyPeerUpdate: (peer: PeerLocation) => void;
     removePeer: (userId: string) => void;
     applySos: (entry: SosEntry) => void;
-    clearSos: () => void;
+    clearSos: (raiserId?: string) => void;
   };
 }
 
@@ -146,8 +146,11 @@ export function createStoreSink(
     onSosRaised: (_crewId, sos) => {
       liveLocationApi?.getState().applySos(sos);
     },
-    onSosCleared: () => {
-      liveLocationApi?.getState().clearSos();
+    onSosCleared: (_crewId, userId) => {
+      // Clear only the raiser this event names. clearSos() with no argument is
+      // the store's documented drop-every-SOS path, so forwarding nothing here
+      // wiped every other crew member's still-active SOS.
+      liveLocationApi?.getState().clearSos(userId);
     },
   };
 }

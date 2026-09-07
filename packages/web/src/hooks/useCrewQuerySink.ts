@@ -69,8 +69,9 @@ export function buildCrewQuerySink(queryClient: QueryClient): CrewRealtimeSink {
     onSosRaised: (_crewId, sos) => {
       useLiveLocationStore.getState().applySos(sos);
     },
-    onSosCleared: () => {
-      useLiveLocationStore.getState().clearSos();
+    onSosCleared: (_crewId, userId) => {
+      // Only the named raiser — a bare clearSos() drops every SOS in the store.
+      useLiveLocationStore.getState().clearSos(userId);
     },
   };
 }
