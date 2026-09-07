@@ -42,6 +42,7 @@ import ScreenHeader from '../../components/ScreenHeader';
 import EmptyState from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import SetCardMobile from '../../components/SetCardMobile';
+import CrewSuggestionStrip from '../../components/CrewSuggestionStrip';
 
 /**
  * Priority ordering + display metadata, mirroring the web /picks route. Sets
@@ -908,6 +909,7 @@ export default function PicksScreen() {
       {summaryRow}
       {controlsRow}
       {searchField}
+      <CrewSuggestionStrip />
       <ClashBannerInline
         groups={conflictGroups}
         days={days}
