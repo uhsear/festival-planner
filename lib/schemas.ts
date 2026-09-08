@@ -688,7 +688,7 @@ export function normalizeReminderPayload(input: any, config: any): { error?: str
   }
   const entries = Object.entries(input);
   if (entries.length > config.MAX_REMINDERS) {
-    return { error: 'Too many reminders' };
+    return { error: `Maximum ${config.MAX_REMINDERS} reminders per profile` };
   }
   const reminders = Object.create(null);
   for (const [rawSetId, leadMinutes] of entries) {
