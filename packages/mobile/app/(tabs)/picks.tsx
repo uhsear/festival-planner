@@ -24,6 +24,7 @@ import type { FestivalSet, Priority, Stage } from '@festie/shared/types';
 import type { ConflictGroup } from '@festie/shared/utils';
 import {
   artistDisplayName,
+  hasOfflineBasemap,
   buildPickConflicts,
   getSetTimeBounds,
   resolveFestivalTimeZone,
@@ -43,6 +44,7 @@ import EmptyState from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import SetCardMobile from '../../components/SetCardMobile';
 import CrewSuggestionStrip from '../../components/CrewSuggestionStrip';
+import OfflineReadinessCard from '../../components/OfflineReadinessCard';
 
 /**
  * Priority ordering + display metadata, mirroring the web /picks route. Sets
@@ -141,6 +143,14 @@ export default function PicksScreen() {
   // and post-midnight-aware interval math (`getSetTimeBounds`).
   const myPicks = currentProfile?.picks;
   const festivalTimeZone = useMemo(() => resolveFestivalTimeZone(currentFestival), [currentFestival]);
+
+  // The festival's offline vector basemap archive, when one has been authored
+  // for it. Null for every other festival, which makes the download card omit
+  // the map step entirely rather than offer a control that can never succeed.
+  const offlineBasemapUrl = useMemo(
+    () => (hasOfflineBasemap(currentFestival?.mapConfig) ? currentFestival.mapConfig.offlineBasemap.pmtilesUrl : null),
+    [currentFestival],
+  );
 
   const conflictGroups = useMemo<ConflictGroup[]>(() => {
     if (!myPicks || storeDays.length === 0) return [];
@@ -906,6 +916,11 @@ export default function PicksScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+      {currentFestival && (
+        <View style={styles.offlineCard}>
+          <OfflineReadinessCard festivalId={currentFestival.id} pmtilesUrl={offlineBasemapUrl} />
+        </View>
+      )}
       {summaryRow}
       {controlsRow}
       {searchField}
@@ -1296,6 +1311,9 @@ const useStyles = makeStyles((t) => ({
     flexDirection: 'row',
     gap: t.spacing[2],
     marginBottom: t.spacing[2],
+  },
+  offlineCard: {
+    marginBottom: t.spacing[3],
   },
   calendarButton: {
     flex: 1,

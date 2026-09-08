@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useOfflineReadinessStore, useCrewStore } from '@festie/shared/stores';
@@ -7,9 +7,71 @@ import type { ReadinessSection, SectionReadiness } from '@festie/shared/stores';
 import { timeAgo } from '@festie/shared/utils';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { basemapCacheInfo, ensureBasemapCached } from '../lib/basemapCache';
 
 interface Props {
   festivalId: string;
+  /**
+   * The festival's offline vector basemap archive, when it has one (read from
+   * `mapConfig.offlineBasemap.pmtilesUrl` via `hasOfflineBasemap`). When null —
+   * which is every festival an archive has not been authored for — the map step
+   * is ABSENT rather than shown as a permanently disabled row, because there is
+   * nothing the user could do to make it ready.
+   */
+  pmtilesUrl?: string | null;
+}
+
+const IDLE: SectionReadiness = { status: 'idle', syncedAt: null };
+
+/**
+ * The offline-map step. Deliberately NOT part of the shared readiness store:
+ *
+ *  - the mechanism is `expo-file-system`, which `@festie/shared` cannot import
+ *    (shared also runs in the browser, where the module is a no-op stub), and
+ *  - that store is zustand-persisted, while the archive lives in `Paths.cache`
+ *    which the OS may evict at any time. A remembered "ready" would keep
+ *    promising a map whose bytes are gone.
+ *
+ * So this status is READ FROM THE FILESYSTEM on mount and after every attempt.
+ */
+function sectionFromDisk(pmtilesUrl: string | null | undefined): SectionReadiness {
+  const info = basemapCacheInfo(pmtilesUrl);
+  return info.cached ? { status: 'ready', syncedAt: info.syncedAt } : IDLE;
+}
+
+function useOfflineMapSection(pmtilesUrl: string | null) {
+  // Seed from disk during the first render rather than setting state inside an
+  // effect: the cache is readable synchronously, so an effect would render IDLE
+  // once and immediately re-render, and it trips react-hooks/set-state-in-effect.
+  const [section, setSection] = useState<SectionReadiness>(() => sectionFromDisk(pmtilesUrl));
+
+  const readFromDisk = useCallback(() => {
+    setSection(sectionFromDisk(pmtilesUrl));
+  }, [pmtilesUrl]);
+
+  // Re-read only when the festival's archive URL changes; the initialiser above
+  // covers the first render.
+  const seenUrl = useRef(pmtilesUrl);
+  useEffect(() => {
+    if (seenUrl.current === pmtilesUrl) return;
+    seenUrl.current = pmtilesUrl;
+    readFromDisk();
+  }, [pmtilesUrl, readFromDisk]);
+
+  const download = useCallback(async () => {
+    if (!pmtilesUrl) return;
+    setSection({ status: 'syncing', syncedAt: null });
+    // ensureBasemapCached never throws and never publishes a short archive when
+    // the server reports a length, so a failure here is simply "still not
+    // downloaded" — the map keeps working online, and Retry re-runs this.
+    await ensureBasemapCached(pmtilesUrl);
+    const info = basemapCacheInfo(pmtilesUrl);
+    setSection(
+      info.cached ? { status: 'ready', syncedAt: info.syncedAt } : { status: 'error', syncedAt: Date.now() },
+    );
+  }, [pmtilesUrl]);
+
+  return { section, download };
 }
 
 // Ordered step list — matches store section order (schedule must finish first).
@@ -137,16 +199,18 @@ function StepRow({
 /**
  * R18: Mobile multi-step loader for the festival offline-download sync.
  *
- * Renders the five download sections (schedule / picks / crew / weather / art)
- * as a vertical step list with per-step state: pending dot, active shimmer,
- * done aqua check, error coral text + retry.
+ * Renders the five store-driven download sections (schedule / picks / crew /
+ * weather / art) as a vertical step list with per-step state: pending dot,
+ * active shimmer, done aqua check, error coral text + retry. Festivals that
+ * have an offline basemap archive get a sixth "Offline map" step, driven by the
+ * mobile-local basemap cache rather than the store (see useOfflineMapSection).
  *
- * UI only — drives from offlineReadinessStore, no store changes.
+ * Drives from offlineReadinessStore + lib/basemapCache; no store changes.
  *
  * Used in the picks tab (mobile mirror of web's OfflineReadinessCard) so the
  * crew can download before heading to the festival. No new dependencies.
  */
-export default function OfflineReadinessCard({ festivalId }: Props) {
+export default function OfflineReadinessCard({ festivalId, pmtilesUrl = null }: Props) {
   const t = useTokens();
   const styles = useCardStyles();
 
@@ -155,7 +219,13 @@ export default function OfflineReadinessCard({ festivalId }: Props) {
   const downloadForOffline = useOfflineReadinessStore((s) => s.downloadForOffline);
   const activeCrewId = useCrewStore((s) => s.activeCrew?.id ?? null);
 
-  const isDownloading = downloadingFestivalId === festivalId;
+  // expo-file-system has no web implementation (downloadFileAsync warns and
+  // resolves without writing), so the Expo web export shows NO map step rather
+  // than one that could never go ready.
+  const mapUrl = Platform.OS === 'web' ? null : pmtilesUrl;
+  const { section: mapSection, download: downloadMap } = useOfflineMapSection(mapUrl);
+
+  const isDownloading = downloadingFestivalId === festivalId || mapSection.status === 'syncing';
 
   // 30s tick so "synced N ago" keeps advancing from the device clock.
   const [tick, setTick] = useState(0);
@@ -166,8 +236,20 @@ export default function OfflineReadinessCard({ festivalId }: Props) {
 
   const hasDownloaded = !!readiness && SECTIONS.some(({ key }) => readiness[key]?.status === 'ready');
 
-  const handleDownload = () => void downloadForOffline(festivalId, activeCrewId ?? undefined);
+  const handleDownload = () => {
+    void downloadForOffline(festivalId, activeCrewId ?? undefined);
+    void downloadMap();
+  };
   const handleRetry = () => void downloadForOffline(festivalId, activeCrewId ?? undefined);
+
+  // The store's five sections, plus the map step when this festival has an
+  // archive to download at all.
+  const steps: { key: string; label: string; section: SectionReadiness; onRetry: () => void }[] = SECTIONS.map(
+    ({ key, label }) => ({ key, label, section: readiness?.[key] ?? IDLE, onRetry: handleRetry }),
+  );
+  if (mapUrl) {
+    steps.push({ key: 'map', label: 'Offline map', section: mapSection, onRetry: () => void downloadMap() });
+  }
 
   return (
     <View style={styles.card} accessibilityRole="none" accessibilityLabel="Download festival for offline">
@@ -175,7 +257,11 @@ export default function OfflineReadinessCard({ festivalId }: Props) {
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text style={styles.title}>Download for offline</Text>
-          <Text style={styles.subtitle}>Cache the schedule, picks, crew plan, weather, and art for no-signal use.</Text>
+          <Text style={styles.subtitle}>
+            {mapUrl
+              ? 'Cache the schedule, picks, crew plan, weather, art, and the offline map basemap for no-signal use.'
+              : 'Cache the schedule, picks, crew plan, weather, and art for no-signal use.'}
+          </Text>
         </View>
         <TouchableOpacity
           onPress={handleDownload}
@@ -200,20 +286,16 @@ export default function OfflineReadinessCard({ festivalId }: Props) {
 
       {/* R18: vertical step list */}
       <View style={styles.stepList} accessibilityRole="list">
-        {SECTIONS.map(({ key, label }, i) => {
-          const sec = readiness?.[key] ?? { status: 'idle' as const, syncedAt: null };
-          const isLast = i === SECTIONS.length - 1;
-          return (
-            <View key={key} style={!isLast ? styles.stepBorder : undefined}>
-              <StepRow
-                label={label}
-                section={sec}
-                tick={tick}
-                onRetry={sec.status === 'error' ? handleRetry : undefined}
-              />
-            </View>
-          );
-        })}
+        {steps.map(({ key, label, section, onRetry }, i) => (
+          <View key={key} style={i < steps.length - 1 ? styles.stepBorder : undefined}>
+            <StepRow
+              label={label}
+              section={section}
+              tick={tick}
+              onRetry={section.status === 'error' ? onRetry : undefined}
+            />
+          </View>
+        ))}
       </View>
     </View>
   );
