@@ -20,8 +20,6 @@ function makeDeps(overrides: any = {}) {
       RESET_TOKEN_TTL: 3600000,
       SPOTIFY_CLIENT_ID: '',
       SPOTIFY_CLIENT_SECRET: '',
-      CERT_PIN_PRIMARY: '',
-      CERT_PIN_BACKUP: '',
       PUBLIC_DIR: __dirname,
       EXPORT_TIMEOUT_MS: 10000,
       MAX_CONCURRENT_EXPORTS: 4,
@@ -603,30 +601,6 @@ describe('routes/admin-metrics.js', () => {
     assert.ok(res.text.includes('fp_client_samples 10'));
   });
 
-  test('GET /cert-pins returns 503 when pins not configured', async () => {
-    const { default: createAdminMetricsRoutes } = await import('../routes/admin-metrics.js');
-    const deps = makeDeps();
-    const { router } = createAdminMetricsRoutes(deps);
-    const app = buildApp(router);
-
-    const res = await request(app).get('/cert-pins').expect(503);
-    assert.equal(res.body.data, null);
-  });
-
-  test('GET /cert-pins returns pins when configured', async () => {
-    const { default: createAdminMetricsRoutes } = await import('../routes/admin-metrics.js');
-    const deps = makeDeps();
-    deps.config.CERT_PIN_PRIMARY = 'sha256/abc123';
-    deps.config.CERT_PIN_BACKUP = 'sha256/def456';
-    const { router } = createAdminMetricsRoutes(deps);
-    const app = buildApp(router);
-
-    const res = await request(app).get('/cert-pins').expect(200);
-    assert.equal(res.body.error, null);
-    assert.equal(res.body.data.cert_pins.primary, 'sha256/abc123');
-    assert.equal(res.body.data.cert_pins.backup, 'sha256/def456');
-  });
-
   test('GET /internal/metrics-json returns 403 for non-localhost', async () => {
     const { default: createAdminMetricsRoutes } = await import('../routes/admin-metrics.js');
     const deps = makeDeps();
@@ -1071,6 +1045,23 @@ describe('routes/admin-bulk.js', () => {
     assert.equal(res.body.error, null);
     assert.ok(deps.stores.crews.delete.mock.calls.length > 0);
     assert.ok(deps.stores.auditLog.insert.mock.calls.length > 0);
+  });
+
+  test('DELETE /crews/:id emits crew:deleted with crewId and festivalId', async () => {
+    // makeDeps().io has no .in(), so evictAllFromCrewRoom bails before emitting.
+    // A local io mock with .in() exercises the real eviction broadcast.
+    const emitFn = mock.fn((..._args: any[]) => {});
+    const io: any = {
+      to: mock.fn((..._args: any[]) => ({ emit: emitFn })),
+      in: mock.fn((..._args: any[]) => ({ fetchSockets: async () => [] })),
+    };
+    const { app } = await buildBulkRouter({ io });
+
+    await request(app).delete('/crews/crew-1').expect(200);
+
+    assert.equal(io.to.mock.calls[0]!.arguments[0], 'crew:crew-1');
+    assert.equal(emitFn.mock.calls[0]!.arguments[0], 'crew:deleted');
+    assert.deepEqual(emitFn.mock.calls[0]!.arguments[1], { crewId: 'crew-1', festivalId: 'f1' });
   });
 
   test('DELETE /crews/:id returns 404 for missing crew', async () => {

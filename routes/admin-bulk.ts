@@ -71,13 +71,13 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
    * Best-effort: a failure must never fail the HTTP delete (the DB rows are
    * already gone); io may be absent in some test/CLI contexts.
    */
-  async function evictAllFromCrewRoom(crewId: string) {
+  async function evictAllFromCrewRoom(crewId: string, festivalId?: string) {
     if (!io || typeof io.in !== 'function') return;
     const room = `crew:${crewId}`;
     try {
       // Tell every client in the room the crew is gone, then drop their stamps
       // and force their socket(s) out of the room so broadcasts stop.
-      io.to(room).emit('crew:deleted', { crewId });
+      io.to(room).emit('crew:deleted', { crewId, festivalId });
       const sockets = await io.in(room).fetchSockets();
       for (const s of sockets) {
         if (s.data?.sharingCrewId === crewId) delete s.data.sharingCrewId;
@@ -102,7 +102,7 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
     try {
       const crews = await stores.crews.listByFestival(festivalId);
       for (const crew of crews) {
-        if (crew?.id) await evictAllFromCrewRoom(crew.id);
+        if (crew?.id) await evictAllFromCrewRoom(crew.id, festivalId);
       }
     } catch (error: any) {
       log.warn('admin festival crew room eviction failed', { error: error?.message, festivalId });
@@ -338,7 +338,7 @@ export default function mountAdminBulkRoutes({ router, deps, ctx }: any): void {
         // H1: evict ALL members from the crew room BEFORE the cascade, while the
         // room still has its sockets — they stop receiving live data for a crew
         // that's about to vanish and can no longer inject into it.
-        await evictAllFromCrewRoom(crewId);
+        await evictAllFromCrewRoom(crewId, crew.festivalId);
 
         await stores.crews.delete(crewId);
 

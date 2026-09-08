@@ -174,7 +174,7 @@ describe('schemas: normalizeReminderPayload edge cases', () => {
     for (let i = 0; i < 10; i++) reminders[`set-${i}`] = 15;
     const result = normalizeReminderPayload(reminders, { MAX_REMINDERS: 5 });
     assert.ok(result.error);
-    assert.ok(result.error.includes('Too many reminders'));
+    assert.ok(result.error.includes('Maximum 5 reminders'), `message must name the cap, got: ${result.error}`);
   });
 
   it('rejects array input', () => {

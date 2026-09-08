@@ -15,9 +15,9 @@
  */
 
 import type { Response, RequestHandler } from 'express';
+import type { SocketEmitter } from '../emitter.js';
 import type { z } from 'zod';
 import type { Server } from 'socket.io';
-import type { EventEmitter } from 'node:events';
 
 import type { AppConfig } from '../config';
 import type { ErrorCodes } from '../response';
@@ -168,5 +168,5 @@ export interface AppContext {
  */
 export type RouteDeps = AppContext & {
   io: Server;
-  emitter: EventEmitter;
+  emitter: SocketEmitter;
 };

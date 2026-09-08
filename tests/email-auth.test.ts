@@ -2,8 +2,8 @@ import 'dotenv/config';
 /**
  * Email-Auth Route Tests (Agent 5)
  * Covers: forgot-password per-email rate limit (Agent 1 feature),
- *         verify-email flow, reset-password flow, update-email with
- *         current-password challenge, resend-verification.
+ *         verify-email flow, reset-password flow, resend-verification, and
+ *         the removal of the legacy update-email route.
  */
 
 import assert from 'node:assert/strict';
@@ -88,6 +88,10 @@ async function startServer(overrides: any = {}) {
     REDIS_ENABLED: 'false',
     PUBLIC_ORIGIN: '',
     AUTH_RATE_LIMIT_MAX: 1000,
+    // MUST stay empty. Without it the key falls through to the process
+    // environment — a developer machine has a live provider key there — and
+    // every registration and reset in this suite would attempt a real send.
+    RESEND_API_KEY: '',
     ...overrides,
   });
   return {
@@ -400,60 +404,64 @@ describe('email-auth: reset-password', { concurrency: 1 }, () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────
-// update-email (current-password challenge)
+// update-email — RETIRED
 // ──────────────────────────────────────────────────────────────────────────
+// The route wrote the submitted address straight to `users.email` with
+// `email_verified_at = NULL`, so a stolen session moved the login identity —
+// and with it the password-reset channel — on request alone, with no proof of
+// control and no notice to the old address. POST /api/v1/account/email
+// replaces it. These tests pin the removal so the path cannot be remounted
+// without someone noticing.
 
-describe('email-auth: update-email', { concurrency: 1 }, () => {
-  test('requires authentication', async () => {
-    const server = await startServer();
-    servers.push(server);
-    const res = await server.request
-      .post('/api/v1/auth/update-email')
-      .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ email: 'new@example.com', password: DEFAULT_PASSWORD });
-    assert.equal(res.status, 401);
-  });
-
-  test('rejects wrong current password with 400', async () => {
+describe('email-auth: update-email is retired', { concurrency: 1 }, () => {
+  test('an authenticated caller with the correct password gets 404 and the identity does not move', async () => {
     const server = await startServer();
     servers.push(server);
     const ts = Date.now();
-    const username = `ue-wrong-${ts}`;
-    const user = await registerUser(server, username, DEFAULT_PASSWORD);
+    const username = `ue-gone-${ts}`;
+    const oldEmail = `ue-old-${ts}@example.com`;
+    const user = await registerUser(server, username, DEFAULT_PASSWORD, oldEmail);
 
     const res = await server.request
       .post('/api/v1/auth/update-email')
       .set('x-user-token', user.token)
       .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ email: `ue-wrong-${ts}@example.com`, password: 'not-my-password' });
-    assert.equal(res.status, 400);
-  });
+      .send({ email: `ue-attacker-${ts}@evil.test`, password: DEFAULT_PASSWORD });
+    assert.equal(res.status, 404, 'the unverified-write path must not be mounted');
 
-  test('updates email when current password is correct', async () => {
-    const server = await startServer();
-    servers.push(server);
-    const ts = Date.now();
-    const username = `ue-ok-${ts}`;
-    const newEmail = `ue-ok-${ts}@example.com`;
-    const user = await registerUser(server, username, DEFAULT_PASSWORD);
-
-    const res = await server.request
-      .post('/api/v1/auth/update-email')
-      .set('x-user-token', user.token)
-      .set(TRUSTED_MUTATION_HEADER, '1')
-      .send({ email: newEmail, password: DEFAULT_PASSWORD });
-    assert.equal(res.status, 200);
-    assert.ok(res.body.data?.email === newEmail || res.body.data?.message);
-
-    // email should be set but unverified
     const pool = new Pool({ connectionString: TEST_DATABASE_URL });
     try {
       const { rows } = await pool.query('SELECT email, email_verified_at FROM users WHERE username = $1', [username]);
-      assert.equal(String(rows[0].email).toLowerCase(), newEmail);
-      assert.equal(rows[0].email_verified_at, null);
+      assert.equal(String(rows[0].email).toLowerCase(), oldEmail, 'login identity must be untouched');
     } finally {
       await pool.end();
     }
+  });
+
+  test('no longer distinguishes a taken address from a free one', async () => {
+    const server = await startServer();
+    servers.push(server);
+    const ts = Date.now();
+    const taken = `ue-taken-${ts}@example.com`;
+    await registerUser(server, `ue-owner-${ts}`, DEFAULT_PASSWORD, taken);
+    const user = await registerUser(server, `ue-probe-${ts}`, DEFAULT_PASSWORD, `ue-mine-${ts}@example.com`);
+
+    const post = (email: string) =>
+      server.request
+        .post('/api/v1/auth/update-email')
+        .set('x-user-token', user.token)
+        .set(TRUSTED_MUTATION_HEADER, '1')
+        .send({ email, password: DEFAULT_PASSWORD });
+
+    const takenRes = await post(taken);
+    const freeRes = await post(`ue-free-${ts}@example.com`);
+    assert.equal(takenRes.status, 404);
+    assert.equal(freeRes.status, 404);
+    assert.equal(
+      JSON.stringify(takenRes.body?.error?.code ?? null),
+      JSON.stringify(freeRes.body?.error?.code ?? null),
+      'the ALREADY_EXISTS enumeration oracle must be gone',
+    );
   });
 });
 

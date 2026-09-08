@@ -19,7 +19,7 @@ import type { CrewRealtimeSink } from '@festie/shared/realtime/crewRealtimeSink'
  *   onMeetingPointUpsert / onMeetingPointRemoved -> ['meeting-points', crewId]
  *   onPollCreated / onPollVoted / onPollClosed   -> ['polls', crewId]
  *   onExpensesChanged   -> ['expenses', crewId] + ['expense-balances', crewId]
- *   onActivityLogged    -> no-op (web has no activity query/view)
+ *   onActivityLogged    -> ['crew-activity', crewId]
  *   onHomeBaseUpdated   -> crewStore.applyHomeBaseUpdate (store, not Query)
  *
  * The crewId passed to each method is the already-guarded active crew id
@@ -51,8 +51,8 @@ export function buildCrewQuerySink(queryClient: QueryClient): CrewRealtimeSink {
       void queryClient.invalidateQueries({ queryKey: ['expense-balances', crewId] });
       void queryClient.invalidateQueries({ queryKey: ['settlement-plan', crewId] });
     },
-    onActivityLogged: () => {
-      // Web has no activity feed query/view — nothing to invalidate.
+    onActivityLogged: (crewId) => {
+      void queryClient.invalidateQueries({ queryKey: ['crew-activity', crewId] });
     },
     // ── Live Location + SOS → the ephemeral, non-persisted liveLocationStore ──
     // Unlike the crew sub-features above, live location is NOT TanStack-Query
@@ -69,8 +69,9 @@ export function buildCrewQuerySink(queryClient: QueryClient): CrewRealtimeSink {
     onSosRaised: (_crewId, sos) => {
       useLiveLocationStore.getState().applySos(sos);
     },
-    onSosCleared: () => {
-      useLiveLocationStore.getState().clearSos();
+    onSosCleared: (_crewId, userId) => {
+      // Only the named raiser — a bare clearSos() drops every SOS in the store.
+      useLiveLocationStore.getState().clearSos(userId);
     },
   };
 }

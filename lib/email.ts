@@ -44,16 +44,21 @@ function _recordSend(to: any, subject: any) {
 /**
  * Send a transactional email via Resend.
  * Gracefully degrades if RESEND_API_KEY is not set (logs warning, returns false).
- * Idempotent: suppresses duplicate sends to the same address+subject within 5 minutes.
+ * Idempotent: suppresses duplicate sends to the same address+subject within 5
+ * minutes. Pass `dedupe: false` for mail that must never be silently dropped —
+ * a security alert has a constant subject and a constant recipient, so the
+ * guard would let an attacker suppress every alert after the first by simply
+ * repeating the request. Opting out skips recording as well as checking, so an
+ * exempt message neither suppresses nor is suppressed by anything else.
  */
-export async function sendEmail({ to, subject, html, text, headers, config, log, _client }: any) {
+export async function sendEmail({ to, subject, html, text, headers, config, log, _client, dedupe = true }: any) {
   const apiKey = config.RESEND_API_KEY;
   if (!apiKey) {
-    log.warn('email:skip', { reason: 'RESEND_API_KEY not configured' });
+    log.warn('email:skip', { to, subject, reason: 'RESEND_API_KEY not configured' });
     return false;
   }
 
-  if (_checkIdempotency(to, subject, log)) return true;
+  if (dedupe && _checkIdempotency(to, subject, log)) return true;
 
   const client = _client || getClient(apiKey);
   const from = config.EMAIL_FROM || 'Festie <no-reply@festie.us>';
@@ -64,7 +69,7 @@ export async function sendEmail({ to, subject, html, text, headers, config, log,
       log.error('email:send-error', { to, subject, error: result.error.message });
       return false;
     }
-    _recordSend(to, subject);
+    if (dedupe) _recordSend(to, subject);
     log.debug('email:sent', { to, subject, id: result.data?.id });
     return true;
   } catch (error: any) {
@@ -73,7 +78,9 @@ export async function sendEmail({ to, subject, html, text, headers, config, log,
   }
 }
 
-function _wrapTemplate(title: any, bodyHtml: any) {
+// `footer` is overridable because a security alert must not close with "you can
+// safely ignore this email" directly under "change your password immediately".
+function _wrapTemplate(title: any, bodyHtml: any, footer = "If you didn't request this, you can safely ignore this email.") {
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -87,7 +94,7 @@ function _wrapTemplate(title: any, bodyHtml: any) {
   </td></tr>
   <tr><td style="padding:0 32px 24px">${bodyHtml}</td></tr>
   <tr><td style="padding:20px 32px;border-top:1px solid rgba(255,255,255,0.06)">
-    <p style="color:rgba(255,255,255,0.3);font-size:12px;line-height:1.5;margin:0">If you didn't request this, you can safely ignore this email.</p>
+    <p style="color:rgba(255,255,255,0.3);font-size:12px;line-height:1.5;margin:0">${footer}</p>
   </td></tr>
 </table>
 </td></tr>
@@ -137,6 +144,35 @@ export async function sendVerificationEmail({ to, username, verifyUrl, config, l
   const text = `Hey ${username},\n\nThanks for signing up for Festie!\n\nVerify your email: ${verifyUrl}\n\nThis link expires in 24 hours.\n\nIf you didn't create this account, you can safely ignore this email.`;
 
   return sendEmail({ to, subject: 'Verify your Festie email', html, text, config, log, _client });
+}
+
+/**
+ * Security alert to the address on file when an email change is requested.
+ * It deliberately does NOT name the proposed new address: the point is to alert
+ * the account owner, not to hand an attacker who already controls the session
+ * anything extra. `dedupe: false` is load-bearing — recipient and subject are
+ * both constant, so the idempotency guard would deliver one alert while an
+ * attacker minted links all day.
+ */
+export async function sendEmailChangeNoticeEmail({ to, config, log, _client }: any) {
+  const p = 'color:#d4d4d8;font-size:15px;line-height:1.6;margin:0 0 16px';
+  const lines = [
+    'Someone requested a change to the email address on your Festie account.',
+    'The change does not take effect until the new address is confirmed, so your account is still reachable at this address for now.',
+    'If this was not you, change your password immediately - your session may be compromised. Changing it cancels the pending change and signs every device out.',
+  ];
+  const bodyHtml = lines.map((line) => `<p style="${p}">${escapeHtml(line)}</p>`).join('\n    ');
+  const html = _wrapTemplate('Security Alert', bodyHtml, 'Festie will never ask you for your password by email.');
+  return sendEmail({
+    to,
+    subject: 'Security alert: Festie email change requested',
+    html,
+    text: lines.join('\n\n'),
+    config,
+    log,
+    _client,
+    dedupe: false,
+  });
 }
 
 // ── M3 re-engagement emails ─────────────────────────────────────────────

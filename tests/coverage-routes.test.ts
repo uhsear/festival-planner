@@ -498,7 +498,7 @@ describe('profile + avatar', () => {
     const server = await startServer(); servers.push(server);
     const user = await registerUser(server, 'avatarlifecycleuser');
     const AVATAR_FIXTURE = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP8z/CfAQgwgImBgaEBAAriA/1oCbcnAAAAAElFTkSuQmCC',
+      'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAE0lEQVQImWP4z8DwnwGM/zMwAAAf7gP9qS/A4gAAAABJRU5ErkJggg==',
       'base64'
     );
 

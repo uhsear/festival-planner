@@ -88,8 +88,8 @@ describe('safeJsonForScript', () => {
 });
 
 describe('isAllowedMapHost', () => {
-  it('allows unpkg.com (MapLibre JS/CSS CDN)', () => {
-    expect(isAllowedMapHost('unpkg.com')).toBe(true);
+  it('no longer allows unpkg.com (the MapLibre runtime is vendored + inlined)', () => {
+    expect(isAllowedMapHost('unpkg.com')).toBe(false);
   });
 
   it('allows the bare OSM tile host', () => {

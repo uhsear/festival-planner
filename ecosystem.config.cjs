@@ -12,14 +12,29 @@
 module.exports = {
   apps: [{
     name: 'festie',
-    script: 'server.ts',
-    // Use tsx AS the interpreter. `node --import tsx/esm` under PM2 gets the
-    // process SIGINT-killed ~3s after start (tsx loader vs PM2 supervision), and
-    // PM2 cluster mode can't load .ts at all. Running tsx directly as the
-    // interpreter in fork mode is stable. Multi-worker scaling would require
-    // compiling the backend to JS.
-    interpreter: 'node_modules/.bin/tsx',
+    // Run the esbuild bundle, NOT TypeScript source. `npm run build`
+    // (scripts/build.mjs) emits dist/server.js plus the two worker entrypoints;
+    // dist/ is gitignored, so the deploy builds it on the host (deploy.py step 4).
+    // There is deliberately no `interpreter` line — PM2 runs a .js script with
+    // plain node, and tsx is no longer on the boot path.
+    //
+    // Why this matters: routes/export.ts SKIPS building its worker-thread export
+    // pool when the entry path ends in .ts, because worker threads cannot load
+    // TypeScript, and falls back to inline export. Booting from .js builds the
+    // real pool. The 286 Sentry events of 2026-05-29..2026-08-19 came from the
+    // doomed spawn BEFORE that skip guard existed; the guard already stopped
+    // them and is on main today, so this change gains the pool rather than
+    // fixing an error that is still firing. No speed benefit is claimed here —
+    // none has been measured.
+    script: 'dist/server.js',
+
+    // dist/*.js.map are emitted by the build; this makes stack traces in logs and
+    // Sentry point at the TypeScript source instead of bundled offsets.
+    node_args: ['--enable-source-maps'],
+
     exec_mode: 'fork',
+    // Stays 1. Bundling did NOT unblock cluster mode: lib/email.ts send-idempotency
+    // and the two in-memory limiters in routes/email-auth.ts are per-process state.
     instances: 1,
     autorestart: true,
     watch: false,
@@ -38,8 +53,9 @@ module.exports = {
     max_restarts: 10,
     min_uptime: 5000,
 
-    // tsx (esbuild) keeps the transpiled backend in memory, so RSS runs higher
-    // than the old plain-JS server — give it headroom (single fork worker now).
+    // Headroom for a single fork worker. The bundle drops tsx's in-memory
+    // transpile but adds the export worker threads (own heaps), so the net is
+    // unmeasured — the ceiling is left where it was rather than guessed at.
     max_memory_restart: '768M',
 
     // All secrets and credentials loaded from .env via dotenv.

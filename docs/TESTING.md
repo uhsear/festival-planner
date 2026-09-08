@@ -9,6 +9,15 @@
 
 CI runs all of these (see `.github/workflows/ci.yml`): backend `node --test` with Postgres + Redis services, web + shared vitest, web/shared/mobile typecheck, web lint + shared lint.
 
+## Linting and `tests/`
+
+`tests/` is deliberately excluded from `npm run lint`: the global `ignores` array in
+`eslint.config.cjs` lists `tests/**`, and the lint script only passes `lib/ routes/ server.ts`.
+Test files use idioms that the server ruleset rejects, such as Playwright's empty-destructuring
+fixture signature (`async ({}, use) =>`), so `npm run typecheck` and the test run itself are the
+gate for `tests/`. Do not add `tests/` to the lint script on its own — ESLint then exits 2 with
+"all of the files matching the glob pattern "tests/" are ignored" and the CI lint job fails.
+
 ## Backend integration tests (require a Postgres test DB)
 
 ~20 backend test files (`tests/profiles.test.ts`, `tests/response-shapes.test.ts`,

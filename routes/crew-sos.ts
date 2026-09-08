@@ -46,6 +46,7 @@ export default function createCrewSosRoutes(deps: RouteDeps) {
     io,
     notificationService,
     redis,
+    emitter,
   } = deps;
 
   const router = Router({ mergeParams: true });
@@ -135,6 +136,17 @@ export default function createCrewSosRoutes(deps: RouteDeps) {
         // Durable side-effect #2: crew-wide socket broadcast (primary delivery).
         if (io) io.to('crew:' + crewId).emit('sos:raised', payload);
 
+        // Activity-feed fan-out, only when the row landed. Strictly AFTER the
+        // primary broadcast: this is a feed nicety and must never preempt SOS.
+        if (activityId) {
+          try {
+            emitter.crewActivityLogged({ crewId, item: { id: activityId, crewId, userId, type: 'sos_raised', detail } });
+          } catch {
+            // Feed nicety only. The SOS broadcast above is the primary delivery
+            // and has already gone out; never fail the raise on a feed emit.
+          }
+        }
+
         // Best-effort side-effect #3: push fan-out to the rest of the crew. MUST
         // NOT block or fail the HTTP response — the socket broadcast + activity
         // row are the primary delivery; push is the offline-reach layer.
@@ -197,6 +209,17 @@ export default function createCrewSosRoutes(deps: RouteDeps) {
             activityId: activityId || undefined,
             clearedAt,
           });
+        }
+
+        if (activityId) {
+          try {
+            emitter.crewActivityLogged({
+              crewId,
+              item: { id: activityId, crewId, userId, type: 'sos_cleared', detail: null },
+            });
+          } catch {
+            // As above: the clear is already broadcast; the feed must not fail it.
+          }
         }
 
         log.info('crew:sos-cleared', { crewId, userId });

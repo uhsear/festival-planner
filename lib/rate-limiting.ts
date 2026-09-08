@@ -369,9 +369,26 @@ function createRateLimiters({
 // Keeps the same Redis-first / in-memory-fallback pattern as the other
 // limiters above, but uses a module-local Map since there's no shared `state`
 // slot for this tier yet.
-function createPasswordResetRateLimit(config: any, { log, sendError, ErrorCodes, redis }: any = {}) {
-  const WINDOW_MS = 60 * 60 * 1000; // 1 hour
-  const MAX_ATTEMPTS = 3;
+// The scope/budget/message are options with today's values as defaults, so the
+// existing password-reset call sites are unchanged. The email-change flow
+// reuses the factory for its per-recipient tier: the per-user tier there caps
+// how often one account may ask, not how much Festie-branded mail one victim
+// address can be made to receive.
+function createPasswordResetRateLimit(
+  config: any,
+  {
+    log,
+    sendError,
+    ErrorCodes,
+    redis,
+    scope = 'pw-reset',
+    maxAttempts = 3,
+    windowMs = 60 * 60 * 1000,
+    message = 'Too many password reset attempts for this email. Try again later.',
+  }: any = {},
+) {
+  const WINDOW_MS = windowMs; // default 1 hour
+  const MAX_ATTEMPTS = maxAttempts;
   const MAX_ENTRIES = 10_000;
   const CLUSTER_SIZE = resolveClusterSize(config);
   const REDIS_PREFIX = (config && config.REDIS_PREFIX) || 'fp:';
@@ -389,7 +406,7 @@ function createPasswordResetRateLimit(config: any, { log, sendError, ErrorCodes,
   async function tryRedis(emailKey: any) {
     if (!redis) return null;
     try {
-      const redisKey = `${REDIS_PREFIX}rl:pw-reset:${emailKey}`;
+      const redisKey = `${REDIS_PREFIX}rl:${scope}:${emailKey}`;
       return await redisRateCheckFn(redis, redisKey, MAX_ATTEMPTS, WINDOW_MS);
     } catch {
       return null; // fall through to in-memory
@@ -414,20 +431,13 @@ function createPasswordResetRateLimit(config: any, { log, sendError, ErrorCodes,
       res.setHeader('X-RateLimit-Reset', String(Math.ceil((Date.now() + redisResult.resetMs) / 1000)));
       if (redisResult.limited) {
         if (log && redisResult.count === MAX_ATTEMPTS + 1) {
-          log.warn('rate-limit:password-reset', { emailHash: emailHash.slice(0, 16), count: redisResult.count });
+          log.warn('rate-limit:email-address', { scope, emailHash: emailHash.slice(0, 16), count: redisResult.count });
         }
         res.setHeader('Retry-After', String(Math.max(1, Math.ceil(redisResult.resetMs / 1000))));
         if (sendError && ErrorCodes) {
-          return sendError(
-            res,
-            429,
-            'Too many password reset attempts for this email. Try again later.',
-            ErrorCodes.RATE_LIMITED,
-          );
+          return sendError(res, 429, message, ErrorCodes.RATE_LIMITED);
         }
-        return res
-          .status(429)
-          .json({ error: { message: 'Too many password reset attempts for this email. Try again later.' } });
+        return res.status(429).json({ error: { message } });
       }
       return next();
     }
@@ -454,7 +464,8 @@ function createPasswordResetRateLimit(config: any, { log, sendError, ErrorCodes,
 
     if (entry.count > effectiveMax) {
       if (log && entry.count === effectiveMax + 1) {
-        log.warn('rate-limit:password-reset', {
+        log.warn('rate-limit:email-address', {
+          scope,
           emailHash: emailHash.slice(0, 16),
           count: entry.count,
           fallback: true,
@@ -462,16 +473,9 @@ function createPasswordResetRateLimit(config: any, { log, sendError, ErrorCodes,
       }
       res.setHeader('Retry-After', String(Math.max(1, Math.ceil((resetAt - now) / 1000))));
       if (sendError && ErrorCodes) {
-        return sendError(
-          res,
-          429,
-          'Too many password reset attempts for this email. Try again later.',
-          ErrorCodes.RATE_LIMITED,
-        );
+        return sendError(res, 429, message, ErrorCodes.RATE_LIMITED);
       }
-      return res
-        .status(429)
-        .json({ error: { message: 'Too many password reset attempts for this email. Try again later.' } });
+      return res.status(429).json({ error: { message } });
     }
     return next();
   };

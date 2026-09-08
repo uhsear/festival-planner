@@ -9,7 +9,8 @@
  * POST /login - Authenticate user and set session cookie
  * POST /logout - Invalidate session and clear cookie
  * POST /change-password - Change password (authenticated)
- * (Email routes split to email-auth.js: forgot-password, verify-email, update-email, resend-verification)
+ * (Email routes split to email-auth.js: forgot-password, verify-email, resend-verification.
+ *  The unverified-write POST /update-email was removed; POST /api/v1/account/email replaces it.)
  */
 
 import crypto from 'crypto';
@@ -610,6 +611,12 @@ export default function createAuthRoutes(deps: any): Router {
         // Also revoke long-lived refresh tokens so a held token chain cannot
         // mint new sessions after the credential change (H2).
         if (stores.refreshTokens) await stores.refreshTokens.revokeAll(req.user.userId);
+        // The email-change security notice tells the owner to change their
+        // password. That advice only works if it also revokes the pending
+        // change link the attacker minted, so do it here beside the other
+        // revocations. `user.email` is spared so an unclicked signup or resend
+        // token for the address already on file survives.
+        await stores.emailTokens.invalidatePendingEmailChanges(req.user.userId, user.email ?? null);
         disconnectUserSockets(req.user.userId, io);
         const token = await createUserSession(req.user.userId, req.user.username);
         setNoStore(res);

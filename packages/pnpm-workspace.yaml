@@ -33,3 +33,24 @@ minimumReleaseAgeExclude:
 # the old-but-locked pin. Trusted legacy dev-tool dep — excluded.
 trustPolicyExclude:
   - semver
+
+# Audit suppressions. ONLY for advisories where no patched release exists, so a
+# version bump cannot clear them and the alternative is deleting a feature.
+# Keyed by GHSA id, never by package name, so a future advisory against the same
+# package still fails the audit.
+# RE-CHECK TRIGGER: drop the image-size entries when image-size publishes >2.0.2,
+# and the extract-zip entry when extract-zip publishes >2.0.1. Both were the
+# latest published version as of 2026-09-08 and both are inside the vulnerable
+# range, so every existing release is affected.
+auditConfig:
+  ignoreGhsas:
+    # image-size ICNS infinite loop (CVE-2025-71330) and JXL/HEIF infinite loops
+    # (CVE-2025-71329). Reached only via mobile>expo>@expo/metro>metro, the React
+    # Native bundler: it reads dimensions of first-party assets at build time and
+    # does not ship in the app binary or parse user input at runtime.
+    - "GHSA-w3rx-r6r6-pgpr"
+    - "GHSA-5p2g-fcmc-qvqq"
+    # extract-zip unvalidated symlink path traversal (CVE-2026-56876). Dev-only,
+    # via web>@lhci/cli>lighthouse>puppeteer-core>@puppeteer/browsers, which uses
+    # it to unpack the Chrome build it downloads for Lighthouse CI.
+    - "GHSA-jmr9-qjv8-65gv"

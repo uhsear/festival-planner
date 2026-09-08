@@ -270,10 +270,16 @@ of whether they are notifiable. Include: facts, effects, remedial action taken.
 
 ## 8. Stack-Specific Runbook Notes
 
-### PM2 cluster (x4 workers)
+### PM2 (fork mode, single instance)
 
-- Prefer `pm2 reload festie` (zero-downtime) over `pm2 restart` during incidents
-  unless the process is wedged.
+- `pm2 reload festie` is NOT zero-downtime for this app. pm2 only does a graceful
+  reload in cluster mode (`God/Reload.js` checks `exec_mode == 'cluster_mode'`),
+  and this app runs `exec_mode: 'fork'` with `instances: 1`, so reload falls
+  through to a plain restart. Expect a short drop either way; do not pick reload
+  believing it avoids one
+- Restarting by NAME (`pm2 restart festie`) re-launches the definition stored in
+  the pm2 daemon and does NOT re-read `ecosystem.config.cjs`. If you changed that
+  file, restart from the file instead: `pm2 restart ecosystem.config.cjs --only festie`
 - Emergency hard-reset: `~/restart.sh` or `~/recover.sh` on the app host (see
   `docs/runbooks/deploy.md §5`).
 - Rate-limiter state that is in-memory per-process (location flood, SOS raise
@@ -283,7 +289,7 @@ of whether they are notifiable. Include: facts, effects, remedial action taken.
 
 - Connection string: `DATABASE_URL` in prod `.env`.
 - All migrations are app-managed and additive. Do not run a separate migration
-  tool during an incident — `pm2 reload` applies pending migrations on boot.
+  tool during an incident — a pm2 restart applies pending migrations on boot.
 - If schema integrity is uncertain after an attack, restore from the offsite
   encrypted backup (`docs/runbooks/backup-restore.md`).
 

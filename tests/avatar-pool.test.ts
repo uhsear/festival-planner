@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it, afterEach, mock } from 'node:test';
 
+import sharp from 'sharp';
+
 import { AvatarPool } from '../lib/avatar-pool';
 
 // ---------------------------------------------------------------------------
@@ -159,5 +161,42 @@ describe('AvatarPool: worker error recovery', () => {
       const listeners = w.listeners('error');
       assert.ok(listeners.length >= 1, 'worker should have error listener');
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Characterization test for the image OUTPUT itself. Every other avatar test
+// asserts only HTTP status or a URL shape, so the encoder could emit a 1x1 JPEG
+// and the suite would stay green. This pins the contract the avatar route
+// depends on across sharp/libvips upgrades.
+// ---------------------------------------------------------------------------
+describe('AvatarPool: encoded output contract', () => {
+  let pool: any;
+  afterEach(async () => {
+    if (pool) await pool.terminate();
+  });
+
+  it('encodes a real image to a square WebP at the configured size, without EXIF', async () => {
+    // Non-square on purpose, so the resize-to-square actually has work to do.
+    const input = await sharp({
+      create: { width: 400, height: 200, channels: 3, background: { r: 200, g: 60, b: 40 } },
+    })
+      .png()
+      .toBuffer();
+
+    pool = new AvatarPool();
+    const out = await pool.process(input, {
+      AVATAR_MAX_PIXELS: 16_000_000,
+      AVATAR_SIZE: 256,
+      AVATAR_WEBP_QUALITY: 82,
+    });
+
+    const md = await sharp(out).metadata();
+    assert.equal(md.format, 'webp');
+    assert.equal(md.width, 256);
+    assert.equal(md.height, 256);
+    // Metadata stripping is implicit (the worker never calls keepMetadata), and
+    // it is a security property: it removes EXIF GPS from user uploads.
+    assert.equal(md.exif, undefined);
   });
 });

@@ -100,7 +100,6 @@ The backend reads all env vars through `lib/config.ts`. Create a `.env` file in 
 | `DATABASE_URL` | PostgreSQL connection string, e.g. `postgresql://user:pass@localhost:5432/festie` |
 | `PUBLIC_ORIGIN` | Canonical origin of the deployed app, e.g. `https://festie.us` (required in production; startup validator enforces it) |
 | `SESSION_SECRET` | Strong random string; reserved for future HMAC session signing, enforced at startup in production |
-| `FIREBASE_CREDENTIALS_PATH` | Absolute path to the Firebase service-account JSON file (FCM push notifications) |
 
 ### Required for integration tests
 
@@ -115,6 +114,7 @@ The backend reads all env vars through `lib/config.ts`. Create a `.env` file in 
 | `REDIS_URL` | `redis://127.0.0.1:6379` | Redis connection. Falls back to in-memory when unset or `REDIS_ENABLED=false` |
 | `REDIS_ENABLED` | `true` | Set `false` to run without Redis locally |
 | `RESEND_API_KEY` | — | Transactional email (password reset, invites). Email features silently disabled when unset. |
+| `FIREBASE_CREDENTIALS_PATH` | — | Absolute path to the Firebase service-account JSON file. Set it to enable FCM push notifications. The server starts normally when it is unset, and push delivery stays disabled. |
 | `ALLOWED_ORIGINS` | derived from `PUBLIC_ORIGIN` | Comma-separated extra CORS origins |
 | `PORT` | `4000` | HTTP port the backend listens on |
 | `BIND_ADDRESS` | `127.0.0.1` | Interface to bind; set `0.0.0.0` in Docker |

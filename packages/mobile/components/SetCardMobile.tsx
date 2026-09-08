@@ -10,7 +10,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import type { FestivalSet, Priority } from '@festie/shared/types';
-import { formatTime, artistDisplayName, artistSubtitle, ensureWhiteContrast, PRIORITY_RANK } from '@festie/shared/utils';
+import {
+  formatTime,
+  artistDisplayName,
+  artistSubtitle,
+  ensureWhiteContrast,
+  PRIORITY_RANK,
+  buildOverlapBreakdown,
+} from '@festie/shared/utils';
 import { useCrewStore, useFestivalStore } from '@festie/shared/stores';
 import { duration, easing } from '@festie/shared/tokens';
 import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../hooks/useTokens';
@@ -79,31 +86,10 @@ const PRIORITIES: readonly {
   { value: 'maybe', icon: 'ellipse', label: 'Maybe', short: 'Maybe' },
 ];
 
-// PRIORITY_RANK imported from @festie/shared/utils (crewNudges): must=0,
-// want-to-see=1, maybe=2 — lower rank sorts earlier (must first).
-
-const PRIORITY_NOUN: Record<Priority, string> = {
-  must: 'must',
-  'want-to-see': 'want',
-  maybe: 'maybe',
-};
-
-/**
- * Build the "N must, N want" breakdown phrase for the crew-overlap accessibility
- * label. Empty groups are dropped; an all-empty list yields ''.
- */
-function buildOverlapBreakdown(friends: readonly { priority: Priority }[]): string {
-  const counts: Record<Priority, number> = {
-    must: 0,
-    'want-to-see': 0,
-    maybe: 0,
-  };
-  for (const f of friends) counts[f.priority] = (counts[f.priority] ?? 0) + 1;
-  return (['must', 'want-to-see', 'maybe'] as const)
-    .filter((p) => counts[p] > 0)
-    .map((p) => `${counts[p]} ${PRIORITY_NOUN[p]}`)
-    .join(', ');
-}
+// PRIORITY_RANK and buildOverlapBreakdown are imported from
+// @festie/shared/utils (crewNudges) so web and mobile share one source of
+// truth: must=0, want-to-see=1, maybe=2 — lower rank sorts earlier (must
+// first) — and one "N must, M want" phrasing.
 
 interface PriorityButtonProps {
   option: (typeof PRIORITIES)[number];

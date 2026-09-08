@@ -39,7 +39,11 @@ export default function ActivityTab({ crewId }: Props) {
       return Array.isArray(res) ? res : [];
     },
     enabled: !!crewId,
-    refetchInterval: 30_000, // Poll once every 30s so new events appear without socket wiring
+    // crew:activity (lib/emitter.ts) now pushes new events and useCrewQuerySink
+    // invalidates ['crew-activity', crewId] on it. The 30s poll stays as the
+    // safety net: the socket producer has only just landed and has not aged out
+    // to shipped clients yet.
+    refetchInterval: 30_000,
   });
 
   if (isLoading) {

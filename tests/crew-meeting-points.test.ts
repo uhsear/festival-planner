@@ -121,6 +121,7 @@ function makeDeps(overrides: any = {}) {
       meetingPointUpdate: {},
     },
     io: overrides.io !== undefined ? overrides.io : ioObj,
+    emitter: { crewActivityLogged: mock.fn(() => {}) },
     stores,
   };
 
@@ -200,7 +201,7 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
 
   test('logs activity after setting home base', async () => {
     const activityLog = mock.fn(async () => {});
-    const { app } = await buildApp({
+    const { app, deps } = await buildApp({
       stores: {
         crews: {
           getMember: mock.fn(async () => ({ userId: 'user-1', role: 'owner' })),
@@ -218,6 +219,11 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/home-base', () => {
     assert.equal(logArg.userId, 'user-1');
     assert.equal(logArg.type, 'home-base-updated');
     assert.equal(logArg.detail, 'Gate A');
+    // The same write broadcasts crew:activity so the feed refreshes live.
+    const activityEmit = (deps.emitter.crewActivityLogged as any).mock.calls;
+    assert.equal(activityEmit.length, 1);
+    assert.equal(activityEmit[0].arguments[0].crewId, 'crew-1');
+    assert.equal(activityEmit[0].arguments[0].item.type, 'home-base-updated');
   });
 
   // ── Permission checks ─────────────────────────────────────────────
@@ -571,7 +577,14 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
           getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
           meetingPoints: {
             countByCrew: mock.fn(async () => 0),
-            create: mock.fn(async (data: any) => ({ ...data, active: true })),
+            // The real store returns the snake_case DB row, not the camelCase
+            // argument — the emitted payload IS that row (lib/db/stores/crews.ts).
+            create: mock.fn(async (data: any) => ({
+              ...DEFAULT_MEETING_POINT,
+              id: data.id,
+              label: data.label,
+              location: data.location,
+            })),
           },
         },
       },
@@ -581,6 +594,9 @@ describe('routes/crew-meeting-points.js -- POST /:crewId/meeting-points', () => 
 
     assert.equal((ioObj.to.mock.calls as any[])[0].arguments[0], 'crew:crew-1');
     assert.equal((ioObj._emit.mock.calls as any[])[0].arguments[0], 'crew:meeting-point-created');
+    const created = (ioObj._emit.mock.calls as any[])[0].arguments[1];
+    assert.equal(created.crew_id, 'crew-1');
+    assert.equal(created.crewId, undefined, 'payload is the raw row; no camelCase duplicate');
   });
 
   // ── Max limit ─────────────────────────────────────────────────────
@@ -801,6 +817,9 @@ describe('routes/crew-meeting-points.js -- PUT /:crewId/meeting-points/:mpId', (
 
     assert.equal((ioObj.to.mock.calls as any[])[0].arguments[0], 'crew:crew-1');
     assert.equal((ioObj._emit.mock.calls as any[])[0].arguments[0], 'crew:meeting-point-updated');
+    const updatedPayload = (ioObj._emit.mock.calls as any[])[0].arguments[1];
+    assert.equal(updatedPayload.crew_id, 'crew-1');
+    assert.equal(updatedPayload.crewId, undefined, 'payload is the raw row; no camelCase duplicate');
   });
 
   // ── Not found cases ───────────────────────────────────────────────

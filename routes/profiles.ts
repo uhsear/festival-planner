@@ -42,7 +42,7 @@ export default function createProfilesRoutes(deps: any) {
       const profiles = rawProfiles
         .map((profile: any) => serializeProfileForViewer(profile, req.user.userId, usersById.get(profile.userId)));
       // Support paginated response when params present
-      if (req.query.cursor || req.query.limit || req.query.pageSize) {
+      if (req.query.cursor || req.query.limit) {
         const { limit, cursor } = req.validatedQuery;
         const { items, pagination } = paginateArray(profiles, { limit, cursor });
         return sendSuccess(res, items, { pagination });

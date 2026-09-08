@@ -19,8 +19,11 @@ const __dirname = path.dirname(__filename);
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const DEFAULT_PASSWORD = 'Str0ngTest!Pw';
 const TRUSTED_MUTATION_HEADER = 'x-festie-request';
+// Must be a byte-valid PNG: the avatar worker decodes with `failOn: 'error'`,
+// and libpng >=1.6.58 (sharp 0.35/libvips 8.18) rejects a bad IDAT CRC or a
+// truncated zlib stream that older libpng silently tolerated.
 const AVATAR_FIXTURE = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP8z/CfAQgwgImBgaEBAAriA/1oCbcnAAAAAElFTkSuQmCC',
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAE0lEQVQImWP4z8DwnwGM/zMwAAAf7gP9qS/A4gAAAABJRU5ErkJggg==',
   'base64'
 );
 
@@ -31,6 +34,8 @@ if (!TEST_DATABASE_URL.includes('_test')) { console.error('SAFETY: TEST_DATABASE
 
 let testDbReady = false;
 
+// Deliberately duplicated in tests/e2e/fixtures.ts, which documents why a shared
+// factory is not possible. Keep the fest-1 object below in sync with that copy.
 function createFestivalFixture() {
   return [
     {

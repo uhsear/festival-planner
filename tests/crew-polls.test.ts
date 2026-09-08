@@ -100,6 +100,7 @@ function makePollDeps(overrides: any = {}) {
     validate: overrides.validate || ((_schema: any) => (req: any, _res: any, next: any) => { req.validatedBody = req.body; next(); }),
     validateParams: overrides.validateParams || ((_schema: any) => (req: any, _res: any, next: any) => { req.validatedParams = req.params; next(); }),
     io: overrides.io !== undefined ? overrides.io : ioObj,
+    emitter: { crewActivityLogged: mock.fn(() => {}) },
     stores,
   };
 
@@ -344,7 +345,7 @@ describe('routes/crew-polls.js — POST /:crewId/polls', () => {
   // ── Activity logging ──────────────────────────────────────────────
   test('logs poll-created activity', async () => {
     const activityLog = mock.fn(async () => {});
-    const { app } = await buildPollApp({
+    const { app, deps } = await buildPollApp({
       stores: {
         crews: {
           getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
@@ -373,6 +374,12 @@ describe('routes/crew-polls.js — POST /:crewId/polls', () => {
     assert.equal(logArgs.userId, 'user-1');
     assert.equal(logArgs.type, 'poll-created');
     assert.equal(logArgs.detail, 'Where?');
+
+    // The same write broadcasts crew:activity so the feed refreshes live.
+    const activityEmit = (deps.emitter.crewActivityLogged as any).mock.calls;
+    assert.equal(activityEmit.length, 1);
+    assert.equal(activityEmit[0].arguments[0].crewId, 'crew-1');
+    assert.equal(activityEmit[0].arguments[0].item.type, 'poll-created');
   });
 
   // ── Max active polls limit ────────────────────────────────────────

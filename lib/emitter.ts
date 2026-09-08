@@ -203,3 +203,6 @@ export function createSocketEmitter({ io, log, notificationService, buildAvatarU
     crewActivityLogged,
   };
 }
+
+/** The emitter object routes receive on `deps.emitter` (see RouteDeps). */
+export type SocketEmitter = ReturnType<typeof createSocketEmitter>;

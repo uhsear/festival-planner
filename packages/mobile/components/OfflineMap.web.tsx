@@ -43,8 +43,10 @@ import { useNow } from '../hooks/useNow';
  * `react-native-webview`. That dependency has no web implementation, so on the
  * web export metro's platform-extension resolution picks up THIS `.web.tsx`
  * instead (the consumer's `import OfflineMap from '../components/OfflineMap'` is
- * unchanged). Native therefore never bundles `maplibre-gl` — it lives only in
- * this file, which native metro never resolves.
+ * unchanged). Native never IMPORTS `maplibre-gl` as a module — that import lives
+ * only in this file, which native metro never resolves. Native does still ship
+ * the library: the WebView document inlines a vendored copy of the same dist
+ * bytes (see `vendor/mapRuntime.ts`), so it no longer fetches one from a CDN.
  *
  * What it renders: a LIVE MapLibre GL JS map (no API key, OSM raster basemap),
  * the same three marker kinds web's `CrewMap.tsx` plots — meeting-point pins,

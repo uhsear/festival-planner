@@ -23,6 +23,16 @@ const DEFAULT_PASSWORD = 'Str0ngTest!Pw';
 // fixture (mirrors tests/_integration-helpers.ts). The fixture data — fest-1
 // "Test Fest" (Alpha/Beta/Gamma/Delta) and fest-2 "Campfire Fest" (Omega) — is
 // what every assertion in festival-planner.spec.ts reads back through the SPA.
+//
+// The mirror is deliberate — do not replace it with an import. fest-2 exists
+// only here because festival-planner.spec.ts switches to it, while
+// integration-festivals.test.ts asserts its own baseline is exactly one
+// festival, so one shared factory cannot satisfy both. Importing
+// tests/_integration-helpers.ts is also unsafe: it calls process.exit(1) at
+// module scope and enforces a looser database-name contract (any URL containing
+// "_test") than resolveTestDatabaseUrl below (exactly "festie_test"). Drift risk
+// is accepted and bounded: keep the shared fest-1 object in sync by hand; both
+// suites assert its artists by name, so a divergence fails loudly.
 function createFestivalFixture() {
   return [
     {

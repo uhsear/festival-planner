@@ -20,6 +20,7 @@ export default function createCrewRidesRoutes(deps: any) {
     validate,
     validateParams,
     io,
+    emitter,
   } = deps;
 
   const router = Router({ mergeParams: true });
@@ -76,13 +77,15 @@ export default function createCrewRidesRoutes(deps: any) {
         });
 
         io.to('crew:' + crewId).emit('crew:ride-created', { offer });
+        const activity = {
+          crewId,
+          userId,
+          type: 'ride-created',
+          detail: (offer.driver || offer.depart_from || 'Ride').slice(0, 100),
+        };
         await stores.activity
-          .log({
-            crewId,
-            userId,
-            type: 'ride-created',
-            detail: (offer.driver || offer.depart_from || 'Ride').slice(0, 100),
-          })
+          .log(activity)
+          .then((id: string) => emitter.crewActivityLogged({ crewId, item: { id, ...activity } }))
           .catch(() => {});
         return sendSuccess(res, { offer });
       } catch (err: any) {

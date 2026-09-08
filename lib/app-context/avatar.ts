@@ -13,11 +13,11 @@
  *     sense that it's also returned so the composer can expose it on the
  *     context object (`avatarPool` field, consumed by close handlers).
  */
-import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
 
 import { AvatarPool } from '../avatar-pool';
+import { avatarStorage } from '../avatar-storage';
 import { ALLOWED_AVATAR_MIME_TYPES } from '../constants';
 
 /**
@@ -29,12 +29,7 @@ export function createAvatarHelpers({ config, sendError, ErrorCodes }: { config:
   }
 
   function ensureAvatarDir() {
-    const dir = avatarDirPath();
-    fs.mkdirSync(dir, { recursive: true });
-    const staleFiles = fs.readdirSync(dir).filter((f: string) => f.endsWith('.tmp'));
-    for (const staleFile of staleFiles) {
-      fs.rmSync(path.join(dir, staleFile), { force: true });
-    }
+    avatarStorage.ensureDir(avatarDirPath());
   }
 
   function getAvatarFilePath(avatarKey: any) {
@@ -51,22 +46,17 @@ export function createAvatarHelpers({ config, sendError, ErrorCodes }: { config:
   }
 
   async function writeAvatarFile(avatarKey: any, buffer: any) {
+    // Ordering is observable: the directory is ensured (and swept) before the
+    // key is validated, so an invalid key still has both side effects.
     ensureAvatarDir();
     const targetPath = getAvatarFilePath(avatarKey);
-    const tempPath = `${targetPath}.tmp`;
-    try {
-      await fs.promises.writeFile(tempPath, buffer);
-      await fs.promises.rename(tempPath, targetPath);
-    } catch (error) {
-      try { await fs.promises.rm(tempPath, { force: true }); } catch { /* ignore */ }
-      throw error;
-    }
+    await avatarStorage.writeFileAtomic(targetPath, buffer);
   }
 
   async function removeAvatarFile(avatarKey: any) {
     if (!avatarKey) return;
     const targetPath = getAvatarFilePath(avatarKey);
-    await fs.promises.rm(targetPath, { force: true });
+    await avatarStorage.removeFile(targetPath);
   }
 
   // Multer instance + the request-middleware wrapper that converts its

@@ -101,6 +101,7 @@ function makePackingDeps(overrides: any = {}) {
     validate: overrides.validate || ((_schema: any) => (req: any, _res: any, next: any) => { req.validatedBody = req.body; next(); }),
     validateParams: overrides.validateParams || ((_schema: any) => (req: any, _res: any, next: any) => { req.validatedParams = req.params; next(); }),
     io: overrides.io !== undefined ? overrides.io : ioObj,
+    emitter: { crewActivityLogged: mock.fn(() => {}) },
     stores,
   };
 
@@ -338,7 +339,7 @@ describe('routes/crew-packing.js — POST /:crewId/packing', () => {
   // ── Activity logging ──────────────────────────────────────────────
   test('logs packing-created activity', async () => {
     const activityLog = mock.fn(async () => {});
-    const { app } = await buildPackingApp({
+    const { app, deps } = await buildPackingApp({
       stores: {
         crews: {
           getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
@@ -366,6 +367,11 @@ describe('routes/crew-packing.js — POST /:crewId/packing', () => {
     assert.equal(logArgs.userId, 'user-1');
     assert.equal(logArgs.type, 'packing-created');
     assert.equal(logArgs.detail, 'Tent');
+    // The same write broadcasts crew:activity so the feed refreshes live.
+    const activityEmit = (deps.emitter.crewActivityLogged as any).mock.calls;
+    assert.equal(activityEmit.length, 1);
+    assert.equal(activityEmit[0].arguments[0].crewId, 'crew-1');
+    assert.equal(activityEmit[0].arguments[0].item.type, 'packing-created');
   });
 
   // ── Max items limit ────────────────────────────────────────────────

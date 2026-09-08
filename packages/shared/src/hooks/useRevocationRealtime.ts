@@ -5,11 +5,11 @@
  * useRevocationRealtime — the client half of the server's authorization
  * revocation events.
  *
- * The server emits `session:revoked`, `crew:access-revoked` and
- * `crew:member-kicked` from routes/auth.ts, routes/crew-members.ts and
- * routes/admin-bulk.ts. Without these listeners a kicked member keeps a phantom
- * crew on screen and a revoked session keeps looking live until a manual
- * refresh — it reads as a security failure.
+ * The server emits `session:revoked` from routes/auth.ts, and both
+ * `crew:access-revoked` and `crew:member-kicked` from routes/crew-members.ts
+ * and routes/admin-bulk.ts. Without these listeners a kicked member keeps a
+ * phantom crew on screen and a revoked session keeps looking live until a
+ * manual refresh — it reads as a security failure.
  *
  * It does NOT own a socket: the caller passes the single shared one (web's
  * useSocket, mobile's useRealtimeSync). It is deliberately NOT gated behind the

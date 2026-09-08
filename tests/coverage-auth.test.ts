@@ -2,9 +2,14 @@
  * Coverage-backfill: auth, email, and account-lifecycle route cases.
  *
  * Consolidates auth-adjacent tests previously scattered across:
- *   - tests/coverage-gaps.test.js           (update-email, resend-verification, ToS, account delete)
- *   - tests/gap-coverage.test.js            (forgot/verify/reset password, update-email unverified-state, resend rate limit, email infra)
- *   - tests/phase3-coverage.test.js         (email workflow, update-email incorrect-pw)
+ *   - tests/coverage-gaps.test.js           (email change, resend-verification, ToS, account delete)
+ *   - tests/gap-coverage.test.js            (forgot/verify/reset password, pending-token state, resend rate limit, email infra)
+ *   - tests/phase3-coverage.test.js         (email workflow, email-change incorrect-pw)
+ *
+ * The legacy POST /api/v1/auth/update-email these cases were written against
+ * has been removed (it wrote an unverified address straight to users.email);
+ * they now run against its hardened replacement POST /api/v1/account/email,
+ * which shares the same Zod schema and current-password challenge.
  *
  * All tests hit live routes against TEST_DATABASE_URL; pure unit/store coverage
  * lives in coverage-edges.test.js.
@@ -87,7 +92,11 @@ async function startServer(overrides: any = {}) {
     DATABASE_URL: TEST_DATABASE_URL, PUBLIC_DIR,
     NODE_ENV: 'test', REDIS_ENABLED: 'false',
     AUTH_RATE_LIMIT_MAX: 1000, PUBLIC_ORIGIN: '',
-    RESEND_API_KEY: 'test_fake_key', EMAIL_FROM: 'test@example.com',
+    // MUST stay empty. A non-empty key — even a fake one — takes sendEmail
+    // past its graceful-degrade guard and issues a real HTTPS request to the
+    // provider for every registration, reset and verification this suite
+    // triggers. '' keeps every send on the `email:skip` path.
+    RESEND_API_KEY: '', EMAIL_FROM: 'test@example.com',
     ...overrides,
   });
   await new Promise<void>((resolve) => planner.server.listen(0, '127.0.0.1', resolve));
@@ -412,14 +421,14 @@ describe('POST /api/v1/auth/reset-password', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════
-// Update-email
+// Email change
 // ════════════════════════════════════════════════════════════════════════
 
-describe('POST /api/v1/auth/update-email', () => {
+describe('POST /api/v1/account/email', () => {
   test('requires authentication', async () => {
     const server = await startServer(); servers.push(server);
     const res = await server.request
-      .post('/api/v1/auth/update-email')
+      .post('/api/v1/account/email')
       .set(TRUSTED_MUTATION_HEADER, '1')
       .send({ email: 'new@example.com', password: 'pass' });
     assert.equal(res.status, 401);
@@ -429,7 +438,7 @@ describe('POST /api/v1/auth/update-email', () => {
     const server = await startServer(); servers.push(server);
     const user = await registerUser(server, 'updateemailfmt');
     const res = await server.request
-      .post('/api/v1/auth/update-email')
+      .post('/api/v1/account/email')
       .set('x-user-token', user.token)
       .set(TRUSTED_MUTATION_HEADER, '1')
       .send({ email: 'not-an-email', password: DEFAULT_PASSWORD });
@@ -440,7 +449,7 @@ describe('POST /api/v1/auth/update-email', () => {
     const server = await startServer(); servers.push(server);
     const user = await registerUser(server, 'updateemailnopw');
     const res = await server.request
-      .post('/api/v1/auth/update-email')
+      .post('/api/v1/account/email')
       .set('x-user-token', user.token)
       .set(TRUSTED_MUTATION_HEADER, '1')
       .send({ email: 'new@example.com' });
@@ -457,14 +466,14 @@ describe('POST /api/v1/auth/update-email', () => {
     const userToken = reg.body.data.token;
 
     const res = await server.request
-      .post('/api/v1/auth/update-email')
+      .post('/api/v1/account/email')
       .set('x-user-token', userToken)
       .set(TRUSTED_MUTATION_HEADER, '1')
       .send({ email: 'changed@example.com', password: 'wrongpassword' });
     assert.equal(res.status, 400);
   });
 
-  test('with password confirmation — new email starts unverified when implemented', async () => {
+  test('the retired POST /api/v1/auth/update-email path is gone', async () => {
     const server = await startServer(); servers.push(server);
     const user = await registerUser(server, 'emailupdateuser');
 
@@ -474,23 +483,15 @@ describe('POST /api/v1/auth/update-email', () => {
       .set(TRUSTED_MUTATION_HEADER, '1')
       .send({ email: 'newemail@example.com', password: DEFAULT_PASSWORD });
 
-    if (res.status === 200) {
-      assert.ok(res.body.data);
-      const pool = new Pool({ connectionString: TEST_DATABASE_URL });
-      try {
-        const verificationTokens = await pool.query(
-          'SELECT * FROM email_verification_tokens WHERE user_id = $1',
-          [user.user.id]
-        );
-        if (verificationTokens.rows.length > 0) {
-          assert.ok(!verificationTokens.rows[0].used_at, 'Email should start unverified');
-        } else {
-          assert.ok(true, 'Verification token creation not implemented — acceptable');
-        }
-      } finally { await pool.end(); }
-    } else {
-      assert.ok(true, 'Update-email endpoint not available or behaves differently');
-    }
+    assert.equal(res.status, 404, 'the unverified-write route must stay unmounted');
+    const pool = new Pool({ connectionString: TEST_DATABASE_URL });
+    try {
+      const tokens = await pool.query('SELECT id FROM email_verification_tokens WHERE user_id = $1 AND email = $2', [
+        user.user.id,
+        'newemail@example.com',
+      ]);
+      assert.equal(tokens.rows.length, 0, 'a removed route must not mint tokens');
+    } finally { await pool.end(); }
   });
 });
 

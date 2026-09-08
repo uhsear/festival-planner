@@ -41,8 +41,10 @@ const ACTIVITY_VISUAL: Record<string, { icon: IconName; tint: Tint }> = {
 const FALLBACK_VISUAL = { icon: 'ellipse-outline' as IconName, tint: 'muted' as Tint };
 
 /**
- * Crew activity feed — chronological log of crew events. Polls every 30s so
- * new events appear without socket wiring (mirrors the web ActivityTab). Reads
+ * Crew activity feed — chronological log of crew events. crew:activity
+ * (lib/emitter.ts) pushes new events and the shared crewRealtimeSink reloads
+ * the feed on it; the 30s poll stays as the safety net while the socket
+ * producer ages out to shipped clients (mirrors the web ActivityTab). Reads
  * from the shared crewStore; the initial load is kicked off here on mount.
  *
  * Each row carries a typed icon badge (join / spend / poll / removal …) so the

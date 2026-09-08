@@ -44,6 +44,11 @@ FATAL_PATTERNS = [
     (r"migration runner aborted", "migrations did not apply"),
     (r"ERR_MODULE_NOT_FOUND", "a module failed to resolve at runtime"),
     (r"failed to start server", "listen failed"),
+    (
+        r"running from TS source",
+        "booted from TypeScript under tsx, not dist/ — the export worker pool is "
+        "disabled here, so this boot does not represent production",
+    ),
 ]
 # Present-and-correct markers. Absence is as damning as an error line.
 REQUIRED_PATTERNS = [
