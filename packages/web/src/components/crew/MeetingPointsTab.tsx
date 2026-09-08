@@ -40,10 +40,6 @@ import { useRovingTabs } from '@/hooks/useRovingTabs';
 // the router's lazy() pattern for heavy views) and only loads when Map is opened.
 const CrewMap = lazy(() => import('./CrewMap'));
 
-// Opt-in flag mirrors VITE_CREW_REALTIME so Live Location + SOS ships dark.
-// Default OFF: the toggle/SOS UI and peer markers only appear when set to '1'.
-const LIVE_LOCATION_ENABLED = import.meta.env.VITE_LIVE_LOCATION === '1';
-
 // How often we sweep stale peers off the map while it's mounted (defense in
 // depth alongside the server's 120s Redis TTL + peer-stopped broadcasts).
 const SWEEP_INTERVAL_MS = 15_000;
@@ -110,7 +106,7 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   const viewTablistRef = useRef<HTMLDivElement>(null);
   useRovingTabs(viewTablistRef);
 
-  // ── Live Location + SOS (ephemeral, flag-gated) ─────────────────────────────
+  // ── Live Location + SOS (ephemeral) ─────────────────────────────────────────
   // Scope the (non-persisted) liveLocationStore to this crew so peer markers and
   // SOS never bleed across crews. Subscribe to the peers RECORD (stable ref) and
   // derive the array via useMemo — returning a fresh array from the selector
@@ -122,8 +118,9 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   const peers = useMemo(() => Object.values(peersMap), [peersMap]);
   const sosList = useMemo(() => activeSosList.filter((e) => e.crewId === crewId), [activeSosList, crewId]);
 
+  // Scopes the store to the open crew — the peer/SOS guards in liveLocationStore
+  // fall open while crewId is null, so this must stay unconditional.
   useEffect(() => {
-    if (!LIVE_LOCATION_ENABLED) return;
     useLiveLocationStore.getState().setActiveCrew(crewId);
     return () => {
       // Leaving the tab/crew clears peers + SOS + any local sharing bookkeeping.
@@ -132,7 +129,6 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
   }, [crewId]);
 
   useEffect(() => {
-    if (!LIVE_LOCATION_ENABLED) return;
     const id = setInterval(() => useLiveLocationStore.getState().sweepStale(Date.now()), SWEEP_INTERVAL_MS);
     return () => clearInterval(id);
   }, []);
@@ -281,9 +277,11 @@ export default function MeetingPointsTab({ crewId, currentUserId }: Props) {
       <CrewStatus crewId={crewId} currentUserId={currentUserId} meetingPoints={points} />
       <div className="h-px bg-border" />
 
-      {/* Live Location + SOS (opt-in, ephemeral). Always visible so the share
-          toggle / SOS / active-SOS banner are reachable in both list & map views. */}
-      {LIVE_LOCATION_ENABLED && <LiveLocationControls crewId={crewId} currentUserId={currentUserId} />}
+      {/* Live Location + SOS (ephemeral, always visible so the share toggle / SOS /
+          active-SOS banner are reachable in both list & map views). No build-time
+          flag: the off-lever is server-side — LIVE_LOCATION_ENABLED / SOS_ENABLED
+          in lib/config.ts (both default ON) disable it for every client, no rebuild. */}
+      <LiveLocationControls crewId={crewId} currentUserId={currentUserId} />
 
       {/* List/Map toggle. Map lazy-loads MapLibre only when selected. */}
       <div

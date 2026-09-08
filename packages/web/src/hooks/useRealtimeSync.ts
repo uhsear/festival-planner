@@ -27,23 +27,6 @@ export interface UseRealtimeSyncReturn {
 }
 
 /**
- * Opt-in flag for the shared crew sub-feature realtime path (polls / meeting
- * points / expenses / home base over `crew:*` socket events). Default OFF — when
- * `VITE_CREW_REALTIME` is unset (or anything other than '1') the shared hook is
- * still called for stable hook order but is fed a null socket, so it registers
- * no listeners, joins no room, and produces zero behavior change.
- */
-const CREW_REALTIME = import.meta.env.VITE_CREW_REALTIME === '1';
-
-/**
- * Opt-in flag for Live Location + SOS (peer markers / SOS banner over `crew:*`
- * socket events). Default OFF so the feature ships dark. When EITHER this or
- * VITE_CREW_REALTIME is on we pass the real socket into useCrewRealtime, which
- * registers the location/SOS listeners that feed the (ephemeral) liveLocationStore.
- */
-const LIVE_LOCATION = import.meta.env.VITE_LIVE_LOCATION === '1';
-
-/**
  * Bridge Socket.IO events to local state. Each event has ONE source of
  * truth — either Zustand (when the data is mirrored in a store) or
  * TanStack Query (for data not modeled in Zustand). We previously
@@ -75,22 +58,23 @@ export function useRealtimeSync(): UseRealtimeSyncReturn {
 
   const { socket } = useSocket(currentFestivalId || undefined);
 
-  // ── Crew sub-feature realtime (flag-gated; default OFF) ──────────────────
+  // ── Crew sub-feature realtime (unconditional; matches mobile) ────────────
   // Web crew tabs are TanStack-Query backed, so the sink invalidates query keys
   // (home base is the exception — it applies to the crewStore). Resolve the
-  // active crew live so guards reflect the latest open crew. The shared hook is
-  // always called (stable hook order); passing socket=null when the flag is off
-  // makes it a no-op that registers no listeners and joins no room.
+  // active crew live so guards reflect the latest open crew.
+  // Crew realtime + Live Location/SOS have no build-time switch. The off-lever
+  // is server-side: LIVE_LOCATION_ENABLED / SOS_ENABLED in lib/config.ts (both
+  // default ON) disable the feature for every client without a rebuild.
   const crewSink = useCrewQuerySink();
   const getActiveCrewId = useCallback(() => useCrewStore.getState().activeCrew?.id ?? null, []);
   useCrewRealtime({
-    socket: CREW_REALTIME || LIVE_LOCATION ? socket : null,
+    socket,
     getActiveCrewId,
     sink: crewSink,
     joinRoom: true,
   });
 
-  // ── Authorization revocation (NOT flag-gated) ───────────────────────────
+  // ── Authorization revocation ─────────────────────────────────────────────
   // session:revoked / crew:access-revoked / crew:member-kicked. State teardown
   // lives in @festie/shared; only the navigation is web-specific.
   const navigate = useNavigate();

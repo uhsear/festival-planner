@@ -31,6 +31,10 @@ vi.mock('lucide-react', () => ({
   Footprints: () => <span data-testid="footprints-icon" />,
   CircleCheck: () => <span data-testid="circle-check-icon" />,
   Hourglass: () => <span data-testid="hourglass-icon" />,
+  // LiveLocationControls (now rendered unconditionally) pulls these too.
+  Square: () => <span data-testid="square-icon" />,
+  Siren: () => <span data-testid="siren-icon" />,
+  ShieldCheck: () => <span data-testid="shield-check-icon" />,
 }));
 
 // api is unused in assertions (the mutation fns are what we check), but the
@@ -106,6 +110,7 @@ vi.mock('@tanstack/react-query', () => ({
   },
 }));
 
+import { useLiveLocationStore } from '@festie/shared/stores/liveLocationStore';
 import MeetingPointsTab from './MeetingPointsTab';
 
 const POINT = {
@@ -310,5 +315,20 @@ describe('MeetingPointsTab', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add' }));
     expect(createMutate).toHaveBeenCalledWith(expect.objectContaining({ recursDaily: true }));
+  });
+  // Live Location + SOS used to sit behind VITE_LIVE_LOCATION. It now ships to
+  // web unconditionally (parity with mobile); the off-lever is server-side
+  // (LIVE_LOCATION_ENABLED / SOS_ENABLED in lib/config.ts). These two assertions
+  // fail if either half of that promote is reverted on its own.
+  it('renders the Live Location share toggle with no build-time flag set', () => {
+    setQuery({ data: [POINT] });
+    render(<MeetingPointsTab crewId="c1" currentUserId="u1" />);
+    expect(screen.getByTestId('live-share-toggle')).toBeInTheDocument();
+  });
+
+  it('scopes the live-location store to the open crew so peer guards filter', () => {
+    setQuery({ data: [POINT] });
+    render(<MeetingPointsTab crewId="c1" currentUserId="u1" />);
+    expect(useLiveLocationStore.getState().crewId).toBe('c1');
   });
 });
