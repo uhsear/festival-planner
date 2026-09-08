@@ -22,6 +22,19 @@ module.exports = [
     },
   },
   {
-    ignores: ['dist/*', '.expo/*', 'node_modules/*', 'android/*', 'ios/*', 'maestro/*', 'scripts/*', 'expo-env.d.ts'],
+    // `vendor/*` is generated, verbatim third-party source (see
+    // scripts/vendor-map-runtime.mjs) — linting it would only ever report on code
+    // we do not own. No rule is relaxed for app source.
+    ignores: [
+      'dist/*',
+      '.expo/*',
+      'node_modules/*',
+      'android/*',
+      'ios/*',
+      'maestro/*',
+      'scripts/*',
+      'vendor/*',
+      'expo-env.d.ts',
+    ],
   },
 ];

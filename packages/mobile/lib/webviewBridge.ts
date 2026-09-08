@@ -31,8 +31,10 @@ export function safeJsonForScript(value: unknown): string {
 
 /**
  * Hosts permitted for in-WebView resource/navigation loads. Anything else is
- * blocked (default-deny), mirroring the hardened Spotify embed WebView. Allows
- * unpkg.com (MapLibre JS/CSS + the pmtiles UMD) and the OpenStreetMap tile hosts
+ * blocked (default-deny), mirroring the hardened Spotify embed WebView. The
+ * MapLibre runtime is vendored into the app and inlined into the document (see
+ * lib/mapDocument.ts), so unpkg.com is NO LONGER permitted here — the only
+ * baked-in hosts left are the OpenStreetMap tile hosts
  * (`tile.openstreetmap.org` + its `*.tile.openstreetmap.org` subdomains). The
  * anchored regex (`(^|\.)tile\.openstreetmap\.org$`) rejects lookalike hosts
  * such as `evil.openstreetmap.org.attacker.com` or
@@ -45,7 +47,7 @@ export function safeJsonForScript(value: unknown): string {
  * upstream); the renderer passes it in via `extraHost` so the allowlist permits
  * EXACTLY that one origin and nothing more — default-deny is preserved. The host
  * is compared by strict equality (no wildcard), so only the configured origin
- * (and the static unpkg/OSM hosts) can ever load.
+ * (and the static OSM tile hosts) can ever load.
  *
  * Phase 4B: `extraHost` may be an ARRAY so the renderer can permit BOTH the
  * basemap host AND the georeferenced site-plan image host (each config-driven,
@@ -53,7 +55,7 @@ export function safeJsonForScript(value: unknown): string {
  * equality; a single string is still accepted for backward compatibility.
  */
 export function isAllowedMapHost(host: string, extraHost?: string | string[] | null): boolean {
-  if (host === 'unpkg.com' || /(^|\.)tile\.openstreetmap\.org$/.test(host)) return true;
+  if (/(^|\.)tile\.openstreetmap\.org$/.test(host)) return true;
   // The festival's configured host(s) (PMTiles basemap / site-plan image), when
   // present. Strict equality only — no wildcard. Empty strings never match.
   if (!extraHost) return false;
