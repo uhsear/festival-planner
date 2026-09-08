@@ -14,6 +14,7 @@ export default function createCrewPollRoutes(deps: any) {
     validate,
     validateParams,
     io,
+    emitter,
   } = deps;
 
   const router = Router({ mergeParams: true });
@@ -72,8 +73,10 @@ export default function createCrewPollRoutes(deps: any) {
           options: poll.options,
           createdBy: userId,
         });
+        const activity = { crewId, userId, type: 'poll-created', detail: poll.question.slice(0, 100) };
         await stores.activity
-          .log({ crewId, userId, type: 'poll-created', detail: poll.question.slice(0, 100) })
+          .log(activity)
+          .then((id: string) => emitter.crewActivityLogged({ crewId, item: { id, ...activity } }))
           .catch(() => {});
         return sendSuccess(res, { poll });
       } catch (err: any) {
@@ -109,8 +112,10 @@ export default function createCrewPollRoutes(deps: any) {
 
         await stores.polls.vote(pollId, userId, optionIndex);
         io.to('crew:' + crewId).emit('crew:poll-voted', { pollId, userId, optionIndex });
+        const activity = { crewId, userId, type: 'poll-voted', detail: poll.options[optionIndex] || null };
         await stores.activity
-          .log({ crewId, userId, type: 'poll-voted', detail: poll.options[optionIndex] || null })
+          .log(activity)
+          .then((id: string) => emitter.crewActivityLogged({ crewId, item: { id, ...activity } }))
           .catch(() => {});
         return sendSuccess(res, { voted: true });
       } catch (err: any) {

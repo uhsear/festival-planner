@@ -99,6 +99,7 @@ function makeDeps(overrides: any = {}) {
     validateParams,
     schemas,
     io: ioObj,
+    emitter: { crewActivityLogged: mock.fn(() => {}) },
     stores,
     notificationService,
     _io: ioObj,
@@ -158,7 +159,7 @@ describe('routes/crew-sos.ts — POST /:crewId/sos', () => {
   // ── Durable side-effect #1: crew_activity row ───────────────────────
   test('writes a crew_activity row (type sos_raised) with capped message + coarse coords', async () => {
     const logFn = mock.fn(async () => 'activity-99');
-    const { app } = await buildApp({ stores: { activity: { log: logFn } } });
+    const { app, deps } = await buildApp({ stores: { activity: { log: logFn } } });
 
     await request(app).post('/crew-1/sos').send({ message: 'help', position: VALID_POSITION });
 
@@ -169,11 +170,18 @@ describe('routes/crew-sos.ts — POST /:crewId/sos', () => {
     assert.equal(arg.type, 'sos_raised');
     // detail = message + coarse @lat,lng (coords rounded to ~4 decimals)
     assert.match(arg.detail, /^help @41\.8843,-87\.6324$/);
+
+    // The row also broadcasts crew:activity so the feed refreshes live.
+    const activityEmit = (deps.emitter.crewActivityLogged as any).mock.calls;
+    assert.equal(activityEmit.length, 1);
+    assert.equal(activityEmit[0].arguments[0].crewId, 'crew-1');
+    assert.equal(activityEmit[0].arguments[0].item.id, 'activity-99');
+    assert.equal(activityEmit[0].arguments[0].item.type, 'sos_raised');
   });
 
   test('activity-log failure is non-fatal — still 200 and still broadcasts', async () => {
     const ioObj = makeIo();
-    const { app } = await buildApp({
+    const { app, deps } = await buildApp({
       io: ioObj,
       stores: {
         activity: {
@@ -190,6 +198,8 @@ describe('routes/crew-sos.ts — POST /:crewId/sos', () => {
     assert.equal(res.body.data.activityId, null);
     // primary delivery (broadcast) still fires even when the durable row fails
     assert.equal((ioObj._emit.mock.calls as any[])[0].arguments[0], 'sos:raised');
+    // ...but with no row there is nothing to announce on crew:activity
+    assert.equal((deps.emitter.crewActivityLogged as any).mock.calls.length, 0);
   });
 
   // ── Durable side-effect #2: socket broadcast ────────────────────────

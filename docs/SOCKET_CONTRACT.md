@@ -400,7 +400,7 @@ A crew member cleared the active SOS. Sent to the whole `crew:<crewId>` room.
 
 #### Crew events
 
-Every event below is sent to the `crew:<crewId>` room and reaches the acting member's own socket, unless the entry says otherwise. Only the three events produced through `lib/emitter.ts` — `crew:expense-added`, `crew:expense-deleted` and `crew:activity` — carry `_v`. Events produced directly in a route file carry none.
+Every event below is sent to the `crew:<crewId>` room and reaches the acting member's own socket, unless the entry says otherwise. Of the crew events, only the three produced through `lib/emitter.ts` — `crew:expense-added`, `crew:expense-deleted` and `crew:activity` — carry `_v`. The crew CRUD events, which each route file emits directly, carry none. See "The `_v` field" for the rule across the whole contract.
 
 ### `crew:updated`
 Crew details or the member list changed. Sent to the whole `crew:<crewId>` room. Two producers send the same shape: `PUT /api/v1/crews/:crewId` (routes/crews.ts:601) and `PUT /api/v1/crews/:crewId/transfer` (routes/crew-members.ts:259).
@@ -549,11 +549,12 @@ A member added a meeting point. Sent to the whole `crew:<crewId>` room.
   "recurs_daily": false,
   "active": true,
   "created_at": "...",
-  "updated_at": "..."
+  "updated_at": "...",
+  "crewId": "crew-abc"
 }
 ```
 
-- The payload is the stored row itself, with no wrapper key. **Every key is snake_case.**
+- The payload is the stored row itself, with no wrapper key. **Every row key is snake_case**, including `crew_id`. The same row shape is what `GET /api/v1/crews/:crewId/meeting-points` returns, and both clients render it.
 - `creator_name` is not present. Only the list endpoint joins it.
 - Raised over HTTP `POST /api/v1/crews/:crewId/meeting-points`
 - **Rate limit:** 20 per 60s per userId (`crew-mp-create`)
@@ -577,11 +578,12 @@ A meeting point changed. Sent to the whole `crew:<crewId>` room.
   "recurs_daily": false,
   "active": true,
   "created_at": "...",
-  "updated_at": "..."
+  "updated_at": "...",
+  "crewId": "crew-abc"
 }
 ```
 
-- The payload is the stored row itself, with no wrapper key and every key snake_case, exactly as `crew:meeting-point-created` sends it
+- The payload is the stored row itself, with no wrapper key, exactly as `crew:meeting-point-created` sends it — all snake_case row keys.
 - Raised over HTTP `PUT /api/v1/crews/:crewId/meeting-points/:mpId`. Only the creator or the crew owner may edit.
 - The route recomputes `expires_at` from the merged `meet_at` and `recurs_daily`, so `expires_at` can change even when the client did not send it
 - **Rate limit:** 20 per 60s per userId (`crew-mp-update`)
@@ -593,7 +595,7 @@ A meeting point was removed. Sent to the whole `crew:<crewId>` room.
 { "id": "mp-abc", "crewId": "crew-abc" }
 ```
 
-- The crew id is camelCase `crewId` here, while `crew:meeting-point-created` and `crew:meeting-point-updated` carry `crew_id` on the row. Read the crew id per event, not per entity.
+- This event uses a camelCase wrapper (`id`, `crewId`), while `crew:meeting-point-created` and `crew:meeting-point-updated` send the raw snake_case row and carry the crew id as `crew_id`. The shared router reads `p?.crew_id ?? p?.crewId`, so both shapes resolve; a new consumer must handle both.
 - Raised over HTTP `DELETE /api/v1/crews/:crewId/meeting-points/:mpId`. Only the creator or the crew owner may remove.
 - The removal is a soft delete: the row survives with `active` set to false
 - **Rate limit:** 20 per 60s per userId (`crew-mp-delete`)
@@ -809,16 +811,28 @@ An expense was deleted. Sent to the whole `crew:<crewId>` room.
 - **Rate limit:** 30 per 60s per userId (`expense-delete`)
 
 ### `crew:activity`
-Declared, but never emitted in production. Sent to the whole `crew:<crewId>` room if a caller ever reaches it.
+A crew activity row was written. Sent to the whole `crew:<crewId>` room.
 
 ```json
-{ "_v": 1, "crewId": "crew-abc", "item": {} }
+{
+  "_v": 1,
+  "crewId": "crew-abc",
+  "item": {
+    "id": "0f6b...",
+    "crewId": "crew-abc",
+    "userId": "user-abc123",
+    "type": "poll-created",
+    "detail": "Where should we camp?"
+  }
+}
 ```
 
-- The helper `crewActivityLogged` exists in lib/emitter.ts, but no route calls it. Every activity write goes through the activity store, which writes the row and emits nothing.
-- `item` is passed straight through by the caller, so it has no fixed shape
-- Clients must refetch the activity feed. There is no realtime channel for it today.
-- **Rate limit:** none. No HTTP route reaches this emitter.
+- Producers, one per activity write: `crew-meeting-points.ts` (`home-base-updated`, `photo-album-updated`), `crew-polls.ts` (`poll-created`, `poll-voted`), `crew-packing.ts` (`packing-created`), `crew-rides.ts` (`ride-created`) and `crew-sos.ts` (`sos_raised`, `sos_cleared`). Every one calls `crewActivityLogged` in lib/emitter.ts, so all of them carry `_v`.
+- `item` is a summary of the row that was written, not the row the REST feed returns. It has no `created_at` and no `username`, and its keys are camelCase while the REST row is snake_case. Treat `crewId` as the only stable field.
+- Clients use this event as a refetch trigger only. The shared router keeps `crewId` and discards `item`, then the sink refetches `GET /api/v1/crews/:crewId/activity`, which stays the authoritative feed.
+- The emit follows the activity write and never blocks the HTTP response. When the write fails there is no event.
+- `routes/expenses.ts` writes two activity rows (`expense-added`, `expense_settled`) that do **not** emit yet. Those entries still arrive on the client's next poll. See "Open follow-ups".
+- **Rate limit:** inherited from the route that wrote the row (10 to 30 per 60s per userId).
 
 #### Session and lifecycle events
 
@@ -852,6 +866,39 @@ The server is shutting down. Broadcast to every connected socket, with no room.
 
 - The join and leave paths send `message` only. Messages are `Realtime rate limit exceeded`, `Join this festival before using crew realtime` and `Failed to leave festival`.
 - The `location:update` path adds a `code` key: `{ "message": "Invalid location payload", "code": "SCHEMA_MISMATCH" }`, and likewise `NOT_SHARING`, `RATE_LIMITED` and `NOT_A_MEMBER`
+
+## The `_v` field
+
+`_v` splits by subsystem, not by producer file. Two subsystems send it and one does not:
+
+| Subsystem | Sends `_v` | Events |
+|---|---|---|
+| Emitter layer (`lib/emitter.ts`) | yes | `profile:created`, `profile:updated`, `profile:deleted`, `festival:created`, `festival:updated`, `festival:deleted`, `presence:update`, `crew:expense-added`, `crew:expense-deleted`, `crew:activity` |
+| Live location and SOS | yes | `location:peer-update`, `location:peer-stopped`, `sos:raised`, `sos:cleared` |
+| Crew CRUD routes | no | `crew:updated`, `crew:deleted`, `crew:reformed`, `crew:member-joined`, `crew:member-left`, `crew:member-kicked`, `crew:access-revoked`, `crew:home-base-updated`, `crew:photo-album-updated`, `crew:meeting-point-*`, `crew:status-updated`, `crew:poll-*`, `crew:packing-*`, `crew:ride-*` |
+
+Two route files straddle that split, which is why the rule looks like a per-file one: `routes/crew-sos.ts` is a `routes/crew-*.ts` file yet both its events carry `_v`, and `routes/crew-members.ts` and `routes/admin-bulk.ts` emit `location:peer-stopped` with `_v`.
+
+Read `_v` as reserved, not live:
+
+- No client reads `_v` off an inbound event. Every occurrence in `packages/` is a client sending `_v: 1` outbound, a type declaration, or a test fixture.
+- The server never branches on the value either. Inbound schemas validate it as `min(1).default(1)` and echo it back, so a client that sends `_v: 999` is treated exactly like one that sends `1`.
+- `EVENT_VERSION` in lib/emitter.ts has never left `1`.
+
+Two events disagree with themselves across producers, which is harmless only because nothing reads the field: `presence:update` carries `_v` from lib/emitter.ts but not from lib/presence.ts, and `profile:deleted` carries it from lib/emitter.ts but not from routes/admin-users.ts.
+
+Do not backfill `_v` onto the crew CRUD events. Adding it is safe but changes no behaviour anywhere.
+
+## Open follow-ups
+
+Changes that are correct but must not ship in one step, or that belong to another owner.
+
+- **Unify the meeting-point key casing: not attempted.** `created`/`updated` send the raw snake_case row while `removed` sends a camelCase wrapper. Adding a duplicate `crewId` to the row was considered and rejected: the shared router already falls back with `p?.crew_id ?? p?.crewId`, so nothing reads it, and the row shape is fixed by the REST list endpoint, the snake_case `CrewMeetingPoint` domain type and `tests/types/contracts.type-test.ts`. Renaming instead would break every shipped client. Left as-is, documented.
+- **Emit `crew:activity` from `routes/expenses.ts`.** Its two activity writes (`expense-added`, `expense_settled`) are the only ones left with no event. That file belongs to another change.
+- **Only after this server ships and old app binaries age out**, lower or remove the 30s activity-feed polls in `packages/mobile/components/CrewActivity.tsx` and `packages/web/src/components/crew/ActivityTab.tsx`. Until then the poll is the only refresh a shipped client has.
+- **`RouteDeps.emitter` is mistyped** as a Node `EventEmitter` in lib/types/app-context.ts. server.ts injects the object from `createSocketEmitter`. Typed route modules cast through `SocketEmitter` (lib/emitter.ts) until that key is retyped.
+- **`crew:member-kicked` deliberately carries no `username`**, unlike `crew:member-joined` and `crew:member-left`. Re-reviewed and kept: the only subscriber filters the roster it already holds by `userId`, and neither producer has the username in scope, so adding it would cost a database read per kick for a field with no reader.
+- **`totem_name` and `totem_emoji` stay snake_case** inside the otherwise camelCase `crew:updated` payload. Re-reviewed and kept: no client reads the `crew:updated` body at all — both `useRealtimeSync` handlers take the crew id and refetch over REST — and the casing is REST-wide, codified in lib/responseSchemas.ts and in the generated API types.
 
 ## Reconnection
 

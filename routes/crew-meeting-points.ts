@@ -28,6 +28,7 @@ export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
     validate,
     validateParams,
     io,
+    emitter,
   } = deps;
 
   const router = Router({ mergeParams: true });
@@ -51,8 +52,10 @@ export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
         const { location, time } = body;
         const updated = await stores.crews.updateHomeBase(crewId, { location, time });
         io.to('crew:' + crewId).emit('crew:home-base-updated', { crewId, location, time });
+        const activity = { crewId, userId: req.user.userId, type: 'home-base-updated', detail: location || null };
         await stores.activity
-          .log({ crewId, userId: req.user.userId, type: 'home-base-updated', detail: location || null })
+          .log(activity)
+          .then((id: unknown) => emitter.crewActivityLogged({ crewId, item: { id, ...activity } }))
           .catch(() => {});
         return sendSuccess(res, { crew: updated });
       } catch (err) {
@@ -83,8 +86,10 @@ export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
         const photoAlbumUrl = body.photoAlbumUrl || null;
         const updated = await stores.crews.updatePhotoAlbum(crewId, { photoAlbumUrl });
         io.to('crew:' + crewId).emit('crew:photo-album-updated', { crewId, photoAlbumUrl });
+        const activity = { crewId, userId: req.user.userId, type: 'photo-album-updated', detail: photoAlbumUrl };
         await stores.activity
-          .log({ crewId, userId: req.user.userId, type: 'photo-album-updated', detail: photoAlbumUrl })
+          .log(activity)
+          .then((id: unknown) => emitter.crewActivityLogged({ crewId, item: { id, ...activity } }))
           .catch(() => {});
         return sendSuccess(res, { crew: updated });
       } catch (err) {
@@ -151,7 +156,7 @@ export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
           expiresAt = new Date(new Date(meetAt).getTime() + 30 * 60_000).toISOString();
         }
 
-        const point = await stores.crews.meetingPoints.create({
+        const point = (await stores.crews.meetingPoints.create({
           id,
           crewId,
           createdBy: req.user.userId,
@@ -165,7 +170,7 @@ export default function createCrewMeetingPointRoutes(deps: RouteDeps) {
           longitude: longitude ?? null,
           // 055: optional daily recurrence; defaults FALSE in the store when omitted.
           recursDaily: recursDaily ?? false,
-        });
+        }));
 
         io.to('crew:' + crewId).emit('crew:meeting-point-created', point);
         res.status(201);

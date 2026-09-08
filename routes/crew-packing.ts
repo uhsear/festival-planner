@@ -20,6 +20,7 @@ export default function createCrewPackingRoutes(deps: any) {
     validate,
     validateParams,
     io,
+    emitter,
   } = deps;
 
   const router = Router({ mergeParams: true });
@@ -74,8 +75,10 @@ export default function createCrewPackingRoutes(deps: any) {
         });
 
         io.to('crew:' + crewId).emit('crew:packing-created', { item });
+        const activity = { crewId, userId, type: 'packing-created', detail: item.label.slice(0, 100) };
         await stores.activity
-          .log({ crewId, userId, type: 'packing-created', detail: item.label.slice(0, 100) })
+          .log(activity)
+          .then((id: string) => emitter.crewActivityLogged({ crewId, item: { id, ...activity } }))
           .catch(() => {});
         return sendSuccess(res, { item });
       } catch (err: any) {

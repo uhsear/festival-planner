@@ -111,6 +111,19 @@ describe('web crew-realtime query sink', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['expense-balances', ACTIVE_CREW] });
   });
 
+  it('invalidates ["crew-activity", crewId] on crew:activity (after debounce)', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const fakeSocket = makeFakeSocket();
+    renderWired(queryClient, fakeSocket);
+
+    fakeSocket.fire('crew:activity', { _v: 1, crewId: ACTIVE_CREW, item: { id: 'a1', type: 'poll-created' } });
+    // Activity events are debounced (300ms) inside the shared hook.
+    vi.advanceTimersByTime(300);
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['crew-activity', ACTIVE_CREW] });
+  });
+
   it('ignores events scoped to a different crew', () => {
     const queryClient = new QueryClient();
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
@@ -163,13 +176,14 @@ describe('buildCrewQuerySink (direct mapping)', () => {
     sink.onPollVoted(crewId, 'p', 'u', 0);
     sink.onPollClosed(crewId, 'p');
     sink.onExpensesChanged(crewId);
-    sink.onActivityLogged(crewId); // no-op
+    sink.onActivityLogged(crewId);
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['meeting-points', crewId] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['polls', crewId] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['expenses', crewId] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['expense-balances', crewId] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['settlement-plan', crewId] });
-    expect(invalidate).toHaveBeenCalledTimes(8);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['crew-activity', crewId] });
+    expect(invalidate).toHaveBeenCalledTimes(9);
   });
 });

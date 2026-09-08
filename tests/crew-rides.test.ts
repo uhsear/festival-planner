@@ -105,6 +105,7 @@ function makeRidesDeps(overrides: any = {}) {
     validate: overrides.validate || ((_schema: any) => (req: any, _res: any, next: any) => { req.validatedBody = req.body; next(); }),
     validateParams: overrides.validateParams || ((_schema: any) => (req: any, _res: any, next: any) => { req.validatedParams = req.params; next(); }),
     io: overrides.io !== undefined ? overrides.io : ioObj,
+    emitter: { crewActivityLogged: mock.fn(() => {}) },
     stores,
   };
 
@@ -349,7 +350,7 @@ describe('routes/crew-rides.js — POST /:crewId/rides', () => {
   // ── Activity logging ──────────────────────────────────────────────
   test('logs ride-created activity using driver name', async () => {
     const activityLog = mock.fn(async () => {});
-    const { app } = await buildRidesApp({
+    const { app, deps } = await buildRidesApp({
       stores: {
         crews: {
           getMember: mock.fn(async () => ({ userId: 'user-1', role: 'member' })),
@@ -378,6 +379,11 @@ describe('routes/crew-rides.js — POST /:crewId/rides', () => {
     assert.equal(logArgs.userId, 'user-1');
     assert.equal(logArgs.type, 'ride-created');
     assert.equal(logArgs.detail, 'Ada');
+    // The same write broadcasts crew:activity so the feed refreshes live.
+    const activityEmit = (deps.emitter.crewActivityLogged as any).mock.calls;
+    assert.equal(activityEmit.length, 1);
+    assert.equal(activityEmit[0].arguments[0].crewId, 'crew-1');
+    assert.equal(activityEmit[0].arguments[0].item.type, 'ride-created');
   });
 
   test('logs ride-created activity falling back to Ride label when driver and departFrom are empty', async () => {

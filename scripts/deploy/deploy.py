@@ -10,12 +10,13 @@
 #   1. SSHes to the prod box (KEY AUTH ONLY — no password support).
 #   2. git fetch + reset --hard origin/main.
 #   3. Migrations are app-managed (applied on backend boot); no deploy step.
-#   4. Builds the web bundle.
-#   5. Restarts the PM2 app ("festie").
-#   6. Tags the deploy `deploy-<UTC timestamp>` and pushes the tag (P14).
-#   7. Health-gates on /api/ready; if it is non-200, ABORTS and prints the
+#   4. Bundles the backend to dist/ (`npm run build`). PM2 execs dist/server.js.
+#   5. Builds the web bundle.
+#   6. Restarts the PM2 app ("festie").
+#   7. Tags the deploy `deploy-<UTC timestamp>` and pushes the tag (P14).
+#   8. Health-gates on /api/ready; if it is non-200, ABORTS and prints the
 #      rollback command (P16).
-#   8. Smoke-tests a real login (200) if test creds are provided.
+#   9. Smoke-tests a real login (200) if test creds are provided.
 #
 # Configuration (all via environment — nothing secret is committed):
 #   FESTIE_SSH_HOST       prod host/IP                 (default 192.168.0.150)
@@ -107,16 +108,18 @@ def main():
             rollback_hint()
             raise SystemExit("git sync failed")
 
-        # 2. Install deps. The backend runs via tsx straight from source, so any
-        # new RUNTIME dependency (e.g. bullmq) must be present in the root
+        # 2. Install deps. The bundle is built with --packages=external, so every
+        # RUNTIME dependency (e.g. bullmq) must still be present in the root
         # node_modules or the app crash-loops on boot with ERR_MODULE_NOT_FOUND.
+        # esbuild itself lives in `dependencies`, not devDependencies, so it
+        # survives the --omit=dev below and step 4 can run.
         # The root is an npm project; packages/ is a pnpm workspace. Install both
         # so a deploy that adds a backend or frontend dep doesn't take prod down.
         # (login shell so npm/pnpm are on PATH).
         code, out, err = run(
             client,
-            f"bash -lc 'cd {APP} && npm install --omit=dev --no-audit --no-fund "
-            f"&& cd {APP}/packages && pnpm install --frozen-lockfile' 2>&1 | tail -10",
+            f"bash -lc 'set -o pipefail; cd {APP} && npm install --omit=dev --no-audit --no-fund "
+            f"&& cd {APP}/packages && pnpm install --frozen-lockfile 2>&1 | tail -10'",
             timeout=600,
         )
         print(f"[deps] exit={code}\n{out}{err}")
@@ -126,14 +129,43 @@ def main():
 
         # 3. Migrations are APP-MANAGED: lib/planner-db-pg.ts owns a version-keyed
         # `schema_migrations` ledger and applies any pending migrations/*.sql once
-        # per Postgres URL on backend boot (the pm2 reload below triggers it). There
+        # per Postgres URL on backend boot (the pm2 restart below triggers it). There
         # is no separate migration step in the deploy — adding one would double-run
         # and conflict with that ledger.
 
-        # 4. Build the web bundle (login shell so pnpm is on PATH)
+        # 4. Bundle the backend to dist/. PM2 execs dist/server.js (see
+        # ecosystem.config.cjs) and dist/ is gitignored, so this step is the ONLY
+        # thing that creates the artifact on the host.
+        #
+        # Placed here — after the dependency install, before the web build and
+        # well before the pm2 restart — on purpose. Nothing user-visible has
+        # changed yet at this point: the served web bundle is still the old one
+        # and the running backend is still the old process, so aborting here
+        # leaves prod entirely on the previous release instead of half-updated
+        # (new SPA assets in front of an old backend). It is also the cheapest
+        # step that can fail: seconds, against minutes for the web build.
+        #
+        # No `| tail` here: build output is three lines on success and the full
+        # esbuild error on failure, both worth printing whole. The neighbouring
+        # steps DO pipe, so they run their pipeline under `set -o pipefail` —
+        # without it a pipeline reports tail's 0 and the `if code != 0` gate
+        # below it can never fire. That matters most here: `git reset --hard`
+        # cannot delete the gitignored dist/, so a failed build leaves the
+        # PREVIOUS bundle on disk and the restart would boot stale code.
         code, out, err = run(
             client,
-            f"bash -lc 'cd {APP}/packages && pnpm --filter @festie/web build' 2>&1 | tail -8",
+            f"bash -lc 'cd {APP} && npm run build'",
+            timeout=600,
+        )
+        print(f"[bundle] exit={code}\n{out}{err}")
+        if code != 0:
+            rollback_hint()
+            raise SystemExit("backend bundle build failed")
+
+        # 5. Build the web bundle (login shell so pnpm is on PATH)
+        code, out, err = run(
+            client,
+            f"bash -lc 'set -o pipefail; cd {APP}/packages && pnpm --filter @festie/web build 2>&1 | tail -8'",
             timeout=600,
         )
         print(f"[build] exit={code}\n{out}{err}")
@@ -146,14 +178,15 @@ def main():
         # longer built here — it is kept dormant for a possible future
         # app.festie.us, but the desktop flagship is the bespoke web SPA.
 
-        # 4. Restart the backend
+        # 6. Restart the backend
         code, out, err = run(
             client,
-            f"pm2 restart {PM2_NAME} && sleep 5 && pm2 ls | grep {PM2_NAME}",
+            f"bash -lc 'cd {APP} && pm2 restart ecosystem.config.cjs --only {PM2_NAME}' "
+            f"&& sleep 5 && pm2 ls | grep {PM2_NAME}",
         )
         print(f"[pm2] exit={code}\n{out}{err}")
 
-        # 5. Readiness gate (db + redis) — abort + rollback hint on non-200 (P16)
+        # 7. Readiness gate (db + redis) — abort + rollback hint on non-200 (P16)
         code, out, err = run(
             client,
             f"curl -s -o /dev/null -w '%{{http_code}}' {READY_URL}",
@@ -164,7 +197,7 @@ def main():
             rollback_hint()
             raise SystemExit(f"/api/ready returned {ready_code} — deploy is NOT healthy")
 
-        # 6. Real login smoke test (only if creds provided). Write the payload to
+        # 8. Real login smoke test (only if creds provided). Write the payload to
         # a temp file on the server and curl it with -d @file so the password
         # never appears in the server process list or shell history.
         if TEST_USER and TEST_PASSWORD:
@@ -186,7 +219,7 @@ def main():
         else:
             print("[login] skipped (FESTIE_TEST_USER / FESTIE_TEST_PASSWORD not set)")
 
-        # 7. Tag the deploy and push the tag (P14)
+        # 9. Tag the deploy and push the tag (P14)
         code, out, err = run(
             client,
             f"cd {APP} && git tag {deploy_tag} && git push origin {deploy_tag}",
