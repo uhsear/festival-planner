@@ -147,6 +147,11 @@ function makeMockDeps(overrides: any = {}) {
       },
       pool: { query: mock.fn(async () => ({ rows: [] })) },
       roles: { getUserRoles: mock.fn(async () => []) },
+      emailTokens: {
+        checkEmailExists: mock.fn(async () => false),
+        replaceVerificationToken: mock.fn(async () => {}),
+        invalidatePendingEmailChanges: mock.fn(async () => {}),
+      },
       sessions: {
         deleteUserSession: mock.fn(async () => {}),
         deleteUserSessions: mock.fn(async () => {}),
@@ -634,6 +639,12 @@ describe('routes/auth.js — createAuthRoutes', () => {
       assert.equal(res.body.error, null);
       assert.ok(res.body.data.token);
       assert.equal(updateUser.mock.calls.length, 1);
+      // The email-change security notice tells the owner to change their
+      // password, so the rotation must also revoke any pending change link —
+      // sparing the address already on file, which is not a change token.
+      const revoked = deps.stores.emailTokens.invalidatePendingEmailChanges.mock.calls;
+      assert.equal(revoked.length, 1);
+      assert.deepEqual(revoked[0]!.arguments, ['user-1', 'test@example.com']);
     });
 
     test('returns 400 when fields are missing', async () => {
@@ -1562,6 +1573,43 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       assert.equal((hardDeleteFn.mock.calls[0]!.arguments as any)[0], 'f-1');
     });
 
+    test('emits crew:deleted with crewId and festivalId for every crew under the festival', async () => {
+      // makeMockDeps().io has no .in(), so evictFestivalCrewRooms bails before
+      // emitting. A local io mock with .in() exercises the real broadcast.
+      const emitFn = mock.fn(() => {});
+      const io: any = {
+        to: mock.fn(() => ({ emit: emitFn })),
+        in: mock.fn(() => ({ fetchSockets: async () => [] })),
+        sockets: { sockets: new Map() },
+      };
+      const deps = makeMockDeps({
+        io,
+        getFestivalById: mock.fn(async () => ({ id: 'f-1', name: 'Fest' })),
+        stores: {
+          festivals: { softDelete: mock.fn(async () => {}) },
+          users: { create: mock.fn(async (d: any) => d) },
+          profiles: { update: mock.fn(async () => {}) },
+          pool: { query: mock.fn(async () => ({ rows: [] })) },
+          roles: { getUserRoles: mock.fn(async () => []) },
+          sessions: { deleteUserSession: mock.fn(async () => {}), listUserSessions: mock.fn(async () => []) },
+          crews: { listByFestival: mock.fn(async () => [{ id: 'c-1' }, { id: 'c-2' }]) },
+        },
+      });
+      const router = createFestivalsRoutes(deps);
+      const app = createApp(router);
+
+      const res = await request(app).delete('/f-1');
+
+      assert.equal(res.status, 200);
+      const deleted = emitFn.mock.calls
+        .filter((c: any) => c.arguments[0] === 'crew:deleted')
+        .map((c: any) => c.arguments[1]);
+      assert.deepEqual(deleted, [
+        { crewId: 'c-1', festivalId: 'f-1' },
+        { crewId: 'c-2', festivalId: 'f-1' },
+      ]);
+    });
+
     test('returns 404 when festival not found', async () => {
       const deps = makeMockDeps({
         getFestivalById: mock.fn(async () => null),
@@ -1760,5 +1808,85 @@ describe('routes/festivals.js — createFestivalsRoutes', () => {
       assert.equal(res.status, 500);
       assert.equal(res.body.error.code, 'INTERNAL_ERROR');
     });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// ACCOUNT — POST /email (change-email request)
+// ═══════════════════════════════════════════════════════════════════════
+//
+// The DB-backed contract lives in tests/account-email-change.test.ts. What can
+// only be seen here is which address the route hands to sendEmail: with no
+// RESEND_API_KEY configured, sendEmail logs `email:skip` with `to` and
+// `subject` and returns without touching the network, so the injected mock log
+// is a safe record of every send the handler attempted. No mail is ever sent.
+
+describe('routes/account.js — POST /email notifies the address on file', () => {
+  function makeEmailDeps(overrides: any = {}) {
+    const warn = mock.fn();
+    const deps = makeMockDeps({
+      log: { info() {}, warn, error() {}, debug() {} },
+      schemas: { updateEmail: {} },
+      stores: {
+        emailTokens: {
+          checkEmailExists: mock.fn(async () => false),
+          replaceVerificationToken: mock.fn(async () => {}),
+        },
+      },
+      ...overrides,
+    });
+    return { deps, warn };
+  }
+
+  type Skip = { to: string; subject: string };
+  const skips = (warn: any): Skip[] =>
+    warn.mock.calls
+      .filter((c: any) => c.arguments[0] === 'email:skip')
+      .map((c: any) => c.arguments[1] as Skip);
+
+  test('every request alerts the current address, with a subject of its own', async () => {
+    const { deps, warn } = makeEmailDeps();
+    const app = createApp(createAccountRoutes(deps));
+
+    for (let i = 0; i < 3; i++) {
+      const res = await request(app).post('/email').send({ email: `new${i}@example.com`, password: 'pw' });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+    }
+
+    const alerts = skips(warn).filter((s: Skip) => s.to === 'test@example.com');
+    assert.equal(alerts.length, 3, 'the alert must not be deduplicated away — it is a security notice');
+    for (const a of alerts) assert.match(a.subject, /Security alert/i);
+
+    const links = skips(warn).filter((s: Skip) => s.to !== 'test@example.com');
+    assert.deepEqual(
+      links.map((s: Skip) => s.to),
+      ['new0@example.com', 'new1@example.com', 'new2@example.com'],
+      'the verification link goes to the proposed address only',
+    );
+  });
+
+  test('the pending token is issued through the transactional replace, sparing the address on file', async () => {
+    const { deps } = makeEmailDeps();
+    const app = createApp(createAccountRoutes(deps));
+
+    await request(app).post('/email').send({ email: 'Fresh@Example.COM', password: 'pw' }).expect(200);
+
+    const call = deps.stores.emailTokens.replaceVerificationToken.mock.calls[0]!.arguments;
+    assert.equal(call[0], 'user-1');
+    assert.match(call[1], /^[a-f0-9]{64}$/, 'only the sha256 hash is stored');
+    assert.equal(call[2], 'fresh@example.com', 'the pending address is normalised');
+    assert.equal(call[4], 'test@example.com', 'the address on file is spared, so a signup token survives');
+  });
+
+  test('a taken address is refused outright rather than answered with a fake success', async () => {
+    const { deps } = makeEmailDeps();
+    deps.stores.emailTokens.checkEmailExists = mock.fn(async () => true);
+    const app = createApp(createAccountRoutes(deps));
+
+    const res = await request(app).post('/email').send({ email: 'taken@example.com', password: 'pw' });
+
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'ALREADY_EXISTS');
+    assert.equal(deps.stores.emailTokens.replaceVerificationToken.mock.calls.length, 0);
   });
 });

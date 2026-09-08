@@ -6,8 +6,15 @@ import crypto from 'crypto';
 import type { Request, Response } from 'express';
 import type { z } from 'zod';
 
+import { createPasswordResetRateLimit } from '../lib/rate-limiting';
 import type { RouteDeps } from '../lib/types';
-import type { displayNameChangeSchema, accountDeleteSchema, paymentHandlesSchema } from '../lib/schemas';
+import type {
+  displayNameChangeSchema,
+  accountDeleteSchema,
+  paymentHandlesSchema,
+  updateEmailSchema,
+} from '../lib/schemas';
+import { sendEmailChangeNoticeEmail, sendVerificationEmail } from '../lib/email';
 
 /**
  * Collect all user data for GDPR export. Gathers profiles, device tokens,
@@ -199,7 +206,6 @@ async function collectGdprData(
 export default function createAccountRoutes(deps: RouteDeps) {
   const {
     express,
-    _config,
     log,
     userAuth,
     handleAvatarUpload,
@@ -226,6 +232,23 @@ export default function createAccountRoutes(deps: RouteDeps) {
   } = deps;
 
   const router = express.Router();
+
+  // Per-recipient tier for POST /email — 3 verification mails per hour to any
+  // one address, keyed on the normalized address rather than the caller, so no
+  // number of accounts can point the mailer at one victim inbox. Reuses the
+  // password-reset limiter factory (Redis-first, in-memory fallback) with a
+  // distinct scope so the two buckets never collide.
+  // ponytail: counts requests, not sends, so three wrong-password attempts also
+  // consume the address budget — same trade /forgot-password already makes.
+  // Move the check inside the handler if that lockout is ever reported.
+  const emailChangeRecipientLimit = createPasswordResetRateLimit(deps.config, {
+    log,
+    sendError,
+    ErrorCodes,
+    redis: deps.redis,
+    scope: 'email-change-to',
+    message: 'Too many verification emails sent to this address. Try again later.',
+  });
 
   // Rate limiter for GDPR data exports (1 per 24 hours per user)
   const exportRateLimits = new Map<string, number>();
@@ -419,6 +442,101 @@ export default function createAccountRoutes(deps: RouteDeps) {
     rateLimit(10, 'payment-handles-change'),
     validate(schemas.paymentHandles),
     updatePaymentHandles,
+  );
+
+  // ── POST /email — request a change of the account email address ────────
+  // Shaped on POST /api/v1/auth/change-password (routes/auth.ts) and on
+  // DELETE / below: current-password re-auth, scoped rate limit, Zod body.
+  //
+  // The security-critical difference from the removed POST /api/v1/auth/update-email
+  // is that the submitted address is NEVER written to `users` here. It lives
+  // only in the hashed, single-use, expiring `email_verification_tokens` row
+  // until GET /api/v1/auth/verify-email promotes it via `updateUserEmail`, so a
+  // stolen session cannot move the login identity on request alone. The address
+  // currently on file is notified that a change was requested, by a sender that
+  // opts out of the dedup guard so the alert cannot be suppressed.
+  //
+  // Two rate-limit tiers: `rateLimit(3, 'email-change')` caps how often one
+  // account may ask; `emailChangeRecipientLimit` caps how much Festie-branded
+  // mail any one address can be made to receive, across all accounts.
+  //
+  // A taken address returns 400 ALREADY_EXISTS rather than a fake success. The
+  // generic-success posture was measured and did not hold: the taken branch
+  // slept 200-500ms while the accepted branch finished in ~38ms, so the two
+  // were perfectly separable by timing. POST /api/v1/auth/register leaks the
+  // same fact unauthenticated with no password, so hiding it behind a
+  // session + password challenge protected nothing and cost the user a
+  // success message for a request that did nothing.
+  router.post(
+    '/email',
+    userAuth,
+    rateLimit(3, 'email-change'),
+    emailChangeRecipientLimit,
+    validate(schemas.updateEmail),
+    async (req: Request, res: Response) => {
+      // Success body never echoes the submitted address back.
+      const acceptedMsg = 'Verification link sent. Your login email changes only when you open it.';
+      try {
+        setNoStore(res);
+        const { email, password } = req.validatedBody as z.infer<typeof updateEmailSchema>;
+        // `checkEmailExists` / `findUserByEmail` compare LOWER(email) against an
+        // already-lowercased parameter, so normalise before both the check and
+        // the token insert or the uniqueness check silently misses.
+        const cleanEmail = email.trim().toLowerCase();
+
+        const { verifyPassword } = deps;
+        const currentUser = await getUserById(req.user.userId);
+        if (!currentUser) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
+
+        const passwordValid = await verifyPassword(password, currentUser.passwordHash);
+        if (!passwordValid) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          return sendError(res, 400, 'Incorrect password', ErrorCodes.PASSWORD_INCORRECT);
+        }
+
+        if (await stores.emailTokens.checkEmailExists(cleanEmail, req.user.userId)) {
+          log.warn('account:email-change-rejected', { userId: req.user.userId, reason: 'address-unavailable' });
+          return sendError(res, 400, 'Email address already in use', ErrorCodes.ALREADY_EXISTS);
+        }
+
+        const verifyToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
+        // Single transaction, taken under a row lock on the user: supersede the
+        // pending change tokens and issue the replacement together. The
+        // unlocked invalidate-then-insert pair let two parallel requests both
+        // return 200 and leave two live links for two different addresses.
+        // `currentUser.email` is spared so an unclicked signup or resend token
+        // for the address already on file is not collateral damage.
+        await stores.emailTokens.replaceVerificationToken(
+          req.user.userId,
+          tokenHash,
+          cleanEmail,
+          deps.config.EMAIL_VERIFY_TOKEN_TTL_HOURS,
+          currentUser.email ?? null,
+        );
+
+        const verifyUrl = `${deps.config.PUBLIC_ORIGIN}/api/v1/auth/verify-email?token=${verifyToken}`;
+        await sendVerificationEmail({
+          to: cleanEmail,
+          username: currentUser.username,
+          verifyUrl,
+          config: deps.config,
+          log,
+        });
+
+        // Notify the address on file so a user whose session was stolen finds
+        // out. The sender opts out of the idempotency guard — see lib/email.ts.
+        if (currentUser.email) {
+          await sendEmailChangeNoticeEmail({ to: currentUser.email, config: deps.config, log });
+        }
+
+        log.info('account:email-change-requested', { userId: req.user.userId });
+        return sendSuccess(res, { message: acceptedMsg });
+      } catch (error) {
+        log.error('account email change failed', { error: (error as Error).message, userId: req.user.userId });
+        return sendError(res, 500, 'Failed to request email change', ErrorCodes.INTERNAL_ERROR);
+      }
+    },
   );
 
   // ── DELETE / — soft-delete account (30-day grace period) ──────────────

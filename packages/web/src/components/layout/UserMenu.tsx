@@ -1,8 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import { useAuthStore } from '@festie/shared';
+import { api } from '@festie/shared/services/api';
 import { useNavigate } from '@tanstack/react-router';
 import { useToast } from '../../lib/toastContext';
 import Avatar from '../ui/Avatar';
+import ChangeEmailModal from './ChangeEmailModal';
 import ChangePasswordModal from './ChangePasswordModal';
 import UserMenuPanel from './UserMenuPanel';
 import UserMenuProfileCard from './UserMenuProfileCard';
@@ -24,6 +26,7 @@ interface UserMenuProps {
 export default function UserMenu({ user }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showChangeEmail, setShowChangeEmail] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -58,6 +61,12 @@ export default function UserMenu({ user }: UserMenuProps) {
     }
   };
 
+  const handleChangeEmailSubmit = async (email: string, password: string) => {
+    const res = await api.post<{ message?: string }>('/account/email', { email, password });
+    toast(res?.message || 'Check your new address for the verification link.', 'success');
+    setShowChangeEmail(false);
+  };
+
   const avatarName = user.username || user.name || '';
 
   return (
@@ -85,8 +94,17 @@ export default function UserMenu({ user }: UserMenuProps) {
             onClose={close}
             onLogout={handleLogout}
             onChangePassword={() => setShowChangePassword(true)}
+            onChangeEmail={() => setShowChangeEmail(true)}
           />
         </UserMenuPanel>
+      )}
+
+      {showChangeEmail && (
+        <ChangeEmailModal
+          currentEmail={user.email}
+          onClose={() => setShowChangeEmail(false)}
+          onSubmit={handleChangeEmailSubmit}
+        />
       )}
 
       {showChangePassword && (

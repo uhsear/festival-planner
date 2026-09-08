@@ -6,7 +6,6 @@
  * Email-Related Auth Routes (split from auth.js for maintainability)
  * POST /forgot-password   - Request password reset email
  * GET  /verify-email      - Verify email address via token link
- * POST /update-email      - Update email address (authenticated)
  * POST /resend-verification - Resend email verification (authenticated)
  * POST /reset-password    - Reset password via emailed token
  * GET  /reset-password    - Render password reset form page
@@ -33,7 +32,6 @@ export default function createEmailAuthRoutes(deps: any): Router {
     config,
     log,
     hashPassword,
-    verifyPassword,
     checkPasswordPolicy,
     invalidateUserSessions,
     disconnectUserSockets,
@@ -163,7 +161,9 @@ export default function createEmailAuthRoutes(deps: any): Router {
       }
 
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-      const tokenRow = await stores.emailTokens.findVerificationToken(tokenHash);
+      // Atomic claim: the UPDATE ... RETURNING is the only place a token is
+      // consumed, so two concurrent clicks on one link cannot both proceed.
+      const tokenRow = await stores.emailTokens.consumeVerificationToken(tokenHash);
 
       if (!tokenRow) {
         return wantsJson
@@ -171,17 +171,63 @@ export default function createEmailAuthRoutes(deps: any): Router {
           : sendHtml(400, 'This verification link has expired or already been used.', false);
       }
 
-      const { id: tokenId, user_id: userId, email: verifiedEmail } = tokenRow;
+      const { user_id: userId, email: verifiedEmail } = tokenRow;
 
-      // Mark token as used and update user email_verified_at
-      await stores.emailTokens.markTokenUsed(tokenId);
-      await stores.emailTokens.updateUserEmail(userId, verifiedEmail);
+      // Read the address on file BEFORE the promoting write. A signup or
+      // resend confirmation re-verifies the address the account already holds,
+      // and adding a FIRST address displaces nothing — only replacing one real
+      // address with another moves the login identity.
+      const currentUser = await getUserById(userId);
+      const identityMoved =
+        !!currentUser?.email && String(currentUser.email).toLowerCase() !== String(verifiedEmail).toLowerCase();
+
+      try {
+        await stores.emailTokens.updateUserEmail(userId, verifiedEmail);
+      } catch (writeError: any) {
+        // idx_users_email is UNIQUE(LOWER(email)) — another account can have
+        // claimed the address between the request and this click. The token
+        // stays consumed on purpose: this link can never succeed, and telling
+        // the user to start over is the only real remedy. Previously surfaced
+        // as a 500 marked retryable, which no retry could ever satisfy.
+        if (writeError?.code !== '23505') throw writeError;
+        log.warn('email:verify-address-taken', { userId });
+        const takenMsg =
+          'That address is now in use by another account. Request the email change again from your account settings.';
+        return wantsJson
+          ? sendError(res, 409, takenMsg, ErrorCodes.ALREADY_EXISTS)
+          : sendHtml(409, takenMsg, false);
+      }
       invalidateUserCache();
 
-      log.info('email:verified', { userId, email: verifiedEmail });
+      // Moving the login identity is a credential change: it hands whoever
+      // holds the new inbox the password-reset channel. Drop every session,
+      // refresh token and socket, exactly as /reset-password does below, so a
+      // stolen session cannot outlive the change it made. Confirming the
+      // address already on file (signup, resend) and adding a first address
+      // are exempt: neither displaces an existing recovery channel, and
+      // signing a user out the moment they confirm their email is pure cost.
+      if (identityMoved) {
+        // Every other pending link now points at a stale address — including
+        // an unclicked signup token for the address just replaced, which would
+        // otherwise silently revert the change. Sparing it up to this point is
+        // what keeps an in-flight signup working; once the identity has moved
+        // it is dead weight.
+        await stores.emailTokens.invalidateVerificationTokens(userId);
+        await invalidateUserSessions(userId);
+        if (stores.refreshTokens) await stores.refreshTokens.revokeAll(userId);
+        disconnectUserSockets(userId, io);
+      }
+
+      log.info('email:verified', { userId, email: verifiedEmail, identityMoved });
       return wantsJson
-        ? sendSuccess(res, { verified: true, email: verifiedEmail })
-        : sendHtml(200, 'Your email has been verified! You can close this page.', true);
+        ? sendSuccess(res, { verified: true, email: verifiedEmail, sessionsRevoked: identityMoved })
+        : sendHtml(
+            200,
+            identityMoved
+              ? 'Your email address is confirmed. Every device has been signed out for security — please sign in again.'
+              : 'Your email has been verified! You can close this page.',
+            true,
+          );
     } catch (error: any) {
       log.error('verify-email failed', { error: error.message });
       return wantsJson
@@ -189,55 +235,6 @@ export default function createEmailAuthRoutes(deps: any): Router {
         : sendHtml(500, 'Something went wrong. Please try again.', false);
     }
   });
-
-  // ── POST /update-email — change email address (authenticated) ────────
-  router.post(
-    '/update-email',
-    userAuth,
-    rateLimit(3, 'update-email'),
-    validate(schemas.updateEmail),
-    async (req: any, res: any) => {
-      try {
-        const { email, password: confirmPassword } = req.validatedBody;
-        const cleanEmail = String(email).trim().toLowerCase();
-
-        // Verify password
-        const user = await getUserById(req.user.userId);
-        if (!user) return sendError(res, 404, 'User not found', ErrorCodes.NOT_FOUND);
-        if (!(await verifyPassword(confirmPassword, user.passwordHash))) {
-          return sendError(res, 400, 'Incorrect password', ErrorCodes.PASSWORD_INCORRECT);
-        }
-
-        // Check email uniqueness
-        const emailTaken = await stores.emailTokens.checkEmailExists(cleanEmail, req.user.userId);
-        if (emailTaken) {
-          return sendError(res, 400, 'Email address already in use', ErrorCodes.ALREADY_EXISTS);
-        }
-
-        // Update email (unverified until confirmed)
-        await stores.emailTokens.setEmailUnverified(req.user.userId, cleanEmail);
-        invalidateUserCache();
-
-        // Send verification email
-        const verifyToken = crypto.randomBytes(32).toString('hex');
-        const tokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex');
-        await stores.emailTokens.createVerificationToken(
-          req.user.userId,
-          tokenHash,
-          cleanEmail,
-          config.EMAIL_VERIFY_TOKEN_TTL_HOURS,
-        );
-        const verifyUrl = `${config.PUBLIC_ORIGIN}/api/v1/auth/verify-email?token=${verifyToken}`;
-        await sendVerificationEmail({ to: cleanEmail, username: user.username, verifyUrl, config, log });
-
-        log.info('email:updated', { userId: req.user.userId, email: cleanEmail });
-        return sendSuccess(res, { message: 'Verification email sent to your new address', email: cleanEmail });
-      } catch (error: any) {
-        log.error('update-email failed', { error: error.message });
-        return sendError(res, 500, 'Failed to update email', ErrorCodes.INTERNAL_ERROR);
-      }
-    },
-  );
 
   // ── POST /resend-verification — resend email verification (authenticated) ──
   router.post('/resend-verification', userAuth, rateLimit(2, 'resend-verify'), async (req: any, res: any) => {
@@ -368,6 +365,10 @@ export default function createEmailAuthRoutes(deps: any): Router {
         // Revoke long-lived refresh tokens so a held token chain cannot
         // mint new sessions after the password reset (H2).
         if (stores.refreshTokens) await stores.refreshTokens.revokeAll(targetUserId);
+        // A recovery reset must also kill any pending email-change link: the
+        // user reaching for /forgot-password is exactly the user whose session
+        // may already have requested a change to an attacker's address.
+        await stores.emailTokens.invalidatePendingEmailChanges(targetUserId, user.email ?? null);
         disconnectUserSockets(targetUserId, io);
         state._adminResetTokens.delete(tokenHash);
 

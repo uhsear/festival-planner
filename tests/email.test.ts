@@ -85,6 +85,44 @@ describe('email: sendEmail', () => {
     assert.equal(sendMock.mock.callCount(), 1, 'Resend.send called only once');
   });
 
+  it('never suppresses a message sent with dedupe:false', async () => {
+    // The email-change security alert has a constant recipient AND a constant
+    // subject, so the (to + subject) idempotency guard let an attacker mint
+    // three change links a minute while the victim got one alert per five
+    // minutes. Alerts opt out; every send must reach the provider.
+    const log = createMockLog();
+    const sendMock = mock.fn(async () => ({ data: { id: 'msg-1' }, error: null }));
+    const _client = createMockClient(sendMock);
+    const config = createMockConfig();
+    const alert = {
+      to: 'victim@example.com',
+      subject: 'Security alert: Festie email change requested',
+      html: '<p>alert</p>',
+      text: 'alert',
+      config,
+      log,
+      _client,
+      dedupe: false,
+    };
+
+    for (let i = 0; i < 3; i++) assert.equal(await sendEmail(alert), true);
+    assert.equal(sendMock.mock.callCount(), 3, 'every security alert must be delivered');
+  });
+
+  it('a dedupe:false send does not poison the guard for ordinary mail', async () => {
+    // Opting out skips recording as well as checking, so an alert can never
+    // swallow a later ordinary message to the same address and subject.
+    const log = createMockLog();
+    const sendMock = mock.fn(async () => ({ data: { id: 'msg-1' }, error: null }));
+    const _client = createMockClient(sendMock);
+    const config = createMockConfig();
+    const base = { to: 'shared@example.com', subject: 'Shared Subject', html: '<p>x</p>', text: 'x', config, log, _client };
+
+    assert.equal(await sendEmail({ ...base, dedupe: false }), true);
+    assert.equal(await sendEmail(base), true);
+    assert.equal(sendMock.mock.callCount(), 2, 'the exempt send must not have been recorded');
+  });
+
   it('returns false and logs error when Resend returns an error response', async () => {
     const log = createMockLog();
     const sendMock = mock.fn(async () => ({

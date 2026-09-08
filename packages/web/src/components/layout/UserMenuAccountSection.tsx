@@ -15,6 +15,7 @@ interface UserMenuAccountSectionProps {
   onClose: () => void;
   onLogout: () => void;
   onChangePassword: () => void;
+  onChangeEmail: () => void;
 }
 
 export default function UserMenuAccountSection({
@@ -23,6 +24,7 @@ export default function UserMenuAccountSection({
   onClose,
   onLogout,
   onChangePassword,
+  onChangeEmail,
 }: UserMenuAccountSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -150,7 +152,7 @@ export default function UserMenuAccountSection({
             type="button"
             onClick={() => {
               onClose();
-              toast('Email change coming soon', 'info');
+              onChangeEmail();
             }}
           >
             {user.email ? 'Change' : 'Add'}

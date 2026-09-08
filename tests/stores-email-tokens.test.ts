@@ -110,52 +110,35 @@ describe('lib/db/stores/email-tokens.js', () => {
   });
 
   // =========================================================================
-  // findVerificationToken()
+  // consumeVerificationToken()
   // =========================================================================
-  describe('findVerificationToken', () => {
-    it('returns the token record when hash matches an active token', async () => {
+  // Replaces the old findVerificationToken + markTokenUsed pair: claiming a
+  // token must be one statement, or two concurrent clicks both pass the find.
+  describe('consumeVerificationToken', () => {
+    it('claims the token in a single UPDATE ... RETURNING', async () => {
       const token = { id: 'tok-1', user_id: 'user-1', email: 'alice@example.com' };
       const pool = makePool([{ rows: [token] }]);
       const store = createEmailTokensStore(pool);
 
-      const result = await store.findVerificationToken('hash-abc');
+      const result = await store.consumeVerificationToken('hash-abc');
 
       assert.deepStrictEqual(result, token);
-      assert.strictEqual(pool.query.mock.calls.length, 1);
-      const call = pool.query.mock.calls[0]! as any;
-      assert.ok(call.arguments[0].includes('email_verification_tokens'));
-      assert.ok(call.arguments[0].includes('token_hash = $1'));
-      assert.ok(call.arguments[0].includes('used_at IS NULL'));
-      assert.ok(call.arguments[0].includes('expires_at > NOW()'));
-      assert.deepStrictEqual(call.arguments[1], ['hash-abc']);
-    });
-
-    it('returns null when no active token matches the hash', async () => {
-      const pool = makePool([{ rows: [] }]);
-      const store = createEmailTokensStore(pool);
-
-      const result = await store.findVerificationToken('nonexistent-hash');
-
-      assert.strictEqual(result, null);
-    });
-  });
-
-  // =========================================================================
-  // markTokenUsed()
-  // =========================================================================
-  describe('markTokenUsed', () => {
-    it('sets used_at on the verification token by id', async () => {
-      const pool = makePool([{ rows: [] }]);
-      const store = createEmailTokensStore(pool);
-
-      await store.markTokenUsed('tok-1');
-
-      assert.strictEqual(pool.query.mock.calls.length, 1);
+      assert.strictEqual(pool.query.mock.calls.length, 1, 'claiming a token must be one statement');
       const call = pool.query.mock.calls[0]! as any;
       assert.ok(call.arguments[0].includes('UPDATE email_verification_tokens'));
       assert.ok(call.arguments[0].includes('SET used_at = NOW()'));
-      assert.ok(call.arguments[0].includes('id = $1'));
-      assert.deepStrictEqual(call.arguments[1], ['tok-1']);
+      assert.ok(call.arguments[0].includes('token_hash = $1'));
+      assert.ok(call.arguments[0].includes('used_at IS NULL'));
+      assert.ok(call.arguments[0].includes('expires_at > NOW()'));
+      assert.ok(call.arguments[0].includes('RETURNING id, user_id, email'));
+      assert.deepStrictEqual(call.arguments[1], ['hash-abc']);
+    });
+
+    it('returns null when the token is unknown, already used or expired', async () => {
+      const pool = makePool([{ rows: [] }]);
+      const store = createEmailTokensStore(pool);
+
+      assert.strictEqual(await store.consumeVerificationToken('nonexistent-hash'), null);
     });
   });
 
@@ -220,22 +203,66 @@ describe('lib/db/stores/email-tokens.js', () => {
   });
 
   // =========================================================================
-  // setEmailUnverified()
+  // invalidatePendingEmailChanges()
   // =========================================================================
-  describe('setEmailUnverified', () => {
-    it('sets email and clears email_verified_at', async () => {
+  describe('invalidatePendingEmailChanges', () => {
+    it('kills pending change tokens but spares the address already on file', async () => {
       const pool = makePool([{ rows: [] }]);
       const store = createEmailTokensStore(pool);
 
-      await store.setEmailUnverified('user-1', 'pending@example.com');
+      await store.invalidatePendingEmailChanges('user-1', 'alice@example.com');
 
       assert.strictEqual(pool.query.mock.calls.length, 1);
       const call = pool.query.mock.calls[0]! as any;
-      assert.ok(call.arguments[0].includes('UPDATE users'));
-      assert.ok(call.arguments[0].includes('email = $1'));
-      assert.ok(call.arguments[0].includes('email_verified_at = NULL'));
-      assert.ok(call.arguments[0].includes('id = $2'));
-      assert.deepStrictEqual(call.arguments[1], ['pending@example.com', 'user-1']);
+      assert.ok(call.arguments[0].includes('UPDATE email_verification_tokens'));
+      assert.ok(call.arguments[0].includes('SET used_at = NOW()'));
+      assert.ok(call.arguments[0].includes('used_at IS NULL'));
+      assert.ok(
+        call.arguments[0].includes('LOWER(email) IS DISTINCT FROM LOWER($2)'),
+        'a signup token for the address on file must survive',
+      );
+      assert.deepStrictEqual(call.arguments[1], ['user-1', 'alice@example.com']);
+    });
+  });
+
+  // =========================================================================
+  // replaceVerificationToken()
+  // =========================================================================
+  describe('replaceVerificationToken', () => {
+    it('locks the user row, supersedes change tokens and inserts, all in one transaction', async () => {
+      const client = { query: mock.fn(async () => ({ rows: [] })), release: mock.fn() };
+      const pool = { connect: mock.fn(async () => client) } as any;
+      const store = createEmailTokensStore(pool);
+
+      await store.replaceVerificationToken('user-1', 'hash-xyz', 'new@example.com', 24, 'old@example.com');
+
+      const sql = client.query.mock.calls.map((c: any) => String(c.arguments[0]));
+      assert.deepStrictEqual([sql[0], sql[sql.length - 1]], ['BEGIN', 'COMMIT'], 'must be one transaction');
+      assert.ok(
+        sql.some((q: string) => q.includes('FROM users WHERE id = $1 FOR UPDATE')),
+        'the row lock is what serialises concurrent change requests',
+      );
+      assert.ok(sql.some((q: string) => q.includes('LOWER(email) IS DISTINCT FROM LOWER($2)')));
+      assert.ok(sql.some((q: string) => q.includes('INSERT INTO email_verification_tokens')));
+      assert.strictEqual(client.release.mock.calls.length, 1);
+    });
+
+    it('rolls back and rethrows when the insert fails', async () => {
+      const client = {
+        query: mock.fn(async (sql: string) => {
+          if (String(sql).includes('INSERT INTO')) throw new Error('constraint violation');
+          return { rows: [] };
+        }),
+        release: mock.fn(),
+      };
+      const pool = { connect: mock.fn(async () => client) } as any;
+      const store = createEmailTokensStore(pool);
+
+      await assert.rejects(
+        () => store.replaceVerificationToken('user-1', 'h', 'new@example.com', 24, 'old@example.com'),
+        { message: 'constraint violation' },
+      );
+      assert.ok(client.query.mock.calls.some((c: any) => String(c.arguments[0]) === 'ROLLBACK'));
     });
   });
 
@@ -360,23 +387,13 @@ describe('lib/db/stores/email-tokens.js', () => {
       );
     });
 
-    it('findVerificationToken propagates database errors', async () => {
+    it('consumeVerificationToken propagates database errors', async () => {
       const pool = { query: mock.fn(async () => { throw new Error('relation does not exist'); }) };
       const store = createEmailTokensStore(pool);
 
       await assert.rejects(
-        () => store.findVerificationToken('hash'),
+        () => store.consumeVerificationToken('hash'),
         { message: 'relation does not exist' },
-      );
-    });
-
-    it('markTokenUsed propagates database errors', async () => {
-      const pool = { query: mock.fn(async () => { throw new Error('deadlock detected'); }) };
-      const store = createEmailTokensStore(pool);
-
-      await assert.rejects(
-        () => store.markTokenUsed('tok-1'),
-        { message: 'deadlock detected' },
       );
     });
 
@@ -400,12 +417,12 @@ describe('lib/db/stores/email-tokens.js', () => {
       );
     });
 
-    it('setEmailUnverified propagates database errors', async () => {
+    it('invalidatePendingEmailChanges propagates database errors', async () => {
       const pool = { query: mock.fn(async () => { throw new Error('disk full'); }) };
       const store = createEmailTokensStore(pool);
 
       await assert.rejects(
-        () => store.setEmailUnverified('user-1', 'email@test.com'),
+        () => store.invalidatePendingEmailChanges('user-1', 'email@test.com'),
         { message: 'disk full' },
       );
     });

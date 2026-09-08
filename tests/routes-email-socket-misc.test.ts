@@ -88,7 +88,6 @@ function baseDeps(overrides: any = {}) {
     schemas: {
       forgotPassword: {},
       resetPasswordPublic: {},
-      updateEmail: {},
       crewIdParams: {},
       crewIdMpIdParams: {},
       crewIdPollIdParams: {},
@@ -154,13 +153,13 @@ describe('routes/email-auth', () => {
       findUserByEmail: mock.fn(async () => null),
       invalidateResetTokens: mock.fn(noopAsync),
       createResetToken: mock.fn(noopAsync),
-      findVerificationToken: mock.fn(async () => null),
-      markTokenUsed: mock.fn(noopAsync),
+      consumeVerificationToken: mock.fn(async () => null),
       updateUserEmail: mock.fn(noopAsync),
       checkEmailExists: mock.fn(async () => false),
-      setEmailUnverified: mock.fn(noopAsync),
       createVerificationToken: mock.fn(noopAsync),
+      replaceVerificationToken: mock.fn(noopAsync),
       invalidateVerificationTokens: mock.fn(noopAsync),
+      invalidatePendingEmailChanges: mock.fn(noopAsync),
       consumeResetToken: mock.fn(async () => null),
     };
   }
@@ -284,7 +283,7 @@ describe('routes/email-auth', () => {
 
   test('GET /verify-email — returns error for expired/used token', async () => {
     const deps = buildEmailAuthDeps();
-    // findVerificationToken returns null by default (expired/used)
+    // consumeVerificationToken returns null by default (expired/used)
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
@@ -295,12 +294,14 @@ describe('routes/email-auth', () => {
     assert.match(res.text, /expired|already been used/i);
   });
 
-  test('GET /verify-email — verifies email successfully', async () => {
+  test('GET /verify-email — confirming the address already on file does not sign the user out', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.emailTokens.findVerificationToken = mock.fn(async () => ({
+    // getUserById reports alice@test.com, so this token re-confirms the address
+    // the account already holds: a signup/resend confirmation, not a move.
+    deps.stores.emailTokens.consumeVerificationToken = mock.fn(async () => ({
       id: 'tok-1',
       user_id: 'user-1',
-      email: 'verified@test.com',
+      email: 'alice@test.com',
     }));
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
     const router = createEmailAuthRoutes(deps);
@@ -311,11 +312,56 @@ describe('routes/email-auth', () => {
 
     assert.match(res.text, /verified/i);
     assert.ok(deps.invalidateUserCache.mock.calls.length >= 1);
+    assert.equal(deps.invalidateUserSessions.mock.calls.length, 0, 'nothing moved, so nothing to revoke');
+  });
+
+  test('GET /verify-email — moving the login identity revokes sessions and sockets', async () => {
+    const deps = buildEmailAuthDeps();
+    deps.stores.emailTokens.consumeVerificationToken = mock.fn(async () => ({
+      id: 'tok-1',
+      user_id: 'user-1',
+      email: 'moved@test.com',
+    }));
+    deps.stores.refreshTokens = { revokeAll: mock.fn(noopAsync) };
+    createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
+    const router = createEmailAuthRoutes(deps);
+    const app = mountApp(router);
+
+    const validHex = 'b'.repeat(64);
+    const res = await request(app).get(`/verify-email?token=${validHex}`).set('Accept', 'application/json').expect(200);
+
+    assert.equal(res.body.data.sessionsRevoked, true);
+    assert.equal(deps.invalidateUserSessions.mock.calls.length, 1);
+    assert.equal(deps.stores.refreshTokens.revokeAll.mock.calls.length, 1);
+    assert.equal(deps.disconnectUserSockets.mock.calls.length, 1);
+  });
+
+  test('GET /verify-email — 409, not 500, when the address was taken in the meantime', async () => {
+    const deps = buildEmailAuthDeps();
+    deps.stores.emailTokens.consumeVerificationToken = mock.fn(async () => ({
+      id: 'tok-1',
+      user_id: 'user-1',
+      email: 'taken@test.com',
+    }));
+    deps.stores.emailTokens.updateUserEmail = mock.fn(async () => {
+      const err: any = new Error('duplicate key value violates unique constraint "idx_users_email"');
+      err.code = '23505';
+      throw err;
+    });
+    createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
+    const router = createEmailAuthRoutes(deps);
+    const app = mountApp(router);
+
+    const validHex = 'b'.repeat(64);
+    const res = await request(app).get(`/verify-email?token=${validHex}`).set('Accept', 'application/json').expect(409);
+
+    assert.equal(res.body.error.code, 'ALREADY_EXISTS');
+    assert.match(res.body.error.message, /in use by another account/i);
   });
 
   test('GET /verify-email — returns JSON for application/json clients', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.emailTokens.findVerificationToken = mock.fn(async () => ({
+    deps.stores.emailTokens.consumeVerificationToken = mock.fn(async () => ({
       id: 'tok-1',
       user_id: 'user-1',
       email: 'verified@test.com',
@@ -363,7 +409,7 @@ describe('routes/email-auth', () => {
 
   test('GET /verify-email — returns 500 on DB error', async () => {
     const deps = buildEmailAuthDeps();
-    deps.stores.emailTokens.findVerificationToken = mock.fn(async () => {
+    deps.stores.emailTokens.consumeVerificationToken = mock.fn(async () => {
       throw new Error('DB fail');
     });
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
@@ -376,60 +422,16 @@ describe('routes/email-auth', () => {
     assert.match(res.text, /wrong/i);
   });
 
-  test('POST /update-email — rejects wrong password', async () => {
+  test('POST /update-email — the route is not mounted at all', async () => {
     const deps = buildEmailAuthDeps();
-    deps.verifyPassword = mock.fn(async () => false);
     createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
     const router = createEmailAuthRoutes(deps);
     const app = mountApp(router);
 
-    const res = await request(app).post('/update-email').send({ email: 'new@test.com', password: 'wrong' }).expect(400);
-
-    assert.equal(res.body.data, null);
-    assert.equal(res.body.error.code, 'PASSWORD_INCORRECT');
-  });
-
-  test('POST /update-email — rejects already-used email', async () => {
-    const deps = buildEmailAuthDeps();
-    deps.stores.emailTokens.checkEmailExists = mock.fn(async () => true);
-    createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
-    const router = createEmailAuthRoutes(deps);
-    const app = mountApp(router);
-
-    const res = await request(app)
-      .post('/update-email')
-      .send({ email: 'taken@test.com', password: 'correct' })
-      .expect(400);
-
-    assert.equal(res.body.error.code, 'ALREADY_EXISTS');
-  });
-
-  test('POST /update-email — succeeds with valid data', async () => {
-    const deps = buildEmailAuthDeps();
-    // checkEmailExists returns false by default (email available)
-    createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
-    const router = createEmailAuthRoutes(deps);
-    const app = mountApp(router);
-
-    const res = await request(app)
-      .post('/update-email')
-      .send({ email: 'fresh@test.com', password: 'pass' })
-      .expect(200);
-
-    assert.equal(res.body.error, null);
-    assert.match(res.body.data.message, /verification/i);
-  });
-
-  test('POST /update-email — 404 when user not found', async () => {
-    const deps = buildEmailAuthDeps();
-    deps.getUserById = mock.fn(async () => null);
-    createEmailAuthRoutes = (await import('../routes/email-auth.js')).default;
-    const router = createEmailAuthRoutes(deps);
-    const app = mountApp(router);
-
-    const res = await request(app).post('/update-email').send({ email: 'x@test.com', password: 'p' }).expect(404);
-
-    assert.equal(res.body.error.code, 'NOT_FOUND');
+    // The handler wrote the submitted address straight to users.email with
+    // email_verified_at NULL. It is gone; POST /api/v1/account/email replaces it.
+    await request(app).post('/update-email').send({ email: 'new@test.com', password: 'correct' }).expect(404);
+    assert.equal(deps.stores.emailTokens.updateUserEmail.mock.calls.length, 0);
   });
 
   test('POST /resend-verification — rejects when already verified', async () => {
