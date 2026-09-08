@@ -14,6 +14,12 @@
 // and inlining these bytes into the app bundle is a redistribution. maplibre-gl
 // keeps its own @license banner in its dist; the pmtiles dist carries none, so
 // the notice file is the only place that attribution exists.
+//
+// maplibre-gl's tarball ships its LICENSE, so that text is read straight from
+// node_modules. The pmtiles tarball ships none, so its upstream text is checked
+// in under vendor/licenses/ and read from there — this script never touches the
+// network. Refresh that copy from the upstream repository when the dependency
+// is bumped; vendor/licenses/README.md records where each file came from.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -73,16 +79,23 @@ export const PMTILES_JS_SRC = ${asciiLiteral(pmtilesJs)};
 `;
 
 const licenseFor = (pkg) => {
-  const dir = req(pkg);
-  for (const name of ['LICENSE', 'LICENSE.txt', 'LICENSE.md', 'LICENCE']) {
+  const candidates = [
+    ...['LICENSE', 'LICENSE.txt', 'LICENSE.md', 'LICENCE'].map((n) => join(req(pkg), n)),
+    // Checked-in upstream text, for packages whose tarball ships no license
+    // file. Reproducing the copyright notice is a BSD-3-Clause condition, so a
+    // missing tarball file must not silently downgrade the notice to a link.
+    join(root, 'vendor', 'licenses', `${pkg}-LICENSE.txt`),
+  ];
+  for (const path of candidates) {
     try {
-      return readFileSync(join(dir, name), 'utf8').trim();
+      return readFileSync(path, 'utf8').trim();
     } catch {
-      // try the next conventional filename
+      // try the next candidate
     }
   }
-  // No license file shipped in the tarball: fall back to the declared SPDX id
-  // plus the homepage, so attribution still names the project and its terms.
+  // Nothing available anywhere: fall back to the declared SPDX id plus the
+  // homepage, so attribution still names the project and its terms. This is a
+  // pointer, not a notice — vendor the real text instead when you hit it.
   const meta = JSON.parse(readFileSync(req(`${pkg}/package.json`), 'utf8'));
   return `${meta.license} — see ${meta.homepage || meta.repository?.url || `https://www.npmjs.com/package/${pkg}`}`;
 };
@@ -100,6 +113,10 @@ notice to accompany the redistribution.
 ${licenseFor('maplibre-gl')}
 
 ## pmtiles@${version('pmtiles')}
+
+The pmtiles npm tarball ships no license file. The text below is the LICENSE of
+the upstream repository (protomaps/PMTiles), checked in at
+vendor/licenses/pmtiles-LICENSE.txt.
 
 ${licenseFor('pmtiles')}
 `;
