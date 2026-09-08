@@ -443,8 +443,22 @@ async function redisRateCheck(redis: Redis | null, key: string, max: number, win
     pipeline.incr(key);
     pipeline.pttl(key);
     const results = await pipeline.exec();
-    const count = results![0]![1] as number;
-    let ttl = results![1]![1] as number;
+    // A disconnected ioredis does NOT throw here: pipeline.exec() RESOLVES with
+    // a per-command error tuple, e.g. [[Error("Stream isn't writeable and
+    // enableOfflineQueue options is false"), null], ...]. Reading [1] then gives
+    // undefined, and `undefined > max` is false — so every caller was told "not
+    // limited" with no fallback flag, and each Redis-backed limiter failed fully
+    // OPEN for the whole outage. Treat any command error, or a non-numeric
+    // count, as no answer so callers use their in-memory path, which still
+    // enforces (divided by CLUSTER_SIZE).
+    const incrErr = results?.[0]?.[0];
+    const ttlErr = results?.[1]?.[0];
+    const rawCount = results?.[0]?.[1];
+    if (!results || incrErr || ttlErr || typeof rawCount !== 'number') {
+      return { limited: false, count: 0, remaining: max, resetMs: windowMs, fallback: true };
+    }
+    const count = rawCount;
+    let ttl = results[1]![1] as number;
     if (count === 1 || ttl < 0) {
       await redis.pexpire(key, windowMs);
       ttl = windowMs;

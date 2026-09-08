@@ -616,3 +616,53 @@ describe('redis: createRedisClient', () => {
     assert.ok(COMMAND_TIMEOUT_MS > 0 && COMMAND_TIMEOUT_MS <= 5000);
   });
 });
+
+// A disconnected ioredis resolves pipeline.exec() with per-command errors rather
+// than throwing, so the old code read undefined as the count and answered
+// "not limited" with no fallback flag — every Redis-backed limiter failed fully
+// open for the duration of an outage. Callers gate on `fallback`, so returning
+// it is what routes them to the in-memory path that still enforces.
+describe('redisRateCheck: a dead connection must not read as "not limited"', () => {
+  it('reports fallback when the pipeline resolves with command errors', async () => {
+    const deadClient: any = {
+      pipeline: () => ({
+        incr() {
+          return this;
+        },
+        pttl() {
+          return this;
+        },
+        exec: async () => [
+          [new Error("Stream isn't writeable and enableOfflineQueue options is false"), null],
+          [new Error("Stream isn't writeable and enableOfflineQueue options is false"), null],
+        ],
+      }),
+    };
+
+    const result = await redisRateCheck(deadClient, 'rl:probe:dead', 3, 60_000);
+    assert.equal(result.fallback, true, 'must flag no-answer so the caller enforces in memory');
+    assert.equal(result.limited, false);
+  });
+
+  it('still reports a real limit decision when the pipeline succeeds', async () => {
+    const liveClient: any = {
+      pipeline: () => ({
+        incr() {
+          return this;
+        },
+        pttl() {
+          return this;
+        },
+        exec: async () => [
+          [null, 4],
+          [null, 30_000],
+        ],
+      }),
+      pexpire: async () => 1,
+    };
+
+    const result = await redisRateCheck(liveClient, 'rl:probe:live', 3, 60_000);
+    assert.equal(result.fallback, undefined, 'a real answer must not be flagged as fallback');
+    assert.equal(result.limited, true, '4 > max 3');
+  });
+});
