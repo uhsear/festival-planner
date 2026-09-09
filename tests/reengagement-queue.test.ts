@@ -42,6 +42,15 @@ function makeFakes(opts: { addThrows?: boolean; modelJobIdNoop?: boolean } = {})
     async add(name: string, data: any, jobOpts: any) {
       if (opts.addThrows) throw new Error('redis down');
       const jobId = jobOpts?.jobId;
+      // Model BullMQ's jobId VALIDATION, not just its dedup. A custom id
+      // containing ':' is rejected unless it splits into exactly three parts —
+      // a carve-out kept only for legacy repeatable jobs. Without this the
+      // double accepted ids the real queue always threw on, which is exactly
+      // how `wrap:<uuid>` shipped: every enqueue threw, enqueue() swallowed it
+      // into the inline fallback, and the durable path was never once used.
+      if (typeof jobId === 'string' && jobId.includes(':') && jobId.split(':').length !== 3) {
+        throw new Error('Custom Id cannot contain :');
+      }
       // Model BullMQ's existing-jobId behavior: queue.add with a jobId that
       // still exists is a NO-OP — it returns the existing job WITHOUT appending
       // a new one (and without throwing).
@@ -108,15 +117,15 @@ describe('createReengagementQueue', () => {
     assert.deepEqual(fakes.added[0], {
       name: 'wrap_ready',
       data: { festivalId: 'fk-2026' },
-      jobOpts: { jobId: 'wrap:fk-2026' },
+      jobOpts: { jobId: 'wrap-fk-2026' },
     });
     assert.deepEqual(fakes.added[1], {
       name: 'lineup_drop',
       data: { festivalId: 'nc-2026' },
-      jobOpts: { jobId: 'lineup:nc-2026' },
+      jobOpts: { jobId: 'lineup-nc-2026' },
     });
     assert.equal(fakes.added[2].name, 'crew_reformed');
-    assert.equal(fakes.added[2].jobOpts.jobId, 'reform:crew-9');
+    assert.equal(fakes.added[2].jobOpts.jobId, 'reform-crew-9');
     assert.equal(fakes.added[2].data.crewName, 'Wolves');
   });
 
@@ -135,16 +144,16 @@ describe('createReengagementQueue', () => {
 
     // Only ONE job was actually appended; the second add was a no-op.
     assert.equal(fakes.added.length, 1);
-    assert.equal(fakes.added[0].jobOpts.jobId, 'wrap:fk-2026');
+    assert.equal(fakes.added[0].jobOpts.jobId, 'wrap-fk-2026');
     // Both calls report queued against the same stable jobId.
     assert.equal(r1.queued, true);
-    assert.equal(r1.jobId, 'wrap:fk-2026');
+    assert.equal(r1.jobId, 'wrap-fk-2026');
     assert.equal(r2.queued, true);
-    assert.equal(r2.jobId, 'wrap:fk-2026');
+    assert.equal(r2.jobId, 'wrap-fk-2026');
 
     // After the key is freed (removeOnComplete:true frees it post-completion),
     // a later re-trigger re-enqueues. Simulate the key being gone:
-    fakes.byJobId.delete('wrap:fk-2026');
+    fakes.byJobId.delete('wrap-fk-2026');
     await q!.sendWrapReady('fk-2026');
     assert.equal(fakes.added.length, 2);
   });
@@ -167,11 +176,11 @@ describe('createReengagementQueue', () => {
     const proc = fakes.getProcessor();
     assert.equal(typeof proc, 'function');
 
-    const r1 = await proc({ name: 'wrap_ready', data: { festivalId: 'f1' }, id: 'wrap:f1', attemptsMade: 0 });
+    const r1 = await proc({ name: 'wrap_ready', data: { festivalId: 'f1' }, id: 'wrap-f1', attemptsMade: 0 });
     assert.equal(r1.sent, 1);
-    const r2 = await proc({ name: 'lineup_drop', data: { festivalId: 'f2' }, id: 'lineup:f2', attemptsMade: 0 });
+    const r2 = await proc({ name: 'lineup_drop', data: { festivalId: 'f2' }, id: 'lineup-f2', attemptsMade: 0 });
     assert.equal(r2.sent, 2);
-    const r3 = await proc({ name: 'crew_reformed', data: { newCrewId: 'c3' }, id: 'reform:c3', attemptsMade: 0 });
+    const r3 = await proc({ name: 'crew_reformed', data: { newCrewId: 'c3' }, id: 'reform-c3', attemptsMade: 0 });
     assert.equal(r3.sent, 3);
 
     assert.deepEqual(executor.calls, [

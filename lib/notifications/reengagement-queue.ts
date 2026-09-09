@@ -42,6 +42,15 @@ const QUEUE_NAME = 'reengagement';
 // no-op (it returns the existing job, doesn't throw and doesn't re-run) — the
 // real double-send backstop is notification_log's per-user eventKey dedup, not
 // the jobId.
+//
+// The separator is '-', NOT ':'. BullMQ rejects a custom jobId containing a
+// colon unless it splits into exactly three parts, a carve-out that exists only
+// for legacy repeatable jobs (bullmq/dist/cjs/classes/job.js, "Custom Id cannot
+// contain :"). Two-part ids like `wrap:<uuid>` therefore threw on EVERY
+// queue.add, the catch in enqueue() swallowed it into the inline fallback, and
+// the durability this module exists to provide was never actually active. It
+// failed silently because the fallback is correct: the notification still sends,
+// just on the request's event loop instead of a background worker.
 type JobName = 'wrap_ready' | 'lineup_drop' | 'crew_reformed';
 
 // Bound worker.close() so a long-running fan-out job can't hold up shutdown past
@@ -193,11 +202,11 @@ export function createReengagementQueue(deps: ReengagementQueueDeps) {
 
   return {
     sendWrapReady: (festivalId: string) =>
-      enqueue('wrap_ready', `wrap:${festivalId}`, { festivalId }, () => executor.sendWrapReady(festivalId)),
+      enqueue('wrap_ready', `wrap-${festivalId}`, { festivalId }, () => executor.sendWrapReady(festivalId)),
     sendLineupDrop: (festivalId: string) =>
-      enqueue('lineup_drop', `lineup:${festivalId}`, { festivalId }, () => executor.sendLineupDrop(festivalId)),
+      enqueue('lineup_drop', `lineup-${festivalId}`, { festivalId }, () => executor.sendLineupDrop(festivalId)),
     sendCrewReformed: (args: any) =>
-      enqueue('crew_reformed', `reform:${args?.newCrewId}`, args, () => executor.sendCrewReformed(args)),
+      enqueue('crew_reformed', `reform-${args?.newCrewId}`, args, () => executor.sendCrewReformed(args)),
     async close() {
       // worker.close() waits for in-flight jobs to finish, which is unbounded —
       // a large fan-out can keep one job busy for minutes. Bound it and force a
