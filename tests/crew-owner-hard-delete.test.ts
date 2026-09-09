@@ -108,3 +108,55 @@ describe('GDPR delete — owned-crew ownership handling', { skip }, () => {
     assert.equal(usersGone.length, 0, 'purged users are deleted (retention_cleanup no longer aborts on the crews FK)');
   });
 });
+
+// The avatar orphan sweep in lib/shutdown.ts deletes any file in the avatar
+// directory whose key is not in `users.avatar_key`. It used to build that set
+// from getUsers(), which filters `WHERE deleted_at IS NULL`, so a soft-deleted
+// account lost its avatar file on the next sweep — within six hours, not at the
+// end of the 30-day grace period. Restoring inside the window then pointed at a
+// missing file, and packages/mobile/app/privacy.tsx promises the avatar survives
+// until day 30. This pins the query the sweep now uses.
+describe('avatar orphan sweep — soft-deleted accounts keep their file', { skip }, () => {
+  let pool: Pool;
+  let stores: any;
+
+  before(async () => {
+    pool = new Pool({ connectionString: TEST_DATABASE_URL });
+    stores = createStores(pool);
+  });
+
+  after(async () => {
+    await pool.query("DELETE FROM users WHERE id LIKE 'avatar-sweep-%'").catch(() => {});
+    await pool.end();
+  });
+
+  test('a soft-deleted user still protects its avatar key', async () => {
+    await stores.users.create({ id: 'avatar-sweep-1', username: 'avatar-sweep-1', passwordHash: 'x' });
+    await pool.query("UPDATE users SET avatar_key = 'abc123deadbeef' WHERE id = $1", ['avatar-sweep-1']);
+
+    // Exactly the query lib/shutdown.ts runs to build the valid-key set.
+    const live = await pool.query('SELECT avatar_key FROM users WHERE avatar_key IS NOT NULL');
+    assert.ok(
+      live.rows.some((r: any) => r.avatar_key === 'abc123deadbeef'),
+      'active account must protect its avatar',
+    );
+
+    await pool.query('UPDATE users SET deleted_at = NOW() WHERE id = $1', ['avatar-sweep-1']);
+
+    const afterSoftDelete = await pool.query('SELECT avatar_key FROM users WHERE avatar_key IS NOT NULL');
+    assert.ok(
+      afterSoftDelete.rows.some((r: any) => r.avatar_key === 'abc123deadbeef'),
+      'soft-deleted account must STILL protect its avatar until the 30-day purge removes the row',
+    );
+
+    // And the old behaviour, kept explicit so the regression is unmistakable:
+    // the filtered query is what dropped the key early.
+    const filtered = await pool.query(
+      'SELECT avatar_key FROM users WHERE avatar_key IS NOT NULL AND deleted_at IS NULL',
+    );
+    assert.ok(
+      !filtered.rows.some((r: any) => r.avatar_key === 'abc123deadbeef'),
+      'the deleted_at-filtered query is the one that used to orphan the file',
+    );
+  });
+});

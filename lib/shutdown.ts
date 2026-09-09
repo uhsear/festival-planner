@@ -19,7 +19,6 @@ function createBackgroundTasks(ctx: any, { io }: any) {
     validateUserSession,
     disconnectSocket,
     emitPresence,
-    getUsers,
     avatarDirPath,
   } = ctx;
 
@@ -76,15 +75,21 @@ function createBackgroundTasks(ctx: any, { io }: any) {
   _sessionCleanupTimer.unref();
   state.timers.push(_sessionCleanupTimer);
 
-  // Avatar orphan cleanup — remove avatar files without corresponding users (runs daily)
+  // Avatar orphan cleanup — remove avatar files with no users row at all (every 6h).
+  // Deliberately queries users.avatar_key WITHOUT a deleted_at filter: a
+  // soft-deleted account keeps its file for the 30-day grace period so a restore
+  // works, which is also what packages/mobile/app/privacy.tsx promises. The row is
+  // removed by retention_cleanup() at day 30 and the file is reclaimed after that.
   const _avatarCleanupTimer = setInterval(
     async () => {
       try {
         const avatarDir = avatarDirPath();
         if (!fs.existsSync(avatarDir)) return;
         const files = fs.readdirSync(avatarDir);
-        const users = await getUsers();
-        const validAvatarKeys = new Set(users.map((u: any) => u.avatarKey).filter(Boolean));
+        const { rows: keyRows } = await stores.pool.query(
+          'SELECT avatar_key FROM users WHERE avatar_key IS NOT NULL',
+        );
+        const validAvatarKeys = new Set(keyRows.map((r: any) => r.avatar_key).filter(Boolean));
         for (const file of files) {
           if (!file.endsWith('.webp')) continue;
           const avatarKey = file.replace(/\.webp$/, '');
