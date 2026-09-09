@@ -175,6 +175,7 @@ export default function ResetPasswordScreen() {
             value={newPassword}
             onChangeText={setNewPassword}
             secureTextEntry={!showPw}
+            autoComplete="password-new"
             textContentType="newPassword"
             returnKeyType="next"
             onSubmitEditing={() => confirmRef.current?.focus()}
@@ -200,6 +201,7 @@ export default function ResetPasswordScreen() {
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry={!showPw}
+          autoComplete="password-new"
           textContentType="newPassword"
           returnKeyType="go"
           onSubmitEditing={handleSubmit}

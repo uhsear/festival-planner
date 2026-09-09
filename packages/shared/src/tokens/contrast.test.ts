@@ -43,6 +43,23 @@ function contrast(fg: string, bg: string): number {
   return (hi! + 0.05) / (lo! + 0.05);
 }
 
+/** Composite an rgba() token over an opaque token -> the #rrggbb a user sees. */
+function over(fg: string, bg: string): string {
+  const m = /rgba\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)[,\s/]+([\d.]+)\s*\)/i.exec(fg)!;
+  const base = toRgb(bg);
+  const a = +m[4]!;
+  return (
+    '#' +
+    [1, 2, 3]
+      .map((i) =>
+        Math.round(+m[i]! * a + base[i - 1]! * (1 - a))
+          .toString(16)
+          .padStart(2, '0'),
+      )
+      .join('')
+  );
+}
+
 const NORMAL = 4.5;
 const LARGE = 3.0;
 
@@ -75,6 +92,33 @@ const pairs: Array<[string, string, string, number]> = [
   ['priority.maybe on bg.card', colors.priority.maybe, colors.bg.card, LARGE],
   ['stage.purpleAccessible on bg.primary', colors.stage.purpleAccessible, colors.bg.primary, LARGE],
   ['stage.fallback on bg.primary', colors.stage.fallback, colors.bg.primary, LARGE],
+  // Confidence + delivery. These colour a NUMERAL (the `numeral` type role,
+  // 14px / weight 500), which is NORMAL text by WCAG — large text starts at
+  // 24px, or 18.66px bold — so every pair below is held to 4.5:1, not 3.0:1.
+  // The three surfaces are the ones a confidence figure actually sits on: the
+  // screen ground, a card row, and an elevated sheet (the darkest-composited
+  // and therefore tightest of the three).
+  ['confidence.live on bg.primary', colors.confidence.live, colors.bg.primary, NORMAL],
+  ['confidence.live on bg.card', colors.confidence.live, colors.bg.card, NORMAL],
+  ['confidence.live on bg.elevated', colors.confidence.live, colors.bg.elevated, NORMAL],
+  ['confidence.aging on bg.primary', colors.confidence.aging, colors.bg.primary, NORMAL],
+  ['confidence.aging on bg.card', colors.confidence.aging, colors.bg.card, NORMAL],
+  ['confidence.aging on bg.elevated', colors.confidence.aging, colors.bg.elevated, NORMAL],
+  ['confidence.stale on bg.primary', colors.confidence.stale, colors.bg.primary, NORMAL],
+  ['confidence.stale on bg.card', colors.confidence.stale, colors.bg.card, NORMAL],
+  ['confidence.stale on bg.elevated', colors.confidence.stale, colors.bg.elevated, NORMAL],
+  ['confidence.dark on bg.primary', colors.confidence.dark, colors.bg.primary, NORMAL],
+  ['confidence.dark on bg.card', colors.confidence.dark, colors.bg.card, NORMAL],
+  ['confidence.dark on bg.elevated', colors.confidence.dark, colors.bg.elevated, NORMAL],
+  ['delivery.local on bg.primary', colors.delivery.local, colors.bg.primary, NORMAL],
+  ['delivery.local on bg.card', colors.delivery.local, colors.bg.card, NORMAL],
+  ['delivery.local on bg.elevated', colors.delivery.local, colors.bg.elevated, NORMAL],
+  ['delivery.sent on bg.primary', colors.delivery.sent, colors.bg.primary, NORMAL],
+  ['delivery.sent on bg.card', colors.delivery.sent, colors.bg.card, NORMAL],
+  ['delivery.sent on bg.elevated', colors.delivery.sent, colors.bg.elevated, NORMAL],
+  ['delivery.failed on bg.primary', colors.delivery.failed, colors.bg.primary, NORMAL],
+  ['delivery.failed on bg.card', colors.delivery.failed, colors.bg.card, NORMAL],
+  ['delivery.failed on bg.elevated', colors.delivery.failed, colors.bg.elevated, NORMAL],
 ];
 
 describe('design token contrast (WCAG AA)', () => {
@@ -90,5 +134,36 @@ describe('design token contrast (WCAG AA)', () => {
   it('coralStrong is the AA-safe danger fill; plain coral fill fails (why coralStrong exists)', () => {
     expect(contrast(colors.text.onAccent, colors.accent.coralStrong)).toBeGreaterThanOrEqual(NORMAL);
     expect(contrast('#ffffff', colors.accent.coral)).toBeLessThan(NORMAL);
+  });
+
+  // The confidence/delivery groups are ALIASES of hues that already exist and
+  // are already contrast-tested above. That is the entire reason no new
+  // contrast risk was introduced, so pin the aliasing itself: if someone
+  // "adjusts" one of these to a bespoke hue, this fails before the ratio does.
+  it('confidence + delivery are aliases of existing hues, not new colours', () => {
+    expect(colors.confidence.live).toBe(colors.accent.green);
+    expect(colors.confidence.aging).toBe(colors.accent.amber);
+    expect(colors.confidence.stale).toBe(colors.text.muted);
+    expect(colors.confidence.dark).toBe(colors.text.disabled);
+    expect(colors.delivery.local).toBe(colors.text.muted);
+    expect(colors.delivery.sent).toBe(colors.status.verified);
+    expect(colors.delivery.failed).toBe(colors.accent.amber);
+  });
+
+  // Two screen-level pairs that had regressed to unreadable: the armed banner in
+  // mobile app/admin/festival-map.tsx and the priority badge in
+  // mobile app/crew-plan.tsx. Both are asserted in BOTH directions so the wrong
+  // ink cannot come back as a "consistency" tidy-up.
+  it('filled aqua takes dark ink, never white ink', () => {
+    expect(contrast(colors.text.onLightAccent, colors.accent.aqua)).toBeGreaterThanOrEqual(NORMAL);
+    expect(contrast(colors.text.onAccent, colors.accent.aqua)).toBeLessThan(LARGE);
+  });
+
+  // A 12% amber wash is NOT a solid amber fill. Over bg.secondary it composites
+  // to a near-black, so it takes amber TEXT, not the dark ink solid amber wants.
+  it('the amberAlpha[12] wash takes amber text, never dark ink', () => {
+    const wash = over(colors.amberAlpha[12], colors.bg.secondary);
+    expect(contrast(colors.accent.amber, wash)).toBeGreaterThanOrEqual(NORMAL);
+    expect(contrast(colors.text.onLightAccent, wash)).toBeLessThan(LARGE);
   });
 });

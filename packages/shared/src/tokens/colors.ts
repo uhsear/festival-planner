@@ -87,6 +87,75 @@ export const colors = {
     warning: '#f0a030',
     error: '#ff6b6b',
   },
+  /**
+   * Confidence — HOW OLD A FACT IS. Aliases only: every value below is an
+   * existing hue, so this group adds no new contrast risk and no new brand
+   * colour (the one-accent rule in `accent` still holds).
+   *
+   * THE RULE — A CONFIDENCE COLOUR IS NEVER USED ALONE.
+   * Every use pairs the colour with BOTH:
+   *   1. a NUMERAL — the age itself ("2m", "14m", "1h"), set in the `numeral`
+   *      type role (tabular figures, so a column of ages aligns), and
+   *   2. a SHAPE — a filled dot for `live`, a hollow ring for `aging`, a
+   *      dashed ring for `stale`, a slashed ring for `dark`.
+   * Colour is therefore the third signal, never the first. WCAG 1.4.1 (Use of
+   * Colour) and "Differentiate Without Colour Alone" are satisfied HERE, at the
+   * token layer, so a screen cannot accidentally opt out by reaching for the
+   * colour on its own. If you find yourself using one of these as the only
+   * difference between two states, the token is being misused: add the numeral
+   * and the shape, or use a different token.
+   *
+   *   live  — fresh, still arriving      = accent.green  (the online/success green)
+   *   aging — getting old, still usable  = accent.amber  (the pending/warning amber)
+   *   stale — old, treat with suspicion  = text.muted
+   *   dark  — the device is gone; this   = text.disabled
+   *           is its LAST KNOWN fact
+   *
+   * `dark` IS BRIGHTER THAN `stale` ON PURPOSE. text.disabled (#a8a8c0, 8.51:1
+   * on bg.primary) reads louder than text.muted (#8787a8, 5.71:1), which looks
+   * like an inversion if you read the group as a single fade from certain to
+   * uncertain. It is not that.
+   *
+   * `stale` and `dark` are different KINDS of state, not two points on one ramp.
+   * A stale value is still claiming to be current and is decaying toward
+   * irrelevance, so it should recede. A dark value has stopped claiming
+   * anything: the device is gone and what remains is a frozen last-known fix,
+   * with the time it froze. For a crew looking for someone whose phone died,
+   * that frozen fact is the most valuable thing on the screen, and it stays
+   * useful all night precisely because it never ages into a lie. Receding it
+   * would hide the one datum the situation turns on.
+   *
+   * So the ordering that matters here is SALIENCE, not confidence, and the
+   * shape ramp carries the confidence ordering instead: filled -> hollow ->
+   * dashed -> slashed. Do not "fix" this by dimming `dark`.
+   */
+  confidence: {
+    live: '#39ff14',
+    aging: '#ffb020',
+    stale: '#8787a8',
+    dark: '#a8a8c0',
+  },
+  /**
+   * Delivery — WHETHER YOUR ACTION LEFT THE PHONE. A DIFFERENT AXIS from
+   * `confidence` and deliberately not folded into it: confidence is how old a
+   * fact is, delivery is where your own action got to. A pick can be `local`
+   * (never sent) and `live` (just made) at the same time, so the two groups
+   * must be readable side by side.
+   *
+   * Aliases only, same reason as `confidence`. The same never-alone rule
+   * applies: pair with an icon (phone / arrow-up / cloud-offline) and a label.
+   *
+   *   local  — on your phone only        = text.muted      (no claim made yet)
+   *   sent   — acknowledged by the crew  = status.verified (the "verified" green)
+   *   failed — waiting for signal        = accent.amber    (the documented
+   *            offline/pending hue — NOT coral: a queued action is not an
+   *            error, it retries. Reserve danger colour for danger.)
+   */
+  delivery: {
+    local: '#8787a8',
+    sent: '#22c55e',
+    failed: '#ffb020',
+  },
   spotify: {
     brand: '#1DB954',
   },

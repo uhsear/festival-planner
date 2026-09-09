@@ -363,6 +363,7 @@ export default function RegisterScreen() {
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
+          autoComplete="username-new"
           textContentType="username"
           returnKeyType="next"
           onFocus={onFocusOf('username')}
@@ -391,6 +392,7 @@ export default function RegisterScreen() {
           }}
           autoCapitalize="none"
           keyboardType="email-address"
+          autoComplete="email"
           textContentType="emailAddress"
           returnKeyType="next"
           onFocus={onFocusOf('email')}
@@ -414,6 +416,7 @@ export default function RegisterScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPw}
+            autoComplete="password-new"
             textContentType="newPassword"
             returnKeyType="next"
             onFocus={onFocusOf('password')}
@@ -441,6 +444,7 @@ export default function RegisterScreen() {
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry={!showPw}
+          autoComplete="password-new"
           textContentType="newPassword"
           returnKeyType="go"
           onFocus={onFocusOf('confirm')}

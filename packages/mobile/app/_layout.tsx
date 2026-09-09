@@ -32,7 +32,8 @@ import { useLocalReminders } from '../hooks/useLocalReminders';
 import { useOngoingNotification } from '../hooks/useOngoingNotification';
 import { ensureAndroidChannels } from '../hooks/useMobilePush';
 
-// Hold the native splash until fonts + hydration + session check complete.
+// Hold the native splash until fonts + hydration complete (NOT the session
+// check — that reconciles behind an interactive UI; see `loading` below).
 // hideAsync is called when `loading` flips false inside AuthGate; the existing
 // 4-second bootTimedOut ceiling is the forced-hide backstop so the app never
 // wedges. preventAutoHideAsync must run at module scope (before any render).
@@ -184,11 +185,11 @@ function AuthGate() {
   // Boot safety valve. The splash below covers the whole window with
   // pointerEvents="auto" while `loading` is true — so anything that pins
   // `loading` (a useFonts() call that never resolves on a prod/OTA build, or a
-  // checkSession() that hangs with no signal at a festival) would leave the app
-  // rendered but completely untappable / unscrollable. Force the splash down
-  // after a hard ceiling so the UI is ALWAYS reachable; fonts swap in and the
-  // session reconciles a frame later if/when they arrive. Normal boot resolves
-  // in well under this, so users never see the timeout.
+  // persist rehydration that never resolves) would leave the app rendered but
+  // completely untappable / unscrollable. Force the splash down after a hard
+  // ceiling so the UI is ALWAYS reachable; fonts swap in a frame later if/when
+  // they arrive. Normal boot resolves in well under this, so users never see
+  // the timeout.
   const [bootTimedOut, setBootTimedOut] = useState(false);
   useEffect(() => {
     const id = setTimeout(() => setBootTimedOut(true), 4000);
@@ -297,7 +298,15 @@ function AuthGate() {
     }
   }, [hydrated, checkSession]);
 
-  // Redirect based on auth state once the session has been checked. Calling
+  // Redirect based on auth state once persist has rehydrated. Gating on
+  // `hydrated` (not `sessionChecked`) is what keeps this guard honest now that
+  // first paint no longer waits on the server: the persisted user is the
+  // correct optimistic answer, so a guest is bounced off a gated route on the
+  // first frame instead of after a round trip, and a signed-in user is never
+  // bounced to login just because the network is slow. When checkSession later
+  // confirms or clears `user`, this effect re-runs on that change and
+  // re-applies the guard. It must NOT run before hydration — `user` is null
+  // then, which would read every signed-in user as a guest. Calling
   // router.replace before the navigator is mounted throws "Attempted to navigate
   // before mounting the Root Layout component" and wedges the app on the native
   // splash. Guarding on navState.key alone is NOT enough — that key is populated
@@ -307,7 +316,7 @@ function AuthGate() {
   // the navigator is genuinely ready.
   useEffect(() => {
     if (!navState?.key) return;
-    if (!sessionChecked) return;
+    if (!hydrated) return;
 
     const raf = requestAnimationFrame(() => {
       const inAuthGroup = segments[0] === '(auth)';
@@ -338,24 +347,29 @@ function AuthGate() {
       }
     });
     return () => cancelAnimationFrame(raf);
-  }, [user, isAdmin, sessionChecked, segments, router, navState?.key]);
+  }, [user, isAdmin, hydrated, segments, router, navState?.key]);
 
   // The navigator (Stack) MUST be mounted on the very first render so the
   // redirect effect above can navigate safely. So rather than swapping the
-  // whole tree for a bare splash View while hydration + session check run
-  // (which leaves no navigator mounted), keep the Stack mounted and lay the
-  // splash spinner over it until we're ready.
+  // whole tree for a bare splash View while hydration runs (which leaves no
+  // navigator mounted), keep the Stack mounted and lay the splash spinner over
+  // it until we're ready.
   // Fonts are cosmetic — never let a font failure hard-block interaction; treat
   // a useFonts() error as "ready" so it can't pin the splash. The bootTimedOut
-  // ceiling is the final backstop for any other hang (e.g. offline session
-  // check).
+  // ceiling is the final backstop for any other hang.
   const fontsReady = fontsLoaded || !!fontError;
-  const loading = (!hydrated || !sessionChecked || !fontsReady) && !bootTimedOut;
+  // First paint waits on LOCAL work only — persist rehydration and fonts. The
+  // store is persisted (user/userToken/isAdmin), so the app paints from the
+  // restored session and lets checkSession reconcile behind an already
+  // interactive UI; blocking here put a network round trip in front of every
+  // launch, guests included. The redirect effect above now gates on `hydrated`
+  // for exactly this reason — see its comment.
+  const loading = (!hydrated || !fontsReady) && !bootTimedOut;
 
   // Dismiss the native splash as soon as loading resolves. The overlay below
   // stays as a fallback (same #080810 bg) so any frame gap is invisible. The
   // 4s bootTimedOut ceiling already triggers `loading = false`, so hideAsync
-  // is always called eventually even if fonts or session check hang.
+  // is always called eventually even if fonts or rehydration hang.
   useEffect(() => {
     if (!loading) {
       SplashScreen.hideAsync().catch(() => {});

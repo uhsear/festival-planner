@@ -181,8 +181,36 @@ export function DurationDemo({ name, ms }) {
 --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 
-/* Duration */
+/* Duration — the original undifferentiated scale. Unchanged, still used. */
 --duration-fast: 120ms;
 --duration-med: 200ms;
 --duration-slow: 320ms;
+
+/* Duration — split by what is moving. Prefer these in new work. */
+--duration-effects-fast: 120ms;   /* opacity, colour, shadow: no overshoot */
+--duration-effects-med: 200ms;
+--duration-effects-slow: 320ms;
+--duration-spatial-fast: 200ms;   /* position, size: may overshoot */
+--duration-spatial-med: 320ms;
+--duration-spatial-slow: 480ms;
 ```
+
+### Effects and spatial
+
+Things that move and things that only change colour should not share a duration.
+A fade has no momentum to read, so a slow one just feels laggy. A moving object
+needs the extra time for the eye to track it, and it may overshoot slightly on
+arrival. The two groups name that axis: `effects` for opacity, colour and
+shadow; `spatial` for position, size and translation.
+
+The values are deliberately not new inventions. `effects` **is** the original
+scale, aliased — those three numbers were already tuned on fades in this SPA, so
+naming them costs nothing and moves nothing. `spatial` is the same scale shifted
+one rung up, which makes spatial slower than effects at every step by
+construction, and its top rung continues the ramp's own ~1.6x ratio. Exactly one
+new number enters the system: 480ms.
+
+The original `--duration-fast/med/slow` are unchanged and nothing using them
+needs to move. The mobile app additionally carries a spring preset for anything a
+finger touches or that can be interrupted; springs are native-only and have no
+CSS equivalent here.

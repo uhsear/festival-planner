@@ -42,6 +42,7 @@ import FreshnessChip from '../../components/FreshnessChip';
 import SetCardMobile from '../../components/SetCardMobile';
 import EmptyState from '../../components/EmptyState';
 import ScreenHeader from '../../components/ScreenHeader';
+import { Skeleton } from '../../components/Skeleton';
 import TimelineView from '../../components/TimelineView';
 import TBASection from '../../components/TBASection';
 
@@ -477,6 +478,13 @@ export default function TimelineScreen() {
   // show — a populated cache still renders normally even if a refetch errored.
   const scheduleLoadError = error && allSets.length === 0 ? error : null;
 
+  // COLD LOAD: fetching with nothing cached to show. Without this the flagship
+  // tab announces "No sets for this day" — and offers to switch festivals —
+  // while the day's sets are still in flight on slow signal. Gated exactly like
+  // the Picks tab's PicksSkeleton branch (isLoading AND nothing on screen), so
+  // a pull-to-refresh over existing sets never flashes a skeleton.
+  const scheduleColdLoading = isLoading && allSets.length === 0 && rows.length === 0;
+
   const errorScheduleState = (
     <EmptyState
       icon="cloud-offline-outline"
@@ -532,7 +540,10 @@ export default function TimelineScreen() {
   // Cards-view empty element. Layers three honest cases: a failed load (error +
   // retry), the "my picks only" filter resolving to nothing (nudge to pick or
   // show all), and the generic no-results / no-search states.
-  const cardsEmpty = scheduleLoadError ? (
+  const cardsEmpty = scheduleColdLoading ? (
+    // The FlatList's contentContainerStyle already applies hPad here.
+    <ScheduleSkeleton />
+  ) : scheduleLoadError ? (
     errorScheduleState
   ) : onlyMine && search.length === 0 ? (
     <EmptyState
@@ -1030,10 +1041,45 @@ export default function TimelineScreen() {
           contentInsetAdjustmentBehavior="automatic"
         >
           {controls}
-          {scheduleLoadError ? errorScheduleState : emptyScheduleState}
+          {scheduleColdLoading ? (
+            <ScheduleSkeleton hPad={hPad} />
+          ) : scheduleLoadError ? (
+            errorScheduleState
+          ) : (
+            emptyScheduleState
+          )}
           {tbaSection}
         </ScrollView>
       )}
+    </View>
+  );
+}
+
+/**
+ * Cold-load placeholder for the schedule — a stage header plus a few set-card
+ * shaped rows so the layout matches what's about to render (no spinner, no
+ * jump). Mirrors PicksSkeleton on the Picks tab. `hPad` is passed by callers
+ * that are NOT already inside a horizontally padded container.
+ */
+function ScheduleSkeleton({ hPad = 0 }: { hPad?: number }) {
+  const t = useTokens();
+  const styles = useStyles();
+  return (
+    <View
+      style={[styles.skeletonContent, { paddingHorizontal: hPad }]}
+      accessibilityRole="progressbar"
+      accessibilityLabel="Loading the schedule"
+    >
+      <Skeleton width="40%" height={20} radius={t.radii.xs} style={styles.skeletonDay} />
+      {[0, 1, 2, 3].map((i) => (
+        <View key={i} style={styles.skeletonCard}>
+          <View style={styles.skeletonCardMain}>
+            <Skeleton width="62%" height={16} radius={t.radii.xs} />
+            <Skeleton width="38%" height={12} radius={t.radii.xs} />
+          </View>
+          <Skeleton width={72} height={28} radius={t.radii.pill} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -1330,5 +1376,29 @@ const useStyles = makeStyles((t) => ({
   fallbackScroll: {
     flexGrow: 1,
     paddingBottom: t.spacing[4],
+  },
+  // ── Cold-load skeleton (geometry shared with the Picks tab) ───────────────
+  skeletonContent: {
+    paddingTop: t.spacing[2],
+  },
+  skeletonDay: {
+    marginTop: t.spacing[4],
+    marginBottom: t.spacing[3],
+  },
+  skeletonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: t.spacing[3],
+    padding: t.spacing[4],
+    minHeight: 72,
+    marginBottom: t.spacing[2],
+    borderRadius: t.radii.default,
+    borderWidth: 1,
+    borderColor: t.colors.border.default,
+    backgroundColor: t.colors.bg.card,
+  },
+  skeletonCardMain: {
+    flex: 1,
+    gap: t.spacing[2],
   },
 }));

@@ -191,6 +191,7 @@ export default function LoginScreen() {
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
+          autoComplete="username"
           textContentType="username"
           returnKeyType="next"
           onFocus={() => setFocusedField('username')}
@@ -210,6 +211,7 @@ export default function LoginScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPw}
+            autoComplete="current-password"
             textContentType="password"
             returnKeyType="go"
             onFocus={() => setFocusedField('password')}

@@ -8,6 +8,7 @@ import { useAuthStore, useCrewStore, useLiveLocationStore, useFestivalDataStore 
 import type { CrewMeetingPoint } from '@festie/shared/types';
 import { makeStyles, typeStyle, useTokens, MAX_FONT_SCALE } from '../hooks/useTokens';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useHaptics } from '../hooks/useHaptics';
 import OfflineMap from '../components/OfflineMap';
 import FreshnessChip from '../components/FreshnessChip';
 import EmptyState from '../components/EmptyState';
@@ -30,6 +31,7 @@ export default function MapScreen() {
   const t = useTokens();
   const styles = useStyles();
   const insets = useSafeAreaInsets();
+  const haptics = useHaptics();
 
   const user = useAuthStore((s) => s.user);
   const activeCrew = useCrewStore((s) => s.activeCrew);
@@ -160,10 +162,19 @@ export default function MapScreen() {
         <TouchableOpacity
           testID="map-sos-fab"
           style={styles.sosFab}
-          onPress={() => router.push({ pathname: '/(tabs)/crew', params: { tab: 'logistics' } })}
+          onPress={() => {
+            // tap, not warning: this control OPENS the safety screen, it does not
+            // raise the alarm. warning() is reserved for an actual SOS (raise +
+            // incoming banner in CrewSos) so the alarm buzz stays unambiguous.
+            haptics.tap();
+            router.push({ pathname: '/(tabs)/crew', params: { tab: 'logistics' } });
+          }}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Raise an SOS to your crew"
+          // Honest label: this navigates, it does not send. CrewSos renders at the
+          // top of the Logistics pane, so the destination is the SOS control with
+          // no scroll needed.
+          accessibilityLabel="Open crew safety to send an SOS"
           accessibilityHint="Opens the crew safety screen to send an SOS"
         >
           <Ionicons name="alert-circle" size={20} color={t.colors.text.onAccent} />

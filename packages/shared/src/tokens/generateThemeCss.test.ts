@@ -3,9 +3,10 @@ import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { generateThemeCss, themeDeclarations } from './generateThemeCss';
 import { colors } from './colors';
-import { fontSize } from './typography';
+import { fontSize, typeRoles } from './typography';
 import { spacing } from './spacing';
 import { radii } from './radii';
+import { duration, durationEffects, durationSpatial, spring } from './motion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Token-sync guard (replaces the old token-sync.test that read the now-deleted
@@ -55,6 +56,57 @@ describe('generateThemeCss — emits TS token literals', () => {
   it('the off-ramp 11/13 sizes are NOT generated (stay hand-authored in theme.css)', () => {
     expect(m.has('--font-size-11')).toBe(false);
     expect(m.has('--font-size-13')).toBe(false);
+  });
+
+  it('confidence + delivery colours map to their TS literals', () => {
+    expect(m.get('--color-confidence-live')).toBe(colors.confidence.live);
+    expect(m.get('--color-confidence-aging')).toBe(colors.confidence.aging);
+    expect(m.get('--color-confidence-stale')).toBe(colors.confidence.stale);
+    expect(m.get('--color-confidence-dark')).toBe(colors.confidence.dark);
+    expect(m.get('--color-delivery-local')).toBe(colors.delivery.local);
+    expect(m.get('--color-delivery-sent')).toBe(colors.delivery.sent);
+    expect(m.get('--color-delivery-failed')).toBe(colors.delivery.failed);
+  });
+
+  it('the axis-named duration groups emit in ms beside the untouched base scale', () => {
+    // The base scale is unchanged — the split is additive, so nothing that
+    // already reads --duration-fast|med|slow moves.
+    expect(m.get('--duration-fast')).toBe(`${duration.fast}ms`);
+    expect(m.get('--duration-med')).toBe(`${duration.med}ms`);
+    expect(m.get('--duration-slow')).toBe(`${duration.slow}ms`);
+    expect(m.get('--duration-effects-fast')).toBe(`${durationEffects.fast}ms`);
+    expect(m.get('--duration-effects-med')).toBe(`${durationEffects.med}ms`);
+    expect(m.get('--duration-effects-slow')).toBe(`${durationEffects.slow}ms`);
+    expect(m.get('--duration-spatial-fast')).toBe(`${durationSpatial.fast}ms`);
+    expect(m.get('--duration-spatial-med')).toBe(`${durationSpatial.med}ms`);
+    expect(m.get('--duration-spatial-slow')).toBe(`${durationSpatial.slow}ms`);
+  });
+
+  it('spatial motion settles slower than effects at every rung', () => {
+    // The published guidance the split encodes. If someone "tidies" the two
+    // groups into the same numbers, the split has stopped meaning anything.
+    expect(durationSpatial.fast).toBeGreaterThan(durationEffects.fast);
+    expect(durationSpatial.med).toBeGreaterThan(durationEffects.med);
+    expect(durationSpatial.slow).toBeGreaterThan(durationEffects.slow);
+  });
+
+  it('the spring preset carries no `duration` (Reanimated 4 perceptual-duration trap)', () => {
+    // withSpring's `duration` is PERCEPTUAL in Reanimated 4: real settle time
+    // runs ~1.5x longer. The preset uses the physical mass/stiffness/damping
+    // form so the trap cannot apply. Guard that it stays that way.
+    expect(spring.touch).not.toHaveProperty('duration');
+    expect(Object.keys(spring.touch).sort()).toEqual(['damping', 'mass', 'stiffness']);
+    // Underdamped (z < 1) so spatial motion may overshoot, but not floppy.
+    const z = spring.touch.damping / (2 * Math.sqrt(spring.touch.stiffness * spring.touch.mass));
+    expect(z).toBeGreaterThan(0.7);
+    expect(z).toBeLessThan(1);
+  });
+
+  it('the numeral type role is NOT generated (type roles stay hand-authored)', () => {
+    // The generator emits the primitive ramp only; the eight (now nine) type
+    // roles are @utility classes in theme.css. type-numeral is one of them.
+    expect(m.has('--type-numeral')).toBe(false);
+    expect(typeRoles.numeral.numeric).toBe('tabular-nums');
   });
 
   it('renders a single @theme block with no duplicate declarations', () => {

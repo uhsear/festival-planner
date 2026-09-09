@@ -141,6 +141,12 @@ export function typeStyle(role: TypeRoleName, weight?: number): TextStyle {
   if ('transform' in r && r.transform) {
     style.textTransform = r.transform;
   }
+  // Tabular figures (the `numeral` role). RN maps this onto the font's
+  // OpenType `tnum` feature, which every bundled Space Grotesk weight ships,
+  // so confidence/delivery figures keep column alignment while they tick.
+  if ('numeric' in r && r.numeric) {
+    style.fontVariant = [r.numeric];
+  }
   return style;
 }
 

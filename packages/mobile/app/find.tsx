@@ -23,6 +23,7 @@ import type { CrewMeetingPoint } from '@festie/shared/types';
 import { useTokens, makeStyles, typeStyle } from '../hooks/useTokens';
 import { useListBottomInset } from '../hooks/useListBottomInset';
 import { useReduceMotion } from '../hooks/useReduceMotion';
+import { useHaptics } from '../hooks/useHaptics';
 import EmptyState from '../components/EmptyState';
 import SectionLabel from '../components/SectionLabel';
 
@@ -40,6 +41,7 @@ export default function FindScreen() {
   const t = useTokens();
   const styles = useStyles();
   const insets = useSafeAreaInsets();
+  const haptics = useHaptics();
   const bottomPad = useListBottomInset({ base: 52 + t.spacing[5] + t.spacing[4] });
 
   const activeCrew = useCrewStore((s) => s.activeCrew);
@@ -178,7 +180,12 @@ export default function FindScreen() {
         <TouchableOpacity
           testID="find-sos-fab"
           style={styles.sosFab}
-          onPress={() => router.push({ pathname: '/(tabs)/crew', params: { tab: 'logistics' } })}
+          onPress={() => {
+            // tap, not warning: this control OPENS the safety screen, it does not
+            // raise the alarm. warning() stays reserved for an actual SOS.
+            haptics.tap();
+            router.push({ pathname: '/(tabs)/crew', params: { tab: 'logistics' } });
+          }}
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel="Open crew safety to send an SOS"

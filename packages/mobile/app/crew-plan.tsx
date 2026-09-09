@@ -229,10 +229,12 @@ const useStyles = makeStyles((t) => ({
   },
   priorityText: {
     ...typeStyle('caption', 700),
-    // Self-consistent amber badge: dark ink on the amber fill (text.onLightAccent
-    // #080810 passes AA on #ffb020). Was coral text on an amber fill, which both
-    // mixed accents and read poorly.
-    color: t.colors.text.onLightAccent,
+    // Self-consistent amber badge: amber text on the amber wash. The fill is
+    // amberAlpha[12], not solid amber — over bg.secondary #1a1a1a it composites
+    // to rgb(53,44,27), a near-black. Dark ink (text.onLightAccent #0a0a0a) on
+    // that is 1.44:1; accent.amber #ffb020 on it is 7.52:1, clearing AA for
+    // normal text. Solid #ffb020 would want dark ink, but that is not the fill.
+    color: t.colors.accent.amber,
   },
   pickMember: {
     ...typeStyle('body', 600),

@@ -45,6 +45,12 @@
   --duration-fast: 120ms;
   --duration-med: 200ms;
   --duration-slow: 320ms;
+  --duration-effects-fast: 120ms;
+  --duration-effects-med: 200ms;
+  --duration-effects-slow: 320ms;
+  --duration-spatial-fast: 200ms;
+  --duration-spatial-med: 320ms;
+  --duration-spatial-slow: 480ms;
   --font-size-10: 0.625rem;
   --font-size-12: 0.75rem;
   --font-size-14: 0.875rem;
@@ -140,4 +146,11 @@
   --color-stage-fallback: #8787a8;
   --color-bg-sticky: #161616;
   --color-day-tab-active: #00e8d0;
+  --color-confidence-live: #39ff14;
+  --color-confidence-aging: #ffb020;
+  --color-confidence-stale: #8787a8;
+  --color-confidence-dark: #a8a8c0;
+  --color-delivery-local: #8787a8;
+  --color-delivery-sent: #22c55e;
+  --color-delivery-failed: #ffb020;
 }

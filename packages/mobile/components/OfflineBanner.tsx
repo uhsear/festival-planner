@@ -9,6 +9,7 @@ import type { FailedSyncItem } from '@festie/shared/stores';
 import * as offlineQueue from '@festie/shared/services/offlineQueue';
 import { drainQueue, refreshPendingCount } from '@festie/shared/services';
 import { timeAgo } from '@festie/shared/utils';
+import { decideFlap } from '../lib/connectivityHysteresis';
 import { makeStyles, typeStyle, useTokens } from '../hooks/useTokens';
 
 /**
@@ -92,19 +93,90 @@ export default function OfflineBanner({ onActiveChange }: OfflineBannerProps = {
       });
   };
 
+  // Connectivity hysteresis: a reported transition must hold before it reaches
+  // the store, because OfflineMap tears its WebView down on offlineMode (see
+  // lib/connectivityHysteresis.ts for the delays and why they differ).
+  const flipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // What the most recent NetInfo event reported. An armed offline flip is a
+  // FLOOR that no later event restarts, so it can outlive the condition that
+  // armed it; this is what the timer re-checks before committing.
+  const lastReportedOnlineRef = useRef<boolean | null>(null);
+  const pendingOnlineRef = useRef<boolean | null>(null);
+  const firstNetEventRef = useRef(true);
+
+  const cancelFlip = () => {
+    if (flipTimerRef.current) clearTimeout(flipTimerRef.current);
+    flipTimerRef.current = null;
+    pendingOnlineRef.current = null;
+  };
+
   // Drive shared offline state from device connectivity.
   useEffect(() => {
     refreshPendingCount().catch((e) => Sentry.captureException(e));
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      const online = state.isConnected === true && state.isInternetReachable !== false;
+
+    // The drain has to run on the COMMIT, not on the raw event: drainQueue()
+    // early-returns while uiStore still reads offline, so draining during the
+    // confirm window would be a no-op and the queue would sit until the next
+    // NetInfo event or foreground.
+    const commit = (online: boolean) => {
       setOfflineMode(!online);
       if (online) runDrain();
+    };
+
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const online = state.isConnected === true && state.isInternetReachable !== false;
+      lastReportedOnlineRef.current = online;
+      const firstEvent = firstNetEventRef.current;
+      firstNetEventRef.current = false;
+      const action = decideFlap({
+        online,
+        currentOffline: useUIStore.getState().offlineMode,
+        pendingOnline: pendingOnlineRef.current,
+        firstEvent,
+      });
+      if (action.type === 'ignore') {
+        // Includes the online blip that arrives while an offline flip is armed.
+        // The flip deliberately stays armed (see decideFlap), but a queue
+        // stranded by a transient 5xx still relies on a duplicate online event
+        // to drain, exactly as the 'cancel' path below does.
+        if (online) runDrain();
+        return;
+      }
+      cancelFlip();
+      if (action.type === 'cancel') {
+        // Already where this event says we should be. Still drain: this is the
+        // path a duplicate online event took before hysteresis existed, and a
+        // queue stranded by a transient 5xx relies on it.
+        if (online) runDrain();
+        return;
+      }
+      if (action.type === 'commit') {
+        commit(online);
+        return;
+      }
+      pendingOnlineRef.current = online;
+      flipTimerRef.current = setTimeout(() => {
+        // Cleared BEFORE the write so unmount-during-flush can't leave a live
+        // handle, and so the commit sees no pending target.
+        flipTimerRef.current = null;
+        pendingOnlineRef.current = null;
+        // The floor has elapsed, but the radio may have recovered inside it and
+        // this flip was deliberately not cancelled. Commit only if the last
+        // thing NetInfo said still agrees, so a single handover blip cannot
+        // tear the map down 5s after it ended.
+        if (lastReportedOnlineRef.current !== null && lastReportedOnlineRef.current !== online) return;
+        commit(online);
+      }, action.delayMs);
     });
     return () => {
       unsubscribe();
+      // Unsubscribing stops new events but not an already-armed flip -- without
+      // this, a timer fired after unmount writes stale connectivity into the
+      // shared store.
+      cancelFlip();
       clearRetryTimer();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runDrain closes over refs only, stable across renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runDrain/cancelFlip close over refs only, stable across renders
   }, [setOfflineMode]);
 
   // Re-drain on foreground: a transient failure or a dropped background

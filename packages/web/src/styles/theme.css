@@ -401,6 +401,23 @@
   text-transform: uppercase;
 }
 
+/* `numeral` — the figure role, hand-authored here like the other type-* roles
+   (the generator emits the primitive ramp only, never the roles). Mirrors
+   @festie/shared typeRoles.numeral: 14px / snug / weight 500 / tracking 0.
+   font-variant-numeric: tabular-nums is the POINT of the role — confidence and
+   delivery figures are read at a glance and stacked in columns, and
+   proportional digits make a ticking column shift row to row. Space Grotesk
+   ships the OpenType `tnum` feature, so this resolves rather than no-ops.
+   RN gets the same via typeStyle('numeral') -> fontVariant: ['tabular-nums']. */
+@utility type-numeral {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-snug);
+  letter-spacing: 0;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    The bulk of the @theme tokens (breakpoints, colors, font-family, motion,
    the 10/12/14/16/18/20/24/32/48 type ramp, line-heights, letter-spacing,

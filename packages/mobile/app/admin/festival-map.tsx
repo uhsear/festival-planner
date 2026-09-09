@@ -490,7 +490,7 @@ export default function FestivalMapEditorScreen() {
         />
         {armed ? (
           <View style={styles.armedBanner} pointerEvents="none">
-            <Ionicons name="locate-outline" size={14} color={t.colors.text.onAccent} />
+            <Ionicons name="locate-outline" size={14} color={t.colors.text.onLightAccent} />
             <Text style={styles.armedBannerText} numberOfLines={1}>
               {armed.kind === 'stage'
                 ? 'Tap the map to set this stage’s location'
@@ -937,7 +937,7 @@ const useStyles = makeStyles((t) => ({
   },
   armedBannerText: {
     ...typeStyle('micro'),
-    color: t.colors.text.onAccent,
+    color: t.colors.text.onLightAccent,
   },
   scroll: {
     width: '100%',
@@ -1001,7 +1001,7 @@ const useStyles = makeStyles((t) => ({
     color: t.colors.accent.aqua,
   },
   armBtnTextActive: {
-    color: t.colors.text.onAccent,
+    color: t.colors.text.onLightAccent,
   },
   miniBtn: {
     minHeight: 40,

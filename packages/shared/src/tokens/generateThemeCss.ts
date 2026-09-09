@@ -28,7 +28,7 @@ import { fontFamily, fontSize, lineHeight, letterSpacing } from './typography.js
 import { spacing, measureProse } from './spacing.js';
 import { radii } from './radii.js';
 import { zIndex } from './z-index.js';
-import { easing, duration } from './motion.js';
+import { easing, duration, durationEffects, durationSpatial } from './motion.js';
 
 /** px → rem string (16px base), trimming trailing zeros (16 → "1rem"). */
 function rem(px: number): string {
@@ -99,6 +99,15 @@ export function themeDeclarations(): Decl[] {
   d.push(['--duration-fast', `${duration.fast}ms`]);
   d.push(['--duration-med', `${duration.med}ms`]);
   d.push(['--duration-slow', `${duration.slow}ms`]);
+  // Axis-named duration groups. `--duration-fast|med|slow` above is unchanged
+  // and stays the general scale; these name what is moving. `spring` is NOT
+  // emitted — CSS has no spring primitive, so it stays a React Native token.
+  d.push(['--duration-effects-fast', `${durationEffects.fast}ms`]);
+  d.push(['--duration-effects-med', `${durationEffects.med}ms`]);
+  d.push(['--duration-effects-slow', `${durationEffects.slow}ms`]);
+  d.push(['--duration-spatial-fast', `${durationSpatial.fast}ms`]);
+  d.push(['--duration-spatial-med', `${durationSpatial.med}ms`]);
+  d.push(['--duration-spatial-slow', `${durationSpatial.slow}ms`]);
 
   // ── Typography scale ───────────────────────────────────────────────────────
   // 11/13 are CSS-only off-ramp steps and stay hand-authored in theme.css.
@@ -222,6 +231,17 @@ export function themeDeclarations(): Decl[] {
   d.push(['--color-stage-fallback', colors.stage.fallback]);
   d.push(['--color-bg-sticky', colors.bg.sticky]);
   d.push(['--color-day-tab-active', colors.dayTab.active]);
+
+  // ── Confidence (fact age) and delivery (did it leave the phone) ────────────
+  // Aliases of existing hues; see the rule in colors.ts — never used alone,
+  // always paired with a numeral (the `type-numeral` utility) and a shape.
+  d.push(['--color-confidence-live', colors.confidence.live]);
+  d.push(['--color-confidence-aging', colors.confidence.aging]);
+  d.push(['--color-confidence-stale', colors.confidence.stale]);
+  d.push(['--color-confidence-dark', colors.confidence.dark]);
+  d.push(['--color-delivery-local', colors.delivery.local]);
+  d.push(['--color-delivery-sent', colors.delivery.sent]);
+  d.push(['--color-delivery-failed', colors.delivery.failed]);
 
   return d;
 }

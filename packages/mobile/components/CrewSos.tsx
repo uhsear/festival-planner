@@ -26,7 +26,16 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  Alert,
+  ActivityIndicator,
+  AccessibilityInfo,
+  Platform,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import type { SosEntry } from '@festie/shared/types';
@@ -72,10 +81,10 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
 
   const myActiveSos = sosList.some((s) => s.userId === currentUserId);
 
-  // Warning haptic on each NEW incoming SOS from someone else. Keyed on
-  // `userId|raisedAt` so re-renders don't re-buzz and a second crew member's SOS
-  // still buzzes even while the first is up. The raiser already felt the confirm
-  // haptic, so we only buzz for SOS raised by others.
+  // Warning haptic + screen-reader announcement on each NEW incoming SOS from
+  // someone else. Keyed on `userId|raisedAt` so re-renders don't re-buzz and a
+  // second crew member's SOS still buzzes even while the first is up. The raiser
+  // already felt the confirm haptic, so we only buzz for SOS raised by others.
   const buzzedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (sosList.length === 0) {
@@ -87,14 +96,27 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
     for (const key of buzzedRef.current) {
       if (!liveKeys.has(key)) buzzedRef.current.delete(key);
     }
-    let sawNew = false;
+    // sosList is newest-first, so the first unseen entry from someone else is
+    // the one to announce.
+    let sawNew: SosEntry | null = null;
     for (const s of sosList) {
       const key = `${s.userId}|${s.raisedAt}`;
       if (buzzedRef.current.has(key)) continue;
       buzzedRef.current.add(key);
-      if (s.userId !== currentUserId) sawNew = true;
+      if (s.userId !== currentUserId && !sawNew) sawNew = s;
     }
-    if (sawNew) haptics.warning();
+    if (sawNew) {
+      haptics.warning();
+      // A haptic is not an announcement. accessibilityRole="alert" alone
+      // announces nothing on either platform; the banner carries
+      // accessibilityLiveRegion="assertive" for TalkBack (Android-only in RN),
+      // and iOS needs this explicit VoiceOver announcement. Fired off the same
+      // buzzedRef bookkeeping as the haptic, so it speaks ONCE per new SOS and
+      // never on a re-render. iOS-only so Android doesn't double-speak.
+      if (Platform.OS === 'ios') {
+        AccessibilityInfo.announceForAccessibility(`${sawNew.username} raised an SOS`);
+      }
+    }
   }, [sosList, currentUserId, haptics]);
 
   const doRaise = useCallback(async () => {
@@ -202,7 +224,15 @@ export default function CrewSos({ crewId, currentUserId }: CrewSosProps) {
     const target = sosTargetFor(sos);
     const clearing = clearingId === sos.userId;
     return (
-      <View key={`${sos.userId}|${sos.raisedAt}`} style={styles.banner} accessible accessibilityRole="alert">
+      <View
+        key={`${sos.userId}|${sos.raisedAt}`}
+        style={styles.banner}
+        accessible
+        accessibilityRole="alert"
+        // Android (TalkBack) only — RN ignores it on iOS, which is covered by the
+        // announceForAccessibility call in the new-SOS effect above.
+        accessibilityLiveRegion="assertive"
+      >
         <View style={styles.bannerHead}>
           <Ionicons name="warning" size={t.iconSize.md} color={t.colors.accent.coral} />
           <Text style={styles.bannerTitle}>{isMine ? 'You raised an SOS' : `${sos.username} raised an SOS`}</Text>
