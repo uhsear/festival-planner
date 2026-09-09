@@ -112,9 +112,9 @@ interface OfflineMapProps {
 // file:// cache. Deliberately deferred — the HTTP-cache path is sufficient today
 // and OPFS range-serving is a meaningful build we shouldn't over-invest in now.
 
-// The subset of the maplibre-gl module we use. Loaded via `.default` at runtime
-// (CJS interop); the type-level default member doesn't exist, so model the
-// constructors we touch — same shape as CrewMap.tsx.
+// The subset of the maplibre-gl module we use. MapLibre 6 is ESM-only and has
+// no default export, so the module NAMESPACE is what gets used at runtime;
+// model the constructors we touch — same shape as CrewMap.tsx.
 type MapLibre = {
   Map: typeof import('maplibre-gl').Map;
   Marker: typeof import('maplibre-gl').Marker;
@@ -563,8 +563,18 @@ export default function OfflineMap({
 
     (async () => {
       try {
-        const maplibregl = (await import('maplibre-gl')).default as unknown as MapLibre;
+        const maplibregl = (await import('maplibre-gl')) as unknown as MapLibre;
         await import('maplibre-gl/dist/maplibre-gl.css');
+        // KNOWN GAP (maplibre-gl 6): MapLibre 5 carried its render worker inside
+        // the UMD bundle; 6 ships it as a separate `maplibre-gl-worker.mjs` that
+        // it resolves against its own module URL. Metro inlines the library but
+        // emits no such file, so `expo export -p web` produces a bundle whose
+        // worker URL 404s, and any worker-backed source (geojson zones, vector
+        // PMTiles) stays empty. NOT fixed here because this export is dormant —
+        // festie.us serves packages/web, and scripts/deploy/deploy.py no longer
+        // builds this one. Fix before reviving it: hand MapLibre a blob worker
+        // built from vendor/mapRuntime.ts via `setWorkerUrl`, the way
+        // lib/mapDocument.ts does for the native WebView.
 
         const cfg = mapConfigRef.current;
         // Phase 3A: register the pmtiles protocol + read the vector style only

@@ -54,3 +54,9 @@ auditConfig:
     # via web>@lhci/cli>lighthouse>puppeteer-core>@puppeteer/browsers, which uses
     # it to unpack the Chrome build it downloads for Lighthouse CI.
     - "GHSA-jmr9-qjv8-65gv"
+    # "extract-zip allows arbitrary file writes through symlink archive entries"
+    # — GitHub's own summary, quoted because it reads almost identically to the
+    # entry above and only the id tells them apart. Same package, same dev-only
+    # path, and still no published fix: every release up to and including 2.0.1,
+    # the latest, is inside the vulnerable range.
+    - "GHSA-7pqw-9j4j-h8q3"

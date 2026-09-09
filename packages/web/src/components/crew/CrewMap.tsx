@@ -129,6 +129,13 @@ const NEAREST_TARGETS: { type: AmenityType; label: string }[] = [
   { type: 'toilet', label: 'toilet' },
 ];
 
+// One-shot guard for the process-global `maplibregl.addProtocol('pmtiles', …)`
+// registration below (see the map-lifecycle effect). It holds the in-flight
+// registration rather than a boolean so concurrent map mounts await the SAME
+// attempt instead of racing past a not-yet-set flag, and so a failed attempt
+// clears itself and the next mount can retry.
+let pmtilesRegistration: Promise<void> | null = null;
+
 // Basemap style is chosen by the shared `pickMapStyle` (Phase 3A): a festival
 // with an `offlineBasemap.pmtilesUrl` gets a PMTiles VECTOR basemap; every other
 // festival keeps TODAY's online OSM raster (graceful fallback, never regressed).
@@ -380,28 +387,42 @@ export default function CrewMap({
 
     (async () => {
       try {
-        const maplibregl = (await import('maplibre-gl')).default as unknown as MapLibre;
+        const maplibregl = await import('maplibre-gl');
         await import('maplibre-gl/dist/maplibre-gl.css');
+        // v6 resolves its worker at runtime from `import.meta.url`, which no
+        // bundler can see — so nothing emits the worker and every vector/GeoJSON
+        // source silently renders nothing. Hand Vite the worker entry explicitly
+        // (`?worker&url` bundles it, following its own shared-chunk import) and
+        // point maplibre at the emitted asset. Idempotent, so no once-guard.
+        const { default: workerUrl } = await import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url');
+        maplibregl.setWorkerUrl(workerUrl);
 
         const cfg = mapConfigRef.current;
         // Phase 3A: only when this festival carries a valid offline basemap do we
         // register the pmtiles protocol + read it from a vector style. Otherwise
         // pickMapStyle returns the unchanged online OSM raster. addProtocol is a
-        // process-global registration on the maplibre module; guard so repeated
-        // map mounts don't double-register (maplibre warns on a duplicate). Done
+        // process-global registration; the module-level flag guards repeated map
+        // mounts from double-registering (maplibre warns on a duplicate). The
+        // flag lives on this module because maplibre-gl v6 is ESM-only and its
+        // import namespace object is frozen — it cannot carry the marker. Done
         // BEFORE the final mounted-guard so no await sits between that guard and
         // the mapRef assignment (keeps the atomic-update lint happy).
         if (hasOfflineBasemap(cfg)) {
-          const gAny = maplibregl as unknown as {
-            __festiePmtilesRegistered?: boolean;
-            addProtocol?: (id: string, fn: unknown) => void;
-          };
-          if (!gAny.__festiePmtilesRegistered && typeof gAny.addProtocol === 'function') {
+          // The latch is installed synchronously, so a second mount that reaches
+          // here before the import settles joins this attempt instead of starting
+          // its own. On failure it clears itself: in this offline-first PWA the
+          // usual failure is the pmtiles chunk missing from the service-worker
+          // cache, and a permanently claimed latch would silently skip
+          // registration for every later mount, leaving the vector basemap dead
+          // until a full reload.
+          pmtilesRegistration ??= (async () => {
             const { Protocol } = await import('pmtiles');
-            const protocol = new Protocol();
-            gAny.addProtocol('pmtiles', protocol.tile);
-            gAny.__festiePmtilesRegistered = true;
-          }
+            maplibregl.addProtocol('pmtiles', new Protocol().tile);
+          })().catch((err: unknown) => {
+            pmtilesRegistration = null;
+            throw err;
+          });
+          await pmtilesRegistration;
         }
         if (cancelled || !containerRef.current || mapRef.current) return;
 

@@ -6,7 +6,7 @@ vendor/mapRuntime.ts inlines the source of the packages below into the WebView
 map document, which redistributes them. Both are BSD-3-Clause and require this
 notice to accompany the redistribution.
 
-## maplibre-gl@5.24.0
+## maplibre-gl@6.6.0
 
 Copyright (c) 2023, MapLibre contributors
 

@@ -8,9 +8,9 @@ import { formatStaleness, type Coord } from '@festie/shared/utils';
 // hooks (crew-map/). Extracted verbatim from CrewMap.tsx so every marker layer
 // builds popups the same way — via createElement + textContent, never setHTML.
 
-// The subset of the maplibre-gl module we use. We load it via `.default` at
-// runtime (CJS interop — the test mock returns `{ default: {...} }`), but the
-// type-level default member doesn't exist, so model the constructors we touch.
+// The subset of the maplibre-gl module we use. v6 is ESM-only and has no default
+// export, so the runtime value is the import namespace itself; this models just
+// the constructors we touch (the test mock mirrors the same named shape).
 export type MapLibre = {
   Map: typeof import('maplibre-gl').Map;
   Marker: typeof import('maplibre-gl').Marker;

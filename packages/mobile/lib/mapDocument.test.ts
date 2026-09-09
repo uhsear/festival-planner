@@ -3,7 +3,13 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildMapHtml } from './mapDocument';
-import { MAPLIBRE_CSS_SRC, MAPLIBRE_JS_SRC, PMTILES_JS_SRC } from '../vendor/mapRuntime';
+import {
+  MAPLIBRE_CSS_SRC,
+  MAPLIBRE_JS_SRC,
+  MAPLIBRE_SHARED_SRC,
+  MAPLIBRE_WORKER_SRC,
+  PMTILES_JS_SRC,
+} from '../vendor/mapRuntime';
 
 // The mobile test harness is node-only and cannot render a WebView, so these
 // assert on the exact strings the WebView is handed: the generated document and
@@ -49,7 +55,15 @@ describe('map document — no CDN runtime', () => {
 
   it('inlines the vendored MapLibre runtime and stylesheet', () => {
     const [, html] = VARIANTS[0]!;
-    expect(html.includes(`<script>${MAPLIBRE_JS_SRC}</script>`)).toBe(true);
+    // MapLibre 6 is ESM-only, so all three chunks ride along as non-executing
+    // text blocks that the bootstrap turns into blob: modules.
+    expect(html.includes(`<script id="mlgl-main" type="text/plain">${MAPLIBRE_JS_SRC}</script>`)).toBe(true);
+    expect(html.includes(`<script id="mlgl-shared" type="text/plain">${MAPLIBRE_SHARED_SRC}</script>`)).toBe(
+      true,
+    );
+    expect(html.includes(`<script id="mlgl-worker" type="text/plain">${MAPLIBRE_WORKER_SRC}</script>`)).toBe(
+      true,
+    );
     expect(html.includes(`<style>${MAPLIBRE_CSS_SRC}</style>`)).toBe(true);
   });
 
@@ -110,7 +124,9 @@ describe('vendored runtime', () => {
   // fail here rather than in the field.
   it('matches the installed packages byte for byte', () => {
     const fresh: [string, string, string][] = [
-      ['maplibre-gl.js', MAPLIBRE_JS_SRC, 'maplibre-gl/dist/maplibre-gl.js'],
+      ['maplibre-gl.mjs', MAPLIBRE_JS_SRC, 'maplibre-gl/dist/maplibre-gl.mjs'],
+      ['maplibre-gl-shared.mjs', MAPLIBRE_SHARED_SRC, 'maplibre-gl/dist/maplibre-gl-shared.mjs'],
+      ['maplibre-gl-worker.mjs', MAPLIBRE_WORKER_SRC, 'maplibre-gl/dist/maplibre-gl-worker.mjs'],
       ['maplibre-gl.css', MAPLIBRE_CSS_SRC, 'maplibre-gl/dist/maplibre-gl.css'],
       ['pmtiles.js', PMTILES_JS_SRC, 'pmtiles/dist/pmtiles.js'],
     ];
@@ -123,8 +139,34 @@ describe('vendored runtime', () => {
   });
 
   it('carries no closing script/style tag that would break out of the inline host', () => {
-    for (const src of [MAPLIBRE_JS_SRC, MAPLIBRE_CSS_SRC, PMTILES_JS_SRC]) {
+    for (const src of [
+      MAPLIBRE_JS_SRC,
+      MAPLIBRE_SHARED_SRC,
+      MAPLIBRE_WORKER_SRC,
+      MAPLIBRE_CSS_SRC,
+      PMTILES_JS_SRC,
+    ]) {
       expect(/<\/(script|style)/i.test(src)).toBe(false);
+    }
+  });
+
+  // The worker shim re-serializes these chunks at RUNTIME with JSON.stringify,
+  // which leaves U+2028/U+2029 literal. Inside the JS string literal that shim
+  // builds, either one is a line terminator and the worker dies on a SyntaxError.
+  // The byte-for-byte drift test above cannot catch it: a future dist carrying
+  // one would be vendored faithfully and still match node_modules.
+  it('carries no U+2028/U+2029 in a blob that is re-serialized at runtime', () => {
+    for (const src of [MAPLIBRE_JS_SRC, MAPLIBRE_SHARED_SRC, MAPLIBRE_WORKER_SRC, PMTILES_JS_SRC]) {
+      expect(/[\u2028\u2029]/.test(src)).toBe(false);
+    }
+  });
+
+  // The bootstrap rewrites this specifier to the shared chunk's blob: URL with a
+  // single-occurrence String.replace. More than one hit (or none) would leave a
+  // module MapLibre cannot resolve, and the map would never boot.
+  it('references the shared chunk exactly once per importing bundle', () => {
+    for (const src of [MAPLIBRE_JS_SRC, MAPLIBRE_WORKER_SRC]) {
+      expect(src.split('./maplibre-gl-shared.mjs').length - 1).toBe(1);
     }
   });
 });

@@ -19,23 +19,31 @@
 // blobs load under the existing grant while https://unpkg.com is removed from
 // every directive.
 //
-// VERSION NOTE: the CDN tags pinned MapLibre 4.7.1, but packages/mobile has
-// declared maplibre-gl ^5.24.0 all along for the WEB export (OfflineMap.web.tsx,
-// which imports it as a real module). Vendoring from node_modules therefore
-// moves this WebView from 4.7.1 to 5.24.0 — a major bump, deliberately taken so
-// native and web finally run ONE MapLibre. The APIs this document uses
-// (maplibregl.Map, Marker, Popup, LngLatBounds, addProtocol) and the shared
-// style objects from @festie/shared/utils are already exercised against 5.24.0
-// by the web build, but this document's exact behaviour on a device is NOT
-// verified here — the mobile test harness is node-only and cannot render a
-// WebView. Needs a device smoke test.
+// VERSION NOTE: this document tracks whatever maplibre-gl packages/mobile has
+// installed, so THIS package's two maps - this WebView document on native, and
+// components/OfflineMap.web.tsx on react-native-web - run ONE MapLibre; the
+// separate packages/web SPA pins its own. It is currently 6.6.0, taken to pick
+// up the DOM.sanitize fix in 6.4.1 (GHSA-jrc7-96c5-q579, no 5.x backport).
+// MapLibre 6 is ESM-only — the UMD bundle this document used to inline as one
+// <script> no longer exists — so the runtime is now stitched
+// together from three vendored chunks at the bottom of the bootstrap script.
+// The APIs this document uses (Map, Marker, Popup, LngLatBounds, addProtocol)
+// are unchanged across 5 -> 6, but this document's exact behaviour on a device
+// is NOT verified here — the mobile test harness is node-only and cannot render
+// a WebView. Needs a device smoke test.
 //
 // WHAT THIS DOES NOT DO: it does not make the map work offline by itself. TILES
 // are a separate problem — a festival still needs a cached PMTiles archive
 // (lib/basemapCache.ts) to draw anything without a network.
 
 import { safeJsonForScript } from './webviewBridge';
-import { MAPLIBRE_CSS_SRC, MAPLIBRE_JS_SRC, PMTILES_JS_SRC } from '../vendor/mapRuntime';
+import {
+  MAPLIBRE_CSS_SRC,
+  MAPLIBRE_JS_SRC,
+  MAPLIBRE_SHARED_SRC,
+  MAPLIBRE_WORKER_SRC,
+  PMTILES_JS_SRC,
+} from '../vendor/mapRuntime';
 
 // The basemap style is CHOSEN by the shared `pickMapStyle` (Phase 3A) and
 // templated into buildMapHtml per-festival: a festival with an offline PMTiles
@@ -120,7 +128,8 @@ export function buildMapHtml(
   // need — the OSM raster hosts plus, conditionally, the festival's own PMTiles
   // and site-plan hosts. 'unsafe-inline' covers the vendored blobs exactly as it
   // already covered the bootstrap script; `blob:` stays because MapLibre spawns
-  // its render workers from blob URLs.
+  // its render workers from blob URLs, and since MapLibre 6 the vendored ES
+  // modules are loaded from blob: URLs too (see the bootstrap at the bottom).
   const csp = [
     "default-src 'none'",
     "script-src 'unsafe-inline' blob:",
@@ -143,7 +152,9 @@ export function buildMapHtml(
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <style>${MAPLIBRE_CSS_SRC}</style>
   ${pmtilesScriptTag}
-  <script>${MAPLIBRE_JS_SRC}</script>
+  <script id="mlgl-shared" type="text/plain">${MAPLIBRE_SHARED_SRC}</script>
+  <script id="mlgl-worker" type="text/plain">${MAPLIBRE_WORKER_SRC}</script>
+  <script id="mlgl-main" type="text/plain">${MAPLIBRE_JS_SRC}</script>
   <style>
     html, body, #map { margin: 0; padding: 0; height: 100%; width: 100%; background: #080810; }
     .festie-marker {
@@ -508,8 +519,9 @@ export function buildMapHtml(
         .replace(/"/g, '&quot;');
     }
 
-    function init() {
-      if (typeof maplibregl === 'undefined') { post({ type: 'error', reason: 'no-maplibre' }); return; }
+    function init(mod) {
+      maplibregl = mod;
+      if (!maplibregl || !maplibregl.Map) { post({ type: 'error', reason: 'no-maplibre' }); return; }
       try {
         // Phase 3A: when a vector basemap is configured, register the pmtiles
         // protocol so MapLibre can resolve pmtiles-scheme sources. The pmtiles
@@ -667,12 +679,85 @@ export function buildMapHtml(
       }
     }
 
-    // MapLibre was inlined in <head> and has already run, so init() can go
-    // straight away - no CDN round-trip, no load event to wait on. If the
-    // vendored blob somehow failed to evaluate, init()'s own 'no-maplibre'
-    // guard posts the error and RN falls back to the honest list, exactly as
-    // the old script.onerror path did.
-    init();
+    // MapLibre 6 is ESM-only. Its entry module imports a shared chunk by the
+    // RELATIVE specifier './maplibre-gl-shared.mjs', and it derives its worker
+    // URL from import.meta.url - neither of which resolves in a document that
+    // has no base URL (this one is handed to the WebView as a raw HTML string).
+    // So the three vendored chunks are parked in <head> as non-executing
+    // type="text/plain" blocks and reassembled here into blob: modules, with
+    // that one specifier rewritten to the shared chunk's blob URL. blob: was
+    // already granted on script-src/worker-src - MapLibre has always spawned
+    // its render workers from blob URLs - so the CSP is unchanged.
+    var maplibregl;
+
+    function blobUrl(src) {
+      return URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    }
+    // The vendored chunks ride in <head> as non-executing text blocks.
+    function chunk(id) {
+      return document.getElementById(id).textContent;
+    }
+
+    try {
+      // MapLibre 6 is ESM-only. Its entry module imports the shared chunk by the
+      // RELATIVE specifier './maplibre-gl-shared.mjs' (exactly once per chunk -
+      // scripts/vendor-map-runtime.mjs fails the regen if that stops holding),
+      // and it derives its worker URL from import.meta.url. Neither resolves in
+      // a document with no base URL, so both become blob: URLs here. blob: was
+      // already granted on script-src/worker-src - MapLibre has always spawned
+      // its render workers from blob URLs - so the CSP is unchanged.
+      var sharedUrl = blobUrl(chunk('mlgl-shared'));
+
+      // The render worker cannot be handed sharedUrl, and cannot be a module
+      // worker at all, because this document ALWAYS has an opaque origin: it is
+      // given to the WebView as a raw HTML string, so it loads at about:blank,
+      // or at the file:// cache dir in local-basemap mode. At an opaque origin
+      // Chromium refuses module workers outright, and refuses a worker any blob
+      // the DOCUMENT minted (it counts as a local resource). A worker may still
+      // import a blob it minted itself, so the shim below is a CLASSIC script
+      // that carries both chunks and mints its own. It buffers messages that
+      // arrive before the dynamic import installs MapLibre's listeners and
+      // replays them: unlike a static import, the shim's own evaluation
+      // finishes - opening the message port - before the module is in.
+      // Both specifier rewrites below pass a replacer FUNCTION, not a string: a
+      // string replacement would interpret the $-patterns ($&, $n and friends)
+      // inside the blob: URL it substitutes.
+      var workerUrl = blobUrl(
+        'var s=URL.createObjectURL(new Blob([' +
+          JSON.stringify(chunk('mlgl-shared')) +
+          '],{type:"text/javascript"}));' +
+          'var w=URL.createObjectURL(new Blob([' +
+          JSON.stringify(chunk('mlgl-worker')) +
+          '.replace("./maplibre-gl-shared.mjs",function(){return s})],{type:"text/javascript"}));' +
+          'var q=[],ready=false;' +
+          'self.addEventListener("message",function(e){if(!ready)q.push(e.data);});' +
+          'import(w).then(function(){ready=true;' +
+          'for(var i=0;i<q.length;i++)self.dispatchEvent(new MessageEvent("message",{data:q[i]}));' +
+          'q=[];});',
+      );
+
+      // MapLibre reaches the Worker constructor by several routes, always
+      // asking for a module (it even re-wraps the URL in a second module shim
+      // when it reads it as cross-origin, which a blob: URL is at a file://
+      // origin), and every one of those routes is refused at an opaque origin.
+      // So the document supplies the worker instead of the URL: the shim
+      // above is the only worker this page may run, and MapLibre's own
+      // module/classic and same/cross-origin branching drops out. Nothing else
+      // in this document constructs a Worker.
+      var NativeWorker = window.Worker;
+      window.Worker = function () {
+        return new NativeWorker(workerUrl);
+      };
+
+      import(blobUrl(chunk('mlgl-main').replace('./maplibre-gl-shared.mjs', function () { return sharedUrl; }))).then(
+        init,
+        // Same contract as the old script.onerror path: RN falls back to the
+        // honest list rather than showing a dead canvas.
+        function () { post({ type: 'error', reason: 'no-maplibre' }); },
+      );
+    } catch (e) {
+      post({ type: 'error', reason: 'no-maplibre' });
+    }
   </script>
 </body>
 </html>`;

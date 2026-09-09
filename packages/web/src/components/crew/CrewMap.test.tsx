@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, renderHook } from '@testing-library/react';
+import { render, screen, renderHook, waitFor } from '@testing-library/react';
 import type { SosEntry } from '@festie/shared/types';
 import { useSosMarkers } from './crew-map/useSosMarkers';
 import type { GlRefObject, MapRefObject, GlMarker } from './crew-map/mapDom';
@@ -44,13 +44,25 @@ vi.mock('maplibre-gl', () => {
       return this;
     }
   }
-  return { default: { Map, Marker, Popup, NavigationControl, LngLatBounds } };
+  // maplibre-gl v6 is ESM-only with NO default export — mirror its named shape.
+  return { Map, Marker, Popup, NavigationControl, LngLatBounds, addProtocol: vi.fn(), setWorkerUrl: vi.fn() };
 });
 vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}));
+// The `?worker&url` side-import exists so Vite emits the GL worker chunk; jsdom
+// has no worker to point at, so stub the URL it resolves to.
+vi.mock('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url', () => ({ default: 'stub-worker-url' }));
 
 // Drive pin-derivation deterministically: the real shared util is pure, but
 // mocking it keeps this test focused on CrewMap's own branching (empty vs map).
-const { extractMeetingPointPins } = vi.hoisted(() => ({ extractMeetingPointPins: vi.fn() }));
+const { extractMeetingPointPins, hasOfflineBasemap, pmtilesImport } = vi.hoisted(() => ({
+  extractMeetingPointPins: vi.fn(),
+  hasOfflineBasemap: vi.fn(() => false),
+  pmtilesImport: vi.fn(),
+}));
+// The pmtiles protocol is registered by a dynamic import inside the map-lifecycle
+// effect. Stub the module so the offline-basemap branch can be driven, and so a
+// failed chunk load — the normal offline-first failure — can be simulated.
+vi.mock('pmtiles', () => pmtilesImport());
 vi.mock('@festie/shared/utils', () => ({
   extractMeetingPointPins,
   extractStagePins: () => [],
@@ -70,6 +82,13 @@ vi.mock('@festie/shared/utils', () => ({
     bounds: null,
   }),
   formatStaleness: () => 'as of just now',
+  // Needed by the map-lifecycle effect itself: without these four the effect
+  // threw on the first missing export and no GL map was ever constructed, so
+  // the maplibre-gl mock below went unexercised.
+  pickMapStyle: () => ({ version: 8, sources: {}, layers: [] }),
+  hasOfflineBasemap,
+  buildPursuit: () => null,
+  nearestPin: () => null,
 }));
 
 vi.mock('lucide-react', () => ({
@@ -92,6 +111,7 @@ const POINT_NO_COORDS = { id: 'mp2', label: 'Food court', location: 'Center', ac
 beforeEach(() => {
   vi.clearAllMocks();
   mapInstances.length = 0;
+  hasOfflineBasemap.mockReturnValue(false);
 });
 
 describe('CrewMap', () => {
@@ -177,6 +197,41 @@ describe('CrewMap', () => {
     render(<CrewMap meetingPoints={[]} sos={sos} />);
     expect(screen.getByText('No mapped meeting points yet')).toBeInTheDocument();
     expect(mapInstances).toHaveLength(0);
+  });
+
+  // maplibre-gl v6 is ESM-only with no default export. This asserts the map is
+  // really constructed off the dynamic import, so reintroducing `.default`
+  // (which would be undefined) fails here instead of only in the browser.
+  it('constructs a GL map from the maplibre-gl module namespace', async () => {
+    extractMeetingPointPins.mockReturnValue([
+      { id: 'mp1', kind: 'meeting-point', label: 'Main Gate', sublabel: '', latitude: 41.88, longitude: -87.62 },
+    ]);
+    render(<CrewMap meetingPoints={[POINT_WITH_COORDS]} />);
+    await waitFor(() => expect(mapInstances).toHaveLength(1));
+  });
+
+  it('retries the pmtiles registration after a failed chunk load', async () => {
+    // The registration latch is process-global, so a failed attempt that left it
+    // claimed would skip registration for every later mount and leave the offline
+    // vector basemap dead until a full reload.
+    const maplibregl = await import('maplibre-gl');
+    hasOfflineBasemap.mockReturnValue(true);
+    extractMeetingPointPins.mockReturnValue([
+      { id: 'mp1', kind: 'meeting-point', label: 'Main Gate', sublabel: '', latitude: 41.88, longitude: -87.62 },
+    ]);
+
+    // First mount: the pmtiles chunk is not in the service-worker cache.
+    pmtilesImport.mockImplementation(() => {
+      throw new Error('chunk load failed');
+    });
+    const first = render(<CrewMap meetingPoints={[POINT_WITH_COORDS]} />);
+    await waitFor(() => expect(maplibregl.addProtocol).not.toHaveBeenCalled());
+    first.unmount();
+
+    // Second mount: the chunk loads. The latch must have released.
+    pmtilesImport.mockReturnValue({ Protocol: class { tile = vi.fn(); } });
+    render(<CrewMap meetingPoints={[POINT_WITH_COORDS]} />);
+    await waitFor(() => expect(maplibregl.addProtocol).toHaveBeenCalledWith('pmtiles', expect.anything()));
   });
 });
 
