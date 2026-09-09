@@ -55,23 +55,36 @@ main() {
   git reset --hard "${TAG}"
   git log --oneline -1
 
-  # No backend rebuild: PM2 runs server.ts under tsx, which the reset above
-  # restores directly. When the dist cutover lands this must come back, because
-  # dist/ is gitignored and a reset cannot revert it — a rollback would otherwise
-  # restart the bundle built from the code you are rolling back FROM. Building
-  # here today would only risk aborting the rollback under `set -e`.
+  # Rebuild the backend bundle. `dist/` is gitignored, so the reset above restores
+  # SOURCE only and leaves whatever bundle was on disk — the one built from the
+  # code you are rolling back FROM. Without this step a rollback restarts the very
+  # release you are trying to escape, and it does so silently: /api/ready returns
+  # 200 because that new code runs fine.
+  #
+  # Both builds run BEFORE anything touches PM2, on purpose. Under `set -e` a
+  # build failure aborts here with the app still serving the current release,
+  # which is strictly better than stopping it and then discovering it cannot start.
+  echo "[rollback] rebuilding backend bundle..."
+  npm run build
 
   echo "[rollback] rebuilding web bundle..."
   ( cd packages && pnpm --filter @festie/web build )
 
-  # Restart from the CONFIG FILE, not the name. `pm2 restart <name>` re-launches
-  # the definition already stored in the daemon and never re-reads
-  # ecosystem.config.cjs, so a rollback across the tsx->dist cutover would keep the
-  # wrong `script` and `interpreter`. Passing the file routes through pm2's
-  # _startJson, which re-reads it and restarts the already-running app in place —
-  # unlike delete+start, which leaves nothing running if the start then fails.
+  # Delete then start, NOT `pm2 restart`. Measured on 2026-09-09 against
+  # festie-staging: with the config file changed from dist/server.js + node back
+  # to server.ts + tsx, `pm2 restart <config file> --only <name>` updated the
+  # INTERPRETER but left the SCRIPT at its stored value, leaving tsx interpreting
+  # the esbuild bundle — a state matching neither the config nor the previous
+  # release, with /api/ready still 200. An earlier comment here claimed that
+  # command re-reads the file; it does not. deploy.py:173 has it right: restarting
+  # by name or by file re-reads the ENV only, and only delete + start applies a
+  # changed `script` or `interpreter`.
+  #
+  # This does leave nothing running if the start fails, which is why the builds
+  # above come first and why the readiness check below is a hard failure.
   echo "[rollback] restarting pm2 app '${PM2_NAME}' from ecosystem.config.cjs..."
-  pm2 restart ecosystem.config.cjs --only "${PM2_NAME}"
+  pm2 delete "${PM2_NAME}" || true
+  pm2 start ecosystem.config.cjs --only "${PM2_NAME}"
   pm2 save || true
   sleep 5
   pm2 ls | grep "${PM2_NAME}" || true
