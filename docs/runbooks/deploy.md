@@ -103,6 +103,51 @@ and 2026-08-19** from the doomed spawn, but that was BEFORE the skip guard was
 added. The guard is on `main` today and already stopped them. This change gains
 the worker pool; it does not fix an error that is still firing.
 
+### BLOCKED: the cutover does not boot under PM2 (validated on staging 2026-09-09)
+
+Do NOT run the cutover yet. It was validated on `festie-staging` and failed. The
+staging app was restored to `server.ts` under tsx; production was never touched.
+
+What happens: PM2 launches `dist/server.js`, the process prints the Sentry
+line, then exits about three seconds later with code 0 and no application log at
+all — not even `startup config`, which is the first pino write. PM2 restarts it,
+and it loops. `/api/ready` never answers.
+
+What is NOT the cause, each ruled out by measurement:
+
+- The artifact. `node dist/server.js` runs indefinitely and serves
+  `/api/ready` 200.
+- Missing IPC. Spawning it with `stdio: [..., 'ipc']`, exactly as PM2 fork mode
+  does, boots cleanly, logs `server started`, sends `ready` over IPC and stays up
+  for as long as you leave it.
+- Memory. Boot peak RSS is 168 MB against a 512 MB `max_memory_restart`.
+- Port contention. Reproduced with the port free and nothing else bound.
+- A watchdog. No cron entry and neither `~/restart.sh` nor `~/recover.sh`
+  restarts this app.
+- Migrations. There are none between the tested commits, and staging has its own
+  database.
+
+One real defect found on the way, which any fix must handle: `package.json` is
+`"type": "module"`, `scripts/build.mjs` emits `format: 'esm'`, and the bundle
+contains top-level `await`. PM2's fork container `require()`s the script it
+launches, and `require()` of an async ES module throws
+`ERR_REQUIRE_ASYNC_MODULE` — confirmed directly:
+
+```
+node -e "require('./dist/server.js')"   # ERR_REQUIRE_ASYNC_MODULE
+```
+
+A generated CommonJS entry that does `import('./server.js').catch(...)` fixes
+that specific error and was tried; the module then loads and Sentry initialises,
+but the three-second exit still happens. So the require problem is real and
+necessary to solve, and is not sufficient on its own.
+
+Where to look next: the process dies between Sentry initialisation and the first
+pino write to stdout. Under PM2, stdout is a pipe to the daemon rather than a
+file or a TTY, so the pino transport is the first thing that behaves differently
+between the working and failing launches. Reproduce with the harness kept at
+`scratchpad/ipc-harness.mjs`, which is the closest working control.
+
 ### One-time cutover (do this once, by hand, when the change first ships)
 
 `pm2 restart` re-launches the definition stored in the PM2 daemon and never
