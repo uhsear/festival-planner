@@ -29,6 +29,21 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore
+    ignore:
+      # typescript 7 is a hard block, not a preference: `npm run lint` fails with
+      # "typescript-eslint does not support TS 7.0" (typescript-eslint 8.70.0
+      # still peers on typescript >=4.8.4 <6.1.0, and no release widens it yet),
+      # and the `gen:api-types` CI gate throws
+      # "Cannot read properties of undefined (reading 'createKeywordTypeNode')"
+      # because TS 7's root export is only lib/version.cjs — the JS compiler API
+      # moved to typescript/unstable/ast/*, which openapi-typescript does not use.
+      # Unblocked when BOTH are true: typescript-eslint ships a peer range that
+      # covers 7.x, and scripts/gen-api-types.mjs no longer depends on a package
+      # that imports the removed root compiler API. Majors only — patch and minor
+      # updates to typescript must keep flowing.
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
     groups:
       backend-prod:
         dependency-type: production
@@ -56,6 +71,14 @@ updates:
       - dependency-name: "expo-*"
       - dependency-name: "react-native"
       - dependency-name: "@expo/*"
+      # typescript 7 — same hard block as the root project above, for the same
+      # two reasons (typescript-eslint's peer range, and the gen:api-types gate
+      # that TS 7's slimmed root export breaks). All three workspace members are
+      # pinned to the 6.x line together, so the major has to move as one change
+      # once both blockers clear. Majors only; patch and minor keep flowing.
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
     groups:
       workspace-prod:
         dependency-type: production
