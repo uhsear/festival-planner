@@ -733,15 +733,15 @@ describe('routes/crew-invites.js — rate limiting', () => {
 // =====================================================================
 //  Exported helper: generateUniqueInviteCode
 // =====================================================================
-describe('crew-invites.js — generateUniqueInviteCode export', () => {
+describe('invite-code.js — generateUniqueInviteCode export', () => {
 
   test('module exports generateUniqueInviteCode function', async () => {
-    const mod = await import('../routes/crew-invites.js');
+    const mod = await import('../lib/invite-code.js');
     assert.equal(typeof mod.generateUniqueInviteCode, 'function');
   });
 
   test('generateUniqueInviteCode returns a 6-char code', async () => {
-    const { generateUniqueInviteCode } = await import('../routes/crew-invites.js');
+    const { generateUniqueInviteCode } = await import('../lib/invite-code.js');
     const mockStores = {
       crews: {
         getByInviteCode: mock.fn(async () => null),
@@ -757,7 +757,7 @@ describe('crew-invites.js — generateUniqueInviteCode export', () => {
   });
 
   test('generateUniqueInviteCode retries on collision', async () => {
-    const { generateUniqueInviteCode } = await import('../routes/crew-invites.js');
+    const { generateUniqueInviteCode } = await import('../lib/invite-code.js');
     let callCount = 0;
     const mockStores = {
       crews: {
@@ -778,7 +778,7 @@ describe('crew-invites.js — generateUniqueInviteCode export', () => {
   });
 
   test('generateUniqueInviteCode throws after 10 failed attempts', async () => {
-    const { generateUniqueInviteCode } = await import('../routes/crew-invites.js');
+    const { generateUniqueInviteCode } = await import('../lib/invite-code.js');
     const mockStores = {
       crews: {
         getByInviteCode: mock.fn(async () => ({ id: 'always-collides' })),

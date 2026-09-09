@@ -1,7 +1,7 @@
 import type { Crew, CrewMember } from '../lib/types';
 
 import { planReformRoster } from '../lib/crew-reform.js';
-import { generateUniqueInviteCode } from './crew-invites.js';
+import { generateUniqueInviteCode } from '../lib/invite-code.js';
 import createInviteRoutes from './crew-invites.js';
 import createMeetingPointRoutes from './crew-meeting-points.js';
 import createPollRoutes from './crew-polls.js';
