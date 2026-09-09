@@ -194,6 +194,13 @@ jobs:
       - name: Install web workspace deps
         working-directory: packages
         run: pnpm install --frozen-lockfile
+      # This step seeds browsers using the playwright THIS workspace resolves,
+      # while the scan below launches the one @storybook/test-runner resolves.
+      # They must be the same version: each playwright pins its own chromium
+      # build number, so a split installs one build and then launches another,
+      # failing with `Executable doesn't exist at .../chromium_headless_shell-<n>`.
+      # packages/package.json pins playwright and playwright-core to keep them
+      # together; move that pin only alongside @storybook/test-runner.
       - name: Install Playwright chromium (test-runner engine)
         working-directory: packages/web
         run: pnpm exec playwright install --with-deps chromium
