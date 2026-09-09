@@ -54,11 +54,17 @@ updates:
         patterns:
           - "*"
 
+  # Point at the pnpm WORKSPACE ROOT, not the three member directories.
+  #
+  # Listing the members produced pull requests that could never pass CI. pnpm-lock.yaml
+  # lives here at /packages, so a member-scoped update changed packages/*/package.json
+  # and left the lockfile alone. Every job then failed identically on
+  # `pnpm install --frozen-lockfile` with ERR_PNPM_OUTDATED_LOCKFILE, before running a
+  # single check — so a grouped workspace bump got zero CI signal and had to be
+  # re-applied by hand. From the root, Dependabot resolves the members through
+  # pnpm-workspace.yaml and updates the lockfile in the same commit.
   - package-ecosystem: npm
-    directories:
-      - /packages/shared
-      - /packages/web
-      - /packages/mobile
+    directory: /packages
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
