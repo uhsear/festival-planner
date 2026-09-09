@@ -26,7 +26,6 @@ const _fcmAgent = new https.Agent({
 });
 
 // Firebase Admin SDK - loaded lazily only when credentials are configured
-let firebaseAdmin: any = null;
 let firebaseMessaging: any = null;
 
 export function initFirebase(config: any, log: any) {
@@ -36,12 +35,17 @@ export function initFirebase(config: any, log: any) {
     return null;
   }
   try {
-    firebaseAdmin = require('firebase-admin');
+    // firebase-admin v14 removed the legacy `admin.*` namespace: the root export
+    // no longer carries `credential`, `messaging()` or `apps`. Only the modular
+    // entrypoints remain. Note the failure mode if this ever regresses — the
+    // catch below swallows the TypeError and returns null, which disables push
+    // silently rather than crashing, so a wrong import here is invisible at boot
+    // apart from one warn line.
+    const { initializeApp, cert } = require('firebase-admin/app');
+    const { getMessaging } = require('firebase-admin/messaging');
     const serviceAccount = require(config.FIREBASE_CREDENTIALS_PATH);
-    firebaseAdmin.initializeApp({
-      credential: firebaseAdmin.credential.cert(serviceAccount),
-    });
-    firebaseMessaging = firebaseAdmin.messaging();
+    const app = initializeApp({ credential: cert(serviceAccount) });
+    firebaseMessaging = getMessaging(app);
     log.info('Firebase Cloud Messaging initialized');
     return firebaseMessaging;
   } catch (error: any) {

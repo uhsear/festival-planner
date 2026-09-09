@@ -125,7 +125,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-## pmtiles@4.4.1
+## pmtiles@4.5.0
 
 The pmtiles npm tarball ships no license file. The text below is the LICENSE of
 the upstream repository (protomaps/PMTiles), checked in at
