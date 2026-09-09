@@ -127,20 +127,29 @@ What is NOT the cause, each ruled out by measurement:
 - Migrations. There are none between the tested commits, and staging has its own
   database.
 
-One real defect found on the way, which any fix must handle: `package.json` is
-`"type": "module"`, `scripts/build.mjs` emits `format: 'esm'`, and the bundle
-contains top-level `await`. PM2's fork container `require()`s the script it
-launches, and `require()` of an async ES module throws
-`ERR_REQUIRE_ASYNC_MODULE` — confirmed directly:
+ROOT CAUSE, found 2026-09-09 and proven by toggling one variable:
 
-```
-node -e "require('./dist/server.js')"   # ERR_REQUIRE_ASYNC_MODULE
-```
+`server.ts` gated its entire boot on
+`import.meta.filename === process.argv[1] || process.argv[1]?.endsWith('server.ts')`.
+PM2 fork mode with a `node` interpreter launches its own `ProcessContainerFork.js`
+as argv[1] and passes the real entry in the `pm_exec_path` env var
+(`pm2/lib/God/ForkMode.js:58`). Neither clause matched the bundle, so the block
+containing app creation, listen and the readiness signal was skipped entirely.
+The module body still ran — which is why only the Sentry line appeared — the
+event loop then drained, and node exited 0. The roughly three-second delay was
+`@pm2/io` telemetry handles keeping an idle loop alive, not a timeout.
 
-A generated CommonJS entry that does `import('./server.js').catch(...)` fixes
-that specific error and was tried; the module then loads and Sentry initialises,
-but the three-second exit still happens. So the require problem is real and
-necessary to solve, and is not sufficient on its own.
+tsx escaped it because a non-node interpreter bypasses the container, leaving
+argv[1] as `server.ts` and matching the third clause — a clause structurally
+incapable of matching the built `server.js`.
+
+CORRECTION to an earlier entry in this runbook: it claimed PM2's fork container
+`require()`s the script and therefore hit `ERR_REQUIRE_ASYNC_MODULE`. That was
+wrong. `ProcessContainerFork.js:29` checks `isESModule(pm_exec_path)` and uses
+`import()` for an ES module; `require('module')._load` is the CommonJS branch
+PM2 never took here. The `node -e "require('./dist/server.js')"` result proved
+only that a bare require fails, not that PM2 does one. The CommonJS entry shim
+built on that reasoning fixed a problem PM2 did not have.
 
 Where to look next: the process dies between Sentry initialisation and the first
 pino write to stdout. Under PM2, stdout is a pipe to the daemon rather than a

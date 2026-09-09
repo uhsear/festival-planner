@@ -21,12 +21,13 @@ module.exports = {
     // DOES read this file — so a rollback during an incident would have booted an
     // artifact that cannot start, turning a recovery into an outage.
     //
-    // Why dist cannot boot under PM2 today (validated on festie-staging, see
-    // docs/runbooks/deploy.md): package.json is `type: module`, the build emits
-    // ESM, and the bundle contains top-level await, so PM2's require()-based fork
-    // container fails with ERR_REQUIRE_ASYNC_MODULE. A generated CommonJS entry
-    // clears that specific error but the process still exits 0 about three
-    // seconds in, before any application log. Necessary, not sufficient.
+    // Why dist could not boot under PM2, and what actually fixed it (see
+    // docs/runbooks/deploy.md): server.ts gated its whole boot on argv[1], and
+    // PM2 fork mode with a node interpreter runs its OWN container as argv[1],
+    // passing the real entry in pm_exec_path. The guard was false, the boot block
+    // was skipped, and the process exited 0 with no log. server.ts now also
+    // accepts pm_exec_path. An earlier note here blamed ERR_REQUIRE_ASYNC_MODULE;
+    // that was wrong — PM2 uses import() for an ES module, not require().
     //
     // The prize is still real — routes/export.ts skips its worker-thread export
     // pool when the entry path ends in .ts and falls back to inline export — so

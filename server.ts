@@ -454,7 +454,24 @@ async function createFestieApp(overrides: any = {}) {
 }
 
 // ── Main entry point ──────────────────────────────────────────────────────
-const isMainModule = import.meta.filename === process.argv[1] || process.argv[1]?.endsWith('server.ts');
+// PM2 fork mode with a `node` interpreter runs its own ProcessContainerFork.js as
+// argv[1] and passes the real entry path in pm_exec_path (pm2/lib/God/ForkMode.js:58).
+// Its container even fakes process.mainModule to look like a direct launch, but it
+// never sets argv[1] — so argv[1] cannot match the built bundle, this guard was
+// false, and the whole boot below was skipped: the module body ran, the event loop
+// drained, and the process exited 0 with no log at all.
+//
+// The third clause only ever matched because tsx is a non-node interpreter, which
+// skips the container and leaves argv[1] as server.ts. It is structurally incapable
+// of matching the built server.js.
+//
+// pm_exec_path is set by PM2 only, so the new clause is inert when it is unset —
+// `node dist/server.js`, and tests. Under PM2 it holds the path PM2 was asked to
+// run, which is what "am I the entry point" actually means there.
+const isMainModule =
+  import.meta.filename === process.argv[1] ||
+  import.meta.filename === process.env.pm_exec_path ||
+  process.argv[1]?.endsWith('server.ts');
 
 if (isMainModule) {
   // `planner` is assigned AFTER the crash handlers below are registered, and
