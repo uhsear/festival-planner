@@ -15,22 +15,24 @@ module.exports = {
     // Run the esbuild bundle, NOT TypeScript source. `npm run build`
     // (scripts/build.mjs) emits dist/server.js plus the two worker entrypoints;
     // dist/ is gitignored, so the deploy builds it on the host (deploy.py step 4).
-    // There is deliberately no `interpreter` line — PM2 runs a .js script with
-    // plain node, and tsx is no longer on the boot path.
+    // REVERTED to the tsx path. Pointing this at dist/server.js was a LANDMINE:
+    // PM2's stored definition kept running server.ts, so production looked fine,
+    // but rollback.sh does `pm2 delete` + `pm2 start ecosystem.config.cjs`, which
+    // DOES read this file — so a rollback during an incident would have booted an
+    // artifact that cannot start, turning a recovery into an outage.
     //
-    // Why this matters: routes/export.ts SKIPS building its worker-thread export
-    // pool when the entry path ends in .ts, because worker threads cannot load
-    // TypeScript, and falls back to inline export. Booting from .js builds the
-    // real pool. The 286 Sentry events of 2026-05-29..2026-08-19 came from the
-    // doomed spawn BEFORE that skip guard existed; the guard already stopped
-    // them and is on main today, so this change gains the pool rather than
-    // fixing an error that is still firing. No speed benefit is claimed here —
-    // none has been measured.
-    script: 'dist/server.js',
-
-    // dist/*.js.map are emitted by the build; this makes stack traces in logs and
-    // Sentry point at the TypeScript source instead of bundled offsets.
-    node_args: ['--enable-source-maps'],
+    // Why dist cannot boot under PM2 today (validated on festie-staging, see
+    // docs/runbooks/deploy.md): package.json is `type: module`, the build emits
+    // ESM, and the bundle contains top-level await, so PM2's require()-based fork
+    // container fails with ERR_REQUIRE_ASYNC_MODULE. A generated CommonJS entry
+    // clears that specific error but the process still exits 0 about three
+    // seconds in, before any application log. Necessary, not sufficient.
+    //
+    // The prize is still real — routes/export.ts skips its worker-thread export
+    // pool when the entry path ends in .ts and falls back to inline export — so
+    // this is worth finishing. It is not worth shipping half.
+    script: 'server.ts',
+    interpreter: 'node_modules/.bin/tsx',
 
     exec_mode: 'fork',
     // Stays 1. Bundling did NOT unblock cluster mode: lib/email.ts send-idempotency

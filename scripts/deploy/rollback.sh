@@ -55,20 +55,11 @@ main() {
   git reset --hard "${TAG}"
   git log --oneline -1
 
-  # PM2 execs dist/server.js, and dist/ is gitignored — `git reset --hard` above
-  # CANNOT touch it. Without this rebuild a rollback would restart the very bundle
-  # built from the code you are rolling back FROM, print "done", answer /api/ready
-  # 200, and have reverted nothing on the backend.
-  if [ -f scripts/build.mjs ]; then
-    echo "[rollback] rebuilding backend bundle..."
-    npm run build
-  else
-    # Tag predates the bundle build. Its ecosystem.config.cjs (tracked, so the
-    # reset restored it) points at server.ts under tsx; drop the stale artifact so
-    # nothing can boot it.
-    echo "[rollback] tag predates scripts/build.mjs — removing stale dist/"
-    rm -rf dist
-  fi
+  # No backend rebuild: PM2 runs server.ts under tsx, which the reset above
+  # restores directly. When the dist cutover lands this must come back, because
+  # dist/ is gitignored and a reset cannot revert it — a rollback would otherwise
+  # restart the bundle built from the code you are rolling back FROM. Building
+  # here today would only risk aborting the rollback under `set -e`.
 
   echo "[rollback] rebuilding web bundle..."
   ( cd packages && pnpm --filter @festie/web build )

@@ -10,8 +10,8 @@
 #   1. SSHes to the prod box (KEY AUTH ONLY — no password support).
 #   2. git fetch + reset --hard origin/main.
 #   3. Migrations are app-managed (applied on backend boot); no deploy step.
-#   4. Bundles the backend to dist/ (`npm run build`). PM2 execs dist/server.js.
-#   5. Builds the web bundle.
+#   4. Builds the web bundle. (The backend runs from server.ts under tsx; the
+#      dist/ bundle is built by `npm run build` but is NOT on the boot path yet.)
 #   6. Restarts the PM2 app ("festie").
 #   7. Tags the deploy `deploy-<UTC timestamp>` and pushes the tag (P14).
 #   8. Health-gates on /api/ready; if it is non-200, ABORTS and prints the
@@ -145,22 +145,11 @@ def main():
         # (new SPA assets in front of an old backend). It is also the cheapest
         # step that can fail: seconds, against minutes for the web build.
         #
-        # No `| tail` here: build output is three lines on success and the full
-        # esbuild error on failure, both worth printing whole. The neighbouring
-        # steps DO pipe, so they run their pipeline under `set -o pipefail` —
-        # without it a pipeline reports tail's 0 and the `if code != 0` gate
-        # below it can never fire. That matters most here: `git reset --hard`
-        # cannot delete the gitignored dist/, so a failed build leaves the
-        # PREVIOUS bundle on disk and the restart would boot stale code.
-        code, out, err = run(
-            client,
-            f"bash -lc 'cd {APP} && npm run build'",
-            timeout=600,
-        )
-        print(f"[bundle] exit={code}\n{out}{err}")
-        if code != 0:
-            rollback_hint()
-            raise SystemExit("backend bundle build failed")
+# The backend bundle build lived here. It is removed with the dist cutover:
+        # ecosystem.config.cjs runs server.ts under tsx again, so nothing boots
+        # dist/, and building it every deploy only cost time and left a stale
+        # artifact. Restore this step together with the cutover — see
+        # docs/runbooks/deploy.md for what still blocks it.
 
         # 5. Build the web bundle (login shell so pnpm is on PATH)
         code, out, err = run(
@@ -181,8 +170,12 @@ def main():
         # 6. Restart the backend
         code, out, err = run(
             client,
-            f"bash -lc 'cd {APP} && pm2 restart ecosystem.config.cjs --only {PM2_NAME}' "
-            f"&& sleep 5 && pm2 ls | grep {PM2_NAME}",
+            # By NAME on purpose. `pm2 restart <config file>` re-reads the ENV only —
+            # it does NOT pick up a changed `script` or `interpreter`, so it cannot
+            # apply a runtime change. Only `pm2 delete` + `pm2 start <config>` does
+            # that, and that is a deliberate step for the cutover, not something a
+            # routine deploy should do.
+            f"pm2 restart {PM2_NAME} && sleep 5 && pm2 ls | grep {PM2_NAME}",
         )
         print(f"[pm2] exit={code}\n{out}{err}")
 
