@@ -12,28 +12,33 @@
 module.exports = {
   apps: [{
     name: 'festie',
-    // Run the esbuild bundle, NOT TypeScript source. `npm run build`
+    // Runs the esbuild bundle, NOT TypeScript source. `npm run build`
     // (scripts/build.mjs) emits dist/server.js plus the two worker entrypoints;
     // dist/ is gitignored, so the deploy builds it on the host (deploy.py step 4).
-    // REVERTED to the tsx path. Pointing this at dist/server.js was a LANDMINE:
-    // PM2's stored definition kept running server.ts, so production looked fine,
-    // but rollback.sh does `pm2 delete` + `pm2 start ecosystem.config.cjs`, which
-    // DOES read this file — so a rollback during an incident would have booted an
-    // artifact that cannot start, turning a recovery into an outage.
     //
-    // Why dist could not boot under PM2, and what actually fixed it (see
-    // docs/runbooks/deploy.md): server.ts gated its whole boot on argv[1], and
-    // PM2 fork mode with a node interpreter runs its OWN container as argv[1],
-    // passing the real entry in pm_exec_path. The guard was false, the boot block
-    // was skipped, and the process exited 0 with no log. server.ts now also
-    // accepts pm_exec_path. An earlier note here blamed ERR_REQUIRE_ASYNC_MODULE;
-    // that was wrong — PM2 uses import() for an ES module, not require().
+    // The prize: routes/export.ts checks whether its own module URL ends in .ts
+    // and falls back to an inline export when it does, because a worker thread
+    // cannot load TypeScript. Under tsx that fallback was always taken and the
+    // export worker pool never ran. Measured on staging: 11 OS threads under
+    // tsx, 13 under the bundle — the +2 is POOL_SIZE.
     //
-    // The prize is still real — routes/export.ts skips its worker-thread export
-    // pool when the entry path ends in .ts and falls back to inline export — so
-    // this is worth finishing. It is not worth shipping half.
-    script: 'server.ts',
-    interpreter: 'node_modules/.bin/tsx',
+    // Two earlier attempts at this were reverted. What each one taught:
+    //   - server.ts gated its whole boot on argv[1], and PM2 fork mode with a
+    //     node interpreter runs its OWN container as argv[1] and passes the real
+    //     entry in pm_exec_path. The guard was false, the boot block was skipped
+    //     and the process exited 0 with no log. server.ts now also accepts
+    //     pm_exec_path. (An earlier note here blamed ERR_REQUIRE_ASYNC_MODULE.
+    //     That was wrong: PM2 uses import() for an ES module, not require().)
+    //   - rollback.sh could not roll this back. dist/ is gitignored, so
+    //     `git reset --hard <tag>` restored source and left the bundle built
+    //     from the release being escaped, and its `pm2 restart <config file>`
+    //     applied a changed interpreter but NOT a changed script. Both fixed in
+    //     268f5f8f; the rollback was then rehearsed end to end on staging.
+    //
+    // Changing `script` or `interpreter` here does NOT take effect on a plain
+    // restart, by name or by config file. Only `pm2 delete` + `pm2 start` does.
+    script: 'dist/server.js',
+    interpreter: 'node',
 
     exec_mode: 'fork',
     // Stays 1. Bundling did NOT unblock cluster mode: lib/email.ts send-idempotency

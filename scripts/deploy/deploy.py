@@ -144,12 +144,15 @@ def main():
         # leaves prod entirely on the previous release instead of half-updated
         # (new SPA assets in front of an old backend). It is also the cheapest
         # step that can fail: seconds, against minutes for the web build.
-        #
-# The backend bundle build lived here. It is removed with the dist cutover:
-        # ecosystem.config.cjs runs server.ts under tsx again, so nothing boots
-        # dist/, and building it every deploy only cost time and left a stale
-        # artifact. Restore this step together with the cutover — see
-        # docs/runbooks/deploy.md for what still blocks it.
+        code, out, err = run(
+            client,
+            f"bash -lc 'set -o pipefail; cd {APP} && npm run build 2>&1 | tail -5'",
+            timeout=600,
+        )
+        print(f"[bundle] exit={code}\n{out}{err}")
+        if code != 0:
+            rollback_hint()
+            raise SystemExit("backend bundle build failed")
 
         # 5. Build the web bundle (login shell so pnpm is on PATH)
         code, out, err = run(
