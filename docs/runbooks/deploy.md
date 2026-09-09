@@ -51,7 +51,10 @@ What it does, in order:
 3. **Bundle the backend** (`npm run build` → `scripts/build.mjs`). See §1.1.
 4. Build the web bundle (`pnpm --filter @festie/web build`).
 5. `pm2 restart festie` — re-execs the backend; on boot it applies any pending
-   migrations itself (see §3).
+   migrations itself (see §3). Restarting by NAME is correct here only because a
+   normal deploy changes neither `script` nor `interpreter`; it re-execs the
+   `dist/server.js` that step 3 just rebuilt. If either of those changes, this
+   step silently does nothing — see the blockquote in §2.
 6. **Readiness gate** — hit `/api/ready` (which checks Postgres + Redis). If it
    is **not 200**, the deploy ABORTS and prints the exact rollback command
    (P16). Cloudflare keeps routing, so a failed deploy must be rolled back fast.
@@ -67,7 +70,9 @@ What it does, in order:
 ## 1.1 The backend bundle (dist/)
 
 PM2 runs **`dist/server.js` under plain node**, not `server.ts` under tsx.
-`ecosystem.config.cjs` has no `interpreter` line any more.
+`ecosystem.config.cjs` still has an `interpreter` line; its value is now `'node'`,
+on the line directly after `script: 'dist/server.js'`. Do not "fix" the config by
+deleting that line.
 
 `npm run build` (esbuild, via `scripts/build.mjs`) emits three files:
 `dist/server.js`, `dist/avatar-worker.js`, `dist/export-worker.js`. The workers
@@ -84,12 +89,14 @@ Three facts that decide how the deploy is shaped:
   host build fails.
 - **A failed build does not fail quietly enough on its own.** `git reset --hard`
   cannot delete a gitignored directory, so a build that fails leaves the
-  *previous* `dist/` on disk and PM2 would happily boot stale code. That is why
-  the build step in `deploy.py` runs its command **without** a `| tail` pipe: a
-  pipeline exits with `tail`'s status, which would make the `if code != 0` gate
-  dead. It is also placed *before* the web build and long before the PM2
-  restart, so an abort leaves production wholly on the previous release rather
-  than serving new SPA assets from an old backend.
+  *previous* `dist/` on disk and PM2 would happily boot stale code. The build step
+  in `deploy.py` does pipe to `| tail -5`. A pipeline normally exits with `tail`'s
+  status, which would make the `if code != 0` gate dead. `set -o pipefail`, at the
+  front of that same command, is what keeps the gate alive. Never remove the
+  `pipefail`. Never add a pipe to a gated command without it. The step also runs
+  *before* the web build, and long before the PM2 restart. An abort therefore leaves
+  production wholly on the previous release, rather than serving new SPA assets from
+  an old backend.
 
 ### Why this is worth doing
 
@@ -103,109 +110,102 @@ and 2026-08-19** from the doomed spawn, but that was BEFORE the skip guard was
 added. The guard is on `main` today and already stopped them. This change gains
 the worker pool; it does not fix an error that is still firing.
 
-### BLOCKED: the cutover does not boot under PM2 (validated on staging 2026-09-09)
+### The cutover shipped (a8e93533, 2026-09-09)
 
-Do NOT run the cutover yet. It was validated on `festie-staging` and failed. The
-staging app was restored to `server.ts` under tsx; production was never touched.
+Production runs the bundle. Do not revert it, and do not run a cutover step — there
+is nothing left to cut over. Confirmed on the box on 2026-09-09:
 
-What happens: PM2 launches `dist/server.js`, the process prints the Sentry
-line, then exits about three seconds later with code 0 and no application log at
-all — not even `startup config`, which is the first pino write. PM2 restarts it,
-and it loops. `/api/ready` never answers.
+- `pm2 jlist` reports `festie` with `pm_exec_path` `<app dir>/dist/server.js`,
+  `exec_interpreter` `node`, `fork_mode`, 1 instance, status `online`.
+- `/proc/<pid>/cmdline` is `node <app dir>/dist/server.js`.
+- `festie-staging` runs its own `dist/server.js` under `node` as well, so staging
+  covers the production runtime.
 
-What is NOT the cause, each ruled out by measurement:
+> **Staging's PM2 definition lives outside this repository.** This
+> `ecosystem.config.cjs` declares only `festie`; the staging app is defined in
+> its own checkout. So a change to `script` or `interpreter` here does NOT reach
+> staging — mirror it by hand, or staging silently stops rehearsing what
+> production actually runs. `scripts/deploy/verify_staging.py` builds only the
+> web bundle and restarts by name; it never runs `npm run build`, so it will not
+> produce a backend bundle for you either. Its `running from TS source` check
+> would catch the drift, but only after the fact.
 
-- The artifact. `node dist/server.js` runs indefinitely and serves
-  `/api/ready` 200.
-- Missing IPC. Spawning it with `stdio: [..., 'ipc']`, exactly as PM2 fork mode
-  does, boots cleanly, logs `server started`, sends `ready` over IPC and stays up
-  for as long as you leave it.
-- Memory. Boot peak RSS is 168 MB against a 512 MB `max_memory_restart`.
-- Port contention. Reproduced with the port free and nothing else bound.
-- A watchdog. No cron entry and neither `~/restart.sh` nor `~/recover.sh`
-  restarts this app.
-- Migrations. There are none between the tested commits, and staging has its own
-  database.
+**What it bought.** The export worker pool now runs. `routes/export.ts:52-54`
+resolves its worker relative to its own module URL. `:125-130` then skips the pool
+and sets `useInlineExport` whenever that URL ends in `.ts`, because a worker thread
+cannot load TypeScript. Under tsx that branch was always taken. Every export ran
+inline on the request thread. Measured thread counts: 11 OS threads under tsx, 13
+under the bundle. The difference is `POOL_SIZE` at `routes/export.ts:83`, which is
+`Math.min(MAX_CONCURRENT_EXPORTS, 2)` and resolves to 2. The live process shows 13
+(`ls /proc/<pid>/task | wc -l`).
 
-ROOT CAUSE, found 2026-09-09 and proven by toggling one variable:
+**Two defects had to be fixed first.** Both are worth knowing, because both failed
+silently and both would recur in a similar move.
 
-`server.ts` gated its entire boot on
-`import.meta.filename === process.argv[1] || process.argv[1]?.endsWith('server.ts')`.
-PM2 fork mode with a `node` interpreter launches its own `ProcessContainerFork.js`
-as argv[1] and passes the real entry in the `pm_exec_path` env var
-(`pm2/lib/God/ForkMode.js:58`). Neither clause matched the bundle, so the block
-containing app creation, listen and the readiness signal was skipped entirely.
-The module body still ran — which is why only the Sentry line appeared — the
-event loop then drained, and node exited 0. The roughly three-second delay was
-`@pm2/io` telemetry handles keeping an idle loop alive, not a timeout.
+1. **The boot gate (fixed in 8e0d6e91).** `server.ts` gated its entire boot on
+   `import.meta.filename === process.argv[1] || process.argv[1]?.endsWith('server.ts')`.
+   PM2 fork mode with a `node` interpreter launches its own `ProcessContainerFork.js`
+   as argv[1] and passes the real entry in the `pm_exec_path` env var
+   (`pm2/lib/God/ForkMode.js:58`). Neither clause matched the bundle, so the block
+   holding app creation, listen and the readiness signal was skipped. The module body
+   still ran, which is why only the Sentry line appeared; the event loop then drained
+   and node exited 0 with no application log. PM2 restarted it and it looped. The
+   roughly three-second delay was `@pm2/io` telemetry handles keeping an idle loop
+   alive, not a timeout.
 
-tsx escaped it because a non-node interpreter bypasses the container, leaving
-argv[1] as `server.ts` and matching the third clause — a clause structurally
-incapable of matching the built `server.js`.
+   tsx escaped the gate because a non-node interpreter bypasses the container. That
+   leaves argv[1] as `server.ts`, which matched the third clause — a clause
+   structurally incapable of matching a built `server.js`. `server.ts:472-474` now
+   also accepts `process.env.pm_exec_path`. PM2 alone sets that variable, so the new
+   clause is inert under `node dist/server.js` and under the test suite.
 
-CORRECTION to an earlier entry in this runbook: it claimed PM2's fork container
-`require()`s the script and therefore hit `ERR_REQUIRE_ASYNC_MODULE`. That was
-wrong. `ProcessContainerFork.js:29` checks `isESModule(pm_exec_path)` and uses
-`import()` for an ES module; `require('module')._load` is the CommonJS branch
-PM2 never took here. The `node -e "require('./dist/server.js')"` result proved
-only that a bare require fails, not that PM2 does one. The CommonJS entry shim
-built on that reasoning fixed a problem PM2 did not have.
+   Two corrections to earlier entries in this runbook. The first claimed the failure
+   was `ERR_REQUIRE_ASYNC_MODULE` from PM2's container calling `require()`.
+   `ProcessContainerFork.js:29` checks `isESModule(pm_exec_path)` and uses `import()`
+   for an ES module; the CommonJS branch was never taken. The CommonJS entry shim
+   built on that reasoning fixed a problem PM2 did not have. The second pointed at the
+   pino transport and stdout piping as the place to look next. It was not that either.
 
-Where to look next: the process dies between Sentry initialisation and the first
-pino write to stdout. Under PM2, stdout is a pipe to the daemon rather than a
-file or a TTY, so the pino transport is the first thing that behaves differently
-between the working and failing launches. Reproduce with the harness kept at
-`scratchpad/ipc-harness.mjs`, which is the closest working control.
+2. **Rollback could not roll it back (fixed in 268f5f8f).** See §4.
 
-### One-time cutover (do this once, by hand, when the change first ships)
+**The operational consequence: a source change needs a rebuild, not just a restart.**
+`dist/` is gitignored. No committed artifact can ever arrive over git, and no
+`git reset --hard` can remove or update it. `pm2 restart festie` re-execs whatever
+bundle is on disk. Before you restart, run `npm run build` for any change to backend
+source — a deploy, a rollback, a hotfix, a one-line edit on the box. If you skip it,
+the restart succeeds, `/api/ready` returns 200, and the old code is still serving.
 
-`pm2 restart` re-launches the definition stored in the PM2 daemon and never
-re-reads `ecosystem.config.cjs` (see the note in §2). So the *first* deploy after
-this change lands will build `dist/` and then keep running `server.ts` under tsx,
-and it will report success. The switch needs one manual step on the box:
+### Confirming what is actually running
 
-```sh
-ssh asir@<host>
-cd /home/asir/festival-planner
-npm run build                 # only if the deploy has not already built it
-pm2 delete festie
-pm2 start ecosystem.config.cjs
-pm2 save                      # so a reboot resurrects the NEW definition
-```
-
-Then run the three confirmations below. After this one-time step, ordinary
-deploys work normally: `pm2 restart` re-execs the same `dist/server.js` that
-step 3 just rebuilt.
-
-**Staging first.** `scripts/deploy/verify_staging.py` now builds the bundle too,
-but the `festie-staging` PM2 app is defined **outside this repo** (this
-`ecosystem.config.cjs` declares only `festie`). Point the staging definition at
-`dist/server.js` by hand — with the same `pm2 delete` / `pm2 start` dance — or
-staging keeps booting tsx and the boot gate stops covering the production
-runtime.
-
-### Confirming the cutover actually took effect
-
-Run all three. The deploy's own output does **not** prove it.
+Run these after any deploy, rollback or restart. The deploy's own output and the
+readiness probe both pass while the wrong thing is running, so neither is proof.
 
 ```sh
 # 1. PM2 is executing the bundle, not the source.
 ssh asir@<host> "pm2 jlist | python3 -c \"import json,sys; p=[a for a in json.load(sys.stdin) if a['name']=='festie'][0]; print(p['pm2_env']['pm_exec_path'], p['pm2_env'].get('exec_interpreter'))\""
 # expect: /home/asir/festival-planner/dist/server.js node
 
-# 2. The TS-source fallback line is GONE from the current boot.
-ssh asir@<host> "grep -c 'running from TS source' /home/asir/festival-planner/logs/pm2-out.log"
-# expect: 0 new occurrences since the restart (older lines from the tsx era stay
-# in the log until rotation — compare against the timestamp of the restart)
+# 2. The bundle on disk is newer than the commit you deployed.
+#    Print both timestamps; a bundle older than HEAD means the build did not run.
+ssh asir@<host> 'cd /home/asir/festival-planner && ls -l --time-style=long-iso dist/server.js && git log -1 --format="%h %ad %s" --date=iso'
 
-# 3. A real export succeeds through the pool.
-#    In the app: run a schedule/calendar export end to end and confirm the file
-#    downloads. This is the one path that changes behaviour — exports used to
-#    run inline in the request and now run in worker threads.
+# 3. The export pool is up: thread count is 13, not 11.
+#    Take the pid from PM2, NOT from pgrep. Two processes match
+#    "node .*dist/server.js" on this host — festie and festie-staging — and
+#    `pgrep | head -1` returns the lower pid, which is usually staging. Both
+#    read 13 today, so that mistake reports a correct-looking number for the
+#    wrong process.
+ssh asir@<host> 'ls /proc/$(pm2 jlist | python3 -c "import json,sys; print([a for a in json.load(sys.stdin) if a[\"name\"]==\"festie\"][0][\"pid\"])")/task | wc -l'
 ```
 
-Also watch `pm2 logs festie` for `ERR_MODULE_NOT_FOUND` in the first minute: a
-missing bundled worker would show up there.
+Check 3 replaces an older check that grepped the log for `export: running from TS
+source`. That line is the tsx-era marker, and it is written **once at boot**. A
+`grep -c` over `logs/pm2-out.log` therefore still returns 1 from a pre-cutover boot,
+until the log rotates. A non-zero count is not a failure. Compare any hit's
+timestamp against the current restart time, or use the thread count instead.
+
+Also watch `pm2 logs festie` for `ERR_MODULE_NOT_FOUND` in the first minute. A
+missing bundled worker shows up there.
 
 ---
 
@@ -286,22 +286,34 @@ Both of those are load-bearing since the move to `dist/`:
   have reverted nothing on the backend.
 - `pm2 restart` would keep the daemon's stored `script`/`interpreter`, so a
   rollback to a tag from before the cutover would not return to tsx.
-- Rolling back to a tag that predates `scripts/build.mjs` deletes `dist/`
-  instead of rebuilding it, because that tag's `ecosystem.config.cjs` (tracked,
-  so the reset restores it) points at `server.ts` under tsx.
+- Both rebuilds run **before** anything touches PM2 (`rollback.sh:67-77`, PM2 at
+  `:86`). The script is `set -euo pipefail`, so a build failure aborts with the
+  current release still serving. That is better than stopping the app and then
+  finding it cannot start.
+
+> **`rollback.sh` cannot reach a tag from before `scripts/build.mjs` existed.**
+> Line 68 runs `npm run build` unconditionally after the reset. On a tag whose
+> `package.json` has no `build` script, that call exits non-zero and `set -e`
+> aborts the rollback at that line — before `pm2 delete` at line 86. Nothing is
+> deleted and nothing is restarted; production stays on the release you were
+> trying to leave, and the script prints a failure. To reach such a tag, use the
+> manual runtime restore below and pick the source separately.
 
 ### Escape hatch: back to tsx
 
-The normal rollback already does this. Rolling back to a tag from before the
-cutover restores that tag's `ecosystem.config.cjs` (it is tracked), removes or
-rebuilds `dist/`, and re-starts PM2 from the restored file:
+**Use `rollback.sh` first.** It does reach every deploy tag you are realistically
+rolling back to. `scripts/build.mjs` has existed since 2026-06-20, well before
+the cutover, so any recent tag carries it and a `build` script — checked against
+the three newest, which all do. On those, `npm run build` succeeds and the
+delete-and-start at the end applies that tag's restored `ecosystem.config.cjs`,
+including its `script` and `interpreter`. That is the automated path back to tsx.
 
-```sh
-ssh asir@<host> 'cd /home/asir/festival-planner && bash scripts/deploy/rollback.sh <pre-cutover-tag>'
-```
+The manual restore below is for the two cases the script does not cover: a tag
+old enough to predate `scripts/build.mjs` (see the warning above), and a bundle
+that misbehaves while the source is fine, where you want the runtime changed
+without moving the working tree at all.
 
-If you want to keep the current source and only change the **runtime** — the
-bundle misbehaves but the code is fine — restore just the one file instead:
+Restore the one file that defines the runtime:
 
 ```sh
 cd /home/asir/festival-planner \
@@ -330,20 +342,50 @@ the 286-error class — the skip guard prevents that spawn either way.
 
 ## 5. Emergency restart / recovery (on the box)
 
-If the app is wedged (orphan process, port held), the server has helper scripts
-in `~`:
+> **`~/restart.sh` and `~/recover.sh` were repaired on 2026-09-09 and now live in
+> `scripts/ops/`**, with the home-directory paths as symlinks so they are covered
+> by a repository-wide search. Both had ended in a `pm2 start` naming the config
+> file with a `.js` extension when the file on disk is `.cjs`, and their
+> `pkill -9 -f "node server.js"` step matched nothing, because the live command
+> line ends in `dist/server.js`.
+>
+> `restart.sh` was the more dangerous of the two. It had no `set -e`, so it
+> deleted the app, failed to start it, and then ran `pm2 save`, persisting a
+> process list without `festie` and destroying the definition a `pm2 resurrect`
+> would restore. It now saves only when the app reports `online`. `recover.sh`
+> ran `pm2 kill` under `set -e` and aborted before starting anything; it now
+> resurrects the other apps and fails loudly if health is not 200. Both check
+> that `dist/server.js` exists before stopping anything, since `dist/` is
+> gitignored and built on the host.
 
-- `~/restart.sh` — stop/delete the `festie` PM2 process, free port 4000, start
-  fresh from `ecosystem.config`, health check, `pm2 save`.
-- `~/recover.sh` — harder reset (`pm2 kill`, kill orphans, free port, restart).
+`restart.sh` covers the wedged case (orphan process, port held). To do it by hand:
 
-Both reference the PM2 process name **`festie`** (P17 fix — they previously said
-`festival-planner`, which is only the *directory* name, so the `pm2 stop/show`
-commands silently no-op'd).
+```sh
+cd /home/asir/festival-planner
+npm run build                      # dist/ is gitignored; never skip this
+pm2 delete festie                  # delete, not restart - see the note in §2
+pm2 start ecosystem.config.cjs
+pm2 save                           # so a reboot resurrects this definition
+curl -sf http://127.0.0.1:4000/api/ready && echo ok
+```
 
-> Since the backend runs from `dist/`, these helpers only work if `dist/` exists
-> on disk. If it is missing or stale, run `npm run build` in the app dir before
-> starting PM2.
+If port 4000 is still held after the delete, find the holder with
+`fuser -v 4000/tcp`. Kill it by PID before you start.
+
+Then confirm what is running, with §1.1's three checks. `/api/ready` returning 200
+does not tell you the process is on the right script or the right bundle.
+
+### If a production operation is refused
+
+Some tooling on this host blocks state-changing operations against `festie` —
+process-manager commands, edits to the process definition, and the deploy
+scripts — so they cannot happen by accident or from a background agent.
+Read-only inspection is always allowed, and `festie-staging` is never blocked.
+
+That tooling is machine-local and is not part of this repository, so it is
+documented where it lives rather than here. If an operation is refused, the
+refusal message names the command that lifts the block. A human at a plain shell
+is not affected by any of it.
 
 ---
 

@@ -50,10 +50,14 @@ in-memory with optional `consumeAsync()` Redis variants.
   exceed the intended limit by a small factor, up to `CLUSTER_SIZE × effectiveMax`.
 - Trade-off: `CLUSTER_SIZE` is a static config value, not auto-detected from PM2. If the number
   of workers changes without updating this config key, the fallback divisor becomes incorrect.
-- Trade-off: the `ecosystem.config.cjs` currently sets `instances: 1` and `exec_mode: 'fork'`
-  (see ADR-007), so `CLUSTER_SIZE=1` is accurate today. If the deployment grows to multiple
-  workers (requiring a compiled-JS backend), the rate-limiting tier remains correct — but that
-  transition requires a coordinated config update.
+- Trade-off: the `ecosystem.config.cjs` currently sets `instances: 1` and `exec_mode: 'fork'`,
+  so `CLUSTER_SIZE=1` is accurate today. The reason is per-process state in `lib/email.ts` and
+  `routes/email-auth.ts`, recorded at the `instances` line of the config — not the compiled-JS
+  prerequisite that ADR-007 named. That prerequisite is satisfied: the backend has run an esbuild
+  bundle under a `node` interpreter since 2026-09-09
+  (see [ADR-016](./016-esbuild-bundle-production-runtime.md)), and it did not unlock cluster mode.
+  If the deployment ever does grow to multiple workers, the rate-limiting tier remains correct —
+  but that transition requires a coordinated config update.
 - Trade-off: socket-event limiters (`SOS_RAISE_LIMIT` is noted explicitly in code comments) are
   per-process in-memory with no Redis variant, meaning under multi-worker PM2 the effective SOS
   raise cap drifts to `N × 1 per 120s`. A coarse HTTP-layer `rateLimit()` middleware on the route

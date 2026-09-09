@@ -44,7 +44,7 @@ Existing error-handling fallback in health.js already guards against failures.
 
 1. **Branch**: `feat/express-5`
 2. **Bump**: `npm install express@5`
-3. **Add query parser**: `app.set('query parser', 'simple')` in server.js
+3. **Add query parser**: `app.set('query parser', 'simple')` in `server.ts`
 4. **Run test suite**: `npm test` — all 6 test files must pass
 5. **Manual smoke test**: Admin panel, auth flows, Socket.IO, export
 6. **Deploy**: Standard deploy pipeline

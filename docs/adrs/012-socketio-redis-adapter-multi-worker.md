@@ -42,9 +42,12 @@ Socket.IO is configured for `transports: ['websocket']` only (no long-polling fa
 - Graceful fallback: if Redis is down at startup, the adapter is skipped and Socket.IO operates
   in single-process mode. Existing connections are not terminated; only cross-worker fan-out is
   lost.
-- Trade-off: currently `ecosystem.config.cjs` runs `instances: 1` (see ADR-007), so the Redis
-  adapter provides no practical benefit in the current production configuration — but it is in
-  place and correct for future multi-worker scaling.
+- Trade-off: currently `ecosystem.config.cjs` runs `instances: 1`, so the Redis adapter provides
+  no practical benefit in the current production configuration — but it is in place and correct
+  for future multi-worker scaling. The single instance is held there by per-process state in
+  `lib/email.ts` and `routes/email-auth.ts`, not by the tsx interpreter that ADR-007 named; that
+  interpreter was replaced on 2026-09-09
+  (see [ADR-016](./016-esbuild-bundle-production-runtime.md)) and the instance count did not change.
 - Trade-off: the Redis adapter adds latency to every broadcast event (a pub/sub round-trip through
   Redis). For festival rooms broadcasting presence updates at 500ms debounce intervals, this
   overhead is negligible, but it is a consideration for any high-frequency event type added in the

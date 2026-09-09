@@ -108,7 +108,8 @@ Goal: stop the bleeding without destroying evidence.
 - Engage Infra On-call for live forensics.
 
 **Key actions that apply to all S1/S2 incidents:**
-- Preserve PM2 logs (`~/$FESTIE_APP_DIR/logs/`) before any `pm2 restart`.
+- Preserve PM2 logs (`$FESTIE_APP_DIR/logs/`) before any `pm2 restart`.
+  `FESTIE_APP_DIR` is already an absolute path, so do not prefix it with `~/`.
 - Capture a Postgres dump of the `audit_log` and relevant tables to a local file
   before any schema changes.
 
@@ -277,11 +278,68 @@ of whether they are notifiable. Include: facts, effects, remedial action taken.
   and this app runs `exec_mode: 'fork'` with `instances: 1`, so reload falls
   through to a plain restart. Expect a short drop either way; do not pick reload
   believing it avoids one
-- Restarting by NAME (`pm2 restart festie`) re-launches the definition stored in
-  the pm2 daemon and does NOT re-read `ecosystem.config.cjs`. If you changed that
-  file, restart from the file instead: `pm2 restart ecosystem.config.cjs --only festie`
-- Emergency hard-reset: `~/restart.sh` or `~/recover.sh` on the app host (see
-  `docs/runbooks/deploy.md §5`).
+- **The backend runs a built artifact, not TypeScript source.** PM2 executes
+  `dist/server.js` under a plain `node` interpreter. `dist/` is gitignored, so it
+  never arrives over git. `npm run build` (esbuild, via `scripts/build.mjs`)
+  creates it on the host. A restart re-execs the bundle that is already on disk.
+  If you changed source, or reset the tree to another commit, run `npm run build`
+  before you restart. If you skip the build, the restart reports success and boots
+  the old code.
+
+- **The three restarts are not interchangeable.** Choose by what you changed:
+
+  | Command | What it applies |
+  |---------|-----------------|
+  | `pm2 restart festie` | nothing from the config file — it re-launches the definition already stored in the PM2 daemon |
+  | `pm2 restart ecosystem.config.cjs --only festie` | the `env` block only |
+  | `pm2 delete` + `pm2 start ecosystem.config.cjs` + `pm2 save` | the whole definition, including `script` and `interpreter` |
+
+  To apply a changed `script` or `interpreter`, use `pm2 delete` and then
+  `pm2 start`. Do not restart from the config file. An earlier version of this
+  document told you to, and that instruction was wrong.
+
+  The measurement, on `festie-staging` on 2026-09-09: the config file was changed
+  from `dist/server.js` + `node` back to `server.ts` + `tsx`, then restarted from
+  that file. PM2 applied the new **interpreter** and kept the stored **script**.
+  The process was left running tsx against the esbuild bundle — a runtime that
+  matches neither the config file nor any release. `/api/ready` returned 200
+  throughout, so nothing alerted. `scripts/deploy/rollback.sh` records this
+  measurement and uses delete + start because of it.
+
+- **Confirm the runtime after any restart.** The readiness probe cannot tell you
+  what is running, so read it from PM2:
+
+  ```sh
+  pm2 jlist | python3 -c "import json,sys; p=[a for a in json.load(sys.stdin) if a['name']=='festie'][0]; print(p['pm2_env']['pm_exec_path'], p['pm2_env']['exec_interpreter'])"
+  # expect: <app dir>/dist/server.js node
+  ```
+
+- **Emergency restart: `~/restart.sh`.** It touches only the `festie` app and
+  leaves the daemon and every other app alone. Prefer it to running the steps by
+  hand.
+- **Harder reset: `~/recover.sh`.** It restarts the PM2 daemon, which stops
+  `festie-staging` and `pm2-logrotate` too, then resurrects them. Reach for it
+  only when PM2's own state is the problem, such as a stale reload lock.
+- Both were repaired on 2026-09-09. They had ended in a `pm2 start` against a
+  config filename that does not exist, since the file is `.cjs` and they named
+  `.js`. `restart.sh` carried on past that failure to `pm2 save`, persisting a
+  process list with `festie` deleted and so destroying the definition a resurrect
+  would restore. `recover.sh` ran `pm2 kill` first under `set -e`, stopping
+  everything and aborting before it started anything. Both now refuse to save or
+  continue unless the app is genuinely online, check that `dist/server.js` exists
+  before stopping anything, and are versioned at `scripts/ops/` with the
+  home-directory paths as symlinks, so a rename like the one that broke them is
+  visible to a repository-wide search.
+- To reset by hand instead, in the app directory, in this order:
+
+  1. Run `npm run build`. Never skip it — `dist/` is gitignored.
+  2. Delete the PM2 app. Do not restart it.
+  3. Start it from `ecosystem.config.cjs`.
+  4. Run `pm2 save`, so a reboot resurrects the same definition.
+
+  `docs/runbooks/deploy.md §5` carries the exact commands. It also explains the
+  production guard, which blocks these commands in an agent-driven session, and the
+  break-glass window that lifts it.
 - Rate-limiter state that is in-memory per-process (location flood, SOS raise
   throttle) resets on each reload — expected. Redis-backed limiters persist.
 
@@ -313,8 +371,13 @@ of whether they are notifiable. Include: facts, effects, remedial action taken.
 
 - New error spikes during an incident: check Sentry first for stack traces before
   digging into raw PM2 logs.
-- Source maps are uploaded on each CI build — stack frames resolve to TypeScript
-  source lines.
+- **No source maps are uploaded for the backend.** `grep -riE sentry
+  .github/workflows/` finds only the Android and iOS native-symbol steps, so do
+  not go looking for a backend upload pipeline. `npm run build` writes
+  `dist/server.js.map` beside the bundle, but nothing is configured to read it:
+  the process runs without `--enable-source-maps`, and the Sentry init in
+  `lib/sentry.ts` sets no source-map option. Expect backend stack frames to name
+  positions in `dist/server.js`, and resolve them against that on-disk `.map` file.
 - Use Sentry performance traces to correlate a surge in a specific route with
   database or Redis latency.
 

@@ -309,9 +309,23 @@ never by user: `DELETE FROM audit_log WHERE created_at < now() - interval '1 yea
 
 **Gap 3 — application logs retain the username and IP.** The deletion itself is
 logged with both: `log.warn('account:soft-delete', { userId, username, ip: getRequestIp(req) })`
-at `routes/account.ts:587-591`. PM2 logs rotate daily and keep 14 generations
-(`logrotate.d/festie.conf`, the `/opt/festie/logs/pm2-*.log` block), so roughly 14
-days of retention on the server.
+at `routes/account.ts:587-591`. Two rotation mechanisms cover the PM2 logs on the
+server, both verified on 2026-09-09:
+
+- The `pm2-logrotate` module rotates at `max_size 10M` or on the daily schedule
+  `0 0 * * *`, and keeps `retain 7` generations, compressed. Read the live values
+  with `pm2 conf pm2-logrotate`.
+- A user-cron logrotate covers the same directory: `~/.config/logrotate-festie.conf`
+  matches `<app dir>/logs/*.log` with `size 10M` and `rotate 4`, run weekly by the
+  crontab entry `0 4 * * 0`.
+
+Retention is therefore driven by log volume, not by a fixed number of days, so no
+specific day count can be claimed. Under `retain 7` and a daily rotation, seven
+generations is the floor; a busy period that hits the 10M size trigger repeatedly
+shortens the window, and a quiet period lengthens it. An earlier version of this
+document cited `logrotate.d/festie.conf`, a `/opt/festie/logs/pm2-*.log` block and
+roughly 14 days of retention. Neither of those paths exists on the host, and the
+14-day figure was not supported by either configuration.
 
 ### 3.4 What deliberately survives deletion
 

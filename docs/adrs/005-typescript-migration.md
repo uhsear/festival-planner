@@ -35,7 +35,10 @@ Migrate the backend to ESM TypeScript. Unify the entire codebase on one language
 ### Negative
 - 60-80 hours of migration work with no new features
 - Brief CI complexity while JS and TS coexist
-- Slight build overhead (tsx loader for dev, tsc for production)
+- Slight build overhead (tsx loader for dev; a production build step). As of
+  2026-09-09 that production step is an esbuild bundle via `scripts/build.mjs`, not
+  `tsc` — see [ADR-016](./016-esbuild-bundle-production-runtime.md). `tsc` is only
+  ever run as `--noEmit`, by the `typecheck` script.
 
 ### Neutral
 - Testing infrastructure works unchanged (node:test + c8 support TypeScript via tsx)

@@ -1,7 +1,22 @@
 # ADR-007: tsx No-Build TypeScript Runtime in Production
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-016](./016-esbuild-bundle-production-runtime.md)
 **Date:** 2026-06-19
+**Superseded:** 2026-09-09
+
+> **This ADR no longer describes production.** It is kept as the record of the
+> decision that held between 2026-06-19 and 2026-09-09. Production now boots
+> `dist/server.js` under a plain `node` interpreter — see
+> [ADR-016](./016-esbuild-bundle-production-runtime.md) for the reversal, its
+> evidence, and its consequences.
+>
+> Read nothing below as a current fact about the production runtime. In
+> particular, `ecosystem.config.cjs` no longer sets
+> `interpreter: 'node_modules/.bin/tsx'`, a `dist/` directory does exist, and the
+> deploy pipeline does have a build step. Two claims below survive the reversal
+> and are restated in ADR-016: `npm start` and `npm run dev` still use tsx, and
+> `exec_mode: 'fork'` with `instances: 1` is still the shipped configuration —
+> but for a different reason, recorded in `ecosystem.config.cjs`.
 
 ## Context
 

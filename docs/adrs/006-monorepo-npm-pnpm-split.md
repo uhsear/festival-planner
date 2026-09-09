@@ -16,9 +16,12 @@ package manager awkward.
 pnpm workspaces (`packages/`) handle `@festie/web`, `@festie/mobile`, and `@festie/shared` using
 `workspace:*` references and a single `pnpm-workspace.yaml` at the packages level. The root (`/`)
 is a plain npm project: it has its own `package-lock.json`, its own `node_modules`, and is
-deliberately kept off pnpm's workspace graph. This split was codified when PM2's `tsx` interpreter
-requirement (`interpreter: 'node_modules/.bin/tsx'`) made it necessary for the backend to resolve
-tsx from its own `node_modules` without pnpm hoisting interference.
+deliberately kept off pnpm's workspace graph. This split was codified when PM2 ran the backend
+under a `tsx` interpreter, which made it necessary for the backend to resolve tsx from its own
+`node_modules` without pnpm hoisting interference. That interpreter is gone —
+`ecosystem.config.cjs` now sets `interpreter: 'node'`
+(see [ADR-016](./016-esbuild-bundle-production-runtime.md)) — but the split stayed, and the root
+still resolves its own dependencies (esbuild included) from its own `node_modules`.
 
 ## Decision
 
