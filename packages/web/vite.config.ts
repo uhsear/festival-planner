@@ -51,7 +51,7 @@ export default defineConfig({
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
@@ -79,7 +79,9 @@ export default defineConfig({
         // original '**/admin-*.js' glob matched nothing in practice.  Dropped to
         // avoid a misleading no-op.  If admin-only chunks are later split out
         // with a known naming convention, add a targeted pattern here.
-        globIgnores: [],
+        // The share image is only fetched by link-preview crawlers; keep it out
+        // of the install-time precache.
+        globIgnores: ['og-image.png'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
