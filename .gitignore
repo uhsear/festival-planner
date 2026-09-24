@@ -70,6 +70,9 @@ mobile-loop-capture.js
 # which is why the installed PWA showed a blank icon)
 !packages/web/public/icons/*.png
 !packages/web/public/apple-touch-icon.png
+# and the social share image (og:image / twitter:image) and the brand kit
+!packages/web/public/og-image.png
+!docs/brand/*.png
 
 # Session logs and loop captures
 docs/session-logs/
