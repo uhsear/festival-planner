@@ -38,7 +38,7 @@ export default defineConfig({
     process.env.ANALYZE && visualizer({ open: true, gzipSize: true, brotliSize: true }),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'og-image.png'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Festie — Festival Planner',
         short_name: 'Festie',
@@ -79,7 +79,9 @@ export default defineConfig({
         // original '**/admin-*.js' glob matched nothing in practice.  Dropped to
         // avoid a misleading no-op.  If admin-only chunks are later split out
         // with a known naming convention, add a targeted pattern here.
-        globIgnores: [],
+        // The share image is only fetched by link-preview crawlers; keep it out
+        // of the install-time precache.
+        globIgnores: ['og-image.png'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
