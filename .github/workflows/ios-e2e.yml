@@ -109,7 +109,7 @@ jobs:
       # devices and warned about the ambiguity.
       - name: Boot iOS Simulator
         id: sim
-        uses: futureware-tech/simulator-action@e89aa8f93d3aec35083ff49d2854d07f7186f7f5 # v5
+        uses: futureware-tech/simulator-action@c768f52966d5f70335ec77881f9806b24a52f80e # v6
         with:
           model: 'iPhone 16 Pro'
           os: 'iOS'
@@ -283,7 +283,7 @@ jobs:
       - name: Publish Maestro test results
         if: always()
         continue-on-error: true
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a # v3.2.0
         with:
           name: iOS Maestro Results
           path: packages/mobile/maestro-ios-report.xml
